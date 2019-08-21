@@ -1,10 +1,8 @@
-string robot_vendor
-string robot_model
-string robot_id
+string vehicle_guid
 
 # a Trajectory is comprised of multiple Segments, each of which is either
 #   planar: driving around on a particular map
-*   vertical: entering a lift/elevator, riding to another map, and exiting
+#   vertical: entering a lift/elevator, riding to another map, and exiting
 rmf_schedule_msgs/VehicleTrajectorySegment[] segments
 
 # bounding area for the footprint of the robot
