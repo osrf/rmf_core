@@ -18,10 +18,12 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
-  "msg/Trajectory.msg")
+  "msg/VehicleTrajectory.msg"
+  "msg/VehicleTrajectoryPoint.msg"
+  "msg/VehicleTrajectorySegment.msg")
 
-set(srv_files
-  "srv/Foo.srv")
+# set(srv_files
+#   "srv/Foo.srv")
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
