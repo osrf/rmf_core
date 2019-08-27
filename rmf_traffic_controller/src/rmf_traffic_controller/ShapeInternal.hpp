@@ -15,31 +15,28 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
-#define RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+#ifndef RMF_TRAFFIC_CONTROLLER__SRC__SHAPEINTERNAL_HPP
+#define RMF_TRAFFIC_CONTROLLER__SRC__SHAPEINTERNAL_HPP
 
-#include <memory>
+#include <rmf_traffic_controller/geometry/Shape.hpp>
+
+#include <fcl/collision_object.h>
 
 namespace rmf_traffic_controller {
+namespace geometry {
 
-class Schedule
+//==============================================================================
+/// \brief Implementations of this class must be created by the child classes of
+/// Shape, and then passed to the constructor of Shape.
+class Shape::Internal
 {
 public:
 
-  /// \brief Data structure for querying
-  struct Query
-  {
-
-  };
-
-
-private:
-
-  class Implementation;
-  std::unique_ptr<Implementation> _pimpl;
+  virtual std::shared_ptr<fcl::CollisionGeometry> make_fcl() const = 0;
 
 };
 
+} // namespace geometry
 } // namespace rmf_traffic_controller
 
-#endif // RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+#endif // RMF_TRAFFIC_CONTROLLER__SRC__SHAPEINTERNAL_HPP

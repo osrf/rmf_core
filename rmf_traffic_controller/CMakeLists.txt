@@ -16,17 +16,20 @@ pkg_check_modules(PC_FCL REQUIRED fcl)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 
 # ===== Traffic control library
+file(GLOB core_lib_srcs "src/rmf_traffic_controller/*.cpp")
 add_library(rmf_traffic_controller
-  src/Schedule.cpp
+  ${core_lib_srcs}
 )
 
 target_include_directories(rmf_traffic_controller
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    ${EIGEN3_INCLUDE_DIRS}
 )
 
 
@@ -45,4 +48,15 @@ target_include_directories(submission_component
   PRIVATE
     ${PC_FCL_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
+)
+
+
+# ===== Simple executable for testing fcl
+add_executable(fcl_test
+  src/fcl_test.cpp
+)
+
+target_link_libraries(fcl_test
+  PRIVATE
+    ${PC_FCL_LIBRARIES}
 )

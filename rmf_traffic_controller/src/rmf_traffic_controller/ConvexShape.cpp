@@ -15,31 +15,19 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
-#define RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+#include <rmf_traffic_controller/geometry/ConvexShape.hpp>
 
-#include <memory>
+#include "ShapeInternal.hpp"
 
 namespace rmf_traffic_controller {
+namespace geometry {
 
-class Schedule
+//==============================================================================
+ConvexShape::ConvexShape(std::unique_ptr<Shape::Internal> internal)
+  : Shape(std::move(internal))
 {
-public:
+  // Do nothing
+}
 
-  /// \brief Data structure for querying
-  struct Query
-  {
-
-  };
-
-
-private:
-
-  class Implementation;
-  std::unique_ptr<Implementation> _pimpl;
-
-};
-
+} // namespace geometry
 } // namespace rmf_traffic_controller
-
-#endif // RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP

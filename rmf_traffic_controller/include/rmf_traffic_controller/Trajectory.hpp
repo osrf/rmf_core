@@ -18,6 +18,8 @@
 #ifndef RMF_TRAFFIC_CONTROLLER__TRAJECTORY_HPP
 #define RMF_TRAFFIC_CONTROLLER__TRAJECTORY_HPP
 
+#include <memory>
+
 namespace rmf_traffic_controller {
 
 class Trajectory
@@ -25,6 +27,12 @@ class Trajectory
 public:
 
   // TODO(MXG): Design and implement this class
+
+
+private:
+
+  class Implementation;
+  std::unique_ptr<Implementation> _pimpl;
 
 };
 

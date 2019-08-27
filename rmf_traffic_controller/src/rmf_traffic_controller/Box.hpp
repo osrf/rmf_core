@@ -15,78 +15,68 @@
  *
 */
 
-#include <rmf_traffic_controller/Schedule.hpp>
-#include <rmf_traffic_controller/Trajectory.hpp>
+#include "ShapeInternal.hpp"
 
-#include <vector>
+#include <rmf_traffic_controller/geometry/Box.hpp>
+
+#include <fcl/shape/geometric_shapes.h>
 
 namespace rmf_traffic_controller {
+namespace geometry {
 
 //==============================================================================
-template<typename T>
-struct Range
-{
-  T lower;
-  T upper;
-};
-
-//==============================================================================
-struct ChronoSpatialBlock
-{
-  Range<uint64_t> time;
-  Range<double> x;
-  Range<double> y;
-
-  // TODO(MXG): Consider using std::unique_ptr here.
-  std::shared_ptr<Trajectory> trajectory;
-};
-
-
-//==============================================================================
-class ChronoBucket
+class BoxInternal : public Shape::Internal
 {
 public:
 
-  bool intersection(const ChronoSpatialBlock& test) const;
+  BoxInternal(double x, double y)
+    : _x(x),
+      _y(y)
+  {
+    // Do nothing
+  }
 
-private:
+  std::shared_ptr<fcl::CollisionGeometry> make_fcl() const final
+  {
+    // Note: The z-value doesn't really matter, as long as it's greater than 0.0
+    return std::make_shared<fcl::Box>(_x, _y, 1.0);
+  }
 
-  std::vector<std::shared_ptr<ChronoSpatialBlock>> blocks;
+  double _x;
+  double _y;
 
 };
 
 //==============================================================================
-/// \brief This class performs very simple rectangular broadphase collision
-/// detection over time and 2D space.
-class ChronoSpatialBroadphase
+Box::Box(double x_length, double y_length)
+  : ConvexShape(std::make_unique<BoxInternal>(x_length, y_length))
 {
-public:
-
-
-
-private:
-
-  std::vector<ChronoBucket> buckets;
-
-};
+  // Do nothing
+}
 
 //==============================================================================
-class Schedule::Implementation
+void Box::set_x_length(double x_length)
 {
-public:
-
-
-
-private:
-
-  // Each "floor" (a.k.a. "map", a.k.a. "layout") has its own broadphase
-  // instance.
-  std::vector<ChronoSpatialBroadphase> broadphases;
-
-};
+  static_cast<BoxInternal*>(_get_internal())->_x = x_length;
+}
 
 //==============================================================================
+void Box::set_y_length(double y_length)
+{
+  static_cast<BoxInternal*>(_get_internal())->_y = y_length;
+}
 
+//==============================================================================
+double Box::get_x_length() const
+{
+  return static_cast<const BoxInternal*>(_get_internal())->_x;
+}
 
+//==============================================================================
+double Box::get_y_length() const
+{
+  return static_cast<const BoxInternal*>(_get_internal())->_y;
+}
 
+} // namespace geometry
 } // namespace rmf_traffic_controller

@@ -15,22 +15,19 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
-#define RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+
+#ifndef RMF_TRAFFIC_CONTROLLER__ZONE_HPP
+#define RMF_TRAFFIC_CONTROLLER__ZONE_HPP
 
 #include <memory>
 
 namespace rmf_traffic_controller {
 
-class Schedule
+class Zone
 {
 public:
 
-  /// \brief Data structure for querying
-  struct Query
-  {
-
-  };
+  // TODO(MXG): Design and implement this class
 
 
 private:
@@ -42,4 +39,4 @@ private:
 
 } // namespace rmf_traffic_controller
 
-#endif // RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+#endif // RMF_TRAFFIC_CONTROLLER__ZONE_HPP

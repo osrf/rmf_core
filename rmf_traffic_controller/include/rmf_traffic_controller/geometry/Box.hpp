@@ -15,31 +15,36 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
-#define RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
 
-#include <memory>
+#ifndef RMF_TRAFFIC_CONTROLLER__GEOMETRY__BOX_HPP
+#define RMF_TRAFFIC_CONTROLLER__GEOMETRY__BOX_HPP
+
+#include <rmf_traffic_controller/geometry/ConvexShape.hpp>
 
 namespace rmf_traffic_controller {
+namespace geometry {
 
-class Schedule
+//==============================================================================
+/// \brief This class represent a box shape which can be added into a Zone or
+/// Trajectory.
+class Box : public ConvexShape
 {
 public:
 
-  /// \brief Data structure for querying
-  struct Query
-  {
+  Box(double x_length, double y_length);
 
-  };
+  void set_x_length(double x_length);
 
+  void set_y_length(double y_length);
 
-private:
+  double get_x_length() const;
 
-  class Implementation;
-  std::unique_ptr<Implementation> _pimpl;
+  double get_y_length() const;
 
 };
 
+
+} // namespace geometry
 } // namespace rmf_traffic_controller
 
-#endif // RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+#endif // RMF_TRAFFIC_CONTROLLER__GEOMETRY__BOX_HPP

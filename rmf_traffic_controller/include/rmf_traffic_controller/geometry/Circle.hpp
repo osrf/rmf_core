@@ -15,31 +15,31 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
-#define RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
 
-#include <memory>
+#ifndef RMF_TRAFFIC_CONTROLLER__GEOMETRY__CIRCLE_HPP
+#define RMF_TRAFFIC_CONTROLLER__GEOMETRY__CIRCLE_HPP
+
+#include <rmf_traffic_controller/geometry/ConvexShape.hpp>
 
 namespace rmf_traffic_controller {
+namespace geometry {
 
-class Schedule
+//==============================================================================
+/// \brief This class represent a circle shape which can be added into a Zone or
+/// Trajectory.
+class Circle : public ConvexShape
 {
 public:
 
-  /// \brief Data structure for querying
-  struct Query
-  {
+  Circle(double radius);
 
-  };
+  void set_radius(double r);
 
-
-private:
-
-  class Implementation;
-  std::unique_ptr<Implementation> _pimpl;
+  double get_radius() const;
 
 };
 
+} // namespace geometry
 } // namespace rmf_traffic_controller
 
-#endif // RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+#endif // RMF_TRAFFIC_CONTROLLER__GEOMETRY__CIRCLE_HPP
