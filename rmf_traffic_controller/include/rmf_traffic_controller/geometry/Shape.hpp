@@ -30,7 +30,7 @@ namespace geometry {
 /// by downstream libraries; instead, users must choose one of the pre-defined
 /// shape types belonging to this library.
 ///
-/// \sa Box, Circle, Polyline
+/// \sa Box, Circle, Polygon
 class Shape
 {
 public:
