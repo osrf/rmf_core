@@ -31,14 +31,23 @@ class Box : public ConvexShape
 {
 public:
 
+  /// \brief Create a box with the indicated dimensions.
+  ///
+  /// The origin of the box will be in its center, so the box will extend:
+  /// [-x_length/2.0, x_length/2.0] along its x axis and
+  /// [-y_length/2.0, y_length/2.0] along its y axis.
   Box(double x_length, double y_length);
 
+  /// \brief Set the length of the box along its x axis
   void set_x_length(double x_length);
 
+  /// \brief Set the length of the box along its y axis
   void set_y_length(double y_length);
 
+  /// \brief Get the length of the box along its x axis
   double get_x_length() const;
 
+  /// \brief Get the length of the box along its y axis
   double get_y_length() const;
 
 };

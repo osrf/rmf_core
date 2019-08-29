@@ -35,9 +35,9 @@ public:
     // Do nothing
   }
 
-  std::shared_ptr<fcl::CollisionGeometry> make_fcl() const final
+  CollisionGeometries make_fcl() const final
   {
-    return std::make_shared<fcl::Sphere>(_radius);
+    return {std::make_shared<fcl::Sphere>(_radius)};
   }
 
   double _radius;

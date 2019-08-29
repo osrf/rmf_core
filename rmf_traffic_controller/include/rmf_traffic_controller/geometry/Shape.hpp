@@ -35,18 +35,23 @@ class Shape
 {
 public:
 
+  /// \internal
   class Internal;
 
+  /// \internal
   /// These accessors can only be used by the rmf_traffic_controller library
-  /// internally. The Internal class cannot be access by downstream users (and
-  /// downstream users should never need it anyway).
+  /// internally. The Internal class cannot be accessed by downstream users
+  /// (and downstream users should never need it anyway).
   Internal* _get_internal();
+
+  /// \internal
   const Internal* _get_internal() const;
 
   virtual ~Shape();
 
 protected:
 
+  /// \internal
   Shape(std::unique_ptr<Internal> internal);
 
 private:

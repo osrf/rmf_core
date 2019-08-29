@@ -22,6 +22,8 @@
 
 #include <fcl/collision_object.h>
 
+#include <vector>
+
 namespace rmf_traffic_controller {
 namespace geometry {
 
@@ -32,7 +34,10 @@ class Shape::Internal
 {
 public:
 
-  virtual std::shared_ptr<fcl::CollisionGeometry> make_fcl() const = 0;
+  using CollisionGeometryPtr = std::shared_ptr<fcl::CollisionGeometry>;
+  using CollisionGeometries = std::vector<CollisionGeometryPtr>;
+
+  virtual CollisionGeometries make_fcl() const = 0;
 
 };
 

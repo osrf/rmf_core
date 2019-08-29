@@ -36,10 +36,10 @@ public:
     // Do nothing
   }
 
-  std::shared_ptr<fcl::CollisionGeometry> make_fcl() const final
+  CollisionGeometries make_fcl() const final
   {
     // Note: The z-value doesn't really matter, as long as it's greater than 0.0
-    return std::make_shared<fcl::Box>(_x, _y, 1.0);
+    return {std::make_shared<fcl::Box>(_x, _y, 1.0)};
   }
 
   double _x;
