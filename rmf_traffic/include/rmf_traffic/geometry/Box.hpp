@@ -16,12 +16,12 @@
 */
 
 
-#ifndef RMF_TRAFFIC_CONTROLLER__GEOMETRY__BOX_HPP
-#define RMF_TRAFFIC_CONTROLLER__GEOMETRY__BOX_HPP
+#ifndef RMF_TRAFFIC__GEOMETRY__BOX_HPP
+#define RMF_TRAFFIC__GEOMETRY__BOX_HPP
 
-#include <rmf_traffic_controller/geometry/ConvexShape.hpp>
+#include <rmf_traffic/geometry/ConvexShape.hpp>
 
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
@@ -37,6 +37,10 @@ public:
   /// [-x_length/2.0, x_length/2.0] along its x axis and
   /// [-y_length/2.0, y_length/2.0] along its y axis.
   Box(double x_length, double y_length);
+
+  // The typical copy constructor/assignment operator
+  Box(const Box& other);
+  Box& operator=(const Box& other);
 
   /// \brief Set the length of the box along its x axis
   void set_x_length(double x_length);
@@ -54,6 +58,6 @@ public:
 
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC_CONTROLLER__GEOMETRY__BOX_HPP
+#endif // RMF_TRAFFIC__GEOMETRY__BOX_HPP

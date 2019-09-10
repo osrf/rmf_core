@@ -15,31 +15,10 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
-#define RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+#include <rmf_traffic/Trajectory.hpp>
 
-#include <memory>
-
-namespace rmf_traffic_controller {
-
-class Schedule
-{
-public:
-
-  /// \brief Data structure for querying
-  struct Query
-  {
-
-  };
+namespace rmf_traffic {
 
 
-private:
 
-  class Implementation;
-  std::unique_ptr<Implementation> _pimpl;
-
-};
-
-} // namespace rmf_traffic_controller
-
-#endif // RMF_TRAFFIC_CONTROLLER__SCHEDULE_HPP
+} // namespace rmf_traffic

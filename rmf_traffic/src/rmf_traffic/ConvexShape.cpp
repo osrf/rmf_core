@@ -15,33 +15,19 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__SRC__SHAPEINTERNAL_HPP
-#define RMF_TRAFFIC_CONTROLLER__SRC__SHAPEINTERNAL_HPP
+#include <rmf_traffic/geometry/ConvexShape.hpp>
 
-#include <rmf_traffic_controller/geometry/Shape.hpp>
+#include "ShapeInternal.hpp"
 
-#include <fcl/collision_object.h>
-
-#include <vector>
-
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
-/// \brief Implementations of this class must be created by the child classes of
-/// Shape, and then passed to the constructor of Shape.
-class Shape::Internal
+ConvexShape::ConvexShape(std::unique_ptr<Shape::Internal> internal)
+  : Shape(std::move(internal))
 {
-public:
-
-  using CollisionGeometryPtr = std::shared_ptr<fcl::CollisionGeometry>;
-  using CollisionGeometries = std::vector<CollisionGeometryPtr>;
-
-  virtual CollisionGeometries make_fcl() const = 0;
-
-};
+  // Do nothing
+}
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
-
-#endif // RMF_TRAFFIC_CONTROLLER__SRC__SHAPEINTERNAL_HPP
+} // namespace rmf_traffic

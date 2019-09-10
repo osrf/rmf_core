@@ -15,26 +15,31 @@
  *
 */
 
-#include <fcl/continuous_collision.h>
-#include <fcl/shape/geometric_shapes.h>
-#include <fcl/ccd/motion.h>
+#ifndef RMF_TRAFFIC__SCHEDULE_HPP
+#define RMF_TRAFFIC__SCHEDULE_HPP
 
-#include <rclcpp/node.hpp>
+#include <memory>
 
-#include <map>
+namespace rmf_traffic {
 
-namespace rmf_traffic_controller {
-
-class SubmissionComponent : public rclcpp::Node
+class Schedule
 {
 public:
 
+  /// \brief Data structure for querying
+  struct Query
+  {
+
+  };
 
 
 private:
 
-
+  class Implementation;
+  std::unique_ptr<Implementation> _pimpl;
 
 };
 
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic
+
+#endif // RMF_TRAFFIC__SCHEDULE_HPP

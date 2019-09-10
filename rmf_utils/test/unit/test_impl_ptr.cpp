@@ -15,25 +15,28 @@
  *
 */
 
-#include <rmf_traffic_controller/geometry/Shape.hpp>
+#include <rmf_utils/impl_ptr.hpp>
+#include "TestClass.hpp"
 
-#include "ShapeInternal.hpp"
+#include <iostream>
 
-namespace rmf_traffic_controller {
-namespace geometry {
-
-//==============================================================================
-Shape::Shape(std::unique_ptr<Internal> internal)
-  : _internal(std::move(internal))
+int main()
 {
-  // Do nothing
-}
+  // TODO(MXG): Make this a proper test
+  TestClass test("here is my test string");
+  std::cout << test.get_test_text() << std::endl;
 
-//==============================================================================
-Shape::~Shape()
-{
-  // Do nothing
-}
+  TestClass copy{test};
+  std::cout << copy.get_test_text() << std::endl;
 
-} // namespace geometry
-} // namespace rmf_traffic_controller
+  TestClass moved = std::move(test);
+  std::cout << moved.get_test_text() << std::endl;
+
+  if(test._pimpl)
+    std::cout << "impl_ptr returning true" << std::endl;
+  else
+    std::cout << "impl_ptr returning false" << std::endl;
+
+  test = TestClass("replacing the text");
+  std::cout << test.get_test_text() << std::endl;
+}

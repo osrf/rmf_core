@@ -15,28 +15,22 @@
  *
 */
 
+#ifndef RMF_UTILS__TEST__UNIT__TESTCLASS_HPP
+#define RMF_UTILS__TEST__UNIT__TESTCLASS_HPP
 
-#ifndef RMF_TRAFFIC_CONTROLLER__ZONE_HPP
-#define RMF_TRAFFIC_CONTROLLER__ZONE_HPP
+#include <rmf_utils/impl_ptr.hpp>
 
-#include <memory>
-
-namespace rmf_traffic_controller {
-
-class Zone
+class TestClass
 {
 public:
 
-  // TODO(MXG): Design and implement this class
+  TestClass(const std::string& test_text);
 
-
-private:
+  std::string get_test_text() const;
 
   class Implementation;
-  std::unique_ptr<Implementation> _pimpl;
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 
 };
 
-} // namespace rmf_traffic_controller
-
-#endif // RMF_TRAFFIC_CONTROLLER__ZONE_HPP
+#endif // RMF_UTILS__TEST__UNIT__TESTCLASS_HPP

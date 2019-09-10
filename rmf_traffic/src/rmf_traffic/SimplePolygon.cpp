@@ -17,13 +17,13 @@
 
 #include "ShapeInternal.hpp"
 
-#include <rmf_traffic_controller/geometry/SimplePolygon.hpp>
+#include <rmf_traffic/geometry/SimplePolygon.hpp>
 
 #include <fcl/shape/geometric_shapes.h>
 
 #include <sstream>
 
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 namespace geometry {
 
 namespace {
@@ -41,7 +41,7 @@ std::string eigen_to_string(const T& obj)
 std::string generate_self_intersection_polygon_message(
     const SimplePolygon::Intersections& intersections)
 {
-  std::string output = "[rmf_traffic_controller::Polygon] Invalid polygon "
+  std::string output = "[rmf_traffic::Polygon] Invalid polygon "
       "requested: " + std::to_string(intersections.size())
       + " pair(s) of edges intersect. See the following pairs where segment A "
       "intersects segment B:"
@@ -72,7 +72,7 @@ std::string generate_self_intersection_polygon_message(
 std::string generate_insufficient_vertices_polygon_message(
     const std::size_t num_vertices)
 {
-  return "[rmf_traffic_controller::Polygon] Invalid polygon requested: "
+  return "[rmf_traffic::Polygon] Invalid polygon requested: "
       + std::to_string(num_vertices) + " vertices specified, but at least 3 "
       + "vertices are required for a polygon.";
 }
@@ -293,7 +293,7 @@ std::vector<Triangle> decompose_polygon(
     }
     else if(N < 3)
     {
-      std::cerr << "[rmf_traffic_controller::geometry::decompose_polygon] "
+      std::cerr << "[rmf_traffic::geometry::decompose_polygon] "
                 << "A subpolygon has an incorrect number of vertices: " << N
                 << ". This is a bug that should never happen. Please report "
                 << "this to the developers!" << std::endl;
@@ -570,6 +570,23 @@ SimplePolygon::SimplePolygon(std::vector<Eigen::Vector2d> points)
 }
 
 //==============================================================================
+SimplePolygon::SimplePolygon(const SimplePolygon& other)
+  : Shape(std::make_unique<SimplePolygonInternal>(
+            static_cast<const SimplePolygonInternal&>(*other._get_internal())))
+{
+  // Do nothing
+}
+
+//==============================================================================
+SimplePolygon& SimplePolygon::operator=(const SimplePolygon& other)
+{
+  static_cast<SimplePolygonInternal&>(*_get_internal()) =
+      static_cast<const SimplePolygonInternal&>(*other._get_internal());
+
+  return *this;
+}
+
+//==============================================================================
 auto SimplePolygon::get_self_intersections() const -> Intersections
 {
   Intersections intersections;
@@ -636,4 +653,4 @@ void SimplePolygon::insert_point(
 }
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic

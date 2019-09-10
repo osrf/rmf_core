@@ -17,11 +17,11 @@
 
 #include "ShapeInternal.hpp"
 
-#include <rmf_traffic_controller/geometry/Box.hpp>
+#include <rmf_traffic/geometry/Box.hpp>
 
 #include <fcl/shape/geometric_shapes.h>
 
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
@@ -55,6 +55,23 @@ Box::Box(double x_length, double y_length)
 }
 
 //==============================================================================
+Box::Box(const Box& other)
+  : ConvexShape(std::make_unique<BoxInternal>(
+                  static_cast<const BoxInternal&>(*other._get_internal())))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Box& Box::operator=(const Box& other)
+{
+  static_cast<BoxInternal&>(*_get_internal()) =
+      static_cast<const BoxInternal&>(*other._get_internal());
+
+  return *this;
+}
+
+//==============================================================================
 void Box::set_x_length(double x_length)
 {
   static_cast<BoxInternal*>(_get_internal())->_x = x_length;
@@ -79,4 +96,4 @@ double Box::get_y_length() const
 }
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic

@@ -16,10 +16,10 @@
 */
 
 
-#ifndef RMF_TRAFFIC_CONTROLLER__GEOMETRY__POLYGON_HPP
-#define RMF_TRAFFIC_CONTROLLER__GEOMETRY__POLYGON_HPP
+#ifndef RMF_TRAFFIC__GEOMETRY__POLYGON_HPP
+#define RMF_TRAFFIC__GEOMETRY__POLYGON_HPP
 
-#include <rmf_traffic_controller/geometry/Shape.hpp>
+#include <rmf_traffic/geometry/Shape.hpp>
 
 #include <Eigen/Geometry>
 
@@ -27,7 +27,7 @@
 #include <exception>
 #include <vector>
 
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
@@ -66,6 +66,10 @@ public:
   /// The last point will be automatically connected to the first point to
   /// ensure a closed polygon.
   SimplePolygon(std::vector<Eigen::Vector2d> points);
+
+  // The typical copy constructor/assignment operator
+  SimplePolygon(const SimplePolygon& other);
+  SimplePolygon& operator=(const SimplePolygon& other);
 
   /// \brief Compute any self-intersections that may exist in this SimplePolygon
   /// due to the current arrangement of points. Note that if the SimplePolygon
@@ -130,6 +134,6 @@ struct InvalidSimplePolygonException : public std::exception
 };
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC_CONTROLLER__GEOMETRY__POLYGON_HPP
+#endif // RMF_TRAFFIC__GEOMETRY__POLYGON_HPP

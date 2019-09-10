@@ -15,14 +15,15 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_CONTROLLER__TRAJECTORY_HPP
-#define RMF_TRAFFIC_CONTROLLER__TRAJECTORY_HPP
+
+#ifndef RMF_TRAFFIC__ZONE_HPP
+#define RMF_TRAFFIC__ZONE_HPP
 
 #include <memory>
 
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 
-class Trajectory
+class Zone
 {
 public:
 
@@ -36,6 +37,6 @@ private:
 
 };
 
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC_CONTROLLER__TRAJECTORY_HPP
+#endif // RMF_TRAFFIC__ZONE_HPP

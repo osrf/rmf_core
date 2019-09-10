@@ -15,31 +15,26 @@
  *
 */
 
+#include <fcl/continuous_collision.h>
+#include <fcl/shape/geometric_shapes.h>
+#include <fcl/ccd/motion.h>
 
-#ifndef RMF_TRAFFIC_CONTROLLER__GEOMETRY__CIRCLE_HPP
-#define RMF_TRAFFIC_CONTROLLER__GEOMETRY__CIRCLE_HPP
+#include <rclcpp/node.hpp>
 
-#include <rmf_traffic_controller/geometry/ConvexShape.hpp>
+#include <map>
 
-namespace rmf_traffic_controller {
-namespace geometry {
+namespace rmf_traffic {
 
-//==============================================================================
-/// \brief This class represent a circle shape which can be added into a Zone or
-/// Trajectory.
-class Circle : public ConvexShape
+class SubmissionComponent : public rclcpp::Node
 {
 public:
 
-  Circle(double radius);
 
-  void set_radius(double r);
 
-  double get_radius() const;
+private:
+
+
 
 };
 
-} // namespace geometry
-} // namespace rmf_traffic_controller
-
-#endif // RMF_TRAFFIC_CONTROLLER__GEOMETRY__CIRCLE_HPP
+} // namespace rmf_traffic

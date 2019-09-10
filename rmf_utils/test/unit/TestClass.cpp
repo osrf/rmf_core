@@ -15,52 +15,31 @@
  *
 */
 
-#include "ShapeInternal.hpp"
-
-#include <rmf_traffic_controller/geometry/Circle.hpp>
-
-#include <fcl/shape/geometric_shapes.h>
-
-namespace rmf_traffic_controller {
-namespace geometry {
+#include "TestClass.hpp"
 
 //==============================================================================
-class CircleInternal : public Shape::Internal
+class TestClass::Implementation
 {
 public:
 
-  CircleInternal(double radius)
-    : _radius(radius)
+  Implementation(const std::string& test_text)
+    : _test_text(test_text)
   {
     // Do nothing
   }
 
-  CollisionGeometries make_fcl() const final
-  {
-    return {std::make_shared<fcl::Sphere>(_radius)};
-  }
-
-  double _radius;
+  std::string _test_text;
 };
 
 //==============================================================================
-Circle::Circle(double radius)
-  : ConvexShape(std::make_unique<CircleInternal>(radius))
+TestClass::TestClass(const std::string& test_text)
+  : _pimpl(rmf_utils::make_impl<Implementation>(test_text))
 {
   // Do nothing
 }
 
 //==============================================================================
-void Circle::set_radius(double r)
+std::string TestClass::get_test_text() const
 {
-  static_cast<CircleInternal*>(_get_internal())->_radius = r;
+  return _pimpl->_test_text;
 }
-
-//==============================================================================
-double Circle::get_radius() const
-{
-  return static_cast<const CircleInternal*>(_get_internal())->_radius;
-}
-
-} // namespace geometry
-} // namespace rmf_traffic_controller

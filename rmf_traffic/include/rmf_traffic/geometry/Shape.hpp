@@ -16,17 +16,17 @@
 */
 
 
-#ifndef RMF_TRAFFIC_CONTROLLER__GEOMETRY__SHAPE_HPP
-#define RMF_TRAFFIC_CONTROLLER__GEOMETRY__SHAPE_HPP
+#ifndef RMF_TRAFFIC__GEOMETRY__SHAPE_HPP
+#define RMF_TRAFFIC__GEOMETRY__SHAPE_HPP
 
 #include <memory>
 
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
 /// \brief This is the base class of different shape classes that can be used
-/// by the rmf_traffic_controller library. This cannot (currently) be extended
+/// by the rmf_traffic library. This cannot (currently) be extended
 /// by downstream libraries; instead, users must choose one of the pre-defined
 /// shape types belonging to this library.
 ///
@@ -35,11 +35,16 @@ class Shape
 {
 public:
 
+  // Abstract shape references must not be moved, because we cannot ensure that
+  // they get moved into the same derived type.
+  Shape(Shape&&) = delete;
+  Shape& operator=(Shape&&) = delete;
+
   /// \internal
   class Internal;
 
   /// \internal
-  /// These accessors can only be used by the rmf_traffic_controller library
+  /// These accessors can only be used by the rmf_traffic library
   /// internally. The Internal class cannot be accessed by downstream users
   /// (and downstream users should never need it anyway).
   Internal* _get_internal();
@@ -61,6 +66,6 @@ private:
 };
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC_CONTROLLER__GEOMETRY__SHAPE_HPP
+#endif // RMF_TRAFFIC__GEOMETRY__SHAPE_HPP

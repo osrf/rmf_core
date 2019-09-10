@@ -15,14 +15,14 @@
  *
 */
 
-#include <rmf_traffic_controller/Schedule.hpp>
-#include <rmf_traffic_controller/Trajectory.hpp>
+#include <rmf_traffic/Schedule.hpp>
+#include <rmf_traffic/Trajectory.hpp>
 
 #include <string>
 #include <unordered_set>
 #include <vector>
 
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 
 //==============================================================================
 template<typename T>
@@ -92,4 +92,4 @@ private:
 
 
 
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic

@@ -15,30 +15,37 @@
  *
 */
 
+#include <rmf_traffic/geometry/Shape.hpp>
 
-#ifndef RMF_TRAFFIC_CONTROLLER__CONVEXSHAPE_HPP
-#define RMF_TRAFFIC_CONTROLLER__CONVEXSHAPE_HPP
+#include "ShapeInternal.hpp"
 
-#include <rmf_traffic_controller/geometry/Shape.hpp>
-
-namespace rmf_traffic_controller {
+namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
-/// \brief This class is a more specific type of Shape. The Zone class can
-/// consume any kind of Shape, but the Trajectory class can only consume
-/// ConvexShape types.
-///
-/// \sa Box, Circle
-class ConvexShape : public Shape
+Shape::Internal* Shape::_get_internal()
 {
-protected:
+  return _internal.get();
+}
 
-  ConvexShape(std::unique_ptr<Shape::Internal> internal);
+//==============================================================================
+const Shape::Internal* Shape::_get_internal() const
+{
+  return _internal.get();
+}
 
-};
+//==============================================================================
+Shape::Shape(std::unique_ptr<Internal> internal)
+  : _internal(std::move(internal))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Shape::~Shape()
+{
+  // Do nothing
+}
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
-
-#endif // RMF_TRAFFIC_CONTROLLER__CONVEXSHAPE_HPP
+} // namespace rmf_traffic

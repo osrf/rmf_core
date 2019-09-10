@@ -15,19 +15,35 @@
  *
 */
 
-#include <rmf_traffic_controller/geometry/ConvexShape.hpp>
 
-#include "ShapeInternal.hpp"
+#ifndef RMF_TRAFFIC__GEOMETRY__CIRCLE_HPP
+#define RMF_TRAFFIC__GEOMETRY__CIRCLE_HPP
 
-namespace rmf_traffic_controller {
+#include <rmf_traffic/geometry/ConvexShape.hpp>
+
+namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
-ConvexShape::ConvexShape(std::unique_ptr<Shape::Internal> internal)
-  : Shape(std::move(internal))
+/// \brief This class represent a circle shape which can be added into a Zone or
+/// Trajectory.
+class Circle : public ConvexShape
 {
-  // Do nothing
-}
+public:
+
+  Circle(double radius);
+
+  // The typical copy constructor/assignment operator
+  Circle(const Circle& other);
+  Circle& operator=(const Circle& other);
+
+  void set_radius(double r);
+
+  double get_radius() const;
+
+};
 
 } // namespace geometry
-} // namespace rmf_traffic_controller
+} // namespace rmf_traffic
+
+#endif // RMF_TRAFFIC__GEOMETRY__CIRCLE_HPP
