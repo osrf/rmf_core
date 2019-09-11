@@ -19,6 +19,131 @@
 
 namespace rmf_traffic {
 
+//==============================================================================
+class Trajectory::Profile::Implementation
+{
+public:
 
+  Implementation(geometry::ConstConvexShapePtr shape)
+    : shape(std::move(shape)),
+      queue_info(this)
+  {
+    // Do nothing
+  }
+
+  // Basic information
+  geometry::ConstConvexShapePtr shape;
+  Movement movement;
+
+  // Queue information (only used when in Queue movement mode)
+  std::string queue_id;
+  uint32_t queue_number;
+
+  QueueInfo queue_info;
+};
+
+//==============================================================================
+Trajectory::ProfilePtr Trajectory::Profile::make_strict(
+    geometry::ConstConvexShapePtr shape)
+{
+  ProfilePtr result(new Profile(std::move(shape)));
+  result->set_to_strict();
+  return result;
+}
+
+//==============================================================================
+Trajectory::ProfilePtr Trajectory::Profile::make_autonomous(
+    geometry::ConstConvexShapePtr shape)
+{
+  ProfilePtr result(new Profile(std::move(shape)));
+  result->set_to_autonomous();
+  return result;
+}
+
+//==============================================================================
+Trajectory::ProfilePtr Trajectory::Profile::make_queued(
+    geometry::ConstConvexShapePtr shape,
+    const std::string& queue_id,
+    const uint32_t queue_number)
+{
+  ProfilePtr result(new Profile(std::move(shape)));
+  result->set_to_queued(queue_id, queue_number);
+  return result;
+}
+
+//==============================================================================
+geometry::ConstConvexShapePtr Trajectory::Profile::get_shape() const
+{
+  return _pimpl->shape;
+}
+
+//==============================================================================
+void Trajectory::Profile::set_shape(geometry::ConstConvexShapePtr new_shape)
+{
+  _pimpl->shape = std::move(new_shape);
+}
+
+//==============================================================================
+Trajectory::Profile::Movement Trajectory::Profile::get_movement() const
+{
+  return _pimpl->movement;
+}
+
+//==============================================================================
+void Trajectory::Profile::set_to_strict()
+{
+  _pimpl->movement = Strict;
+}
+
+//==============================================================================
+void Trajectory::Profile::set_to_autonomous()
+{
+  _pimpl->movement = Autonomous;
+}
+
+//==============================================================================
+void Trajectory::Profile::set_to_queued(
+    const std::string& queue_id,
+    uint32_t queue_number)
+{
+  _pimpl->movement = Queued;
+  _pimpl->queue_id = queue_id;
+  _pimpl->queue_number = queue_number;
+}
+
+//==============================================================================
+std::string Trajectory::Profile::QueueInfo::get_queue_id() const
+{
+  return static_cast<const Profile::Implementation*>(_pimpl)->queue_id;
+}
+
+//==============================================================================
+uint32_t Trajectory::Profile::QueueInfo::get_queue_number() const
+{
+  return static_cast<const Profile::Implementation*>(_pimpl)->queue_number;
+}
+
+//==============================================================================
+Trajectory::Profile::QueueInfo::QueueInfo(void* pimpl)
+  : _pimpl(pimpl)
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Trajectory::Profile::get_queue_info() const -> const QueueInfo*
+{
+  if(Queued == _pimpl->movement)
+    return &_pimpl->queue_info;
+
+  return nullptr;
+}
+
+//==============================================================================
+Trajectory::Profile::Profile(geometry::ConstConvexShapePtr shape)
+  : _pimpl(rmf_utils::make_impl<Implementation>(std::move(shape)))
+{
+  // Do nothing
+}
 
 } // namespace rmf_traffic
