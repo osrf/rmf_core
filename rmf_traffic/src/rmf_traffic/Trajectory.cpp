@@ -33,13 +33,13 @@ public:
 
   // Basic information
   geometry::ConstConvexShapePtr shape;
-  Movement movement;
 
   // Queue information (only used when in Queue movement mode)
-  std::string queue_id;
-  uint32_t queue_number;
-
   QueueInfo queue_info;
+  std::string queue_id;
+
+  // Movement mode
+  Movement movement;
 };
 
 //==============================================================================
@@ -67,7 +67,7 @@ Trajectory::ProfilePtr Trajectory::Profile::make_queued(
     const uint32_t queue_number)
 {
   ProfilePtr result(new Profile(std::move(shape)));
-  result->set_to_queued(queue_id, queue_number);
+  result->set_to_queued(queue_id);
   return result;
 }
 
@@ -102,25 +102,16 @@ void Trajectory::Profile::set_to_autonomous()
 }
 
 //==============================================================================
-void Trajectory::Profile::set_to_queued(
-    const std::string& queue_id,
-    uint32_t queue_number)
+void Trajectory::Profile::set_to_queued(const std::string& queue_id)
 {
   _pimpl->movement = Queued;
   _pimpl->queue_id = queue_id;
-  _pimpl->queue_number = queue_number;
 }
 
 //==============================================================================
 std::string Trajectory::Profile::QueueInfo::get_queue_id() const
 {
   return static_cast<const Profile::Implementation*>(_pimpl)->queue_id;
-}
-
-//==============================================================================
-uint32_t Trajectory::Profile::QueueInfo::get_queue_number() const
-{
-  return static_cast<const Profile::Implementation*>(_pimpl)->queue_number;
 }
 
 //==============================================================================

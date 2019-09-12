@@ -33,6 +33,7 @@ add_library(rmf_traffic SHARED
 target_link_libraries(rmf_traffic
   PUBLIC
     rmf_utils::rmf_utils
+    ${rclcpp_LIBRARIES}
   PRIVATE
     ${PC_FCL_LIBRARIES}
     ${PC_CCD_LIBRARIES}
@@ -43,6 +44,7 @@ target_include_directories(rmf_traffic
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     ${EIGEN3_INCLUDE_DIRS}
+    ${rclcpp_INCLUDE_DIRS}
 )
 
 ament_export_interfaces(rmf_traffic HAS_LIBRARY_TARGET)
