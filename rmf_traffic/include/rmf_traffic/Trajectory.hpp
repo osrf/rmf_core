@@ -100,8 +100,7 @@ public:
     /// Create a profile for a Queued segment
     static ProfilePtr make_queued(
         geometry::ConstConvexShapePtr shape,
-        const std::string& queue_id,
-        uint32_t queue_number);
+        const std::string& queue_id);
 
     /// Get the shape being used for this profile
     geometry::ConstConvexShapePtr get_shape() const;
@@ -179,7 +178,7 @@ public:
     ///
     /// \param[in] new_position
     ///   The new finishing position for this Trajectory Segment.
-    void set_position(Eigen::Isometry2d new_position);
+    void set_position(Eigen::Vector3d new_position);
 
     /// Get the intended velocity of the robot at the end of this Trajectory
     /// Segment.
@@ -210,10 +209,13 @@ public:
     /// times of all subsequent Trajectory segments, use adjust_finish_times()
     /// instead.
     ///
+    /// \warning This function will invalidate
+    ///
     /// \warning If you change the finishing time value of this Segment such
     /// that it falls directly on another Segment's finish time, you will get a
     /// std::invalid_argument exception, because discontinuous jumps are not
-    /// supported.
+    /// supported, and indicate a significant mishandling of trajectory data,
+    /// which is most likely a serious bug that should be remedied.
     ///
     /// \note If this Segment's finish time crosses past another Segment's
     /// finish time, that signficantly changes the topology of the Trajectory,
