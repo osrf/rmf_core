@@ -228,10 +228,20 @@ public:
     /// \sa adjust_finish_times(Time new_time)
     void set_finish_time(Time new_time);
 
-    /// Push back the finishing time of this segment and all subsequent
-    /// segments by the given duration. This is guaranteed to maintain the
-    /// ordering of the Trajectory Segments, and is more efficient than changing
-    /// all the times directly.
+    /// Adjust the finishing time of this segment and all subsequent segments by
+    /// the given duration. This is guaranteed to maintain the ordering of the
+    /// Trajectory Segments, and is more efficient than changing all the times
+    /// directly.
+    ///
+    /// \warning If a negative delta_t is given, it must not cause this
+    /// Segment's finish time to be less than or equal to the finish time of its
+    /// preceding Segment, or else a std::invalid_argument exception will be
+    /// thrown.
+    ///
+    /// \warning This function invalidates all currently existing Segment
+    /// iterators that point to Segments which come after this one.
+    /// TODO(MXG): We may be able to use shared_ptrs internally to alleviate
+    /// this limitation.
     ///
     /// \param[in] delta_t
     ///   How much to change the finishing time of this segment and all later
@@ -256,11 +266,22 @@ public:
   using iterator = base_iterator<Segment>;
   using const_iterator = base_iterator<const Segment>;
 
+  std::string get_map_name() const;
+
+  void set_map_name(std::string name);
+
+  /// Contains two fields:
+  /// * iterator it:   contains the iterator for the Segment that ends at the
+  ///                  given finish_time
+  /// * bool inserted: true if the Segment was inserted, false if a Segment with
+  ///                  the exact same finish_time already existed
+  struct InsertionResult;
+
   /// Add a Segment to this Trajectory.
   ///
   /// The Segment will be inserted into the Trajectory according to its
   /// finish_time, ensuring correct ordering of all Segments.
-  iterator insert(
+  InsertionResult insert(
       Time finish_time,
       ConstProfilePtr profile,
       Eigen::Vector3d position,
@@ -279,7 +300,7 @@ public:
   iterator find(Time time);
 
   /// const-qualified version of find()
-  const_iterator find(Time intersection_time) const;
+  const_iterator find(Time time) const;
 
   /// Erase the specified segment.
   ///
@@ -350,6 +371,16 @@ private:
   friend class Trajectory;
   class Implementation;
   rmf_utils::impl_ptr<Implementation> _pimpl;
+};
+
+extern template class Trajectory::base_iterator<Trajectory::Segment>;
+extern template class Trajectory::base_iterator<const Trajectory::Segment>;
+
+//==============================================================================
+struct Trajectory::InsertionResult
+{
+  iterator it;
+  bool inserted;
 };
 
 } // namespace rmf_traffic

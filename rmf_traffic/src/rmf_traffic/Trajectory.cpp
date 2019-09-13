@@ -18,6 +18,7 @@
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <map>
+#include <vector>
 
 namespace rmf_traffic {
 
@@ -25,21 +26,91 @@ namespace rmf_traffic {
 namespace {
 struct SegmentData
 {
+  Trajectory::Time finish_time;
   Trajectory::ConstProfilePtr profile;
   Eigen::Vector3d position;
   Eigen::Vector3d velocity;
 };
 
-using SegmentDataMap = std::map<Trajectory::Time, SegmentData>;
-
 } // anonymous namespace
+
+//==============================================================================
+template<typename SegT>
+class Trajectory::base_iterator<SegT>::Implementation
+{
+public:
+
+  std::shared_ptr<std::size_t> index;
+  Trajectory::Implementation* parent;
+
+};
+
+//==============================================================================
+template<typename SegT>
+Trajectory::base_iterator<SegT>::base_iterator()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
+}
 
 //==============================================================================
 class Trajectory::Implementation
 {
 public:
 
-  SegmentDataMap segments;
+  template<typename SegT>
+  base_iterator<SegT> make_iterator(std::shared_ptr<std::size_t> index)
+  {
+    base_iterator<SegT> it;
+    it._pimpl->index = index;
+    it._pimpl->parent = this;
+  }
+
+  using OrderMap = std::map<Time, std::shared_ptr<std::size_t>>;
+
+  std::string map_name;
+  OrderMap ordering;
+  std::vector<SegmentData> segments;
+
+  OrderMap::iterator result;
+  InsertionResult insert(SegmentData data)
+  {
+    const OrderMap::iterator hint = ordering.lower_bound(data.finish_time);
+    if(hint->first == data.finish_time)
+    {
+      // We already have a Segment in the Trajectory that ends at this same
+      // exact moment in time, so we will return the existing iterator along
+      // with inserted==false.
+      return InsertionResult{make_iterator<Segment>(hint->second), false};
+    }
+
+    if(hint == ordering.end())
+    {
+      // We know we should insert this at the back of the vector
+      result = ordering.emplace_hint(
+            ordering.end(),
+            data.finish_time,
+            std::make_shared<std::size_t>(segments.size()));
+
+      segments.emplace_back(std::move(data));
+    }
+    else
+    {
+      // The index is where the new segment should be inserted in the vector
+      const std::size_t index = *hint->second;
+      result = ordering.emplace_hint(
+            hint, std::make_shared<std::size_t>(index));
+
+      // Increment the indices of the Segments that come after this one so that
+      // they point to the correct element in the data set.
+      for(OrderMap::iterator it = hint; it != ordering.end(); ++it)
+        ++(*it->second);
+
+      segments.emplace(segments.begin()+index, std::move(data));
+    }
+
+    return InsertionResult{make_iterator<Segment>(result->second), true};
+  }
 
 };
 
@@ -165,6 +236,9 @@ class Trajectory::Segment::Implementation
 {
 public:
 
+  std::shared_ptr<std::size_t> index;
+  Trajectory::Implementation* parent;
+
   Implementation(Trajectory::Implementation* parent)
     : parent(parent)
   {
@@ -173,21 +247,18 @@ public:
 
   SegmentData& data()
   {
-    return it->second;
+    return parent->segments[*index];
   }
 
   const SegmentData& data() const
   {
-    return it->second;
+    return parent->segments[*index];
   }
 
   Time time() const
   {
-    return it->first;
+    return data().finish_time;
   }
-
-  SegmentDataMap::iterator it;
-  Trajectory::Implementation* const parent;
 
 };
 
@@ -236,21 +307,30 @@ Trajectory::Time Trajectory::Segment::get_finish_time() const
 //==============================================================================
 void Trajectory::Segment::set_finish_time(const Time new_time)
 {
-  SegmentDataMap::iterator& it = _pimpl->it;
-  if(it->first == new_time)
+  using OrderMap = Trajectory::Implementation::OrderMap;
+  const std::size_t current_index = *_pimpl->index;
+  OrderMap& ordering = _pimpl->parent->ordering;
+  std::vector<SegmentData>& segments = _pimpl->parent->segments;
+
+  const SegmentData& current_data = segments[current_index];
+  const Time current_time = current_data.finish_time;
+
+  if(current_time == new_time)
   {
     // Short-circuit, since nothing is changing. The erase and re-insertion
     // would be a waste of time in this case.
     return;
   }
 
-  SegmentDataMap& segments = _pimpl->parent->segments;
+  OrderMap::iterator it = ordering.find(current_time);
+  assert(it != ordering.end());
 
-  // See if we can use the next iterator as a hint for where to insert the
-  // new element
-  const SegmentDataMap::iterator possible_hint = ++SegmentDataMap::iterator(it);
 
-  const SegmentData data = std::move(it->second);
+
+
+
+
+  SegmentData data = std::move(it->second);
   // Note: erasing an iterator does not invalidate any iterators for the map,
   // except the one that was erased. Remember that `it` is a mutable reference,
   // so we have its current value erased in this next line, but we will be
@@ -283,5 +363,67 @@ void Trajectory::Segment::set_finish_time(const Time new_time)
     it = result.first;
   }
 }
+
+//==============================================================================
+void Trajectory::Segment::adjust_finish_times(Duration delta_t)
+{
+  SegmentDataMap::iterator& begin_it = *_pimpl->it;
+  SegmentDataMap& segments = _pimpl->parent->segments;
+
+  std::vector<SegmentData> temp_data_storage;
+  temp_data_storage.reserve(segments.size());
+  std::vector<Time> temp_time_storage;
+  temp_time_storage.reserve(segments.size());
+  for(SegmentDataMap::iterator it = begin_it; it != segments.end(); ++it)
+  {
+    // Store all the waypoints as cheaply as possible
+    temp_time_storage.emplace_back(it->first);
+    temp_data_storage.emplace_back(std::move(it->second));
+  }
+
+  // Erase the elements we're going to modify from the container
+  segments.erase(begin_it, segments.end());
+
+  for(std::size_t i=0; i < temp_data_storage.size(); ++i)
+  {
+    // Put all the elements back in, with their new time value.
+    // By providing the hint that they belong as the back of the map, we can
+    // ensure that each insertion has constant-time complexity.
+    const Time new_time = temp_time_storage[i] + delta_t;
+    segments.emplace_hint(
+          segments.end(), new_time, std::move(temp_data_storage[i]));
+  }
+}
+
+//==============================================================================
+std::string Trajectory::get_map_name() const
+{
+  return _pimpl->map_name;
+}
+
+//==============================================================================
+void Trajectory::set_map_name(std::string name)
+{
+  _pimpl->map_name = std::move(name);
+}
+
+//==============================================================================
+Trajectory::iterator Trajectory::insert(
+    Time finish_time,
+    ConstProfilePtr profile,
+    Eigen::Vector3d position,
+    Eigen::Vector3d velocity)
+{
+  return _pimpl->insert(
+        SegmentData{
+          std::move(finish_time),
+          std::move(profile),
+          std::move(position),
+          std::move(velocity)});
+}
+
+//==============================================================================
+template class Trajectory::base_iterator<Trajectory::Segment>;
+template class Trajectory::base_iterator<const Trajectory::Segment>;
 
 } // namespace rmf_traffic
