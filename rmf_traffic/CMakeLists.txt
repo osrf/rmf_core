@@ -79,6 +79,6 @@ target_include_directories(submission_component
     ${rclcpp_INCLUDE_DIRS}
 )
 
-add_subdirectory(test/unit)
+add_subdirectory(test)
 
 ament_package()

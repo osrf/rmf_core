@@ -19,9 +19,9 @@
 #include <fcl/shape/geometric_shapes.h>
 #include <fcl/ccd/motion.h>
 
-#include <iostream>
+#include <rmf_utils/catch.hpp>
 
-int main()
+TEST_CASE("Verify that FCL can handle continuous collisions")
 {
   // Make sphere
   std::shared_ptr<fcl::CollisionGeometry> sphere_geom =
@@ -64,13 +64,5 @@ int main()
         object_2.get(), tf_box_final,
         request, result);
 
-  if(result.is_collide)
-  {
-    std::cout << "Time of contact: " << result.time_of_contact << std::endl;
-  }
-  else
-  {
-    std::cout << "No collision!" << std::endl;
-  }
+  CHECK(result.is_collide);
 }
-

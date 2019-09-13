@@ -20,7 +20,9 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/geometry/SimplePolygon.hpp>
 
-int main()
+#include <rmf_utils/catch.hpp>
+
+TEST_CASE("Verify that these shape types can be upcast")
 {
   // Make sure all the shape types can be constructed and cast to shapes
   std::shared_ptr<rmf_traffic::geometry::Shape> box =
