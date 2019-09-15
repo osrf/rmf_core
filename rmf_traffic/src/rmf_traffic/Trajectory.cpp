@@ -18,7 +18,7 @@
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <map>
-#include <vector>
+#include <list>
 
 namespace rmf_traffic {
 
@@ -32,23 +32,27 @@ struct SegmentData
   Eigen::Vector3d velocity;
 };
 
+using SegmentList = std::list<SegmentData>;
+using OrderMap = std::map<Trajectory::Time, SegmentList::iterator>;
+
 } // anonymous namespace
 
 //==============================================================================
-template<typename SegT>
-class Trajectory::base_iterator<SegT>::Implementation
+namespace detail {
+class TrajectoryIteratorImplementation
 {
 public:
 
-  std::shared_ptr<std::size_t> index;
+  SegmentList::iterator raw_iterator;
   Trajectory::Implementation* parent;
 
 };
+} // namespace detail
 
 //==============================================================================
 template<typename SegT>
 Trajectory::base_iterator<SegT>::base_iterator()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
+  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
 {
   // Do nothing
 }
@@ -59,18 +63,18 @@ class Trajectory::Implementation
 public:
 
   template<typename SegT>
-  base_iterator<SegT> make_iterator(std::shared_ptr<std::size_t> index)
+  base_iterator<SegT> make_iterator(SegmentList::iterator iterator)
   {
     base_iterator<SegT> it;
-    it._pimpl->index = index;
+    it._pimpl->raw_iterator = std::move(iterator);
     it._pimpl->parent = this;
-  }
 
-  using OrderMap = std::map<Time, std::shared_ptr<std::size_t>>;
+    return it;
+  }
 
   std::string map_name;
   OrderMap ordering;
-  std::vector<SegmentData> segments;
+  SegmentList segments;
 
   OrderMap::iterator result;
   InsertionResult insert(SegmentData data)
@@ -96,17 +100,13 @@ public:
     }
     else
     {
-      // The index is where the new segment should be inserted in the vector
-      const std::size_t index = *hint->second;
-      result = ordering.emplace_hint(
-            hint, std::make_shared<std::size_t>(index));
+      // The iterator is where the new segment should be inserted in the vector
+      const SegmentList::iterator insert_it = hint->second;
 
-      // Increment the indices of the Segments that come after this one so that
-      // they point to the correct element in the data set.
-      for(OrderMap::iterator it = hint; it != ordering.end(); ++it)
-        ++(*it->second);
+      SegmentList::iterator new_it =
+          segments.emplace(insert_it, std::move(data));
 
-      segments.emplace(segments.begin()+index, std::move(data));
+      result = ordering.emplace_hint(hint, std::move(new_it));
     }
 
     return InsertionResult{make_iterator<Segment>(result->second), true};
@@ -236,23 +236,22 @@ class Trajectory::Segment::Implementation
 {
 public:
 
-  std::shared_ptr<std::size_t> index;
-  Trajectory::Implementation* parent;
+  detail::TrajectoryIteratorImplementation& iter;
 
-  Implementation(Trajectory::Implementation* parent)
-    : parent(parent)
+  Implementation(detail::TrajectoryIteratorImplementation& iter)
+    : iter(iter)
   {
     // Do nothing
   }
 
   SegmentData& data()
   {
-    return parent->segments[*index];
+    return *iter.raw_iterator;
   }
 
   const SegmentData& data() const
   {
-    return parent->segments[*index];
+    return *iter.raw_iterator;
   }
 
   Time time() const
@@ -307,12 +306,8 @@ Trajectory::Time Trajectory::Segment::get_finish_time() const
 //==============================================================================
 void Trajectory::Segment::set_finish_time(const Time new_time)
 {
-  using OrderMap = Trajectory::Implementation::OrderMap;
-  const std::size_t current_index = *_pimpl->index;
-  OrderMap& ordering = _pimpl->parent->ordering;
-  std::vector<SegmentData>& segments = _pimpl->parent->segments;
-
-  const SegmentData& current_data = segments[current_index];
+  SegmentList::iterator data_it = _pimpl->iter.raw_iterator;
+  SegmentData& current_data = *data_it;
   const Time current_time = current_data.finish_time;
 
   if(current_time == new_time)
@@ -322,35 +317,37 @@ void Trajectory::Segment::set_finish_time(const Time new_time)
     return;
   }
 
-  OrderMap::iterator it = ordering.find(current_time);
-  assert(it != ordering.end());
+  OrderMap& ordering = _pimpl->iter.parent->ordering;
+  SegmentList& segments = _pimpl->iter.parent->segments;
+  const OrderMap::const_iterator current_order_it = ordering.find(current_time);
+  assert(current_order_it != ordering.end());
+  const OrderMap::const_iterator hint = ordering.lower_bound(new_time);
 
-
-
-
-
-
-  SegmentData data = std::move(it->second);
-  // Note: erasing an iterator does not invalidate any iterators for the map,
-  // except the one that was erased. Remember that `it` is a mutable reference,
-  // so we have its current value erased in this next line, but we will be
-  // updating its value in a moment when we insert the new version.
-  segments.erase(it);
-
-  if(possible_hint == segments.end() || new_time < possible_hint->first)
+  if(current_order_it == hint)
   {
-    // This will make a valid hint for the insertion
-    it = segments.emplace_hint(possible_hint, new_time, std::move(data));
+    // The Segment is already in the correct location within the list, so it
+    // does not need to be moved. We can just update its entry in the OrderMap.
+
+    // We need to create a new_hint iterator which points to the iterator after
+    // hint because the hint iterator will be invalidated when we erase
+    // current_order_it (because they are iterators to the same element).
+    const OrderMap::const_iterator new_hint = ++OrderMap::const_iterator(hint);
+    ordering.erase(current_order_it);
+    ordering.emplace_hint(new_hint, new_time, std::move(data_it));
+  }
+  else if(hint == ordering.end())
+  {
+    // This Segment must be moved to the end of the list.
+    segments.splice(segments.end(), segments, data_it);
+    ordering.erase(current_order_it);
+    ordering.emplace_hint(hint, new_time, std::move(data_it));
   }
   else
   {
-    // We do not have a hint readily available for the new entry, so we'll just
-    // use the normal map insertion method. We also don't know if the new time
-    // might conflict with an existing waypoint's time, so we should check for
-    // that as well.
-    const auto result = segments.emplace(new_time, std::move(data));
+    const SegmentList::const_iterator destination = hint->second;
+    assert(destination != segments.end());
 
-    if(!result.second)
+    if(destination->finish_time == new_time)
     {
       // The new time conflicts with an existing time, so we will throw an
       // exception.
@@ -360,8 +357,13 @@ void Trajectory::Segment::set_finish_time(const Time new_time)
             + "ns, but a waypoint already exists at that timestamp.");
     }
 
-    it = result.first;
+    segments.splice(destination, segments, data_it);
+    ordering.erase(current_order_it);
+    ordering.emplace_hint(hint, new_time, std::move(data_it));
   }
+
+  // Update the finish_time value in the data field.
+  current_data.finish_time = new_time;
 }
 
 //==============================================================================

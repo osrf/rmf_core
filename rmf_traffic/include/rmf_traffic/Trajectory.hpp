@@ -30,6 +30,14 @@
 
 namespace rmf_traffic {
 
+//==============================================================================
+namespace detail {
+/// \internal We declare this private PIMPL class outside of the base_iterator
+/// class so that it does not need to be templated.
+class TrajectoryIteratorImplementation;
+} // namespace detail
+
+//==============================================================================
 class Trajectory
 {
 public:
@@ -136,8 +144,8 @@ public:
     /// If this Profile is queued, this will return a pointer to its queue
     /// information. If it is not in a queue, this will return a nullptr.
     ///
-    /// This pointer is invalidated any time a modification is made to the
-    /// Profile object that provided it.
+    /// This pointer is potentially invalidated any time a modification is made
+    /// to the Profile object that provided it.
     //
     // TODO(MXG): Change this to a std::optional when we can have C++17 support
     const QueueInfo* get_queue_info() const;
@@ -209,15 +217,13 @@ public:
     /// times of all subsequent Trajectory segments, use adjust_finish_times()
     /// instead.
     ///
-    /// \warning This function will invalidate
-    ///
     /// \warning If you change the finishing time value of this Segment such
     /// that it falls directly on another Segment's finish time, you will get a
     /// std::invalid_argument exception, because discontinuous jumps are not
     /// supported, and indicate a significant mishandling of trajectory data,
     /// which is most likely a serious bug that should be remedied.
     ///
-    /// \note If this Segment's finish time crosses past another Segment's
+    /// \note If this Segment's finish time crosses over another Segment's
     /// finish time, that signficantly changes the topology of the Trajectory,
     /// because it will change the order in which the positions are passed
     /// through.
@@ -237,11 +243,6 @@ public:
     /// Segment's finish time to be less than or equal to the finish time of its
     /// preceding Segment, or else a std::invalid_argument exception will be
     /// thrown.
-    ///
-    /// \warning This function invalidates all currently existing Segment
-    /// iterators that point to Segments which come after this one.
-    /// TODO(MXG): We may be able to use shared_ptrs internally to alleviate
-    /// this limitation.
     ///
     /// \param[in] delta_t
     ///   How much to change the finishing time of this segment and all later
@@ -271,7 +272,7 @@ public:
   void set_map_name(std::string name);
 
   /// Contains two fields:
-  /// * iterator it:   contains the iterator for the Segment that ends at the
+  /// * iterator iter: contains the iterator for the Segment that ends at the
   ///                  given finish_time
   /// * bool inserted: true if the Segment was inserted, false if a Segment with
   ///                  the exact same finish_time already existed
@@ -315,7 +316,7 @@ public:
   iterator erase(iterator first, iterator last);
 
 private:
-
+  friend class detail::TrajectoryIteratorImplementation;
   class Implementation;
   rmf_utils::impl_ptr<Implementation> _pimpl;
 
@@ -369,8 +370,7 @@ public:
 private:
   base_iterator();
   friend class Trajectory;
-  class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::impl_ptr<detail::TrajectoryIteratorImplementation> _pimpl;
 };
 
 extern template class Trajectory::base_iterator<Trajectory::Segment>;
@@ -379,7 +379,7 @@ extern template class Trajectory::base_iterator<const Trajectory::Segment>;
 //==============================================================================
 struct Trajectory::InsertionResult
 {
-  iterator it;
+  iterator iter;
   bool inserted;
 };
 
