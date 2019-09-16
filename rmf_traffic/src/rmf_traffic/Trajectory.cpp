@@ -56,7 +56,7 @@ public:
   const Trajectory::Implementation* parent;
 
   template<typename SegT>
-  Trajectory::base_iterator<SegT> make_iterator(SegmentList::iterator it)
+  Trajectory::base_iterator<SegT> make_iterator(SegmentList::iterator it) const
   {
     Trajectory::base_iterator<SegT> result;
     result._pimpl->raw_iterator = it;
@@ -715,22 +715,9 @@ bool Trajectory::base_iterator<SegT>::operator>=(
 
 //==============================================================================
 template<typename SegT>
-Trajectory::base_iterator<SegT>::base_iterator(
-    const iterator& other)
-  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
+Trajectory::base_iterator<SegT>::operator const_iterator() const
 {
-  _pimpl->raw_iterator = other._pimpl->raw_iterator;
-  _pimpl->parent = other._pimpl->parent;
-}
-
-//==============================================================================
-template<typename SegT>
-Trajectory::base_iterator<SegT>::base_iterator(
-    iterator&& other)
-  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
-{
-  _pimpl->raw_iterator = std::move(other._pimpl->raw_iterator);
-  _pimpl->parent = other._pimpl->parent;
+  return _pimpl->make_iterator<const SegT>(_pimpl->raw_iterator);
 }
 
 //==============================================================================

@@ -280,7 +280,7 @@ public:
   using const_iterator = base_iterator<const Segment>;
 
   /// Contains two fields:
-  /// * iterator iter: contains the iterator for the Segment that ends at the
+  /// * iterator it:   contains the iterator for the Segment that ends at the
   ///                  given finish_time
   /// * bool inserted: true if the Segment was inserted, false if a Segment with
   ///                  the exact same finish_time already existed
@@ -405,8 +405,14 @@ public:
 
 
   // Allow regular iterator to be cast to const_iterator
-  base_iterator(const iterator& other);
-  base_iterator(iterator&& other);
+  operator const_iterator() const;
+
+
+  // Allow typical copying and moving
+  base_iterator(const base_iterator& other) = default;
+  base_iterator(base_iterator&& other) = default;
+  base_iterator& operator=(const base_iterator& other) = default;
+  base_iterator& operator=(base_iterator&& other) = default;
 
 private:
   base_iterator();
@@ -421,7 +427,7 @@ extern template class Trajectory::base_iterator<const Trajectory::Segment>;
 //==============================================================================
 struct Trajectory::InsertionResult
 {
-  iterator iter;
+  iterator it;
   bool inserted;
 };
 

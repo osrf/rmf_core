@@ -16,11 +16,74 @@
 */
 
 #include <rmf_traffic/Trajectory.hpp>
+#include <rmf_traffic/geometry/Box.hpp>
 
 #include <rmf_utils/catch.hpp>
 
 TEST_CASE("Construct a Trajectory")
 {
+  using namespace std::chrono_literals;
+
   rmf_traffic::Trajectory trajectory{"test_map"};
   CHECK(trajectory.begin() == trajectory.end());
+  CHECK(trajectory.end() == trajectory.end());
+
+  rmf_traffic::Trajectory::ProfilePtr profile =
+      rmf_traffic::Trajectory::Profile::make_strict(
+        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+
+  const auto begin_time = std::chrono::steady_clock::now();
+  const Eigen::Vector3d begin_p = Eigen::Vector3d(0, 0, 0);
+  const Eigen::Vector3d begin_v = Eigen::Vector3d(0, 0, 0);
+
+  auto result = trajectory.insert(
+        begin_time, profile, begin_p, begin_v);
+
+  const rmf_traffic::Trajectory::iterator begin_it = result.it;
+  CHECK(result.inserted);
+
+  CHECK(begin_it == trajectory.begin());
+  CHECK(trajectory.begin() != trajectory.end());
+  CHECK(begin_it != trajectory.end());
+  CHECK(begin_it < trajectory.end());
+  CHECK(begin_it <= trajectory.end());
+  CHECK(trajectory.end() > begin_it);
+  CHECK(trajectory.end() >= trajectory.end());
+
+  CHECK(begin_p == begin_it->get_position());
+  CHECK(begin_v == begin_it->get_velocity());
+  CHECK(begin_time == begin_it->get_finish_time());
+
+  const auto second_time = begin_time + 10s;
+  const Eigen::Vector3d second_p = Eigen::Vector3d(1, 2, 3);
+  const Eigen::Vector3d second_v = Eigen::Vector3d(3, 2, 1);
+
+  result = trajectory.insert(
+        second_time, profile, second_p, second_v);
+
+  const rmf_traffic::Trajectory::iterator second_it = result.it;
+  CHECK(result.inserted);
+
+  CHECK(second_it == ++trajectory.begin());
+  CHECK(second_it != trajectory.begin());
+  CHECK(second_it > trajectory.begin());
+  CHECK(second_it >= trajectory.begin());
+  CHECK(trajectory.begin() < second_it);
+  CHECK(trajectory.begin() <= second_it);
+
+  CHECK(second_it != begin_it);
+  CHECK(second_it > begin_it);
+  CHECK(second_it >= begin_it);
+  CHECK(begin_it < second_it);
+  CHECK(begin_it <= second_it);
+
+  CHECK(second_it != trajectory.end());
+  CHECK(second_it < trajectory.end());
+  CHECK(second_it <= trajectory.end());
+  CHECK(trajectory.end() > second_it);
+  CHECK(trajectory.end() >= second_it);
+
+  CHECK(second_it->get_position() == second_p);
+  CHECK(second_it->get_velocity() == second_v);
+  CHECK(second_it->get_finish_time() == second_time);
 }
