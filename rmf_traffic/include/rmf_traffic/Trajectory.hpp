@@ -262,6 +262,9 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  /// Create a Trajectory that takes place on the specified map
+  Trajectory(std::string map_name);
+
   /// Get the name of the map that this Trajectory takes place in
   std::string get_map_name() const;
 

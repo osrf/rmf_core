@@ -2,6 +2,7 @@
 set(unit_tests
   fcl_test.cpp
   make_shapes.cpp
+  test_trajectory.cpp
 )
 
 set(unit_test_srcs)

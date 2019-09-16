@@ -122,6 +122,16 @@ class Trajectory::Implementation
 {
 public:
 
+  std::string map_name;
+  OrderMap ordering;
+  SegmentList segments;
+
+  Implementation(std::string map_name)
+    : map_name(std::move(map_name))
+  {
+    // Do nothing
+  }
+
   template<typename SegT>
   base_iterator<SegT> make_iterator(SegmentList::iterator iterator) const
   {
@@ -131,10 +141,6 @@ public:
 
     return it;
   }
-
-  std::string map_name;
-  OrderMap ordering;
-  SegmentList segments;
 
   InsertionResult insert(SegmentData data)
   {
@@ -480,6 +486,13 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
 //==============================================================================
 Trajectory::Segment::Segment()
   : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
+}
+
+//==============================================================================
+Trajectory::Trajectory(std::string map_name)
+  : _pimpl(rmf_utils::make_impl<Implementation>(std::move(map_name)))
 {
   // Do nothing
 }
