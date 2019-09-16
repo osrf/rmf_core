@@ -367,7 +367,7 @@ public:
   base_iterator operator--(int);
 
 
-  // TODO(MXG): Switch to the spaceship operator when we can use C++20
+  // TODO(MXG): Consider the spaceship operator when we can use C++20
 
   /// Equality comparison operator
   bool operator==(const base_iterator& other) const;

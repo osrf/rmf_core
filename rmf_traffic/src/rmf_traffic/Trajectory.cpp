@@ -118,14 +118,6 @@ public:
 };
 
 //==============================================================================
-template<typename SegT>
-Trajectory::base_iterator<SegT>::base_iterator()
-  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
-{
-  // Do nothing
-}
-
-//==============================================================================
 class Trajectory::Implementation
 {
 public:
@@ -617,7 +609,100 @@ template<typename SegT>
 bool Trajectory::base_iterator<SegT>::operator<(
     const base_iterator& other) const
 {
-  return (other._pimpl->raw_iterator == _pimpl->raw_iterator);
+  const bool this_is_end =
+      this->_pimpl->raw_iterator == _pimpl->parent->segments.end();
+  const bool other_is_end =
+      other._pimpl->raw_iterator == _pimpl->parent->segments.end();
+
+  if(this_is_end || other_is_end)
+  {
+    // If both are pointing to the end iterator, then they are equal, so we
+    // should return false.
+    if(this_is_end && other_is_end)
+      return false;
+
+    // If the other is the end iterator but this iterator is not, then we return
+    // true, because the end iterator is "larger" than any valid iterator.
+    // If the other is not the end iterator but this iterator is, then we return
+    // false, because this iterator is definitely larger than anything the other
+    // can be.
+    return other_is_end;
+  }
+
+  // If they are both valid iterators, then we can compare their times.
+  return this->_pimpl->raw_iterator->finish_time
+      < other._pimpl->raw_iterator->finish_time;
+}
+
+//==============================================================================
+template<typename SegT>
+bool Trajectory::base_iterator<SegT>::operator>(
+    const base_iterator& other) const
+{
+  const bool this_is_end =
+      this->_pimpl->raw_iterator == _pimpl->parent->segments.end();
+  const bool other_is_end =
+      other._pimpl->raw_iterator == _pimpl->parent->segments.end();
+
+  if(this_is_end || other_is_end)
+  {
+    // If both are pointing to the end iterator, then they are equal, so we
+    // should return false.
+    if(this_is_end && other_is_end)
+      return false;
+
+    // See the logic above for operator<, but in this case we want the opposite
+    // conclusion.
+    return this_is_end;
+  }
+
+  // If they are both valid iterators, then we can compare their times.
+  return this->_pimpl->raw_iterator->finish_time
+      > other._pimpl->raw_iterator->finish_time;
+}
+
+//==============================================================================
+template<typename SegT>
+bool Trajectory::base_iterator<SegT>::operator<=(
+    const base_iterator& other) const
+{
+  return (*this == other) || (*this < other);
+}
+
+//==============================================================================
+template<typename SegT>
+bool Trajectory::base_iterator<SegT>::operator>=(
+    const base_iterator& other) const
+{
+  return (*this == other) || (*this > other);
+}
+
+//==============================================================================
+template<typename SegT>
+Trajectory::base_iterator<SegT>::base_iterator(
+    const iterator& other)
+  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
+{
+  _pimpl->raw_iterator = other._pimpl->raw_iterator;
+  _pimpl->parent = other._pimpl->parent;
+}
+
+//==============================================================================
+template<typename SegT>
+Trajectory::base_iterator<SegT>::base_iterator(
+    iterator&& other)
+  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
+{
+  _pimpl->raw_iterator = std::move(other._pimpl->raw_iterator);
+  _pimpl->parent = other._pimpl->parent;
+}
+
+//==============================================================================
+template<typename SegT>
+Trajectory::base_iterator<SegT>::base_iterator()
+  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
+{
+  // Do nothing
 }
 
 //==============================================================================
