@@ -188,6 +188,11 @@ public:
     return make_iterator<Segment>(segments.erase(seg_begin, seg_end));
   }
 
+  iterator begin()
+  {
+    return make_iterator<Segment>(segments.begin());
+  }
+
   iterator end()
   {
     return make_iterator<Segment>(segments.end());
@@ -529,6 +534,24 @@ Trajectory::iterator Trajectory::erase(iterator segment)
 Trajectory::iterator Trajectory::erase(iterator first, iterator last)
 {
   return _pimpl->erase(first, last);
+}
+
+//==============================================================================
+Trajectory::iterator Trajectory::begin()
+{
+  return _pimpl->begin();
+}
+
+//==============================================================================
+Trajectory::const_iterator Trajectory::begin() const
+{
+  return const_cast<Implementation&>(*_pimpl).begin();
+}
+
+//==============================================================================
+Trajectory::const_iterator Trajectory::cbegin() const
+{
+  return const_cast<Implementation&>(*_pimpl).begin();
 }
 
 //==============================================================================

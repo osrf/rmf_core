@@ -320,9 +320,20 @@ public:
   /// \return an iterator following the last removed element
   iterator erase(iterator first, iterator last);
 
-  /// Returns an iterator to the element following the last element of the
-  /// container. This element acts as a placeholder; attempting to access it
-  /// results in undefined behavior.
+  /// Returns an iterator to the fist Segment of the Trajectory.
+  ///
+  /// If the Trajectory is empty, the returned iterator will be equal to end().
+  iterator begin();
+
+  /// const-qualified version of begin()
+  const_iterator begin() const;
+
+  /// Explicitly call the const-qualified version of begin()
+  const_iterator cbegin() const;
+
+  /// Returns an iterator to the element following the last Segment of the
+  /// Trajectory. This iterator acts as a placeholder; attempting to dereference
+  /// it results in undefined behavior.
   ///
   /// \note In compliance with C++ standards, this is really a one-past-the-end
   /// iterator and must not be dereferenced. It should only be used to identify
