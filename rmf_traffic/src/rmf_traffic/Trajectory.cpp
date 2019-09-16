@@ -53,12 +53,23 @@ class TrajectoryIteratorImplementation
 public:
 
   SegmentList::iterator raw_iterator;
+  const Trajectory::Implementation* parent;
+
+  template<typename SegT>
+  Trajectory::base_iterator<SegT> make_iterator(SegmentList::iterator it)
+  {
+    Trajectory::base_iterator<SegT> result;
+    result._pimpl->raw_iterator = it;
+    result._pimpl->parent = parent;
+
+    return result;
+  }
 
   template<typename SegT>
   Trajectory::base_iterator<SegT> post_increment()
   {
-    Trajectory::base_iterator<SegT> old_it;
-    old_it._pimpl->raw_iterator = raw_iterator;
+    const Trajectory::base_iterator<SegT> old_it =
+        make_iterator<SegT>(raw_iterator);
 
     ++raw_iterator;
 
@@ -68,8 +79,8 @@ public:
   template<typename SegT>
   Trajectory::base_iterator<SegT> post_decrement()
   {
-    Trajectory::base_iterator<SegT> old_it;
-    old_it._pimpl->raw_iterator = raw_iterator;
+    const Trajectory::base_iterator<SegT> old_it =
+        make_iterator<SegT>(raw_iterator);
 
     --raw_iterator;
 
@@ -124,6 +135,7 @@ public:
   {
     base_iterator<SegT> it;
     it._pimpl->raw_iterator = std::move(iterator);
+    it._pimpl->parent = this;
 
     return it;
   }
@@ -605,7 +617,7 @@ template<typename SegT>
 bool Trajectory::base_iterator<SegT>::operator<(
     const base_iterator& other) const
 {
-  return (other._pimpl->raw_iterator == _pimpl->raw_iterator)
+  return (other._pimpl->raw_iterator == _pimpl->raw_iterator);
 }
 
 //==============================================================================
