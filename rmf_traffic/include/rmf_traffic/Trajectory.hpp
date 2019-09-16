@@ -256,20 +256,25 @@ public:
 
     /// \internal Private constructor. Use Trajectory::add_segment() to create
     /// a new Trajectory Segment.
-    Segment(ConstProfilePtr profile);
+    Segment();
     friend class Trajectory;
     class Implementation;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  /// Get the name of the map that this Trajectory takes place in
+  std::string get_map_name() const;
+
+  /// Set which map this Trajectory takes place in
+  void set_map_name(std::string name);
+
+  // These classes allow users to traverse the contents of the Trajectory.
+  // The trajectory operates much like a typical C++ container, but only for
+  // Trajectory::Segment information.
   template<typename SegT>
   class base_iterator;
   using iterator = base_iterator<Segment>;
   using const_iterator = base_iterator<const Segment>;
-
-  std::string get_map_name() const;
-
-  void set_map_name(std::string name);
 
   /// Contains two fields:
   /// * iterator iter: contains the iterator for the Segment that ends at the
@@ -315,6 +320,21 @@ public:
   /// \return an iterator following the last removed element
   iterator erase(iterator first, iterator last);
 
+  /// Returns an iterator to the element following the last element of the
+  /// container. This element acts as a placeholder; attempting to access it
+  /// results in undefined behavior.
+  ///
+  /// \note In compliance with C++ standards, this is really a one-past-the-end
+  /// iterator and must not be dereferenced. It should only be used to identify
+  /// when an iteration must end. See: https://en.cppreference.com/w/cpp/container/list/end
+  iterator end();
+
+  /// const-qualified version of end()
+  const_iterator end() const;
+
+  /// Explicitly call the const-qualified version of end()
+  const_iterator cend() const;
+
 private:
   friend class detail::TrajectoryIteratorImplementation;
   class Implementation;
@@ -355,10 +375,12 @@ public:
   /// Inequality comparison operator
   bool operator!=(const base_iterator& other) const;
 
-  /// Less-than comparison operator
+  /// Less-than comparison operator (the left-hand side is earlier in the
+  /// trajectory than the right-hand side)
   bool operator<(const base_iterator& other) const;
 
-  /// Greater-than comparison operator
+  /// Greater-than comparison operator (the left-hand side is later in the
+  /// trajectory than the right-hand side)
   bool operator>(const base_iterator& other) const;
 
   /// Less-than-or-equal comparison operator
@@ -367,9 +389,15 @@ public:
   /// Greater-than-or-equal comparison operator
   bool operator>=(const base_iterator& other) const;
 
+
+  // Allow regular iterator to be cast to const_iterator
+  base_iterator(const iterator& other);
+  base_iterator(iterator&& other);
+
 private:
   base_iterator();
   friend class Trajectory;
+  friend class detail::TrajectoryIteratorImplementation;
   rmf_utils::impl_ptr<detail::TrajectoryIteratorImplementation> _pimpl;
 };
 
