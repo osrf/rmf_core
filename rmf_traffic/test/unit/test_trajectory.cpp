@@ -20,6 +20,12 @@
 
 #include <rmf_utils/catch.hpp>
 
+rmf_traffic::Trajectory::ProfilePtr make_test_profile()
+{
+  return rmf_traffic::Trajectory::Profile::make_strict(
+        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+}
+
 TEST_CASE("Construct a Trajectory")
 {
   using namespace std::chrono_literals;
@@ -28,9 +34,7 @@ TEST_CASE("Construct a Trajectory")
   CHECK(trajectory.begin() == trajectory.end());
   CHECK(trajectory.end() == trajectory.end());
 
-  rmf_traffic::Trajectory::ProfilePtr profile =
-      rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+  const auto profile = make_test_profile();
 
   const auto begin_time = std::chrono::steady_clock::now();
   const Eigen::Vector3d begin_p = Eigen::Vector3d(0, 0, 0);
@@ -86,4 +90,80 @@ TEST_CASE("Construct a Trajectory")
   CHECK(second_it->get_position() == second_p);
   CHECK(second_it->get_velocity() == second_v);
   CHECK(second_it->get_finish_time() == second_time);
+}
+
+TEST_CASE("Copy and move a trajectory")
+{
+  using namespace std::chrono_literals;
+
+  rmf_traffic::Trajectory trajectory{"test_map"};
+
+  const auto begin_time = std::chrono::steady_clock::now();
+
+  trajectory.insert(
+        begin_time, make_test_profile(),
+        Eigen::Vector3d::UnitX(),
+        Eigen::Vector3d::UnitX());
+
+  trajectory.insert(
+        begin_time + 10s, make_test_profile(),
+        Eigen::Vector3d::UnitY(),
+        Eigen::Vector3d::UnitY());
+
+  trajectory.insert(
+        begin_time + 15s, make_test_profile(),
+        Eigen::Vector3d::UnitZ(),
+        Eigen::Vector3d::UnitZ());
+
+  rmf_traffic::Trajectory copy = trajectory;
+
+  rmf_traffic::Trajectory::const_iterator ot = trajectory.begin();
+  rmf_traffic::Trajectory::const_iterator ct = copy.begin();
+  for( ; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
+  {
+    CHECK(ot->get_profile() == ct->get_profile());
+    CHECK(ot->get_position() == ct->get_position());
+    CHECK(ot->get_velocity() == ct->get_velocity());
+    CHECK(ot->get_finish_time() == ct->get_finish_time());
+  }
+  CHECK(ot == trajectory.end());
+  CHECK(ct == copy.end());
+
+  for(auto it = copy.begin(); it != copy.end(); ++it)
+  {
+    it->set_profile(make_test_profile());
+    it->set_position(it->get_position() + Eigen::Vector3d::UnitZ());
+    it->set_velocity(it->get_velocity() + Eigen::Vector3d::UnitZ());
+    it->set_finish_time(it->get_finish_time() + 2s);
+  }
+
+  ot = trajectory.begin();
+  ct = copy.begin();
+  for( ; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
+  {
+    CHECK(ot->get_profile() != ct->get_profile());
+    CHECK(ot->get_position() != ct->get_position());
+    CHECK(ot->get_velocity() != ct->get_velocity());
+    CHECK(ot->get_finish_time() != ct->get_finish_time());
+  }
+  CHECK(ot == trajectory.end());
+  CHECK(ct == copy.end());
+
+  // Copy again
+  copy = trajectory;
+
+  // Now move the original
+  rmf_traffic::Trajectory moved = std::move(trajectory);
+
+  ct = copy.begin();
+  rmf_traffic::Trajectory::const_iterator mt = moved.begin();
+  for( ; ct != copy.end() && mt != moved.end(); ++ct, ++mt)
+  {
+    CHECK(ct->get_profile() == mt->get_profile());
+    CHECK(ct->get_position() == mt->get_position());
+    CHECK(ct->get_velocity() == mt->get_velocity());
+    CHECK(ct->get_finish_time() == mt->get_finish_time());
+  }
+  CHECK(ct == copy.end());
+  CHECK(mt == moved.end());
 }

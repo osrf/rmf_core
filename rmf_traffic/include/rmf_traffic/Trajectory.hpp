@@ -262,15 +262,6 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// Create a Trajectory that takes place on the specified map
-  Trajectory(std::string map_name);
-
-  /// Get the name of the map that this Trajectory takes place in
-  std::string get_map_name() const;
-
-  /// Set which map this Trajectory takes place in
-  void set_map_name(std::string name);
-
   // These classes allow users to traverse the contents of the Trajectory.
   // The trajectory operates much like a typical C++ container, but only for
   // Trajectory::Segment information.
@@ -278,6 +269,19 @@ public:
   class base_iterator;
   using iterator = base_iterator<Segment>;
   using const_iterator = base_iterator<const Segment>;
+
+  /// Create a Trajectory that takes place on the specified map
+  Trajectory(std::string map_name);
+
+  // Copy construction/assignment
+  Trajectory(const Trajectory& other);
+  Trajectory& operator=(const Trajectory& other);
+
+  /// Get the name of the map that this Trajectory takes place in
+  std::string get_map_name() const;
+
+  /// Set which map this Trajectory takes place in
+  void set_map_name(std::string name);
 
   /// Contains two fields:
   /// * iterator it:   contains the iterator for the Segment that ends at the
@@ -352,7 +356,7 @@ public:
 private:
   friend class detail::TrajectoryIteratorImplementation;
   class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 
 };
 
@@ -368,16 +372,28 @@ public:
   /// Drill-down operator
   SegT* operator->() const;
 
-  /// Pre-increment operator
+  /// Pre-increment operator: ++it
+  ///
+  /// \note This is more efficient than the post-increment operator.
+  ///
+  /// \return a reference to the iterator that was operated on
   base_iterator& operator++();
 
-  /// Pre-decrement operator
+  /// Pre-decrement operator: --it
+  ///
+  /// \note This is more efficient than the post-decrement operator
+  ///
+  /// \return a reference to the iterator that was operated on
   base_iterator& operator--();
 
-  /// Post-increment operator
+  /// Post-increment operator: it++
+  ///
+  /// \return a copy of the iterator before it was incremented
   base_iterator operator++(int);
 
-  /// Post-decrement operator
+  /// Post-decrement operator: it--
+  ///
+  /// \return a copy of the iterator before it was decremented
   base_iterator operator--(int);
 
 
@@ -414,8 +430,12 @@ public:
   base_iterator& operator=(const base_iterator& other) = default;
   base_iterator& operator=(base_iterator&& other) = default;
 
-private:
+  // Default constructor. This will leave the iterator uninitialized, so it is
+  // UNDEFINED BEHAVIOR to use it without using one of the Trajectory functions
+  // (like insert, find, etc) to initialize it first.
   base_iterator();
+
+private:
   friend class Trajectory;
   friend class detail::TrajectoryIteratorImplementation;
   rmf_utils::impl_ptr<detail::TrajectoryIteratorImplementation> _pimpl;
