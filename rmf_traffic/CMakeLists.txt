@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.5.0)
 
 project(rmf_traffic)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS on)
+
 find_package(ament_cmake REQUIRED)
 
 # Default to C++14
