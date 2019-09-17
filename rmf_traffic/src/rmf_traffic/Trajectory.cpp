@@ -632,6 +632,29 @@ Trajectory::const_iterator Trajectory::cend() const
 }
 
 //==============================================================================
+const Trajectory::Time* Trajectory::start_time() const
+{
+  const auto& segments = _pimpl->segments;
+  return segments.size() == 0? nullptr : &segments.front().finish_time;
+}
+
+//==============================================================================
+const Trajectory::Time* Trajectory::finish_time() const
+{
+  const auto& segments = _pimpl->segments;
+  return segments.size() == 0? nullptr : &segments.back().finish_time;
+}
+
+//==============================================================================
+Trajectory::Duration Trajectory::duration() const
+{
+  const auto& segments = _pimpl->segments;
+  return segments.size() < 2?
+        Duration(0) :
+        segments.back().finish_time - segments.front().finish_time;
+}
+
+//==============================================================================
 template<typename SegT>
 SegT& Trajectory::base_iterator<SegT>::operator*() const
 {

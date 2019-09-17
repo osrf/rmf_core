@@ -353,6 +353,18 @@ public:
   /// Explicitly call the const-qualified version of end()
   const_iterator cend() const;
 
+  /// Get the start time, if available. This will return a nullptr if the
+  /// Trajectory is empty.
+  const Time* start_time() const;
+
+  /// Get the finish time, if available. This will return a nullptr if the
+  /// Trajectory is empty.
+  const Time* finish_time() const;
+
+  /// Get the duration of the trajectory. This will be 0 if the Trajectory is
+  /// empty or if it has only one Segment.
+  Duration duration() const;
+
 private:
   friend class detail::TrajectoryIteratorImplementation;
   class Implementation;
