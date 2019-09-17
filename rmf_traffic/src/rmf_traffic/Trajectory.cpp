@@ -28,11 +28,11 @@ namespace {
 
 struct SegmentData;
 using SegmentList = std::list<SegmentData>;
-using OrderMap = std::map<Trajectory::Time, SegmentList::iterator>;
+using OrderMap = std::map<Time, SegmentList::iterator>;
 
 struct SegmentData
 {
-  Trajectory::Time finish_time;
+  Time finish_time;
   Trajectory::ConstProfilePtr profile;
   Eigen::Vector3d position;
   Eigen::Vector3d velocity;
@@ -392,7 +392,7 @@ void Trajectory::Segment::set_velocity(Eigen::Vector3d new_velocity)
 }
 
 //==============================================================================
-Trajectory::Time Trajectory::Segment::get_finish_time() const
+Time Trajectory::Segment::get_finish_time() const
 {
   return _pimpl->time();
 }
@@ -632,21 +632,21 @@ Trajectory::const_iterator Trajectory::cend() const
 }
 
 //==============================================================================
-const Trajectory::Time* Trajectory::start_time() const
+const Time* Trajectory::start_time() const
 {
   const auto& segments = _pimpl->segments;
   return segments.size() == 0? nullptr : &segments.front().finish_time;
 }
 
 //==============================================================================
-const Trajectory::Time* Trajectory::finish_time() const
+const Time* Trajectory::finish_time() const
 {
   const auto& segments = _pimpl->segments;
   return segments.size() == 0? nullptr : &segments.back().finish_time;
 }
 
 //==============================================================================
-Trajectory::Duration Trajectory::duration() const
+Duration Trajectory::duration() const
 {
   const auto& segments = _pimpl->segments;
   return segments.size() < 2?
