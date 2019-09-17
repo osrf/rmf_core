@@ -2,6 +2,7 @@
 set(unit_tests
   fcl_test.cpp
   make_shapes.cpp
+  test_trajectory.cpp
 )
 
 set(unit_test_srcs)
@@ -15,7 +16,7 @@ add_executable(test_rmf_traffic
 )
 
 target_link_libraries(test_rmf_traffic
-  PRIVATE
+  PUBLIC
     rmf_traffic
     ${PC_FCL_LIBRARIES}
 )

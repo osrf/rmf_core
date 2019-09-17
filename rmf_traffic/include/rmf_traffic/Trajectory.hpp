@@ -262,12 +262,6 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// Get the name of the map that this Trajectory takes place in
-  std::string get_map_name() const;
-
-  /// Set which map this Trajectory takes place in
-  void set_map_name(std::string name);
-
   // These classes allow users to traverse the contents of the Trajectory.
   // The trajectory operates much like a typical C++ container, but only for
   // Trajectory::Segment information.
@@ -276,8 +270,21 @@ public:
   using iterator = base_iterator<Segment>;
   using const_iterator = base_iterator<const Segment>;
 
+  /// Create a Trajectory that takes place on the specified map
+  Trajectory(std::string map_name);
+
+  // Copy construction/assignment
+  Trajectory(const Trajectory& other);
+  Trajectory& operator=(const Trajectory& other);
+
+  /// Get the name of the map that this Trajectory takes place in
+  std::string get_map_name() const;
+
+  /// Set which map this Trajectory takes place in
+  void set_map_name(std::string name);
+
   /// Contains two fields:
-  /// * iterator iter: contains the iterator for the Segment that ends at the
+  /// * iterator it:   contains the iterator for the Segment that ends at the
   ///                  given finish_time
   /// * bool inserted: true if the Segment was inserted, false if a Segment with
   ///                  the exact same finish_time already existed
@@ -320,9 +327,20 @@ public:
   /// \return an iterator following the last removed element
   iterator erase(iterator first, iterator last);
 
-  /// Returns an iterator to the element following the last element of the
-  /// container. This element acts as a placeholder; attempting to access it
-  /// results in undefined behavior.
+  /// Returns an iterator to the fist Segment of the Trajectory.
+  ///
+  /// If the Trajectory is empty, the returned iterator will be equal to end().
+  iterator begin();
+
+  /// const-qualified version of begin()
+  const_iterator begin() const;
+
+  /// Explicitly call the const-qualified version of begin()
+  const_iterator cbegin() const;
+
+  /// Returns an iterator to the element following the last Segment of the
+  /// Trajectory. This iterator acts as a placeholder; attempting to dereference
+  /// it results in undefined behavior.
   ///
   /// \note In compliance with C++ standards, this is really a one-past-the-end
   /// iterator and must not be dereferenced. It should only be used to identify
@@ -335,10 +353,22 @@ public:
   /// Explicitly call the const-qualified version of end()
   const_iterator cend() const;
 
+  /// Get the start time, if available. This will return a nullptr if the
+  /// Trajectory is empty.
+  const Time* start_time() const;
+
+  /// Get the finish time, if available. This will return a nullptr if the
+  /// Trajectory is empty.
+  const Time* finish_time() const;
+
+  /// Get the duration of the trajectory. This will be 0 if the Trajectory is
+  /// empty or if it has only one Segment.
+  Duration duration() const;
+
 private:
   friend class detail::TrajectoryIteratorImplementation;
   class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 
 };
 
@@ -354,16 +384,28 @@ public:
   /// Drill-down operator
   SegT* operator->() const;
 
-  /// Pre-increment operator
+  /// Pre-increment operator: ++it
+  ///
+  /// \note This is more efficient than the post-increment operator.
+  ///
+  /// \return a reference to the iterator that was operated on
   base_iterator& operator++();
 
-  /// Pre-decrement operator
+  /// Pre-decrement operator: --it
+  ///
+  /// \note This is more efficient than the post-decrement operator
+  ///
+  /// \return a reference to the iterator that was operated on
   base_iterator& operator--();
 
-  /// Post-increment operator
+  /// Post-increment operator: it++
+  ///
+  /// \return a copy of the iterator before it was incremented
   base_iterator operator++(int);
 
-  /// Post-decrement operator
+  /// Post-decrement operator: it--
+  ///
+  /// \return a copy of the iterator before it was decremented
   base_iterator operator--(int);
 
 
@@ -391,11 +433,21 @@ public:
 
 
   // Allow regular iterator to be cast to const_iterator
-  base_iterator(const iterator& other);
-  base_iterator(iterator&& other);
+  operator const_iterator() const;
+
+
+  // Allow typical copying and moving
+  base_iterator(const base_iterator& other) = default;
+  base_iterator(base_iterator&& other) = default;
+  base_iterator& operator=(const base_iterator& other) = default;
+  base_iterator& operator=(base_iterator&& other) = default;
+
+  // Default constructor. This will leave the iterator uninitialized, so it is
+  // UNDEFINED BEHAVIOR to use it without using one of the Trajectory functions
+  // (like insert, find, etc) to initialize it first.
+  base_iterator();
 
 private:
-  base_iterator();
   friend class Trajectory;
   friend class detail::TrajectoryIteratorImplementation;
   rmf_utils::impl_ptr<detail::TrajectoryIteratorImplementation> _pimpl;
@@ -407,7 +459,7 @@ extern template class Trajectory::base_iterator<const Trajectory::Segment>;
 //==============================================================================
 struct Trajectory::InsertionResult
 {
-  iterator iter;
+  iterator it;
   bool inserted;
 };
 

@@ -56,7 +56,7 @@ public:
   const Trajectory::Implementation* parent;
 
   template<typename SegT>
-  Trajectory::base_iterator<SegT> make_iterator(SegmentList::iterator it)
+  Trajectory::base_iterator<SegT> make_iterator(SegmentList::iterator it) const
   {
     Trajectory::base_iterator<SegT> result;
     result._pimpl->raw_iterator = it;
@@ -122,6 +122,10 @@ class Trajectory::Implementation
 {
 public:
 
+  std::string map_name;
+  OrderMap ordering;
+  SegmentList segments;
+
   template<typename SegT>
   base_iterator<SegT> make_iterator(SegmentList::iterator iterator) const
   {
@@ -132,9 +136,44 @@ public:
     return it;
   }
 
-  std::string map_name;
-  OrderMap ordering;
-  SegmentList segments;
+  Segment make_segment(SegmentList::iterator iterator)
+  {
+    Segment seg;
+    seg._pimpl->myself = std::move(iterator);
+    seg._pimpl->parent = this;
+
+    return seg;
+  }
+
+  Implementation(std::string map_name)
+    : map_name(std::move(map_name))
+  {
+    // Do nothing
+  }
+
+  Implementation(const Implementation& other)
+  {
+    *this = other;
+  }
+
+  Implementation& operator=(const Implementation& other)
+  {
+    // Start by making a normal copy
+    map_name = other.map_name;
+    ordering = other.ordering;
+    segments = other.segments;
+
+    // Now correct all the iterators to point to the freshly copied container
+    SegmentList::iterator sit = segments.begin();
+    OrderMap::iterator oit = ordering.begin();
+    for( ; sit != segments.end(); ++sit, ++oit)
+    {
+      sit->myself = make_segment(sit);
+      oit->second = sit;
+    }
+
+    return *this;
+  }
 
   InsertionResult insert(SegmentData data)
   {
@@ -152,8 +191,7 @@ public:
 
     const SegmentList::iterator result =
         segments.emplace(list_destination, std::move(data));
-    result->myself._pimpl->myself = result;
-    result->myself._pimpl->parent = this;
+    result->myself = make_segment(result);
 
     ordering.emplace_hint(hint, data.finish_time, result);
 
@@ -186,6 +224,11 @@ public:
 
     ordering.erase(order_start, order_end);
     return make_iterator<Segment>(segments.erase(seg_begin, seg_end));
+  }
+
+  iterator begin()
+  {
+    return make_iterator<Segment>(segments.begin());
   }
 
   iterator end()
@@ -480,6 +523,27 @@ Trajectory::Segment::Segment()
 }
 
 //==============================================================================
+Trajectory::Trajectory(std::string map_name)
+  : _pimpl(rmf_utils::make_impl<Implementation>(std::move(map_name)))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Trajectory::Trajectory(const Trajectory& other)
+  : _pimpl(rmf_utils::make_impl<Implementation>(*other._pimpl))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Trajectory& Trajectory::operator=(const Trajectory& other)
+{
+  *_pimpl = *other._pimpl;
+  return *this;
+}
+
+//==============================================================================
 std::string Trajectory::get_map_name() const
 {
   return _pimpl->map_name;
@@ -532,6 +596,24 @@ Trajectory::iterator Trajectory::erase(iterator first, iterator last)
 }
 
 //==============================================================================
+Trajectory::iterator Trajectory::begin()
+{
+  return _pimpl->begin();
+}
+
+//==============================================================================
+Trajectory::const_iterator Trajectory::begin() const
+{
+  return const_cast<Implementation&>(*_pimpl).begin();
+}
+
+//==============================================================================
+Trajectory::const_iterator Trajectory::cbegin() const
+{
+  return const_cast<Implementation&>(*_pimpl).begin();
+}
+
+//==============================================================================
 Trajectory::iterator Trajectory::end()
 {
   return _pimpl->end();
@@ -547,6 +629,29 @@ Trajectory::const_iterator Trajectory::end() const
 Trajectory::const_iterator Trajectory::cend() const
 {
   return const_cast<Implementation&>(*_pimpl).end();
+}
+
+//==============================================================================
+const Trajectory::Time* Trajectory::start_time() const
+{
+  const auto& segments = _pimpl->segments;
+  return segments.size() == 0? nullptr : &segments.front().finish_time;
+}
+
+//==============================================================================
+const Trajectory::Time* Trajectory::finish_time() const
+{
+  const auto& segments = _pimpl->segments;
+  return segments.size() == 0? nullptr : &segments.back().finish_time;
+}
+
+//==============================================================================
+Trajectory::Duration Trajectory::duration() const
+{
+  const auto& segments = _pimpl->segments;
+  return segments.size() < 2?
+        Duration(0) :
+        segments.back().finish_time - segments.front().finish_time;
 }
 
 //==============================================================================
@@ -616,17 +721,12 @@ bool Trajectory::base_iterator<SegT>::operator<(
 
   if(this_is_end || other_is_end)
   {
-    // If both are pointing to the end iterator, then they are equal, so we
-    // should return false.
-    if(this_is_end && other_is_end)
-      return false;
-
     // If the other is the end iterator but this iterator is not, then we return
     // true, because the end iterator is "larger" than any valid iterator.
     // If the other is not the end iterator but this iterator is, then we return
     // false, because this iterator is definitely larger than anything the other
     // can be.
-    return other_is_end;
+    return other_is_end && !this_is_end;
   }
 
   // If they are both valid iterators, then we can compare their times.
@@ -646,14 +746,9 @@ bool Trajectory::base_iterator<SegT>::operator>(
 
   if(this_is_end || other_is_end)
   {
-    // If both are pointing to the end iterator, then they are equal, so we
-    // should return false.
-    if(this_is_end && other_is_end)
-      return false;
-
     // See the logic above for operator<, but in this case we want the opposite
     // conclusion.
-    return this_is_end;
+    return this_is_end && !other_is_end;
   }
 
   // If they are both valid iterators, then we can compare their times.
@@ -679,22 +774,9 @@ bool Trajectory::base_iterator<SegT>::operator>=(
 
 //==============================================================================
 template<typename SegT>
-Trajectory::base_iterator<SegT>::base_iterator(
-    const iterator& other)
-  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
+Trajectory::base_iterator<SegT>::operator const_iterator() const
 {
-  _pimpl->raw_iterator = other._pimpl->raw_iterator;
-  _pimpl->parent = other._pimpl->parent;
-}
-
-//==============================================================================
-template<typename SegT>
-Trajectory::base_iterator<SegT>::base_iterator(
-    iterator&& other)
-  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
-{
-  _pimpl->raw_iterator = std::move(other._pimpl->raw_iterator);
-  _pimpl->parent = other._pimpl->parent;
+  return _pimpl->make_iterator<const SegT>(_pimpl->raw_iterator);
 }
 
 //==============================================================================
