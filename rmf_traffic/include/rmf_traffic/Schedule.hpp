@@ -18,7 +18,7 @@
 #ifndef RMF_TRAFFIC__SCHEDULE_HPP
 #define RMF_TRAFFIC__SCHEDULE_HPP
 
-#include <rmf_utils/impl_ptr.hpp>
+#include <memory>
 
 namespace rmf_traffic {
 
@@ -26,12 +26,17 @@ class Schedule
 {
 public:
 
+  /// \brief Data structure for querying
+  struct Query
+  {
+
+  };
 
 
 private:
 
   class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  std::unique_ptr<Implementation> _pimpl;
 
 };
 
