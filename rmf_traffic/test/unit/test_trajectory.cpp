@@ -27,12 +27,15 @@ rmf_traffic::Trajectory::ProfilePtr make_test_profile(std::string shape)
   if (shape == "unit_box")
   {
     return rmf_traffic::Trajectory::Profile::make_strict(
-      std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
-  } else if (shape == "unit_circle")
+        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+  }
+  else if (shape == "unit_circle")
   {
     return rmf_traffic::Trajectory::Profile::make_strict(
-      std::make_shared<rmf_traffic::geometry::Circle>(1.0));
-  } else {
+        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
+  }
+  else
+  {
     REQUIRE(false);
     return 0;
   }
@@ -46,7 +49,7 @@ SCENARIO("Class Profile unit tests")
     std::shared_ptr<rmf_traffic::geometry::Box> profile_shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
     rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(profile_shape);
 
-    WHEN("Movement is Strict")
+    WHEN("Initial Configuration")
     {
       REQUIRE(profile->get_movement() == 1);
       REQUIRE(profile->get_shape() == profile_shape);
@@ -76,7 +79,7 @@ SCENARIO("Class Profile unit tests")
     }
   }
 
-  GIVEN("Shape: Unit Square, Movement: Strict. Checking Dirty Input")
+  GIVEN("Checking Dirty Input")
   {
     rmf_traffic::Trajectory::ProfilePtr profile = make_test_profile("unit_box");
 
@@ -87,12 +90,172 @@ SCENARIO("Class Profile unit tests")
   }
 }
 
+SCENARIO("base_iterator unit tests")
+{
+  GIVEN("Testing operators")
+  {
+    using namespace std::chrono_literals;
 
-// rmf_traffic::Trajectory::ProfilePtr make_test_profile()
-// {
-//   return rmf_traffic::Trajectory::Profile::make_strict(
-//         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
-// }
+    rmf_traffic::Trajectory trajectory{"test_map"};
+    REQUIRE(trajectory.begin() == trajectory.end());
+    REQUIRE(trajectory.end() == trajectory.end());
+
+    const auto finish_time = std::chrono::steady_clock::now();
+    const auto profile = make_test_profile("unit_box");
+    const Eigen::Vector3d begin_pos = Eigen::Vector3d(1, 1, 1);
+    const Eigen::Vector3d begin_vel = Eigen::Vector3d(1, 1, 1);
+
+    auto result = trajectory.insert(finish_time, profile, begin_pos, begin_vel);
+    rmf_traffic::Trajectory::iterator first_it = result.it;
+    REQUIRE(result.inserted);
+    REQUIRE(trajectory.begin() == first_it);
+
+    const auto finish_time_2 = std::chrono::steady_clock::now() + 10s;
+    const auto profile_2 = make_test_profile("unit_box");
+    const Eigen::Vector3d begin_pos_2 = Eigen::Vector3d(2, 0, 3);
+    const Eigen::Vector3d begin_vel_2 = Eigen::Vector3d(2, 0, 3);
+
+    auto result_2 = trajectory.insert(finish_time_2, profile_2, begin_pos_2, begin_vel_2);
+    rmf_traffic::Trajectory::iterator second_it = result_2.it;
+    REQUIRE(result_2.inserted);
+    REQUIRE(--trajectory.end() == second_it); // trajectory.end() is a placeholder "beyond" the last element
+
+    WHEN("Comparison operators")
+    {
+      CHECK((*first_it).get_profile() == profile);
+      CHECK(first_it->get_profile() == profile);
+      CHECK(first_it == trajectory.begin());
+      CHECK(trajectory.begin() != trajectory.end());
+      CHECK(first_it != trajectory.end());
+      CHECK(first_it < trajectory.end());
+      CHECK(first_it <= trajectory.end());
+      CHECK(trajectory.end() > first_it);
+      CHECK(trajectory.end() >= trajectory.end());
+    }
+
+    WHEN("Mutating iterators")
+    {
+      first_it++;
+      CHECK(first_it == second_it);
+      first_it--;
+      CHECK(first_it != second_it);
+      CHECK(first_it < second_it);
+    }
+
+    WHEN("Verifying trajectory iterator notation")
+    {
+      // TODO: Dereference and Drill down behavior
+      CHECK(trajectory.begin() == first_it);
+      CHECK(trajectory.begin()++ == second_it);
+      CHECK(trajectory.begin()-- == first_it);
+      CHECK(++trajectory.begin() == second_it);
+      CHECK(--trajectory.begin() == second_it);
+    }
+  }
+}
+
+SCENARIO("Class Segment unit tests")
+{
+  GIVEN("Testing accessor functions")
+  {
+    using namespace std::chrono_literals;
+
+    rmf_traffic::Trajectory trajectory{"test_map"};
+    REQUIRE(trajectory.begin() == trajectory.end());
+    REQUIRE(trajectory.end() == trajectory.end());
+
+    const auto finish_time = std::chrono::steady_clock::now();
+    const auto profile = make_test_profile("unit_box");
+    const Eigen::Vector3d begin_pos = Eigen::Vector3d(0, 0, 0);
+    const Eigen::Vector3d begin_vel = Eigen::Vector3d(0, 0, 0);
+
+    auto result = trajectory.insert(finish_time, profile, begin_pos, begin_vel);
+    REQUIRE(result.inserted);
+
+    rmf_traffic::Trajectory::Segment segment = *trajectory.find(finish_time);
+
+    WHEN("Initial Configuration")
+    {
+      REQUIRE(segment.get_profile() == profile);
+      REQUIRE(segment.get_position() == begin_pos);
+      REQUIRE(segment.get_velocity() == begin_vel);
+      REQUIRE(segment.get_finish_time() == finish_time);
+    }
+
+    WHEN("Setting a new profile")
+    {
+      const auto new_profile = make_test_profile("unit_circle");
+      segment.set_profile(new_profile);
+      CHECK(segment.get_profile() == new_profile);
+      CHECK(segment.get_profile() != profile);
+    }
+
+    WHEN("Mutating current profile")
+    {
+      profile->set_to_autonomous();
+      CHECK(segment.get_profile()->get_movement() == 2);
+
+      const auto new_shape = std::make_shared<rmf_traffic::geometry::Circle>(1.0);
+      profile->set_shape(new_shape);
+      CHECK(segment.get_profile()->get_shape() == new_shape);
+    }
+
+    // TODO: The Docs record this as a 2D homogenous position, should be 3D
+    WHEN("Setting a new position")
+    {
+      const Eigen::Vector3d new_pos = Eigen::Vector3d(1, 1, 1);
+      segment.set_position(new_pos);
+      CHECK(segment.get_position() == new_pos);
+      CHECK(segment.get_position() != begin_pos);
+    }
+
+    // TODO: The Docs record this as a 2D homogenous position, should be 3D
+    WHEN("Setting a new velocity")
+    {
+      const Eigen::Vector3d new_vel = Eigen::Vector3d(1, 1, 1);
+      segment.set_velocity(new_vel);
+      CHECK(segment.get_velocity() == new_vel);
+      CHECK(segment.get_velocity() != begin_vel);
+    }
+
+    WHEN("Setting a finish time")
+    {
+      const auto new_finish_time = std::chrono::steady_clock::now() + 15s;
+      segment.set_finish_time(new_finish_time);
+      CHECK(segment.get_finish_time() == new_finish_time);
+      CHECK(segment.get_finish_time() != finish_time);
+    }
+  }
+
+  GIVEN("Testing automatic reordering when setting finish times")
+  {
+    using namespace std::chrono_literals;
+
+    rmf_traffic::Trajectory trajectory{"test_map"};
+    REQUIRE(trajectory.begin() == trajectory.end());
+    REQUIRE(trajectory.end() == trajectory.end());
+
+    const auto finish_time = std::chrono::steady_clock::now();
+    const auto profile = make_test_profile("unit_box");
+    const Eigen::Vector3d begin_pos = Eigen::Vector3d(1, 1, 1);
+    const Eigen::Vector3d begin_vel = Eigen::Vector3d(1, 1, 1);
+
+    auto result = trajectory.insert(finish_time, profile, begin_pos, begin_vel);
+    const rmf_traffic::Trajectory::iterator first_it = result.it;
+    REQUIRE(result.inserted);
+
+    const auto finish_time_2 = std::chrono::steady_clock::now() + 10s;
+    const auto profile_2 = make_test_profile("unit_box");
+    const Eigen::Vector3d begin_pos_2 = Eigen::Vector3d(2, 0, 3);
+    const Eigen::Vector3d begin_vel_2 = Eigen::Vector3d(2, 0, 3);
+
+    auto result_2 = trajectory.insert(finish_time_2, profile_2, begin_pos_2, begin_vel_2);
+    const rmf_traffic::Trajectory::iterator second_it = result_2.it;
+    REQUIRE(result_2.inserted);
+
+    REQUIRE(first_it < second_it);
+  }
+}
 
 // TEST_CASE("Construct a Trajectory")
 // {
@@ -104,29 +267,29 @@ SCENARIO("Class Profile unit tests")
 
 //   const auto profile = make_test_profile();
 
-//   const auto begin_time = std::chrono::steady_clock::now();
+//   const auto finish_time = std::chrono::steady_clock::now();
 //   const Eigen::Vector3d begin_p = Eigen::Vector3d(0, 0, 0);
 //   const Eigen::Vector3d begin_v = Eigen::Vector3d(0, 0, 0);
 
 //   auto result = trajectory.insert(
-//         begin_time, profile, begin_p, begin_v);
+//         finish_time, profile, begin_p, begin_v);
 
-//   const rmf_traffic::Trajectory::iterator begin_it = result.it;
+//   const rmf_traffic::Trajectory::iterator first_it = result.it;
 //   CHECK(result.inserted);
 
-//   CHECK(begin_it == trajectory.begin());
+//   CHECK(first_it == trajectory.begin());
 //   CHECK(trajectory.begin() != trajectory.end());
-//   CHECK(begin_it != trajectory.end());
-//   CHECK(begin_it < trajectory.end());
-//   CHECK(begin_it <= trajectory.end());
-//   CHECK(trajectory.end() > begin_it);
+//   CHECK(first_it != trajectory.end());
+//   CHECK(first_it < trajectory.end());
+//   CHECK(first_it <= trajectory.end());
+//   CHECK(trajectory.end() > first_it);
 //   CHECK(trajectory.end() >= trajectory.end());
 
-//   CHECK(begin_p == begin_it->get_position());
-//   CHECK(begin_v == begin_it->get_velocity());
-//   CHECK(begin_time == begin_it->get_finish_time());
+//   CHECK(begin_p == first_it->get_position());
+//   CHECK(begin_v == first_it->get_velocity());
+//   CHECK(finish_time == first_it->get_finish_time());
 
-//   const auto second_time = begin_time + 10s;
+//   const auto second_time = finish_time + 10s;
 //   const Eigen::Vector3d second_p = Eigen::Vector3d(1, 2, 3);
 //   const Eigen::Vector3d second_v = Eigen::Vector3d(3, 2, 1);
 
@@ -143,11 +306,11 @@ SCENARIO("Class Profile unit tests")
 //   CHECK(trajectory.begin() < second_it);
 //   CHECK(trajectory.begin() <= second_it);
 
-//   CHECK(second_it != begin_it);
-//   CHECK(second_it > begin_it);
-//   CHECK(second_it >= begin_it);
-//   CHECK(begin_it < second_it);
-//   CHECK(begin_it <= second_it);
+//   CHECK(second_it != first_it);
+//   CHECK(second_it > first_it);
+//   CHECK(second_it >= first_it);
+//   CHECK(first_it < second_it);
+//   CHECK(first_it <= second_it);
 
 //   CHECK(second_it != trajectory.end());
 //   CHECK(second_it < trajectory.end());
@@ -166,20 +329,20 @@ SCENARIO("Class Profile unit tests")
 
 //   rmf_traffic::Trajectory trajectory{"test_map"};
 
-//   const auto begin_time = std::chrono::steady_clock::now();
+//   const auto finish_time = std::chrono::steady_clock::now();
 
 //   trajectory.insert(
-//         begin_time, make_test_profile(),
+//         finish_time, make_test_profile(),
 //         Eigen::Vector3d::UnitX(),
 //         Eigen::Vector3d::UnitX());
 
 //   trajectory.insert(
-//         begin_time + 10s, make_test_profile(),
+//         finish_time + 10s, make_test_profile(),
 //         Eigen::Vector3d::UnitY(),
 //         Eigen::Vector3d::UnitY());
 
 //   trajectory.insert(
-//         begin_time + 15s, make_test_profile(),
+//         finish_time + 15s, make_test_profile(),
 //         Eigen::Vector3d::UnitZ(),
 //         Eigen::Vector3d::UnitZ());
 
