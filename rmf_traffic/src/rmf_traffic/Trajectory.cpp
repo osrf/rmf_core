@@ -17,8 +17,11 @@
 
 #include <rmf_traffic/Trajectory.hpp>
 
-#include <map>
+#include "debug_Trajectory.hpp"
+
+#include <iostream>
 #include <list>
+#include <map>
 #include <string>
 
 namespace rmf_traffic {
@@ -465,6 +468,7 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
 {
   SegmentList& segments = _pimpl->parent->segments;
   const SegmentList::iterator begin_it = _pimpl->myself;
+  const Time original_begin_time = begin_it->finish_time;
 
   if(delta_t.count() < 0 && begin_it != segments.begin())
   {
@@ -499,7 +503,7 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
   }
 
   OrderMap& ordering = _pimpl->parent->ordering;
-  const OrderMap::iterator order_it = ordering.find(begin_it->finish_time);
+  const OrderMap::iterator order_it = ordering.find(original_begin_time);
   assert(order_it != ordering.end());
 
   // Erase the existing ordering entries for all the modified Trajectory
@@ -790,5 +794,67 @@ Trajectory::base_iterator<SegT>::base_iterator()
 //==============================================================================
 template class Trajectory::base_iterator<Trajectory::Segment>;
 template class Trajectory::base_iterator<const Trajectory::Segment>;
+
+//==============================================================================
+bool Trajectory::Debug::check_iterator_time_consistency(
+    const Trajectory& trajectory, const bool print_inconsistency)
+{
+  assert(trajectory._pimpl);
+
+  const SegmentList& segments = trajectory._pimpl->segments;
+  const OrderMap& ordering = trajectory._pimpl->ordering;
+
+  bool consistent = true;
+
+  SegmentList::const_iterator s_it = segments.begin();
+  OrderMap::const_iterator o_it = ordering.begin();
+  for( ; s_it != segments.end() && o_it != ordering.end(); ++s_it, ++o_it)
+  {
+    consistent &= s_it->finish_time == o_it->first;
+  }
+
+  consistent &= s_it == segments.end();
+  consistent &= o_it == ordering.end();
+
+  if(print_inconsistency && !consistent)
+  {
+    std::size_t index = 0;
+    s_it = segments.begin();
+    o_it = ordering.begin();
+    std::cout << "Trajectory time inconsistency detected: "
+              << "( ordering | segments | difference )\n";
+    for( ; s_it != segments.end() && o_it != ordering.end();
+         ++s_it, ++o_it, ++index)
+    {
+      const auto difference = o_it->first - s_it->finish_time;
+      std::cout << " -- [" << index << "] "
+                << o_it->first.time_since_epoch().count()/1e9 << " | "
+                << s_it->finish_time.time_since_epoch().count()/1e9 << " | "
+                << "Difference: " << difference.count()/1e9 << "\n";
+    }
+
+    if(s_it != segments.end())
+    {
+      std::cout << " -- more elements in segments\n";
+      for( ; s_it != segments.end(); ++s_it, ++index)
+      {
+        std::cout << "      -- [" << index << "] "
+                  << s_it->finish_time.time_since_epoch().count()/1e9 << "\n";
+      }
+    }
+    if(o_it != ordering.end())
+    {
+      std::cout << " -- more elements in ordering:\n";
+      for( ; o_it != ordering.end(); ++o_it, ++index)
+      {
+        std::cout << "     -- [" << index << "] "
+                  << o_it->first.time_since_epoch().count()/1e9 << "\n";
+      }
+    }
+    std::cout << std::endl;
+  }
+
+  return consistent;
+}
 
 } // namespace rmf_traffic

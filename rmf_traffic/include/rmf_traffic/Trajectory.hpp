@@ -361,6 +361,10 @@ public:
   /// empty or if it has only one Segment.
   Duration duration() const;
 
+  /// \internal Used internally by unit and integration tests so we can test
+  /// private imeplementation details.
+  class Debug;
+
 private:
   friend class detail::TrajectoryIteratorImplementation;
   class Implementation;

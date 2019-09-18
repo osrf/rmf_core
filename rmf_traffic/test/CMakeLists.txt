@@ -20,3 +20,8 @@ target_link_libraries(test_rmf_traffic
     rmf_traffic
     ${PC_FCL_LIBRARIES}
 )
+
+target_include_directories(test_rmf_traffic
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/..>
+)

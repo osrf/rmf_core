@@ -19,6 +19,8 @@
 #include <rmf_traffic/geometry/Box.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 
+#include <src/rmf_traffic/debug_Trajectory.hpp>
+
 #include <rmf_utils/catch.hpp>
 #include <iostream>
 
@@ -284,6 +286,10 @@ SCENARIO("Class Segment unit tests")
     {
       const auto new_finish_time = finish_time_3 - 25s;
       third_it->set_finish_time(new_finish_time);
+
+      CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
+            trajectory, true));
+
       CHECK(third_it < first_it);
       CHECK(first_it < second_it);
     }
@@ -301,9 +307,13 @@ SCENARIO("Class Segment unit tests")
     WHEN("Adding times across all segments") 
     {
       first_it->adjust_finish_times(2s);
+
+      CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
+            trajectory, true));
+
       CHECK(first_it->get_finish_time() == finish_time + 2s);
-      // CHECK(second_it->get_finish_time() == finish_time + 15s + 10s);
-      // CHECK(third_it->get_finish_time() == finish_time + 25s + 10s);
+      CHECK(second_it->get_finish_time() == finish_time_2 + 2s);
+      CHECK(third_it->get_finish_time() == finish_time_3 + 2s);
     }
 
   }
