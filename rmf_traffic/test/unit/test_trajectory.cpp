@@ -141,16 +141,6 @@ SCENARIO("base_iterator unit tests")
       CHECK(first_it != second_it);
       CHECK(first_it < second_it);
     }
-
-    WHEN("Verifying trajectory iterator notation")
-    {
-      // TODO: Dereference and Drill down behavior
-      CHECK(trajectory.begin() == first_it);
-      CHECK(trajectory.begin()++ == second_it);
-      CHECK(trajectory.begin()-- == first_it);
-      CHECK(++trajectory.begin() == second_it);
-      CHECK(--trajectory.begin() == second_it);
-    }
   }
 }
 
@@ -227,7 +217,7 @@ SCENARIO("Class Segment unit tests")
     }
   }
 
-  GIVEN("Testing automatic reordering when setting finish times")
+  GIVEN("Test automatic reordering when setting finish times")
   {
     using namespace std::chrono_literals;
 
@@ -253,8 +243,71 @@ SCENARIO("Class Segment unit tests")
     const rmf_traffic::Trajectory::iterator second_it = result_2.it;
     REQUIRE(result_2.inserted);
 
+    const auto finish_time_3 = std::chrono::steady_clock::now() + 20s;
+    const auto profile_3 = make_test_profile("unit_box");
+    const Eigen::Vector3d begin_pos_3 = Eigen::Vector3d(4, 2, 6);
+    const Eigen::Vector3d begin_vel_3 = Eigen::Vector3d(6, 2, 4);
+
+    auto result_3 = trajectory.insert(finish_time_3, profile_3, begin_pos_3, begin_vel_3);
+    const rmf_traffic::Trajectory::iterator third_it = result_3.it;
+    REQUIRE(result_3.inserted);
+
+    REQUIRE(trajectory.begin() == first_it);
     REQUIRE(first_it < second_it);
+    REQUIRE(second_it < third_it);
+
+    WHEN("Single forward time shift for one positional swap")
+    {
+      const auto new_finish_time = finish_time + 15s;
+      first_it->set_finish_time(new_finish_time);
+      CHECK(second_it < first_it);
+      CHECK(first_it < third_it);
+    }
+
+    WHEN("Single forward time shift for two positional swap")
+    {
+      const auto new_finish_time = finish_time + 25s;
+      first_it->set_finish_time(new_finish_time);
+      CHECK(second_it < third_it);
+      CHECK(third_it < first_it);
+    }
+
+    WHEN("Single backward time shift for one positional swap")
+    {
+      const auto new_finish_time = finish_time_3 - 15s;
+      third_it->set_finish_time(new_finish_time);
+      CHECK(first_it < third_it);
+      CHECK(third_it < second_it);
+    }
+
+     WHEN("Single backward time shift for two positional swap")
+    {
+      const auto new_finish_time = finish_time_3 - 25s;
+      third_it->set_finish_time(new_finish_time);
+      CHECK(third_it < first_it);
+      CHECK(first_it < second_it);
+    }
+
+    WHEN("Forward time shift with time conflict")
+    {
+      CHECK_THROWS(first_it->set_finish_time(finish_time_2));
+    }
+
+    WHEN("Backward time shift with time conflict")
+    {
+      CHECK_THROWS(third_it->set_finish_time(finish_time_2));
+    }
+
+    WHEN("Adding times across all segments") 
+    {
+      // first_it->adjust_finish_times(10s);
+      // CHECK(first_it->get_finish_time() == finish_time + 10s);
+      // CHECK(second_it->get_finish_time() == finish_time + 15s + 10s);
+      // CHECK(third_it->get_finish_time() == finish_time + 25s + 10s);
+    }
+
   }
+
 }
 
 // TEST_CASE("Construct a Trajectory")
