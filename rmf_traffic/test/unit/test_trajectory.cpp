@@ -300,8 +300,8 @@ SCENARIO("Class Segment unit tests")
 
     WHEN("Adding times across all segments") 
     {
-      // first_it->adjust_finish_times(10s);
-      // CHECK(first_it->get_finish_time() == finish_time + 10s);
+      first_it->adjust_finish_times(2s);
+      CHECK(first_it->get_finish_time() == finish_time + 2s);
       // CHECK(second_it->get_finish_time() == finish_time + 15s + 10s);
       // CHECK(third_it->get_finish_time() == finish_time + 25s + 10s);
     }
