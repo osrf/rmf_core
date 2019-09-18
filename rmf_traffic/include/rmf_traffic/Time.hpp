@@ -15,26 +15,21 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE_HPP
-#define RMF_TRAFFIC__SCHEDULE_HPP
+#ifndef RMF_TRAFFIC__TIME_HPP
+#define RMF_TRAFFIC__TIME_HPP
 
-#include <rmf_utils/impl_ptr.hpp>
+#include <chrono>
 
 namespace rmf_traffic {
 
-class Schedule
-{
-public:
+/// Specifies a specific point in time, with nanosecond precision.
+///
+/// Conventionally this will be represented relative to the Unix Epoch.
+using Time = std::chrono::steady_clock::time_point;
 
-
-
-private:
-
-  class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
-
-};
+/// Specifies a change in time, with nanosecond precision.
+using Duration = std::chrono::steady_clock::duration;
 
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SCHEDULE_HPP
+#endif // RMF_TRAFFIC__TIME_HPP

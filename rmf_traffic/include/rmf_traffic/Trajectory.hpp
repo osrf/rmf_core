@@ -19,12 +19,12 @@
 #define RMF_TRAFFIC__TRAJECTORY_HPP
 
 #include <rmf_traffic/geometry/ConvexShape.hpp>
+#include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <Eigen/Geometry>
 
-#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -41,10 +41,6 @@ class TrajectoryIteratorImplementation;
 class Trajectory
 {
 public:
-
-  /// Data structure for storing time.
-  using Time = std::chrono::steady_clock::time_point;
-  using Duration = std::chrono::steady_clock::duration;
 
   class Profile;
   using ProfilePtr = std::shared_ptr<Profile>;
