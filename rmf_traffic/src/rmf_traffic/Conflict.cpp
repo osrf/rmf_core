@@ -86,7 +86,7 @@ public:
   {
     ConflictData result;
     result._pimpl = rmf_utils::make_impl<ConflictData::Implementation>(
-          time, std::move(segments));
+          ConflictData::Implementation{time, std::move(segments)});
 
     return result;
   }
