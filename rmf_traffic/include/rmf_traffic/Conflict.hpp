@@ -52,64 +52,21 @@ public:
   ConflictData();
 
 private:
-  friend class ConflictResult;
+  friend class DetectConflict;
   class Implementation;
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 //==============================================================================
-class bad_conflict_access : public std::exception
+class invalid_trajectory_error : public std::exception
 {
 public:
 
   const char* what() const noexcept override;
 
-  bad_conflict_access();
-
-private:
   class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
-};
-
-//==============================================================================
-class ConflictResult
-{
-public:
-
-  /// Returns true if a conflict was detected, otherwise returns false.
-  bool has_conflict() const;
-
-  /// Implicitly casts this object into a boolean, determined by has_conflict().
-  operator bool() const;
-
-
-  /// Dereference operator.
-  ///
-  /// Get a reference to the ConflictData for this result, if a conflict was
-  /// detected.
-  ///
-  /// \warning If no conflict was detected, then a bad_conflict_access exception
-  /// will be thrown.
-  const ConflictData& operator*() const;
-
-  /// Drill-down operator.
-  ///
-  /// Call a member function of the ConflictData for this result, if a conflict
-  /// was detected.
-  ///
-  /// \warning If no conflict was detected, then a bad_conflict_access exception
-  /// will be thrown.
-  const ConflictData* operator->() const;
-
-  /// Create an unitialized ConflictResult.
-  ///
-  /// This will be considered conflict-free until another ConflictResult is
-  /// assigned to it.
-  ConflictResult();
-
 private:
-  friend class DetectConflict;
-  class Implementation;
+  invalid_trajectory_error();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
@@ -122,7 +79,7 @@ public:
   ///
   /// First broad_phase will be run, and if there is an intersection in the
   /// broad_phase, then the result of narrow_phase will be returned.
-  static ConflictResult between(
+  static std::vector<ConflictData> between(
       const Trajectory& trajectory_a,
       const Trajectory& trajectory_b);
 
@@ -144,7 +101,7 @@ public:
   /// pair of Trajectories that would fail the broad_phase() test. Segmentation
   /// faults or false positives may occur when this function is called on
   /// Trajectories that do not pass the broad_phase test.
-  static ConflictResult narrow_phase(
+  static std::vector<ConflictData> narrow_phase(
       const Trajectory& trajectory_a,
       const Trajectory& trajectory_b);
 

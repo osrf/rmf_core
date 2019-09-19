@@ -200,4 +200,16 @@ fcl::SplineMotion Spline::to_fcl(
       Rd[0], Rd[1], Rd[2], Rd[3]);
 }
 
+//==============================================================================
+Time Spline::start_time() const
+{
+  return params.time_range[0];
+}
+
+//==============================================================================
+Time Spline::finish_time() const
+{
+  return params.time_range[1];
+}
+
 } // namespace rmf_traffic

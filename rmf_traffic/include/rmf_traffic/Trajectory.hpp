@@ -357,9 +357,13 @@ public:
   /// Trajectory is empty.
   const Time* finish_time() const;
 
-  /// Get the duration of the trajectory. This will be 0 if the Trajectory is
+  /// Get the duration of the Trajectory. This will be 0 if the Trajectory is
   /// empty or if it has only one Segment.
   Duration duration() const;
+
+  /// Get the number of Segments in the Trajectory. To be used in conflict
+  /// detection, the Trajectory must have a size of at least 2.
+  std::size_t size() const;
 
   /// \internal Used internally by unit and integration tests so we can test
   /// private imeplementation details.

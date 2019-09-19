@@ -659,6 +659,12 @@ Duration Trajectory::duration() const
 }
 
 //==============================================================================
+std::size_t Trajectory::size() const
+{
+  return _pimpl->segments.size();
+}
+
+//==============================================================================
 template<typename SegT>
 SegT& Trajectory::base_iterator<SegT>::operator*() const
 {
