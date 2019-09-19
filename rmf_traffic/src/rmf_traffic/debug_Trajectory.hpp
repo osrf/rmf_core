@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SRC__DEBUG_TRAJECTORY_HPP
-#define RMF_TRAFFIC__SRC__DEBUG_TRAJECTORY_HPP
+#ifndef SRC__RMF_TRAFFIC__DEBUG_TRAJECTORY_HPP
+#define SRC__RMF_TRAFFIC__DEBUG_TRAJECTORY_HPP
 
 #include <rmf_traffic/Trajectory.hpp>
 
@@ -33,4 +33,4 @@ public:
 
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SRC__DEBUG_TRAJECTORY_HPP
+#endif // SRC__RMF_TRAFFIC__DEBUG_TRAJECTORY_HPP
