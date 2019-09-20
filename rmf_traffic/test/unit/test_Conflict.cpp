@@ -196,3 +196,5 @@ SCENARIO("Test conflicts")
 /// * trajectories that do not overlap in time at all to test
 ///   DetectConflict::between() and DetectConflict::broad_phase()
 /// * trajectories that include rotating boxes which collide due to rotating
+
+// A useful website for playing with 2D cubic splines: https://www.desmos.com/calculator/
