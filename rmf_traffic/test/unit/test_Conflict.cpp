@@ -189,3 +189,10 @@ SCENARIO("Test conflicts")
     }
   }
 }
+
+/// Remaining test suggestions:
+/// * multi-segment trajectories
+/// * trajectories that only partially overlap in time
+/// * trajectories that do not overlap in time at all to test
+///   DetectConflict::between() and DetectConflict::broad_phase()
+/// * trajectories that include rotating boxes which collide due to rotating
