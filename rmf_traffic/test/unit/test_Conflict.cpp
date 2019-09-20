@@ -155,8 +155,8 @@ SCENARIO("Test conflicts")
             trajectory_a, trajectory_b);
       REQUIRE(conflicts.size() == 1);
 
-      // Note: The expected collision time is sqrt(30)
-      const double expected_time = 5.47722557505;
+      // Note: The expected collision time, calculated by hand, is sqrt(30)
+      const double expected_time = std::sqrt(30.0);
       const double computed_time =
           rmf_traffic::to_seconds(conflicts.front().get_time() - begin_time);
 
