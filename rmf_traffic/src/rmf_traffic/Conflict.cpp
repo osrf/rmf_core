@@ -213,6 +213,12 @@ get_initial_iterators(
     const Trajectory& trajectory_a,
     const Trajectory& trajectory_b)
 {
+  std::size_t min_size = std::min(trajectory_a.size(), trajectory_b.size());
+  if(min_size < 2)
+  {
+    throw invalid_trajectory_error::Implementation
+        ::make_segment_num_error(min_size);
+  }
 
   const Time& t_a0 = *trajectory_a.start_time();
   const Time& t_b0 = *trajectory_b.start_time();

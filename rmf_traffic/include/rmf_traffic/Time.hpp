@@ -30,6 +30,15 @@ using Time = std::chrono::steady_clock::time_point;
 /// Specifies a change in time, with nanosecond precision.
 using Duration = std::chrono::steady_clock::duration;
 
+/// Change the given duration from a nanosecond count to a double-precision
+/// floating-point representation in seconds.
+double to_seconds(const Duration delta_t);
+
+// TODO(MXG): Make user-friendly interfaces for interacting with the STL
+// time points and durations. They have good semantics from a technical point
+// of view, but they tend to be difficult for users to do tests and experiments
+// with, so it might be good to provide some APIs to help people use it.
+
 } // namespace rmf_traffic
 
 #endif // RMF_TRAFFIC__TIME_HPP

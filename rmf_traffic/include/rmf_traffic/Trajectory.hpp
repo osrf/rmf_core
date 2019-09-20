@@ -65,7 +65,7 @@ public:
 
     /// The Trajectory::Profile::Agency enum describes how much freedom the
     /// robot has during this phase of its Trajectory.
-    enum Agency {
+    enum class Agency {
 
       /// This agency type is illegal and will always be rejected by the
       /// schedule verifier. Having this movement type implies a major bug in
@@ -114,8 +114,8 @@ public:
     /// Set the shape that will be used by this profile
     void set_shape(geometry::ConstConvexShapePtr new_shape);
 
-    /// Get the movement being used for this profile
-    Agency get_movement() const;
+    /// Get the agency type being used for this profile
+    Agency get_agency() const;
 
     /// Set the movement of this profile to Strict
     void set_to_strict();

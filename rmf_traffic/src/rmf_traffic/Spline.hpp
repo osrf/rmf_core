@@ -56,6 +56,9 @@ public:
     std::array<Time, 2> time_range;
   };
 
+  // These functions are currently only for debugging
+  Eigen::Vector3d compute_position(const Time at_time) const;
+
 private:
 
   Parameters params;

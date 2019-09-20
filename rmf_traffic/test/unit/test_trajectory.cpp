@@ -15,52 +15,36 @@
  *
 */
 
-#include <rmf_traffic/Trajectory.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
-#include <rmf_traffic/geometry/Circle.hpp>
+#include "utils_Trajectory.hpp"
 
 #include <src/rmf_traffic/debug_Trajectory.hpp>
 
 #include <rmf_utils/catch.hpp>
-#include <iostream>
 
-rmf_traffic::Trajectory::ProfilePtr make_test_profile(std::string shape)
-{
-  if (shape == "unit_box")
-  {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
-  }
-  else if (shape == "unit_circle")
-  {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
-  }
-  else
-  {
-    REQUIRE(false);
-    return 0;
-  }
-}
+#include <iostream>
 
 SCENARIO("Class Profile unit tests")
 {
 
   GIVEN("Checking Accessor Functions")
   {
-    std::shared_ptr<rmf_traffic::geometry::Box> profile_shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
-    rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(profile_shape);
+    std::shared_ptr<rmf_traffic::geometry::Box> profile_shape =
+        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+    rmf_traffic::Trajectory::ProfilePtr profile =
+        rmf_traffic::Trajectory::Profile::make_strict(profile_shape);
 
     WHEN("Initial Configuration")
     {
-      REQUIRE(profile->get_movement() == 1);
+      REQUIRE(profile->get_agency() ==
+              rmf_traffic::Trajectory::Profile::Agency::Strict);
       REQUIRE(profile->get_shape() == profile_shape);
     }
 
     WHEN("Change Agency to Autonomous")
     {
       profile->set_to_autonomous();
-      CHECK(profile->get_movement() == 2);
+      CHECK(profile->get_agency() ==
+            rmf_traffic::Trajectory::Profile::Agency::Autonomous);
     }
 
     WHEN("Change Agency to Queued")
@@ -73,21 +57,23 @@ SCENARIO("Class Profile unit tests")
 
     WHEN("Change Shape to Unit Circle")
     {
-      std::shared_ptr<rmf_traffic::geometry::Circle> new_profile_shape = std::make_shared<rmf_traffic::geometry::Circle>(1.0);
+      std::shared_ptr<rmf_traffic::geometry::Circle> new_profile_shape =
+          std::make_shared<rmf_traffic::geometry::Circle>(1.0);
       profile->set_shape(new_profile_shape);
 
-      CHECK(profile->get_movement() == 1);
+      CHECK(profile->get_agency() ==
+            rmf_traffic::Trajectory::Profile::Agency::Strict);
       CHECK(profile->get_shape() == new_profile_shape);
     }
   }
 
   GIVEN("Checking Dirty Input")
   {
-    rmf_traffic::Trajectory::ProfilePtr profile = make_test_profile("unit_box");
+    rmf_traffic::Trajectory::ProfilePtr profile = make_test_profile(UnitBox);
 
-    WHEN("Giving NULL as queue_id is not allowed")
+    WHEN("Giving nullptr as queue_id is not allowed")
     {
-      CHECK_THROWS(profile->set_to_queued(NULL));
+      CHECK_THROWS(profile->set_to_queued(nullptr));
     }
   }
 }
@@ -103,7 +89,7 @@ SCENARIO("base_iterator unit tests")
     REQUIRE(trajectory.end() == trajectory.end());
 
     const auto finish_time = std::chrono::steady_clock::now();
-    const auto profile = make_test_profile("unit_box");
+    const auto profile = make_test_profile(UnitBox);
     const Eigen::Vector3d begin_pos = Eigen::Vector3d(1, 1, 1);
     const Eigen::Vector3d begin_vel = Eigen::Vector3d(1, 1, 1);
 
@@ -113,7 +99,7 @@ SCENARIO("base_iterator unit tests")
     REQUIRE(trajectory.begin() == first_it);
 
     const auto finish_time_2 = std::chrono::steady_clock::now() + 10s;
-    const auto profile_2 = make_test_profile("unit_box");
+    const auto profile_2 = make_test_profile(UnitBox);
     const Eigen::Vector3d begin_pos_2 = Eigen::Vector3d(2, 0, 3);
     const Eigen::Vector3d begin_vel_2 = Eigen::Vector3d(2, 0, 3);
 
@@ -157,7 +143,7 @@ SCENARIO("Class Segment unit tests")
     REQUIRE(trajectory.end() == trajectory.end());
 
     const auto finish_time = std::chrono::steady_clock::now();
-    const auto profile = make_test_profile("unit_box");
+    const auto profile = make_test_profile(UnitBox);
     const Eigen::Vector3d begin_pos = Eigen::Vector3d(0, 0, 0);
     const Eigen::Vector3d begin_vel = Eigen::Vector3d(0, 0, 0);
 
@@ -176,7 +162,7 @@ SCENARIO("Class Segment unit tests")
 
     WHEN("Setting a new profile")
     {
-      const auto new_profile = make_test_profile("unit_circle");
+      const auto new_profile = make_test_profile(UnitCircle);
       segment.set_profile(new_profile);
       CHECK(segment.get_profile() == new_profile);
       CHECK(segment.get_profile() != profile);
@@ -185,7 +171,8 @@ SCENARIO("Class Segment unit tests")
     WHEN("Mutating current profile")
     {
       profile->set_to_autonomous();
-      CHECK(segment.get_profile()->get_movement() == 2);
+      CHECK(segment.get_profile()->get_agency() ==
+            rmf_traffic::Trajectory::Profile::Agency::Autonomous);
 
       const auto new_shape = std::make_shared<rmf_traffic::geometry::Circle>(1.0);
       profile->set_shape(new_shape);
@@ -228,7 +215,7 @@ SCENARIO("Class Segment unit tests")
     REQUIRE(trajectory.end() == trajectory.end());
 
     const auto finish_time = std::chrono::steady_clock::now();
-    const auto profile = make_test_profile("unit_box");
+    const auto profile = make_test_profile(UnitBox);
     const Eigen::Vector3d begin_pos = Eigen::Vector3d(1, 1, 1);
     const Eigen::Vector3d begin_vel = Eigen::Vector3d(1, 1, 1);
 
@@ -237,7 +224,7 @@ SCENARIO("Class Segment unit tests")
     REQUIRE(result.inserted);
 
     const auto finish_time_2 = std::chrono::steady_clock::now() + 10s;
-    const auto profile_2 = make_test_profile("unit_box");
+    const auto profile_2 = make_test_profile(UnitBox);
     const Eigen::Vector3d begin_pos_2 = Eigen::Vector3d(2, 0, 3);
     const Eigen::Vector3d begin_vel_2 = Eigen::Vector3d(2, 0, 3);
 
@@ -246,7 +233,7 @@ SCENARIO("Class Segment unit tests")
     REQUIRE(result_2.inserted);
 
     const auto finish_time_3 = std::chrono::steady_clock::now() + 20s;
-    const auto profile_3 = make_test_profile("unit_box");
+    const auto profile_3 = make_test_profile(UnitBox);
     const Eigen::Vector3d begin_pos_3 = Eigen::Vector3d(4, 2, 6);
     const Eigen::Vector3d begin_vel_3 = Eigen::Vector3d(6, 2, 4);
 

@@ -25,10 +25,10 @@ namespace {
 Eigen::Matrix4d make_M_inv()
 {
   Eigen::Matrix4d M;
-  M.block<1,4>(0,0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
-  M.block<1,4>(1,0) <<  1.0/2.0,    -1.0,  1.0/2.0,     0.0;
-  M.block<1,4>(2,0) << -1.0/2.0,     0.0,  1.0/2.0,     0.0;
-  M.block<1,4>(3,0) <<  1.0/6.0, 2.0/3.0,  1.0/6.0,     0.0;
+  M.block<1,4>(0,0) <<  1.0/6.0, 2.0/3.0,  1.0/6.0,     0.0;
+  M.block<1,4>(1,0) << -1.0/2.0,     0.0,  1.0/2.0,     0.0;
+  M.block<1,4>(2,0) <<  1.0/2.0,    -1.0,  1.0/2.0,     0.0;
+  M.block<1,4>(3,0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
 
   return M.inverse();
 }
@@ -50,10 +50,10 @@ std::array<Eigen::Vector4d, 3> compute_coefficients(
   std::array<Eigen::Vector4d, 3> coeffs;
   for(int i=0; i < 3; ++i)
   {
-    coeffs[i][3] =  v1[i] +   v0[i] - 2*x1[i] + 2*x0[i]; // = a
-    coeffs[i][2] = -v1[i] - 2*v0[i] + 3*x1[i] - 3*x0[i]; // = b
-    coeffs[i][1] =            v0[i];                     // = c
     coeffs[i][0] =                                x0[i]; // = d
+    coeffs[i][1] =            v0[i];                     // = c
+    coeffs[i][2] = -v1[i] - 2*v0[i] + 3*x1[i] - 3*x0[i]; // = b
+    coeffs[i][3] =  v1[i] +   v0[i] - 2*x1[i] + 2*x0[i]; // = a
   }
 
   return coeffs;
@@ -158,8 +158,10 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
   const double scaled_start_time = compute_scaled_time(start_time, params);
   const double scaled_finish_time = compute_scaled_time(finish_time, params);
 
-  const Eigen::Vector3d x0 = compute_position(params, scaled_start_time);
-  const Eigen::Vector3d x1 = compute_position(params, scaled_finish_time);
+  const Eigen::Vector3d x0 =
+      rmf_traffic::compute_position(params, scaled_start_time);
+  const Eigen::Vector3d x1 =
+      rmf_traffic::compute_position(params, scaled_finish_time);
   const Eigen::Vector3d v0 =
       scaled_delta_t * compute_velocity(params, scaled_start_time);
   const Eigen::Vector3d v1 =
@@ -210,6 +212,13 @@ Time Spline::start_time() const
 Time Spline::finish_time() const
 {
   return params.time_range[1];
+}
+
+//==============================================================================
+Eigen::Vector3d Spline::compute_position(const Time at_time) const
+{
+  return rmf_traffic::compute_position(
+        params, compute_scaled_time(at_time, params));
 }
 
 } // namespace rmf_traffic

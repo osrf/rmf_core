@@ -305,7 +305,7 @@ void Trajectory::Profile::set_shape(geometry::ConstConvexShapePtr new_shape)
 }
 
 //==============================================================================
-Trajectory::Profile::Agency Trajectory::Profile::get_movement() const
+Trajectory::Profile::Agency Trajectory::Profile::get_agency() const
 {
   return _pimpl->movement;
 }
@@ -313,19 +313,19 @@ Trajectory::Profile::Agency Trajectory::Profile::get_movement() const
 //==============================================================================
 void Trajectory::Profile::set_to_strict()
 {
-  _pimpl->movement = Strict;
+  _pimpl->movement = Agency::Strict;
 }
 
 //==============================================================================
 void Trajectory::Profile::set_to_autonomous()
 {
-  _pimpl->movement = Autonomous;
+  _pimpl->movement = Agency::Autonomous;
 }
 
 //==============================================================================
 void Trajectory::Profile::set_to_queued(const std::string& queue_id)
 {
-  _pimpl->movement = Queued;
+  _pimpl->movement = Agency::Queued;
   _pimpl->queue_id = queue_id;
 }
 
@@ -345,7 +345,7 @@ Trajectory::Profile::QueueInfo::QueueInfo(void* pimpl)
 //==============================================================================
 auto Trajectory::Profile::get_queue_info() const -> const QueueInfo*
 {
-  if(Queued == _pimpl->movement)
+  if(Agency::Queued == _pimpl->movement)
     return &_pimpl->queue_info;
 
   return nullptr;
