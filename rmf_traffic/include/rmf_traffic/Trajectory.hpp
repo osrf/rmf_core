@@ -63,37 +63,39 @@ public:
   {
   public:
 
-    /// The Trajectory::Profile::Movement enum describes how the robot intends
-    /// to move while following its trajectory.
-    enum Movement {
+    /// The Trajectory::Profile::Agency enum describes how much freedom the
+    /// robot has during this phase of its Trajectory.
+    enum Agency {
 
-      /// This movement type is illegal and will always be rejected by the
+      /// This agency type is illegal and will always be rejected by the
       /// schedule verifier. Having this movement type implies a major bug in
       /// the code and should be reported immediately.
       Unspecified = 0,
 
-      /// The robot will follow the specified trajectory exactly.
+      /// The robot will try to follow the specified trajectory exactly, and
+      /// the collision geometry represents all of the clearance space that the
+      /// robot will need while traveling.
       Strict,
-
-      /// The robot will autonomously navigate within the specified space.
-      Autonomous,
 
       /// The robot is waiting in a queue, and will wait to traverse the
       /// trajectory segment until the rmf_traffic_monitor tells it to proceed.
+      /// The collision geometry represents all the clearance space that the
+      /// robot will need while waiting.
       Queued,
+
+      /// The robot will autonomously navigate within the specified space. The
+      /// robot will only occupy a subset of the space that is specified by the
+      /// collision geometry, but the Fleet Adapter cannot predict ahead of time
+      /// exactly what that occupied space will be.
+      ///
+      /// If this plan is accepted by the Schedule, then any time another plan
+      /// is submitted where a Strict or Queued trajectory segment conflicts
+      /// with this Trajectory's Autonomous space, the Fleet Adapter that
+      /// submitted this Trajectory will be asked to approve or reject the other
+      /// plan based on whether the other plan will interfere with this
+      /// Trajectory.
+      Autonomous,
     };
-
-    // Collision table:
-    // |=============================================|
-    // | Movement   | Strict  | Autonomous | Queued  |
-    // |------------+---------+------------+---------|
-    // | Strict     | COLLIDE |   okay     | COLLIDE |
-    // |------------+---------+------------+---------|
-    // | Autonomous |  okay   |  COLLIDE   |  okay   |
-    // |------------+---------+------------+---------|
-    // | Queued     | COLLIDE |   okay     | COLLIDE |
-    // |=============================================|
-
 
     /// Create a profile with Strict movement
     static ProfilePtr make_strict(geometry::ConstConvexShapePtr shape);
@@ -113,7 +115,7 @@ public:
     void set_shape(geometry::ConstConvexShapePtr new_shape);
 
     /// Get the movement being used for this profile
-    Movement get_movement() const;
+    Agency get_movement() const;
 
     /// Set the movement of this profile to Strict
     void set_to_strict();
@@ -172,7 +174,7 @@ public:
     ///
     /// This is a 2D homogeneous position. The first two values in the vector
     /// are x and y coordinates, while the third is rotation about the z-axis.
-    Eigen::Vector3d get_position() const;
+    Eigen::Vector3d get_finish_position() const;
 
     /// Set the intended physical location of the robot at the end of this
     /// Trajectory Segment.
@@ -182,7 +184,7 @@ public:
     ///
     /// \param[in] new_position
     ///   The new finishing position for this Trajectory Segment.
-    void set_position(Eigen::Vector3d new_position);
+    void set_finish_position(Eigen::Vector3d new_position);
 
     /// Get the intended velocity of the robot at the end of this Trajectory
     /// Segment.
@@ -190,7 +192,7 @@ public:
     /// This is a 2D homogeneous position. The first two values in the vector
     /// are x and y velocities, while the third is rotational velocity about the
     /// z-axis.
-    Eigen::Vector3d get_velocity() const;
+    Eigen::Vector3d get_finish_velocity() const;
 
     /// Set the intended velocity of the robot at the end of this Trajectory
     /// Segment.
@@ -200,7 +202,7 @@ public:
     ///
     /// \param[in] new_velocity
     ///   The new finishing velocity for this Trajectory Segment.
-    void set_velocity(Eigen::Vector3d new_velocity);
+    void set_finish_velocity(Eigen::Vector3d new_velocity);
 
     /// Get the time that this Trajectory Segment is meant to finish.
     Time get_finish_time() const;
@@ -247,6 +249,12 @@ public:
     ///
     /// \sa set_finish_time(Time new_time)
     void adjust_finish_times(Duration delta_t);
+
+    // TODO(MXG): Consider providing a feature that allows users to compute
+    // the position and velocity of the trajectory segment, given a time of
+    // interest. This should be an abstract interface so that we can add more
+    // types of motion besides cubic splines (like polar movements, to perfectly
+    // support diff-drive platforms) in the future.
 
   private:
 

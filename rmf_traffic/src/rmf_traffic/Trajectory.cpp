@@ -260,8 +260,8 @@ public:
   QueueInfo queue_info;
   std::string queue_id;
 
-  // Movement mode
-  Movement movement;
+  // Agency mode
+  Agency movement;
 };
 
 //==============================================================================
@@ -305,7 +305,7 @@ void Trajectory::Profile::set_shape(geometry::ConstConvexShapePtr new_shape)
 }
 
 //==============================================================================
-Trajectory::Profile::Movement Trajectory::Profile::get_movement() const
+Trajectory::Profile::Agency Trajectory::Profile::get_movement() const
 {
   return _pimpl->movement;
 }
@@ -371,25 +371,25 @@ void Trajectory::Segment::set_profile(ConstProfilePtr new_profile)
 }
 
 //==============================================================================
-Eigen::Vector3d Trajectory::Segment::get_position() const
+Eigen::Vector3d Trajectory::Segment::get_finish_position() const
 {
   return _pimpl->data().position;
 }
 
 //==============================================================================
-void Trajectory::Segment::set_position(Eigen::Vector3d new_position)
+void Trajectory::Segment::set_finish_position(Eigen::Vector3d new_position)
 {
   _pimpl->data().position = std::move(new_position);
 }
 
 //==============================================================================
-Eigen::Vector3d Trajectory::Segment::get_velocity() const
+Eigen::Vector3d Trajectory::Segment::get_finish_velocity() const
 {
   return _pimpl->data().velocity;
 }
 
 //==============================================================================
-void Trajectory::Segment::set_velocity(Eigen::Vector3d new_velocity)
+void Trajectory::Segment::set_finish_velocity(Eigen::Vector3d new_velocity)
 {
   _pimpl->data().velocity = std::move(new_velocity);
 }

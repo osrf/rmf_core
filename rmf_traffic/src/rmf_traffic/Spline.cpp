@@ -74,10 +74,10 @@ Spline::Parameters compute_parameters(
 
   const double delta_t = compute_delta_t(finish_time, start_time);
 
-  const Eigen::Vector3d x0 = start.get_position();
-  const Eigen::Vector3d x1 = finish.get_position();
-  const Eigen::Vector3d v0 = delta_t * start.get_velocity();
-  const Eigen::Vector3d v1 = delta_t * finish.get_velocity();
+  const Eigen::Vector3d x0 = start.get_finish_position();
+  const Eigen::Vector3d x1 = finish.get_finish_position();
+  const Eigen::Vector3d v0 = delta_t * start.get_finish_velocity();
+  const Eigen::Vector3d v1 = delta_t * finish.get_finish_velocity();
 
   return {
     compute_coefficients(x0, x1, v0, v1),

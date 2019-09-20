@@ -57,13 +57,13 @@ SCENARIO("Class Profile unit tests")
       REQUIRE(profile->get_shape() == profile_shape);
     }
 
-    WHEN("Change Movement to Autonomous")
+    WHEN("Change Agency to Autonomous")
     {
       profile->set_to_autonomous();
       CHECK(profile->get_movement() == 2);
     }
 
-    WHEN("Change Movement to Queued")
+    WHEN("Change Agency to Queued")
     {
       //TODO: Should QueueID be string?
       const std::string queue_id = "1";
@@ -169,8 +169,8 @@ SCENARIO("Class Segment unit tests")
     WHEN("Initial Configuration")
     {
       REQUIRE(segment.get_profile() == profile);
-      REQUIRE(segment.get_position() == begin_pos);
-      REQUIRE(segment.get_velocity() == begin_vel);
+      REQUIRE(segment.get_finish_position() == begin_pos);
+      REQUIRE(segment.get_finish_velocity() == begin_vel);
       REQUIRE(segment.get_finish_time() == finish_time);
     }
 
@@ -196,18 +196,18 @@ SCENARIO("Class Segment unit tests")
     WHEN("Setting a new position")
     {
       const Eigen::Vector3d new_pos = Eigen::Vector3d(1, 1, 1);
-      segment.set_position(new_pos);
-      CHECK(segment.get_position() == new_pos);
-      CHECK(segment.get_position() != begin_pos);
+      segment.set_finish_position(new_pos);
+      CHECK(segment.get_finish_position() == new_pos);
+      CHECK(segment.get_finish_position() != begin_pos);
     }
 
     // TODO: The Docs record this as a 2D homogenous position, should be 3D
     WHEN("Setting a new velocity")
     {
       const Eigen::Vector3d new_vel = Eigen::Vector3d(1, 1, 1);
-      segment.set_velocity(new_vel);
-      CHECK(segment.get_velocity() == new_vel);
-      CHECK(segment.get_velocity() != begin_vel);
+      segment.set_finish_velocity(new_vel);
+      CHECK(segment.get_finish_velocity() == new_vel);
+      CHECK(segment.get_finish_velocity() != begin_vel);
     }
 
     WHEN("Setting a finish time")
@@ -348,8 +348,8 @@ SCENARIO("Class Segment unit tests")
 //   CHECK(trajectory.end() > first_it);
 //   CHECK(trajectory.end() >= trajectory.end());
 
-//   CHECK(begin_p == first_it->get_position());
-//   CHECK(begin_v == first_it->get_velocity());
+//   CHECK(begin_p == first_it->get_finish_position());
+//   CHECK(begin_v == first_it->get_finish_velocity());
 //   CHECK(finish_time == first_it->get_finish_time());
 
 //   const auto second_time = finish_time + 10s;
@@ -381,8 +381,8 @@ SCENARIO("Class Segment unit tests")
 //   CHECK(trajectory.end() > second_it);
 //   CHECK(trajectory.end() >= second_it);
 
-//   CHECK(second_it->get_position() == second_p);
-//   CHECK(second_it->get_velocity() == second_v);
+//   CHECK(second_it->get_finish_position() == second_p);
+//   CHECK(second_it->get_finish_velocity() == second_v);
 //   CHECK(second_it->get_finish_time() == second_time);
 // }
 
@@ -416,8 +416,8 @@ SCENARIO("Class Segment unit tests")
 //   for( ; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
 //   {
 //     CHECK(ot->get_profile() == ct->get_profile());
-//     CHECK(ot->get_position() == ct->get_position());
-//     CHECK(ot->get_velocity() == ct->get_velocity());
+//     CHECK(ot->get_finish_position() == ct->get_finish_position());
+//     CHECK(ot->get_finish_velocity() == ct->get_finish_velocity());
 //     CHECK(ot->get_finish_time() == ct->get_finish_time());
 //   }
 //   CHECK(ot == trajectory.end());
@@ -426,8 +426,8 @@ SCENARIO("Class Segment unit tests")
 //   for(auto it = copy.begin(); it != copy.end(); ++it)
 //   {
 //     it->set_profile(make_test_profile());
-//     it->set_position(it->get_position() + Eigen::Vector3d::UnitZ());
-//     it->set_velocity(it->get_velocity() + Eigen::Vector3d::UnitZ());
+//     it->set_finish_position(it->get_finish_position() + Eigen::Vector3d::UnitZ());
+//     it->set_finish_velocity(it->get_finish_velocity() + Eigen::Vector3d::UnitZ());
 //     it->set_finish_time(it->get_finish_time() + 2s);
 //   }
 
@@ -436,8 +436,8 @@ SCENARIO("Class Segment unit tests")
 //   for( ; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
 //   {
 //     CHECK(ot->get_profile() != ct->get_profile());
-//     CHECK(ot->get_position() != ct->get_position());
-//     CHECK(ot->get_velocity() != ct->get_velocity());
+//     CHECK(ot->get_finish_position() != ct->get_finish_position());
+//     CHECK(ot->get_finish_velocity() != ct->get_finish_velocity());
 //     CHECK(ot->get_finish_time() != ct->get_finish_time());
 //   }
 //   CHECK(ot == trajectory.end());
@@ -454,8 +454,8 @@ SCENARIO("Class Segment unit tests")
 //   for( ; ct != copy.end() && mt != moved.end(); ++ct, ++mt)
 //   {
 //     CHECK(ct->get_profile() == mt->get_profile());
-//     CHECK(ct->get_position() == mt->get_position());
-//     CHECK(ct->get_velocity() == mt->get_velocity());
+//     CHECK(ct->get_finish_position() == mt->get_finish_position());
+//     CHECK(ct->get_finish_velocity() == mt->get_finish_velocity());
 //     CHECK(ct->get_finish_time() == mt->get_finish_time());
 //   }
 //   CHECK(ct == copy.end());

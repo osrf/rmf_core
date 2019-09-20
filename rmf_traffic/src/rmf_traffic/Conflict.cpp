@@ -340,7 +340,11 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
     fcl::collide(&obj_a, &obj_b, request, result);
     if(result.is_collide)
     {
-      // FIXME: Finish this
+      const double scaled_time = result.time_of_contact;
+      const Duration delta_t{
+        Duration::rep(scaled_time * (finish_time - start_time).count())};
+      const Time time = start_time + delta_t;
+      conflicts.emplace_back(Implementation::make_conflict(time, {a_it, b_it}));
     }
 
     if(spline_a.finish_time() < spline_b.finish_time())
