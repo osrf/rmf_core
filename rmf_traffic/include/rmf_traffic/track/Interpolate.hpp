@@ -26,13 +26,66 @@ namespace rmf_traffic {
 namespace track {
 
 //==============================================================================
+/// This exception is thrown by Interpolate functions when the VehicleTraits
+/// that are provided cannot
+class invalid_traits_error : public std::exception
+{
+public:
+
+  const char* what() const noexcept override;
+
+  class Implementation;
+private:
+  invalid_traits_error();
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+};
+
+//==============================================================================
 class Interpolate
 {
 public:
 
+  class Options
+  {
+  public:
+
+    Options(
+        bool always_stop = true,
+        double minimum_linear_distance = 1e-3,
+        double minimum_rotational_distance = 1.0 * M_PI/180.0,
+        double minimum_corner = 1.0 * M_PI/180.0);
+
+    /// The robot must always come to a complete stop at every position. When
+    /// this is true, all other properties in the options will have no effect.
+    Options& set_always_stop(bool choice);
+    bool always_stop() const;
+
+    /// If a subsequent waypoint is more than this translational distance from
+    /// the last, then it must not be ignored.
+    Options& set_minimum_linear_distance(double dist);
+    double get_minimum_linear_distance() const;
+
+    /// If a subsequent waypoint is more than this translational distance from
+    /// the last, then it must not be ignored.
+    Options& set_minimum_rotational_distance(double dist);
+    double get_minimum_rotational_distance() const;
+
+    /// If two line segments make a corner that is greater than this angle,
+    /// then the waypoint must not be ignored.
+    Options& set_minimum_corner_angle(double angle);
+    double get_minimum_corner_angle() const;
+
+  private:
+    class Implementation;
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
   static Trajectory positions(
+      std::string map,
+      Time start_time,
       const VehicleTraits& traits,
-      const std::vector<Eigen::Vector3d>& positions);
+      const std::vector<Eigen::Vector3d>& input_positions,
+      const Options& options = Options());
 
 };
 
