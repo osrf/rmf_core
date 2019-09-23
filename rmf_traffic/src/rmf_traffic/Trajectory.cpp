@@ -248,6 +248,8 @@ public:
 
   Implementation(geometry::ConstConvexShapePtr shape)
     : shape(std::move(shape)),
+      strict_info(this),
+      autonomous_info(this),
       queue_info(this)
   {
     // Do nothing
@@ -256,12 +258,18 @@ public:
   // Basic information
   geometry::ConstConvexShapePtr shape;
 
-  // Queue information (only used when in Queue movement mode)
+  // Strict mode information (only used when in the Strict agency mode)
+  StrictInfo strict_info;
+
+  // Autonomous mode information (only used when in the Autonomous agency mode)
+  AutonomousInfo autonomous_info;
+
+  // Queued mode information (only used when in the Queued agency mode)
   QueueInfo queue_info;
   std::string queue_id;
 
   // Agency mode
-  Agency movement;
+  Agency agency_mode;
 };
 
 //==============================================================================
@@ -299,34 +307,54 @@ geometry::ConstConvexShapePtr Trajectory::Profile::get_shape() const
 }
 
 //==============================================================================
-void Trajectory::Profile::set_shape(geometry::ConstConvexShapePtr new_shape)
+Trajectory::Profile& Trajectory::Profile::set_shape(
+    geometry::ConstConvexShapePtr new_shape)
 {
   _pimpl->shape = std::move(new_shape);
+  return *this;
 }
 
 //==============================================================================
 Trajectory::Profile::Agency Trajectory::Profile::get_agency() const
 {
-  return _pimpl->movement;
+  return _pimpl->agency_mode;
 }
 
 //==============================================================================
-void Trajectory::Profile::set_to_strict()
+Trajectory::Profile::StrictInfo::StrictInfo(void* pimpl)
+  : _pimpl(pimpl)
 {
-  _pimpl->movement = Agency::Strict;
+  // Do nothing
 }
 
 //==============================================================================
-void Trajectory::Profile::set_to_autonomous()
+Trajectory::Profile::StrictInfo& Trajectory::Profile::set_to_strict()
 {
-  _pimpl->movement = Agency::Autonomous;
+  _pimpl->agency_mode = Agency::Strict;
+  return _pimpl->strict_info;
 }
 
 //==============================================================================
-void Trajectory::Profile::set_to_queued(const std::string& queue_id)
+Trajectory::Profile::AutonomousInfo::AutonomousInfo(void* pimpl)
+  : _pimpl(pimpl)
 {
-  _pimpl->movement = Agency::Queued;
+  // Do nothing
+}
+
+//==============================================================================
+Trajectory::Profile::AutonomousInfo& Trajectory::Profile::set_to_autonomous()
+{
+  _pimpl->agency_mode = Agency::Autonomous;
+  return _pimpl->autonomous_info;
+}
+
+//==============================================================================
+Trajectory::Profile::QueueInfo& Trajectory::Profile::set_to_queued(
+    const std::string& queue_id)
+{
+  _pimpl->agency_mode = Agency::Queued;
   _pimpl->queue_id = queue_id;
+  return _pimpl->queue_info;
 }
 
 //==============================================================================
@@ -345,7 +373,7 @@ Trajectory::Profile::QueueInfo::QueueInfo(void* pimpl)
 //==============================================================================
 auto Trajectory::Profile::get_queue_info() const -> const QueueInfo*
 {
-  if(Agency::Queued == _pimpl->movement)
+  if(Agency::Queued == _pimpl->agency_mode)
     return &_pimpl->queue_info;
 
   return nullptr;
@@ -365,9 +393,11 @@ auto Trajectory::Segment::get_profile() const -> ConstProfilePtr
 }
 
 //==============================================================================
-void Trajectory::Segment::set_profile(ConstProfilePtr new_profile)
+Trajectory::Segment& Trajectory::Segment::set_profile(
+    ConstProfilePtr new_profile)
 {
   _pimpl->data().profile = std::move(new_profile);
+  return *this;
 }
 
 //==============================================================================
@@ -377,9 +407,11 @@ Eigen::Vector3d Trajectory::Segment::get_finish_position() const
 }
 
 //==============================================================================
-void Trajectory::Segment::set_finish_position(Eigen::Vector3d new_position)
+Trajectory::Segment& Trajectory::Segment::set_finish_position(
+    Eigen::Vector3d new_position)
 {
   _pimpl->data().position = std::move(new_position);
+  return *this;
 }
 
 //==============================================================================
@@ -389,9 +421,11 @@ Eigen::Vector3d Trajectory::Segment::get_finish_velocity() const
 }
 
 //==============================================================================
-void Trajectory::Segment::set_finish_velocity(Eigen::Vector3d new_velocity)
+Trajectory::Segment& Trajectory::Segment::set_finish_velocity(
+    Eigen::Vector3d new_velocity)
 {
   _pimpl->data().velocity = std::move(new_velocity);
+  return *this;
 }
 
 //==============================================================================
@@ -401,7 +435,7 @@ Time Trajectory::Segment::get_finish_time() const
 }
 
 //==============================================================================
-void Trajectory::Segment::set_finish_time(const Time new_time)
+Trajectory::Segment& Trajectory::Segment::set_finish_time(const Time new_time)
 {
   SegmentList::iterator data_it = _pimpl->myself;
   SegmentData& current_data = *data_it;
@@ -411,7 +445,7 @@ void Trajectory::Segment::set_finish_time(const Time new_time)
   {
     // Short-circuit, since nothing is changing. The erase and re-insertion
     // would be a waste of time in this case.
-    return;
+    return *this;
   }
 
   OrderMap& ordering = _pimpl->parent->ordering;
@@ -461,6 +495,8 @@ void Trajectory::Segment::set_finish_time(const Time new_time)
 
   // Update the finish_time value in the data field.
   current_data.finish_time = new_time;
+
+  return *this;
 }
 
 //==============================================================================
@@ -528,14 +564,14 @@ Trajectory::Segment::Segment()
 
 //==============================================================================
 Trajectory::Trajectory(std::string map_name)
-  : _pimpl(rmf_utils::make_impl<Implementation>(std::move(map_name)))
+  : _pimpl(rmf_utils::make_unique_impl<Implementation>(std::move(map_name)))
 {
   // Do nothing
 }
 
 //==============================================================================
 Trajectory::Trajectory(const Trajectory& other)
-  : _pimpl(rmf_utils::make_impl<Implementation>(*other._pimpl))
+  : _pimpl(rmf_utils::make_unique_impl<Implementation>(*other._pimpl))
 {
   // Do nothing
 }
@@ -554,9 +590,10 @@ std::string Trajectory::get_map_name() const
 }
 
 //==============================================================================
-void Trajectory::set_map_name(std::string name)
+Trajectory& Trajectory::set_map_name(std::string name)
 {
   _pimpl->map_name = std::move(name);
+  return *this;
 }
 
 //==============================================================================
