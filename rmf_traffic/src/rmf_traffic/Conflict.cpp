@@ -15,7 +15,7 @@
  *
 */
 
-#include "ShapeInternal.hpp"
+#include "geometry/ShapeInternal.hpp"
 #include "Spline.hpp"
 
 #include <rmf_traffic/Conflict.hpp>
