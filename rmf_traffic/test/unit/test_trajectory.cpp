@@ -108,7 +108,7 @@ SCENARIO("base_iterator unit tests")
     REQUIRE(result_2.inserted);
     REQUIRE(--trajectory.end() == second_it); // trajectory.end() is a placeholder "beyond" the last element
 
-    WHEN("Comparison operators")
+    WHEN("Doing Comparisons")
     {
       CHECK((*first_it).get_profile() == profile);
       CHECK(first_it->get_profile() == profile);
@@ -121,13 +121,44 @@ SCENARIO("base_iterator unit tests")
       CHECK(trajectory.end() >= trajectory.end());
     }
 
-    WHEN("Mutating iterators")
+    WHEN("Doing Increment/Decrements")
     {
       first_it++;
       CHECK(first_it == second_it);
       first_it--;
       CHECK(first_it != second_it);
       CHECK(first_it < second_it);
+    }
+
+    WHEN("Copy Constructing from another base_iterator")
+    {
+      const rmf_traffic::Trajectory::iterator copied_first_it = rmf_traffic::Trajectory::iterator(first_it);
+      CHECK(&first_it != &copied_first_it);
+      CHECK(copied_first_it->get_profile() == first_it->get_profile());
+    }
+
+    WHEN("Copy Constructing from an rvalue base_iterator")
+    {
+      rmf_traffic::Trajectory::iterator &&rvalue_it = std::move(first_it);
+      const rmf_traffic::Trajectory::iterator copied_first_it = rmf_traffic::Trajectory::iterator(rvalue_it);
+      CHECK(&first_it != &copied_first_it);
+      CHECK(copied_first_it->get_profile() == first_it->get_profile());
+    }
+
+    WHEN("Moving from another base_iterator")
+    {
+      rmf_traffic::Trajectory::iterator copied_first_it = rmf_traffic::Trajectory::iterator(first_it);
+      const rmf_traffic::Trajectory::iterator moved_first_it = std::move(copied_first_it);
+      CHECK(&first_it != &moved_first_it);
+      CHECK(moved_first_it->get_profile() == first_it->get_profile());
+    }
+
+    WHEN("Moving from an rvalue base_iterator")
+    {
+      rmf_traffic::Trajectory::iterator copied_first_it = rmf_traffic::Trajectory::iterator(first_it);
+      rmf_traffic::Trajectory::iterator&& moved_first_it = std::move(copied_first_it);
+      CHECK(&first_it != &moved_first_it);
+      CHECK(moved_first_it->get_profile() == first_it->get_profile());
     }
   }
 }
@@ -269,13 +300,13 @@ SCENARIO("Class Segment unit tests")
       CHECK(third_it < second_it);
     }
 
-     WHEN("Single backward time shift for two positional swap")
+    WHEN("Single backward time shift for two positional swap")
     {
       const auto new_finish_time = finish_time_3 - 25s;
       third_it->set_finish_time(new_finish_time);
 
       CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
-            trajectory, true));
+          trajectory, true));
 
       CHECK(third_it < first_it);
       CHECK(first_it < second_it);
@@ -291,20 +322,55 @@ SCENARIO("Class Segment unit tests")
       CHECK_THROWS(third_it->set_finish_time(finish_time_2));
     }
 
-    WHEN("Adding times across all segments") 
+    WHEN("Adding 0s across all segments")
+    {
+      first_it->adjust_finish_times(0s);
+
+      CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
+          trajectory, true));
+
+      CHECK(first_it->get_finish_time() == finish_time);
+      CHECK(second_it->get_finish_time() == finish_time_2);
+      CHECK(third_it->get_finish_time() == finish_time_3);
+    }
+
+    WHEN("Adding +2s across all segments")
     {
       first_it->adjust_finish_times(2s);
 
       CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
-            trajectory, true));
+          trajectory, true));
 
       CHECK(first_it->get_finish_time() == finish_time + 2s);
       CHECK(second_it->get_finish_time() == finish_time_2 + 2s);
       CHECK(third_it->get_finish_time() == finish_time_3 + 2s);
     }
 
-  }
+    WHEN("Adding -2s across all segments")
+    {
+      first_it->adjust_finish_times(-2s);
 
+      CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
+          trajectory, true));
+
+      CHECK(first_it->get_finish_time() == finish_time - 2s);
+      CHECK(second_it->get_finish_time() == finish_time_2 - 2s);
+      CHECK(third_it->get_finish_time() == finish_time_3 - 2s);
+    }
+
+    WHEN("Time Invariance when +2 followed by -2")
+    {
+      first_it->adjust_finish_times(2s);
+      first_it->adjust_finish_times(-2s);
+
+      CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
+          trajectory, true));
+
+      CHECK(first_it->get_finish_time() == finish_time);
+      CHECK(second_it->get_finish_time() == finish_time_2);
+      CHECK(third_it->get_finish_time() == finish_time_3);
+    }
+  }
 }
 
 // TEST_CASE("Construct a Trajectory")
