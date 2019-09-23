@@ -21,9 +21,11 @@
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/geometry/Box.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
+#include <rmf_utils/catch.hpp>
 
 //==============================================================================
-enum TestProfileType {
+enum TestProfileType
+{
   UnitBox,
   UnitCircle
 };
@@ -47,5 +49,40 @@ inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(
     return nullptr;
   }
 }
+
+inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int length, int dur)
+{
+  using namespace std::chrono_literals;
+  rmf_traffic::Trajectory trajectory("test_map");
+  for (auto i = 0; i < length; ++i)
+  {
+    const auto finish_time = t + std::chrono::seconds(i * dur);
+    const auto profile = make_test_profile(UnitBox);
+    const Eigen::Vector3d final_pos = Eigen::Vector3d(1, 1, 1);
+    const Eigen::Vector3d final_vel = Eigen::Vector3d(1, 1, 1);
+    auto result = trajectory.insert(finish_time, profile, final_pos, final_vel);
+  }
+  return trajectory;
+}
+
+// inline void trajectories_are_identical(rmf_traffic::Trajectory &t1,
+//                                        rmf_traffic::Trajectory &t2)
+// {
+//   CHECK(t1.size() == t2.size());
+//   CHECK(t1.duration() == t2.duration());
+
+//   rmf_traffic::Trajectory::iterator ot = t1.begin();
+//   rmf_traffic::Trajectory::iterator ct = t2.begin();
+
+//   for (; ot != t1.end() && ct != t2.end(); ++ot, ++ct)
+//   {
+//     CHECK(ot->get_profile() != ct->get_profile());
+//     CHECK(ot->get_finish_position() != ct->get_finish_position());
+//     CHECK(ot->get_finish_velocity() != ct->get_finish_velocity());
+//     CHECK(ot->get_finish_time() != ct->get_finish_time());
+//   }
+//   CHECK(ot == t1.end());
+//   CHECK(ct == t2.end());
+// }
 
 #endif // RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP
