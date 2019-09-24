@@ -24,46 +24,46 @@
 #include <rmf_utils/catch.hpp>
 
 //==============================================================================
-enum TestProfileType
-{
-  UnitBox,
-  UnitCircle
-};
+// enum TestProfileType
+// {
+//   UnitBox,
+//   UnitCircle
+// };
 
-//==============================================================================
-inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(
-    TestProfileType shape)
-{
-  if (UnitBox == shape)
-  {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
-  }
-  else if (UnitCircle == shape)
-  {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
-  }
-  else
-  {
-    return nullptr;
-  }
-}
+// //==============================================================================
+// inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(
+//     TestProfileType shape)
+// {
+//   if (UnitBox == shape)
+//   {
+//     return rmf_traffic::Trajectory::Profile::make_strict(
+//         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+//   }
+//   else if (UnitCircle == shape)
+//   {
+//     return rmf_traffic::Trajectory::Profile::make_strict(
+//         std::make_shared<rmf_traffic::geometry::Circle>(1.0));
+//   }
+//   else
+//   {
+//     return nullptr;
+//   }
+// }
 
-inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int length, int dur)
-{
-  using namespace std::chrono_literals;
-  rmf_traffic::Trajectory trajectory("test_map");
-  for (auto i = 0; i < length; ++i)
-  {
-    const auto finish_time = t + std::chrono::seconds(i * dur);
-    const auto profile = make_test_profile(UnitBox);
-    const Eigen::Vector3d final_pos = Eigen::Vector3d(1, 1, 1);
-    const Eigen::Vector3d final_vel = Eigen::Vector3d(1, 1, 1);
-    auto result = trajectory.insert(finish_time, profile, final_pos, final_vel);
-  }
-  return trajectory;
-}
+// inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int length, int dur)
+// {
+//   using namespace std::chrono_literals;
+//   rmf_traffic::Trajectory trajectory("test_map");
+//   for (auto i = 0; i < length; ++i)
+//   {
+//     const auto finish_time = t + std::chrono::seconds(i * dur);
+//     const auto profile = make_test_profile(UnitBox);
+//     const Eigen::Vector3d final_pos = Eigen::Vector3d(1, 1, 1);
+//     const Eigen::Vector3d final_vel = Eigen::Vector3d(1, 1, 1);
+//     auto result = trajectory.insert(finish_time, profile, final_pos, final_vel);
+//   }
+//   return trajectory;
+// }
 
 // inline void trajectories_are_identical(rmf_traffic::Trajectory &t1,
 //                                        rmf_traffic::Trajectory &t2)
