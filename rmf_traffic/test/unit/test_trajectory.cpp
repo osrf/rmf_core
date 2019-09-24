@@ -16,12 +16,26 @@
 */
 
 #include "utils_Trajectory.hpp"
-
 #include <src/rmf_traffic/debug_Trajectory.hpp>
-
 #include <rmf_utils/catch.hpp>
-
 #include <iostream>
+
+using namespace rmf_traffic;
+using namespace Eigen;
+using namespace std::chrono;
+
+SCENARIO("TEST")
+{
+  GIVEN("TESTING")
+  {
+    std::vector<TrajectoryInsertInput> trajectory_inputs;
+    TrajectoryInsertInput x;
+
+    trajectory_inputs.push_back(
+        TrajectoryInsertInput{steady_clock::now(), UnitBox, Vector3d(1, 1, 1), Vector3d(1, 1, 1)});
+    // Trajectory trajectory = create_test_trajectory();
+  }
+}
 
 // SCENARIO("Class Profile unit tests")
 // {
@@ -412,7 +426,7 @@
 //       CHECK(trajectory.size() == 0);
 //       CHECK(erased_it == trajectory.end());
 //     }
-    
+
 //     // TODO
 //     // WHEN("Removing 1 segment from a length 2 trajectory")
 //     // {
