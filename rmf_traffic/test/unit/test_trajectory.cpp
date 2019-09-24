@@ -24,18 +24,77 @@ using namespace rmf_traffic;
 using namespace Eigen;
 using namespace std::chrono;
 
-SCENARIO("TEST")
+using AgencyType = Trajectory::Profile::Agency;
+
+SCENARIO("Profile unit tests")
 {
-  GIVEN("TESTING")
+  GIVEN("Construction values for Profile")
   {
-    make_test_profile(UnitBox, Strict);
+    std::shared_ptr<geometry::Box> unitBox_shape =
+        std::make_shared<geometry::Box>(1.0, 1.0);
+    std::shared_ptr<geometry::Circle> unitCircle_shape =
+        std::make_shared<geometry::Circle>(1.0);
+    std::string queue_number = "5";
+
+    WHEN("Constructing a Profile given shape and agency")
+    {
+      THEN("Profile is constructed according to specifications.")
+      {
+        Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
+        CHECK(strict_profile->get_shape() == unitBox_shape);
+        CHECK(strict_profile->get_agency() == AgencyType::Strict);
+        CHECK(strict_profile->get_queue_info() == nullptr);
+
+        Trajectory::ProfilePtr queue_profile = Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
+        CHECK(queue_profile->get_shape() == unitCircle_shape);
+        CHECK(queue_profile->get_agency() == AgencyType::Queued);
+        CHECK(queue_profile->get_queue_info()->get_queue_id() == queue_number);
+      }
+    }
+
+    WHEN("Changing profile shapes")
+    {
+      THEN("ProfilePtr is updated accordingly.")
+      {
+        // Using setter functions
+        Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
+        CHECK(strict_profile->get_shape() == unitBox_shape);
+        strict_profile->set_shape(unitCircle_shape);
+        CHECK(strict_profile->get_shape() == unitCircle_shape);
+      }
+    }
+    
+    WHEN("Shape used for profile construction is modified")
+    {
+      THEN("Profile is still valid")
+      {
+        // Move constructor
+        Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
+        std::shared_ptr<geometry::Box> new_unitBox_shape = std::move(unitBox_shape);
+        CHECK(strict_profile->get_shape() == new_unitBox_shape);
+      }
+    }
+
+    WHEN("Queue number used for profile construction is modified")
+    {
+      THEN("Queue number remains the same")
+      {
+        // Direct mutation
+        Trajectory::ProfilePtr queue_profile = Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
+        queue_number = "6";
+        CHECK(queue_profile->get_queue_info()->get_queue_id() == "5");
+
+        // Move constructor
+        std::string new_queue_number = std::move(queue_number);
+        CHECK(queue_profile->get_queue_info()->get_queue_id() == "5");
+      }
+    }
   }
 }
-
 // SCENARIO("Class Profile unit tests")
 // {
 
-//   GIVEN("Checking Accessor Functions")
+//   GIVEN("Checking Accessqor Functions")
 //   {
 //     std::shared_ptr<rmf_traffic::geometry::Box> profile_shape =
 //         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
@@ -65,7 +124,7 @@ SCENARIO("TEST")
 //     }
 
 //     WHEN("Change Shape to Unit Circle")
-//     {
+//     {q
 //       std::shared_ptr<rmf_traffic::geometry::Circle> new_profile_shape =
 //           std::make_shared<rmf_traffic::geometry::Circle>(1.0);
 //       profile->set_shape(new_profile_shape);
@@ -74,7 +133,7 @@ SCENARIO("TEST")
 //             rmf_traffic::Trajectory::Profile::Agency::Strict);
 //       CHECK(profile->get_shape() == new_profile_shape);
 //     }
-//   }
+//   }q
 
 //   GIVEN("Checking Dirty Input")
 

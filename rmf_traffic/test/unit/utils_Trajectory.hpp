@@ -33,13 +33,7 @@ enum TestProfileType
   UnitCircle
 };
 
-enum TestAgencyType
-{
-  Strict,
-  Autonomous
-};
-
-inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
+inline Trajectory::ProfilePtr create_test_profile(TestProfileType shape)
 {
   if (UnitBox == shape)
   {
@@ -57,14 +51,14 @@ inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
   }
 }
 
-inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape, TestAgencyType agency)
+inline Trajectory::ProfilePtr create_test_profile(TestProfileType shape,  Trajectory::Profile::Agency agency)
 {
-  if (shape == UnitBox && agency == Strict)
+  if (UnitBox == shape && Trajectory::Profile::Agency::Strict == agency)
   {
     return Trajectory::Profile::make_strict(
         std::make_shared<geometry::Box>(1.0, 1.0));
   }
-  else if (shape == UnitCircle && agency == Strict)
+  else if (shape == UnitCircle && Trajectory::Profile::Agency::Strict == agency)
   {
     return Trajectory::Profile::make_strict(
         std::make_shared<geometry::Circle>(1.0));
@@ -95,12 +89,38 @@ inline Trajectory create_test_trajectory(vector<TrajectoryInsertInput> param_lis
   Trajectory trajectory("test_map");
   for (auto x : param_list)
   {
-    trajectory.insert(x.time, make_test_profile(x.profile_type), x.pos, x.vel);
+    trajectory.insert(x.time, create_test_profile(x.profile_type), x.pos, x.vel);
   }
   return trajectory;
 }
 
 //==============================================================================
+inline void are_identical(Trajectory::ProfilePtr p1, Trajectory::ProfilePtr p2)
+{
+  CHECK(p1->get_agency() == p2->get_agency());
+  CHECK(p1->get_queue_info() == p2->get_queue_info());
+}
+
+// For backward compatibility
+//==============================================================================
+inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
+{
+  if (UnitBox == shape)
+  {
+    return Trajectory::Profile::make_strict(
+        std::make_shared<geometry::Box>(1.0, 1.0));
+  }
+  else if (UnitCircle == shape)
+  {
+    return Trajectory::Profile::make_strict(
+        std::make_shared<geometry::Circle>(1.0));
+  }
+  else
+  {
+    return nullptr;
+  }
+}
+
 inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int length, int dur)
 {
   using namespace std::chrono_literals;
@@ -115,6 +135,8 @@ inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int len
   }
   return trajectory;
 }
+
+
 
 //==============================================================================
 
