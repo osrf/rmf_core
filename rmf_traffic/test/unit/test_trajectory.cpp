@@ -28,12 +28,7 @@ SCENARIO("TEST")
 {
   GIVEN("TESTING")
   {
-    std::vector<TrajectoryInsertInput> trajectory_inputs;
-    TrajectoryInsertInput x;
-
-    trajectory_inputs.push_back(
-        TrajectoryInsertInput{steady_clock::now(), UnitBox, Vector3d(1, 1, 1), Vector3d(1, 1, 1)});
-    // Trajectory trajectory = create_test_trajectory();
+    make_test_profile(UnitBox, Strict);
   }
 }
 

@@ -33,6 +33,12 @@ enum TestProfileType
   UnitCircle
 };
 
+enum TestAgencyType
+{
+  Strict,
+  Autonomous
+};
+
 inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
 {
   if (UnitBox == shape)
@@ -41,6 +47,24 @@ inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
         std::make_shared<geometry::Box>(1.0, 1.0));
   }
   else if (UnitCircle == shape)
+  {
+    return Trajectory::Profile::make_strict(
+        std::make_shared<geometry::Circle>(1.0));
+  }
+  else
+  {
+    return nullptr;
+  }
+}
+
+inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape, TestAgencyType agency)
+{
+  if (shape == UnitBox && agency == Strict)
+  {
+    return Trajectory::Profile::make_strict(
+        std::make_shared<geometry::Box>(1.0, 1.0));
+  }
+  else if (shape == UnitCircle && agency == Strict)
   {
     return Trajectory::Profile::make_strict(
         std::make_shared<geometry::Circle>(1.0));
