@@ -51,29 +51,28 @@ public:
 
     Options(
         bool always_stop = true,
-        double minimum_linear_distance = 1e-3,
-        double minimum_rotational_distance = 1.0 * M_PI/180.0,
-        double minimum_corner = 1.0 * M_PI/180.0);
+        double translation_thresh = 1e-3,
+        double rotation_thresh = 1.0 * M_PI/180.0,
+        double corner_angle_thresh = 1.0 * M_PI/180.0);
 
     /// The robot must always come to a complete stop at every position. When
     /// this is true, all other properties in the options will have no effect.
     Options& set_always_stop(bool choice);
     bool always_stop() const;
 
-    /// If a subsequent waypoint is more than this translational distance from
-    /// the last, then it must not be ignored.
-    Options& set_minimum_linear_distance(double dist);
-    double get_minimum_linear_distance() const;
+    /// If a waypoint is closer than this distance to its prior or subsequent
+    /// waypoint, then it is allowed to be skipped.
+    Options& set_translation_threshold(double dist);
+    double get_translation_threshold() const;
 
-    /// If a subsequent waypoint is more than this translational distance from
-    /// the last, then it must not be ignored.
-    Options& set_minimum_rotational_distance(double dist);
-    double get_minimum_rotational_distance() const;
+    /// If a waypoint .
+    Options& set_rotation_threshold(double dist);
+    double get_rotation_threshold() const;
 
     /// If two line segments make a corner that is greater than this angle,
     /// then the waypoint must not be ignored.
-    Options& set_minimum_corner_angle(double angle);
-    double get_minimum_corner_angle() const;
+    Options& set_corner_angle_threshold(double angle);
+    double get_corner_angle_threshold() const;
 
   private:
     class Implementation;
