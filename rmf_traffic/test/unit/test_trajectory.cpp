@@ -232,6 +232,292 @@ SCENARIO("Segment Unit Tests")
     CHECK(trajectory.size() == 2);
   }
 }
+
+SCENARIO("Trajectory unit tests")
+{
+  // Trajectory functions
+  GIVEN("Sample Trajectory")
+  {
+    std::vector<TrajectoryInsertInput> param_inputs;
+    Time time = steady_clock::now();
+    param_inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(1, 1, 1)});
+    param_inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(3, 3, 3)});
+    param_inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(4, 4, 4), Eigen::Vector3d(5, 5, 5)});
+    Trajectory trajectory = create_test_trajectory(param_inputs);
+    Trajectory empty_trajectory = create_test_trajectory();
+
+    WHEN("Setting a new map name using set_map_name function")
+    {
+      THEN("Name is changed successfully.")
+      CHECK(trajectory.get_map_name() == "test_map");
+      trajectory.set_map_name(std::string("new_name"));
+      CHECK(trajectory.get_map_name() == "new_name");
+    }
+
+    WHEN("Finding a segment at the precise time specified")
+    {
+      THEN("Segment is retreieved successfully")
+      {
+        CHECK(trajectory.find(time)->get_finish_position() == Eigen::Vector3d(0, 0, 0));
+        CHECK(trajectory.find(time + 10s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 20s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
+      }
+    }
+
+    WHEN("Finding a segment at an offset time")
+    {
+      THEN("Segments currently active are retrieved successfully")
+      {
+        CHECK(trajectory.find(time)->get_finish_position() == Eigen::Vector3d(0, 0, 0));
+        CHECK(trajectory.find(time + 2s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 8s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 12s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
+        CHECK(trajectory.find(time + 20s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
+      }
+    }
+
+    WHEN("Finding a segment at an out of bounds time")
+    {
+      THEN("Trajectory::end() is returned")
+      {
+        // FLAG: Returns trajectory.begin() instead of trajectory.end()
+        // CHECK(trajectory.find(time - 50s) == trajectory.end());
+        CHECK(trajectory.find(time + 50s) == trajectory.end());
+      }
+    }
+
+    WHEN("Erasing a first segment")
+    {
+      THEN("Segment is erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_target = trajectory.begin();
+        Trajectory::iterator next_it = trajectory.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 10s);
+        CHECK(trajectory.size() == 2);
+      }
+    }
+
+    WHEN("Erasing a first segment from a copy")
+    {
+      THEN("Segment is erased and only copy is updated, source is unaffected")
+      {
+        Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_target = trajectory_copy.begin();
+        Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 10s);
+        CHECK(trajectory_copy.size() == 2);
+        CHECK(trajectory.size() == 3);
+      }
+    }
+
+    // FLAG: Is moving for trajectories implemented?
+
+    WHEN("Erasing a second segment")
+    {
+      THEN("Segment is erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_target = ++(trajectory.begin());
+        Trajectory::iterator next_it = trajectory.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 20s);
+        CHECK(trajectory.size() == 2);
+      }
+    }
+
+    WHEN("Erasing a second segment from a copy")
+    {
+      THEN("Segment is erased and only copy is updated, source is unaffected")
+      {
+        Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_target = ++(trajectory_copy.begin());
+        Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 20s);
+        CHECK(trajectory_copy.size() == 2);
+        CHECK(trajectory.size() == 3);
+      }
+    }
+
+    WHEN("Erasing a empty range of segments using range notation")
+    {
+      THEN("Nothing is erased and current iterator is returned")
+      {
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        Trajectory::iterator erase_last = erase_first;
+        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 3);
+        CHECK(next_it->get_finish_time() == time);
+      }
+    }
+
+    WHEN("Erasing a empty range of segments from a copy using range notation")
+    {
+      THEN("Nothing is erased")
+      {
+        Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        Trajectory::iterator erase_last = erase_first;
+        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        CHECK(next_it->get_finish_time() == time);
+      }
+    }
+
+    WHEN("Erasing the first segment using range notation")
+    {
+      THEN("1 Segment is erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        // Trajectory::iterator erase_last = erase_first++; // FLAG: Gives segfault during erase
+        Trajectory::iterator erase_last = trajectory.find(time + 10s);
+        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 2);
+        CHECK(next_it->get_finish_time() == time + 10s);
+      }
+    }
+
+    WHEN("Erasing the first segment of a copy using range notation")
+    {
+      THEN("1 Segment is erased and trajectory is rearranged")
+      {
+        Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        // Trajectory::iterator erase_last = erase_first++; // FLAG: Gives segfault during erase
+        Trajectory::iterator erase_last = trajectory.find(time + 10s);
+        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 2);
+        CHECK(next_it->get_finish_time() == time + 10s);
+      }
+    }
+
+    WHEN("Erasing the first and second segments using range notation")
+    {
+      THEN("2 Segments are erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        Trajectory::iterator erase_last = trajectory.find(time + 20s);
+        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 1);
+        CHECK(next_it->get_finish_time() == time + 20s);
+      }
+    }
+
+    WHEN("Erasing the first and second segments of a copy using range notation")
+    {
+      THEN("2 Segments are erased and trajectory is rearranged")
+      {
+        Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        Trajectory::iterator erase_last = trajectory.find(time + 20s);
+        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 1);
+        CHECK(next_it->get_finish_time() == time + 20s);
+      }
+    }
+
+    WHEN("Erasing all segments using range notation")
+    {
+      THEN("All Segments are erased and trajectory is empty")
+      {
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        Trajectory::iterator erase_last = trajectory.end(); // FLAG: Segfault during erase
+        // Trajectory::iterator erase_last = --(trajectory.end()); // FLAG: Deletes all but last segment, which is correct behaviour
+        // Rest of code cannot be run because of the above two flags
+        // Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        // CHECK(trajectory.size() == 0);
+        // CHECK(next_it == trajectory.end());
+      }
+    }
+
+    WHEN("Erasing all segments of a copy using range notation")
+    {
+      THEN("All Segments are erased and trajectory is empty")
+      {
+        Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+        // Trajectory::iterator erase_last = trajectory.end(); // FLAG: Segfault during erase
+        // Trajectory::iterator erase_last = --(trajectory.end()); // FLAG: Deletes all but last segment, which is correct behaviour
+        // Rest of code cannot be run because of the above two flags
+        // Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        // CHECK(trajectory_copy.size() == 0);
+        // CHECK(next_it == trajectory.end());
+      }
+    }
+
+    WHEN("Getting the first iterator of empty trajectory")
+    {
+      THEN("trajectory.end() is returned")
+      {
+        CHECK(empty_trajectory.begin() == empty_trajectory.end());
+      }
+    }
+
+    WHEN("Getting start_time of empty trajectory using start_time function")
+    {
+      THEN("nullptr is returned")
+      {
+        CHECK(empty_trajectory.start_time() == nullptr);
+      }
+    }
+
+    WHEN("Getting start_time of trajectory using start_time function")
+    {
+      THEN("Start time is returned")
+      {
+        CHECK(*(trajectory.start_time()) == time);
+      }
+    }
+
+    WHEN("Getting finish_time of empty trajectory using finish_time function")
+    {
+      THEN("nullptr is returned")
+      {
+        CHECK(empty_trajectory.finish_time() == nullptr);
+      }
+    }
+
+    WHEN("Getting finish_time of trajectory using finish_time function")
+    {
+      THEN("finish time is returned")
+      {
+        CHECK(*(trajectory.finish_time()) == time + 20s);
+      }
+    }
+
+    WHEN("Getting duration of empty trajectory using duration function")
+    {
+      THEN("0 is returned")
+      {
+        CHECK(empty_trajectory.duration() == seconds(0));
+      }
+    }
+
+    WHEN("Getting duration of trajectory using duration function")
+    {
+      THEN("duration is returned")
+      {
+        CHECK(trajectory.duration() == seconds(20));
+      }
+    }
+  }
+}
 // SCENARIO("Class Profile unit tests")
 // {
 
