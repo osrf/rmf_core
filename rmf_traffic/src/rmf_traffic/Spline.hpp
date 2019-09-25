@@ -18,6 +18,8 @@
 #ifndef SRC__RMF_TRAFFIC__SPLINE_HPP
 #define SRC__RMF_TRAFFIC__SPLINE_HPP
 
+#include "TrajectoryInternal.hpp"
+
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <fcl/ccd/motion.h>
@@ -39,6 +41,10 @@ public:
   /// `it`.
   Spline(const Trajectory::const_iterator& it);
 
+  /// Create a spline that goes from the end of the preceding to the Segment of
+  /// `it`.
+  Spline(const internal::SegmentList::const_iterator& it);
+
   /// Compute the knots for the motion of this spline from start_time to
   /// finish_time, scaled to a "time" range of [0, 1].
   std::array<Eigen::Vector3d, 4> compute_knots(
@@ -56,8 +62,14 @@ public:
     std::array<Time, 2> time_range;
   };
 
-  // These functions are currently only for debugging
+  /// Compute the position of the spline at this moment in time
   Eigen::Vector3d compute_position(const Time at_time) const;
+
+  /// Compute the velocity of the spline at this moment in time
+  Eigen::Vector3d compute_velocity(const Time at_time) const;
+
+  /// Compute the velocity of the spline at this moment in time
+  Eigen::Vector3d compute_acceleration(const Time at_time) const;
 
 private:
 

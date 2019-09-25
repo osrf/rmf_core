@@ -140,13 +140,163 @@ void interpolate_rotation(
 } // anonymous namespace
 
 //==============================================================================
+class invalid_traits_error::Implementation
+{
+public:
+
+  static invalid_traits_error make_error(
+      const VehicleTraits& traits)
+  {
+    std::vector<std::pair<std::string, double>> values;
+    for(const auto& pair :
+        {std::make_pair("linear velocity",
+                        traits.linear().get_nominal_velocity()),
+         std::make_pair("linear acceleration",
+                        traits.linear().get_nominal_acceleration()),
+         std::make_pair("rotational velocity",
+                        traits.rotational().get_nominal_velocity()),
+         std::make_pair("rotational acceleration",
+                        traits.rotational().get_nominal_acceleration())})
+    {
+      if(pair.second <= 0.0)
+        values.push_back(pair);
+    }
+
+    assert(!values.empty());
+
+    invalid_traits_error error;
+    error._pimpl->_what =
+        "[invalid_traits_error] The following traits have invalid values:";
+    for(const auto& pair : values)
+    {
+      error._pimpl->_what +=
+          "\n -- " + pair.first + ": " + std::to_string(pair.second);
+    }
+
+    return error;
+  }
+
+  std::string _what;
+};
+
+//==============================================================================
+const char* invalid_traits_error::what() const noexcept
+{
+  return _pimpl->_what.c_str();
+}
+
+//==============================================================================
+invalid_traits_error::invalid_traits_error()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
+}
+
+//==============================================================================
+class Interpolate::Options::Implementation
+{
+public:
+
+  Implementation(
+      const bool always_stop,
+      const double translation_thresh,
+      const double rotation_thresh,
+      const double corner_angle_thresh)
+    : _always_stop(always_stop),
+      _translation_thresh(translation_thresh),
+      _rotation_thresh(rotation_thresh),
+      _corner_angle_thresh(corner_angle_thresh)
+  {
+    // Do nothing
+  }
+
+  bool _always_stop;
+  double _translation_thresh;
+  double _rotation_thresh;
+  double _corner_angle_thresh;
+
+};
+
+//==============================================================================
+Interpolate::Options::Options(
+    const bool always_stop,
+    const double translation_thresh,
+    const double rotation_thresh,
+    const double corner_angle_thresh)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             always_stop,
+             translation_thresh,
+             rotation_thresh,
+             corner_angle_thresh))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Interpolate::Options& Interpolate::Options::set_always_stop(bool choice)
+{
+  _pimpl->_always_stop = choice;
+  return *this;
+}
+
+//==============================================================================
+bool Interpolate::Options::always_stop() const
+{
+  return _pimpl->_always_stop;
+}
+
+//==============================================================================
+Interpolate::Options& Interpolate::Options::set_translation_threshold(
+    double dist)
+{
+  _pimpl->_translation_thresh = dist;
+  return *this;
+}
+
+//==============================================================================
+double Interpolate::Options::get_translation_threshold() const
+{
+  return _pimpl->_translation_thresh;
+}
+
+//==============================================================================
+Interpolate::Options& Interpolate::Options::set_rotation_threshold(double angle)
+{
+  _pimpl->_rotation_thresh = angle;
+  return *this;
+}
+
+//==============================================================================
+double Interpolate::Options::get_rotation_threshold() const
+{
+  return _pimpl->_rotation_thresh;
+}
+
+//==============================================================================
+Interpolate::Options& Interpolate::Options::set_corner_angle_threshold(
+    double angle)
+{
+  _pimpl->_corner_angle_thresh = angle;
+  return *this;
+}
+
+//==============================================================================
+double Interpolate::Options::get_corner_angle_threshold() const
+{
+  return _pimpl->_corner_angle_thresh;
+}
+
+//==============================================================================
 Trajectory Interpolate::positions(
     std::string map,
-    Time start_time,
     const VehicleTraits& traits,
+    Time start_time,
     const std::vector<Eigen::Vector3d>& input_positions,
     const Options& options)
 {
+  if(!traits.valid())
+    throw invalid_traits_error::Implementation::make_error(traits);
+
   Trajectory trajectory{std::move(map)};
 
   if(input_positions.empty())

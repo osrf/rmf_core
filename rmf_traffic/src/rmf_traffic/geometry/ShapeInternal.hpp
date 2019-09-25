@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SRC__SHAPEINTERNAL_HPP
-#define RMF_TRAFFIC__SRC__SHAPEINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP
+#define SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP
 
 #include <rmf_traffic/geometry/Shape.hpp>
 
@@ -44,4 +44,4 @@ public:
 } // namespace geometry
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SRC__SHAPEINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP

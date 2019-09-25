@@ -38,6 +38,10 @@ public:
     VehicleTraits& set_nominal_acceleration(double nom_accel);
     double get_nominal_acceleration() const;
 
+    /// Returns true if the values of these limits are valid, i.e. greater than
+    /// zero.
+    bool valid() const;
+
   private:
     Limits(void* pimpl);
     friend class VehicleTraits;
@@ -61,6 +65,10 @@ public:
 
   VehicleTraits& set_reversible(bool reversible);
   bool is_reversible() const;
+
+  /// Returns true if the values of the traits are valid. Specifically this
+  /// means that all velocity and acceleration values are greater than zero.
+  bool valid() const;
 
   VehicleTraits(const VehicleTraits& other);
   VehicleTraits(VehicleTraits&& other);

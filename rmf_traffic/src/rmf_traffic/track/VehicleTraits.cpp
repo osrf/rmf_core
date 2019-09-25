@@ -115,6 +115,13 @@ double VehicleTraits::Limits::get_nominal_acceleration() const
 }
 
 //==============================================================================
+bool VehicleTraits::Limits::valid() const
+{
+  const auto& info = *static_cast<const Implementation::LimitInfo*>(_pimpl);
+  return info.nominal_velocity > 0.0 && info.nominal_acceleration > 0.0;
+}
+
+//==============================================================================
 VehicleTraits::VehicleTraits(
     const double nom_linear_vel,
     const double nom_linear_accel,
@@ -163,6 +170,12 @@ VehicleTraits& VehicleTraits::set_reversible(bool reversible)
 bool VehicleTraits::is_reversible() const
 {
   return _pimpl->_reversible;
+}
+
+//==============================================================================
+bool VehicleTraits::valid() const
+{
+  return linear().valid() && rotational().valid();
 }
 
 //==============================================================================

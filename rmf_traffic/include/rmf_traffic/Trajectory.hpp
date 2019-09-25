@@ -19,6 +19,7 @@
 #define RMF_TRAFFIC__TRAJECTORY_HPP
 
 #include <rmf_traffic/geometry/ConvexShape.hpp>
+#include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
@@ -281,11 +282,8 @@ public:
     /// \sa set_finish_time(Time new_time)
     void adjust_finish_times(Duration delta_t);
 
-    // TODO(MXG): Consider providing a feature that allows users to compute
-    // the position and velocity of the trajectory segment, given a time of
-    // interest. This should be an abstract interface so that we can add more
-    // types of motion besides cubic splines (like polar movements, to perfectly
-    // support diff-drive platforms) in the future.
+    /// Compute the motion across this Trajectory segment
+    std::unique_ptr<Motion> compute_motion() const;
 
   private:
 

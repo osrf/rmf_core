@@ -18,6 +18,7 @@
 #include <rmf_traffic/Time.hpp>
 
 namespace rmf_traffic {
+namespace time {
 
 //==============================================================================
 double to_seconds(const Duration delta_t)
@@ -26,4 +27,13 @@ double to_seconds(const Duration delta_t)
   return std::chrono::duration_cast<Sec64>(delta_t).count();
 }
 
+//==============================================================================
+Time apply_offset(const Time start_time, const double delta_seconds)
+{
+  using Sec64 = std::chrono::duration<double>;
+  using NanoInt = std::chrono::steady_clock::duration;
+  return start_time + std::chrono::duration_cast<NanoInt>(Sec64(delta_seconds));
+}
+
+} // namespace time
 } // namespace rmf_traffic

@@ -87,6 +87,33 @@ Spline::Parameters compute_parameters(
 }
 
 //==============================================================================
+Spline::Parameters compute_parameters(
+    const internal::SegmentList::const_iterator& finish_it)
+{
+  const internal::SegmentList::const_iterator start_it =
+      --internal::SegmentList::const_iterator(finish_it);
+
+  const internal::SegmentData& start = *start_it;
+  const internal::SegmentData& finish = *finish_it;
+
+  const Time start_time = start.finish_time;
+  const Time finish_time = finish.finish_time;
+
+  const double delta_t = compute_delta_t(finish_time, start_time);
+
+  const Eigen::Vector3d x0 = start.position;
+  const Eigen::Vector3d x1 = finish.position;
+  const Eigen::Vector3d v0 = delta_t * start.velocity;
+  const Eigen::Vector3d v1 = delta_t * finish.velocity;
+
+  return {
+    compute_coefficients(x0, x1, v0, v1),
+    delta_t,
+    {start_time, finish_time}
+  };
+}
+
+//==============================================================================
 double compute_scaled_time(const Time& time, const Spline::Parameters& params)
 {
   using Sec64 = std::chrono::duration<double>;
@@ -133,6 +160,23 @@ Eigen::Vector3d compute_velocity(
   return result;
 }
 
+//==============================================================================
+Eigen::Vector3d compute_acceleration(
+    const Spline::Parameters& params,
+    const double time)
+{
+  Eigen::Vector3d result = Eigen::Vector3d::Zero();
+  for(int i=0; i < 3; ++i)
+  {
+    const Eigen::Vector4d coeffs = params.coeffs[i];
+    // Note: This is computing the second derivative w.r.t. time
+    for(int j=2; j < 4; ++j)
+      result[i] += j * (j-1) * coeffs[j] * pow(time, j-2);
+  }
+
+  return result;
+}
+
 } // anonymous namespace
 
 //==============================================================================
@@ -140,6 +184,13 @@ const Eigen::Matrix4d M_inv = make_M_inv();
 
 //==============================================================================
 Spline::Spline(const Trajectory::const_iterator& it)
+  : params(compute_parameters(it))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Spline::Spline(const internal::SegmentList::const_iterator& it)
   : params(compute_parameters(it))
 {
   // Do nothing
@@ -159,13 +210,13 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
   const double scaled_finish_time = compute_scaled_time(finish_time, params);
 
   const Eigen::Vector3d x0 =
-      rmf_traffic::compute_position(params, scaled_start_time);
+    rmf_traffic::compute_position(params, scaled_start_time);
   const Eigen::Vector3d x1 =
-      rmf_traffic::compute_position(params, scaled_finish_time);
+    rmf_traffic::compute_position(params, scaled_finish_time);
   const Eigen::Vector3d v0 =
-      scaled_delta_t * compute_velocity(params, scaled_start_time);
+    scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_start_time);
   const Eigen::Vector3d v1 =
-      scaled_delta_t * compute_velocity(params, scaled_finish_time);
+    scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_finish_time);
 
   const std::array<Eigen::Vector4d, 3> subspline_coeffs =
       compute_coefficients(x0, x1, v0, v1);
@@ -218,6 +269,20 @@ Time Spline::finish_time() const
 Eigen::Vector3d Spline::compute_position(const Time at_time) const
 {
   return rmf_traffic::compute_position(
+        params, compute_scaled_time(at_time, params));
+}
+
+//==============================================================================
+Eigen::Vector3d Spline::compute_velocity(const Time at_time) const
+{
+  return rmf_traffic::compute_velocity(
+        params, compute_scaled_time(at_time, params));
+}
+
+//==============================================================================
+Eigen::Vector3d Spline::compute_acceleration(const Time at_time) const
+{
+  return rmf_traffic::compute_acceleration(
         params, compute_scaled_time(at_time, params));
 }
 

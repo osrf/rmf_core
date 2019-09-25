@@ -4,6 +4,7 @@ set(unit_tests
   make_shapes.cpp
   test_trajectory.cpp
   test_Conflict.cpp
+  test_Interpolate.cpp
   test_Spline.cpp
   test_VehicleTraits.cpp
 )

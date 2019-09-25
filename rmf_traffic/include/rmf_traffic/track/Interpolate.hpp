@@ -27,7 +27,7 @@ namespace track {
 
 //==============================================================================
 /// This exception is thrown by Interpolate functions when the VehicleTraits
-/// that are provided cannot
+/// that are provided cannot be interpolated as requested.
 class invalid_traits_error : public std::exception
 {
 public:
@@ -63,15 +63,22 @@ public:
     /// If a waypoint is closer than this distance to its prior or subsequent
     /// waypoint, then it is allowed to be skipped.
     Options& set_translation_threshold(double dist);
+
+    /// Get the translation threshold
     double get_translation_threshold() const;
 
-    /// If a waypoint .
-    Options& set_rotation_threshold(double dist);
+    /// If a waypoint's orientation is closer than this angle to the prior or
+    /// subsequent waypoint, then it is allowed to be skipped.
+    Options& set_rotation_threshold(double angle);
+
+    /// Get the rotation threshold
     double get_rotation_threshold() const;
 
     /// If two line segments make a corner that is greater than this angle,
     /// then the waypoint must not be ignored.
     Options& set_corner_angle_threshold(double angle);
+
+    /// Get the corner angle threshold
     double get_corner_angle_threshold() const;
 
   private:
@@ -81,8 +88,8 @@ public:
 
   static Trajectory positions(
       std::string map,
-      Time start_time,
       const VehicleTraits& traits,
+      Time start_time,
       const std::vector<Eigen::Vector3d>& input_positions,
       const Options& options = Options());
 
