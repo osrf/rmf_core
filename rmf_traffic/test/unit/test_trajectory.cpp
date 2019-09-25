@@ -28,67 +28,208 @@ using AgencyType = Trajectory::Profile::Agency;
 
 SCENARIO("Profile unit tests")
 {
+  // Profile Construction
   GIVEN("Construction values for Profile")
   {
-    std::shared_ptr<geometry::Box> unitBox_shape =
-        std::make_shared<geometry::Box>(1.0, 1.0);
-    std::shared_ptr<geometry::Circle> unitCircle_shape =
-        std::make_shared<geometry::Circle>(1.0);
+    std::shared_ptr<geometry::Box> unitBox_shape = std::make_shared<geometry::Box>(1.0, 1.0);
+    std::shared_ptr<geometry::Circle> unitCircle_shape = std::make_shared<geometry::Circle>(1.0);
     std::string queue_number = "5";
 
     WHEN("Constructing a Profile given shape and agency")
     {
+      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
+      Trajectory::ProfilePtr queue_profile = Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
+
       THEN("Profile is constructed according to specifications.")
       {
-        Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
         CHECK(strict_profile->get_shape() == unitBox_shape);
         CHECK(strict_profile->get_agency() == AgencyType::Strict);
         CHECK(strict_profile->get_queue_info() == nullptr);
 
-        Trajectory::ProfilePtr queue_profile = Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
         CHECK(queue_profile->get_shape() == unitCircle_shape);
         CHECK(queue_profile->get_agency() == AgencyType::Queued);
         CHECK(queue_profile->get_queue_info()->get_queue_id() == queue_number);
       }
     }
 
-    WHEN("Changing profile shapes")
+    WHEN("Shape object used for profile construction is changed")
     {
-      THEN("ProfilePtr is updated accordingly.")
-      {
-        // Using setter functions
-        Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
-        CHECK(strict_profile->get_shape() == unitBox_shape);
-        strict_profile->set_shape(unitCircle_shape);
-        CHECK(strict_profile->get_shape() == unitCircle_shape);
-      }
-    }
-    
-    WHEN("Shape used for profile construction is modified")
-    {
+      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
+      *unitBox_shape = geometry::Box(2.0, 2.0);
+
       THEN("Profile is still valid")
       {
-        // Move constructor
-        Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
-        std::shared_ptr<geometry::Box> new_unitBox_shape = std::move(unitBox_shape);
+        CHECK(strict_profile->get_shape() == unitBox_shape);
+        // TODO: I assume that the profile shape is updated accordingly, but I do not know how to check
+      }
+    }
+
+    WHEN("Pointer for shape used for profile construction is changed")
+    {
+      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
+      geometry::Box *ptr_address = unitBox_shape.get();
+      unitBox_shape = std::make_shared<geometry::Box>(2.0, 2.0);
+
+      THEN("Profile shape is unaffected")
+      {
+        CHECK(strict_profile->get_shape() != unitBox_shape);
+        CHECK(strict_profile->get_shape().get() == ptr_address);
+      }
+    }
+
+    WHEN("Shape object used for profile construction is moved")
+    {
+      // Move constructor
+      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
+      std::shared_ptr<geometry::Box> new_unitBox_shape = std::move(unitBox_shape);
+
+      THEN("Profile shape is unaffected")
+      {
         CHECK(strict_profile->get_shape() == new_unitBox_shape);
       }
     }
 
-    WHEN("Queue number used for profile construction is modified")
+    WHEN("Queue number used for profile construction is changed")
     {
-      THEN("Queue number remains the same")
+      THEN("Queue number is unaffected")
       {
-        // Direct mutation
-        Trajectory::ProfilePtr queue_profile = Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
-        queue_number = "6";
-        CHECK(queue_profile->get_queue_info()->get_queue_id() == "5");
-
-        // Move constructor
-        std::string new_queue_number = std::move(queue_number);
-        CHECK(queue_profile->get_queue_info()->get_queue_id() == "5");
+        //Should be true since queue_id is passed as const&
       }
     }
+  }
+
+  // Profile Function Tests
+  GIVEN("Sample Profiles and Shapes")
+  {
+    Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, AgencyType::Strict);
+    Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, AgencyType::Queued, "3");
+    std::shared_ptr<geometry::Box> new_Box_shape = std::make_shared<geometry::Box>(2.0, 2.0);
+
+    WHEN("Profile agency is changed using API set_to_* function")
+    {
+      THEN("Profile agency is successfully changed")
+      {
+        CHECK(strict_unitbox_profile->get_agency() == AgencyType::Strict);
+        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+
+        strict_unitbox_profile->set_to_autonomous();
+        CHECK(strict_unitbox_profile->get_agency() == AgencyType::Autonomous);
+        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+
+        strict_unitbox_profile->set_to_queued("2");
+        CHECK(strict_unitbox_profile->get_agency() == AgencyType::Queued);
+        CHECK(strict_unitbox_profile->get_queue_info()->get_queue_id() == "2");
+
+        strict_unitbox_profile->set_to_strict();
+        CHECK(strict_unitbox_profile->get_agency() == AgencyType::Strict);
+        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+      }
+    }
+
+    WHEN("Changing profile shapes using API set_shape function")
+    {
+      CHECK(strict_unitbox_profile->get_shape() != new_Box_shape);
+      strict_unitbox_profile->set_shape(new_Box_shape);
+
+      THEN("ProfilePtr is updated accordingly.")
+      {
+        CHECK(strict_unitbox_profile->get_shape() == new_Box_shape);
+      }
+    }
+  }
+}
+
+SCENARIO("Segment Unit Tests")
+{
+  // Segment Construction
+  GIVEN("Construction values for Segments")
+  {
+    Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, AgencyType::Strict);
+    Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, AgencyType::Queued, "3");
+    const auto time = std::chrono::steady_clock::now();
+    const Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
+    const Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
+
+    WHEN("Attemping to construct Segment using Trajectory::add_segment()")
+    {
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+
+      Trajectory::Segment segment = *(result.it);
+
+      THEN("Segment is constructed according to specifications.")
+      {
+        // From IteratorResult
+        CHECK(result.inserted);
+        CHECK(segment.get_finish_time() == time);
+        CHECK(segment.get_finish_position() == pos);
+        CHECK(segment.get_finish_velocity() == vel);
+        CHECK(segment.get_profile() == strict_unitbox_profile);
+      }
+    }
+
+    WHEN("Profile used for construction is changed")
+    {
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      Trajectory::Segment segment = *(result.it);
+
+      *strict_unitbox_profile = *queued_unitCircle_profile;
+
+      THEN("Segment profile is still valid")
+      {
+        CHECK(segment.get_profile() == strict_unitbox_profile);
+        // TODO: Again, we can only assume segment is updated
+      }
+    }
+
+    WHEN("Pointer for profile used for construction is changed")
+    {
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      Trajectory::Segment segment = *(result.it);
+
+      Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+
+      THEN("Segment profile is updated")
+      {
+        CHECK(segment.get_profile() != strict_unitbox_profile);
+        CHECK(segment.get_profile() == new_profile);
+      }
+    }
+
+    WHEN("Profile used for construction is moved")
+    {
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      Trajectory::Segment segment = *(result.it);
+
+      Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+
+      THEN("Segment profile is updated")
+      {
+        CHECK(segment.get_profile() != strict_unitbox_profile);
+        CHECK(segment.get_profile() == new_profile);
+      }
+    }
+
+    WHEN("time, pos and vel parameters are changed")
+    {
+      THEN("Segment is unaffected")
+      {
+        // This should be true since all of them are pass by value
+      }
+    }
+  }
+
+  // Segment Functions
+  GIVEN("Sample Segments")
+  {
+    std::vector<TrajectoryInsertInput> inputs;
+    inputs.push_back({steady_clock::now(), UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)});
+    inputs.push_back({steady_clock::now() + 10s, UnitCircle, Eigen::Vector3d(1, 1, 1), Eigen::Vector3d(1, 1, 1)});
+    Trajectory trajectory = create_test_trajectory(inputs);
+    CHECK(trajectory.size() == 2);
   }
 }
 // SCENARIO("Class Profile unit tests")

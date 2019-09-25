@@ -24,7 +24,7 @@
 #include <rmf_utils/catch.hpp>
 
 using namespace rmf_traffic;
-using namespace std;
+using AgencyType = Trajectory::Profile::Agency;
 
 //==============================================================================
 enum TestProfileType
@@ -33,35 +33,29 @@ enum TestProfileType
   UnitCircle
 };
 
-inline Trajectory::ProfilePtr create_test_profile(TestProfileType shape)
+inline Trajectory::ProfilePtr create_test_profile(TestProfileType shape,
+                                                  AgencyType agency = AgencyType::Strict,
+                                                  std::string queue_number = "0")
 {
-  if (UnitBox == shape)
+  if (UnitBox == shape && AgencyType::Strict == agency)
   {
     return Trajectory::Profile::make_strict(
         std::make_shared<geometry::Box>(1.0, 1.0));
   }
-  else if (UnitCircle == shape)
+  else if (UnitCircle == shape && AgencyType::Strict == agency)
   {
     return Trajectory::Profile::make_strict(
         std::make_shared<geometry::Circle>(1.0));
   }
-  else
+  else if (UnitBox == shape && AgencyType::Queued == agency)
   {
-    return nullptr;
+    return Trajectory::Profile::make_queued(
+        std::make_shared<geometry::Box>(1.0, 1.0), queue_number);
   }
-}
-
-inline Trajectory::ProfilePtr create_test_profile(TestProfileType shape,  Trajectory::Profile::Agency agency)
-{
-  if (UnitBox == shape && Trajectory::Profile::Agency::Strict == agency)
+  else if (UnitCircle == shape && AgencyType::Queued == agency)
   {
-    return Trajectory::Profile::make_strict(
-        std::make_shared<geometry::Box>(1.0, 1.0));
-  }
-  else if (shape == UnitCircle && Trajectory::Profile::Agency::Strict == agency)
-  {
-    return Trajectory::Profile::make_strict(
-        std::make_shared<geometry::Circle>(1.0));
+    return Trajectory::Profile::make_queued(
+        std::make_shared<geometry::Circle>(1.0), queue_number);
   }
   else
   {
@@ -84,7 +78,7 @@ inline Trajectory create_test_trajectory()
   return trajectory;
 }
 
-inline Trajectory create_test_trajectory(vector<TrajectoryInsertInput> param_list)
+inline Trajectory create_test_trajectory(std::vector<TrajectoryInsertInput> param_list)
 {
   Trajectory trajectory("test_map");
   for (auto x : param_list)
@@ -135,8 +129,6 @@ inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int len
   }
   return trajectory;
 }
-
-
 
 //==============================================================================
 
