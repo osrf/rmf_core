@@ -88,14 +88,7 @@ inline Trajectory create_test_trajectory(std::vector<TrajectoryInsertInput> para
   return trajectory;
 }
 
-//==============================================================================
-inline void are_identical(Trajectory::ProfilePtr p1, Trajectory::ProfilePtr p2)
-{
-  CHECK(p1->get_agency() == p2->get_agency());
-  CHECK(p1->get_queue_info() == p2->get_queue_info());
-}
-
-// For backward compatibility
+// For backward compatibility in other tests
 //==============================================================================
 inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
 {
@@ -129,27 +122,5 @@ inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int len
   }
   return trajectory;
 }
-
-//==============================================================================
-
-// inline void trajectories_are_identical(rmf_traffic::Trajectory &t1,
-//                                        rmf_traffic::Trajectory &t2)
-// {
-//   CHECK(t1.size() == t2.size());
-//   CHECK(t1.duration() == t2.duration());
-
-//   rmf_traffic::Trajectory::iterator ot = t1.begin();
-//   rmf_traffic::Trajectory::iterator ct = t2.begin();
-
-//   for (; ot != t1.end() && ct != t2.end(); ++ot, ++ct)
-//   {
-//     CHECK(ot->get_profile() != ct->get_profile());
-//     CHECK(ot->get_finish_position() != ct->get_finish_position());
-//     CHECK(ot->get_finish_velocity() != ct->get_finish_velocity());
-//     CHECK(ot->get_finish_time() != ct->get_finish_time());
-//   }
-//   CHECK(ot == t1.end());
-//   CHECK(ct == t2.end());
-// }
 
 #endif // RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP
