@@ -868,7 +868,6 @@ SCENARIO("Trajectory and base_iterator unit tests")
       {
         CHECK(trajectory.size() == 3);
         Trajectory::iterator erase_first = trajectory.begin();
-        // Trajectory::iterator erase_last = erase_first++; // FLAG: Gives segfault during erase
         Trajectory::iterator erase_last = trajectory.find(time + 10s);
         Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
         CHECK(trajectory.size() == 2);
@@ -884,7 +883,6 @@ SCENARIO("Trajectory and base_iterator unit tests")
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
         Trajectory::iterator erase_first = trajectory.begin();
-        // Trajectory::iterator erase_last = erase_first++; // FLAG: Gives segfault during erase
         Trajectory::iterator erase_last = trajectory.find(time + 10s);
         Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
         CHECK(trajectory_copy.size() == 2);
@@ -926,7 +924,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       {
         CHECK(trajectory.size() == 3);
         Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = trajectory.end(); // FLAG: Segfault during erase
+        // Trajectory::iterator erase_last = trajectory.end(); // FLAG: Segfault during erase
         // Trajectory::iterator erase_last = --(trajectory.end()); // FLAG: Deletes all but last segment, which is correct behaviour
         // Rest of code cannot be run because of the above two flags
         // Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
