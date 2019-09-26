@@ -510,6 +510,23 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
+    WHEN("Inserting a segment with a unique finish_time violation")
+    {
+      Trajectory trajectory("test_map");
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
+                                      pos_0,
+                                      vel_0);
+      Trajectory::iterator zeroth_it = result.it;
+      auto result_1 = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
+                                        pos_1,
+                                        vel_1);
+
+      THEN("Returned result has inserted field set to false.")
+      {
+        CHECK(result_1.inserted == false);
+      } 
+    }
+
     WHEN("Copy Construction from another base_iterator")
     {
       Trajectory trajectory("test_map");
@@ -593,6 +610,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
+
     WHEN("Copy Construction of Trajectory followed by move of source trajectory")
     {
       Trajectory trajectory = create_test_trajectory(param_inputs);
@@ -603,7 +621,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       {
         // FLAG: I would expect the following to throw a segfault due to std::move, but it doesn't
         // As a result, the following test might not be much different from a copy constructor.
-        trajectory.get_map_name();
+        // trajectory.get_map_name(); // Doesn't segfault
 
         Trajectory::const_iterator ct = trajectory_copy.begin();
         Trajectory::const_iterator mt = trajectory_moved.begin();
@@ -618,13 +636,100 @@ SCENARIO("Trajectory and base_iterator unit tests")
         CHECK(mt == trajectory_moved.end());
       }
     }
-  }
-}
 
-SCENARIO("Trajectory unit tests")
-{
+    WHEN("Appending segment to trajectory")
+    {
+      Trajectory trajectory = create_test_trajectory(param_inputs);
+      Trajectory::iterator first_it = trajectory.begin();
+      Trajectory::iterator second_it = trajectory.find(time + 10s);
+      Trajectory::iterator third_it = trajectory.find(time + 20s);
+      Time time_3 = time + 30s;
+      Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
+      Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
+      Trajectory::iterator fourth_it = trajectory.insert(time_3,
+                                                         create_test_profile(UnitBox, AgencyType::Strict),
+                                                         pos_3,
+                                                         vel_3)
+                                           .it;
+
+      THEN("base_iterators assigned prior are still valid")
+      {
+        CHECK(first_it->get_finish_time() == time);
+        CHECK(second_it->get_finish_time() == time + 10s);
+        CHECK(third_it->get_finish_time() == time + 20s);
+        CHECK(fourth_it->get_finish_time() == time + 30s);
+
+        CHECK(first_it == trajectory.begin());
+        CHECK(++first_it == second_it);
+        CHECK(++second_it == third_it);
+        CHECK(++third_it == fourth_it);
+        CHECK(++fourth_it == trajectory.end());
+      }
+    }
+
+    WHEN("Prepending segment to trajectory")
+    {
+      Trajectory trajectory = create_test_trajectory(param_inputs);
+      Trajectory::iterator first_it = trajectory.begin();
+      Trajectory::iterator second_it = trajectory.find(time + 10s);
+      Trajectory::iterator third_it = trajectory.find(time + 20s);
+      Time time_3 = time - 30s;
+      Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
+      Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
+      Trajectory::iterator fourth_it = trajectory.insert(time_3,
+                                                         create_test_profile(UnitBox, AgencyType::Strict),
+                                                         pos_3,
+                                                         vel_3)
+                                           .it;
+
+      THEN("base_iterators assigned prior are still valid")
+      {
+        CHECK(first_it->get_finish_time() == time);
+        CHECK(second_it->get_finish_time() == time + 10s);
+        CHECK(third_it->get_finish_time() == time + 20s);
+        CHECK(fourth_it->get_finish_time() == time - 30s);
+
+        CHECK(fourth_it == trajectory.begin());
+        CHECK(++fourth_it == first_it);
+        CHECK(++first_it == second_it);
+        CHECK(++second_it == third_it);
+        CHECK(++third_it == trajectory.end());
+      }
+    }
+
+    WHEN("Interpolating segment to trajectory")
+    {
+      Trajectory trajectory = create_test_trajectory(param_inputs);
+      Trajectory::iterator first_it = trajectory.begin();
+      Trajectory::iterator second_it = trajectory.find(time + 10s);
+      Trajectory::iterator third_it = trajectory.find(time + 20s);
+      Time time_3 = time + 15s;
+      Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
+      Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
+      Trajectory::iterator fourth_it = trajectory.insert(time_3,
+                                                         create_test_profile(UnitBox, AgencyType::Strict),
+                                                         pos_3,
+                                                         vel_3)
+                                           .it;
+
+      THEN("base_iterators assigned prior are still valid")
+      {
+        CHECK(first_it->get_finish_time() == time);
+        CHECK(second_it->get_finish_time() == time + 10s);
+        CHECK(fourth_it->get_finish_time() == time + 15s);
+        CHECK(third_it->get_finish_time() == time + 20s);
+
+        CHECK(first_it == trajectory.begin());
+        CHECK(++first_it == second_it);
+        CHECK(++second_it == fourth_it);
+        CHECK(++fourth_it == third_it);
+        CHECK(++third_it == trajectory.end());
+        
+      }
+    }
+  }
   // Trajectory functions
-  GIVEN("Sample Trajectory")
+  GIVEN("Sample Trajectories")
   {
     std::vector<TrajectoryInsertInput> param_inputs;
     Time time = steady_clock::now();
@@ -700,8 +805,6 @@ SCENARIO("Trajectory unit tests")
         CHECK(trajectory.size() == 3);
       }
     }
-
-    // FLAG: Is moving for trajectories implemented?
 
     WHEN("Erasing a second segment")
     {
