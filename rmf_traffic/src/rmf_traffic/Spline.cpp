@@ -275,14 +275,16 @@ Eigen::Vector3d Spline::compute_position(const Time at_time) const
 //==============================================================================
 Eigen::Vector3d Spline::compute_velocity(const Time at_time) const
 {
-  return rmf_traffic::compute_velocity(
+  const double delta_t_inv = 1.0/params.delta_t;
+  return delta_t_inv * rmf_traffic::compute_velocity(
         params, compute_scaled_time(at_time, params));
 }
 
 //==============================================================================
 Eigen::Vector3d Spline::compute_acceleration(const Time at_time) const
 {
-  return rmf_traffic::compute_acceleration(
+  const double delta_t_inv = 1.0/params.delta_t;
+  return pow(delta_t_inv, 2 ) * rmf_traffic::compute_acceleration(
         params, compute_scaled_time(at_time, params));
 }
 

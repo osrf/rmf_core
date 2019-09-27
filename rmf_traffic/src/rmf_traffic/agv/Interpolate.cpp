@@ -97,12 +97,15 @@ void interpolate_translation(
   const Eigen::Vector2d finish_p = finish.block<2,1>(0,0);
   const Eigen::Vector2d diff_p = finish_p - start_p;
   const double dist = diff_p.norm();
+  // TODO(MXG): We should have some safety checking for extremely low values of
+  // dist.
+  const Eigen::Vector2d dir = diff_p/dist;
 
   States states = compute_traversal(start_time, dist, v_nom, a_nom);
   for(const State& state : states)
   {
-    const Eigen::Vector2d p_s = diff_p * state.s + start_p;
-    const Eigen::Vector2d v_s = diff_p * state.v;
+    const Eigen::Vector2d p_s = dir * state.s + start_p;
+    const Eigen::Vector2d v_s = dir * state.v;
 
     const Eigen::Vector3d p{p_s[0], p_s[1], heading};
     const Eigen::Vector3d v{v_s[0], v_s[1], 0.0};
@@ -123,13 +126,13 @@ void interpolate_rotation(
   const double finish_heading = finish[2];
 
   const double diff_heading = std::abs(finish_heading - start_heading);
-  const double sign = finish_heading < start_heading? -1.0 : 1.0;
+  const double dir = finish_heading < start_heading? -1.0 : 1.0;
 
   States states = compute_traversal(start_time, diff_heading, w_nom, alpha_nom);
   for(const State& state : states)
   {
-    const double s = start_heading + sign*state.s;
-    const double w = sign*state.v;
+    const double s = start_heading + dir*state.s;
+    const double w = dir*state.v;
 
     const Eigen::Vector3d p{finish[0], finish[1], s};
     const Eigen::Vector3d v{0.0, 0.0, w};
@@ -372,6 +375,8 @@ Trajectory Interpolate::positions(
     interpolate_rotation(
           trajectory, w, alpha, *trajectory.finish_time(),
           last_position, next_position);
+
+    last_stop_index = i;
   }
 
   return trajectory;
