@@ -15,13 +15,13 @@
  *
 */
 
-#include <rmf_traffic/track/VehicleTraits.hpp>
+#include <rmf_traffic/agv/VehicleTraits.hpp>
 
 #include <rmf_utils/catch.hpp>
 
 void test_independence(
-    rmf_traffic::track::VehicleTraits& original,
-    rmf_traffic::track::VehicleTraits& copy)
+    rmf_traffic::agv::VehicleTraits& original,
+    rmf_traffic::agv::VehicleTraits& copy)
 {
   // Check that the copy has the same properties as the original
   CHECK(copy.linear().get_nominal_velocity() == Approx(0.1));
@@ -75,7 +75,7 @@ void test_independence(
 
 SCENARIO("Test VehicleTraits")
 {
-  rmf_traffic::track::VehicleTraits original;
+  rmf_traffic::agv::VehicleTraits original;
 
   // Check that the initial properties are all zero
   CHECK(original.linear().get_nominal_velocity() == Approx(0.0));
@@ -100,29 +100,29 @@ SCENARIO("Test VehicleTraits")
 
   SECTION("Copy constructor")
   {
-    rmf_traffic::track::VehicleTraits copy{original};
+    rmf_traffic::agv::VehicleTraits copy{original};
     test_independence(original, copy);
   }
 
   SECTION("Copy operator")
   {
-    rmf_traffic::track::VehicleTraits copy;
+    rmf_traffic::agv::VehicleTraits copy;
     copy = original;
     test_independence(original, copy);
   }
 
   SECTION("Move constructor")
   {
-    rmf_traffic::track::VehicleTraits moved = original;
-    rmf_traffic::track::VehicleTraits copy = std::move(moved);
+    rmf_traffic::agv::VehicleTraits moved = original;
+    rmf_traffic::agv::VehicleTraits copy = std::move(moved);
     moved = original;
     test_independence(moved, copy);
   }
 
   SECTION("Move operator")
   {
-    rmf_traffic::track::VehicleTraits moved = original;
-    rmf_traffic::track::VehicleTraits copy;
+    rmf_traffic::agv::VehicleTraits moved = original;
+    rmf_traffic::agv::VehicleTraits copy;
     copy = std::move(moved);
     moved = original;
     test_independence(moved, copy);

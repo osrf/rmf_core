@@ -17,7 +17,7 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <rmf_traffic/track/Interpolate.hpp>
+#include <rmf_traffic/agv/Interpolate.hpp>
 
 rmf_traffic::Time test_interpolation(
     const double v_n,
@@ -36,7 +36,7 @@ SCENARIO("Test Interpolations")
   const double w_n = 0.3;
   const double alpha_n = 0.25;
 
-  rmf_traffic::track::VehicleTraits traits;
+  rmf_traffic::agv::VehicleTraits traits;
   traits
       .linear().set_nominal_velocity(v_n)
       .linear().set_nominal_acceleration(a_n)
@@ -55,7 +55,7 @@ SCENARIO("Test Interpolations")
       };
 
     rmf_traffic::Trajectory trajectory =
-        rmf_traffic::track::Interpolate::positions(
+        rmf_traffic::agv::Interpolate::positions(
           "test_map", traits, start_time, positions);
 
     const double t_a1 = v_n/a_n;

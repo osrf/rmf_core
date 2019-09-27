@@ -15,15 +15,15 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__TRACK__INTERPOLATE_HPP
-#define RMF_TRAFFIC__TRACK__INTERPOLATE_HPP
+#ifndef RMF_TRAFFIC__AGV__INTERPOLATE_HPP
+#define RMF_TRAFFIC__AGV__INTERPOLATE_HPP
 
 #include <rmf_traffic/Trajectory.hpp>
 
-#include <rmf_traffic/track/VehicleTraits.hpp>
+#include <rmf_traffic/agv/VehicleTraits.hpp>
 
 namespace rmf_traffic {
-namespace track {
+namespace agv {
 
 //==============================================================================
 /// This exception is thrown by Interpolate functions when the VehicleTraits
@@ -95,7 +95,7 @@ public:
 
 };
 
-} // namespace track
+} // namespace agv
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__TRACK__INTERPOLATE_HPP
+#endif // RMF_TRAFFIC__AGV__INTERPOLATE_HPP

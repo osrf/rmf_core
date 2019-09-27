@@ -15,13 +15,13 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__TRACK__VEHICLETRAITS_HPP
-#define RMF_TRAFFIC__TRACK__VEHICLETRAITS_HPP
+#ifndef RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
+#define RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
 
 #include <rmf_utils/impl_ptr.hpp>
 
 namespace rmf_traffic {
-namespace track {
+namespace agv {
 
 //==============================================================================
 class VehicleTraits
@@ -82,7 +82,7 @@ private:
 
 };
 
-} // namespace track
+} // namespace agv
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__TRACK__VEHICLETRAITS_HPP
+#endif // RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP

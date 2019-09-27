@@ -15,10 +15,10 @@
  *
 */
 
-#include <rmf_traffic/track/VehicleTraits.hpp>
+#include <rmf_traffic/agv/VehicleTraits.hpp>
 
 namespace rmf_traffic {
-namespace track {
+namespace agv {
 
 //==============================================================================
 class VehicleTraits::Implementation
@@ -212,5 +212,5 @@ VehicleTraits& VehicleTraits::operator=(VehicleTraits&& other)
   return *this;
 }
 
-} // namespace track
+} // namespace agv
 } // namespace rmf_traffic

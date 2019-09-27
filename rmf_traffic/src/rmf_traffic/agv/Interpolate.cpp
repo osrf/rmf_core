@@ -15,10 +15,10 @@
  *
 */
 
-#include <rmf_traffic/track/Interpolate.hpp>
+#include <rmf_traffic/agv/Interpolate.hpp>
 
 namespace rmf_traffic {
-namespace track {
+namespace agv {
 
 namespace {
 
@@ -377,5 +377,5 @@ Trajectory Interpolate::positions(
   return trajectory;
 }
 
-} // namespace track
+} // namespace agv
 } // namespace rmf_traffic

@@ -15,13 +15,13 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__TRACK__GRAPH_HPP
-#define RMF_TRAFFIC__TRACK__GRAPH_HPP
+#ifndef RMF_TRAFFIC__AGV__GRAPH_HPP
+#define RMF_TRAFFIC__AGV__GRAPH_HPP
 
 #include <Eigen/Geometry>
 
 namespace rmf_traffic {
-namespace track {
+namespace agv {
 
 //==============================================================================
 class Graph
@@ -58,7 +58,7 @@ public:
 
 };
 
-} // namespace track
+} // namespace agv
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__TRACK__GRAPH_HPP
+#endif // RMF_TRAFFIC__AGV__GRAPH_HPP
