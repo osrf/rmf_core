@@ -50,11 +50,6 @@ void test_interpolation(
   const double t_d = times.t_d;
   const double t_finish = times.t_finish;
 
-  std::cout << "times: ";
-  for(const double t : {t_start, t_a, t_d, t_finish})
-    std::cout << t << "  ";
-  std::cout << std::endl;
-
   REQUIRE(trajectory.size() > 0);
   const double dt = t_finish - t_start;
   REQUIRE(dt > 0.0);
@@ -66,18 +61,6 @@ void test_interpolation(
       rmf_traffic::time::apply_offset(trajectory_start_time, t_finish);
 
   const Eigen::Vector3d normalized_dir = dir.normalized();
-
-  std::cout << t_start << " | " << t_a << " | " << t_d << " | " << t_finish << std::endl;
-
-  std::size_t count = 0;
-  for(auto it = trajectory.begin(); it != trajectory.end(); ++it)
-  {
-    std::cout << "[" << count
-              << "] t " << rmf_traffic::time::to_seconds(it->get_finish_time() - trajectory_start_time)
-              << " | p " << it->get_finish_position().transpose()
-              << " | v " << it->get_finish_velocity().transpose()
-              << std::endl;
-  }
 
   const std::size_t NumTests = 50;
   for(std::size_t i=1; i < NumTests; ++i)
@@ -93,18 +76,7 @@ void test_interpolation(
     const auto motion = it->compute_motion();
     REQUIRE(motion != nullptr);
     CHECK(start_time - 10ns <= motion->start_time());
-    std::cout  << "start_time: expected "
-               << rmf_traffic::time::to_seconds(start_time - trajectory_start_time)
-               << " | actual " << rmf_traffic::time::to_seconds(motion->start_time() - trajectory_start_time)
-               << " | difference " << rmf_traffic::time::to_seconds(motion->start_time() - start_time) << std::endl;
-
     CHECK(motion->finish_time() <= finish_time + 10ns);
-    std::cout << "finish_time: expected "
-              << rmf_traffic::time::to_seconds(finish_time - trajectory_start_time)
-              << " | actual " << rmf_traffic::time::to_seconds(motion->finish_time() - trajectory_start_time)
-              << " | difference " << rmf_traffic::time::to_seconds(motion->finish_time() - finish_time) << std::endl;
-
-    std::cout << "t: " << rmf_traffic::time::to_seconds(t - trajectory_start_time) << std::endl;
 
     if(t_rel <= t_a)
     {
@@ -120,10 +92,16 @@ void test_interpolation(
       for(int k=0; k < 3; ++k)
         CHECK(v_actual[k] == Approx(v_expected[k]).margin(1e-8));
 
-      const Eigen::Vector3d a_expected = a_n*normalized_dir;
-      const Eigen::Vector3d a_actual = motion->compute_acceleration(t);
-      for(int k=0; k < 3; ++k)
-        CHECK(a_actual[k] == Approx(a_expected[k]).margin(1e-8));
+      if(std::abs(t_rel - t_a) > 1e-8)
+      {
+        // Acceleration is discontinuous at the time t_a, so if we are very
+        // very close to it, then we shouldn't make assumptions about the
+        // acceleration value.
+        const Eigen::Vector3d a_expected = a_n*normalized_dir;
+        const Eigen::Vector3d a_actual = motion->compute_acceleration(t);
+        for(int k=0; k < 3; ++k)
+          CHECK(a_actual[k] == Approx(a_expected[k]).margin(1e-8));
+      }
     }
     else if(t_rel <= t_d)
     {
@@ -139,10 +117,16 @@ void test_interpolation(
       for(int k=0; k < 3; ++k)
         CHECK(v_actual[k] == Approx(v_expected[k]).margin(1e-8));
 
-      const Eigen::Vector3d a_expected = Eigen::Vector3d::Zero();
-      const Eigen::Vector3d a_actual = motion->compute_acceleration(t);
-      for(int k=0; k < 3; ++k)
-        CHECK(a_actual[k] == Approx(a_expected[k]).margin(1e-8));
+      if(std::abs(t_rel - t_d) > 1e-8)
+      {
+        // Acceleration is discontinuous at the time t_d, so if we are very
+        // very close to it, then we shouldn't make assumptions about the
+        // acceleration value.
+        const Eigen::Vector3d a_expected = Eigen::Vector3d::Zero();
+        const Eigen::Vector3d a_actual = motion->compute_acceleration(t);
+        for(int k=0; k < 3; ++k)
+          CHECK(a_actual[k] == Approx(a_expected[k]).margin(1e-8));
+      }
     }
     else if(t_rel <= dt)
     {
@@ -199,14 +183,13 @@ SCENARIO("Test Interpolations")
       .rotational().set_nominal_velocity(w_n)
       .rotational().set_nominal_acceleration(alpha_n);
 
-  std::vector<Eigen::Vector3d> positions;
   GIVEN("Three distant points")
   {
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
     const double xf = 10.0;
     const double angle1 = 90.0*M_PI/180.0;
     const double angle2 = 45.0*M_PI/180.0;
-    positions = {
+    const std::vector<Eigen::Vector3d> positions = {
         Eigen::Vector3d{0.0, 0.0, 0.0},
         Eigen::Vector3d{xf, 0.0, angle1},
         Eigen::Vector3d{xf, -xf, angle2}
@@ -222,27 +205,83 @@ SCENARIO("Test Interpolations")
 
       const PredictedTimes times1 = compute_predicted_times(0.0, xf, v_n, a_n);
       test_interpolation(
-          positions[0], Eigen::Vector3d{1.0, 0.0, 0.0}, a_n, times1, trajectory);
+          positions[0], Eigen::Vector3d::UnitX(), a_n, times1, trajectory);
 
       const PredictedTimes times2 =
           compute_predicted_times(times1.t_finish, angle1, w_n, alpha_n);
       test_interpolation(
-          Eigen::Vector3d{xf, 0.0, 0.0}, Eigen::Vector3d{0.0, 0.0, 1.0},
+          Eigen::Vector3d{xf, 0.0, 0.0}, Eigen::Vector3d::UnitZ(),
           alpha_n, times2, trajectory);
 
-      std::cout << " =========================== TEST 3 ========================" << std::endl;
       const PredictedTimes times3 =
           compute_predicted_times(times2.t_finish, xf, v_n, a_n);
       test_interpolation(
-          positions[1], Eigen::Vector3d{0.0, -1.0, 0.0}, a_n, times3, trajectory);
+          positions[1], -Eigen::Vector3d::UnitY(), a_n, times3, trajectory);
 
       const PredictedTimes times4 =
           compute_predicted_times(
             times3.t_finish, std::abs(angle2 - angle1), w_n, alpha_n);
       test_interpolation(
-          Eigen::Vector3d{xf, -xf, angle1}, Eigen::Vector3d{0.0, 0.0, -1.0},
+          Eigen::Vector3d{xf, -xf, angle1}, -Eigen::Vector3d::UnitZ(),
           alpha_n, times4, trajectory);
     }
   }
 
+  GIVEN("Three near points")
+  {
+    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+    const double x0 = 10.0;
+    const double y0 = -15.0;
+    const double theta0 = -60.0*M_PI/180.0;
+
+    const double pf = 0.1;
+    const double angle1 = 2.0*M_PI/180.0;
+    const double angle2 = -1.0*M_PI/180.0;
+    const std::vector<Eigen::Vector3d> positions = {
+      Eigen::Vector3d{x0, y0, theta0},
+      Eigen::Vector3d{x0 - pf, -15.0, theta0 + angle1},
+      Eigen::Vector3d{x0 - pf, -15 + pf, theta0 + angle2}
+    };
+
+    rmf_traffic::Trajectory trajectory =
+        rmf_traffic::agv::Interpolate::positions(
+          "test_map", traits, start_time, positions);
+
+    THEN("The trajectory is correctly interpolated")
+    {
+      CHECK(trajectory.size() == 9);
+
+      const PredictedTimes times1 = compute_predicted_times(0.0, pf, v_n, a_n);
+      test_interpolation(
+            positions[0], -Eigen::Vector3d::UnitX(), a_n, times1, trajectory);
+
+      const PredictedTimes times2 = compute_predicted_times(
+            times1.t_finish, angle1, w_n, alpha_n);
+      test_interpolation(
+            Eigen::Vector3d{x0 - pf, -15.0, theta0}, Eigen::Vector3d::UnitZ(),
+            alpha_n, times2, trajectory);
+
+      const PredictedTimes times3 = compute_predicted_times(
+            times2.t_finish, pf, v_n, a_n);
+      test_interpolation(
+            positions[1], Eigen::Vector3d::UnitY(), a_n, times3, trajectory);
+
+      const PredictedTimes times4 = compute_predicted_times(
+            times3.t_finish, std::abs(angle2 - angle1), w_n, alpha_n);
+      test_interpolation(
+            Eigen::Vector3d{x0 - pf, -15 + pf, theta0 + angle1},
+            -Eigen::Vector3d::UnitZ(), alpha_n, times4, trajectory);
+    }
+  }
 }
+
+/// ================ Testing wishlist ================
+/// * Test the different Interpolate::Options features:
+///   - always stop
+///   - translation threshold
+///   - rotation threshold
+///   - corner angle threshold
+/// * Test a trajectory that moves diagonally through the x/y plane
+/// * Compute some points along an expected trajectory by hand, and compare the
+///   rmf_traffic::avg::Interpolate results against the hand-computed expectations
+///

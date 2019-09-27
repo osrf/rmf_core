@@ -50,7 +50,7 @@ public:
   public:
 
     Options(
-        bool always_stop = true,
+        bool always_stop = false,
         double translation_thresh = 1e-3,
         double rotation_thresh = 1.0 * M_PI/180.0,
         double corner_angle_thresh = 1.0 * M_PI/180.0);
