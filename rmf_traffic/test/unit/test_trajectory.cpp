@@ -155,7 +155,7 @@ SCENARIO("Segment Unit Tests")
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
 
-      Trajectory::Segment segment = *(result.it);
+      const Trajectory::Segment& segment = *(result.it);
 
       THEN("Segment is constructed according to specifications.")
       {
@@ -172,7 +172,7 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
-      Trajectory::Segment segment = *(result.it);
+      const Trajectory::Segment& segment = *(result.it);
 
       *strict_unitbox_profile = *queued_unitCircle_profile;
 
@@ -187,7 +187,7 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
-      Trajectory::Segment segment = *(result.it);
+      const Trajectory::Segment& segment = *(result.it);
 
       Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
 
@@ -202,7 +202,7 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
-      Trajectory::Segment segment = *(result.it);
+      const Trajectory::Segment& segment = *(result.it);
 
       Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
 
@@ -232,8 +232,8 @@ SCENARIO("Segment Unit Tests")
     inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(0, 0, 0)});
     Trajectory trajectory = create_test_trajectory(inputs);
     Trajectory::iterator trajectory_it = trajectory.begin();
-    Trajectory::Segment segment = *trajectory_it;
-    Trajectory::Segment segment_10s = *(trajectory_it++);
+    Trajectory::Segment& segment = *trajectory_it;
+    Trajectory::Segment& segment_10s = *(++trajectory_it);
 
     WHEN("Setting a new profile using set_profile function")
     {
@@ -377,9 +377,9 @@ SCENARIO("Segment Unit Tests")
       segment_10s.adjust_finish_times(delta_t);
       int i = 0;
 
-      THEN("All finish times are adjusted correctly.")
+      THEN("Finish times from the second segment on are adjusted correctly.")
       {
-        Time new_order[3] = {time + 5s, time + 15s, time + 25s};
+        Time new_order[3] = {time, time + 15s, time + 25s};
         for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_time() == new_order[i]);
@@ -395,7 +395,7 @@ SCENARIO("Segment Unit Tests")
 
       THEN("All finish times are adjusted correctly.")
       {
-        Time new_order[3] = {time - 5s, time + 5s, time + 15s};
+        Time new_order[3] = {time, time + 5s, time + 15s};
         for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_time() == new_order[i]);
@@ -409,8 +409,7 @@ SCENARIO("Segment Unit Tests")
 
       THEN("std::invalid_argument exception thrown due to violation of previous segment time boundary")
       {
-        // FLAG: No exception was thrown here
-        // CHECK_THROWS(segment_10s.adjust_finish_times(delta_t));
+        CHECK_THROWS(segment_10s.adjust_finish_times(delta_t));
       }
     }
   }
@@ -447,9 +446,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
     WHEN("Construct a length 1 trajectory")
     {
       Trajectory trajectory("test_map");
-      auto result = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
-                                      pos_0,
-                                      vel_0);
+      auto result = trajectory.insert(
+            time, create_test_profile(UnitBox, AgencyType::Strict),
+            pos_0, vel_0);
       Trajectory::iterator zeroth_it = result.it;
 
       THEN("Length 1 trajectory is created.")
@@ -619,10 +618,6 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
       THEN("Elements of trajectories are consistent")
       {
-        // FLAG: I would expect the following to throw a segfault due to std::move, but it doesn't
-        // As a result, the following test might not be much different from a copy constructor.
-        // trajectory.get_map_name(); // Doesn't segfault
-
         Trajectory::const_iterator ct = trajectory_copy.begin();
         Trajectory::const_iterator mt = trajectory_moved.begin();
         for (; ct != trajectory_copy.end() && mt != trajectory_moved.end(); ++ct, ++mt)
@@ -646,11 +641,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       Time time_3 = time + 30s;
       Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
-      Trajectory::iterator fourth_it = trajectory.insert(time_3,
-                                                         create_test_profile(UnitBox, AgencyType::Strict),
-                                                         pos_3,
-                                                         vel_3)
-                                           .it;
+      Trajectory::iterator fourth_it = trajectory.insert(
+            time_3, create_test_profile(UnitBox, AgencyType::Strict),
+            pos_3, vel_3).it;
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -676,11 +669,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       Time time_3 = time - 30s;
       Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
-      Trajectory::iterator fourth_it = trajectory.insert(time_3,
-                                                         create_test_profile(UnitBox, AgencyType::Strict),
-                                                         pos_3,
-                                                         vel_3)
-                                           .it;
+      Trajectory::iterator fourth_it = trajectory.insert(
+            time_3, create_test_profile(UnitBox, AgencyType::Strict),
+            pos_3, vel_3).it;
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -706,11 +697,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       Time time_3 = time + 15s;
       Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
-      Trajectory::iterator fourth_it = trajectory.insert(time_3,
-                                                         create_test_profile(UnitBox, AgencyType::Strict),
-                                                         pos_3,
-                                                         vel_3)
-                                           .it;
+      Trajectory::iterator fourth_it = trajectory.insert(
+            time_3, create_test_profile(UnitBox, AgencyType::Strict),
+            pos_3, vel_3).it;
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -773,8 +762,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("Trajectory::end() is returned")
       {
-        // FLAG: Returns trajectory.begin() instead of trajectory.end()
-        // CHECK(trajectory.find(time - 50s) == trajectory.end());
+        CHECK(trajectory.find(time - 50s) == trajectory.end());
         CHECK(trajectory.find(time + 50s) == trajectory.end());
       }
     }
@@ -924,12 +912,24 @@ SCENARIO("Trajectory and base_iterator unit tests")
       {
         CHECK(trajectory.size() == 3);
         Trajectory::iterator erase_first = trajectory.begin();
-        // Trajectory::iterator erase_last = trajectory.end(); // FLAG: Segfault during erase
-        // Trajectory::iterator erase_last = --(trajectory.end()); // FLAG: Deletes all but last segment, which is correct behaviour
-        // Rest of code cannot be run because of the above two flags
-        // Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
-        // CHECK(trajectory.size() == 0);
-        // CHECK(next_it == trajectory.end());
+        Trajectory::iterator erase_last = trajectory.end();
+        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 0);
+        CHECK(next_it == trajectory.end());
+      }
+    }
+
+    WHEN("Erasing all but last segment using range notation")
+    {
+      THEN("All Segments are erased and trajectory is empty")
+      {
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory.begin();
+         Trajectory::iterator erase_last = --(trajectory.end());
+        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 1);
+        CHECK(next_it == trajectory.begin());
+        CHECK(next_it == --trajectory.end());
       }
     }
 
@@ -940,13 +940,27 @@ SCENARIO("Trajectory and base_iterator unit tests")
         Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        // Trajectory::iterator erase_last = trajectory.end(); // FLAG: Segfault during erase
-        // Trajectory::iterator erase_last = --(trajectory.end()); // FLAG: Deletes all but last segment, which is correct behaviour
-        // Rest of code cannot be run because of the above two flags
-        // Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
-        // CHECK(trajectory_copy.size() == 0);
-        // CHECK(next_it == trajectory.end());
+        Trajectory::iterator erase_first = trajectory_copy.begin();
+        Trajectory::iterator erase_last = trajectory_copy.end();
+        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 0);
+        CHECK(next_it == trajectory_copy.end());
+      }
+    }
+
+    WHEN("Erasing all but last segment of a copy using range notation")
+    {
+      THEN("All Segments are erased and trajectory is empty")
+      {
+        Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        Trajectory::iterator erase_first = trajectory_copy.begin();
+        Trajectory::iterator erase_last = --(trajectory_copy.end());
+        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 1);
+        CHECK(next_it == trajectory_copy.begin());
+        CHECK(next_it == --trajectory_copy.end());
       }
     }
 
