@@ -23,8 +23,6 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_utils/catch.hpp>
 
-using AgencyType = rmf_traffic::Trajectory::Profile::Agency;
-
 //==============================================================================
 enum TestProfileType
 {
@@ -33,25 +31,25 @@ enum TestProfileType
 };
 
 inline rmf_traffic::Trajectory::ProfilePtr create_test_profile(TestProfileType shape,
-                                                  AgencyType agency = AgencyType::Strict,
+                                                  rmf_traffic::Trajectory::Profile::Agency agency = rmf_traffic::Trajectory::Profile::Agency::Strict,
                                                   std::string queue_number = "0")
 {
-  if (UnitBox == shape && AgencyType::Strict == agency)
+  if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Agency::Strict == agency)
   {
     return rmf_traffic::Trajectory::Profile::make_strict(
         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
   }
-  else if (UnitCircle == shape && AgencyType::Strict == agency)
+  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Agency::Strict == agency)
   {
     return rmf_traffic::Trajectory::Profile::make_strict(
         std::make_shared<rmf_traffic::geometry::Circle>(1.0));
   }
-  else if (UnitBox == shape && AgencyType::Queued == agency)
+  else if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Agency::Queued == agency)
   {
     return rmf_traffic::Trajectory::Profile::make_queued(
         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0), queue_number);
   }
-  else if (UnitCircle == shape && AgencyType::Queued == agency)
+  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Agency::Queued == agency)
   {
     return rmf_traffic::Trajectory::Profile::make_queued(
         std::make_shared<rmf_traffic::geometry::Circle>(1.0), queue_number);
