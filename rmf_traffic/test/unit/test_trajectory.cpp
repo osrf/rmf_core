@@ -20,25 +20,22 @@
 #include <rmf_utils/catch.hpp>
 #include <iostream>
 
-using namespace rmf_traffic;
-using namespace Eigen;
-using namespace std::chrono;
-
-using AgencyType = Trajectory::Profile::Agency;
+using namespace std::chrono_literals;
+using AgencyType = rmf_traffic::Trajectory::Profile::Agency;
 
 SCENARIO("Profile unit tests")
 {
   // Profile Construction and Getters
   GIVEN("Construction values for Profile")
   {
-    std::shared_ptr<geometry::Box> unitBox_shape = std::make_shared<geometry::Box>(1.0, 1.0);
-    std::shared_ptr<geometry::Circle> unitCircle_shape = std::make_shared<geometry::Circle>(1.0);
+    std::shared_ptr<rmf_traffic::geometry::Box> unitBox_shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+    std::shared_ptr<rmf_traffic::geometry::Circle> unitCircle_shape = std::make_shared<rmf_traffic::geometry::Circle>(1.0);
     std::string queue_number = "5";
 
     WHEN("Constructing a Profile given shape and agency")
     {
-      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
-      Trajectory::ProfilePtr queue_profile = Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
+      rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      rmf_traffic::Trajectory::ProfilePtr queue_profile = rmf_traffic::Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
 
       THEN("Profile is constructed according to specifications.")
       {
@@ -54,8 +51,8 @@ SCENARIO("Profile unit tests")
 
     WHEN("Shape object used for profile construction is changed")
     {
-      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
-      *unitBox_shape = geometry::Box(2.0, 2.0);
+      rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      *unitBox_shape = rmf_traffic::geometry::Box(2.0, 2.0);
 
       THEN("Profile is still valid")
       {
@@ -66,9 +63,9 @@ SCENARIO("Profile unit tests")
 
     WHEN("Pointer for shape used for profile construction is changed")
     {
-      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
-      geometry::Box *ptr_address = unitBox_shape.get();
-      unitBox_shape = std::make_shared<geometry::Box>(2.0, 2.0);
+      rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      rmf_traffic::geometry::Box *ptr_address = unitBox_shape.get();
+      unitBox_shape = std::make_shared<rmf_traffic::geometry::Box>(2.0, 2.0);
 
       THEN("Profile shape is unaffected")
       {
@@ -80,8 +77,8 @@ SCENARIO("Profile unit tests")
     WHEN("Shape object used for profile construction is moved")
     {
       // Move constructor
-      Trajectory::ProfilePtr strict_profile = Trajectory::Profile::make_strict(unitBox_shape);
-      std::shared_ptr<geometry::Box> new_unitBox_shape = std::move(unitBox_shape);
+      rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      std::shared_ptr<rmf_traffic::geometry::Box> new_unitBox_shape = std::move(unitBox_shape);
 
       THEN("Profile shape is unaffected")
       {
@@ -101,9 +98,9 @@ SCENARIO("Profile unit tests")
   // Profile Function Tests
   GIVEN("Sample Profiles and Shapes")
   {
-    Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, AgencyType::Strict);
-    Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, AgencyType::Queued, "3");
-    std::shared_ptr<geometry::Box> new_Box_shape = std::make_shared<geometry::Box>(2.0, 2.0);
+    rmf_traffic::Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, AgencyType::Strict);
+    rmf_traffic::Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, AgencyType::Queued, "3");
+    std::shared_ptr<rmf_traffic::geometry::Box> new_Box_shape = std::make_shared<rmf_traffic::geometry::Box>(2.0, 2.0);
 
     WHEN("Profile agency is changed using API set_to_* function")
     {
@@ -144,18 +141,18 @@ SCENARIO("Segment Unit Tests")
   // Segment Construction and Getters
   GIVEN("Construction values for Segments")
   {
-    Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, AgencyType::Strict);
-    Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, AgencyType::Queued, "3");
+    rmf_traffic::Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, AgencyType::Strict);
+    rmf_traffic::Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, AgencyType::Queued, "3");
     const auto time = std::chrono::steady_clock::now();
     const Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
     const Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
 
-    WHEN("Attemping to construct Segment using Trajectory::add_segment()")
+    WHEN("Attemping to construct Segment using rmf_traffic::Trajectory::add_segment()")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
 
-      const Trajectory::Segment& segment = *(result.it);
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
       THEN("Segment is constructed according to specifications.")
       {
@@ -172,7 +169,7 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
-      const Trajectory::Segment& segment = *(result.it);
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
       *strict_unitbox_profile = *queued_unitCircle_profile;
 
@@ -187,9 +184,9 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
-      const Trajectory::Segment& segment = *(result.it);
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
-      Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+      rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
 
       THEN("Segment profile is updated")
       {
@@ -202,9 +199,9 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
-      const Trajectory::Segment& segment = *(result.it);
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
-      Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+      rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
 
       THEN("Segment profile is updated")
       {
@@ -226,18 +223,18 @@ SCENARIO("Segment Unit Tests")
   GIVEN("Sample Segment")
   {
     std::vector<TrajectoryInsertInput> inputs;
-    Time time = steady_clock::now();
+    rmf_traffic::Time time = std::chrono::steady_clock::now();
     inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)});
     inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(1, 1, 1), Eigen::Vector3d(1, 1, 1)});
     inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(0, 0, 0)});
-    Trajectory trajectory = create_test_trajectory(inputs);
-    Trajectory::iterator trajectory_it = trajectory.begin();
-    Trajectory::Segment& segment = *trajectory_it;
-    Trajectory::Segment& segment_10s = *(++trajectory_it);
+    rmf_traffic::Trajectory trajectory = create_test_trajectory(inputs);
+    rmf_traffic::Trajectory::iterator trajectory_it = trajectory.begin();
+    rmf_traffic::Trajectory::Segment &segment = *trajectory_it;
+    rmf_traffic::Trajectory::Segment &segment_10s = *(++trajectory_it);
 
     WHEN("Setting a new profile using set_profile function")
     {
-      Trajectory::ProfilePtr new_profile = create_test_profile(UnitCircle, AgencyType::Autonomous);
+      rmf_traffic::Trajectory::ProfilePtr new_profile = create_test_profile(UnitCircle, AgencyType::Autonomous);
       segment.set_profile(new_profile);
 
       THEN("Profile is updated successfully.")
@@ -270,7 +267,7 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Setting a new finish time using set_finish_time function")
     {
-      Time new_time = time + 5s;
+      rmf_traffic::Time new_time = time + 5s;
       segment.set_finish_time(new_time);
 
       THEN("Finish time is updated successfully.")
@@ -281,7 +278,7 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Setting a new finish time that conflicts with another segment")
     {
-      Time new_time = time + 10s;
+      rmf_traffic::Time new_time = time + 10s;
 
       THEN("Error is thrown.")
       {
@@ -291,14 +288,14 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Setting a new finish time that causes a rearrangement of adjacent segments")
     {
-      Time new_time = time + 12s;
+      rmf_traffic::Time new_time = time + 12s;
       segment.set_finish_time(new_time);
 
       THEN("The appropriate segments are rearranged")
       {
         int new_order[3] = {1, 0, 2};
         int i = 0;
-        for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
           CHECK(it->get_finish_position() == Eigen::Vector3d(new_order[i],
                                                              new_order[i],
                                                              new_order[i]));
@@ -307,14 +304,14 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Setting a new finish time that causes a rearrangement of non-adjacent segments")
     {
-      Time new_time = time + 22s;
+      rmf_traffic::Time new_time = time + 22s;
       segment.set_finish_time(new_time);
 
       THEN("The appropriate segments are rearranged")
       {
         int new_order[3] = {1, 2, 0};
         int i = 0;
-        for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_position() == Eigen::Vector3d(new_order[i],
                                                              new_order[i],
@@ -325,14 +322,14 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Positively adjusting all finish times using adjust_finish_times function, using first segment")
     {
-      seconds delta_t = seconds(5);
+      std::chrono::seconds delta_t = std::chrono::seconds(5);
       segment.adjust_finish_times(delta_t);
       int i = 0;
-      Time new_order[3] = {time + 5s, time + 15s, time + 25s};
+      rmf_traffic::Time new_order[3] = {time + 5s, time + 15s, time + 25s};
 
       THEN("All finish times are adjusted correctly.")
       {
-        for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_time() == new_order[i]);
         }
@@ -341,14 +338,14 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Negatively adjusting all finish times using adjust_finish_times function, using first segment")
     {
-      seconds delta_t = seconds(-5);
+      std::chrono::seconds delta_t = std::chrono::seconds(-5);
       segment.adjust_finish_times(delta_t);
       int i = 0;
-      Time new_order[3] = {time - 5s, time + 5s, time + 15s};
+      rmf_traffic::Time new_order[3] = {time - 5s, time + 5s, time + 15s};
 
       THEN("All finish times are adjusted correctly.")
       {
-        for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_time() == new_order[i]);
         }
@@ -357,14 +354,14 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Large negative adjustment all finish times using adjust_finish_times function, using first segment")
     {
-      seconds delta_t = seconds(-50);
+      std::chrono::seconds delta_t = std::chrono::seconds(-50);
       segment.adjust_finish_times(delta_t);
       int i = 0;
-      Time new_order[3] = {time - 50s, time - 40s, time - 30s};
+      rmf_traffic::Time new_order[3] = {time - 50s, time - 40s, time - 30s};
 
       THEN("All finish times are adjusted correctly, as there is no segment preceding first segment")
       {
-        for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_time() == new_order[i]);
         }
@@ -373,14 +370,14 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Positively adjusting all finish times using adjust_finish_times function, using second segment")
     {
-      seconds delta_t = seconds(5);
+      std::chrono::seconds delta_t = std::chrono::seconds(5);
       segment_10s.adjust_finish_times(delta_t);
       int i = 0;
 
       THEN("Finish times from the second segment on are adjusted correctly.")
       {
-        Time new_order[3] = {time, time + 15s, time + 25s};
-        for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        rmf_traffic::Time new_order[3] = {time, time + 15s, time + 25s};
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_time() == new_order[i]);
         }
@@ -389,14 +386,14 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Negatively adjusting all finish times using adjust_finish_times function, using second segment")
     {
-      seconds delta_t = seconds(-5);
+      std::chrono::seconds delta_t = std::chrono::seconds(-5);
       segment_10s.adjust_finish_times(delta_t);
       int i = 0;
 
       THEN("All finish times are adjusted correctly.")
       {
-        Time new_order[3] = {time, time + 5s, time + 15s};
-        for (Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        rmf_traffic::Time new_order[3] = {time, time + 5s, time + 15s};
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
           CHECK(it->get_finish_time() == new_order[i]);
         }
@@ -405,7 +402,7 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Large negative adjustment all finish times using adjust_finish_times function, using second segment")
     {
-      seconds delta_t = seconds(-50);
+      std::chrono::seconds delta_t = std::chrono::seconds(-50);
 
       THEN("std::invalid_argument exception thrown due to violation of previous segment time boundary")
       {
@@ -420,7 +417,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
   // Trajectory construction
   GIVEN("Parameters for insert function")
   {
-    Time time = steady_clock::now();
+    rmf_traffic::Time time = std::chrono::steady_clock::now();
     Eigen::Vector3d pos_0 = Eigen::Vector3d(0, 0, 0);
     Eigen::Vector3d vel_0 = Eigen::Vector3d(1, 1, 1);
     Eigen::Vector3d pos_1 = Eigen::Vector3d(2, 2, 2);
@@ -434,7 +431,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Construct empty trajectory")
     {
-      Trajectory trajectory("test_map");
+      rmf_traffic::Trajectory trajectory("test_map");
 
       THEN("Empty trajectory is created.")
       {
@@ -445,11 +442,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Construct a length 1 trajectory")
     {
-      Trajectory trajectory("test_map");
+      rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(
-            time, create_test_profile(UnitBox, AgencyType::Strict),
-            pos_0, vel_0);
-      Trajectory::iterator zeroth_it = result.it;
+          time, create_test_profile(UnitBox, AgencyType::Strict),
+          pos_0, vel_0);
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
 
       THEN("Length 1 trajectory is created.")
       {
@@ -471,15 +468,15 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Construct a length 2 trajectory")
     {
-      Trajectory trajectory("test_map");
+      rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
                                       pos_0,
                                       vel_0);
-      Trajectory::iterator zeroth_it = result.it;
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, AgencyType::Strict),
                                         pos_1,
                                         vel_1);
-      Trajectory::iterator first_it = result_1.it;
+      rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("Length 2 trajectory is created.")
       {
@@ -511,11 +508,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Inserting a segment with a unique finish_time violation")
     {
-      Trajectory trajectory("test_map");
+      rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
                                       pos_0,
                                       vel_0);
-      Trajectory::iterator zeroth_it = result.it;
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
                                         pos_1,
                                         vel_1);
@@ -523,24 +520,24 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Returned result has inserted field set to false.")
       {
         CHECK(result_1.inserted == false);
-      } 
+      }
     }
 
     WHEN("Copy Construction from another base_iterator")
     {
-      Trajectory trajectory("test_map");
+      rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
                                       pos_0,
                                       vel_0);
-      Trajectory::iterator zeroth_it = result.it;
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, AgencyType::Strict),
                                         pos_1,
                                         vel_1);
-      Trajectory::iterator first_it = result_1.it;
+      rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("New iterator is created")
       {
-        Trajectory::iterator copied_first_it(zeroth_it);
+        rmf_traffic::Trajectory::iterator copied_first_it(zeroth_it);
         CHECK(&zeroth_it != &copied_first_it);
         CHECK(copied_first_it->get_profile() == zeroth_it->get_profile());
       }
@@ -548,20 +545,20 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Copy Construction from rvalue base_iterator")
     {
-      Trajectory trajectory("test_map");
+      rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
                                       pos_0,
                                       vel_0);
-      Trajectory::iterator zeroth_it = result.it;
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, AgencyType::Strict),
                                         pos_1,
                                         vel_1);
-      Trajectory::iterator first_it = result_1.it;
+      rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("New iterator is created")
       {
-        Trajectory::iterator &&rvalue_it = std::move(zeroth_it);
-        Trajectory::iterator copied_first_it(rvalue_it);
+        rmf_traffic::Trajectory::iterator &&rvalue_it = std::move(zeroth_it);
+        rmf_traffic::Trajectory::iterator copied_first_it(rvalue_it);
         CHECK(&zeroth_it != &copied_first_it);
         CHECK(copied_first_it->get_profile() == zeroth_it->get_profile());
       }
@@ -569,20 +566,20 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Move Construction from another base_iterator")
     {
-      Trajectory trajectory("test_map");
+      rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(time, create_test_profile(UnitBox, AgencyType::Strict),
                                       pos_0,
                                       vel_0);
-      Trajectory::iterator zeroth_it = result.it;
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
       auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, AgencyType::Strict),
                                         pos_1,
                                         vel_1);
-      Trajectory::iterator first_it = result_1.it;
+      rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
       THEN("New iterator is created")
       {
-        Trajectory::iterator copied_first_it(zeroth_it);
-        Trajectory::iterator moved_first_it(std::move(copied_first_it));
+        rmf_traffic::Trajectory::iterator copied_first_it(zeroth_it);
+        rmf_traffic::Trajectory::iterator moved_first_it(std::move(copied_first_it));
         CHECK(&zeroth_it != &moved_first_it);
         CHECK(moved_first_it->get_profile() == zeroth_it->get_profile());
       }
@@ -590,13 +587,13 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Copy Construction of Trajectory from another trajectory")
     {
-      Trajectory trajectory = create_test_trajectory(param_inputs);
-      Trajectory trajectory_copy = trajectory;
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory trajectory_copy = trajectory;
 
       THEN("Elements of trajectories are consistent")
       {
-        Trajectory::const_iterator ot = trajectory.begin();
-        Trajectory::const_iterator ct = trajectory_copy.begin();
+        rmf_traffic::Trajectory::const_iterator ot = trajectory.begin();
+        rmf_traffic::Trajectory::const_iterator ct = trajectory_copy.begin();
         for (; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
         {
           CHECK(ot->get_profile() == ct->get_profile());
@@ -609,17 +606,16 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-
     WHEN("Copy Construction of Trajectory followed by move of source trajectory")
     {
-      Trajectory trajectory = create_test_trajectory(param_inputs);
-      Trajectory trajectory_copy = trajectory;
-      Trajectory trajectory_moved = std::move(trajectory);
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory trajectory_copy = trajectory;
+      rmf_traffic::Trajectory trajectory_moved = std::move(trajectory);
 
       THEN("Elements of trajectories are consistent")
       {
-        Trajectory::const_iterator ct = trajectory_copy.begin();
-        Trajectory::const_iterator mt = trajectory_moved.begin();
+        rmf_traffic::Trajectory::const_iterator ct = trajectory_copy.begin();
+        rmf_traffic::Trajectory::const_iterator mt = trajectory_moved.begin();
         for (; ct != trajectory_copy.end() && mt != trajectory_moved.end(); ++ct, ++mt)
         {
           CHECK(ct->get_profile() == mt->get_profile());
@@ -634,16 +630,17 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Appending segment to trajectory")
     {
-      Trajectory trajectory = create_test_trajectory(param_inputs);
-      Trajectory::iterator first_it = trajectory.begin();
-      Trajectory::iterator second_it = trajectory.find(time + 10s);
-      Trajectory::iterator third_it = trajectory.find(time + 20s);
-      Time time_3 = time + 30s;
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
+      rmf_traffic::Trajectory::iterator second_it = trajectory.find(time + 10s);
+      rmf_traffic::Trajectory::iterator third_it = trajectory.find(time + 20s);
+      rmf_traffic::Time time_3 = time + 30s;
       Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
-      Trajectory::iterator fourth_it = trajectory.insert(
-            time_3, create_test_profile(UnitBox, AgencyType::Strict),
-            pos_3, vel_3).it;
+      rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
+                                                                  time_3, create_test_profile(UnitBox, AgencyType::Strict),
+                                                                  pos_3, vel_3)
+                                                        .it;
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -662,16 +659,17 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Prepending segment to trajectory")
     {
-      Trajectory trajectory = create_test_trajectory(param_inputs);
-      Trajectory::iterator first_it = trajectory.begin();
-      Trajectory::iterator second_it = trajectory.find(time + 10s);
-      Trajectory::iterator third_it = trajectory.find(time + 20s);
-      Time time_3 = time - 30s;
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
+      rmf_traffic::Trajectory::iterator second_it = trajectory.find(time + 10s);
+      rmf_traffic::Trajectory::iterator third_it = trajectory.find(time + 20s);
+      rmf_traffic::Time time_3 = time - 30s;
       Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
-      Trajectory::iterator fourth_it = trajectory.insert(
-            time_3, create_test_profile(UnitBox, AgencyType::Strict),
-            pos_3, vel_3).it;
+      rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
+                                                                  time_3, create_test_profile(UnitBox, AgencyType::Strict),
+                                                                  pos_3, vel_3)
+                                                        .it;
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -690,16 +688,17 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Interpolating segment to trajectory")
     {
-      Trajectory trajectory = create_test_trajectory(param_inputs);
-      Trajectory::iterator first_it = trajectory.begin();
-      Trajectory::iterator second_it = trajectory.find(time + 10s);
-      Trajectory::iterator third_it = trajectory.find(time + 20s);
-      Time time_3 = time + 15s;
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
+      rmf_traffic::Trajectory::iterator second_it = trajectory.find(time + 10s);
+      rmf_traffic::Trajectory::iterator third_it = trajectory.find(time + 20s);
+      rmf_traffic::Time time_3 = time + 15s;
       Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
-      Trajectory::iterator fourth_it = trajectory.insert(
-            time_3, create_test_profile(UnitBox, AgencyType::Strict),
-            pos_3, vel_3).it;
+      rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
+                                                                  time_3, create_test_profile(UnitBox, AgencyType::Strict),
+                                                                  pos_3, vel_3)
+                                                        .it;
 
       THEN("base_iterators assigned prior are still valid")
       {
@@ -713,7 +712,6 @@ SCENARIO("Trajectory and base_iterator unit tests")
         CHECK(++second_it == fourth_it);
         CHECK(++fourth_it == third_it);
         CHECK(++third_it == trajectory.end());
-        
       }
     }
   }
@@ -721,12 +719,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
   GIVEN("Sample Trajectories")
   {
     std::vector<TrajectoryInsertInput> param_inputs;
-    Time time = steady_clock::now();
+    rmf_traffic::Time time = std::chrono::steady_clock::now();
     param_inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(1, 1, 1)});
     param_inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(3, 3, 3)});
     param_inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(4, 4, 4), Eigen::Vector3d(5, 5, 5)});
-    Trajectory trajectory = create_test_trajectory(param_inputs);
-    Trajectory empty_trajectory = create_test_trajectory();
+    rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+    rmf_traffic::Trajectory empty_trajectory = create_test_trajectory();
 
     WHEN("Setting a new map name using set_map_name function")
     {
@@ -760,7 +758,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Finding a segment at an out of bounds time")
     {
-      THEN("Trajectory::end() is returned")
+      THEN("rmf_traffic::Trajectory::end() is returned")
       {
         CHECK(trajectory.find(time - 50s) == trajectory.end());
         CHECK(trajectory.find(time + 50s) == trajectory.end());
@@ -772,8 +770,8 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Segment is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_target = trajectory.begin();
-        Trajectory::iterator next_it = trajectory.erase(erase_target);
+        rmf_traffic::Trajectory::iterator erase_target = trajectory.begin();
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_target);
         CHECK(next_it->get_finish_time() == time + 10s);
         CHECK(trajectory.size() == 2);
       }
@@ -783,11 +781,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("Segment is erased and only copy is updated, source is unaffected")
       {
-        Trajectory trajectory_copy = trajectory;
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_target = trajectory_copy.begin();
-        Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        rmf_traffic::Trajectory::iterator erase_target = trajectory_copy.begin();
+        rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
         CHECK(next_it->get_finish_time() == time + 10s);
         CHECK(trajectory_copy.size() == 2);
         CHECK(trajectory.size() == 3);
@@ -799,8 +797,8 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Segment is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_target = ++(trajectory.begin());
-        Trajectory::iterator next_it = trajectory.erase(erase_target);
+        rmf_traffic::Trajectory::iterator erase_target = ++(trajectory.begin());
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_target);
         CHECK(next_it->get_finish_time() == time + 20s);
         CHECK(trajectory.size() == 2);
       }
@@ -810,11 +808,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("Segment is erased and only copy is updated, source is unaffected")
       {
-        Trajectory trajectory_copy = trajectory;
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_target = ++(trajectory_copy.begin());
-        Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        rmf_traffic::Trajectory::iterator erase_target = ++(trajectory_copy.begin());
+        rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
         CHECK(next_it->get_finish_time() == time + 20s);
         CHECK(trajectory_copy.size() == 2);
         CHECK(trajectory.size() == 3);
@@ -826,9 +824,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Nothing is erased and current iterator is returned")
       {
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = erase_first;
-        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = erase_first;
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
         CHECK(trajectory.size() == 3);
         CHECK(next_it->get_finish_time() == time);
       }
@@ -838,12 +836,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("Nothing is erased")
       {
-        Trajectory trajectory_copy = trajectory;
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = erase_first;
-        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = erase_first;
+        rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
         CHECK(next_it->get_finish_time() == time);
@@ -855,9 +853,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("1 Segment is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = trajectory.find(time + 10s);
-        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 10s);
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
         CHECK(trajectory.size() == 2);
         CHECK(next_it->get_finish_time() == time + 10s);
       }
@@ -867,12 +865,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("1 Segment is erased and trajectory is rearranged")
       {
-        Trajectory trajectory_copy = trajectory;
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = trajectory.find(time + 10s);
-        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 10s);
+        rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
         CHECK(trajectory_copy.size() == 2);
         CHECK(next_it->get_finish_time() == time + 10s);
       }
@@ -883,9 +881,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("2 Segments are erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = trajectory.find(time + 20s);
-        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 20s);
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
         CHECK(trajectory.size() == 1);
         CHECK(next_it->get_finish_time() == time + 20s);
       }
@@ -895,12 +893,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("2 Segments are erased and trajectory is rearranged")
       {
-        Trajectory trajectory_copy = trajectory;
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = trajectory.find(time + 20s);
-        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 20s);
+        rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
         CHECK(trajectory_copy.size() == 1);
         CHECK(next_it->get_finish_time() == time + 20s);
       }
@@ -911,9 +909,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("All Segments are erased and trajectory is empty")
       {
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-        Trajectory::iterator erase_last = trajectory.end();
-        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = trajectory.end();
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
         CHECK(trajectory.size() == 0);
         CHECK(next_it == trajectory.end());
       }
@@ -924,9 +922,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("All Segments are erased and trajectory is empty")
       {
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory.begin();
-         Trajectory::iterator erase_last = --(trajectory.end());
-        Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        rmf_traffic::Trajectory::iterator erase_last = --(trajectory.end());
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
         CHECK(trajectory.size() == 1);
         CHECK(next_it == trajectory.begin());
         CHECK(next_it == --trajectory.end());
@@ -937,12 +935,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("All Segments are erased and trajectory is empty")
       {
-        Trajectory trajectory_copy = trajectory;
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory_copy.begin();
-        Trajectory::iterator erase_last = trajectory_copy.end();
-        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory_copy.begin();
+        rmf_traffic::Trajectory::iterator erase_last = trajectory_copy.end();
+        rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
         CHECK(trajectory_copy.size() == 0);
         CHECK(next_it == trajectory_copy.end());
       }
@@ -952,12 +950,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("All Segments are erased and trajectory is empty")
       {
-        Trajectory trajectory_copy = trajectory;
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        Trajectory::iterator erase_first = trajectory_copy.begin();
-        Trajectory::iterator erase_last = --(trajectory_copy.end());
-        Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        rmf_traffic::Trajectory::iterator erase_first = trajectory_copy.begin();
+        rmf_traffic::Trajectory::iterator erase_last = --(trajectory_copy.end());
+        rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
         CHECK(trajectory_copy.size() == 1);
         CHECK(next_it == trajectory_copy.begin());
         CHECK(next_it == --trajectory_copy.end());
@@ -1008,7 +1006,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("0 is returned")
       {
-        CHECK(empty_trajectory.duration() == seconds(0));
+        CHECK(empty_trajectory.duration() == std::chrono::seconds(0));
       }
     }
 
@@ -1016,7 +1014,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       THEN("duration is returned")
       {
-        CHECK(trajectory.duration() == seconds(20));
+        CHECK(trajectory.duration() == std::chrono::seconds(20));
       }
     }
   }

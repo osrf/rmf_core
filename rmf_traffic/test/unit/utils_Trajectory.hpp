@@ -23,8 +23,7 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_utils/catch.hpp>
 
-using namespace rmf_traffic;
-using AgencyType = Trajectory::Profile::Agency;
+using AgencyType = rmf_traffic::Trajectory::Profile::Agency;
 
 //==============================================================================
 enum TestProfileType
@@ -33,29 +32,29 @@ enum TestProfileType
   UnitCircle
 };
 
-inline Trajectory::ProfilePtr create_test_profile(TestProfileType shape,
+inline rmf_traffic::Trajectory::ProfilePtr create_test_profile(TestProfileType shape,
                                                   AgencyType agency = AgencyType::Strict,
                                                   std::string queue_number = "0")
 {
   if (UnitBox == shape && AgencyType::Strict == agency)
   {
-    return Trajectory::Profile::make_strict(
-        std::make_shared<geometry::Box>(1.0, 1.0));
+    return rmf_traffic::Trajectory::Profile::make_strict(
+        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
   }
   else if (UnitCircle == shape && AgencyType::Strict == agency)
   {
-    return Trajectory::Profile::make_strict(
-        std::make_shared<geometry::Circle>(1.0));
+    return rmf_traffic::Trajectory::Profile::make_strict(
+        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
   }
   else if (UnitBox == shape && AgencyType::Queued == agency)
   {
-    return Trajectory::Profile::make_queued(
-        std::make_shared<geometry::Box>(1.0, 1.0), queue_number);
+    return rmf_traffic::Trajectory::Profile::make_queued(
+        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0), queue_number);
   }
   else if (UnitCircle == shape && AgencyType::Queued == agency)
   {
-    return Trajectory::Profile::make_queued(
-        std::make_shared<geometry::Circle>(1.0), queue_number);
+    return rmf_traffic::Trajectory::Profile::make_queued(
+        std::make_shared<rmf_traffic::geometry::Circle>(1.0), queue_number);
   }
   else
   {
@@ -66,21 +65,21 @@ inline Trajectory::ProfilePtr create_test_profile(TestProfileType shape,
 //==============================================================================
 struct TrajectoryInsertInput
 {
-  Time time;
+  rmf_traffic::Time time;
   TestProfileType profile_type;
   Eigen::Vector3d pos;
   Eigen::Vector3d vel;
 };
 
-inline Trajectory create_test_trajectory()
+inline rmf_traffic::Trajectory create_test_trajectory()
 {
-  Trajectory trajectory("test_map");
+  rmf_traffic::Trajectory trajectory("test_map");
   return trajectory;
 }
 
-inline Trajectory create_test_trajectory(std::vector<TrajectoryInsertInput> param_list)
+inline rmf_traffic::Trajectory create_test_trajectory(std::vector<TrajectoryInsertInput> param_list)
 {
-  Trajectory trajectory("test_map");
+  rmf_traffic::Trajectory trajectory("test_map");
   for (auto x : param_list)
   {
     trajectory.insert(x.time, create_test_profile(x.profile_type), x.pos, x.vel);
@@ -90,17 +89,17 @@ inline Trajectory create_test_trajectory(std::vector<TrajectoryInsertInput> para
 
 // For backward compatibility in other tests
 //==============================================================================
-inline Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
+inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
 {
   if (UnitBox == shape)
   {
-    return Trajectory::Profile::make_strict(
-        std::make_shared<geometry::Box>(1.0, 1.0));
+    return rmf_traffic::Trajectory::Profile::make_strict(
+        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
   }
   else if (UnitCircle == shape)
   {
-    return Trajectory::Profile::make_strict(
-        std::make_shared<geometry::Circle>(1.0));
+    return rmf_traffic::Trajectory::Profile::make_strict(
+        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
   }
   else
   {
