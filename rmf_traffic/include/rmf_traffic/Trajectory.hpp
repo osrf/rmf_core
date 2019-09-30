@@ -33,8 +33,8 @@ namespace rmf_traffic {
 
 //==============================================================================
 namespace detail {
-/// \internal We declare this private PIMPL class outside of the base_iterator
-/// class so that it does not need to be templated.
+/// \internal We declare this private PIMPL class outside of the
+/// Trajectory::base_iterator class so that it does not need to be templated.
 class TrajectoryIteratorImplementation;
 } // namespace detail
 

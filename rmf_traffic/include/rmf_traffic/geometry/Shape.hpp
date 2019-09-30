@@ -65,6 +65,9 @@ private:
 
 };
 
+using ShapePtr = std::shared_ptr<Shape>;
+using ConstShapePtr = std::shared_ptr<const Shape>;
+
 } // namespace geometry
 } // namespace rmf_traffic
 
