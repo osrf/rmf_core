@@ -176,8 +176,6 @@ public:
     ///
     /// This pointer is potentially invalidated any time a modification is made
     /// to the Profile object that provided it.
-    //
-    // TODO(MXG): Change this to a std::optional when we can have C++17 support
     const QueueInfo* get_queue_info() const;
 
   private:

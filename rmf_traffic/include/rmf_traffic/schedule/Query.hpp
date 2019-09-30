@@ -18,64 +18,282 @@
 #ifndef RMF_TRAFFIC__SCHEDULE__QUERY_HPP
 #define RMF_TRAFFIC__SCHEDULE__QUERY_HPP
 
-#include <rmf_traffic/geometry/Shape.hpp>
+#include <rmf_traffic/geometry/Space.hpp>
+
+#include <rmf_traffic/detail/bidirectional_iterator.hpp>
 
 #include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
-#include <Eigen/Geometry>
-
 namespace rmf_traffic {
 namespace schedule {
-
-namespace detail {
-/// \internal We declare this private PIMPL class outside of the
-/// Query::base_iterator class so that it does not need to be templated.
-class QueryIteratorImplementation;
-} // namespace detail
 
 //==============================================================================
 class Query
 {
 public:
 
-  class SpaceTime
+  class Spacetime
   {
   public:
 
-    SpaceTime(
-        Time lower_bound,
-        Time upper_bound,
-        geometry::ConstShapePtr shape,
-        Eigen::Isometry2d tf);
+    /// This enumerator determines what Spacetime mode the query will be in.
+    enum class Mode
+    {
+      /// Request trajectories throughout all of space and time. This will still
+      /// be constrained by the version field.
+      All,
 
-    Time get_lower_time_bound() const;
-    SpaceTime& set_lower_bound_time(Time time);
+      /// Request trajectories in specific regions spacetime regions.
+      Regions,
+    };
 
-    Time get_upper_time_bound() const;
-    SpaceTime& set_upper_time_bound(Time time);
+    Mode get_mode();
 
-    geometry::ConstShapePtr get_shape() const;
-    SpaceTime& set_shape(geometry::ConstShapePtr shape);
+    //==========================================================================
+    /// This is a placeholder class in case we ever want to extend the features
+    /// of the `All` mode.
+    class All
+    {
+    public:
 
-    Eigen::Isometry2d get_transform() const;
-    SpaceTime& set_transform(Eigen::Isometry2d tf);
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    All query_all();
+
+    //==========================================================================
+    class Region
+    {
+    public:
+
+      Region(
+          std::string map,
+          Time lower_bound,
+          Time upper_bound,
+          std::vector<geometry::Space> spaces);
+
+      std::string get_map() const;
+      Region& set_map(const std::string& map);
+
+      Time get_lower_time_bound() const;
+      Region& set_lower_time_bound(Time time);
+
+      Time get_upper_time_bound() const;
+      Region& set_upper_time_bound(Time time);
+
+      class IterImpl;
+
+      using iterator =
+        rmf_traffic::detail::bidirectional_iterator<
+          geometry::Space, IterImpl, Region>;
+
+      using const_iterator =
+        rmf_traffic::detail::bidirectional_iterator<
+          const geometry::Space, IterImpl, Region>;
+
+      void push_back(geometry::Space space);
+
+      void pop_back();
+
+      iterator erase(iterator it);
+
+      iterator erase(iterator first, iterator last);
+
+      iterator begin();
+
+      const_iterator begin() const;
+
+      const_iterator cbegin() const;
+
+      iterator end();
+
+      const_iterator end() const;
+
+      const_iterator cend() const;
+
+      std::size_t num_spaces() const;
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    class Regions
+    {
+    public:
+
+      class IterImpl;
+      using iterator =
+        rmf_traffic::detail::bidirectional_iterator<
+          Region, IterImpl, Regions>;
+
+      using const_iterator =
+        rmf_traffic::detail::bidirectional_iterator<
+          const Region, IterImpl, Regions>;
+
+      void push_back(Region region);
+
+      void pop_back();
+
+      iterator erase(iterator it);
+
+      iterator erase(iterator first, iterator last);
+
+      iterator begin();
+
+      const_iterator begin() const;
+
+      const_iterator cbegin() const;
+
+      iterator end();
+
+      const_iterator end() const;
+
+      const_iterator cend() const;
+
+      std::size_t size() const;
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    Regions& query_regions();
+
+    Regions* regions();
+
+    const Regions* regions() const;
+
 
     class Implementation;
   private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  template<typename S>
-  class base_iterator;
+  Spacetime& spacetime();
+
+  const Spacetime& spacetime() const;
+
+  class Versions
+  {
+  public:
+
+    enum class Mode
+    {
+
+      All,
+
+      After,
+    };
+
+    /// This is a placeholder class in case we ever want to extend the features
+    /// of the `All` mode.
+    class All
+    {
+    public:
+
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    All& query_all();
+
+    class After
+    {
+    public:
+
+      std::size_t get_version() const;
+      After& set_version(std::size_t version);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    After& query_after();
+    After* after();
+    const After* after() const;
+
+  };
+
+  Versions& versions();
+
+  const Versions& versions() const;
 
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
+
+/// Query for all Trajectories in a schedule database
+Query query_everything();
+
+/// Query for all Trajectories in a schedule database that were introduced
+/// after a specified version of the schedule.
+///
+/// \param[in] after_version
+///   Only query Trajectories that were added to the schedule after this
+///   version number.
+Query make_query(
+    std::size_t after_version);
+
+/// Query for all Trajectories that intersect with this set of spacetime
+/// regions.
+///
+/// \param[in] regions
+///   Only query Trajectories that intersect with the specified regions.
+Query make_query(
+    std::vector<Query::Spacetime::Region> regions);
+
+/// Query for all Trajectories that were introduced after a specified version of
+/// the schedule, and which intersect with this set of spacetime regions.
+///
+/// \param[in] after_version
+///   Only query Trajectories that were added to the schedule after this
+///   version number.
+///
+/// \param[in] regions
+///   Only query Trajectories that intersect with the specified regions.
+Query make_query(
+    std::size_t after_version,
+    std::vector<Query::Spacetime::Region> regions);
+
 } // namespace schedule
+
+namespace detail {
+
+extern template class bidirectional_iterator<
+    schedule::Query::Spacetime::Region,
+    schedule::Query::Spacetime::Regions::IterImpl,
+    schedule::Query::Spacetime::Regions
+>;
+
+extern template class bidirectional_iterator<
+    const schedule::Query::Spacetime::Region,
+    schedule::Query::Spacetime::Regions::IterImpl,
+    schedule::Query::Spacetime::Regions
+>;
+
+extern template class bidirectional_iterator<
+    geometry::Space,
+    schedule::Query::Spacetime::Region::IterImpl,
+    schedule::Query::Spacetime::Region
+>;
+
+extern template class bidirectional_iterator<
+    const geometry::Space,
+    schedule::Query::Spacetime::Region::IterImpl,
+    schedule::Query::Spacetime::Region
+>;
+
+} // namespace detail
 } // namespace rmf_traffic
 
 #endif // RMF_TRAFFIC__SCHEDULE__QUERY_HPP
