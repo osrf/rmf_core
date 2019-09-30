@@ -24,7 +24,6 @@
 namespace rmf_traffic {
 
 // Forward declaration
-class ConflictResult;
 class DetectConflict;
 
 //==============================================================================
@@ -47,8 +46,7 @@ public:
   /// of the object's member functions until a valid ConflictData instance is
   /// assigned to the object. This constructor should only be used to
   /// forward-declare a ConflictData instance that will be copied or moved into
-  /// later. The safest practice is to only use the const-references provided by
-  /// ConflictResult instances.
+  /// later.
   ConflictData();
 
 private:

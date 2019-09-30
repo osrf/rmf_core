@@ -368,7 +368,6 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
     }
   }
 
-  // If no conflict was detected, return an empty ConflictResult
   return conflicts;
 }
 
