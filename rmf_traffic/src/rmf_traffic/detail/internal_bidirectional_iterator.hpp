@@ -86,6 +86,16 @@ bidirectional_iterator<E, I, F>::bidirectional_iterator()
   // Do nothing
 }
 
+//==============================================================================
+template<typename E, typename I, typename F>
+bidirectional_iterator<E, I, F>
+::operator bidirectional_iterator<const E, I, F>() const
+{
+  bidirectional_iterator<const E, I, F> result;
+  result._pimpl = rmf_utils::make_impl<I>(I{_pimpl->iter});
+  return result;
+}
+
 } // namespace detail
 } // namespace rmf_traffic
 

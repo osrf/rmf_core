@@ -32,12 +32,13 @@ namespace detail {
 ///
 /// This class is designed to offer only the most basic features of a
 /// bidirectional iterator.
-template<typename ElementType, typename Implementation, typename Friend>
+template<typename ElementType, typename ImplementationType, typename Friend>
 class bidirectional_iterator
 {
 public:
 
   using Element = ElementType;
+  using Implementation = ImplementationType;
 
   /// Dereference operator
   Element& operator*() const;
@@ -72,6 +73,9 @@ public:
   /// Equality comparison operator
   bool operator==(const bidirectional_iterator& other) const;
 
+  // Allow implicit conversion to const_iterator type
+  operator bidirectional_iterator<const Element, Implementation, Friend>() const;
+
   // Allow typical copying and moving
   bidirectional_iterator(const bidirectional_iterator&) = default;
   bidirectional_iterator(bidirectional_iterator&&) = default;
@@ -86,6 +90,7 @@ public:
 
 private:
   friend Friend;
+  template<typename, typename, typename> friend class bidirectional_iterator;
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

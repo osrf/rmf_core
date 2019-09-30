@@ -26,6 +26,8 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <vector>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -33,6 +35,9 @@ namespace schedule {
 class Query
 {
 public:
+
+  template<typename E, typename I, typename F>
+  using base_iterator = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
 
   class Spacetime
   {
@@ -49,7 +54,7 @@ public:
       Regions,
     };
 
-    Mode get_mode();
+    Mode get_mode() const;
 
     //==========================================================================
     /// This is a placeholder class in case we ever want to extend the features
@@ -63,7 +68,7 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
-    All query_all();
+    All& query_all();
 
     //==========================================================================
     class Region
@@ -76,8 +81,8 @@ public:
           Time upper_bound,
           std::vector<geometry::Space> spaces);
 
-      std::string get_map() const;
-      Region& set_map(const std::string& map);
+      const std::string& get_map() const;
+      Region& set_map(std::string map);
 
       Time get_lower_time_bound() const;
       Region& set_lower_time_bound(Time time);
@@ -86,14 +91,8 @@ public:
       Region& set_upper_time_bound(Time time);
 
       class IterImpl;
-
-      using iterator =
-        rmf_traffic::detail::bidirectional_iterator<
-          geometry::Space, IterImpl, Region>;
-
-      using const_iterator =
-        rmf_traffic::detail::bidirectional_iterator<
-          const geometry::Space, IterImpl, Region>;
+      using iterator = base_iterator<geometry::Space, IterImpl, Region>;
+      using const_iterator = base_iterator<const geometry::Space, IterImpl, Region>;
 
       void push_back(geometry::Space space);
 
@@ -127,13 +126,10 @@ public:
     public:
 
       class IterImpl;
-      using iterator =
-        rmf_traffic::detail::bidirectional_iterator<
-          Region, IterImpl, Regions>;
+      using iterator = base_iterator<Region, IterImpl, Regions>;
+      using const_iterator = base_iterator<const Region, IterImpl, Regions>;
 
-      using const_iterator =
-        rmf_traffic::detail::bidirectional_iterator<
-          const Region, IterImpl, Regions>;
+      Regions(std::vector<Region> regions = {});
 
       void push_back(Region region);
 
@@ -162,7 +158,7 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
-    Regions& query_regions();
+    Regions& query_regions(std::vector<Region> regions = {});
 
     Regions* regions();
 
@@ -173,10 +169,6 @@ public:
   private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
-
-  Spacetime& spacetime();
-
-  const Spacetime& spacetime() const;
 
   class Versions
   {
@@ -196,13 +188,10 @@ public:
     {
     public:
 
-
       class Implementation;
     private:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
-
-    All& query_all();
 
     class After
     {
@@ -216,11 +205,20 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
-    After& query_after();
+    All& query_all();
+
+    After& query_after(std::size_t version);
     After* after();
     const After* after() const;
 
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
   };
+
+  Spacetime& spacetime();
+
+  const Spacetime& spacetime() const;
 
   Versions& versions();
 
@@ -228,6 +226,9 @@ public:
 
   class Implementation;
 private:
+  /// \internal The default constructor is private because users are expected
+  /// to construct a Query using one of the functions below.
+  Query();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
