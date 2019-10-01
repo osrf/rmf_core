@@ -102,6 +102,17 @@ SCENARIO("DetectConflict unit tests")
                   }
             }
       }
+
+      GIVEN("A 1-point trajectory")
+      {
+            const rmf_traffic::Time time = std::chrono::steady_clock::now();
+            std::shared_ptr<rmf_traffic::geometry::Box> shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+            rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(shape);
+            Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
+            Eigen::Vector3d vel = Eigen::Vector3d(1, 1, 1);
+            rmf_traffic::Trajectory trajectory("test_map");
+            trajectory.insert(time, profile, pos, vel);
+      }
 }
 // SCENARIO("Test conflicts")
 // {
