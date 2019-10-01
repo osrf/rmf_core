@@ -81,14 +81,14 @@ public:
   internal::SegmentList::iterator myself;
   Trajectory::Implementation* parent;
 
-  internal::SegmentData& data()
+  internal::SegmentElement::Data& data()
   {
-    return *myself;
+    return myself->data;
   }
 
-  const internal::SegmentData& data() const
+  const internal::SegmentElement::Data& data() const
   {
-    return *myself;
+    return myself->data;
   }
 
   Time time() const
@@ -118,11 +118,11 @@ public:
     return it;
   }
 
-  Segment make_segment(internal::SegmentList::iterator iterator)
+  std::unique_ptr<Segment> make_segment(internal::SegmentList::iterator iterator)
   {
-    Segment seg;
-    seg._pimpl->myself = std::move(iterator);
-    seg._pimpl->parent = this;
+    std::unique_ptr<Segment> seg(new Segment);
+    seg->_pimpl->myself = std::move(iterator);
+    seg->_pimpl->parent = this;
 
     return seg;
   }
@@ -157,11 +157,9 @@ public:
     return *this;
   }
 
-  InsertionResult insert(internal::SegmentData data)
+  InsertionResult insert(internal::SegmentElement::Data data)
   {
-    const internal::OrderMap::iterator hint =
-        ordering.lower_bound(data.finish_time);
-
+    const internal::OrderMap::iterator hint = ordering.lower_bound(data.finish_time);
     if(hint->first == data.finish_time)
     {
       // We already have a Segment in the Trajectory that ends at this same
@@ -188,23 +186,29 @@ public:
     if(it == ordering.end())
       return make_iterator<Segment>(segments.end());
 
+    // If the time comes before the start of the Trajectory, then we return
+    // the end() iterator
+    if(time < segments.begin()->data.finish_time)
+      return make_iterator<Segment>(segments.end());
+
     return make_iterator<Segment>(it->second);
   }
 
   iterator erase(iterator segment)
   {
-    ordering.erase(segment->_pimpl->myself->finish_time);
+    ordering.erase(segment->_pimpl->myself->data.finish_time);
     return make_iterator<Segment>(segments.erase(segment->_pimpl->myself));
   }
 
   iterator erase(iterator first, iterator last)
   {
     const auto seg_begin = first->_pimpl->myself;
-    const auto seg_end = last->_pimpl->myself;
+    const auto seg_end = last._pimpl->raw_iterator == segments.end()?
+          segments.end() : last->_pimpl->myself;
 
-    const auto order_start = ordering.find(seg_begin->finish_time);
+    const auto order_start = ordering.find(seg_begin->data.finish_time);
     const auto order_end = seg_end == segments.end()?
-          ordering.end() : ordering.find(seg_end->finish_time);
+          ordering.end() : ordering.find(seg_end->data.finish_time);
 
     ordering.erase(order_start, order_end);
     return make_iterator<Segment>(segments.erase(seg_begin, seg_end));
@@ -419,7 +423,7 @@ Time Trajectory::Segment::get_finish_time() const
 Trajectory::Segment& Trajectory::Segment::set_finish_time(const Time new_time)
 {
   internal::SegmentList::iterator data_it = _pimpl->myself;
-  internal::SegmentData& current_data = *data_it;
+  internal::SegmentElement::Data& current_data = data_it->data;
   const Time current_time = current_data.finish_time;
 
   if(current_time == new_time)
@@ -463,7 +467,7 @@ Trajectory::Segment& Trajectory::Segment::set_finish_time(const Time new_time)
     const internal::SegmentList::const_iterator destination = hint->second;
     assert(destination != segments.end());
 
-    if(destination->finish_time == new_time)
+    if(destination->data.finish_time == new_time)
     {
       // The new time conflicts with an existing time, so we will throw an
       // exception.
@@ -489,7 +493,7 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
 {
   internal::SegmentList& segments = _pimpl->parent->segments;
   const internal::SegmentList::iterator begin_it = _pimpl->myself;
-  const Time original_begin_time = begin_it->finish_time;
+  const Time original_begin_time = begin_it->data.finish_time;
 
   if(delta_t.count() < 0 && begin_it != segments.begin())
   {
@@ -497,11 +501,12 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
     // Trajectory, make sure the change in time does not make it dip beneath its
     // predecessor Segment.
     const internal::SegmentList::const_iterator predecessor_it =
-        ++internal::SegmentList::iterator(begin_it);
-    const auto new_time = begin_it->finish_time + delta_t;
-    if(new_time <= predecessor_it->finish_time)
+        --internal::SegmentList::iterator(begin_it);
+    const auto new_time = begin_it->data.finish_time + delta_t;
+    if(new_time <= predecessor_it->data.finish_time)
     {
-      const auto tp = predecessor_it->finish_time.time_since_epoch().count();
+      const auto tp = predecessor_it->data.finish_time
+          .time_since_epoch().count();
       const auto tc = (new_time).time_since_epoch().count();
 
       const std::string error =
@@ -511,6 +516,8 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
           + "time window [" + std::to_string(tc)
           + "] to overlap with its precedessor's [" + std::to_string(tp)
           + "]";
+
+      throw std::invalid_argument(error);
     }
   }
 
@@ -519,7 +526,7 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
   list_iterators.reserve(segments.size());
   for(internal::SegmentList::iterator it = begin_it; it != segments.end(); ++it)
   {
-    it->finish_time += delta_t;
+    it->data.finish_time += delta_t;
     list_iterators.push_back(it);
   }
 
@@ -536,7 +543,7 @@ void Trajectory::Segment::adjust_finish_times(Duration delta_t)
   // hint that it can always append the entry to the end of the map.
   for(internal::SegmentList::iterator& it : list_iterators)
   {
-    const Time new_time = it->finish_time;
+    const Time new_time = it->data.finish_time;
     ordering.emplace_hint(ordering.end(), new_time, std::move(it));
   }
 }
@@ -546,7 +553,7 @@ std::unique_ptr<Motion> Trajectory::Segment::compute_motion() const
 {
   const internal::SegmentList& segments = _pimpl->parent->segments;
   const internal::SegmentList::const_iterator& it = _pimpl->myself;
-  const internal::SegmentData& finish_data = *it;
+  const internal::SegmentElement::Data& finish_data = it->data;
 
   if(it == segments.begin())
   {
@@ -608,12 +615,11 @@ Trajectory::InsertionResult Trajectory::insert(
     Eigen::Vector3d velocity)
 {
   return _pimpl->insert(
-        internal::SegmentData{
+        internal::SegmentElement::Data{
           std::move(finish_time),
           std::move(profile),
           std::move(position),
-          std::move(velocity),
-          Segment{}});
+          std::move(velocity)});
 }
 
 //==============================================================================
@@ -680,14 +686,14 @@ Trajectory::const_iterator Trajectory::cend() const
 const Time* Trajectory::start_time() const
 {
   const auto& segments = _pimpl->segments;
-  return segments.size() == 0? nullptr : &segments.front().finish_time;
+  return segments.size() == 0? nullptr : &segments.front().data.finish_time;
 }
 
 //==============================================================================
 const Time* Trajectory::finish_time() const
 {
   const auto& segments = _pimpl->segments;
-  return segments.size() == 0? nullptr : &segments.back().finish_time;
+  return segments.size() == 0? nullptr : &segments.back().data.finish_time;
 }
 
 //==============================================================================
@@ -696,7 +702,7 @@ Duration Trajectory::duration() const
   const auto& segments = _pimpl->segments;
   return segments.size() < 2?
         Duration(0) :
-        segments.back().finish_time - segments.front().finish_time;
+        segments.back().data.finish_time - segments.front().data.finish_time;
 }
 
 //==============================================================================
@@ -709,14 +715,14 @@ std::size_t Trajectory::size() const
 template<typename SegT>
 SegT& Trajectory::base_iterator<SegT>::operator*() const
 {
-  return _pimpl->raw_iterator->myself;
+  return *_pimpl->raw_iterator->myself;
 }
 
 //==============================================================================
 template<typename SegT>
 SegT* Trajectory::base_iterator<SegT>::operator->() const
 {
-  return &_pimpl->raw_iterator->myself;
+  return _pimpl->raw_iterator->myself.get();
 }
 
 //==============================================================================
@@ -781,8 +787,8 @@ bool Trajectory::base_iterator<SegT>::operator<(
   }
 
   // If they are both valid iterators, then we can compare their times.
-  return this->_pimpl->raw_iterator->finish_time
-      < other._pimpl->raw_iterator->finish_time;
+  return this->_pimpl->raw_iterator->data.finish_time
+      < other._pimpl->raw_iterator->data.finish_time;
 }
 
 //==============================================================================
@@ -803,8 +809,8 @@ bool Trajectory::base_iterator<SegT>::operator>(
   }
 
   // If they are both valid iterators, then we can compare their times.
-  return this->_pimpl->raw_iterator->finish_time
-      > other._pimpl->raw_iterator->finish_time;
+  return this->_pimpl->raw_iterator->data.finish_time
+      > other._pimpl->raw_iterator->data.finish_time;
 }
 
 //==============================================================================
@@ -857,7 +863,7 @@ bool Trajectory::Debug::check_iterator_time_consistency(
   internal::OrderMap::const_iterator o_it = ordering.begin();
   for( ; s_it != segments.end() && o_it != ordering.end(); ++s_it, ++o_it)
   {
-    consistent &= s_it->finish_time == o_it->first;
+    consistent &= s_it->data.finish_time == o_it->first;
   }
 
   consistent &= s_it == segments.end();
@@ -873,11 +879,11 @@ bool Trajectory::Debug::check_iterator_time_consistency(
     for( ; s_it != segments.end() && o_it != ordering.end();
          ++s_it, ++o_it, ++index)
     {
-      const auto difference = o_it->first - s_it->finish_time;
+      const auto difference = o_it->first - s_it->data.finish_time;
       std::cout << " -- [" << index << "] "
                 << o_it->first.time_since_epoch().count()/1e9 << " | "
-                << s_it->finish_time.time_since_epoch().count()/1e9 << " | "
-                << "Difference: " << difference.count()/1e9 << "\n";
+                << s_it->data.finish_time.time_since_epoch().count()/1e9
+                << " | Difference: " << difference.count()/1e9 << "\n";
     }
 
     if(s_it != segments.end())
@@ -886,7 +892,8 @@ bool Trajectory::Debug::check_iterator_time_consistency(
       for( ; s_it != segments.end(); ++s_it, ++index)
       {
         std::cout << "      -- [" << index << "] "
-                  << s_it->finish_time.time_since_epoch().count()/1e9 << "\n";
+                  << s_it->data.finish_time.time_since_epoch().count()/1e9
+                  << "\n";
       }
     }
     if(o_it != ordering.end())

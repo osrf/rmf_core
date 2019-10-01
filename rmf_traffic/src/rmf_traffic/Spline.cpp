@@ -50,10 +50,11 @@ std::array<Eigen::Vector4d, 3> compute_coefficients(
   std::array<Eigen::Vector4d, 3> coeffs;
   for(int i=0; i < 3; ++i)
   {
-    coeffs[i][0] =                                x0[i]; // = d
-    coeffs[i][1] =            v0[i];                     // = c
-    coeffs[i][2] = -v1[i] - 2*v0[i] + 3*x1[i] - 3*x0[i]; // = b
-    coeffs[i][3] =  v1[i] +   v0[i] - 2*x1[i] + 2*x0[i]; // = a
+    std::size_t si = static_cast<std::size_t>(i);
+    coeffs[si][0] =                                x0[i]; // = d
+    coeffs[si][1] =            v0[i];                     // = c
+    coeffs[si][2] = -v1[i] - 2*v0[i] + 3*x1[i] - 3*x0[i]; // = b
+    coeffs[si][3] =  v1[i] +   v0[i] - 2*x1[i] + 2*x0[i]; // = a
   }
 
   return coeffs;
@@ -93,8 +94,8 @@ Spline::Parameters compute_parameters(
   const internal::SegmentList::const_iterator start_it =
       --internal::SegmentList::const_iterator(finish_it);
 
-  const internal::SegmentData& start = *start_it;
-  const internal::SegmentData& finish = *finish_it;
+  const internal::SegmentElement::Data& start = start_it->data;
+  const internal::SegmentElement::Data& finish = finish_it->data;
 
   const Time start_time = start.finish_time;
   const Time finish_time = finish.finish_time;
