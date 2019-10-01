@@ -16,435 +16,1012 @@
 */
 
 #include "utils_Trajectory.hpp"
-
 #include <src/rmf_traffic/debug_Trajectory.hpp>
-
 #include <rmf_utils/catch.hpp>
-
 #include <iostream>
 
-SCENARIO("Class Profile unit tests")
+using namespace std::chrono_literals;
+
+SCENARIO("Profile unit tests")
 {
-
-  GIVEN("Checking Accessor Functions")
+  // Profile Construction and Getters
+  GIVEN("Construction values for Profile")
   {
-    std::shared_ptr<rmf_traffic::geometry::Box> profile_shape =
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
-    rmf_traffic::Trajectory::ProfilePtr profile =
-        rmf_traffic::Trajectory::Profile::make_strict(profile_shape);
+    std::shared_ptr<rmf_traffic::geometry::Box> unitBox_shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+    std::shared_ptr<rmf_traffic::geometry::Circle> unitCircle_shape = std::make_shared<rmf_traffic::geometry::Circle>(1.0);
+    std::string queue_number = "5";
 
-    WHEN("Initial Configuration")
+    WHEN("Constructing a Profile given shape and agency")
     {
-      REQUIRE(profile->get_agency() ==
-              rmf_traffic::Trajectory::Profile::Agency::Strict);
-      REQUIRE(profile->get_shape() == profile_shape);
+      rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      rmf_traffic::Trajectory::ProfilePtr queue_profile = rmf_traffic::Trajectory::Profile::make_queued(unitCircle_shape, queue_number);
+
+      THEN("Profile is constructed according to specifications.")
+      {
+        CHECK(strict_profile->get_shape() == unitBox_shape);
+        CHECK(strict_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Strict);
+        CHECK(strict_profile->get_queue_info() == nullptr);
+
+        CHECK(queue_profile->get_shape() == unitCircle_shape);
+        CHECK(queue_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Queued);
+        CHECK(queue_profile->get_queue_info()->get_queue_id() == queue_number);
+      }
     }
 
-    WHEN("Change Agency to Autonomous")
+    WHEN("Shape object used for profile construction is changed")
     {
-      profile->set_to_autonomous();
-      CHECK(profile->get_agency() ==
-            rmf_traffic::Trajectory::Profile::Agency::Autonomous);
+      const rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      *unitBox_shape = rmf_traffic::geometry::Box(2.0, 2.0);
+
+      THEN("Profile shape is updated")
+      {
+        CHECK(strict_profile->get_shape() == unitBox_shape);
+        const auto &box = static_cast<const rmf_traffic::geometry::Box &>(*strict_profile->get_shape());
+        CHECK(box.get_x_length() == 2.0);
+        CHECK(box.get_y_length() == 2.0);
+      }
     }
 
-    WHEN("Change Agency to Queued")
+    WHEN("Pointer for shape used for profile construction is changed")
     {
-      //TODO: Should QueueID be string?
-      const std::string queue_id = "1";
-      profile->set_to_queued(queue_id);
-      CHECK(profile->get_queue_info()->get_queue_id() == queue_id);
+      const rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      const rmf_traffic::geometry::Box* ptr_address = unitBox_shape.get();
+      unitBox_shape = std::make_shared<rmf_traffic::geometry::Box>(2.0, 2.0);
+
+      THEN("Profile shape is unaffected")
+      {
+        CHECK(strict_profile->get_shape() != unitBox_shape);
+        CHECK(strict_profile->get_shape().get() == ptr_address);
+      }
     }
 
-    WHEN("Change Shape to Unit Circle")
+    WHEN("Shape object used for profile construction is moved")
     {
-      std::shared_ptr<rmf_traffic::geometry::Circle> new_profile_shape =
-          std::make_shared<rmf_traffic::geometry::Circle>(1.0);
-      profile->set_shape(new_profile_shape);
+      // Move constructor
+      const rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_strict(unitBox_shape);
+      const std::shared_ptr<rmf_traffic::geometry::Box> new_unitBox_shape = std::move(unitBox_shape);
 
-      CHECK(profile->get_agency() ==
-            rmf_traffic::Trajectory::Profile::Agency::Strict);
-      CHECK(profile->get_shape() == new_profile_shape);
+      THEN("Profile shape is unaffected")
+      {
+        CHECK(strict_profile->get_shape() == new_unitBox_shape);
+      }
+    }
+
+    WHEN("Queue number used for profile construction is changed")
+    {
+      std::string queue_number = "5";
+      const rmf_traffic::Trajectory::ProfilePtr strict_profile = rmf_traffic::Trajectory::Profile::make_queued(unitBox_shape, queue_number);
+      queue_number = "6";
+
+      THEN("Queue number is unaffected")
+      {
+        CHECK(strict_profile->get_queue_info()->get_queue_id() == "5");
+      }
     }
   }
 
-  GIVEN("Checking Dirty Input")
+  // Profile Function Tests
+  GIVEN("Sample Profiles and Shapes")
   {
-    rmf_traffic::Trajectory::ProfilePtr profile = make_test_profile(UnitBox);
+    const rmf_traffic::Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict);
+    const rmf_traffic::Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Agency::Queued, "3");
+    const std::shared_ptr<rmf_traffic::geometry::Box> new_Box_shape = std::make_shared<rmf_traffic::geometry::Box>(2.0, 2.0);
 
-    WHEN("Giving nullptr as queue_id is not allowed")
+    WHEN("Profile agency is changed using API set_to_* function")
     {
-      CHECK_THROWS(profile->set_to_queued(nullptr));
+      THEN("Profile agency is successfully changed")
+      {
+        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Strict);
+        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+
+        strict_unitbox_profile->set_to_autonomous();
+        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Autonomous);
+        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+
+        strict_unitbox_profile->set_to_queued("2");
+        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Queued);
+        REQUIRE(strict_unitbox_profile->get_queue_info() != nullptr);
+        CHECK(strict_unitbox_profile->get_queue_info()->get_queue_id() == "2");
+
+        strict_unitbox_profile->set_to_strict();
+        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Strict);
+        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+      }
+    }
+
+    WHEN("Changing profile shapes using API set_shape function")
+    {
+      CHECK(strict_unitbox_profile->get_shape() != new_Box_shape);
+      strict_unitbox_profile->set_shape(new_Box_shape);
+
+      THEN("ProfilePtr is updated accordingly.")
+      {
+        CHECK(strict_unitbox_profile->get_shape() == new_Box_shape);
+      }
     }
   }
 }
 
-SCENARIO("base_iterator unit tests")
+SCENARIO("Segment Unit Tests")
 {
-  GIVEN("Testing operators")
+  // Segment Construction and Getters
+  GIVEN("Construction values for Segments")
   {
-    using namespace std::chrono_literals;
+    rmf_traffic::Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict);
+    const rmf_traffic::Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Agency::Queued, "3");
+    const auto time = std::chrono::steady_clock::now();
+    const Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
+    const Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
 
-    rmf_traffic::Trajectory trajectory{"test_map"};
-    REQUIRE(trajectory.begin() == trajectory.end());
-    REQUIRE(trajectory.end() == trajectory.end());
-
-    const auto finish_time = std::chrono::steady_clock::now();
-    const auto profile = make_test_profile(UnitBox);
-    const Eigen::Vector3d begin_pos = Eigen::Vector3d(1, 1, 1);
-    const Eigen::Vector3d begin_vel = Eigen::Vector3d(1, 1, 1);
-
-    auto result = trajectory.insert(finish_time, profile, begin_pos, begin_vel);
-    rmf_traffic::Trajectory::iterator first_it = result.it;
-    REQUIRE(result.inserted);
-    REQUIRE(trajectory.begin() == first_it);
-
-    const auto finish_time_2 = std::chrono::steady_clock::now() + 10s;
-    const auto profile_2 = make_test_profile(UnitBox);
-    const Eigen::Vector3d begin_pos_2 = Eigen::Vector3d(2, 0, 3);
-    const Eigen::Vector3d begin_vel_2 = Eigen::Vector3d(2, 0, 3);
-
-    auto result_2 = trajectory.insert(finish_time_2, profile_2, begin_pos_2, begin_vel_2);
-    rmf_traffic::Trajectory::iterator second_it = result_2.it;
-    REQUIRE(result_2.inserted);
-    REQUIRE(--trajectory.end() == second_it); // trajectory.end() is a placeholder "beyond" the last element
-
-    WHEN("Comparison operators")
+    WHEN("Attemping to construct Segment using rmf_traffic::Trajectory::insert()")
     {
-      CHECK((*first_it).get_profile() == profile);
-      CHECK(first_it->get_profile() == profile);
-      CHECK(first_it == trajectory.begin());
-      CHECK(trajectory.begin() != trajectory.end());
-      CHECK(first_it != trajectory.end());
-      CHECK(first_it < trajectory.end());
-      CHECK(first_it <= trajectory.end());
-      CHECK(trajectory.end() > first_it);
-      CHECK(trajectory.end() >= trajectory.end());
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+
+      THEN("Segment is constructed according to specifications.")
+      {
+        // From IteratorResult
+        CHECK(result.inserted);
+        CHECK(segment.get_finish_time() == time);
+        CHECK(segment.get_finish_position() == pos);
+        CHECK(segment.get_finish_velocity() == vel);
+        CHECK(segment.get_profile() == strict_unitbox_profile);
+      }
     }
 
-    WHEN("Mutating iterators")
+    WHEN("Profile used for construction is changed")
     {
-      first_it++;
-      CHECK(first_it == second_it);
-      first_it--;
-      CHECK(first_it != second_it);
-      CHECK(first_it < second_it);
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+
+      *strict_unitbox_profile = *queued_unitCircle_profile;
+
+      THEN("Segment profile is updated.")
+      {
+        CHECK(segment.get_profile() == strict_unitbox_profile);
+        const auto &circle = static_cast<const rmf_traffic::geometry::Circle &>(*strict_unitbox_profile->get_shape());
+        CHECK(circle.get_radius() == 1.0);
+      }
+    }
+
+    WHEN("Pointer for profile used for construction is changed")
+    {
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+
+      const rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+
+      THEN("Segment profile is updated")
+      {
+        CHECK(segment.get_profile() != strict_unitbox_profile);
+        CHECK(segment.get_profile() == new_profile);
+      }
+    }
+
+    WHEN("Profile used for construction is moved")
+    {
+      rmf_traffic::Trajectory trajectory{"test_map"};
+      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+
+      rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+
+      THEN("Segment profile is updated")
+      {
+        CHECK(segment.get_profile() != strict_unitbox_profile);
+        CHECK(segment.get_profile() == new_profile);
+      }
     }
   }
-}
 
-SCENARIO("Class Segment unit tests")
-{
-  GIVEN("Testing accessor functions")
+  // Segment Functions
+  GIVEN("Sample Segment")
   {
-    using namespace std::chrono_literals;
+    std::vector<TrajectoryInsertInput> inputs;
+    rmf_traffic::Time time = std::chrono::steady_clock::now();
+    inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)});
+    inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(1, 1, 1), Eigen::Vector3d(1, 1, 1)});
+    inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(0, 0, 0)});
+    rmf_traffic::Trajectory trajectory = create_test_trajectory(inputs);
+    rmf_traffic::Trajectory::iterator trajectory_it = trajectory.begin();
+    rmf_traffic::Trajectory::Segment &segment = *trajectory_it;
+    rmf_traffic::Trajectory::Segment &segment_10s = *(++trajectory_it);
 
-    rmf_traffic::Trajectory trajectory{"test_map"};
-    REQUIRE(trajectory.begin() == trajectory.end());
-    REQUIRE(trajectory.end() == trajectory.end());
-
-    const auto finish_time = std::chrono::steady_clock::now();
-    const auto profile = make_test_profile(UnitBox);
-    const Eigen::Vector3d begin_pos = Eigen::Vector3d(0, 0, 0);
-    const Eigen::Vector3d begin_vel = Eigen::Vector3d(0, 0, 0);
-
-    auto result = trajectory.insert(finish_time, profile, begin_pos, begin_vel);
-    REQUIRE(result.inserted);
-
-    rmf_traffic::Trajectory::Segment segment = *trajectory.find(finish_time);
-
-    WHEN("Initial Configuration")
+    WHEN("Setting a new profile using set_profile function")
     {
-      REQUIRE(segment.get_profile() == profile);
-      REQUIRE(segment.get_finish_position() == begin_pos);
-      REQUIRE(segment.get_finish_velocity() == begin_vel);
-      REQUIRE(segment.get_finish_time() == finish_time);
-    }
-
-    WHEN("Setting a new profile")
-    {
-      const auto new_profile = make_test_profile(UnitCircle);
+      const rmf_traffic::Trajectory::ProfilePtr new_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Agency::Autonomous);
       segment.set_profile(new_profile);
-      CHECK(segment.get_profile() == new_profile);
-      CHECK(segment.get_profile() != profile);
+
+      THEN("Profile is updated successfully.")
+      {
+        CHECK(segment.get_profile() == new_profile);
+      }
     }
 
-    WHEN("Mutating current profile")
+    WHEN("Setting a new finish position using set_finish_position function")
     {
-      profile->set_to_autonomous();
-      CHECK(segment.get_profile()->get_agency() ==
-            rmf_traffic::Trajectory::Profile::Agency::Autonomous);
+      const Eigen::Vector3d new_position = Eigen::Vector3d(1, 1, 1);
+      segment.set_finish_position(new_position);
 
-      const auto new_shape = std::make_shared<rmf_traffic::geometry::Circle>(1.0);
-      profile->set_shape(new_shape);
-      CHECK(segment.get_profile()->get_shape() == new_shape);
+      THEN("Finish position is updated successfully.")
+      {
+        CHECK(segment.get_finish_position() == new_position);
+      }
     }
 
-    // TODO: The Docs record this as a 2D homogenous position, should be 3D
-    WHEN("Setting a new position")
+    WHEN("Setting a new finish velocity using set_finish_velocity function")
     {
-      const Eigen::Vector3d new_pos = Eigen::Vector3d(1, 1, 1);
-      segment.set_finish_position(new_pos);
-      CHECK(segment.get_finish_position() == new_pos);
-      CHECK(segment.get_finish_position() != begin_pos);
+      const Eigen::Vector3d new_velocity = Eigen::Vector3d(1, 1, 1);
+      segment.set_finish_velocity(new_velocity);
+
+      THEN("Finish velocity is updated successfully.")
+      {
+        CHECK(segment.get_finish_velocity() == new_velocity);
+      }
     }
 
-    // TODO: The Docs record this as a 2D homogenous position, should be 3D
-    WHEN("Setting a new velocity")
+    WHEN("Setting a new finish time using set_finish_time function")
     {
-      const Eigen::Vector3d new_vel = Eigen::Vector3d(1, 1, 1);
-      segment.set_finish_velocity(new_vel);
-      CHECK(segment.get_finish_velocity() == new_vel);
-      CHECK(segment.get_finish_velocity() != begin_vel);
+      const rmf_traffic::Time new_time = time + 5s;
+      segment.set_finish_time(new_time);
+
+      THEN("Finish time is updated successfully.")
+      {
+        CHECK(segment.get_finish_time() == new_time);
+      }
     }
 
-    WHEN("Setting a finish time")
+    WHEN("Setting a new finish time that conflicts with another segment")
     {
-      const auto new_finish_time = std::chrono::steady_clock::now() + 15s;
-      segment.set_finish_time(new_finish_time);
-      CHECK(segment.get_finish_time() == new_finish_time);
-      CHECK(segment.get_finish_time() != finish_time);
+      const rmf_traffic::Time new_time = time + 10s;
+
+      THEN("Error is thrown.")
+      {
+        CHECK_THROWS(segment.set_finish_time(new_time));
+      }
+    }
+
+    WHEN("Setting a new finish time that causes a rearrangement of adjacent segments")
+    {
+      const rmf_traffic::Time new_time = time + 12s;
+      segment.set_finish_time(new_time);
+
+      THEN("The appropriate segments are rearranged")
+      {
+        int new_order[3] = {1, 0, 2};
+        int i = 0;
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+          CHECK(it->get_finish_position() == Eigen::Vector3d(new_order[i],
+                                                             new_order[i],
+                                                             new_order[i]));
+      }
+    }
+
+    WHEN("Setting a new finish time that causes a rearrangement of non-adjacent segments")
+    {
+      const rmf_traffic::Time new_time = time + 22s;
+      segment.set_finish_time(new_time);
+
+      THEN("The appropriate segments are rearranged")
+      {
+        int new_order[3] = {1, 2, 0};
+        int i = 0;
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        {
+          CHECK(it->get_finish_position() == Eigen::Vector3d(new_order[i],
+                                                             new_order[i],
+                                                             new_order[i]));
+        }
+      }
+    }
+
+    WHEN("Positively adjusting all finish times using adjust_finish_times function, using first segment")
+    {
+      const std::chrono::seconds delta_t = std::chrono::seconds(5);
+      segment.adjust_finish_times(delta_t);
+      int i = 0;
+      const rmf_traffic::Time new_order[3] = {time + 5s, time + 15s, time + 25s};
+
+      THEN("All finish times are adjusted correctly.")
+      {
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        {
+          CHECK(it->get_finish_time() == new_order[i]);
+        }
+      }
+    }
+
+    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using first segment")
+    {
+      const std::chrono::seconds delta_t = std::chrono::seconds(-5);
+      segment.adjust_finish_times(delta_t);
+      int i = 0;
+      const rmf_traffic::Time new_order[3] = {time - 5s, time + 5s, time + 15s};
+
+      THEN("All finish times are adjusted correctly.")
+      {
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        {
+          CHECK(it->get_finish_time() == new_order[i]);
+        }
+      }
+    }
+
+    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using first segment")
+    {
+      const std::chrono::seconds delta_t = std::chrono::seconds(-50);
+      segment.adjust_finish_times(delta_t);
+      int i = 0;
+      const rmf_traffic::Time new_order[3] = {time - 50s, time - 40s, time - 30s};
+
+      THEN("All finish times are adjusted correctly, as there is no segment preceding first segment")
+      {
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        {
+          CHECK(it->get_finish_time() == new_order[i]);
+        }
+      }
+    }
+
+    WHEN("Positively adjusting all finish times using adjust_finish_times function, using second segment")
+    {
+      const std::chrono::seconds delta_t = std::chrono::seconds(5);
+      segment_10s.adjust_finish_times(delta_t);
+      int i = 0;
+
+      THEN("Finish times from the second segment on are adjusted correctly.")
+      {
+        const rmf_traffic::Time new_order[3] = {time, time + 15s, time + 25s};
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        {
+          CHECK(it->get_finish_time() == new_order[i]);
+        }
+      }
+    }
+
+    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using second segment")
+    {
+      const std::chrono::seconds delta_t = std::chrono::seconds(-5);
+      segment_10s.adjust_finish_times(delta_t);
+      int i = 0;
+
+      THEN("All finish times are adjusted correctly.")
+      {
+        const rmf_traffic::Time new_order[3] = {time, time + 5s, time + 15s};
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        {
+          CHECK(it->get_finish_time() == new_order[i]);
+        }
+      }
+    }
+
+    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using second segment")
+    {
+      const std::chrono::seconds delta_t = std::chrono::seconds(-50);
+
+      THEN("std::invalid_argument exception thrown due to violation of previous segment time boundary")
+      {
+        CHECK_THROWS(segment_10s.adjust_finish_times(delta_t));
+      }
     }
   }
-
-  GIVEN("Test automatic reordering when setting finish times")
-  {
-    using namespace std::chrono_literals;
-
-    rmf_traffic::Trajectory trajectory{"test_map"};
-    REQUIRE(trajectory.begin() == trajectory.end());
-    REQUIRE(trajectory.end() == trajectory.end());
-
-    const auto finish_time = std::chrono::steady_clock::now();
-    const auto profile = make_test_profile(UnitBox);
-    const Eigen::Vector3d begin_pos = Eigen::Vector3d(1, 1, 1);
-    const Eigen::Vector3d begin_vel = Eigen::Vector3d(1, 1, 1);
-
-    auto result = trajectory.insert(finish_time, profile, begin_pos, begin_vel);
-    const rmf_traffic::Trajectory::iterator first_it = result.it;
-    REQUIRE(result.inserted);
-
-    const auto finish_time_2 = std::chrono::steady_clock::now() + 10s;
-    const auto profile_2 = make_test_profile(UnitBox);
-    const Eigen::Vector3d begin_pos_2 = Eigen::Vector3d(2, 0, 3);
-    const Eigen::Vector3d begin_vel_2 = Eigen::Vector3d(2, 0, 3);
-
-    auto result_2 = trajectory.insert(finish_time_2, profile_2, begin_pos_2, begin_vel_2);
-    const rmf_traffic::Trajectory::iterator second_it = result_2.it;
-    REQUIRE(result_2.inserted);
-
-    const auto finish_time_3 = std::chrono::steady_clock::now() + 20s;
-    const auto profile_3 = make_test_profile(UnitBox);
-    const Eigen::Vector3d begin_pos_3 = Eigen::Vector3d(4, 2, 6);
-    const Eigen::Vector3d begin_vel_3 = Eigen::Vector3d(6, 2, 4);
-
-    auto result_3 = trajectory.insert(finish_time_3, profile_3, begin_pos_3, begin_vel_3);
-    const rmf_traffic::Trajectory::iterator third_it = result_3.it;
-    REQUIRE(result_3.inserted);
-
-    REQUIRE(trajectory.begin() == first_it);
-    REQUIRE(first_it < second_it);
-    REQUIRE(second_it < third_it);
-
-    WHEN("Single forward time shift for one positional swap")
-    {
-      const auto new_finish_time = finish_time + 15s;
-      first_it->set_finish_time(new_finish_time);
-      CHECK(second_it < first_it);
-      CHECK(first_it < third_it);
-    }
-
-    WHEN("Single forward time shift for two positional swap")
-    {
-      const auto new_finish_time = finish_time + 25s;
-      first_it->set_finish_time(new_finish_time);
-      CHECK(second_it < third_it);
-      CHECK(third_it < first_it);
-    }
-
-    WHEN("Single backward time shift for one positional swap")
-    {
-      const auto new_finish_time = finish_time_3 - 15s;
-      third_it->set_finish_time(new_finish_time);
-      CHECK(first_it < third_it);
-      CHECK(third_it < second_it);
-    }
-
-     WHEN("Single backward time shift for two positional swap")
-    {
-      const auto new_finish_time = finish_time_3 - 25s;
-      third_it->set_finish_time(new_finish_time);
-
-      CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
-            trajectory, true));
-
-      CHECK(third_it < first_it);
-      CHECK(first_it < second_it);
-    }
-
-    WHEN("Forward time shift with time conflict")
-    {
-      CHECK_THROWS(first_it->set_finish_time(finish_time_2));
-    }
-
-    WHEN("Backward time shift with time conflict")
-    {
-      CHECK_THROWS(third_it->set_finish_time(finish_time_2));
-    }
-
-    WHEN("Adding times across all segments") 
-    {
-      first_it->adjust_finish_times(2s);
-
-      CHECK(rmf_traffic::Trajectory::Debug::check_iterator_time_consistency(
-            trajectory, true));
-
-      CHECK(first_it->get_finish_time() == finish_time + 2s);
-      CHECK(second_it->get_finish_time() == finish_time_2 + 2s);
-      CHECK(third_it->get_finish_time() == finish_time_3 + 2s);
-    }
-
-  }
-
 }
 
-// TEST_CASE("Construct a Trajectory")
-// {
-//   using namespace std::chrono_literals;
+SCENARIO("Trajectory and base_iterator unit tests")
+{
+  // Trajectory construction
+  GIVEN("Parameters for insert function")
+  {
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const Eigen::Vector3d pos_0 = Eigen::Vector3d(0, 0, 0);
+    const Eigen::Vector3d vel_0 = Eigen::Vector3d(1, 1, 1);
+    const Eigen::Vector3d pos_1 = Eigen::Vector3d(2, 2, 2);
+    const Eigen::Vector3d vel_1 = Eigen::Vector3d(3, 3, 3);
+    const Eigen::Vector3d pos_2 = Eigen::Vector3d(4, 4, 4);
+    const Eigen::Vector3d vel_2 = Eigen::Vector3d(5, 5, 5);
+    std::vector<TrajectoryInsertInput> param_inputs;
+    param_inputs.push_back({time, UnitBox, pos_0, vel_0});
+    param_inputs.push_back({time + 10s, UnitBox, pos_1, vel_1});
+    param_inputs.push_back({time + 20s, UnitBox, pos_2, vel_2});
 
-//   rmf_traffic::Trajectory trajectory{"test_map"};
-//   CHECK(trajectory.begin() == trajectory.end());
-//   CHECK(trajectory.end() == trajectory.end());
+    WHEN("Construct empty trajectory")
+    {
+      rmf_traffic::Trajectory trajectory("test_map");
 
-//   const auto profile = make_test_profile();
+      THEN("Empty trajectory is created.")
+      {
+        CHECK(trajectory.begin() == trajectory.end());
+        CHECK(trajectory.end() == trajectory.end());
+      }
+    }
 
-//   const auto finish_time = std::chrono::steady_clock::now();
-//   const Eigen::Vector3d begin_p = Eigen::Vector3d(0, 0, 0);
-//   const Eigen::Vector3d begin_v = Eigen::Vector3d(0, 0, 0);
+    WHEN("Construct a length 1 trajectory")
+    {
+      rmf_traffic::Trajectory trajectory("test_map");
+      auto result = trajectory.insert(
+          time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+          pos_0, vel_0);
+      const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
 
-//   auto result = trajectory.insert(
-//         finish_time, profile, begin_p, begin_v);
+      THEN("Length 1 trajectory is created.")
+      {
+        //base_iterator tests
+        CHECK(result.inserted);
+        CHECK(zeroth_it == trajectory.begin());
+        CHECK(trajectory.begin() != trajectory.end());
+        CHECK(zeroth_it != trajectory.end());
+        CHECK(zeroth_it < trajectory.end());
+        CHECK(zeroth_it <= trajectory.end());
+        CHECK(trajectory.end() > zeroth_it);
+        CHECK(trajectory.end() >= trajectory.end());
 
-//   const rmf_traffic::Trajectory::iterator first_it = result.it;
-//   CHECK(result.inserted);
+        CHECK(pos_0 == zeroth_it->get_finish_position());
+        CHECK(vel_0 == zeroth_it->get_finish_velocity());
+        CHECK(time == zeroth_it->get_finish_time());
+      }
+    }
 
-//   CHECK(first_it == trajectory.begin());
-//   CHECK(trajectory.begin() != trajectory.end());
-//   CHECK(first_it != trajectory.end());
-//   CHECK(first_it < trajectory.end());
-//   CHECK(first_it <= trajectory.end());
-//   CHECK(trajectory.end() > first_it);
-//   CHECK(trajectory.end() >= trajectory.end());
+    WHEN("Construct a length 2 trajectory")
+    {
+      rmf_traffic::Trajectory trajectory("test_map");
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                      pos_0,
+                                      vel_0);
+      const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                        pos_1,
+                                        vel_1);
+      const rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
-//   CHECK(begin_p == first_it->get_finish_position());
-//   CHECK(begin_v == first_it->get_finish_velocity());
-//   CHECK(finish_time == first_it->get_finish_time());
+      THEN("Length 2 trajectory is created.")
+      {
+        //base_iterator tests
+        CHECK(first_it == ++trajectory.begin());
+        CHECK(first_it != trajectory.begin());
+        CHECK(first_it > trajectory.begin());
+        CHECK(first_it >= trajectory.begin());
+        CHECK(trajectory.begin() < first_it);
+        CHECK(trajectory.begin() <= first_it);
 
-//   const auto second_time = finish_time + 10s;
-//   const Eigen::Vector3d second_p = Eigen::Vector3d(1, 2, 3);
-//   const Eigen::Vector3d second_v = Eigen::Vector3d(3, 2, 1);
+        CHECK(first_it != zeroth_it);
+        CHECK(first_it > zeroth_it);
+        CHECK(first_it >= zeroth_it);
+        CHECK(zeroth_it < first_it);
+        CHECK(zeroth_it <= first_it);
 
-//   result = trajectory.insert(
-//         second_time, profile, second_p, second_v);
+        CHECK(first_it != trajectory.end());
+        CHECK(first_it < trajectory.end());
+        CHECK(first_it <= trajectory.end());
+        CHECK(trajectory.end() > first_it);
+        CHECK(trajectory.end() >= first_it);
 
-//   const rmf_traffic::Trajectory::iterator second_it = result.it;
-//   CHECK(result.inserted);
+        CHECK(first_it->get_finish_position() == pos_1);
+        CHECK(first_it->get_finish_velocity() == vel_1);
+        CHECK(first_it->get_finish_time() == time + 10s);
+      }
+    }
 
-//   CHECK(second_it == ++trajectory.begin());
-//   CHECK(second_it != trajectory.begin());
-//   CHECK(second_it > trajectory.begin());
-//   CHECK(second_it >= trajectory.begin());
-//   CHECK(trajectory.begin() < second_it);
-//   CHECK(trajectory.begin() <= second_it);
+    WHEN("Inserting a segment with a unique finish_time violation")
+    {
+      rmf_traffic::Trajectory trajectory("test_map");
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                      pos_0,
+                                      vel_0);
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
+      auto result_1 = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                        pos_1,
+                                        vel_1);
 
-//   CHECK(second_it != first_it);
-//   CHECK(second_it > first_it);
-//   CHECK(second_it >= first_it);
-//   CHECK(first_it < second_it);
-//   CHECK(first_it <= second_it);
+      THEN("Returned result has inserted field set to false.")
+      {
+        CHECK(result_1.inserted == false);
+        CHECK(result.it == result_1.it);
+      }
+    }
 
-//   CHECK(second_it != trajectory.end());
-//   CHECK(second_it < trajectory.end());
-//   CHECK(second_it <= trajectory.end());
-//   CHECK(trajectory.end() > second_it);
-//   CHECK(trajectory.end() >= second_it);
+    WHEN("Copy Construction from another base_iterator")
+    {
+      rmf_traffic::Trajectory trajectory("test_map");
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                      pos_0,
+                                      vel_0);
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                        pos_1,
+                                        vel_1);
+      rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
-//   CHECK(second_it->get_finish_position() == second_p);
-//   CHECK(second_it->get_finish_velocity() == second_v);
-//   CHECK(second_it->get_finish_time() == second_time);
-// }
+      THEN("New iterator is created")
+      {
+        const rmf_traffic::Trajectory::iterator copied_zeroth_it(zeroth_it);
+        CHECK(&zeroth_it != &copied_zeroth_it);
+        CHECK(copied_zeroth_it->get_profile() == zeroth_it->get_profile());
+        CHECK(zeroth_it == copied_zeroth_it);
+      }
+    }
 
-// TEST_CASE("Copy and move a trajectory")
-// {
-//   using namespace std::chrono_literals;
+    WHEN("Copy Construction from rvalue base_iterator")
+    {
+      rmf_traffic::Trajectory trajectory("test_map");
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                      pos_0,
+                                      vel_0);
+      rmf_traffic::Trajectory::iterator zeroth_it = result.it;
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                        pos_1,
+                                        vel_1);
+      rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
-//   rmf_traffic::Trajectory trajectory{"test_map"};
+      THEN("New iterator is created")
+      {
+        const rmf_traffic::Trajectory::iterator &&rvalue_it = std::move(zeroth_it);
+        const rmf_traffic::Trajectory::iterator copied_zeroth_it(rvalue_it);
+        CHECK(&zeroth_it != &copied_zeroth_it);
+        CHECK(copied_zeroth_it->get_profile() == zeroth_it->get_profile());
+      }
+    }
 
-//   const auto finish_time = std::chrono::steady_clock::now();
+    WHEN("Move Construction from another base_iterator")
+    {
+      rmf_traffic::Trajectory trajectory("test_map");
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                      pos_0,
+                                      vel_0);
+      const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                        pos_1,
+                                        vel_1);
+      const rmf_traffic::Trajectory::iterator first_it = result_1.it;
 
-//   trajectory.insert(
-//         finish_time, make_test_profile(),
-//         Eigen::Vector3d::UnitX(),
-//         Eigen::Vector3d::UnitX());
+      THEN("New iterator is created")
+      {
+        const rmf_traffic::Trajectory::iterator copied_zeroth_it(zeroth_it);
+        const rmf_traffic::Trajectory::iterator moved_zeroth_it(std::move(copied_zeroth_it));
+        CHECK(&zeroth_it != &moved_zeroth_it);
+        CHECK(zeroth_it == moved_zeroth_it);
+        CHECK(moved_zeroth_it->get_profile() == zeroth_it->get_profile());
+      }
+    }
 
-//   trajectory.insert(
-//         finish_time + 10s, make_test_profile(),
-//         Eigen::Vector3d::UnitY(),
-//         Eigen::Vector3d::UnitY());
+    WHEN("Copy Construction of Trajectory from another trajectory")
+    {
+      const rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      const rmf_traffic::Trajectory trajectory_copy = trajectory;
 
-//   trajectory.insert(
-//         finish_time + 15s, make_test_profile(),
-//         Eigen::Vector3d::UnitZ(),
-//         Eigen::Vector3d::UnitZ());
+      THEN("Elements of trajectories are consistent")
+      {
+        rmf_traffic::Trajectory::const_iterator ot = trajectory.begin();
+        rmf_traffic::Trajectory::const_iterator ct = trajectory_copy.begin();
+        for (; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
+        {
+          CHECK(ot->get_profile() == ct->get_profile());
+          CHECK(ot->get_finish_position() == ct->get_finish_position());
+          CHECK(ot->get_finish_velocity() == ct->get_finish_velocity());
+          CHECK(ot->get_finish_time() == ct->get_finish_time());
+        }
+        CHECK(ot == trajectory.end());
+        CHECK(ct == trajectory_copy.end());
+      }
+    }
 
-//   rmf_traffic::Trajectory copy = trajectory;
+    WHEN("Copy Construction of Trajectory followed by move of source trajectory")
+    {
+      const rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory trajectory_copy = trajectory;
+      const rmf_traffic::Trajectory trajectory_moved = std::move(trajectory);
 
-//   rmf_traffic::Trajectory::const_iterator ot = trajectory.begin();
-//   rmf_traffic::Trajectory::const_iterator ct = copy.begin();
-//   for( ; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
-//   {
-//     CHECK(ot->get_profile() == ct->get_profile());
-//     CHECK(ot->get_finish_position() == ct->get_finish_position());
-//     CHECK(ot->get_finish_velocity() == ct->get_finish_velocity());
-//     CHECK(ot->get_finish_time() == ct->get_finish_time());
-//   }
-//   CHECK(ot == trajectory.end());
-//   CHECK(ct == copy.end());
+      THEN("Elements of trajectories are consistent")
+      {
+        rmf_traffic::Trajectory::const_iterator ct = trajectory_copy.begin();
+        rmf_traffic::Trajectory::const_iterator mt = trajectory_moved.begin();
+        for (; ct != trajectory_copy.end() && mt != trajectory_moved.end(); ++ct, ++mt)
+        {
+          CHECK(ct->get_profile() == mt->get_profile());
+          CHECK(ct->get_finish_position() == mt->get_finish_position());
+          CHECK(ct->get_finish_velocity() == mt->get_finish_velocity());
+          CHECK(ct->get_finish_time() == mt->get_finish_time());
+        }
+        CHECK(ct == trajectory_copy.end());
+        CHECK(mt == trajectory_moved.end());
+      }
+    }
 
-//   for(auto it = copy.begin(); it != copy.end(); ++it)
-//   {
-//     it->set_profile(make_test_profile());
-//     it->set_finish_position(it->get_finish_position() + Eigen::Vector3d::UnitZ());
-//     it->set_finish_velocity(it->get_finish_velocity() + Eigen::Vector3d::UnitZ());
-//     it->set_finish_time(it->get_finish_time() + 2s);
-//   }
+    WHEN("Appending segment to trajectory")
+    {
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
+      rmf_traffic::Trajectory::iterator second_it = trajectory.find(time + 10s);
+      rmf_traffic::Trajectory::iterator third_it = trajectory.find(time + 20s);
+      const rmf_traffic::Time time_3 = time + 30s;
+      const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
+      const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
+      rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
+                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                                                  pos_3, vel_3)
+                                                        .it;
 
-//   ot = trajectory.begin();
-//   ct = copy.begin();
-//   for( ; ot != trajectory.end() && ct != trajectory.end(); ++ot, ++ct)
-//   {
-//     CHECK(ot->get_profile() != ct->get_profile());
-//     CHECK(ot->get_finish_position() != ct->get_finish_position());
-//     CHECK(ot->get_finish_velocity() != ct->get_finish_velocity());
-//     CHECK(ot->get_finish_time() != ct->get_finish_time());
-//   }
-//   CHECK(ot == trajectory.end());
-//   CHECK(ct == copy.end());
+      THEN("base_iterators assigned prior are still valid")
+      {
+        CHECK(first_it->get_finish_time() == time);
+        CHECK(second_it->get_finish_time() == time + 10s);
+        CHECK(third_it->get_finish_time() == time + 20s);
+        CHECK(fourth_it->get_finish_time() == time + 30s);
 
-//   // Copy again
-//   copy = trajectory;
+        CHECK(first_it == trajectory.begin());
+        CHECK(++first_it == second_it);
+        CHECK(++second_it == third_it);
+        CHECK(++third_it == fourth_it);
+        CHECK(++fourth_it == trajectory.end());
+      }
+    }
 
-//   // Now move the original
-//   rmf_traffic::Trajectory moved = std::move(trajectory);
+    WHEN("Prepending segment to trajectory")
+    {
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
+      rmf_traffic::Trajectory::iterator second_it = trajectory.find(time + 10s);
+      rmf_traffic::Trajectory::iterator third_it = trajectory.find(time + 20s);
+      const rmf_traffic::Time time_3 = time - 30s;
+      const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
+      const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
+      rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
+                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                                                  pos_3, vel_3)
+                                                        .it;
 
-//   ct = copy.begin();
-//   rmf_traffic::Trajectory::const_iterator mt = moved.begin();
-//   for( ; ct != copy.end() && mt != moved.end(); ++ct, ++mt)
-//   {
-//     CHECK(ct->get_profile() == mt->get_profile());
-//     CHECK(ct->get_finish_position() == mt->get_finish_position());
-//     CHECK(ct->get_finish_velocity() == mt->get_finish_velocity());
-//     CHECK(ct->get_finish_time() == mt->get_finish_time());
-//   }
-//   CHECK(ct == copy.end());
-//   CHECK(mt == moved.end());
-// }
+      THEN("base_iterators assigned prior are still valid")
+      {
+        CHECK(first_it->get_finish_time() == time);
+        CHECK(second_it->get_finish_time() == time + 10s);
+        CHECK(third_it->get_finish_time() == time + 20s);
+        CHECK(fourth_it->get_finish_time() == time - 30s);
+
+        CHECK(fourth_it == trajectory.begin());
+        CHECK(++fourth_it == first_it);
+        CHECK(++first_it == second_it);
+        CHECK(++second_it == third_it);
+        CHECK(++third_it == trajectory.end());
+      }
+    }
+
+    WHEN("Interpolating segment to trajectory")
+    {
+      rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
+      rmf_traffic::Trajectory::iterator second_it = trajectory.find(time + 10s);
+      rmf_traffic::Trajectory::iterator third_it = trajectory.find(time + 20s);
+      const rmf_traffic::Time time_3 = time + 15s;
+      const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
+      const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
+      rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
+                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                                                  pos_3, vel_3)
+                                                        .it;
+
+      THEN("base_iterators assigned prior are still valid")
+      {
+        CHECK(first_it->get_finish_time() == time);
+        CHECK(second_it->get_finish_time() == time + 10s);
+        CHECK(fourth_it->get_finish_time() == time + 15s);
+        CHECK(third_it->get_finish_time() == time + 20s);
+
+        CHECK(first_it == trajectory.begin());
+        CHECK(++first_it == second_it);
+        CHECK(++second_it == fourth_it);
+        CHECK(++fourth_it == third_it);
+        CHECK(++third_it == trajectory.end());
+      }
+    }
+  }
+  // Trajectory functions
+  GIVEN("Sample Trajectories")
+  {
+    std::vector<TrajectoryInsertInput> param_inputs;
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    param_inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(1, 1, 1)});
+    param_inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(3, 3, 3)});
+    param_inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(4, 4, 4), Eigen::Vector3d(5, 5, 5)});
+    rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+    const rmf_traffic::Trajectory empty_trajectory = create_test_trajectory();
+
+    WHEN("Setting a new map name using set_map_name function")
+    {
+      THEN("Name is changed successfully.")
+      {
+        CHECK(trajectory.get_map_name() == "test_map");
+        trajectory.set_map_name(std::string("new_name"));
+        CHECK(trajectory.get_map_name() == "new_name");
+      }
+    }
+
+    WHEN("Finding a segment at the precise time specified")
+    {
+      THEN("Segment is retreieved successfully")
+      {
+        CHECK(trajectory.find(time)->get_finish_position() == Eigen::Vector3d(0, 0, 0));
+        CHECK(trajectory.find(time + 10s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 20s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
+      }
+    }
+
+    WHEN("Finding a segment at an offset time")
+    {
+      THEN("Segments currently active are retrieved successfully")
+      {
+        CHECK(trajectory.find(time)->get_finish_position() == Eigen::Vector3d(0, 0, 0));
+        CHECK(trajectory.find(time + 2s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 8s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 12s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
+        CHECK(trajectory.find(time + 20s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
+      }
+    }
+
+    WHEN("Finding a segment at an out of bounds time")
+    {
+      THEN("rmf_traffic::Trajectory::end() is returned")
+      {
+        CHECK(trajectory.find(time - 50s) == trajectory.end());
+        CHECK(trajectory.find(time + 50s) == trajectory.end());
+      }
+    }
+
+    WHEN("Erasing a first segment")
+    {
+      THEN("Segment is erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_target = trajectory.begin();
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 10s);
+        CHECK(trajectory.size() == 2);
+      }
+    }
+
+    WHEN("Erasing a first segment from a copy")
+    {
+      THEN("Segment is erased and only copy is updated, source is unaffected")
+      {
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_target = trajectory_copy.begin();
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 10s);
+        CHECK(trajectory_copy.size() == 2);
+        CHECK(trajectory.size() == 3);
+      }
+    }
+
+    WHEN("Erasing a second segment")
+    {
+      THEN("Segment is erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_target = ++(trajectory.begin());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 20s);
+        CHECK(trajectory.size() == 2);
+      }
+    }
+
+    WHEN("Erasing a second segment from a copy")
+    {
+      THEN("Segment is erased and only copy is updated, source is unaffected")
+      {
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_target = ++(trajectory_copy.begin());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        CHECK(next_it->get_finish_time() == time + 20s);
+        CHECK(trajectory_copy.size() == 2);
+        CHECK(trajectory.size() == 3);
+      }
+    }
+
+    WHEN("Erasing a empty range of segments using range notation")
+    {
+      THEN("Nothing is erased and current iterator is returned")
+      {
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = erase_first;
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 3);
+        CHECK(next_it->get_finish_time() == time);
+      }
+    }
+
+    WHEN("Erasing a empty range of segments from a copy using range notation")
+    {
+      THEN("Nothing is erased")
+      {
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = erase_first;
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        CHECK(next_it->get_finish_time() == time);
+      }
+    }
+
+    WHEN("Erasing the first segment using range notation")
+    {
+      THEN("1 Segment is erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 10s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 2);
+        CHECK(next_it->get_finish_time() == time + 10s);
+      }
+    }
+
+    WHEN("Erasing the first segment of a copy using range notation")
+    {
+      THEN("1 Segment is erased and trajectory is rearranged")
+      {
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 10s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 2);
+        CHECK(next_it->get_finish_time() == time + 10s);
+      }
+    }
+
+    WHEN("Erasing the first and second segments using range notation")
+    {
+      THEN("2 Segments are erased and trajectory is rearranged")
+      {
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 20s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 1);
+        CHECK(next_it->get_finish_time() == time + 20s);
+      }
+    }
+
+    WHEN("Erasing the first and second segments of a copy using range notation")
+    {
+      THEN("2 Segments are erased and trajectory is rearranged")
+      {
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 20s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 1);
+        CHECK(next_it->get_finish_time() == time + 20s);
+      }
+    }
+
+    WHEN("Erasing all segments using range notation")
+    {
+      THEN("All Segments are erased and trajectory is empty")
+      {
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.end();
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 0);
+        CHECK(next_it == trajectory.end());
+      }
+    }
+
+    WHEN("Erasing all but last segment using range notation")
+    {
+      THEN("All but one Segment is erased")
+      {
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = --(trajectory.end());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        CHECK(trajectory.size() == 1);
+        CHECK(next_it == trajectory.begin());
+        CHECK(next_it == --trajectory.end());
+      }
+    }
+
+    WHEN("Erasing all segments of a copy using range notation")
+    {
+      THEN("All Segments are erased and trajectory is empty")
+      {
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory_copy.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory_copy.end();
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 0);
+        CHECK(next_it == trajectory_copy.end());
+      }
+    }
+
+    WHEN("Erasing all but last segment of a copy using range notation")
+    {
+      THEN("All but one Segment is erased")
+      {
+        rmf_traffic::Trajectory trajectory_copy = trajectory;
+        CHECK(trajectory_copy.size() == 3);
+        CHECK(trajectory.size() == 3);
+        const rmf_traffic::Trajectory::iterator erase_first = trajectory_copy.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = --(trajectory_copy.end());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        CHECK(trajectory_copy.size() == 1);
+        CHECK(next_it == trajectory_copy.begin());
+        CHECK(next_it == --trajectory_copy.end());
+      }
+    }
+
+    WHEN("Getting the first iterator of empty trajectory")
+    {
+      THEN("trajectory.end() is returned")
+      {
+        CHECK(empty_trajectory.begin() == empty_trajectory.end());
+      }
+    }
+
+    WHEN("Getting start_time of empty trajectory using start_time function")
+    {
+      THEN("nullptr is returned")
+      {
+        CHECK(empty_trajectory.start_time() == nullptr);
+      }
+    }
+
+    WHEN("Getting start_time of trajectory using start_time function")
+    {
+      THEN("Start time is returned")
+      {
+        REQUIRE(trajectory.start_time() != nullptr);
+        CHECK(*(trajectory.start_time()) == time);
+      }
+    }
+
+    WHEN("Getting finish_time of empty trajectory using finish_time function")
+    {
+      THEN("nullptr is returned")
+      {
+        CHECK(empty_trajectory.finish_time() == nullptr);
+      }
+    }
+
+    WHEN("Getting finish_time of trajectory using finish_time function")
+    {
+      THEN("finish time is returned")
+      {
+        REQUIRE(trajectory.start_time() != nullptr);
+        CHECK(*(trajectory.finish_time()) == time + 20s);
+      }
+    }
+
+    WHEN("Getting duration of empty trajectory using duration function")
+    {
+      THEN("0 is returned")
+      {
+        CHECK(empty_trajectory.duration() == std::chrono::seconds(0));
+      }
+    }
+
+    WHEN("Getting duration of trajectory using duration function")
+    {
+      THEN("duration is returned")
+      {
+        CHECK(trajectory.duration() == std::chrono::seconds(20));
+      }
+    }
+  }
+}

@@ -34,7 +34,7 @@ SCENARIO("DetectConflict unit tests")
                   THEN("The trajectories do not conflict")
                   {
                         CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
-                                                                       empty_trajectory_2));
+                                                                             empty_trajectory_2));
                   }
             }
 
@@ -44,7 +44,21 @@ SCENARIO("DetectConflict unit tests")
                   THEN("The trajectories do not conflict")
                   {
                         CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
-                                                                       foreign_trajectory));
+                                                                             foreign_trajectory));
+                  }
+            }
+
+            WHEN("Detecting Conflicts between empty trajectory and a length 1 trajectory")
+            {
+                  std::vector<TrajectoryInsertInput> inputs;
+                  rmf_traffic::Time time = std::chrono::steady_clock::now();
+                  inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)});
+                  rmf_traffic::Trajectory new_trajectory = create_test_trajectory(inputs);
+
+                  THEN("The trajectories do not conflict")
+                  {
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
+                                                                             new_trajectory));
                   }
             }
       }
