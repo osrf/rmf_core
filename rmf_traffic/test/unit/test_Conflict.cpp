@@ -16,179 +16,205 @@
 */
 
 #include <rmf_traffic/Conflict.hpp>
-
 #include "utils_Trajectory.hpp"
-
 #include <rmf_utils/catch.hpp>
-
 #include <iostream>
 
-SCENARIO("Test conflicts")
+using namespace std::chrono_literals;
+
+SCENARIO("DetectConflict unit tests")
 {
-  using namespace std::chrono_literals;
+      GIVEN("Two empty trajectories in the same map")
+      {
+            rmf_traffic::Trajectory empty_trajectory_1 = rmf_traffic::Trajectory("test_map");
+            rmf_traffic::Trajectory empty_trajectory_2 = rmf_traffic::Trajectory("test_map");
 
-  GIVEN("A straight 2-point trajectory")
-  {
-    const rmf_traffic::Time begin_time = std::chrono::steady_clock::now();
+            WHEN("Detecting Conflicts between two empty trajectories")
+            {
+                  THEN("The trajectories do not conflict")
+                  {
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
+                                                                       empty_trajectory_2));
+                  }
+            }
 
-    rmf_traffic::Trajectory trajectory_a("test_map");
-    trajectory_a.insert(
-          begin_time,
-          make_test_profile(UnitBox),
-          Eigen::Vector3d{-5.0,  0.0,  0.0},
-          Eigen::Vector3d{ 0.0,  0.0,  0.0});
-
-    trajectory_a.insert(
-          begin_time + 10s,
-          make_test_profile(UnitBox),
-          Eigen::Vector3d{ 5.0,  0.0,  0.0},
-          Eigen::Vector3d{ 0.0,  0.0,  0.0});
-    REQUIRE(trajectory_a.size() == 2);
-
-    WHEN("Checked against a conflicting Trajectory")
-    {
-      rmf_traffic::Trajectory trajectory_b("test_map");
-
-      trajectory_b.insert(
-            begin_time,
-            make_test_profile(UnitBox),
-            Eigen::Vector3d{ 0.0, -5.0,  0.0},
-            Eigen::Vector3d{ 0.0,  0.0,  0.0});
-
-      trajectory_b.insert(
-            begin_time + 10s,
-            make_test_profile(UnitBox),
-            Eigen::Vector3d{ 0.0,  5.0,  0.0},
-            Eigen::Vector3d{ 0.0,  0.0,  0.0});
-
-      REQUIRE(trajectory_b.size() == 2);
-
-      CHECK(rmf_traffic::DetectConflict::broad_phase(
-              trajectory_a, trajectory_b));
-
-      const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
-            trajectory_a, trajectory_b);
-      REQUIRE(conflicts.size() == 1);
-
-      // Note: The expected time in this case is the root of the polynomial
-      // equation in the range t=[0,10]:
-      // -0.02 t^3 + 0.3 t^2 - 4 t = 0
-      const double expected_time = 4.32931077;
-      const double computed_time = rmf_traffic::time::to_seconds(
-            conflicts.front().get_time() - begin_time);
-
-      // Note: FCL is able to calculate the collision time to very high
-      // precision, but it requires many iterations (~1000000 for a precision of
-      // 1e-5s) which is far more expensive than the default (10 iterations for
-      // a precision of ~0.2), and the exact moment in time is not really
-      // important, as long as it falls within the relevant segment (which it
-      // always should).
-      CHECK(computed_time == Approx(expected_time).margin(0.2));
-    }
-
-    WHEN("Checked against a Trajectory that does not conflict")
-    {
-      rmf_traffic::Trajectory trajectory_c("test_map");
-
-      // This trajectory is parallel to trajectory_a
-      trajectory_c.insert(
-            begin_time,
-            make_test_profile(UnitBox),
-            Eigen::Vector3d{-5.0,  5.0,  0.0},
-            Eigen::Vector3d{ 0.0,  0.0,  0.0});
-
-      trajectory_c.insert(
-            begin_time + 10s,
-            make_test_profile(UnitBox),
-            Eigen::Vector3d{ 5.0,  5.0,  0.0},
-            Eigen::Vector3d{ 0.0,  0.0,  0.0});
-
-      REQUIRE(trajectory_c.size() == 2);
-
-      CHECK(rmf_traffic::DetectConflict::broad_phase(
-              trajectory_a, trajectory_c));
-
-      const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
-            trajectory_a, trajectory_c);
-      CHECK(conflicts.empty());
-    }
-  }
-
-  GIVEN("A curving 2-point trajectory")
-  {
-    const rmf_traffic::Time begin_time = std::chrono::steady_clock::now();
-
-    rmf_traffic::Trajectory trajectory_a("test_map");
-    trajectory_a.insert(
-          begin_time,
-          make_test_profile(UnitCircle),
-          Eigen::Vector3d{-5.0,  0.0,  0.0},
-          Eigen::Vector3d{ 1.0,  0.0,  0.0});
-
-    trajectory_a.insert(
-          begin_time + 10s,
-          make_test_profile(UnitCircle),
-          Eigen::Vector3d{ 0.0, -5.0, 0.0},
-          Eigen::Vector3d{ 0.0, -1.0, 0.0});
-    REQUIRE(trajectory_a.size() == 2);
-
-    WHEN("Checked against a conflicting Trajectory")
-    {
-      rmf_traffic::Trajectory trajectory_b("test_map");
-      trajectory_b.insert(
-            begin_time,
-            make_test_profile(UnitCircle),
-            Eigen::Vector3d{ -5.0, -5.0,  0.0},
-            Eigen::Vector3d{  1.0,  0.0,  0.0});
-
-      trajectory_b.insert(
-            begin_time + 10s,
-            make_test_profile(UnitCircle),
-            Eigen::Vector3d{  0.0,  0.0,  0.0},
-            Eigen::Vector3d{  0.0,  1.0,  0.0});
-      REQUIRE(trajectory_b.size() == 2);
-
-      CHECK(rmf_traffic::DetectConflict::broad_phase(
-              trajectory_a, trajectory_b));
-
-      const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
-            trajectory_a, trajectory_b);
-      REQUIRE(conflicts.size() == 1);
-
-      // Note: The expected collision time, calculated by hand, is sqrt(30)
-      const double expected_time = std::sqrt(30.0);
-      const double computed_time = rmf_traffic::time::to_seconds(
-            conflicts.front().get_time() - begin_time);
-
-      CHECK(computed_time == Approx(expected_time).margin(0.2));
-    }
-
-    WHEN("Checked against a Trajectory that does not conflict")
-    {
-      rmf_traffic::Trajectory trajectory_c("test_map");
-      trajectory_c.insert(
-            begin_time,
-            make_test_profile(UnitCircle),
-            Eigen::Vector3d{  5.0,  0.0,  0.0},
-            Eigen::Vector3d{ -1.0,  0.0,  0.0});
-
-      trajectory_c.insert(
-            begin_time + 10s,
-            make_test_profile(UnitCircle),
-            Eigen::Vector3d{  0.0,  5.0,  0.0},
-            Eigen::Vector3d{  0.0,  1.0,  0.0});
-      REQUIRE(trajectory_c.size() == 2);
-
-      CHECK(rmf_traffic::DetectConflict::broad_phase(
-              trajectory_a, trajectory_c));
-
-      const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
-            trajectory_a, trajectory_c);
-
-      CHECK(conflicts.empty());
-    }
-  }
+            WHEN("Detecting Conflicts between two empty trajectories in different maps")
+            {
+                  rmf_traffic::Trajectory foreign_trajectory = rmf_traffic::Trajectory("test_map2");
+                  THEN("The trajectories do not conflict")
+                  {
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
+                                                                       foreign_trajectory));
+                  }
+            }
+      }
 }
+// SCENARIO("Test conflicts")
+// {
+//       using namespace std::chrono_literals;
+
+//       GIVEN("A straight 2-point trajectory")
+//       {
+//             const rmf_traffic::Time begin_time = std::chrono::steady_clock::now();
+
+//             rmf_traffic::Trajectory trajectory_a("test_map");
+//             trajectory_a.insert(
+//                 begin_time,
+//                 make_test_profile(UnitBox),
+//                 Eigen::Vector3d{-5.0, 0.0, 0.0},
+//                 Eigen::Vector3d{0.0, 0.0, 0.0});
+
+//             trajectory_a.insert(
+//                 begin_time + 10s,
+//                 make_test_profile(UnitBox),
+//                 Eigen::Vector3d{5.0, 0.0, 0.0},
+//                 Eigen::Vector3d{0.0, 0.0, 0.0});
+//             REQUIRE(trajectory_a.size() == 2);
+
+//             WHEN("Checked against a conflicting Trajectory")
+//             {
+//                   rmf_traffic::Trajectory trajectory_b("test_map");
+
+//                   trajectory_b.insert(
+//                       begin_time,
+//                       make_test_profile(UnitBox),
+//                       Eigen::Vector3d{0.0, -5.0, 0.0},
+//                       Eigen::Vector3d{0.0, 0.0, 0.0});
+
+//                   trajectory_b.insert(
+//                       begin_time + 10s,
+//                       make_test_profile(UnitBox),
+//                       Eigen::Vector3d{0.0, 5.0, 0.0},
+//                       Eigen::Vector3d{0.0, 0.0, 0.0});
+
+//                   REQUIRE(trajectory_b.size() == 2);
+
+//                   CHECK(rmf_traffic::DetectConflict::broad_phase(
+//                       trajectory_a, trajectory_b));
+
+//                   const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
+//                       trajectory_a, trajectory_b);
+//                   REQUIRE(conflicts.size() == 1);
+
+//                   // Note: The expected time in this case is the root of the polynomial
+//                   // equation in the range t=[0,10]:
+//                   // -0.02 t^3 + 0.3 t^2 - 4 t = 0
+//                   const double expected_time = 4.32931077;
+//                   const double computed_time = rmf_traffic::time::to_seconds(
+//                       conflicts.front().get_time() - begin_time);
+
+//                   // Note: FCL is able to calculate the collision time to very high
+//                   // precision, but it requires many iterations (~1000000 for a precision of
+//                   // 1e-5s) which is far more expensive than the default (10 iterations for
+//                   // a precision of ~0.2), and the exact moment in time is not really
+//                   // important, as long as it falls within the relevant segment (which it
+//                   // always should).
+//                   CHECK(computed_time == Approx(expected_time).margin(0.2));
+//             }
+
+//             WHEN("Checked against a Trajectory that does not conflict")
+//             {
+//                   rmf_traffic::Trajectory trajectory_c("test_map");
+
+//                   // This trajectory is parallel to trajectory_a
+//                   trajectory_c.insert(
+//                       begin_time,
+//                       make_test_profile(UnitBox),
+//                       Eigen::Vector3d{-5.0, 5.0, 0.0},
+//                       Eigen::Vector3d{0.0, 0.0, 0.0});
+
+//                   trajectory_c.insert(
+//                       begin_time + 10s,
+//                       make_test_profile(UnitBox),
+//                       Eigen::Vector3d{5.0, 5.0, 0.0},
+//                       Eigen::Vector3d{0.0, 0.0, 0.0});
+
+//                   REQUIRE(trajectory_c.size() == 2);
+
+//                   CHECK(rmf_traffic::DetectConflict::broad_phase(
+//                       trajectory_a, trajectory_c));
+
+//                   const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
+//                       trajectory_a, trajectory_c);
+//                   CHECK(conflicts.empty());
+//             }
+//       }
+
+//       GIVEN("A curving 2-point trajectory")
+//       {
+//             const rmf_traffic::Time begin_time = std::chrono::steady_clock::now();
+
+//             rmf_traffic::Trajectory trajectory_a("test_map");
+//             trajectory_a.insert(
+//                 begin_time,
+//                 make_test_profile(UnitCircle),
+//                 Eigen::Vector3d{-5.0, 0.0, 0.0},
+//                 Eigen::Vector3d{1.0, 0.0, 0.0});
+
+//             trajectory_a.insert(
+//                 begin_time + 10s,
+//                 make_test_profile(UnitCircle),
+//                 Eigen::Vector3d{0.0, -5.0, 0.0},
+//                 Eigen::Vector3d{0.0, -1.0, 0.0});
+//             REQUIRE(trajectory_a.size() == 2);
+
+//             WHEN("Checked against a conflicting Trajectory")
+//             {
+//                   rmf_traffic::Trajectory trajectory_b("test_map");
+//                   trajectory_b.insert(
+//                       begin_time,
+//                       make_test_profile(UnitCircle),
+//                       Eigen::Vector3d{-5.0, -5.0, 0.0},
+//                       Eigen::Vector3d{1.0, 0.0, 0.0});
+
+//                   trajectory_b.insert(
+//                       begin_time + 10s,
+//                       make_test_profile(UnitCircle),
+//                       Eigen::Vector3d{0.0, 0.0, 0.0},
+//                       Eigen::Vector3d{0.0, 1.0, 0.0});
+//                   REQUIRE(trajectory_b.size() == 2);
+
+//                   CHECK(rmf_traffic::DetectConflict::broad_phase(
+//                       trajectory_a, trajectory_b));
+
+//                   const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
+//                       trajectory_a, trajectory_b);
+//                   REQUIRE(conflicts.size() == 1);
+
+//                   // Note: The expected collision time, calculated by hand, is sqrt(30)
+//                   const double expected_time = std::sqrt(30.0);
+//                   const double computed_time = rmf_traffic::time::to_seconds(
+//                       conflicts.front().get_time() - begin_time);
+
+//                   CHECK(computed_time == Approx(expected_time).margin(0.2));
+//             }
+
+//             WHEN("Checked against a Trajectory that does not conflict")
+//             {
+//                   rmf_traffic::Trajectory trajectory_c("test_map");
+//                   trajectory_c.insert(
+//                       begin_time,
+//                       make_test_profile(UnitCircle),
+//                       Eigen::Vector3d{5.0, 0.0, 0.0},
+//                       Eigen::Vector3d{-1.0, 0.0, 0.0});
+
+//                   trajectory_c.insert(
+//                       begin_time + 10s,
+//                       make_test_profile(UnitCircle),
+//                       Eigen::Vector3d{0.0, 5.0, 0.0},
+//                       Eigen::Vector3d{0.0, 1.0, 0.0});
+//                   REQUIRE(trajectory_c.size() == 2);
+
+//                   CHECK(rmf_traffic::DetectConflict::broad_phase(
+//                       trajectory_a, trajectory_c));
+
+//                   const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
+//                       trajectory_a, trajectory_c);
+
+//                   CHECK(conflicts.empty());
+//             }
+//       }
+// }
 
 /// Remaining test suggestions:
 /// * multi-segment trajectories
