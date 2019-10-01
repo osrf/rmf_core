@@ -94,6 +94,20 @@ public:
 };
 
 //==============================================================================
+Query::Spacetime::Spacetime()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  query_all();
+}
+
+//==============================================================================
+Query::Spacetime::Spacetime(std::vector<Region> regions)
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  query_regions(std::move(regions));
+}
+
+//==============================================================================
 auto Query::Spacetime::get_mode() const -> Mode
 {
   return _pimpl->mode;
@@ -203,8 +217,7 @@ auto Query::Spacetime::Region::begin() const -> const_iterator
 //==============================================================================
 auto Query::Spacetime::Region::cbegin() const -> const_iterator
 {
-  return Implementation::make_iterator(
-        const_cast<Implementation::Spaces&>(_pimpl->spaces).begin());
+  return begin();
 }
 
 //==============================================================================
@@ -217,14 +230,13 @@ auto Query::Spacetime::Region::end() -> iterator
 auto Query::Spacetime::Region::end() const -> const_iterator
 {
   return Implementation::make_iterator(
-        const_cast<Implementation::Spaces&>(_pimpl->spaces).begin());
+        const_cast<Implementation::Spaces&>(_pimpl->spaces).end());
 }
 
 //==============================================================================
 auto Query::Spacetime::Region::cend() const -> const_iterator
 {
-  return Implementation::make_iterator(
-        const_cast<Implementation::Spaces&>(_pimpl->spaces).begin());
+  return end();
 }
 
 //==============================================================================
@@ -288,6 +300,26 @@ auto Query::Spacetime::Regions::cbegin() const -> const_iterator
 }
 
 //==============================================================================
+auto Query::Spacetime::Regions::end() -> iterator
+{
+  return Implementation::make_iterator(_pimpl->regions.end());
+}
+
+//==============================================================================
+auto Query::Spacetime::Regions::end() const -> const_iterator
+{
+  return Implementation::make_iterator(
+        const_cast<Implementation::RegionSet&>(_pimpl->regions).begin());
+}
+
+//==============================================================================
+auto Query::Spacetime::Regions::cend() const -> const_iterator
+{
+  return Implementation::make_iterator(
+        const_cast<Implementation::RegionSet&>(_pimpl->regions).begin());
+}
+
+//==============================================================================
 std::size_t Query::Spacetime::Regions::size() const
 {
   return _pimpl->regions.size();
@@ -335,6 +367,19 @@ public:
 };
 
 //==============================================================================
+Query::Versions::After::After(std::size_t version)
+  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{version}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Query::Versions::After::After()
+{
+  // Do nothing
+}
+
+//==============================================================================
 class Query::Versions::Implementation
 {
 public:
@@ -359,6 +404,20 @@ auto Query::Versions::After::set_version(std::size_t version) -> After&
 }
 
 //==============================================================================
+Query::Versions::Versions()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  query_all();
+}
+
+//==============================================================================
+Query::Versions::Versions(std::size_t version)
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  query_after(version);
+}
+
+//==============================================================================
 auto Query::Versions::query_all() -> All&
 {
   _pimpl->mode = Mode::All;
@@ -369,7 +428,11 @@ auto Query::Versions::query_all() -> All&
 auto Query::Versions::query_after(std::size_t version) -> After&
 {
   _pimpl->mode = Mode::After;
-  _pimpl->after_instance.set_version(version);
+  if(_pimpl->after_instance._pimpl)
+    _pimpl->after_instance.set_version(version);
+  else
+    _pimpl->after_instance = After(version);
+
   return _pimpl->after_instance;
 }
 
@@ -459,9 +522,7 @@ auto Query::versions() const -> const Versions&
 Query::Query()
   : _pimpl(rmf_utils::make_impl<Implementation>())
 {
-  // Default to querying everything
-  _pimpl->spacetime_instance.query_all();
-  _pimpl->versions_instance.query_all();
+  // Do nothing
 }
 
 //==============================================================================

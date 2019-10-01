@@ -81,6 +81,14 @@ bool bidirectional_iterator<E, I, F>::operator==(
 
 //==============================================================================
 template<typename E, typename I, typename F>
+bool bidirectional_iterator<E, I, F>::operator!=(
+    const bidirectional_iterator& other) const
+{
+  return _pimpl->iter != other._pimpl->iter;
+}
+
+//==============================================================================
+template<typename E, typename I, typename F>
 bidirectional_iterator<E, I, F>::bidirectional_iterator()
 {
   // Do nothing

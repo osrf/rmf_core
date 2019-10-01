@@ -7,6 +7,7 @@ set(unit_tests
   test_Spline.cpp
   agv/test_Interpolate.cpp
   agv/test_VehicleTraits.cpp
+  schedule/test_Query.cpp
 )
 
 set(unit_test_srcs)

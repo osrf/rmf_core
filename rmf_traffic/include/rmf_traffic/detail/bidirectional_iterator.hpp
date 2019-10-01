@@ -73,6 +73,9 @@ public:
   /// Equality comparison operator
   bool operator==(const bidirectional_iterator& other) const;
 
+  /// Inequality comparison operator
+  bool operator!=(const bidirectional_iterator& other) const;
+
   // Allow implicit conversion to const_iterator type
   operator bidirectional_iterator<const Element, Implementation, Friend>() const;
 
