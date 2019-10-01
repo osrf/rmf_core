@@ -22,43 +22,83 @@
 
 using namespace std::chrono_literals;
 
+void check_commutative_broad_phase(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2, bool check_true)
+{
+      if (check_true)
+      {
+            CHECK(rmf_traffic::DetectConflict::broad_phase(t1, t2));
+            CHECK(rmf_traffic::DetectConflict::broad_phase(t2, t1));
+      }
+      else
+      {
+            CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
+            CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t2, t1));
+      }
+}
+
 SCENARIO("DetectConflict unit tests")
 {
-      GIVEN("Two empty trajectories in the same map")
+      GIVEN("An empty starting trajectory")
       {
-            rmf_traffic::Trajectory empty_trajectory_1 = rmf_traffic::Trajectory("test_map");
-            rmf_traffic::Trajectory empty_trajectory_2 = rmf_traffic::Trajectory("test_map");
+            const rmf_traffic::Trajectory empty_trajectory_1 = rmf_traffic::Trajectory("test_map");
 
-            WHEN("Detecting Conflicts between two empty trajectories")
+            WHEN("Checking for conflicts with itself")
             {
-                  THEN("The trajectories do not conflict")
+                  THEN("The broad phase returns false.")
                   {
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
-                                                                             empty_trajectory_2));
+                        check_commutative_broad_phase(empty_trajectory_1, empty_trajectory_1, false);
                   }
             }
 
-            WHEN("Detecting Conflicts between two empty trajectories in different maps")
+            WHEN("No Conflicts between two empty trajectories in the same map")
             {
-                  rmf_traffic::Trajectory foreign_trajectory = rmf_traffic::Trajectory("test_map2");
-                  THEN("The trajectories do not conflict")
+                  const rmf_traffic::Trajectory empty_trajectory_2 = rmf_traffic::Trajectory("test_map");
+                  THEN("The broad phase returns false.")
                   {
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
-                                                                             foreign_trajectory));
+                        check_commutative_broad_phase(empty_trajectory_1, empty_trajectory_2, false);
                   }
             }
 
-            WHEN("Detecting Conflicts between empty trajectory and a length 1 trajectory")
+            WHEN("No Conflicts between two empty trajectories in different maps")
+            {
+                  const rmf_traffic::Trajectory foreign_trajectory = rmf_traffic::Trajectory("test_map2");
+                  THEN("The broad phase returns false.")
+                  {
+                        check_commutative_broad_phase(empty_trajectory_1, foreign_trajectory, false);
+                  }
+            }
+
+            WHEN("No Conflicts between empty trajectory and a length 1 trajectory")
             {
                   std::vector<TrajectoryInsertInput> inputs;
-                  rmf_traffic::Time time = std::chrono::steady_clock::now();
-                  inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)});
-                  rmf_traffic::Trajectory new_trajectory = create_test_trajectory(inputs);
+                  inputs.push_back({std::chrono::steady_clock::now(),
+                                    UnitBox,
+                                    Eigen::Vector3d(0, 0, 0),
+                                    Eigen::Vector3d(0, 0, 0)});
+                  const rmf_traffic::Trajectory new_trajectory = create_test_trajectory(inputs);
 
-                  THEN("The trajectories do not conflict")
+                  THEN("The broad phase returns false.")
                   {
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(empty_trajectory_1,
-                                                                             new_trajectory));
+                        check_commutative_broad_phase(empty_trajectory_1, new_trajectory, false);
+                  }
+            }
+
+            WHEN("No Conflicts between empty trajectory and a length 2 trajectory")
+            {
+                  std::vector<TrajectoryInsertInput> inputs;
+                  inputs.push_back({std::chrono::steady_clock::now(),
+                                    UnitBox,
+                                    Eigen::Vector3d(0, 0, 0),
+                                    Eigen::Vector3d(1, 1, 1)});
+                  inputs.push_back({std::chrono::steady_clock::now() + 5s,
+                                    UnitBox,
+                                    Eigen::Vector3d(1, 1, 1),
+                                    Eigen::Vector3d(0, 0, 0)});
+                  const rmf_traffic::Trajectory new_trajectory = create_test_trajectory(inputs);
+
+                  THEN("The broad phase returns false.")
+                  {
+                        check_commutative_broad_phase(empty_trajectory_1, new_trajectory, false);
                   }
             }
       }
