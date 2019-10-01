@@ -27,24 +27,49 @@ namespace rmf_traffic {
 namespace internal {
 
 //==============================================================================
-struct SegmentData;
-using SegmentList = std::list<SegmentData>;
+struct SegmentElement;
+using SegmentList = std::list<SegmentElement>;
 using OrderMap = std::map<Time, SegmentList::iterator>;
 
-struct SegmentData
+struct SegmentElement
 {
-  Time finish_time;
-  Trajectory::ConstProfilePtr profile;
-  Eigen::Vector3d position;
-  Eigen::Vector3d velocity;
+  struct Data
+  {
+    Time finish_time;
+    Trajectory::ConstProfilePtr profile;
+    Eigen::Vector3d position;
+    Eigen::Vector3d velocity;
+  };
+
+  Data data;
 
   // We store a Trajectory::Segment in this struct so that we can always safely
   // return a reference to a Trajectory::Segment object. As long as this
   // SegmentData is alive, any Trajectory::Segment reference that refers to it
   // will remain valid.
-  Trajectory::Segment myself;
-};
+  std::unique_ptr<Trajectory::Segment> myself;
 
+  SegmentElement(Data input_data)
+    : data(std::move(input_data))
+  {
+    // Do nothing
+  }
+
+  SegmentElement(const SegmentElement& other)
+    : data(other.data)
+  {
+    // Do nothing
+  }
+
+  SegmentElement& operator=(const SegmentElement& other)
+  {
+    data = other.data;
+    return *this;
+  }
+
+  SegmentElement(SegmentElement&&) = default;
+  SegmentElement& operator=(SegmentElement&&) = default;
+};
 
 } // namespace internal
 } // namespace rmf_traffic

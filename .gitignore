@@ -1,6 +1,7 @@
 build
 install
 log
+watch.sh
 
 *.swp
 
