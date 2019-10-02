@@ -15,22 +15,12 @@
  *
 */
 
-#include <rmf_traffic/Conflict.hpp>
+#include "utils_Conflict.hpp"
 #include "utils_Trajectory.hpp"
 #include <rmf_utils/catch.hpp>
 #include <iostream>
 
 using namespace std::chrono_literals;
-
-bool broad_phase_is_commutative(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
-{
-            return rmf_traffic::DetectConflict::broad_phase(t1, t2) == rmf_traffic::DetectConflict::broad_phase(t2, t1);
-}
-
-// void check_commutative_narrow_phase(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
-// {
-      
-// }
 
 SCENARIO("DetectConflict unit tests")
 {
@@ -42,7 +32,8 @@ SCENARIO("DetectConflict unit tests")
             {
                   THEN("The broad phase returns false.")
                   {
-                        CHECK(broad_phase_is_commutative(t1, t1));
+                        check_broad_phase_is_commutative(t1, t1);
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t1));
                   }
             }
 
@@ -51,7 +42,8 @@ SCENARIO("DetectConflict unit tests")
                   const rmf_traffic::Trajectory t2 = rmf_traffic::Trajectory("test_map");
                   THEN("The broad phase returns false.")
                   {
-                        CHECK(broad_phase_is_commutative(t1, t2));
+                        check_broad_phase_is_commutative(t1, t2);
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
                   }
             }
 
@@ -60,7 +52,8 @@ SCENARIO("DetectConflict unit tests")
                   const rmf_traffic::Trajectory t2 = rmf_traffic::Trajectory("test_map2");
                   THEN("The broad phase returns false.")
                   {
-                        CHECK(broad_phase_is_commutative(t1, t2));;
+                        check_broad_phase_is_commutative(t1, t2);
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
                   }
             }
 
@@ -75,7 +68,8 @@ SCENARIO("DetectConflict unit tests")
 
                   THEN("The broad phase returns false.")
                   {
-                        CHECK(broad_phase_is_commutative(t1, t2));;
+                        check_broad_phase_is_commutative(t1, t2);
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
                   }
             }
 
@@ -94,7 +88,8 @@ SCENARIO("DetectConflict unit tests")
 
                   THEN("The broad phase returns false.")
                   {
-                        CHECK(broad_phase_is_commutative(t1, t2));
+                        check_broad_phase_is_commutative(t1, t2);
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
                   }
             }
       }
@@ -122,7 +117,8 @@ SCENARIO("DetectConflict unit tests")
 
                   THEN("The broad phase returns true")
                   {
-                        REQUIRE(broad_phase_is_commutative(t1, t2));
+                        require_broad_phase_is_commutative(t1, t2);
+                        // CHECK(rmf_traffic::DetectConflict::broad_phase(t1, t2));
                         THEN("The narrow phase returns the right trajectory pair.")
                         {
                               // const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
@@ -256,7 +252,7 @@ SCENARIO("DetectConflict unit tests")
 //                       Eigen::Vector3d{0.0, 1.0, 0.0});
 //                   REQUIRE(trajectory_b.size() == 2);
 
-//                   CHECK(rmf_traffic::DetectConflict::broad_phase(
+//                   CHECK(rmf_traffic::DetectConflict::broad_phase(f
 //                       trajectory_a, trajectory_b));
 
 //                   const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
