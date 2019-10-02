@@ -49,19 +49,14 @@ public:
       /// A Trajectory was inserted
       Insert,
 
-      /// A Trajectory was inserted, but it has been replaced or erased since
-      /// then
-      VoidInsert,
-
       /// A Trajectory was replaced by a new one
       Replace,
 
-      /// A Trajectory was replaced by a new one, but has been re-replaced or
-      /// erased since then
-      VoidReplace,
-
       /// A Trajectory was erased
       Erase,
+
+      /// Some Trajectories were culled
+      Cull,
     };
 
     /// Make an insertion change
@@ -85,8 +80,12 @@ public:
     {
     public:
 
-      /// A reference to the Trajectory that was inserted
-      const Trajectory& trajectory() const;
+      /// A pointer to the Trajectory that was inserted.
+      ///
+      /// If this returns a nullptr, then that implies that this insertion is
+      /// void because the Patch will contain a Replace or Erase Change that
+      /// nullifies it.
+      const Trajectory* trajectory() const;
 
     private:
       Insert(void* pimpl);
@@ -102,8 +101,12 @@ public:
       /// The ID of the Trajectory that was replaced
       std::size_t original_id() const;
 
-      /// A reference to the Trajectory that replaced it
-      const Trajectory& trajectory() const;
+      /// A pointer to the Trajectory that replaced it.
+      ///
+      /// If this returns a nullptr, then that implies that this replacement is
+      /// void because the Patch will contain a Replace or Erase Change that
+      /// nullifies it.
+      const Trajectory* trajectory() const;
 
     private:
       Replace(void* pimpl);
@@ -111,11 +114,23 @@ public:
       const void* const _pimpl;
     };
 
+    /// The API for an erasure
     class Erase
     {
     public:
 
+      /// The ID of the Trajectory that was erased.
       std::size_t original_id() const;
+
+    private:
+
+    };
+
+    class Cull
+    {
+    public:
+
+      std::vector<std::size_t> culled_ids() const;
 
     };
 
@@ -128,6 +143,8 @@ public:
     const Replace* replace() const;
 
     const Erase* erase() const;
+
+    const Cull* cull() const;
 
   private:
   };
@@ -180,7 +197,15 @@ public:
   /// \return the new version of this database.
   std::size_t erase(std::size_t id);
 
-  std::size_t cull_up_to(Time time);
+  /// Throw away all Trajectories up to the specified time.
+  ///
+  /// \param[in] time
+  ///   All Trajectories that finish before this time will be culled from the
+  ///   Database. Their data will be completely deleted from this Database
+  ///   object.
+  ///
+  /// \return The new version of the schedule database
+  std::size_t cull(Time time);
 
   class Implementation;
 private:
