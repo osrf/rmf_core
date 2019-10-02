@@ -20,6 +20,8 @@
 
 #include <rmf_traffic/schedule/Viewer.hpp>
 
+#include <rmf_utils/macros.hpp>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -60,17 +62,40 @@ public:
     };
 
     /// Make an insertion change
+    ///
+    /// \param[in] trajectory
+    ///   A pointer to the Trajectory that was inserted for this change, or a
+    ///   nullptr if this insertion is voided later.
+    ///
+    /// \param[in] id
+    ///   The ID of this insertion.
     static Change make_insert(
-        Trajectory trajectory,
+        Trajectory* trajectory,
         std::size_t id);
 
     /// Make a replacement change
+    ///
+    /// \param[in] original_id
+    ///   The original ID of the Trajectory that is being replaced
+    ///
+    /// \param[in] trajectory
+    ///   A pointer to the Trajectory that was inserted for this change, or a
+    ///   nullptr if this replacement is voided later.
+    ///
+    /// \param[in] id
+    ///   The ID of this replacement.
     static Change make_replace(
         std::size_t original_id,
-        Trajectory trajectory,
+        Trajectory* trajectory,
         std::size_t id);
 
     /// Make an erasure change
+    ///
+    /// \param[in] original_id
+    ///   The ID of the Trajectory that is erased.
+    ///
+    /// \param[in] id
+    ///   The ID of this erasure.
     static Change make_erase(
         std::size_t original_id,
         std::size_t id);
@@ -87,10 +112,12 @@ public:
       /// nullifies it.
       const Trajectory* trajectory() const;
 
+      class Implementation;
     private:
-      Insert(void* pimpl);
+      Insert();
+      RMF_UTILS__DEFAULT_COPY_MOVE(Insert);
       friend class Change;
-      const void* const _pimpl;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
     /// The API for a replacement
@@ -108,10 +135,12 @@ public:
       /// nullifies it.
       const Trajectory* trajectory() const;
 
+      class Implementation;
     private:
-      Replace(void* pimpl);
+      Replace();
+      RMF_UTILS__DEFAULT_COPY_MOVE(Replace);
       friend class Change;
-      const void* const _pimpl;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
     /// The API for an erasure
@@ -123,30 +152,52 @@ public:
       std::size_t original_id() const;
 
     private:
-
+      Erase();
+      RMF_UTILS__DEFAULT_COPY_MOVE(Erase);
+      friend class Change;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
     class Cull
     {
     public:
 
+      /// The set of IDs that have been culled from the schedule.
       std::vector<std::size_t> culled_ids() const;
 
+    private:
+      Cull();
+      RMF_UTILS__DEFAULT_COPY_MOVE(Cull);
+      friend class Change;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
+    /// Get the type of Change
     Mode get_mode() const;
 
+    /// Get the version ID that this change refers to
     std::size_t id() const;
 
+    /// Get the Insert interface if this is an Insert type change. Otherwise
+    /// this returns a nullptr.
     const Insert* insert() const;
 
+    /// Get the Replace interface if this is a Replace type change. Otherwise
+    /// this returns a nullptr.
     const Replace* replace() const;
 
+    /// Get the Erase interface if this is an Erase type change. Otherwise this
+    /// returns a nullptr.
     const Erase* erase() const;
 
+    /// Get the Cull interface if this is a Cull type change. Otherwise this
+    /// returns a nullptr.
     const Cull* cull() const;
 
+    class Implementation;
   private:
+    Change();
+    rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
   /// A container of Database changes
@@ -161,17 +212,32 @@ public:
     using iterator = base_iterator<Change, IterImpl, Patch>;
     using const_iterator = base_iterator<const Change, IterImpl, Patch>;
 
+    /// Returns an iterator to the first element of the Patch.
     const_iterator begin() const;
+
+    /// Returns an iterator to the element following the last element of the
+    /// Patch. This iterator acts as a placeholder; attempting to dereference it
+    /// results in undefined behavior.
     const_iterator end() const;
+
+    /// Get the number of elements in this Patch.
     std::size_t size() const;
 
+    /// Get the latest version that this Patch knows of.
+    std::size_t latest_version() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-
+  /// Get the changes in this Database that match the given Query parameters.
   Patch changes(Query parameters) const;
 
+  /// Get the oldest version number inside this Database.
   std::size_t oldest_version() const;
 
+  /// Get the latest version number of this Database.
   std::size_t latest_version() const;
 
   /// Insert a Trajectory into this database.
@@ -204,12 +270,10 @@ public:
   ///   Database. Their data will be completely deleted from this Database
   ///   object.
   ///
-  /// \return The new version of the schedule database
+  /// \return The new version of the schedule database. If nothing was culled,
+  /// this version number will remain the same.
   std::size_t cull(Time time);
 
-  class Implementation;
-private:
-  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace schedule

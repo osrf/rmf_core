@@ -24,6 +24,12 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
+/// A class that maintains a mirror of a Database of scheduled Trajectories.
+/// This class is intended to provide a cache of the scheduled Trajectories to
+/// processes or threads that do not contain the original upstream copy of the
+/// rmf_traffic::schedule::Database.
+///
+/// The Mirror is designed to mirror a relevant subset
 class Mirror : public Viewer
 {
 public:
@@ -34,15 +40,15 @@ public:
   /// Update this mirror.
   void update(const Database::Patch& patch);
 
-  std::size_t oldest_version() const;
-
+  /// Get the latest database version that this Mirror was patched to.
   std::size_t latest_version() const;
 
-  std::size_t cull_up_to(Time time);
+  /// Get the oldest database version that this Mirror knows of.
+  std::size_t oldest_version() const;
 
-  class Implementation;
-private:
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  // TODO(MXG): Consider a feature to log and report any possible
+  // inconsistencies that might show up with the patches, e.g. replacing or
+  // erasing a trajectory that was never received in the first place.
 };
 
 

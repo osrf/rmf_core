@@ -25,6 +25,7 @@
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
+#include <rmf_utils/macros.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -80,10 +81,7 @@ protected:
   // These constructors and operators are protected so that users can only
   // constructor or assign using classes that are derived from Viewer.
   Viewer();
-  Viewer(const Viewer&) = default;
-  Viewer(Viewer&&) = default;
-  Viewer& operator=(const Viewer&) = default;
-  Viewer& operator=(Viewer&&) = default;
+  RMF_UTILS__DEFAULT_COPY_MOVE(Viewer);
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
