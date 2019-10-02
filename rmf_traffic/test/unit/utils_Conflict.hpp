@@ -24,20 +24,30 @@
 
 //==============================================================================
 
-inline void check_broad_phase_is_commutative(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
+inline void CHECK_broad_phase_is_commutative(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
 {
     CHECK(rmf_traffic::DetectConflict::broad_phase(t1, t2) == rmf_traffic::DetectConflict::broad_phase(t2, t1));
 }
 
-inline void require_broad_phase_is_commutative(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
+inline void CHECK_narrow_phase_is_commutative(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
 {
-    REQUIRE(rmf_traffic::DetectConflict::broad_phase(t1, t2) == rmf_traffic::DetectConflict::broad_phase(t2, t1));
+    REQUIRE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
+    const auto conflicts_1 = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
+    const auto conflicts_2 = rmf_traffic::DetectConflict::narrow_phase(t2, t1);
+    REQUIRE(conflicts_1.size() == conflicts_2.size());
+    for (auto i_1 = conflicts_1.begin(), i_2 = conflicts_2.begin(); i_1 != conflicts_1.end(); i_1++, i_2++)
+    {
+        CHECK(i_1->get_time() == i_2->get_time());
+        // add iterative checks
+    }
 }
 
-// inline void check_narrow_phase_is_commutative(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
+// inline void CHECK_conflict_trace(std::vector<rmf_traffic::ConflictData> detected_conflicts,
+//                                  std::vector<std::tuple<rmf_traffic::Trajectory::iterator,
+//                                                        rmf_traffic::Trajectory::iterator,
+//                                                        rmf_traffic::Time>>
+//                                      expected_conflicts)
 // {
-//     REQUIRE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
-//     auto conflicts_1 = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
-//     auto conflicts_2 = rmf_traffic::DetectConflict::narrow_phase(t2, t1);
+    // Check expected details of the conflict data
 // }
 #endif // RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP

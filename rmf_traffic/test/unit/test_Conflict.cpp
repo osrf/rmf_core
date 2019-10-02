@@ -24,77 +24,7 @@ using namespace std::chrono_literals;
 
 SCENARIO("DetectConflict unit tests")
 {
-      GIVEN("An empty starting trajectory t1")
-      {
-            const rmf_traffic::Trajectory t1 = rmf_traffic::Trajectory("test_map");
-
-            WHEN("Checking for conflicts with itself")
-            {
-                  THEN("The broad phase returns false.")
-                  {
-                        check_broad_phase_is_commutative(t1, t1);
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t1));
-                  }
-            }
-
-            WHEN("No Conflicts between t1 and empty trajectory t2 in the same map")
-            {
-                  const rmf_traffic::Trajectory t2 = rmf_traffic::Trajectory("test_map");
-                  THEN("The broad phase returns false.")
-                  {
-                        check_broad_phase_is_commutative(t1, t2);
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
-                  }
-            }
-
-            WHEN("No Conflicts between t1 and empty trajectory t2 in different maps")
-            {
-                  const rmf_traffic::Trajectory t2 = rmf_traffic::Trajectory("test_map2");
-                  THEN("The broad phase returns false.")
-                  {
-                        check_broad_phase_is_commutative(t1, t2);
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
-                  }
-            }
-
-            WHEN("No Conflicts between t1 and a length 1 trajectory t2")
-            {
-                  std::vector<TrajectoryInsertInput> inputs;
-                  inputs.push_back({std::chrono::steady_clock::now(),
-                                    UnitBox,
-                                    Eigen::Vector3d(0, 0, 0),
-                                    Eigen::Vector3d(0, 0, 0)});
-                  const rmf_traffic::Trajectory t2 = create_test_trajectory(inputs);
-
-                  THEN("The broad phase returns false.")
-                  {
-                        check_broad_phase_is_commutative(t1, t2);
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
-                  }
-            }
-
-            WHEN("No Conflicts between t1 and a 1-point trajectory t2")
-            {
-                  std::vector<TrajectoryInsertInput> inputs;
-                  inputs.push_back({std::chrono::steady_clock::now(),
-                                    UnitBox,
-                                    Eigen::Vector3d(0, 0, 0),
-                                    Eigen::Vector3d(1, 1, 1)});
-                  inputs.push_back({std::chrono::steady_clock::now() + 5s,
-                                    UnitBox,
-                                    Eigen::Vector3d(1, 1, 1),
-                                    Eigen::Vector3d(0, 0, 0)});
-                  const rmf_traffic::Trajectory t2 = create_test_trajectory(inputs);
-
-                  THEN("The broad phase returns false.")
-                  {
-                        check_broad_phase_is_commutative(t1, t2);
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2));
-                  }
-            }
-      }
-
-      GIVEN("A 1-point trajectory t1 (stationary robot)")
+      GIVEN("A 2-point trajectory t1 (stationary robot)")
       {
             const rmf_traffic::Time time = std::chrono::steady_clock::now();
             std::shared_ptr<rmf_traffic::geometry::Box> shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
@@ -103,8 +33,9 @@ SCENARIO("DetectConflict unit tests")
             Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
             rmf_traffic::Trajectory t1("test_map");
             t1.insert(time, profile, pos, vel);
+            t1.insert(time + 10s, profile, pos, vel);
 
-            WHEN("Overlaying t1 and a 1-point trajectory t2 (stationary robot)")
+            WHEN("Stacking t1 and an identical 2-point trajectory t2 ( stationary robot )")
             {
                   // A new trajectory
                   const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -114,15 +45,12 @@ SCENARIO("DetectConflict unit tests")
                   Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
                   rmf_traffic::Trajectory t2("test_map");
                   t2.insert(time, profile, pos, vel);
+                  t2.insert(time+10s, profile, pos, vel);
 
-                  THEN("The broad phase returns true")
+                  THEN("The broad phase detects a conflict")
                   {
-                        require_broad_phase_is_commutative(t1, t2);
-                        // CHECK(rmf_traffic::DetectConflict::broad_phase(t1, t2));
-                        THEN("The narrow phase returns the right trajectory pair.")
-                        {
-                              // const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
-                        }
+                        CHECK_broad_phase_is_commutative(t1, t2);
+                        CHECK_narrow_phase_is_commutative(t1, t2);
                   }
             }
       }
