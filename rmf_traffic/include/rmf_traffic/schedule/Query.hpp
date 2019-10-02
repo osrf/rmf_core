@@ -361,10 +361,11 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-
+//==============================================================================
 /// Query for all Trajectories in a schedule database
 Query query_everything();
 
+//==============================================================================
 /// Query for all Trajectories in a schedule database that were introduced
 /// after a specified version of the schedule.
 ///
@@ -374,6 +375,7 @@ Query query_everything();
 Query make_query(
     std::size_t after_version);
 
+//==============================================================================
 /// Query for all Trajectories that intersect with this set of spacetime
 /// regions.
 ///
@@ -382,6 +384,7 @@ Query make_query(
 Query make_query(
     std::vector<Query::Spacetime::Region> regions);
 
+//==============================================================================
 /// Query for all Trajectories that were introduced after a specified version of
 /// the schedule, and which intersect with this set of spacetime regions.
 ///
