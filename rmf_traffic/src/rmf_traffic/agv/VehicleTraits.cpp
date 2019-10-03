@@ -49,6 +49,8 @@ public:
   LimitInfo _rotation_info;
   Limits _rotation;
 
+  Steering _steering;
+
   bool _reversible;
 
   Implementation(
@@ -57,11 +59,13 @@ public:
       const double nom_linear_accel,
       const double nom_rotation_vel,
       const double nom_rotation_accel,
+      const Steering steering,
       const bool reversible)
     : _linear_info(parent, nom_linear_vel, nom_linear_accel),
       _linear(&_linear_info),
       _rotation_info(parent, nom_rotation_vel, nom_rotation_accel),
       _rotation(&_rotation_info),
+      _steering(steering),
       _reversible(reversible)
   {
     // Do nothing
@@ -127,10 +131,11 @@ VehicleTraits::VehicleTraits(
     const double nom_linear_accel,
     const double nom_rotation_vel,
     const double nom_rotation_accel,
+    const Steering steering,
     const bool reversible)
   : _pimpl(rmf_utils::make_unique_impl<Implementation>(
              this, nom_linear_vel, nom_linear_accel,
-             nom_rotation_vel, nom_rotation_accel, reversible))
+             nom_rotation_vel, nom_rotation_accel, steering, reversible))
 {
   // Do nothing
 }
@@ -157,6 +162,19 @@ VehicleTraits::Limits& VehicleTraits::rotational()
 const VehicleTraits::Limits& VehicleTraits::rotational() const
 {
   return _pimpl->_rotation;
+}
+
+//==============================================================================
+VehicleTraits& VehicleTraits::set_steering(Steering steering)
+{
+  _pimpl->_steering = steering;
+  return *this;
+}
+
+//==============================================================================
+VehicleTraits::Steering VehicleTraits::get_steering() const
+{
+  return _pimpl->_steering;
 }
 
 //==============================================================================

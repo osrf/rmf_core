@@ -46,10 +46,16 @@ public:
   public:
 
     /// Enumeration for what type of change has occurred
-    enum class Mode
+    enum class Mode : uint16_t
     {
       /// A Trajectory was inserted
       Insert,
+
+      /// A pause was introduced to a Trajectory
+      Interrupt,
+
+      /// A delay was introduced to a Trajectory
+      Delay,
 
       /// A Trajectory was replaced by a new one
       Replace,
@@ -70,7 +76,46 @@ public:
     /// \param[in] id
     ///   The ID of this insertion.
     static Change make_insert(
-        Trajectory* trajectory,
+        const Trajectory* trajectory,
+        std::size_t id);
+
+    /// Make an interruption change
+    ///
+    /// \param[in] original_id
+    ///   The original ID of the Trajectory that will be interrupted
+    ///
+    /// \param[in] interruption_trajectory
+    ///   The trajectory that is being inserted as an interruption
+    ///
+    /// \param[in] delay
+    ///   The additional delay following the interruption.
+    ///
+    /// \param[in] id
+    ///   The ID of the modified Trajectory
+    static Change make_interrupt(
+        std::size_t original_id,
+        const Trajectory* interruption_trajectory,
+        Duration delay,
+        std::size_t id);
+
+    /// Make a delay change
+    ///
+    /// \param[in] original_id
+    ///   The original ID of the Trajectory that will be delayed
+    ///
+    /// \param[in] from
+    ///   The point in time where the delay originates
+    ///
+    /// \param[in] delay
+    ///   The duration of the delay (how far back the Segments that come after
+    ///   `from` should be pushed).
+    ///
+    /// \param[in] id
+    ///   The ID of the modified Trajectory
+    static Change make_delay(
+        std::size_t original_id,
+        Time from,
+        Duration delay,
         std::size_t id);
 
     /// Make a replacement change
@@ -86,7 +131,7 @@ public:
     ///   The ID of this replacement.
     static Change make_replace(
         std::size_t original_id,
-        Trajectory* trajectory,
+        const Trajectory* trajectory,
         std::size_t id);
 
     /// Make an erasure change
@@ -116,6 +161,54 @@ public:
     private:
       Insert();
       RMF_UTILS__DEFAULT_COPY_MOVE(Insert);
+      friend class Change;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// The API for an interruption
+    class Interrupt
+    {
+    public:
+
+      /// The ID of the Trajectory that was interrupted.
+      std::size_t original_id() const;
+
+      /// A pointer to the Trajectory that was inserted.
+      ///
+      /// If this returns a nullptr, then that implies this interruption is void
+      /// because the Patch will contain a Replace or Erase Change that
+      /// nullifies it.
+      const Trajectory* interruption() const;
+
+      /// The length of the delay that follows the interruption.
+      Duration delay() const;
+
+      class Implementation;
+    private:
+      Interrupt();
+      RMF_UTILS__DEFAULT_COPY_MOVE(Interrupt);
+      friend class Change;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// The API for a delay
+    class Delay
+    {
+    public:
+
+      /// The ID of the Trajectory that was delayed.
+      std::size_t original_id() const;
+
+      /// The time that the delay began.
+      Time from() const;
+
+      /// The duration of the delay.
+      Duration duration() const;
+
+      class Implementation;
+    private:
+      Delay();
+      RMF_UTILS__DEFAULT_COPY_MOVE(Delay);
       friend class Change;
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
@@ -245,6 +338,65 @@ public:
   /// \return The database id for this new Trajectory.
   std::size_t insert(Trajectory trajectory);
 
+  /// Interrupt a trajectory by inserting another Trajectory inside of it.
+  ///
+  /// This will add each Segment of the input Trajectory into the targeted
+  /// Trajectory entry in the database. All Segments in the original Trajectory
+  /// that come after the start time of the interruption Trajectory will be
+  /// pushed back in time by the whole duration of the interruption Trajectory.
+  /// They will then be pushed back further by the duration of the `delay`
+  /// argument.
+  ///
+  /// \param[in] id
+  ///   The ID of the Trajectory to add the interruption to.
+  ///
+  /// \param[in] interruption_trajectory
+  ///   The trajectory that should be inserted as an interruption of the
+  ///   original trajectory.
+  ///
+  /// \param[in] delay
+  ///   Additional delay that should follow the interruption. The total time
+  ///   that the remaining Segments will be delayed from their original timing
+  ///   is the duration of the `interruption_trajectory` plus the duration of
+  ///   this `delay` argument.
+  ///
+  /// \return The updated ID for this modified Trajectory.
+  ///
+  /// \sa delay()
+  std::size_t interrupt(
+      std::size_t id,
+      Trajectory interruption_trajectory,
+      Duration delay);
+
+  /// Add a delay to the Trajectory from the specified Time.
+  ///
+  /// Nothing about the Trajectory will be changed except that Segments which
+  /// come after the specified time will be pushed back by the specified delay.
+  ///
+  /// \note This can create distortions in the Trajectory Segment that leads
+  /// up to the `from` Time, so use with caution. This is primarily intended to
+  /// make corrections to live Trajectories based on incoming state information.
+  ///
+  /// \note Unlike interrupt(), this will not introduce any new Segments to the
+  /// Trajectory.
+  ///
+  /// \param[in] id
+  ///   The ID of the Trajectory to delay.
+  ///
+  /// \param[in] from
+  ///   All Trajectory Segments that end after this time point will be pushed
+  ///   back by the delay.
+  ///
+  /// \param[in] delay
+  ///   This is the duration of time to delay all qualifying Trajectory Segments
+  ///
+  /// \return The updated ID for this modified Trajectory
+  ///
+  /// \sa interrupt()
+  std::size_t delay(
+      std::size_t id,
+      Time from,
+      Duration delay);
 
   /// Replace an existing Trajectory with a new one. This is used for revising
   /// plans.
@@ -255,7 +407,7 @@ public:
   /// \param[in] trajectory
   ///   The new trajectory to replace the old one with.
   ///
-  /// \return The updated id of the revised trajectory.
+  /// \return The updated ID of the revised trajectory.
   std::size_t replace(std::size_t previous_id, Trajectory trajectory);
 
   /// Erase a Trajectory from this database.

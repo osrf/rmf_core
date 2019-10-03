@@ -66,8 +66,8 @@ public:
 
     /// The Trajectory::Profile::Agency enum describes how much freedom the
     /// robot has during this phase of its Trajectory.
-    enum class Agency {
-
+    enum class Agency : uint16_t
+    {
       /// This agency type is illegal and will always be rejected by the
       /// schedule verifier. Having this movement type implies a major bug in
       /// the code and should be reported immediately.

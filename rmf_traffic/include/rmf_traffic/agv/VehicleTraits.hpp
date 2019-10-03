@@ -48,12 +48,24 @@ public:
     void* _pimpl;
   };
 
+  enum class Steering : uint16_t
+  {
+    /// The vehicle uses differential steering, making it impossible to move
+    /// laterally.
+    Differential,
+
+    /// The vehicle can move holonomically, so it has no limitations about how
+    /// it steers.
+    Holonomic,
+  };
+
   /// Constructor. The default values of zero
   VehicleTraits(
       double nom_linear_vel = 0.0,
       double nom_linear_accel = 0.0,
       double nom_rotation_vel = 0.0,
       double nom_rotation_accel = 0.0,
+      Steering steering = Steering::Differential,
       bool reversible = false);
 
   Limits& linear();
@@ -62,6 +74,8 @@ public:
   Limits& rotational();
   const Limits& rotational() const;
 
+  VehicleTraits& set_steering(Steering steering);
+  Steering get_steering() const;
 
   VehicleTraits& set_reversible(bool reversible);
   bool is_reversible() const;

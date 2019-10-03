@@ -29,7 +29,7 @@ namespace schedule {
 /// processes or threads that do not contain the original upstream copy of the
 /// rmf_traffic::schedule::Database.
 ///
-/// The Mirror is designed to mirror a relevant subset
+/// The Mirror is designed to mirror a relevant subset of the schedule database.
 class Mirror : public Viewer
 {
 public:

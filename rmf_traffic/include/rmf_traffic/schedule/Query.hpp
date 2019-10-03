@@ -48,7 +48,7 @@ public:
     using Space = geometry::Space;
 
     /// This enumerator determines what Spacetime mode the query will be in.
-    enum class Mode
+    enum class Mode : uint16_t
     {
       /// Request trajectories throughout all of space and time. This will still
       /// be constrained by the version field.
@@ -281,7 +281,7 @@ public:
   public:
 
     /// The mode for how to filter versions in a schedule database query.
-    enum class Mode
+    enum class Mode : uint16_t
     {
       /// Get everything, regardless of version.
       All,

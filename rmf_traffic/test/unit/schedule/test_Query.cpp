@@ -63,7 +63,12 @@ SCENARIO("Test Query API")
     {
       ++regions;
       for(const auto& space : region)
+      {
         ++spaces;
+
+        // TODO(MXG): replace this with [[maybe_unused]] when we can use C++17
+        (void)space;
+      }
     }
 
     CHECK(regions == 1);
