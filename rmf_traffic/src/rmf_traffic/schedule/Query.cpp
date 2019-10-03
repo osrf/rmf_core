@@ -80,10 +80,7 @@ public:
   using raw_iterator = RegionSet::iterator;
   static iterator make_iterator(raw_iterator it)
   {
-    iterator result;
-    result._pimpl = rmf_utils::make_impl<iterator::Implementation>(
-          iterator::Implementation{it});
-    return result;
+    return iterator(IterImpl{it});
   }
 
 };
@@ -458,6 +455,12 @@ Query::Versions::Versions(std::size_t version)
   : _pimpl(rmf_utils::make_impl<Implementation>())
 {
   query_after(version);
+}
+
+//==============================================================================
+Query::Versions::Mode Query::Versions::get_mode() const
+{
+  return _pimpl->mode;
 }
 
 //==============================================================================

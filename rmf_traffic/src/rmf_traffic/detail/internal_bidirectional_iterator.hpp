@@ -96,6 +96,15 @@ bidirectional_iterator<E, I, F>::bidirectional_iterator()
 
 //==============================================================================
 template<typename E, typename I, typename F>
+bidirectional_iterator<E, I, F>::bidirectional_iterator(I impl)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{std::move(impl)}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+template<typename E, typename I, typename F>
 bidirectional_iterator<E, I, F>
 ::operator bidirectional_iterator<const E, I, F>() const
 {

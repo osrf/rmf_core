@@ -53,8 +53,8 @@ public:
     using base_iterator = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
 
     class IterImpl;
-    using iterator = base_iterator<Trajectory, IterImpl, View>;
     using const_iterator = base_iterator<const Trajectory, IterImpl, View>;
+    using iterator = const_iterator;
 
     /// Returns an iterator to the first element of the View
     const_iterator begin() const;
@@ -86,6 +86,16 @@ protected:
 };
 
 } // namespace schedule
+
+namespace detail {
+
+extern template class bidirectional_iterator<
+    const Trajectory,
+    schedule::Viewer::View::IterImpl,
+    schedule::Viewer::View
+>;
+
+} // namespace detail
 } // namespace rmf_traffic
 
 #endif // RMF_TRAFFIC__SCHEDULE__VIEWER_HPP

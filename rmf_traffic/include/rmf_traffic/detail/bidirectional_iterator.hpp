@@ -92,6 +92,7 @@ public:
   bidirectional_iterator();
 
 private:
+  bidirectional_iterator(ImplementationType impl);
   friend Friend;
   template<typename, typename, typename> friend class bidirectional_iterator;
   rmf_utils::impl_ptr<Implementation> _pimpl;
