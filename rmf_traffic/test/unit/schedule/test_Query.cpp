@@ -45,6 +45,11 @@ SCENARIO("Test Query API")
 
     auto& region = *query.spacetime().regions()->begin();
 
+    REQUIRE(region.get_lower_time_bound() != nullptr);
+    CHECK(*region.get_lower_time_bound() == now);
+    REQUIRE(region.get_upper_time_bound() != nullptr);
+    CHECK(*region.get_upper_time_bound() == now+10s);
+
     region.push_back(rmf_traffic::geometry::Space{box, tf});
 
     tf.rotate(Eigen::Rotation2Dd(90.0*M_PI/180.0));

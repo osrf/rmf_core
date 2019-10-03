@@ -46,7 +46,13 @@ class Query::Spacetime::Region::Implementation
 public:
 
   std::string map;
+
+  // TODO(MXG): Replace with std::optional when we have C++17 support
+  bool has_lower_bound = false;
   Time lower_bound;
+
+  // TODO(MXG): Replace with std::optional when we have C++17 support
+  bool has_upper_bound = false;
   Time upper_bound;
 
   using Spaces = std::vector<geometry::Space>;
@@ -129,8 +135,23 @@ Query::Spacetime::Region::Region(
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                std::move(map),
+               true,
                lower_bound,
+               true,
                upper_bound,
+               std::move(spaces)}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Query::Spacetime::Region::Region(
+    std::string map,
+    std::vector<Space> spaces)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{
+               std::move(map),
+               false, Time(), false, Time(),
                std::move(spaces)}))
 {
   // Do nothing
@@ -150,28 +171,50 @@ auto Query::Spacetime::Region::set_map(std::string map) -> Region&
 }
 
 //==============================================================================
-Time Query::Spacetime::Region::get_lower_time_bound() const
+const Time *Query::Spacetime::Region::get_lower_time_bound() const
 {
-  return _pimpl->lower_bound;
+  if(_pimpl->has_lower_bound)
+    return &_pimpl->lower_bound;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Spacetime::Region::remove_lower_time_bound() -> Region&
+{
+  _pimpl->has_lower_bound = false;
+  return *this;
 }
 
 //==============================================================================
 auto Query::Spacetime::Region::set_lower_time_bound(Time time) -> Region&
 {
+  _pimpl->has_lower_bound = true;
   _pimpl->lower_bound = time;
   return *this;
 }
 
 //==============================================================================
-Time Query::Spacetime::Region::get_upper_time_bound() const
+const Time *Query::Spacetime::Region::get_upper_time_bound() const
 {
-  return _pimpl->upper_bound;
+  if(_pimpl->has_upper_bound)
+    return &_pimpl->upper_bound;
+
+  return nullptr;
 }
 
 //==============================================================================
 auto Query::Spacetime::Region::set_upper_time_bound(Time time) -> Region&
 {
+  _pimpl->has_upper_bound = true;
   _pimpl->upper_bound = time;
+  return *this;
+}
+
+//==============================================================================
+auto Query::Spacetime::Region::remove_upper_time_bound() -> Region&
+{
+  _pimpl->has_upper_bound = false;
   return *this;
 }
 

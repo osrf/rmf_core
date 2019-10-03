@@ -104,6 +104,19 @@ public:
           Time upper_bound,
           std::vector<Space> spaces);
 
+      /// Construct a region with no time constraints.
+      ///
+      /// \param[in] map
+      ///   The map whose coordinates will be used to define the regions in
+      ///   space.
+      ///
+      /// \param[in] spaces
+      ///   A vector of geometry::Space objects to define the desired regions
+      ///   in space.
+      Region(
+          std::string map,
+          std::vector<Space> spaces);
+
       /// Get the name of the map that this Spacetime refers to.
       const std::string& get_map() const;
 
@@ -111,16 +124,28 @@ public:
       Region& set_map(std::string map);
 
       /// Get the lower bound for the time range.
-      Time get_lower_time_bound() const;
+      ///
+      /// If there is no lower bound for the time range, then this returns
+      /// a nullptr.
+      const Time* get_lower_time_bound() const;
 
       /// Set the lower bound for the time range.
       Region& set_lower_time_bound(Time time);
 
+      /// Remove the lower bound for the time range.
+      Region& remove_lower_time_bound();
+
       /// Get the upper bound for the time range.
-      Time get_upper_time_bound() const;
+      ///
+      /// If there is no upper bound for the time range, then this returns
+      /// a nullptr.
+      const Time* get_upper_time_bound() const;
 
       /// Set the upper bound for the time range.
       Region& set_upper_time_bound(Time time);
+
+      /// Remove the upper bound for the time range.
+      Region& remove_upper_time_bound();
 
       class IterImpl;
       using iterator = base_iterator<Space, IterImpl, Region>;
