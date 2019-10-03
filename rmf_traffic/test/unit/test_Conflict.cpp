@@ -45,12 +45,19 @@ SCENARIO("DetectConflict unit tests")
                   Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
                   rmf_traffic::Trajectory t2("test_map");
                   t2.insert(time, profile, pos, vel);
-                  t2.insert(time+10s, profile, pos, vel);
+                  t2.insert(time + 10s, profile, pos, vel);
 
                   THEN("The broad phase detects a conflict")
                   {
+                        CHECK(rmf_traffic::DetectConflict::broad_phase(t1, t2));
                         CHECK_broad_phase_is_commutative(t1, t2);
-                        CHECK_narrow_phase_is_commutative(t1, t2);
+
+                        THEN("The narrow phase reports the correct time of conflict")
+                        {
+                              auto conflicts = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
+                              // CHECK_ConflictData(conflicts.front(), time, time,  t1.begin(), t2.begin());
+                              CHECK_narrow_phase_is_commutative(t1, t2);
+                        }
                   }
             }
       }
