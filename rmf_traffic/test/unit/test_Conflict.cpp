@@ -25,9 +25,8 @@ using namespace std::chrono_literals;
 SCENARIO("DetectConflict unit tests")
 {
       // We will call the reference trajectory t1, and comparison trajectory t2
-      // We also consider accuracy tolerances to be 0.2, meaning that conflict detection is accurate up to 20cm.
+      const double fcl_error_margin = 0.2;
 
-      const double error_margin = 0.2;
       GIVEN("A 2-point trajectory t1 with unit square box profile (stationary robot)")
       {
             const double profile_scale = 1.0;
@@ -58,11 +57,11 @@ SCENARIO("DetectConflict unit tests")
 
                               std::vector<ConflictDataParams> expected_conflicts;
                               expected_conflicts.push_back({
-                                  time,         // Start Time
-                                  time,         // Expected Conflict Time
-                                  ++t1.begin(), // Segment from Trajectory 1 that will conflict
-                                  ++t2.begin(), // Segment from Trajectory 2 that will conflict
-                                  error_margin  // Error Margin
+                                  time,            // Start Time
+                                  time,            // Expected Conflict Time
+                                  ++t1.begin(),    // Segment from Trajectory 1 that will conflict
+                                  ++t2.begin(),    // Segment from Trajectory 2 that will conflict
+                                  fcl_error_margin // Error Margin for computing collision time
                               });
 
                               CHECK_ConflictList(narrow_phase_conflicts, expected_conflicts);
@@ -98,11 +97,11 @@ SCENARIO("DetectConflict unit tests")
 
                               std::vector<ConflictDataParams> expected_conflicts;
                               expected_conflicts.push_back({
-                                  time,         // Start Time
-                                  time,         // Expected Conflict Time
-                                  ++t1.begin(), // Segment from Trajectory 1 that will conflict
-                                  ++t2.begin(), // Segment from Trajectory 2 that will conflict
-                                  error_margin  // Error Margin
+                                  time,            // Start Time
+                                  time,            // Expected Conflict Time
+                                  ++t1.begin(),    // Segment from Trajectory 1 that will conflict
+                                  ++t2.begin(),    // Segment from Trajectory 2 that will conflict
+                                  fcl_error_margin // Error Margin for computing collision time
                               });
 
                               CHECK_ConflictList(narrow_phase_conflicts, expected_conflicts);
@@ -127,11 +126,13 @@ SCENARIO("DetectConflict unit tests")
                   t2.insert(time, profile, new_pos, vel);
                   t2.insert(time + 10s, profile, new_pos, vel);
 
-                  THEN("The broad phase function detects no conflict")
+                  THEN("")
                   {
-                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2)); // FLAG: Should be false since dx is far beyond the accepted tolerance 
-                        // CHECK_broad_phase_is_commutative(t1, t2);
+                        // TODO: broad_phase should only never return a false negative
+                        // Thus, we should perhaps only test it when there is conflict,
+                        // to check that it does not flag it as negative
                   }
+
             }
       }
 }
