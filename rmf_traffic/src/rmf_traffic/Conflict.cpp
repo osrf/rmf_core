@@ -44,7 +44,7 @@ Time ConflictData::get_time() const
 }
 
 //==============================================================================
-ConflictData::Segments ConflictData::get_segments()
+const ConflictData::Segments& ConflictData::get_segments()
 {
   return _pimpl->segments;
 }
