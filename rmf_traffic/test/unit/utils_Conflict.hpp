@@ -57,6 +57,8 @@ inline void CHECK_ConflictData(rmf_traffic::ConflictData conflict_data,
 {
     // t1 and t2 are precisely pointing to the Trajectory segments we are trying to verify,
     // Not a "mock up" segment created separately
+    // Note that the const_iterators should not be the first in a trajectory: ie trajectory.begin()
+    // ConflictData will not return the first iterator as it only represents a point in time and cannot "conflict"
 
     rmf_traffic::Trajectory::const_iterator t1_conflict_segment = conflict_data.get_segments().first;
     rmf_traffic::Trajectory::const_iterator t2_conflict_segment = conflict_data.get_segments().second;
@@ -64,8 +66,8 @@ inline void CHECK_ConflictData(rmf_traffic::ConflictData conflict_data,
     CHECK(t2_conflict_segment == t2_expected_conflict_segment);
 
     // We can only test for approximate accuracies due to the numerical nature of FCL
-    // const double expected_duration = rmf_traffic::time::to_seconds(expected_conflict_time - start_time);
-    // const double computed_duration = rmf_traffic::time::to_seconds(conflict_data.get_time() - start_time);
-    // CHECK(computed_duration == Approx(expected_duration).margin(error_margin));
+    const double expected_duration = rmf_traffic::time::to_seconds(expected_conflict_time - start_time);
+    const double computed_duration = rmf_traffic::time::to_seconds(conflict_data.get_time() - start_time);
+    CHECK(computed_duration == Approx(expected_duration).margin(error_margin));
     }
 #endif // RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP

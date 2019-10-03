@@ -56,8 +56,8 @@ SCENARIO("DetectConflict unit tests")
                         {
                               auto conflicts = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
                               CHECK(conflicts.size() == 1);
-                              CHECK_ConflictData(conflicts.front(), time, time,  t1.begin(), t2.begin());
-                              // CHECK_narrow_phase_is_commutative(t1, t2);
+                              CHECK_ConflictData(conflicts.front(), time, time,  ++t1.begin(), ++t2.begin());
+                              CHECK_narrow_phase_is_commutative(t1, t2);
                         }
                   }
             }
