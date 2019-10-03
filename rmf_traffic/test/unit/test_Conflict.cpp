@@ -37,27 +37,39 @@ SCENARIO("DetectConflict unit tests")
 
             WHEN("Stacking t1 and an identical 2-point trajectory t2 ( stationary robot )")
             {
-                  // A new trajectory
-                  const rmf_traffic::Time time = std::chrono::steady_clock::now();
-                  std::shared_ptr<rmf_traffic::geometry::Box> shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
-                  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(shape);
-                  Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
-                  Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
                   rmf_traffic::Trajectory t2("test_map");
                   t2.insert(time, profile, pos, vel);
                   t2.insert(time + 10s, profile, pos, vel);
 
-                  THEN("The broad phase detects a conflict")
+                  THEN("The broad phase function detects a conflict")
                   {
                         CHECK(rmf_traffic::DetectConflict::broad_phase(t1, t2));
                         CHECK_broad_phase_is_commutative(t1, t2);
 
-                        THEN("The narrow phase reports the details of conflict")
+                        THEN("The narrow phase function reports the details of conflict")
                         {
-                              auto conflicts = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
-                              CHECK(conflicts.size() == 1);
-                              CHECK_ConflictData(conflicts.front(), time, time,  ++t1.begin(), ++t2.begin());
+                              auto narrow_phase_conflicts = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
+                              CHECK(narrow_phase_conflicts.size() == 1);
+
+                              std::vector<ConflictDataParams> expected_conflicts;
+                              expected_conflicts.push_back({
+                                  time,         // Start Time
+                                  time,         // Expected Conflict Time
+                                  ++t1.begin(), // Segment from Trajectory 1 that will conflict
+                                  ++t2.begin(), // Segment from Trajectory 2 that will conflict
+                                  0.2           // Error Margin
+                              });
+
+                              CHECK_ConflictList(narrow_phase_conflicts, expected_conflicts);
                               CHECK_narrow_phase_is_commutative(t1, t2);
+
+                              THEN("The between function gives the same output")
+                              {
+                                    auto between_conflicts = rmf_traffic::DetectConflict::between(t1, t2);
+                                    CHECK(between_conflicts.size() == 1);
+                                    CHECK_ConflictList(between_conflicts, expected_conflicts);
+
+                              }
                         }
                   }
             }
