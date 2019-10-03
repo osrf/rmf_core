@@ -24,10 +24,15 @@ using namespace std::chrono_literals;
 
 SCENARIO("DetectConflict unit tests")
 {
-      GIVEN("A 2-point trajectory t1 (stationary robot)")
+      // We will call the reference trajectory t1, and comparison trajectory t2
+      // We also consider accuracy tolerances to be 0.2, meaning that conflict detection is accurate up to 20cm.
+
+      const double error_margin = 0.2;
+      GIVEN("A 2-point trajectory t1 with unit square box profile (stationary robot)")
       {
+            const double profile_scale = 1.0;
             const rmf_traffic::Time time = std::chrono::steady_clock::now();
-            std::shared_ptr<rmf_traffic::geometry::Box> shape = std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+            std::shared_ptr<rmf_traffic::geometry::Box> shape = std::make_shared<rmf_traffic::geometry::Box>(profile_scale, profile_scale);
             rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(shape);
             Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
             Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
@@ -35,7 +40,7 @@ SCENARIO("DetectConflict unit tests")
             t1.insert(time, profile, pos, vel);
             t1.insert(time + 10s, profile, pos, vel);
 
-            WHEN("Stacking t1 and an identical 2-point trajectory t2 ( stationary robot )")
+            WHEN("t1 and t2 are identical and overlapping")
             {
                   rmf_traffic::Trajectory t2("test_map");
                   t2.insert(time, profile, pos, vel);
@@ -57,7 +62,47 @@ SCENARIO("DetectConflict unit tests")
                                   time,         // Expected Conflict Time
                                   ++t1.begin(), // Segment from Trajectory 1 that will conflict
                                   ++t2.begin(), // Segment from Trajectory 2 that will conflict
-                                  0.2           // Error Margin
+                                  error_margin  // Error Margin
+                              });
+
+                              CHECK_ConflictList(narrow_phase_conflicts, expected_conflicts);
+                              CHECK_narrow_phase_is_commutative(t1, t2);
+
+                              THEN("The between function gives the same output as narrow_phase")
+                              {
+                                    auto between_conflicts = rmf_traffic::DetectConflict::between(t1, t2);
+                                    CHECK(between_conflicts.size() == 1);
+                                    CHECK_ConflictList(between_conflicts, expected_conflicts);
+                                    CHECK_between_is_commutative(t1, t2);
+                              }
+                        }
+                  }
+            }
+
+            WHEN("t2 is t1 but displaced positionally, with bare overlap at the profile within error margin")
+            {
+                  rmf_traffic::Trajectory t2("test_map");
+                  const double dx = 0.8;
+                  t2.insert(time, profile, Eigen::Vector3d(dx, dx, dx), vel);
+                  t2.insert(time + 10s, profile, Eigen::Vector3d(dx, dx, dx), vel);
+
+                  THEN("The broad phase function detects a conflict")
+                  {
+                        CHECK(rmf_traffic::DetectConflict::broad_phase(t1, t2));
+                        CHECK_broad_phase_is_commutative(t1, t2);
+
+                        THEN("The narrow phase function reports the details of conflict")
+                        {
+                              auto narrow_phase_conflicts = rmf_traffic::DetectConflict::narrow_phase(t1, t2);
+                              CHECK(narrow_phase_conflicts.size() == 1);
+
+                              std::vector<ConflictDataParams> expected_conflicts;
+                              expected_conflicts.push_back({
+                                  time,         // Start Time
+                                  time,         // Expected Conflict Time
+                                  ++t1.begin(), // Segment from Trajectory 1 that will conflict
+                                  ++t2.begin(), // Segment from Trajectory 2 that will conflict
+                                  error_margin  // Error Margin
                               });
 
                               CHECK_ConflictList(narrow_phase_conflicts, expected_conflicts);
@@ -69,9 +114,23 @@ SCENARIO("DetectConflict unit tests")
                                     CHECK(between_conflicts.size() == 1);
                                     CHECK_ConflictList(between_conflicts, expected_conflicts);
                                     CHECK_between_is_commutative(t1, t2);
-
                               }
                         }
+                  }
+            }
+
+            WHEN("t2 is t1 but displaced positionally outside error margin")
+            {
+                  rmf_traffic::Trajectory t2("test_map");
+                  const double dx = 3;
+                  const Eigen::Vector3d new_pos = Eigen::Vector3d(dx, dx, dx);
+                  t2.insert(time, profile, new_pos, vel);
+                  t2.insert(time + 10s, profile, new_pos, vel);
+
+                  THEN("The broad phase function detects no conflict")
+                  {
+                        CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1, t2)); // FLAG: Should be false since dx is far beyond the accepted tolerance 
+                        // CHECK_broad_phase_is_commutative(t1, t2);
                   }
             }
       }
