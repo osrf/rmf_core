@@ -27,7 +27,7 @@ find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # ===== Traffic control library
-file(GLOB core_lib_srcs "src/rmf_traffic/*.cpp")
+file(GLOB_RECURSE core_lib_srcs "src/rmf_traffic/*.cpp")
 add_library(rmf_traffic SHARED
   ${core_lib_srcs}
 )

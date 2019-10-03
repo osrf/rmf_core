@@ -15,25 +15,50 @@
  *
 */
 
-#include <rmf_traffic/Time.hpp>
+#ifndef RMF_TRAFFIC__AGV__GRAPH_HPP
+#define RMF_TRAFFIC__AGV__GRAPH_HPP
+
+#include <Eigen/Geometry>
 
 namespace rmf_traffic {
-namespace time {
+namespace agv {
 
 //==============================================================================
-double to_seconds(const Duration delta_t)
+class Graph
 {
-  using Sec64 = std::chrono::duration<double>;
-  return std::chrono::duration_cast<Sec64>(delta_t).count();
-}
+public:
 
-//==============================================================================
-Time apply_offset(const Time start_time, const double delta_seconds)
-{
-  using Sec64 = std::chrono::duration<double>;
-  using NanoInt = std::chrono::steady_clock::duration;
-  return start_time + std::chrono::duration_cast<NanoInt>(Sec64(delta_seconds));
-}
+  class Waypoint
+  {
+  public:
 
-} // namespace time
+    /// Set the position of this Waypoint
+    Waypoint& set_position(const Eigen::Vector2d& position);
+
+    /// Get the position of this Waypoint
+    Eigen::Vector2d get_position() const;
+
+
+
+
+  };
+
+  class Edge
+  {
+  public:
+
+    enum class Type
+    {
+      Free,
+      Door,
+      Lift,
+    };
+
+  };
+
+};
+
+} // namespace agv
 } // namespace rmf_traffic
+
+#endif // RMF_TRAFFIC__AGV__GRAPH_HPP

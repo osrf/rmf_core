@@ -30,9 +30,24 @@ using Time = std::chrono::steady_clock::time_point;
 /// Specifies a change in time, with nanosecond precision.
 using Duration = std::chrono::steady_clock::duration;
 
+namespace time {
+
 /// Change the given duration from a nanosecond count to a double-precision
 /// floating-point representation in seconds.
-double to_seconds(const Duration delta_t);
+double to_seconds(Duration delta_t);
+
+/// Return the given start_time, offset by the number of seconds given.
+///
+/// \param[in] start_time
+///   The time to start from
+///
+/// \param[in] delta_seconds
+///   The number of seconds to add to the start_time
+Time apply_offset(Time start_time, double delta_seconds);
+
+} // namespace time
+
+
 
 // TODO(MXG): Make user-friendly interfaces for interacting with the STL
 // time points and durations. They have good semantics from a technical point

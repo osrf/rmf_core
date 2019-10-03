@@ -19,6 +19,7 @@
 #define RMF_TRAFFIC__TRAJECTORY_HPP
 
 #include <rmf_traffic/geometry/ConvexShape.hpp>
+#include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
@@ -112,20 +113,48 @@ public:
     geometry::ConstConvexShapePtr get_shape() const;
 
     /// Set the shape that will be used by this profile
-    void set_shape(geometry::ConstConvexShapePtr new_shape);
+    Profile& set_shape(geometry::ConstConvexShapePtr new_shape);
 
     /// Get the agency type being used for this profile
     Agency get_agency() const;
 
+    //==========================================================================
+    /// This class is a placeholder in case we ever want to extend the features
+    /// of the Strict mode. Currently it does not do anything.
+    class StrictInfo
+    {
+    public:
+
+      // There are no special information features for Strict mode yet.
+
+    private:
+      StrictInfo(void* pimpl);
+      friend class Profile;
+      const void* const _pimpl;
+    };
+
     /// Set the movement of this profile to Strict
-    void set_to_strict();
+    StrictInfo& set_to_strict();
+
+    //==========================================================================
+    /// This class is a placeholder in case we ever want to extend the features
+    /// of the Autonomous mode. Currently it does not do anything.
+    class AutonomousInfo
+    {
+    public:
+
+      // There are no special information features for Autonomous mode yet.
+
+    private:
+      AutonomousInfo(void* pimpl);
+      friend class Profile;
+      const void* const _pimpl;
+    };
 
     /// Set the movement of this profile to Autonomous
-    void set_to_autonomous();
+    AutonomousInfo& set_to_autonomous();
 
-    /// Set the movement of this profile to queued
-    void set_to_queued(const std::string& queue_id);
-
+    //==========================================================================
     class QueueInfo
     {
     public:
@@ -138,6 +167,9 @@ public:
       friend class Profile;
       const void* const _pimpl;
     };
+
+    /// Set the movement of this profile to queued
+    QueueInfo& set_to_queued(const std::string& queue_id);
 
     /// If this Profile is queued, this will return a pointer to its queue
     /// information. If it is not in a queue, this will return a nullptr.
@@ -167,7 +199,7 @@ public:
     ///
     /// \param[in] new_profile
     ///   The new profile for this Trajectory Segment.
-    void set_profile(ConstProfilePtr new_profile);
+    Segment& set_profile(ConstProfilePtr new_profile);
 
     /// Get the intended physical location of the robot at the end of this
     /// Trajectory Segment.
@@ -184,7 +216,7 @@ public:
     ///
     /// \param[in] new_position
     ///   The new finishing position for this Trajectory Segment.
-    void set_finish_position(Eigen::Vector3d new_position);
+    Segment& set_finish_position(Eigen::Vector3d new_position);
 
     /// Get the intended velocity of the robot at the end of this Trajectory
     /// Segment.
@@ -202,7 +234,7 @@ public:
     ///
     /// \param[in] new_velocity
     ///   The new finishing velocity for this Trajectory Segment.
-    void set_finish_velocity(Eigen::Vector3d new_velocity);
+    Segment& set_finish_velocity(Eigen::Vector3d new_velocity);
 
     /// Get the time that this Trajectory Segment is meant to finish.
     Time get_finish_time() const;
@@ -230,7 +262,7 @@ public:
     ///   The new finishing time for this Trajectory Segment.
     ///
     /// \sa adjust_finish_times(Time new_time)
-    void set_finish_time(Time new_time);
+    Segment& set_finish_time(Time new_time);
 
     /// Adjust the finishing time of this segment and all subsequent segments by
     /// the given duration. This is guaranteed to maintain the ordering of the
@@ -250,11 +282,8 @@ public:
     /// \sa set_finish_time(Time new_time)
     void adjust_finish_times(Duration delta_t);
 
-    // TODO(MXG): Consider providing a feature that allows users to compute
-    // the position and velocity of the trajectory segment, given a time of
-    // interest. This should be an abstract interface so that we can add more
-    // types of motion besides cubic splines (like polar movements, to perfectly
-    // support diff-drive platforms) in the future.
+    /// Compute the motion across this Trajectory segment
+    std::unique_ptr<Motion> compute_motion() const;
 
     class Implementation;
   private:
@@ -297,7 +326,7 @@ public:
   std::string get_map_name() const;
 
   /// Set which map this Trajectory takes place in
-  void set_map_name(std::string name);
+  Trajectory& set_map_name(std::string name);
 
   /// Contains two fields:
   /// * iterator it:   contains the iterator for the Segment that ends at the

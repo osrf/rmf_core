@@ -74,8 +74,8 @@ SCENARIO("Test conflicts")
       // equation in the range t=[0,10]:
       // -0.02 t^3 + 0.3 t^2 - 4 t = 0
       const double expected_time = 4.32931077;
-      const double computed_time =
-          rmf_traffic::to_seconds(conflicts.front().get_time() - begin_time);
+      const double computed_time = rmf_traffic::time::to_seconds(
+            conflicts.front().get_time() - begin_time);
 
       // Note: FCL is able to calculate the collision time to very high
       // precision, but it requires many iterations (~1000000 for a precision of
@@ -157,8 +157,8 @@ SCENARIO("Test conflicts")
 
       // Note: The expected collision time, calculated by hand, is sqrt(30)
       const double expected_time = std::sqrt(30.0);
-      const double computed_time =
-          rmf_traffic::to_seconds(conflicts.front().get_time() - begin_time);
+      const double computed_time = rmf_traffic::time::to_seconds(
+            conflicts.front().get_time() - begin_time);
 
       CHECK(computed_time == Approx(expected_time).margin(0.2));
     }

@@ -5,6 +5,8 @@ set(unit_tests
   test_Trajectory.cpp
   test_Conflict.cpp
   test_Spline.cpp
+  agv/test_Interpolate.cpp
+  agv/test_VehicleTraits.cpp
 )
 
 set(unit_test_srcs)
