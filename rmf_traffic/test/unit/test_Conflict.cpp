@@ -68,6 +68,7 @@ SCENARIO("DetectConflict unit tests")
                                     auto between_conflicts = rmf_traffic::DetectConflict::between(t1, t2);
                                     CHECK(between_conflicts.size() == 1);
                                     CHECK_ConflictList(between_conflicts, expected_conflicts);
+                                    CHECK_between_is_commutative(t1, t2);
 
                               }
                         }
