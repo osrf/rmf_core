@@ -41,6 +41,12 @@ public:
 
   double get_radius() const;
 
+  // Docuemntation inherited
+  FinalShape finalize() const final;
+
+  // Docuemntation inherited
+  FinalConvexShape finalize_convex() const final;
+
 };
 
 } // namespace geometry

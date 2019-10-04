@@ -227,7 +227,7 @@ class Trajectory::Profile::Implementation
 {
 public:
 
-  Implementation(geometry::ConstConvexShapePtr shape)
+  Implementation(geometry::ConstFinalConvexShapePtr shape)
     : shape(std::move(shape)),
       strict_info(this),
       autonomous_info(this),
@@ -237,7 +237,7 @@ public:
   }
 
   // Basic information
-  geometry::ConstConvexShapePtr shape;
+  geometry::ConstFinalConvexShapePtr shape;
 
   // Strict mode information (only used when in the Strict agency mode)
   StrictInfo strict_info;
@@ -255,7 +255,7 @@ public:
 
 //==============================================================================
 Trajectory::ProfilePtr Trajectory::Profile::make_strict(
-    geometry::ConstConvexShapePtr shape)
+    geometry::ConstFinalConvexShapePtr shape)
 {
   ProfilePtr result(new Profile(std::move(shape)));
   result->set_to_strict();
@@ -264,7 +264,7 @@ Trajectory::ProfilePtr Trajectory::Profile::make_strict(
 
 //==============================================================================
 Trajectory::ProfilePtr Trajectory::Profile::make_autonomous(
-    geometry::ConstConvexShapePtr shape)
+    geometry::ConstFinalConvexShapePtr shape)
 {
   ProfilePtr result(new Profile(std::move(shape)));
   result->set_to_autonomous();
@@ -273,7 +273,7 @@ Trajectory::ProfilePtr Trajectory::Profile::make_autonomous(
 
 //==============================================================================
 Trajectory::ProfilePtr Trajectory::Profile::make_queued(
-    geometry::ConstConvexShapePtr shape,
+    geometry::ConstFinalConvexShapePtr shape,
     const std::string& queue_id)
 {
   ProfilePtr result(new Profile(std::move(shape)));
@@ -282,14 +282,14 @@ Trajectory::ProfilePtr Trajectory::Profile::make_queued(
 }
 
 //==============================================================================
-geometry::ConstConvexShapePtr Trajectory::Profile::get_shape() const
+geometry::ConstFinalConvexShapePtr Trajectory::Profile::get_shape() const
 {
   return _pimpl->shape;
 }
 
 //==============================================================================
 Trajectory::Profile& Trajectory::Profile::set_shape(
-    geometry::ConstConvexShapePtr new_shape)
+    geometry::ConstFinalConvexShapePtr new_shape)
 {
   _pimpl->shape = std::move(new_shape);
   return *this;
@@ -361,7 +361,7 @@ auto Trajectory::Profile::get_queue_info() const -> const QueueInfo*
 }
 
 //==============================================================================
-Trajectory::Profile::Profile(geometry::ConstConvexShapePtr shape)
+Trajectory::Profile::Profile(geometry::ConstFinalConvexShapePtr shape)
   : _pimpl(rmf_utils::make_impl<Implementation>(std::move(shape)))
 {
   // Do nothing

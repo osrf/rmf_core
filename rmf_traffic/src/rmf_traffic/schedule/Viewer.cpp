@@ -16,7 +16,7 @@
 */
 
 #include "../detail/internal_bidirectional_iterator.hpp"
-#include "../SpacetimeInternal.hpp"
+#include "../DetectConflictInternal.hpp"
 
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
@@ -30,13 +30,26 @@ namespace schedule {
 
 namespace {
 
+struct Entry;
+using EntryPtr = std::shared_ptr<Entry>;
+
 struct Entry
 {
-  std::unique_ptr<Trajectory> trajectory;
-  std::size_t version;
-};
+  // The change that led to this entry
+  Database::Change change;
 
-using EntryPtr = std::shared_ptr<Entry>;
+  // The trajectory for this entry
+  Trajectory trajectory;
+
+  // The version number of this entry
+  std::size_t version;
+
+  // Succeeds
+  EntryPtr succeeds;
+
+  // A version that succeeded this entry, if such a version exists
+  EntryPtr succeeded_by;
+};
 
 struct DeepIterator
 {
@@ -99,6 +112,64 @@ struct DeepIterator
   }
 };
 
+//==============================================================================
+/// Pure abstract interface class for the
+/// Viewer::Implementation::inspect_spacetime_region_entries utility
+class RelevanceInspector
+{
+public:
+
+  virtual void inspect(
+      const EntryPtr& entry,
+      const internal::Spacetime& spacetime) = 0;
+
+};
+
+//==============================================================================
+/// This class inspects for whether an entry is relevant for a View::query()
+class ViewRelevanceInspector : public RelevanceInspector
+{
+public:
+
+  ViewRelevanceInspector(
+      const std::size_t* after_version,
+      const std::size_t reserve_size)
+    : after_version(after_version)
+  {
+    relevant_entries.reserve(reserve_size);
+  }
+
+  const std::size_t* after_version;
+
+  std::vector<EntryPtr> relevant_entries;
+
+  void inspect(
+      const EntryPtr& entry,
+      const internal::Spacetime& spacetime_region) override final
+  {
+    if(entry->succeeded_by)
+      return;
+
+    if(after_version && entry->version < *after_version)
+      return;
+
+    if(internal::detect_conflicts(entry->trajectory, spacetime_region, nullptr))
+      relevant_entries.push_back(entry);
+  }
+
+};
+
+//==============================================================================
+/// This class inspects for whether an entry is relevant for a
+/// Database::changes() request
+class ChangeRelevanceInspector : public RelevanceInspector
+{
+public:
+
+  // TODO(MXG): Implement this class
+
+};
+
 } // anonymous namespace
 
 //==============================================================================
@@ -107,6 +178,10 @@ class Viewer::Implementation
 public:
 
   using Bucket = std::vector<EntryPtr>;
+
+  // TODO(MXG): A possible performance improvement could be to introduce spatial
+  // buckets that are orthogonal to the time buckets. This could be added later
+  // without negatively impacting the API or ABI.
   using Timeline = std::map<Time, Bucket>;
   using MapToTimeline = std::unordered_map<std::string, Timeline>;
 
@@ -135,12 +210,12 @@ public:
 
   std::vector<EntryPtr> all_entries;
 
-  std::vector<EntryPtr> spacetime_region_entries(
-      const Query::Spacetime::Regions& regions) const
+  template<typename RelevanceInspectorT>
+  void inspect_spacetime_region_entries(
+      const Query::Spacetime::Regions& regions,
+      RelevanceInspectorT& inspector) const
   {
-    std::vector<EntryPtr> entries;
-    entries.reserve(all_entries.size());
-    std::unordered_set<EntryPtr> checked;
+    std::unordered_set<std::size_t> checked;
     checked.reserve(all_entries.size());
 
     for(const Query::Spacetime::Region& region : regions)
@@ -154,7 +229,7 @@ public:
       const Time* const lower_time_bound = region.get_lower_time_bound();
       const Time* const upper_time_bound = region.get_upper_time_bound();
 
-      auto timeline_it =
+      const auto timeline_begin =
           (lower_time_bound == nullptr)?
             timeline.begin() : timeline.lower_bound(*lower_time_bound);
 
@@ -162,13 +237,30 @@ public:
           (upper_time_bound == nullptr)?
             timeline.end() : timeline.upper_bound(*upper_time_bound);
 
-      internal::Spacetime data;
-      data.lower_time_bound = lower_time_bound;
-      data.upper_time_bound = upper_time_bound;
-
-      for(; timeline_it != timeline_end; ++timeline_it)
+      internal::Spacetime spacetime_data;
+      spacetime_data.lower_time_bound = lower_time_bound;
+      spacetime_data.upper_time_bound = upper_time_bound;
+      for(auto space_it=region.begin(); space_it != region.end(); ++space_it)
       {
+        spacetime_data.pose = space_it->get_pose();
+        spacetime_data.shape = space_it->get_shape();
 
+        auto timeline_it = timeline_begin;
+        for(; timeline_it != timeline_end; ++timeline_it)
+        {
+          const Bucket& bucket = timeline_it->second;
+
+          auto entry_it = bucket.begin();
+          for(; entry_it != bucket.end(); ++entry_it)
+          {
+            const EntryPtr& entry_ptr = *entry_it;
+            // Test if we have already checked this entry
+            if(!checked.insert(entry_ptr->version).second)
+              continue;
+
+            inspector.inspect(entry_ptr, spacetime_data);
+          }
+        }
       }
     }
   }
@@ -224,30 +316,13 @@ Viewer::View Viewer::query(Query parameters) const
   const Query::Spacetime& spacetime = parameters.spacetime();
   const Query::Spacetime::Mode spacetime_mode = spacetime.get_mode();
 
-  std::vector<EntryPtr> qualified_entries;
-
-  // We use a switch here so that we'll get a compiler warning if a new
-  // Spacetime::Mode type is ever added and we forget to handle it.
-  switch(spacetime_mode)
-  {
-    case Query::Spacetime::Mode::All:
-    {
-      qualified_entries = _pimpl->all_entries;
-      break;
-    }
-
-    case Query::Spacetime::Mode::Regions:
-    {
-      assert(spacetime.regions() != nullptr);
-      qualified_entries =
-          _pimpl->spacetime_region_entries(*spacetime.regions());
-      break;
-    }
-  }
-
   const Query::Versions& versions = parameters.versions();
   const Query::Versions::Mode versions_mode = versions.get_mode();
 
+  std::vector<EntryPtr> qualified_entries;
+
+  std::size_t after_version;
+  const std::size_t* after_version_ptr = nullptr;
   switch(versions_mode)
   {
     case Query::Versions::Mode::All:
@@ -259,11 +334,39 @@ Viewer::View Viewer::query(Query parameters) const
     case Query::Versions::Mode::After:
     {
       assert(versions.after() != nullptr);
-      const std::size_t last_version = versions.after()->get_version();
-      const auto removed = std::remove_if(
-            qualified_entries.begin(), qualified_entries.end(),
-            [&](const EntryPtr& entry){return entry->version <= last_version;});
-      qualified_entries.erase(removed, qualified_entries.end());
+      after_version = versions.after()->get_version();
+      after_version_ptr = &after_version;
+      break;
+    }
+  }
+
+  // We use a switch here so that we'll get a compiler warning if a new
+  // Spacetime::Mode type is ever added and we forget to handle it.
+  switch(spacetime_mode)
+  {
+    case Query::Spacetime::Mode::All:
+    {
+      qualified_entries = _pimpl->all_entries;
+      if(after_version_ptr)
+      {
+        const auto removed = std::remove_if(
+              qualified_entries.begin(), qualified_entries.end(),
+              [&](const EntryPtr& entry){
+                return entry->version <= after_version;
+              });
+        qualified_entries.erase(removed, qualified_entries.end());
+      }
+      break;
+    }
+
+    case Query::Spacetime::Mode::Regions:
+    {
+      assert(spacetime.regions() != nullptr);
+
+      ViewRelevanceInspector inspector{
+        after_version_ptr, _pimpl->all_entries.size()};
+      _pimpl->inspect_spacetime_region_entries(*spacetime.regions(), inspector);
+      qualified_entries = inspector.relevant_entries;
       break;
     }
   }
@@ -271,7 +374,10 @@ Viewer::View Viewer::query(Query parameters) const
   std::vector<const Trajectory*> trajectories;
   trajectories.reserve(qualified_entries.size());
   for(const auto& q : qualified_entries)
-    trajectories.push_back(q->trajectory.get());
+  {
+    if(!q->succeeded_by)
+      trajectories.push_back(&q->trajectory);
+  }
 
   return View::Implementation::make_view(std::move(trajectories));
 }

@@ -41,6 +41,15 @@ public:
 
 };
 
+//==============================================================================
+class FinalShape::Implementation
+{
+public:
+
+
+
+};
+
 } // namespace geometry
 } // namespace rmf_traffic
 

@@ -16,6 +16,7 @@
 */
 
 #include "geometry/ShapeInternal.hpp"
+#include "DetectConflictInternal.hpp"
 #include "Spline.hpp"
 
 #include <rmf_traffic/Conflict.hpp>
@@ -157,21 +158,18 @@ bool DetectConflict::broad_phase(
 
 namespace {
 
-using GeometryMap = std::unordered_map<
-    geometry::ConstConvexShapePtr,
-    geometry::Shape::Internal::CollisionGeometryPtr>;
-
 //==============================================================================
-GeometryMap make_geometry_map(std::vector<const Trajectory*> trajectories)
+internal::GeometryMap make_geometry_map(
+    const std::vector<const Trajectory*>& trajectories)
 {
-  GeometryMap result;
+  internal::GeometryMap result;
   for(const Trajectory* trajectory : trajectories)
   {
     for(Trajectory::const_iterator it = trajectory->cbegin();
         it != trajectory->cend(); ++it)
     {
       const Trajectory::ConstProfilePtr profile = it->get_profile();
-      const geometry::ConstConvexShapePtr shape = profile->get_shape();
+      const geometry::ConstFinalConvexShapePtr shape = profile->get_shape();
       if(!shape)
       {
         throw invalid_trajectory_error::Implementation
@@ -290,7 +288,7 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
   assert(a_it != trajectory_a.end());
   assert(b_it != trajectory_b.end());
 
-  const GeometryMap geometries = make_geometry_map(
+  const internal::GeometryMap geometries = make_geometry_map(
       std::vector<const Trajectory*>{&trajectory_a, &trajectory_b});
 
   // Initialize the objects that will be used inside the loop
@@ -370,5 +368,53 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
 
   return conflicts;
 }
+
+namespace internal {
+//==============================================================================
+bool detect_conflicts(
+    const Trajectory& trajectory,
+    const Spacetime& region,
+    const GeometryMap& geometry_map,
+    std::vector<Trajectory::const_iterator>* output_iterators)
+{
+#ifndef NDEBUG
+  // This should never actually happen because this function only gets used
+  // internally, and so there should be several layers of quality checks on the
+  // trajectories to prevent this. But we'll put it in here just in case.
+  if(trajectory.size() < 2)
+  {
+    std::cerr << "[rmf_traffic::internal::detect_conflicts] An invalid "
+              << "trajectory was passed to detect_conflicts. This is a bug "
+              << "that should never happen. Please alert the RMF developers."
+              << std::endl;
+    throw invalid_trajectory_error::Implementation
+        ::make_segment_num_error(trajectory.size());
+  }
+#endif // NDEBUG
+
+  const Trajectory::const_iterator begin_it = [&]()
+      -> Trajectory::const_iterator
+  {
+    if(region.lower_time_bound)
+    {
+      const auto lower_time_bound = *region.lower_time_bound;
+      // This condition is strictly less than. We do not want equal to, because
+      // then that would return the begin() iterator, which is not where we ever
+      // want to start from.
+      if(*trajectory.start_time() < lower_time_bound)
+        return trajectory.find(lower_time_bound);
+    }
+
+    // If the lower time bound starts before the beginning of the trajectory, we
+    // will just return the second iterator.
+    return ++trajectory.begin();
+  }();
+
+  const Trajectory::const_iterator end_it = region.upper_time_bound?
+        trajectory.find(*region.upper_time_bound) : trajectory.end();
+
+//  for(begin_it)
+}
+} // namespace internal
 
 } // namespace rmf_traffic

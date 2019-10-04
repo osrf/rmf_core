@@ -54,6 +54,12 @@ public:
   /// \brief Get the length of the box along its y axis
   double get_y_length() const;
 
+  // Docuemntation inherited
+  FinalShape finalize() const final;
+
+  // Documentation inherited
+  FinalConvexShape finalize_convex() const final;
+
 };
 
 

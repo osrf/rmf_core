@@ -99,21 +99,21 @@ public:
     };
 
     /// Create a profile with Strict movement
-    static ProfilePtr make_strict(geometry::ConstConvexShapePtr shape);
+    static ProfilePtr make_strict(geometry::ConstFinalConvexShapePtr shape);
 
     /// Create a profile with Autonomous movement
-    static ProfilePtr make_autonomous(geometry::ConstConvexShapePtr shape);
+    static ProfilePtr make_autonomous(geometry::ConstFinalConvexShapePtr shape);
 
     /// Create a profile for a Queued segment
     static ProfilePtr make_queued(
-        geometry::ConstConvexShapePtr shape,
+        geometry::ConstFinalConvexShapePtr shape,
         const std::string& queue_id);
 
     /// Get the shape being used for this profile
-    geometry::ConstConvexShapePtr get_shape() const;
+    geometry::ConstFinalConvexShapePtr get_shape() const;
 
     /// Set the shape that will be used by this profile
-    Profile& set_shape(geometry::ConstConvexShapePtr new_shape);
+    Profile& set_shape(geometry::ConstFinalConvexShapePtr new_shape);
 
     /// Get the agency type being used for this profile
     Agency get_agency() const;
@@ -180,7 +180,7 @@ public:
 
   private:
 
-    Profile(geometry::ConstConvexShapePtr shape);
+    Profile(geometry::ConstFinalConvexShapePtr shape);
 
     class Implementation;
     rmf_utils::impl_ptr<Implementation> _pimpl;
