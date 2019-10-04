@@ -47,5 +47,11 @@ Shape::~Shape()
   // Do nothing
 }
 
+//==============================================================================
+const Shape& FinalShape::source() const
+{
+  return *_pimpl->_shape;
+}
+
 } // namespace geometry
 } // namespace rmf_traffic

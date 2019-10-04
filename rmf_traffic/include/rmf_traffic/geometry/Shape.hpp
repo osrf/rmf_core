@@ -52,6 +52,10 @@ public:
 
 protected:
 
+  Internal* _get_internal();
+
+  const Internal* _get_internal() const;
+
   /// \internal
   Shape(std::unique_ptr<Internal> internal);
 
@@ -73,8 +77,11 @@ public:
   /// Look at the source of this FinalShape to inspect its parameters.
   const Shape& source() const;
 
+  virtual ~FinalShape() = default;
+
   class Implementation;
-private:
+protected:
+  FinalShape();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

@@ -58,6 +58,9 @@ public:
 
   // No API is needed here
 
+  class Implementation;
+protected:
+  FinalConvexShape();
 };
 
 using FinalConvexShapePtr = std::shared_ptr<FinalConvexShape>;
