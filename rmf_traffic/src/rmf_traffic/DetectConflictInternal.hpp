@@ -38,15 +38,9 @@ struct Spacetime
 };
 
 //==============================================================================
-using GeometryMap = std::unordered_map<
-    geometry::ConstShapePtr,
-    geometry::Shape::Internal::CollisionGeometryPtr>;
-
-//==============================================================================
 bool detect_conflicts(
     const Trajectory& trajectory,
     const Spacetime& region,
-    const GeometryMap& geometry_map,
     std::vector<Trajectory::const_iterator>* output_iterators);
 
 

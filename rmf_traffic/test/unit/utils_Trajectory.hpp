@@ -35,12 +35,14 @@ inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(
   if (UnitBox == shape)
   {
     return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Box>(1.0, 1.0));
   }
   else if (UnitCircle == shape)
   {
     return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Circle>(1.0));
   }
   else
   {

@@ -29,5 +29,11 @@ ConvexShape::ConvexShape(std::unique_ptr<Shape::Internal> internal)
   // Do nothing
 }
 
+//==============================================================================
+FinalConvexShape::FinalConvexShape()
+{
+  // Do nothing
+}
+
 } // namespace geometry
 } // namespace rmf_traffic

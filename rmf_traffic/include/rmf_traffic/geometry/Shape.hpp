@@ -88,6 +88,14 @@ protected:
 using FinalShapePtr = std::shared_ptr<Shape>;
 using ConstFinalShapePtr = std::shared_ptr<const FinalShape>;
 
+//==============================================================================
+template<typename T, typename... Args>
+FinalShapePtr make_final(Args&&... args)
+{
+  return std::make_shared<FinalShape>(
+        T(std::forward<Args>(args)...).finalize());
+}
+
 } // namespace geometry
 } // namespace rmf_traffic
 

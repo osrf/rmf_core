@@ -28,8 +28,8 @@ SCENARIO("Class Profile unit tests")
 
   GIVEN("Checking Accessor Functions")
   {
-    std::shared_ptr<rmf_traffic::geometry::Box> profile_shape =
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+    auto profile_shape = rmf_traffic::geometry::make_final_convex<
+        rmf_traffic::geometry::Box>(1.0, 1.0);
     rmf_traffic::Trajectory::ProfilePtr profile =
         rmf_traffic::Trajectory::Profile::make_strict(profile_shape);
 
@@ -57,8 +57,8 @@ SCENARIO("Class Profile unit tests")
 
     WHEN("Change Shape to Unit Circle")
     {
-      std::shared_ptr<rmf_traffic::geometry::Circle> new_profile_shape =
-          std::make_shared<rmf_traffic::geometry::Circle>(1.0);
+      auto new_profile_shape = rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Circle>(1.0);
       profile->set_shape(new_profile_shape);
 
       CHECK(profile->get_agency() ==
@@ -174,7 +174,8 @@ SCENARIO("Class Segment unit tests")
       CHECK(segment.get_profile()->get_agency() ==
             rmf_traffic::Trajectory::Profile::Agency::Autonomous);
 
-      const auto new_shape = std::make_shared<rmf_traffic::geometry::Circle>(1.0);
+      const auto new_shape = rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Circle>(1.0);
       profile->set_shape(new_shape);
       CHECK(segment.get_profile()->get_shape() == new_shape);
     }

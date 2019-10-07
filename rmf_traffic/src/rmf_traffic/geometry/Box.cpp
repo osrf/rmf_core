@@ -99,14 +99,16 @@ double Box::get_y_length() const
 FinalShape Box::finalize() const
 {
   return FinalShape::Implementation::make_final_shape(
-        std::make_unique<Box>(*this), _get_internal()->make_fcl());
+        rmf_utils::make_derived_impl<const Shape, const Box>(*this),
+        _get_internal()->make_fcl());
 }
 
 //==============================================================================
 FinalConvexShape Box::finalize_convex() const
 {
   return FinalConvexShape::Implementation::make_final_shape(
-        std::make_unique<Box>(*this), _get_internal()->make_fcl());
+        rmf_utils::make_derived_impl<const Shape, const Box>(*this),
+        _get_internal()->make_fcl());
 }
 
 } // namespace geometry

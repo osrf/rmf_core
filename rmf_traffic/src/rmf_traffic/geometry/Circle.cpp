@@ -83,14 +83,16 @@ double Circle::get_radius() const
 FinalShape Circle::finalize() const
 {
   return FinalShape::Implementation::make_final_shape(
-        std::make_unique<Circle>(*this), _get_internal()->make_fcl());
+        rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
+        _get_internal()->make_fcl());
 }
 
 //==============================================================================
 FinalConvexShape Circle::finalize_convex() const
 {
   return FinalConvexShape::Implementation::make_final_shape(
-        std::make_unique<Circle>(*this), _get_internal()->make_fcl());
+        rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
+        _get_internal()->make_fcl());
 }
 
 } // namespace geometry

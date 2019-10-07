@@ -159,37 +159,6 @@ bool DetectConflict::broad_phase(
 namespace {
 
 //==============================================================================
-internal::GeometryMap make_geometry_map(
-    const std::vector<const Trajectory*>& trajectories)
-{
-  internal::GeometryMap result;
-  for(const Trajectory* trajectory : trajectories)
-  {
-    for(Trajectory::const_iterator it = trajectory->cbegin();
-        it != trajectory->cend(); ++it)
-    {
-      const Trajectory::ConstProfilePtr profile = it->get_profile();
-      const geometry::ConstFinalConvexShapePtr shape = profile->get_shape();
-      if(!shape)
-      {
-        throw invalid_trajectory_error::Implementation
-          ::make_missing_shape_error(it->get_finish_time());
-      }
-
-      auto insertion = result.emplace(shape, nullptr);
-      if(insertion.second)
-      {
-        const auto fcl_shapes = shape->_get_internal()->make_fcl();
-        assert(fcl_shapes.size() == 1);
-        insertion.first->second = fcl_shapes.front();
-      }
-    }
-  }
-
-  return result;
-}
-
-//==============================================================================
 std::shared_ptr<fcl::SplineMotion> make_uninitialized_fcl_spline_motion()
 {
   // This function is only necessary because SplineMotion does not provide a
@@ -288,9 +257,6 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
   assert(a_it != trajectory_a.end());
   assert(b_it != trajectory_b.end());
 
-  const internal::GeometryMap geometries = make_geometry_map(
-      std::vector<const Trajectory*>{&trajectory_a, &trajectory_b});
-
   // Initialize the objects that will be used inside the loop
   Spline spline_a(a_it);
   Spline spline_b(b_it);
@@ -336,10 +302,14 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
     *motion_a = spline_a.to_fcl(start_time, finish_time);
     *motion_b = spline_b.to_fcl(start_time, finish_time);
 
+    assert(profile_a->get_shape());
+    assert(profile_b->get_shape());
     const auto obj_a = fcl::ContinuousCollisionObject(
-          geometries.at(profile_a->get_shape()), motion_a);
+          geometry::FinalConvexShape::Implementation::get_collision(
+            *profile_a->get_shape()), motion_a);
     const auto obj_b = fcl::ContinuousCollisionObject(
-          geometries.at(profile_b->get_shape()), motion_b);
+          geometry::FinalConvexShape::Implementation::get_collision(
+            *profile_b->get_shape()), motion_b);
 
     fcl::collide(&obj_a, &obj_b, request, result);
     if(result.is_collide)
@@ -374,7 +344,6 @@ namespace internal {
 bool detect_conflicts(
     const Trajectory& trajectory,
     const Spacetime& region,
-    const GeometryMap& geometry_map,
     std::vector<Trajectory::const_iterator>* output_iterators)
 {
 #ifndef NDEBUG

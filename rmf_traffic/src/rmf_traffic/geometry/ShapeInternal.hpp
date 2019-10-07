@@ -47,7 +47,7 @@ class FinalShape::Implementation
 {
 public:
 
-  std::unique_ptr<const Shape> _shape;
+  rmf_utils::impl_ptr<const Shape> _shape;
 
   CollisionGeometries _collisions;
 
@@ -57,7 +57,7 @@ public:
   }
 
   static FinalShape make_final_shape(
-      std::unique_ptr<const Shape> shape,
+      rmf_utils::impl_ptr<const Shape> shape,
       CollisionGeometries collisions)
   {
     FinalShape result;
@@ -73,8 +73,13 @@ class FinalConvexShape::Implementation
 {
 public:
 
+  static CollisionGeometryPtr get_collision(const FinalConvexShape& shape)
+  {
+    return shape._pimpl->_collisions.front();
+  }
+
   static FinalConvexShape make_final_shape(
-      std::unique_ptr<const Shape> shape,
+      rmf_utils::impl_ptr<const Shape> shape,
       CollisionGeometries collisions)
   {
     FinalConvexShape result;
