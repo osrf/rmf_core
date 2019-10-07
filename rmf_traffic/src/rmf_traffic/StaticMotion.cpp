@@ -46,9 +46,9 @@ bool StaticMotion::integrate(double /*dt*/) const
 fcl::FCL_REAL StaticMotion::computeMotionBound(
     const fcl::BVMotionBoundVisitor&) const
 {
-  std::cout << " ----- OH NO, WE'RE USING StaticMotion::computeMotionBound(BVMotionBoundVisitor)!! ----- "
-            << std::endl;
-  throw std::runtime_error("unimplemented function: StaticMotion::computeMotionBound(BVMotionBoundVisitor)");
+  // TODO(MXG): Investigate the legitimacy of this implementation. Make sure
+  // that this function truly should always return 0.
+  return 0;
 }
 
 //==============================================================================

@@ -15,15 +15,15 @@
  *
 */
 
+#include "src/rmf_traffic/DetectConflictInternal.hpp"
+
 #include <rmf_traffic/Conflict.hpp>
 
 #include "utils_Trajectory.hpp"
 
 #include <rmf_utils/catch.hpp>
 
-#include <iostream>
-
-SCENARIO("Test conflicts")
+SCENARIO("Test trajectory-trajectory conflicts")
 {
   using namespace std::chrono_literals;
 
@@ -248,6 +248,41 @@ SCENARIO("Test conflicts")
           conflicts.front().get_time() - begin_time);
 
     CHECK(computed_time == Approx(expected_time).margin(0.2));
+  }
+}
+
+SCENARIO("Test trajectory-region conflicts")
+{
+  using namespace std::chrono_literals;
+
+  GIVEN("A simple linear trajectory")
+  {
+    const double w = 0.1;
+    const rmf_traffic::Time begin_time = std::chrono::steady_clock::now();
+    const auto box = rmf_traffic::geometry::make_final_convex<
+        rmf_traffic::geometry::Box>(w, w);
+
+    const auto profile = rmf_traffic::Trajectory::Profile::make_strict(box);
+
+    rmf_traffic::Trajectory trajectory("test_map");
+    trajectory.insert(
+          begin_time,
+          profile,
+          Eigen::Vector3d::Zero(),
+          1.0 * Eigen::Vector3d::UnitX());
+
+    trajectory.insert(
+          begin_time + 10s,
+          profile,
+          10.0 * Eigen::Vector3d::UnitX(),
+          1.0 * Eigen::Vector3d::UnitX());
+
+    rmf_traffic::internal::Spacetime region{
+      nullptr, nullptr,
+      Eigen::Isometry2d(Eigen::Translation2d(Eigen::Vector2d(5.0, 0.0))), box
+    };
+
+    CHECK(rmf_traffic::internal::detect_conflicts(trajectory, region, nullptr));
   }
 }
 
