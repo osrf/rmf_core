@@ -283,13 +283,17 @@ public:
     /// Compute the motion across this Trajectory segment
     std::unique_ptr<Motion> compute_motion() const;
 
+    class Implementation;
   private:
 
     /// \internal Private constructor. Use Trajectory::add_segment() to create
     /// a new Trajectory Segment.
     Segment();
+    Segment(const Segment&) = delete;
+    Segment(Segment&&) = default;
+    Segment& operator=(const Segment&) = delete;
+    Segment& operator=(Segment&&) = default;
     friend class Trajectory;
-    class Implementation;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -307,6 +311,14 @@ public:
   // Copy construction/assignment
   Trajectory(const Trajectory& other);
   Trajectory& operator=(const Trajectory& other);
+
+  /// \warning After using the move constructor or move assignment operator,
+  /// the Trajectory that was moved from will be unusable until a fresh
+  /// Trajectory instance is assigned to it (using either the copy or move
+  /// constructor). Attempting to use a Trajectory that was moved from will
+  /// result in a segfault if you do not assign it a new instance.
+  Trajectory(Trajectory&&) = default;
+  Trajectory& operator=(Trajectory&&) = default;
 
   /// Get the name of the map that this Trajectory takes place in
   std::string get_map_name() const;

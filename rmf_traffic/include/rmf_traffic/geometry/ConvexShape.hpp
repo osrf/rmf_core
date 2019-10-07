@@ -74,6 +74,13 @@ FinalConvexShapePtr make_final_convex(Args&&... args)
         T(std::forward<Args>(args)...).finalize_convex());
 }
 
+//==============================================================================
+template<typename T>
+FinalConvexShapePtr make_final_convex(const T& convex)
+{
+  return std::make_shared<FinalConvexShape>(convex.finalize_convex());
+}
+
 } // namespace geometry
 } // namespace rmf_traffic
 

@@ -2,7 +2,7 @@
 set(unit_tests
   fcl_test.cpp
   make_shapes.cpp
-  test_trajectory.cpp
+  test_Trajectory.cpp
   test_Conflict.cpp
   test_Spline.cpp
   agv/test_Interpolate.cpp

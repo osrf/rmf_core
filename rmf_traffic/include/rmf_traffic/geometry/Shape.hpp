@@ -96,6 +96,13 @@ FinalShapePtr make_final(Args&&... args)
         T(std::forward<Args>(args)...).finalize());
 }
 
+//==============================================================================
+template<typename T>
+FinalShapePtr make_final(const T& shape)
+{
+  return std::make_shared<FinalShape>(shape.finalize());
+}
+
 } // namespace geometry
 } // namespace rmf_traffic
 
