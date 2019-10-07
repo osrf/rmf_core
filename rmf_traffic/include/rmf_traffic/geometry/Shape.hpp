@@ -39,6 +39,8 @@ class Shape
 {
 public:
 
+  /// Finalize the shape so that it can be given to a Trajectory::Profile or a
+  /// Zone.
   virtual FinalShape finalize() const = 0;
 
   // Abstract shape references must not be moved, because we cannot ensure that
