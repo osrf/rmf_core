@@ -56,6 +56,8 @@ public:
 
       /// Request trajectories in specific regions spacetime regions.
       Regions,
+
+      // TODO(MXG): Add a Timespan Mode
     };
 
     //==========================================================================

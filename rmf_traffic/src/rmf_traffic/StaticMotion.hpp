@@ -15,36 +15,42 @@
  *
 */
 
-#ifndef SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
-#define SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__STATICMOTION_HPP
+#define SRC__RMF_TRAFFIC__STATICMOTION_HPP
 
-#include "geometry/ShapeInternal.hpp"
+#include "DetectConflictInternal.hpp"
 
-#include <rmf_traffic/Trajectory.hpp>
-
-#include <unordered_map>
+#include <fcl/ccd/motion.h>
 
 namespace rmf_traffic {
 namespace internal {
 
 //==============================================================================
-struct Spacetime
+class StaticMotion : public fcl::MotionBase
 {
-  const Time* lower_time_bound;
-  const Time* upper_time_bound;
+public:
 
-  Eigen::Isometry2d pose;
-  geometry::ConstFinalShapePtr shape;
+  StaticMotion(const fcl::Transform3f& tf);
+
+  bool integrate(double dt) const final;
+
+  fcl::FCL_REAL computeMotionBound(
+      const fcl::BVMotionBoundVisitor&) const final;
+
+  fcl::FCL_REAL computeMotionBound(
+      const fcl::TriangleMotionBoundVisitor&) const final;
+
+  void getCurrentTransform(fcl::Transform3f& tf) const final;
+
+  void getTaylorModel(fcl::TMatrix3&, fcl::TVector3&) const final;
+
+private:
+
+  fcl::Transform3f _tf;
+
 };
-
-//==============================================================================
-bool detect_conflicts(
-    const Trajectory& trajectory,
-    const Spacetime& region,
-    std::vector<Trajectory::const_iterator>* output_iterators);
-
 
 } // namespace internal
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__STATICMOTION_HPP

@@ -30,8 +30,8 @@ SCENARIO("Test Query API")
 
     auto now = std::chrono::steady_clock::now();
 
-    const rmf_traffic::geometry::ShapePtr box =
-        std::make_shared<rmf_traffic::geometry::Box>(10.0, 1.0);
+    const auto box = rmf_traffic::geometry::Box(10.0, 1.0);
+    const auto final_box = rmf_traffic::geometry::make_final_convex(box);
     Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
 
     REQUIRE(query.spacetime().regions() != nullptr);
@@ -50,12 +50,12 @@ SCENARIO("Test Query API")
     REQUIRE(region.get_upper_time_bound() != nullptr);
     CHECK(*region.get_upper_time_bound() == now+10s);
 
-    region.push_back(rmf_traffic::geometry::Space{box, tf});
+    region.push_back(rmf_traffic::geometry::Space{final_box, tf});
 
     tf.rotate(Eigen::Rotation2Dd(90.0*M_PI/180.0));
-    region.push_back(rmf_traffic::geometry::Space{box, tf});
+    region.push_back(rmf_traffic::geometry::Space{final_box, tf});
     tf.rotate(Eigen::Rotation2Dd(180.0*M_PI/180.0));
-    region.push_back(rmf_traffic::geometry::Space{box, tf});
+    region.push_back(rmf_traffic::geometry::Space{final_box, tf});
 
     std::size_t regions = 0;
     std::size_t spaces = 0;

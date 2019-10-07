@@ -264,7 +264,11 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
       make_uninitialized_fcl_spline_motion();
   std::shared_ptr<fcl::SplineMotion> motion_b =
       make_uninitialized_fcl_spline_motion();
-  const fcl::ContinuousCollisionRequest request; // Using default values for now
+
+  fcl::ContinuousCollisionRequest request; // Using default values for now
+  request.ccd_solver_type = fcl::CCDC_CONSERVATIVE_ADVANCEMENT;
+  request.gjk_solver_type = fcl::GST_LIBCCD;
+
   fcl::ContinuousCollisionResult result;
   std::vector<ConflictData> conflicts;
 
@@ -367,6 +371,7 @@ bool detect_conflicts(
     if(region.lower_time_bound)
     {
       const auto lower_time_bound = *region.lower_time_bound;
+
       // This condition is strictly less than. We do not want equal to, because
       // then that would return the begin() iterator, which is not where we ever
       // want to start from.
@@ -382,7 +387,10 @@ bool detect_conflicts(
   const Trajectory::const_iterator end_it = region.upper_time_bound?
         trajectory.find(*region.upper_time_bound) : trajectory.end();
 
-//  for(begin_it)
+  for(auto it = begin_it; it != end_it; ++it)
+  {
+
+  }
 }
 } // namespace internal
 

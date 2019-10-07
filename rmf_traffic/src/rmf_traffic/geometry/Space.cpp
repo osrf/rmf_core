@@ -25,13 +25,13 @@ class Space::Implementation
 {
 public:
 
-  geometry::ConstShapePtr shape;
+  geometry::ConstFinalShapePtr shape;
   Eigen::Isometry2d pose;
 
 };
 
 //==============================================================================
-Space::Space(geometry::ConstShapePtr shape, Eigen::Isometry2d tf)
+Space::Space(ConstFinalShapePtr shape, Eigen::Isometry2d tf)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{std::move(shape), std::move(tf)}))
 {
@@ -39,13 +39,13 @@ Space::Space(geometry::ConstShapePtr shape, Eigen::Isometry2d tf)
 }
 
 //==============================================================================
-const ConstShapePtr& Space::get_shape() const
+const ConstFinalShapePtr &Space::get_shape() const
 {
   return _pimpl->shape;
 }
 
 //==============================================================================
-Space& Space::set_shape(geometry::ConstShapePtr shape)
+Space& Space::set_shape(geometry::ConstFinalShapePtr shape)
 {
   _pimpl->shape = std::move(shape);
   return *this;

@@ -32,10 +32,10 @@ class Space
 {
 public:
 
-  Space(geometry::ConstShapePtr shape, Eigen::Isometry2d tf);
+  Space(geometry::ConstFinalShapePtr shape, Eigen::Isometry2d tf);
 
-  const geometry::ConstShapePtr& get_shape() const;
-  Space& set_shape(geometry::ConstShapePtr shape);
+  const geometry::ConstFinalShapePtr& get_shape() const;
+  Space& set_shape(geometry::ConstFinalShapePtr shape);
 
   const Eigen::Isometry2d& get_pose() const;
   Space& set_pose(Eigen::Isometry2d tf);
