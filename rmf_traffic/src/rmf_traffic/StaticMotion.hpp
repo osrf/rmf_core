@@ -30,7 +30,9 @@ class StaticMotion : public fcl::MotionBase
 {
 public:
 
-  StaticMotion(const fcl::Transform3f& tf);
+  StaticMotion() = default;
+
+  StaticMotion(const Eigen::Isometry2d& tf);
 
   bool integrate(double dt) const final;
 

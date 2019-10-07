@@ -23,10 +23,16 @@ namespace rmf_traffic {
 namespace internal {
 
 //==============================================================================
-StaticMotion::StaticMotion(const fcl::Transform3f& tf)
-  : _tf(tf)
+StaticMotion::StaticMotion(const Eigen::Isometry2d& tf)
 {
-  // Do nothing
+  const Eigen::Vector2d& p = tf.translation();
+  const auto x = fcl::Vec3f(p[0], p[1], 0.0);
+
+  Eigen::Rotation2Dd R{tf.rotation()};
+  fcl::Quaternion3f q;
+  q.fromAxisAngle(fcl::Vec3f(0.0, 0.0, 1.0), R.angle());
+
+  _tf.setTransform(q, x);
 }
 
 //==============================================================================

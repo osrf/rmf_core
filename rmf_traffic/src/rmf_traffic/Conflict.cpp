@@ -18,6 +18,7 @@
 #include "geometry/ShapeInternal.hpp"
 #include "DetectConflictInternal.hpp"
 #include "Spline.hpp"
+#include "StaticMotion.hpp"
 
 #include <rmf_traffic/Conflict.hpp>
 
@@ -218,6 +219,16 @@ get_initial_iterators(
   return {a_it, b_it};
 }
 
+//==============================================================================
+fcl::ContinuousCollisionRequest make_fcl_request()
+{
+  fcl::ContinuousCollisionRequest request;
+  request.ccd_solver_type = fcl::CCDC_CONSERVATIVE_ADVANCEMENT;
+  request.gjk_solver_type = fcl::GST_LIBCCD;
+
+  return request;
+}
+
 } // anonymous namespace
 
 class DetectConflict::Implementation
@@ -265,10 +276,7 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
   std::shared_ptr<fcl::SplineMotion> motion_b =
       make_uninitialized_fcl_spline_motion();
 
-  fcl::ContinuousCollisionRequest request; // Using default values for now
-  request.ccd_solver_type = fcl::CCDC_CONSERVATIVE_ADVANCEMENT;
-  request.gjk_solver_type = fcl::GST_LIBCCD;
-
+  const fcl::ContinuousCollisionRequest request = make_fcl_request();
   fcl::ContinuousCollisionResult result;
   std::vector<ConflictData> conflicts;
 
@@ -365,32 +373,79 @@ bool detect_conflicts(
   }
 #endif // NDEBUG
 
-  const Trajectory::const_iterator begin_it = [&]()
-      -> Trajectory::const_iterator
-  {
-    if(region.lower_time_bound)
-    {
-      const auto lower_time_bound = *region.lower_time_bound;
+  const Time trajectory_start_time = *trajectory.start_time();
+  const Time trajectory_finish_time = *trajectory.finish_time();
 
-      // This condition is strictly less than. We do not want equal to, because
-      // then that would return the begin() iterator, which is not where we ever
-      // want to start from.
-      if(*trajectory.start_time() < lower_time_bound)
-        return trajectory.find(lower_time_bound);
-    }
+  const Time start_time = region.lower_time_bound?
+        std::max(*region.lower_time_bound, trajectory_start_time)
+      : trajectory_start_time;
 
-    // If the lower time bound starts before the beginning of the trajectory, we
-    // will just return the second iterator.
-    return ++trajectory.begin();
-  }();
+  const Time finish_time = region.upper_time_bound?
+        std::min(*region.upper_time_bound, trajectory_finish_time)
+      : trajectory_finish_time;
 
-  const Trajectory::const_iterator end_it = region.upper_time_bound?
-        trajectory.find(*region.upper_time_bound) : trajectory.end();
+  const Trajectory::const_iterator begin_it =
+      trajectory_start_time < start_time?
+        trajectory.find(start_time) : ++trajectory.begin();
+
+  const Trajectory::const_iterator end_it =
+      finish_time < trajectory_finish_time?
+        trajectory.find(finish_time) : trajectory.end();
+
+  std::shared_ptr<fcl::SplineMotion> motion_trajectory =
+      make_uninitialized_fcl_spline_motion();
+  std::shared_ptr<internal::StaticMotion> motion_region =
+      std::make_shared<internal::StaticMotion>(region.pose);
+
+  const fcl::ContinuousCollisionRequest request = make_fcl_request();
+  fcl::ContinuousCollisionResult result;
+
+  bool collision_detected = false;
 
   for(auto it = begin_it; it != end_it; ++it)
   {
+    const Trajectory::ConstProfilePtr profile = it->get_profile();
 
+    Spline spline_trajectory{it};
+
+    const Time spline_start_time =
+        std::max(spline_trajectory.start_time(), start_time);
+    const Time spline_finish_time =
+        std::min(spline_trajectory.finish_time(), finish_time);
+
+    *motion_trajectory = spline_trajectory.to_fcl(
+          spline_start_time, spline_finish_time);
+
+    assert(profile->get_shape());
+    const auto obj_trajectory = fcl::ContinuousCollisionObject(
+          geometry::FinalConvexShape::Implementation::get_collision(
+            *profile->get_shape()), motion_trajectory);
+
+    assert(region.shape);
+    const auto& region_shapes = geometry::FinalShape::Implementation
+        ::get_collisions(*region.shape);
+    for(const auto& region_shape : region_shapes)
+    {
+      const auto obj_region = fcl::ContinuousCollisionObject(
+            region_shape, motion_region);
+
+      fcl::collide(&obj_trajectory, &obj_region, request, result);
+      if(result.is_collide)
+      {
+        if(output_iterators)
+        {
+          output_iterators->push_back(it);
+          collision_detected = true;
+        }
+        else
+        {
+          return true;
+        }
+      }
+    }
   }
+
+  return collision_detected;
 }
 } // namespace internal
 
