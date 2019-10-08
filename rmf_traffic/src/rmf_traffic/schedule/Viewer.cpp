@@ -218,7 +218,7 @@ public:
     std::unordered_set<std::size_t> checked;
     checked.reserve(all_entries.size());
 
-    for(const Query::Spacetime::Region& region : regions)
+    for(const Region& region : regions)
     {
       const std::string& map = region.get_map();
       const auto map_it = maps.find(map);

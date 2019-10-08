@@ -31,43 +31,6 @@ public:
 
 };
 
-//==============================================================================
-class Query::Spacetime::Region::IterImpl
-{
-public:
-
-  std::vector<geometry::Space>::iterator iter;
-
-};
-
-//==============================================================================
-class Query::Spacetime::Region::Implementation
-{
-public:
-
-  std::string map;
-
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_lower_bound = false;
-  Time lower_bound;
-
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_upper_bound = false;
-  Time upper_bound;
-
-  using Spaces = std::vector<geometry::Space>;
-  Spaces spaces;
-
-  using raw_iterator = Spaces::iterator;
-  static iterator make_iterator(raw_iterator it)
-  {
-    iterator result;
-    result._pimpl = rmf_utils::make_impl<iterator::Implementation>(
-          iterator::Implementation{it});
-    return result;
-  }
-
-};
 
 //==============================================================================
 class Query::Spacetime::Regions::Implementation
@@ -121,168 +84,6 @@ auto Query::Spacetime::query_all() -> All&
 {
   _pimpl->mode = Mode::All;
   return _pimpl->all_instance;
-}
-
-//==============================================================================
-Query::Spacetime::Region::Region(
-    std::string map,
-    Time lower_bound,
-    Time upper_bound,
-    std::vector<geometry::Space> spaces)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(map),
-               true,
-               lower_bound,
-               true,
-               upper_bound,
-               std::move(spaces)}))
-{
-  // Do nothing
-}
-
-//==============================================================================
-Query::Spacetime::Region::Region(
-    std::string map,
-    std::vector<Space> spaces)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(map),
-               false, Time(), false, Time(),
-               std::move(spaces)}))
-{
-  // Do nothing
-}
-
-//==============================================================================
-const std::string& Query::Spacetime::Region::get_map() const
-{
-  return _pimpl->map;
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::set_map(std::string map) -> Region&
-{
-  _pimpl->map = std::move(map);
-  return *this;
-}
-
-//==============================================================================
-const Time *Query::Spacetime::Region::get_lower_time_bound() const
-{
-  if(_pimpl->has_lower_bound)
-    return &_pimpl->lower_bound;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::remove_lower_time_bound() -> Region&
-{
-  _pimpl->has_lower_bound = false;
-  return *this;
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::set_lower_time_bound(Time time) -> Region&
-{
-  _pimpl->has_lower_bound = true;
-  _pimpl->lower_bound = time;
-  return *this;
-}
-
-//==============================================================================
-const Time *Query::Spacetime::Region::get_upper_time_bound() const
-{
-  if(_pimpl->has_upper_bound)
-    return &_pimpl->upper_bound;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::set_upper_time_bound(Time time) -> Region&
-{
-  _pimpl->has_upper_bound = true;
-  _pimpl->upper_bound = time;
-  return *this;
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::remove_upper_time_bound() -> Region&
-{
-  _pimpl->has_upper_bound = false;
-  return *this;
-}
-
-//==============================================================================
-void Query::Spacetime::Region::push_back(geometry::Space space)
-{
-  _pimpl->spaces.push_back(space);
-}
-
-//==============================================================================
-void Query::Spacetime::Region::pop_back()
-{
-  _pimpl->spaces.pop_back();
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::erase(iterator it) -> iterator
-{
-  return Implementation::make_iterator(
-        _pimpl->spaces.erase(it._pimpl->iter));
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::erase(iterator first, iterator last) -> iterator
-{
-  return Implementation::make_iterator(
-        _pimpl->spaces.erase(first._pimpl->iter, last._pimpl->iter));
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::begin() -> iterator
-{
-  return Implementation::make_iterator(_pimpl->spaces.begin());
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::begin() const -> const_iterator
-{
-  return Implementation::make_iterator(
-        const_cast<Implementation::Spaces&>(_pimpl->spaces).begin());
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::cbegin() const -> const_iterator
-{
-  return begin();
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::end() -> iterator
-{
-  return Implementation::make_iterator(_pimpl->spaces.end());
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::end() const -> const_iterator
-{
-  return Implementation::make_iterator(
-        const_cast<Implementation::Spaces&>(_pimpl->spaces).end());
-}
-
-//==============================================================================
-auto Query::Spacetime::Region::cend() const -> const_iterator
-{
-  return end();
-}
-
-//==============================================================================
-std::size_t Query::Spacetime::Region::num_spaces() const
-{
-  return _pimpl->spaces.size();
 }
 
 //==============================================================================
@@ -521,7 +322,7 @@ public:
   }
 
   static Query make_query(
-      std::vector<Query::Spacetime::Region> regions)
+      std::vector<Region> regions)
   {
     Query result;
     result.spacetime().query_regions(std::move(regions));
@@ -530,7 +331,7 @@ public:
 
   static Query make_query(
       std::size_t after_version,
-      std::vector<Query::Spacetime::Region> regions)
+      std::vector<Region> regions)
   {
     Query result;
     result.versions().query_after(after_version);
@@ -584,7 +385,7 @@ Query make_query(std::size_t after_version)
 }
 
 //==============================================================================
-Query make_query(std::vector<Query::Spacetime::Region> regions)
+Query make_query(std::vector<Region> regions)
 {
   return Query::Implementation::make_query(std::move(regions));
 }
@@ -592,7 +393,7 @@ Query make_query(std::vector<Query::Spacetime::Region> regions)
 //==============================================================================
 Query make_query(
     std::size_t after_version,
-    std::vector<Query::Spacetime::Region> regions)
+    std::vector<Region> regions)
 {
   return Query::Implementation::make_query(after_version, std::move(regions));
 }
@@ -603,30 +404,16 @@ namespace detail {
 
 //==============================================================================
 template class bidirectional_iterator<
-    schedule::Query::Spacetime::Region,
+    Region,
     schedule::Query::Spacetime::Regions::IterImpl,
     schedule::Query::Spacetime::Regions
 >;
 
 //==============================================================================
 template class bidirectional_iterator<
-    const schedule::Query::Spacetime::Region,
+    const Region,
     schedule::Query::Spacetime::Regions::IterImpl,
     schedule::Query::Spacetime::Regions
->;
-
-//==============================================================================
-template class bidirectional_iterator<
-    geometry::Space,
-    schedule::Query::Spacetime::Region::IterImpl,
-    schedule::Query::Spacetime::Region
->;
-
-//==============================================================================
-template class bidirectional_iterator<
-    const geometry::Space,
-    schedule::Query::Spacetime::Region::IterImpl,
-    schedule::Query::Spacetime::Region
 >;
 
 } // namespace detail
