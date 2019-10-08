@@ -277,12 +277,109 @@ SCENARIO("Test trajectory-region conflicts")
           10.0 * Eigen::Vector3d::UnitX(),
           1.0 * Eigen::Vector3d::UnitX());
 
-    rmf_traffic::internal::Spacetime region{
+    const rmf_traffic::internal::Spacetime region{
       nullptr, nullptr,
       Eigen::Isometry2d(Eigen::Translation2d(Eigen::Vector2d(5.0, 0.0))), box
     };
 
     CHECK(rmf_traffic::internal::detect_conflicts(trajectory, region, nullptr));
+  }
+
+  GIVEN("A trajectory with a curve")
+  {
+    const double r = 1.0;
+    const rmf_traffic::Time begin_time = std::chrono::steady_clock::now();
+    const auto circle = rmf_traffic::geometry::make_final_convex<
+        rmf_traffic::geometry::Circle>(r);
+
+    const auto profile = rmf_traffic::Trajectory::Profile::make_strict(circle);
+
+    rmf_traffic::Trajectory trajectory("test_map");
+    trajectory.insert(
+          begin_time,
+          profile,
+          Eigen::Vector3d(-10.0, -5.0, 0.0),
+          Eigen::Vector3d(0.5, 0.0, 0.0));
+
+    trajectory.insert(
+          begin_time + 10s,
+          profile,
+          Eigen::Vector3d(-5.0, -5.0, 0.0),
+          Eigen::Vector3d(0.5, 0.0, 0.0));
+
+    trajectory.insert(
+          begin_time + 30s,
+          profile,
+          Eigen::Vector3d(0.0, 0.0, 0.0),
+          Eigen::Vector3d(0.0, 0.5, 0.0));
+
+    trajectory.insert(
+          begin_time + 40s,
+          profile,
+          Eigen::Vector3d(0.0, 5.0, 0.0),
+          Eigen::Vector3d(0.0, 0.5, 0.0));
+
+    rmf_traffic::internal::Spacetime region{
+      nullptr, nullptr,
+      Eigen::Isometry2d(Eigen::Translation2d(Eigen::Vector2d(0.0, -5.0))),
+      circle
+    };
+
+    WHEN("The spacetime range spans all time")
+    {
+      std::vector<rmf_traffic::Trajectory::const_iterator> conflicts;
+      const bool has_conflicts = rmf_traffic::internal::detect_conflicts(
+            trajectory, region, &conflicts);
+      CHECK(has_conflicts);
+
+      REQUIRE(conflicts.size() == 1);
+      CHECK(conflicts.front() == ++(++trajectory.begin()));
+      CHECK(conflicts.front() == trajectory.find(begin_time + 20s));
+    }
+
+    WHEN("The time range begins and ends before the collision")
+    {
+      const rmf_traffic::Time region_start_time = begin_time - 20s;
+      const rmf_traffic::Time region_finish_time = begin_time + 12s;
+
+      region.lower_time_bound = &region_start_time;
+      region.upper_time_bound = &region_finish_time;
+
+      const bool has_conflicts = rmf_traffic::internal::detect_conflicts(
+            trajectory, region, nullptr);
+      CHECK_FALSE(has_conflicts);
+    }
+
+    WHEN("The time range begins and ends after the collision")
+    {
+      const rmf_traffic::Time region_start_time = begin_time + 28s;
+      const rmf_traffic::Time region_finish_time = begin_time + 60s;
+
+      region.lower_time_bound = &region_start_time;
+      region.upper_time_bound = &region_finish_time;
+
+      const bool has_conflicts = rmf_traffic::internal::detect_conflicts(
+            trajectory, region, nullptr);
+      CHECK_FALSE(has_conflicts);
+    }
+
+    WHEN("The time range begins before and ends after the collision")
+    {
+      const rmf_traffic::Time region_start_time = begin_time + 12s;
+      const rmf_traffic::Time region_finish_time = begin_time + 28s;
+
+      region.lower_time_bound = &region_start_time;
+      region.upper_time_bound = &region_finish_time;
+
+      std::vector<rmf_traffic::Trajectory::const_iterator> conflicts;
+      const bool has_conflicts = rmf_traffic::internal::detect_conflicts(
+            trajectory, region, &conflicts);
+      CHECK(has_conflicts);
+
+      REQUIRE(conflicts.size() == 1);
+      CHECK(conflicts.front() == ++(++trajectory.begin()));
+      CHECK(conflicts.front() == trajectory.find(begin_time + 20s));
+    }
   }
 }
 

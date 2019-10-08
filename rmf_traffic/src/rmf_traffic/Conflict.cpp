@@ -390,7 +390,7 @@ bool detect_conflicts(
 
   const Trajectory::const_iterator end_it =
       finish_time < trajectory_finish_time?
-        trajectory.find(finish_time) : trajectory.end();
+        ++trajectory.find(finish_time) : trajectory.end();
 
   std::shared_ptr<fcl::SplineMotion> motion_trajectory =
       make_uninitialized_fcl_spline_motion();
