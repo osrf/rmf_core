@@ -38,14 +38,46 @@ public:
 
 namespace {
 //==============================================================================
+// TODO(MXG): Consider generalizing this class using templates if it ends up
+// being useful in any other context.
 class DeepOrShallowTrajectory
 {
 public:
 
-  // TODO(MXG): Use this to store the Trajectories in the Change interface
-  // classes
+  const Trajectory* get() const
+  {
+    if(is_deep)
+      return deep.get();
+
+    return shallow;
+  }
+
+  rmf_utils::impl_ptr<const Trajectory> deep;
+  const Trajectory* shallow = nullptr;
+  bool is_deep = true;
 
 };
+
+//==============================================================================
+DeepOrShallowTrajectory make_deep(const Trajectory* deep)
+{
+  DeepOrShallowTrajectory traj;
+  traj.is_deep = true;
+  if(deep)
+    traj.deep = rmf_utils::make_impl<const Trajectory>(*deep);
+
+  return traj;
+}
+
+DeepOrShallowTrajectory make_shallow(const Trajectory* shallow)
+{
+  DeepOrShallowTrajectory traj;
+  traj.is_deep = false;
+  traj.shallow = shallow;
+
+  return traj;
+}
+
 } // anonymous namespace
 
 //==============================================================================
@@ -53,15 +85,8 @@ class Database::Change::Insert::Implementation
 {
 public:
 
-  /// Is true if the Trajectory for this Change is a deep copy instead of a
-  /// reference
-  bool deep_copy = true;
-
-  /// If deep_copy is true, this is a copy of the inserted Trajectory
-  std::unique_ptr<Trajectory> copied;
-
-  /// If deep_copy is false, this is a reference to the inserted Trajectory
-  const Trajectory* ref;
+  /// The trajectory that was inserted
+  DeepOrShallowTrajectory trajectory;
 
   /// The id of the change
   std::size_t id;
@@ -74,17 +99,8 @@ public:
   {
     Insert result;
 
-    if(trajectory)
-    {
-      result._pimpl = rmf_utils::make_impl<Implementation>(
-            Implementation{true, std::make_unique<Trajectory>(*trajectory),
-                           nullptr, id});
-    }
-    else
-    {
-      result._pimpl = rmf_utils::make_impl<Implementation>(
-            Implementation{true, nullptr, nullptr, id});
-    }
+    result._pimpl = rmf_utils::make_impl<Implementation>(
+          Implementation{make_deep(trajectory), id});
 
     return result;
   }
@@ -99,7 +115,7 @@ public:
     Insert result;
 
     result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{false, nullptr, trajectory, id});
+          Implementation{make_shallow(trajectory), id});
 
     return result;
   }
@@ -135,7 +151,10 @@ class Database::Change::Interrupt::Implementation
 {
 public:
 
-
+  std::size_t original_id;
+  DeepOrShallowTrajectory trajectory;
+  Duration delay;
+  std::size_t id;
 
 };
 
@@ -153,8 +172,8 @@ auto Database::Change::make_interrupt(
     std::size_t id) -> Change
 {
   Change change;
-  change._pimpl->mode Mode::Interrupt;
-
+  change._pimpl->mode = Mode::Interrupt;
+  change._pimpl->interrupt = Interrupt::Implementation::make
 }
 
 } // namespace schedule
