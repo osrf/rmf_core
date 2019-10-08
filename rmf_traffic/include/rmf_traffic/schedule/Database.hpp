@@ -275,6 +275,14 @@ public:
     /// this returns a nullptr.
     const Insert* insert() const;
 
+    /// Get the Interrupt interface if this is an Interrupt type change.
+    /// Otherwise this returns a nullptr.
+    const Interrupt* interrupt() const;
+
+    /// Get the Delay interface if this is a Delay type change. Otherwise this
+    /// returns a nullptr.
+    const Delay* delay() const;
+
     /// Get the Replace interface if this is a Replace type change. Otherwise
     /// this returns a nullptr.
     const Replace* replace() const;

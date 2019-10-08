@@ -25,6 +25,7 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <unordered_set>
 #include <vector>
 
 namespace rmf_traffic {
@@ -56,7 +57,8 @@ public:
       /// Request trajectories in specific regions spacetime regions.
       Regions,
 
-      // TODO(MXG): Add a Timespan Mode
+      /// Request trajectories that are active in a specified timespan.
+      Timespan,
     };
 
     //==========================================================================
@@ -72,8 +74,8 @@ public:
     };
 
     //==========================================================================
-    /// A container class for Spacetime::Region instances. This acts like an
-    /// STL container for Spacetime::Region elements.
+    /// A container class for rmf_traffic::Region instances. Using Regions mode
+    /// will query for Trajectories that intersect the specified regions.
     class Regions
     {
     public:
@@ -81,9 +83,6 @@ public:
       class IterImpl;
       using iterator = base_iterator<Region, IterImpl, Regions>;
       using const_iterator = base_iterator<const Region, IterImpl, Regions>;
-
-      /// Instantiate a container of Region instances using a vector.
-      Regions(std::vector<Region> regions = {});
 
       /// Add a Region to this container.
       void push_back(Region region);
@@ -120,6 +119,52 @@ public:
 
       class Implementation;
     private:
+      Regions();
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    //==========================================================================
+    /// A class for specifying a timespan.
+    class Timespan
+    {
+    public:
+
+      /// Get the maps that will be queried.
+      const std::unordered_set<std::string>& get_maps() const;
+
+      /// Add a map to the query.
+      Timespan& add_map(std::string map_name);
+
+      /// Remove a map from the query.
+      Timespan& remove_map(const std::string& map_name);
+
+      /// Get the lower bound for the time range.
+      ///
+      /// If there is no lower bound for the time range, then this returns a
+      /// nullptr.
+      const Time* get_lower_time_bound() const;
+
+      /// Set the lower bound fore the time range.
+      Timespan& set_lower_time_bound(Time time);
+
+      /// Remove the lower bound for the time range.
+      Timespan& remove_lower_time_bound();
+
+      /// Get the upper bound for the time range.
+      ///
+      /// If there is no upper bound for the time range, then this returns
+      /// a nullptr.
+      const Time* get_upper_time_bound() const;
+
+      /// Set the upper bound for the time range.
+      Timespan& set_upper_time_bound(Time time);
+
+      /// Remove the upper bound for the time range.
+      Timespan& remove_upper_time_bound();
+
+      class Implementation;
+    private:
+      Timespan();
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
@@ -151,6 +196,27 @@ public:
 
     /// const-qualified regions()
     const Regions* regions() const;
+
+    /// Query a timespan between two bounds for a set of maps
+    Timespan& query_timespan(
+        std::vector<std::string> maps,
+        Time lower_bound,
+        Time upper_bound);
+
+    /// Query from a lower bound in time for a set of maps
+    Timespan& query_timespan(
+        std::vector<std::string> maps,
+        Time lower_bound);
+
+    /// Query for all trajectories on a set of maps
+    Timespan& query_timespan(std::vector<std::string> maps);
+
+    /// Get the Timespan of Spacetime to use for this Query. If this Spacetime
+    /// is not in Timespan mode, then this will return a nullptr.
+    Timespan* timespan();
+
+    /// const-qualified timespan()
+    const Timespan* timespan() const;
 
     class Implementation;
   private:

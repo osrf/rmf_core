@@ -46,6 +46,50 @@ public:
     return iterator(IterImpl{it});
   }
 
+  static Regions make(std::vector<Region> input_regions)
+  {
+    Regions result;
+    result._pimpl->regions = std::move(input_regions);
+    return result;
+  }
+
+};
+
+//==============================================================================
+class Query::Spacetime::Timespan::Implementation
+{
+public:
+
+  std::unordered_set<std::string> maps;
+
+  // TODO(MXG): Replace with std::optional when we have C++17 support
+  bool has_lower_bound = false;
+  Time lower_bound;
+
+  // TODO(MXG): Replace with std::optional when we have C++17 support
+  bool has_upper_bound = false;
+  Time upper_bound;
+
+  static Timespan make(
+      std::vector<std::string> maps,
+      const Time* lower_bound,
+      const Time* upper_bound)
+  {
+    Timespan span;
+    span._pimpl->maps = std::unordered_set<std::string>{
+          std::make_move_iterator(maps.begin()),
+          std::make_move_iterator(maps.end())};
+
+    span._pimpl->has_lower_bound = static_cast<bool>(lower_bound);
+    if(lower_bound)
+      span._pimpl->lower_bound = *lower_bound;
+
+    span._pimpl->has_upper_bound = static_cast<bool>(upper_bound);
+    if(upper_bound)
+      span._pimpl->upper_bound = *upper_bound;
+
+    return span;
+  }
 };
 
 //==============================================================================
@@ -56,7 +100,17 @@ public:
   Mode mode;
   All all_instance;
   Regions regions_instance;
+  Timespan timespan_instance;
 
+  // TODO(MXG): We can make this more efficient by leaving the pimpls of
+  // regions_instance and timespan_instance uninitialized until they actually
+  // get used.
+  Implementation()
+    : regions_instance(Regions::Implementation::make({})),
+      timespan_instance(Timespan::Implementation::make({}, nullptr, nullptr))
+  {
+    // Do nothing
+  }
 };
 
 //==============================================================================
@@ -84,14 +138,6 @@ auto Query::Spacetime::query_all() -> All&
 {
   _pimpl->mode = Mode::All;
   return _pimpl->all_instance;
-}
-
-//==============================================================================
-Query::Spacetime::Regions::Regions(std::vector<Region> regions)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{std::move(regions)}))
-{
-  // Do nothing
 }
 
 //==============================================================================
@@ -167,10 +213,95 @@ std::size_t Query::Spacetime::Regions::size() const
 }
 
 //==============================================================================
+Query::Spacetime::Regions::Regions()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::unordered_set<std::string>&
+Query::Spacetime::Timespan::get_maps() const
+{
+  return _pimpl->maps;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::add_map(std::string map_name) -> Timespan&
+{
+  _pimpl->maps.insert(map_name);
+  return *this;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::remove_map(const std::string& map_name)
+  -> Timespan&
+{
+  _pimpl->maps.erase(map_name);
+  return *this;
+}
+
+//==============================================================================
+const Time* Query::Spacetime::Timespan::get_lower_time_bound() const
+{
+  if(_pimpl->has_lower_bound)
+    return &_pimpl->lower_bound;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::set_lower_time_bound(Time time) -> Timespan&
+{
+  _pimpl->has_lower_bound = true;
+  _pimpl->lower_bound = time;
+  return *this;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::remove_lower_time_bound() -> Timespan&
+{
+  _pimpl->has_lower_bound = false;
+  return *this;
+}
+
+//==============================================================================
+const Time* Query::Spacetime::Timespan::get_upper_time_bound() const
+{
+  if(_pimpl->has_upper_bound)
+    return &_pimpl->upper_bound;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::set_upper_time_bound(Time time) -> Timespan&
+{
+  _pimpl->has_upper_bound = true;
+  _pimpl->upper_bound = time;
+  return *this;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::remove_upper_time_bound() -> Timespan&
+{
+  _pimpl->has_upper_bound = false;
+  return *this;
+}
+
+//==============================================================================
+Query::Spacetime::Timespan::Timespan()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
+}
+
+//==============================================================================
 auto Query::Spacetime::query_regions(std::vector<Region> regions) -> Regions&
 {
   _pimpl->mode = Mode::Regions;
-  _pimpl->regions_instance = Regions(std::move(regions));
+  _pimpl->regions_instance =
+      Regions::Implementation::make(std::move(regions));
   return _pimpl->regions_instance;
 }
 
@@ -188,6 +319,62 @@ auto Query::Spacetime::regions() const -> const Regions*
 {
   if(Mode::Regions == _pimpl->mode)
     return &_pimpl->regions_instance;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Spacetime::query_timespan(
+    std::vector<std::string> maps,
+    Time lower_bound,
+    Time upper_bound) -> Timespan&
+{
+  _pimpl->mode = Mode::Timespan;
+  _pimpl->timespan_instance =
+      Timespan::Implementation::make(
+        std::move(maps), &lower_bound, &upper_bound);
+
+  return _pimpl->timespan_instance;
+}
+
+//==============================================================================
+auto Query::Spacetime::query_timespan(
+    std::vector<std::string> maps,
+    Time lower_bound) -> Timespan&
+{
+  _pimpl->mode = Mode::Timespan;
+  _pimpl->timespan_instance =
+      Timespan::Implementation::make(
+        std::move(maps), &lower_bound, nullptr);
+
+  return _pimpl->timespan_instance;
+}
+
+//==============================================================================
+auto Query::Spacetime::query_timespan(
+    std::vector<std::string> maps) -> Timespan&
+{
+  _pimpl->mode = Mode::Timespan;
+  _pimpl->timespan_instance =
+      Timespan::Implementation::make(std::move(maps), nullptr, nullptr);
+
+  return _pimpl->timespan_instance;
+}
+
+//==============================================================================
+auto Query::Spacetime::timespan() -> Timespan*
+{
+  if(Mode::Timespan == _pimpl->mode)
+    return &_pimpl->timespan_instance;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Spacetime::timespan() const -> const Timespan*
+{
+  if(Mode::Timespan == _pimpl->mode)
+    return &_pimpl->timespan_instance;
 
   return nullptr;
 }

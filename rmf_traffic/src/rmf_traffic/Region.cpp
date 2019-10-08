@@ -113,17 +113,17 @@ const Time* Region::get_lower_time_bound() const
 }
 
 //==============================================================================
-auto Region::remove_lower_time_bound() -> Region&
-{
-  _pimpl->has_lower_bound = false;
-  return *this;
-}
-
-//==============================================================================
 auto Region::set_lower_time_bound(Time time) -> Region&
 {
   _pimpl->has_lower_bound = true;
   _pimpl->lower_bound = time;
+  return *this;
+}
+
+//==============================================================================
+auto Region::remove_lower_time_bound() -> Region&
+{
+  _pimpl->has_lower_bound = false;
   return *this;
 }
 
