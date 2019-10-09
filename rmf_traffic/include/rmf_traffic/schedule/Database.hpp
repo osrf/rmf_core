@@ -323,7 +323,6 @@ public:
     using base_iterator = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
 
     class IterImpl;
-    using iterator = base_iterator<Change, IterImpl, Patch>;
     using const_iterator = base_iterator<const Change, IterImpl, Patch>;
 
     Patch(std::vector<Change> changes);
@@ -339,9 +338,6 @@ public:
     /// Get the number of elements in this Patch.
     std::size_t size() const;
 
-    /// Get the latest version that this Patch knows of.
-    std::size_t latest_version() const;
-
     class Implementation;
   private:
     Patch();
@@ -349,7 +345,7 @@ public:
   };
 
   /// Get the changes in this Database that match the given Query parameters.
-  Patch changes(Query parameters) const;
+  Patch changes(const Query &parameters) const;
 
   /// Get the oldest version number inside this Database.
   std::size_t oldest_version() const;
@@ -453,6 +449,17 @@ public:
 };
 
 } // namespace schedule
+
+namespace detail {
+
+extern template class bidirectional_iterator<
+    const schedule::Database::Change,
+    schedule::Database::Patch::IterImpl,
+    schedule::Database::Patch
+>;
+
+}
+
 } // namespace rmf_traffic
 
 #endif // RMF_TRAFFIC__SCHEDULE__DATABASE_HPP

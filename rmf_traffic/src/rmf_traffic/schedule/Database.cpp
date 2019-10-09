@@ -17,7 +17,11 @@
 
 #include "ViewerInternal.hpp"
 
+#include "../detail/internal_bidirectional_iterator.hpp"
+
 #include <rmf_traffic/schedule/Database.hpp>
+
+#include <algorithm>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -45,6 +49,21 @@ public:
 
     return change;
   }
+
+  static Change make_insert_ref(
+      const Trajectory* trajectory,
+      std::size_t id);
+
+  static Change make_interrupt_ref(
+      std::size_t original_id,
+      const Trajectory* interruption_trajectory,
+      Duration delay,
+      std::size_t id);
+
+  static Change make_replace_ref(
+      std::size_t original_id,
+      const Trajectory* trajectory,
+      std::size_t id);
 };
 
 namespace {
@@ -492,7 +511,161 @@ auto Database::Change::cull() const -> const Cull*
 }
 
 //==============================================================================
+class Database::Patch::Implementation
+{
+public:
 
+  std::vector<Change> changes;
+
+  Implementation()
+  {
+    // Do nothing
+  }
+
+  Implementation(std::vector<Change> _changes)
+    : changes(std::move(_changes))
+  {
+    // Sort the changes to make sure they get applied in the correct order
+    std::sort(changes.begin(), changes.end(),
+              [](const Change& c1, const Change& c2) {
+      return c1.id() < c2.id();
+    });
+  }
+
+};
+
+//==============================================================================
+class Database::Patch::IterImpl
+{
+public:
+
+  std::vector<Change>::const_iterator iter;
+
+};
+
+//==============================================================================
+Database::Patch::Patch(std::vector<Change> changes)
+  : _pimpl(rmf_utils::make_impl<Implementation>(std::move(changes)))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Database::Patch::begin() const -> const_iterator
+{
+  return const_iterator(IterImpl{_pimpl->changes.begin()});
+}
+
+//==============================================================================
+auto Database::Patch::end() const -> const_iterator
+{
+  return const_iterator(IterImpl{_pimpl->changes.end()});
+}
+
+//==============================================================================
+std::size_t Database::Patch::size() const
+{
+  return _pimpl->changes.size();
+}
+
+//==============================================================================
+Database::Patch::Patch()
+{
+  // Do nothing
+}
+
+namespace internal {
+//==============================================================================
+void ChangeRelevanceInspector::after(const std::size_t* _after)
+{
+  after_version = _after;
+}
+
+//==============================================================================
+void ChangeRelevanceInspector::reserve(std::size_t size)
+{
+  relevant_changes.reserve(size);
+}
+
+//==============================================================================
+void ChangeRelevanceInspector::inspect(
+    const ConstEntryPtr& entry,
+    const rmf_traffic::internal::Spacetime& spacetime)
+{
+  if(entry->succeeded_by)
+    return;
+
+  if(after_version && entry->version < *after_version)
+    return;
+
+  const bool relevant = rmf_traffic::internal::detect_conflicts(
+        entry->trajectory, spacetime, nullptr);
+
+  if(relevant)
+  {
+    // Check if this entry descends from an entry that the remote mirror does
+    // not know about.
+    ConstEntryPtr check = entry;
+    if(after_version)
+    {
+      while(check && *after_version < check->version)
+        check = check->succeeds;
+    }
+    else
+    {
+      while(check->succeeds)
+        check = check->succeeds;
+    }
+
+    if(check)
+    {
+      //
+    }
+    else
+    {
+      // No descendents of this entry have ever been seen by the remote mirror,
+      // so we will simply add this trajectory as an insertion
+      relevant_changes.emplace_back(
+            Database::Change::Implementation::make_insert_ref(
+              &entry->trajectory, entry->version));
+    }
+  }
+  else
+  {
+    // Figure out if this trajectory needs to be erased
+  }
+
+  if(after_version)
+  {
+    bool relevant = false;
+    ConstEntryPtr check = entry;
+    while(check && *after_version < check->version)
+    {
+      check = check->succeeds;
+    }
+  }
+
+
+}
+} // namespace internal
+
+//==============================================================================
+auto Database::changes(const Query& parameters) const -> Patch
+{
+  return Patch(_pimpl->inspect<internal::ChangeRelevanceInspector>(
+                 parameters).relevant_changes);
+}
 
 } // namespace schedule
+
+namespace detail {
+
+template class bidirectional_iterator<
+    const schedule::Database::Change,
+    schedule::Database::Patch::IterImpl,
+    schedule::Database::Patch
+>;
+
+} // namespace detail
+
 } // namespace rmf_traffic

@@ -73,7 +73,7 @@ public:
 
   /// Query this Viewer to get a View of the Trajectories inside of it that
   /// match the Query parameters.
-  View query(Query parameters) const;
+  View query(const Query& parameters) const;
 
 
   class Implementation;

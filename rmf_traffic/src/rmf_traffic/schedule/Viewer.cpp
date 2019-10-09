@@ -27,18 +27,22 @@ namespace rmf_traffic {
 namespace schedule {
 
 namespace internal {
+
 //==============================================================================
-ViewRelevanceInspector::ViewRelevanceInspector(
-    const std::size_t* after_version,
-    const std::size_t reserve_size)
-  : after_version(after_version)
+void ViewRelevanceInspector::after(const std::size_t* _after)
 {
-  relevant_entries.reserve(reserve_size);
+  after_version = _after;
+}
+
+//==============================================================================
+void ViewRelevanceInspector::reserve(std::size_t size)
+{
+  trajectories.reserve(size);
 }
 
 //==============================================================================
 void ViewRelevanceInspector::inspect(
-    const EntryPtr& entry,
+    const ConstEntryPtr& entry,
     const rmf_traffic::internal::Spacetime& spacetime_region)
 {
   if(entry->succeeded_by)
@@ -49,11 +53,12 @@ void ViewRelevanceInspector::inspect(
 
   if(rmf_traffic::internal::detect_conflicts(
        entry->trajectory, spacetime_region, nullptr))
-    relevant_entries.push_back(entry);
+    trajectories.push_back(&entry->trajectory);
 }
 
+//==============================================================================
 void ViewRelevanceInspector::inspect(
-    const EntryPtr& entry,
+    const ConstEntryPtr& entry,
     const Time* lower_time_bound,
     const Time* upper_time_bound)
 {
@@ -72,7 +77,7 @@ void ViewRelevanceInspector::inspect(
   if(upper_time_bound && *upper_time_bound < *trajectory.start_time())
     return;
 
-  relevant_entries.push_back(entry);
+  trajectories.push_back(&entry->trajectory);
 }
 
 } // namespace internal
@@ -123,91 +128,11 @@ std::size_t Viewer::View::size() const
 }
 
 //==============================================================================
-Viewer::View Viewer::query(Query parameters) const
+Viewer::View Viewer::query(const Query& parameters) const
 {
-  const Query::Spacetime& spacetime = parameters.spacetime();
-  const Query::Spacetime::Mode spacetime_mode = spacetime.get_mode();
-
-  const Query::Versions& versions = parameters.versions();
-  const Query::Versions::Mode versions_mode = versions.get_mode();
-
-  std::vector<internal::EntryPtr> qualified_entries;
-
-  std::size_t after_version;
-  const std::size_t* after_version_ptr = nullptr;
-  switch(versions_mode)
-  {
-    case Query::Versions::Mode::All:
-    {
-      // Do nothing
-      break;
-    }
-
-    case Query::Versions::Mode::After:
-    {
-      assert(versions.after() != nullptr);
-      after_version = versions.after()->get_version();
-      after_version_ptr = &after_version;
-      break;
-    }
-  }
-
-  // We use a switch here so that we'll get a compiler warning if a new
-  // Spacetime::Mode type is ever added and we forget to handle it.
-  switch(spacetime_mode)
-  {
-    case Query::Spacetime::Mode::All:
-    {
-      qualified_entries = _pimpl->all_entries;
-      if(after_version_ptr)
-      {
-        const auto removed = std::remove_if(
-              qualified_entries.begin(), qualified_entries.end(),
-              [&](const internal::EntryPtr& entry){
-                return entry->version <= after_version;
-              });
-        qualified_entries.erase(removed, qualified_entries.end());
-      }
-      break;
-    }
-
-    case Query::Spacetime::Mode::Regions:
-    {
-      assert(spacetime.regions() != nullptr);
-
-      internal::ViewRelevanceInspector inspector{
-        after_version_ptr, _pimpl->all_entries.size()};
-      _pimpl->inspect_spacetime_region_entries(*spacetime.regions(), inspector);
-      qualified_entries = inspector.relevant_entries;
-      break;
-    }
-
-    case Query::Spacetime::Mode::Timespan:
-    {
-      assert(spacetime.timespan() != nullptr);
-      const Query::Spacetime::Timespan& timespan = *spacetime.timespan();
-
-      internal::ViewRelevanceInspector inspector{
-        after_version_ptr, _pimpl->all_entries.size()};
-      _pimpl->inspect_timespan(
-            timespan.get_maps(),
-            timespan.get_lower_time_bound(),
-            timespan.get_upper_time_bound(),
-            inspector);
-      qualified_entries = inspector.relevant_entries;
-      break;
-    }
-  }
-
-  std::vector<const Trajectory*> trajectories;
-  trajectories.reserve(qualified_entries.size());
-  for(const auto& q : qualified_entries)
-  {
-    if(!q->succeeded_by)
-      trajectories.push_back(&q->trajectory);
-  }
-
-  return View::Implementation::make_view(std::move(trajectories));
+  return View::Implementation::make_view(
+        std::move(_pimpl->inspect<internal::ViewRelevanceInspector>(
+                    parameters).trajectories));
 }
 
 } // namespace schedule

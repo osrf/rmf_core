@@ -34,6 +34,7 @@ namespace internal {
 
 struct Entry;
 using EntryPtr = std::shared_ptr<Entry>;
+using ConstEntryPtr = std::shared_ptr<const Entry>;
 
 using ChangePtr = std::shared_ptr<Database::Change>;
 
@@ -49,10 +50,10 @@ struct Entry
   std::size_t version;
 
   // Succeeds
-  EntryPtr succeeds;
+  ConstEntryPtr succeeds;
 
   // A version that succeeded this entry, if such a version exists
-  EntryPtr succeeded_by;
+  ConstEntryPtr succeeded_by;
 };
 
 struct DeepIterator
@@ -123,15 +124,19 @@ class RelevanceInspector
 {
 public:
 
+  virtual void after(const std::size_t* after) = 0;
+  virtual void reserve(std::size_t size) = 0;
+
   virtual void inspect(
-      const EntryPtr& entry,
+      const ConstEntryPtr& entry,
       const rmf_traffic::internal::Spacetime& spacetime) = 0;
 
   virtual void inspect(
-      const EntryPtr& entry,
+      const ConstEntryPtr& entry,
       const Time* lower_time_bound,
       const Time* upper_time_bound) = 0;
 
+  virtual ~RelevanceInspector() = default;
 };
 
 //==============================================================================
@@ -140,22 +145,23 @@ class ViewRelevanceInspector : public RelevanceInspector
 {
 public:
 
-  ViewRelevanceInspector(
-      const std::size_t* after_version,
-      const std::size_t reserve_size);
+  void after(const std::size_t* _after) final;
 
-  const std::size_t* after_version;
-
-  std::vector<EntryPtr> relevant_entries;
+  void reserve(std::size_t size) final;
 
   void inspect(
-      const EntryPtr& entry,
+      const ConstEntryPtr& entry,
       const rmf_traffic::internal::Spacetime& spacetime_region) final;
 
   void inspect(
-      const EntryPtr& entry,
+      const ConstEntryPtr& entry,
       const Time* lower_time_bound,
       const Time* upper_time_bound) final;
+
+  const std::size_t* after_version;
+
+  std::vector<const Trajectory*> trajectories;
+
 };
 
 //==============================================================================
@@ -165,19 +171,22 @@ class ChangeRelevanceInspector : public RelevanceInspector
 {
 public:
 
-  const std::size_t* after_version;
+  void after(const std::size_t* _after) final;
 
-  std::vector<EntryPtr> relevant_entries;
+  void reserve(std::size_t size) final;
 
   void inspect(
-      const EntryPtr& entry,
+      const ConstEntryPtr& entry,
       const rmf_traffic::internal::Spacetime& spacetime) final;
 
   void inspect(
-      const EntryPtr& entry,
+      const ConstEntryPtr& entry,
       const Time* lower_time_bound,
       const Time* upper_time_bound) final;
 
+  const std::size_t* after_version;
+
+  std::vector<Database::Change> relevant_changes;
 };
 
 } // namespace internal
@@ -300,6 +309,83 @@ public:
         }
       }
     }
+  }
+
+  template<typename RelevanceInspectorT>
+  RelevanceInspectorT inspect(const Query& parameters) const
+  {
+    const Query::Spacetime& spacetime = parameters.spacetime();
+    const Query::Spacetime::Mode spacetime_mode = spacetime.get_mode();
+
+    const Query::Versions& versions = parameters.versions();
+    const Query::Versions::Mode versions_mode = versions.get_mode();
+
+    std::vector<internal::EntryPtr> qualified_entries;
+
+    std::size_t after_version;
+    const std::size_t* after_version_ptr = nullptr;
+    switch(versions_mode)
+    {
+      case Query::Versions::Mode::All:
+      {
+        // Do nothing
+        break;
+      }
+
+      case Query::Versions::Mode::After:
+      {
+        assert(versions.after() != nullptr);
+        after_version = versions.after()->get_version();
+        after_version_ptr = &after_version;
+        break;
+      }
+    }
+
+    RelevanceInspectorT inspector;
+    inspector.after(after_version_ptr);
+    inspector.reserve(all_entries.size());
+
+    // We use a switch here so that we'll get a compiler warning if a new
+    // Spacetime::Mode type is ever added and we forget to handle it.
+    switch(spacetime_mode)
+    {
+      case Query::Spacetime::Mode::All:
+      {
+        qualified_entries = all_entries;
+        if(after_version_ptr)
+        {
+          const auto removed = std::remove_if(
+                qualified_entries.begin(), qualified_entries.end(),
+                [&](const internal::EntryPtr& entry){
+                  return entry->version <= after_version;
+                });
+          qualified_entries.erase(removed, qualified_entries.end());
+        }
+        break;
+      }
+
+      case Query::Spacetime::Mode::Regions:
+      {
+        assert(spacetime.regions() != nullptr);
+        inspect_spacetime_region_entries(*spacetime.regions(), inspector);
+        break;
+      }
+
+      case Query::Spacetime::Mode::Timespan:
+      {
+        assert(spacetime.timespan() != nullptr);
+        const Query::Spacetime::Timespan& timespan = *spacetime.timespan();
+
+        inspect_timespan(
+              timespan.get_maps(),
+              timespan.get_lower_time_bound(),
+              timespan.get_upper_time_bound(),
+              inspector);
+        break;
+      }
+    }
+
+    return inspector;
   }
 
 };
