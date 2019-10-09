@@ -156,39 +156,128 @@ SCENARIO("DetectConflict unit tests")
 
 
             }
+      
+
+            WHEN("t2 is in a different map but has overlapping timing")
+            {
+
+                 /* const rmf_traffic::Time time = std::chrono::steady_clock::now();
+                  rmf_traffic::Trajectory t1("test_map_1");
+                  rmf_traffic::Trajectory::ProfilePtr profile= create_test_profile(UnitBox,rmf_traffic::Trajectory::Profile::Agency::Strict);
+                  const Eigen::Vector3d pos= Eigen::Vector3d(0,0,0);
+                  const Eigen::Vector3d vel= Eigen::Vector3d(0,0,0);
+                  t1.insert(time,profile,pos,vel);
+                  t1.insert(time+20s,profile,pos,vel); */
+
+                  rmf_traffic::Trajectory t2("test_map_2");
+                  t2.insert(time,profile,pos,vel);
+                  t2.insert(time+10s,profile,pos,vel);
+
+                  THEN("DetectConflict::broad_phase and should return false")
+                  {
+
+                        REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                        CHECK_broad_phase_is_commutative(t1,t2);
+                  }
+
+                  THEN("DetectConflict::between should return empty")
+                  {
+                        std::vector<rmf_traffic::ConflictData> conflicts= rmf_traffic::DetectConflict::between(t1,t2);
+                        REQUIRE(conflicts.empty());
+                        CHECK_between_is_commutative(t1,t2);
+                  }
+            }
+
+            WHEN("t2 is in a different map and different timing")
+            {
+
+                  rmf_traffic::Trajectory t2("test_map_2");
+                  t2.insert(time+10s,profile,pos,vel);
+                  t2.insert(time+20s,profile,pos,vel);
+                  THEN("DetectConflict::broad_phase should return false")
+                  {
+
+                        REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                        CHECK_broad_phase_is_commutative(t1,t2);
+                        CHECK_between_is_commutative(t1,t2);
+                  }
+
+
+                  THEN("DetectConflict::between should return empty")
+                  {
+                        std::vector<rmf_traffic::ConflictData> conflicts= rmf_traffic::DetectConflict::between(t1,t2);
+                        REQUIRE(conflicts.empty());
+                        CHECK_between_is_commutative(t1,t2);
+                  }
+            }
       }
 
-      GIVEN("Two trajectories t1 and t2 in different maps and timings of trajectories")
+      GIVEN("A straight two-point trajectory with Box profile")
+
       {
 
             const rmf_traffic::Time time = std::chrono::steady_clock::now();
-            rmf_traffic::Trajectory t1("test_map_1");
-            rmf_traffic::Trajectory::ProfilePtr profile= create_test_profile(UnitBox,rmf_traffic::Trajectory::Profile::Agency::Strict);
-            const Eigen::Vector3d pos= Eigen::Vector3d(0,0,0);
-            const Eigen::Vector3d vel= Eigen::Vector3d(0,0,0);
-            t1.insert(time,profile,pos,vel);
-            t1.insert(time+20s,profile,pos,vel);
+            rmf_traffic::Trajectory t1("test_map");
+            double box_x_length=2;
+            double box_y_length=1;
+            std::shared_ptr<rmf_traffic::geometry::Box> shape=std::make_shared<rmf_traffic::geometry::Box>(box_x_length,box_y_length);
+            rmf_traffic::Trajectory::ProfilePtr profile =rmf_traffic::Trajectory::Profile::make_strict(shape);
+            const Eigen::Vector3d position_1= Eigen::Vector3d(0,0,0);
+            const Eigen::Vector3d velocity_1= Eigen::Vector3d(0,0,0);
+            const Eigen::Vector3d position_2= Eigen::Vector3d(5,0,0);
+            const Eigen::Vector3d velocity_2= Eigen::Vector3d(0,0,0);
 
-            THEN("t2 is in a different map but same timing")
+            t1.insert(time,profile,position_1,velocity_1);
+            t1.insert(time+20s,profile,position_2,velocity_2);
+
+            WHEN("t2 is parallel and without overlap unless robot is not rotated")
+
             {
-                  rmf_traffic::Trajectory t2("test_map_2");
-                  t2.insert(time,profile,pos,vel);
-                  t2.insert(time+20s,profile,pos,vel);
-                  REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
-                  CHECK_broad_phase_is_commutative(t1,t2);
-                  CHECK_between_is_commutative(t1,t2);
+                  rmf_traffic::Trajectory t2("test_map");
+                  t2.insert(time,profile,Eigen::Vector3d{0,1.5,0},velocity_1);
+                  t2.insert(time+20s,profile,Eigen::Vector3d{5,1.5,0},velocity_2);
+                        
+                        THEN("broad_phase should detect collision")
+                        {
+                              REQUIRE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                              CHECK_broad_phase_is_commutative(t1,t2);
+                        }
+
+                        THEN("narrow_phase returns empty")
+                        {
+                              CHECK(rmf_traffic::DetectConflict::narrow_phase(t1,t2).empty());
+                              
+                        }
+
             }
 
-            THEN("t2 is in a different map and different timing")
+            WHEN("t2 is parallel and without overlap unless robot is rotated")
+
             {
-                  rmf_traffic::Trajectory t2("test_map_2");
-                  t2.insert(time+20s,profile,pos,vel);
-                  t2.insert(time+30s,profile,pos,vel);
-                  REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
-                  CHECK_broad_phase_is_commutative(t1,t2);
-                  CHECK_between_is_commutative(t1,t2);
+                  rmf_traffic::Trajectory t2("test_map");
+                  t2.insert(time,profile,Eigen::Vector3d{0,1.5,0},velocity_1);
+                  t2.insert(time+20s,profile,Eigen::Vector3d{5,1.5,M_PI/2},velocity_2);
+                        
+                        THEN("broad_phase should detect collision")
+                        {
+                              REQUIRE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                              CHECK_broad_phase_is_commutative(t1,t2);
+                        }
+
+                        THEN("narrow_phase returns ConflictData")
+                        {
+                              REQUIRE_FALSE(rmf_traffic::DetectConflict::narrow_phase(t1,t2).empty());
+                              
+                        }
+
             }
+
       }
+
+
+
+//trajectories that include rotating boxes which collide due to rotating
+
 }
 // SCENARIO("Test conflicts")
 // {
@@ -360,7 +449,7 @@ SCENARIO("DetectConflict unit tests")
 /// Remaining test suggestions:
 /// * multi-segment trajectories
 /// * trajectories that only partially overlap in time
-/// * trajectories that do not overlap in time at all to test
+/// * trajectories that do not overlap in time at all to test ->done
 ///   DetectConflict::between() and DetectConflict::broad_phase()
 /// * trajectories that include rotating boxes which collide due to rotating
 
