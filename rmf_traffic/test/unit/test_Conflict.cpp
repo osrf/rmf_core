@@ -134,6 +134,60 @@ SCENARIO("DetectConflict unit tests")
                   }
 
             }
+
+            WHEN("t1 and t2 overlap positionally but not in timing")
+            {
+                  
+                  rmf_traffic::Trajectory t2("test_map");
+                  t2.insert(time+20s,profile,pos,vel);
+                  t2.insert(time+30s,profile,pos,vel);
+
+                  THEN("DetectConflict::broad_phase should return false")
+                  {
+                  REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                  CHECK_broad_phase_is_commutative(t1,t2);
+                  }
+                  THEN("DetectConflict::between should return empty")
+                  {
+                        std::vector<rmf_traffic::ConflictData> conflicts= rmf_traffic::DetectConflict::between(t1,t2);
+                        REQUIRE(conflicts.empty());
+                        CHECK_between_is_commutative(t1,t2);
+                  }
+
+
+            }
+      }
+
+      GIVEN("Two trajectories t1 and t2 in different maps and timings of trajectories")
+      {
+
+            const rmf_traffic::Time time = std::chrono::steady_clock::now();
+            rmf_traffic::Trajectory t1("test_map_1");
+            rmf_traffic::Trajectory::ProfilePtr profile= create_test_profile(UnitBox,rmf_traffic::Trajectory::Profile::Agency::Strict);
+            const Eigen::Vector3d pos= Eigen::Vector3d(0,0,0);
+            const Eigen::Vector3d vel= Eigen::Vector3d(0,0,0);
+            t1.insert(time,profile,pos,vel);
+            t1.insert(time+20s,profile,pos,vel);
+
+            THEN("t2 is in a different map but same timing")
+            {
+                  rmf_traffic::Trajectory t2("test_map_2");
+                  t2.insert(time,profile,pos,vel);
+                  t2.insert(time+20s,profile,pos,vel);
+                  REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                  CHECK_broad_phase_is_commutative(t1,t2);
+                  CHECK_between_is_commutative(t1,t2);
+            }
+
+            THEN("t2 is in a different map and different timing")
+            {
+                  rmf_traffic::Trajectory t2("test_map_2");
+                  t2.insert(time+20s,profile,pos,vel);
+                  t2.insert(time+30s,profile,pos,vel);
+                  REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                  CHECK_broad_phase_is_commutative(t1,t2);
+                  CHECK_between_is_commutative(t1,t2);
+            }
       }
 }
 // SCENARIO("Test conflicts")
