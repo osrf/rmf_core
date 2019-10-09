@@ -40,12 +40,6 @@ public:
   /// Update this mirror.
   void update(const Database::Patch& patch);
 
-  /// Get the latest database version that this Mirror was patched to.
-  std::size_t latest_version() const;
-
-  /// Get the oldest database version that this Mirror knows of.
-  std::size_t oldest_version() const;
-
   // TODO(MXG): Consider a feature to log and report any possible
   // inconsistencies that might show up with the patches, e.g. replacing or
   // erasing a trajectory that was never received in the first place.

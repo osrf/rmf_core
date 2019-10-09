@@ -622,6 +622,12 @@ Database::Patch::Patch()
 
 namespace internal {
 //==============================================================================
+void ChangeRelevanceInspector::version_range(VersionRange range)
+{
+  versions = std::move(range);
+}
+
+//==============================================================================
 void ChangeRelevanceInspector::after(const std::size_t* _after)
 {
   after_version = _after;
@@ -637,13 +643,14 @@ void ChangeRelevanceInspector::reserve(std::size_t size)
 namespace {
 
 ConstEntryPtr get_last_known_ancestor(
-    ConstEntryPtr from, const std::size_t last_known_version)
+    ConstEntryPtr from,
+    const std::size_t last_known_version,
+    const VersionRange& versions)
 {
-  ConstEntryPtr check = from;
-  while(check && last_known_version < check->version)
-    check = check->succeeds;
+  while(from && versions.less(last_known_version, from->version))
+    from = from->succeeds;
 
-  return check;
+  return from;
 }
 
 } // anonymous namespace
@@ -656,7 +663,7 @@ void ChangeRelevanceInspector::inspect(
   if(entry->succeeded_by)
     return;
 
-  if(after_version && entry->version <= *after_version)
+  if(after_version && versions.less_or_equal(entry->version, *after_version))
     return;
 
   const bool needed = relevant(entry);
@@ -669,7 +676,7 @@ void ChangeRelevanceInspector::inspect(
     if(after_version)
     {
       const ConstEntryPtr check =
-          get_last_known_ancestor(entry, *after_version);
+          get_last_known_ancestor(entry, *after_version, versions);
 
       if(check)
       {
@@ -716,7 +723,9 @@ void ChangeRelevanceInspector::inspect(
   else if(after_version)
   {
     // Figure out if this trajectory needs to be erased
-    const ConstEntryPtr check = get_last_known_ancestor(entry, *after_version);
+    const ConstEntryPtr check =
+        get_last_known_ancestor(entry, *after_version, versions);
+
     if(check)
     {
       if(relevant(check))

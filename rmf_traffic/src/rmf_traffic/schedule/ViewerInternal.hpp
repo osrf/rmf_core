@@ -118,12 +118,38 @@ struct DeepIterator
 };
 
 //==============================================================================
+/// This class allows us to correctly handle version number overflow. Since the
+/// schedule needs to continue running for an arbitrarily long time, we cannot
+/// expect its versions numbers to get reset before it reaches the limit of
+/// std::size_t. This class allows us to compare version numbers that could have
+/// overflowed at some point. As long as database entries are getting culled
+/// before all version numbers are taken up, this should be guaranteed to handle
+/// the eventual integer overflow correctly.
+class VersionRange
+{
+public:
+
+  VersionRange() = default;
+
+  VersionRange(std::size_t oldest);
+
+  bool less(std::size_t lhs, std::size_t rhs) const;
+
+  bool less_or_equal(std::size_t lhs, std::size_t rhs) const;
+
+private:
+
+  std::size_t _oldest;
+
+};
+
+//==============================================================================
 /// Pure abstract interface class for the
 /// Viewer::Implementation::inspect_spacetime_region_entries utility
 class RelevanceInspector
 {
 public:
-
+  virtual void version_range(VersionRange range) = 0;
   virtual void after(const std::size_t* after) = 0;
   virtual void reserve(std::size_t size) = 0;
 
@@ -145,6 +171,8 @@ class ViewRelevanceInspector : public RelevanceInspector
 {
 public:
 
+  void version_range(VersionRange range) final;
+
   void after(const std::size_t* _after) final;
 
   void reserve(std::size_t size) final;
@@ -158,6 +186,8 @@ public:
       const Time* lower_time_bound,
       const Time* upper_time_bound) final;
 
+  VersionRange versions;
+
   const std::size_t* after_version;
 
   std::vector<const Trajectory*> trajectories;
@@ -170,6 +200,8 @@ public:
 class ChangeRelevanceInspector : public RelevanceInspector
 {
 public:
+
+  void version_range(VersionRange range) final;
 
   void after(const std::size_t* _after) final;
 
@@ -187,6 +219,8 @@ public:
       const ConstEntryPtr& entry,
       const Time* lower_time_bound,
       const Time* upper_time_bound) final;
+
+  VersionRange versions;
 
   const std::size_t* after_version;
 
@@ -212,6 +246,9 @@ public:
 
   MapToTimeline timelines;
   std::vector<internal::EntryPtr> all_entries;
+
+  std::size_t oldest_version = 0;
+  std::size_t latest_version = 0;
 
   /// A map from the version number of each culling to the culls that took place
   std::map<std::size_t, std::vector<std::size_t>> culls;

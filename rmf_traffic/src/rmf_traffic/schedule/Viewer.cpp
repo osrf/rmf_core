@@ -29,6 +29,37 @@ namespace schedule {
 namespace internal {
 
 //==============================================================================
+VersionRange::VersionRange(const std::size_t oldest)
+  : _oldest(oldest)
+{
+  // Do nothing
+}
+
+//==============================================================================
+bool VersionRange::less(std::size_t lhs, std::size_t rhs) const
+{
+  // This modular arithmetic should guarantee that even if version numbers
+  // overflow after the schedule has been operating for a very long time, we
+  // will still compare versions correctly.
+
+  // TODO(MXG): Make sure tests get written to verify the behavior for this is
+  // correct.
+  return (lhs - _oldest) < (rhs - _oldest);
+}
+
+//==============================================================================
+bool VersionRange::less_or_equal(std::size_t lhs, std::size_t rhs) const
+{
+  return (lhs == rhs) || less(lhs, rhs);
+}
+
+//==============================================================================
+void ViewRelevanceInspector::version_range(VersionRange _range)
+{
+  versions = std::move(_range);
+}
+
+//==============================================================================
 void ViewRelevanceInspector::after(const std::size_t* _after)
 {
   after_version = _after;
@@ -48,7 +79,7 @@ void ViewRelevanceInspector::inspect(
   if(entry->succeeded_by)
     return;
 
-  if(after_version && entry->version <= *after_version)
+  if(after_version && versions.less_or_equal(entry->version, *after_version))
     return;
 
   if(rmf_traffic::internal::detect_conflicts(
@@ -65,7 +96,7 @@ void ViewRelevanceInspector::inspect(
   if(entry->succeeded_by)
     return;
 
-  if(after_version && entry->version <= *after_version)
+  if(after_version && versions.less_or_equal(entry->version, *after_version))
     return;
 
   const Trajectory& trajectory = entry->trajectory;
@@ -133,6 +164,18 @@ Viewer::View Viewer::query(const Query& parameters) const
   return View::Implementation::make_view(
         std::move(_pimpl->inspect<internal::ViewRelevanceInspector>(
                     parameters).trajectories));
+}
+
+//==============================================================================
+std::size_t Viewer::oldest_version() const
+{
+  return _pimpl->oldest_version;
+}
+
+//==============================================================================
+std::size_t Viewer::latest_version() const
+{
+  return _pimpl->latest_version;
 }
 
 } // namespace schedule

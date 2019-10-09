@@ -350,12 +350,6 @@ public:
   /// Get the changes in this Database that match the given Query parameters.
   Patch changes(const Query& parameters) const;
 
-  /// Get the oldest version number inside this Database.
-  std::size_t oldest_version() const;
-
-  /// Get the latest version number of this Database.
-  std::size_t latest_version() const;
-
   /// Insert a Trajectory into this database.
   ///
   /// \return The database id for this new Trajectory.
