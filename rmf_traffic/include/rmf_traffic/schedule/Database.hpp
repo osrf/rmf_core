@@ -145,6 +145,17 @@ public:
         std::size_t original_id,
         std::size_t id);
 
+    /// Make a culling
+    ///
+    /// \param[in] culled
+    ///   The set of IDs that were culled.
+    ///
+    /// \param[in] id
+    ///   The ID of this culling
+    static Change make_cull(
+        std::vector<std::size_t> culled,
+        std::size_t id);
+
     /// The API for an insertion
     class Insert
     {
@@ -244,6 +255,7 @@ public:
       /// The ID of the Trajectory that was erased.
       std::size_t original_id() const;
 
+      class Implementation;
     private:
       Erase();
       RMF_UTILS__DEFAULT_COPY_MOVE(Erase);
@@ -256,8 +268,9 @@ public:
     public:
 
       /// The set of IDs that have been culled from the schedule.
-      std::vector<std::size_t> culled_ids() const;
+      const std::vector<std::size_t>& culled_ids() const;
 
+      class Implementation;
     private:
       Cull();
       RMF_UTILS__DEFAULT_COPY_MOVE(Cull);
@@ -313,6 +326,8 @@ public:
     using iterator = base_iterator<Change, IterImpl, Patch>;
     using const_iterator = base_iterator<const Change, IterImpl, Patch>;
 
+    Patch(std::vector<Change> changes);
+
     /// Returns an iterator to the first element of the Patch.
     const_iterator begin() const;
 
@@ -329,6 +344,7 @@ public:
 
     class Implementation;
   private:
+    Patch();
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
