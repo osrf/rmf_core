@@ -48,7 +48,7 @@ void ViewRelevanceInspector::inspect(
   if(entry->succeeded_by)
     return;
 
-  if(after_version && entry->version < *after_version)
+  if(after_version && entry->version <= *after_version)
     return;
 
   if(rmf_traffic::internal::detect_conflicts(
@@ -65,7 +65,7 @@ void ViewRelevanceInspector::inspect(
   if(entry->succeeded_by)
     return;
 
-  if(after_version && entry->version < *after_version)
+  if(after_version && entry->version <= *after_version)
     return;
 
   const Trajectory& trajectory = entry->trajectory;

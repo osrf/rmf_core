@@ -169,6 +169,17 @@ auto Database::Change::make_insert(
 }
 
 //==============================================================================
+auto Database::Change::Implementation::make_insert_ref(
+    const Trajectory* const trajectory,
+    const std::size_t id) -> Change
+{
+  Change change = Implementation::make(Mode::Insert, id);
+  change._pimpl->insert = Insert::Implementation::make_ref(trajectory);
+
+  return change;
+}
+
+//==============================================================================
 class Database::Change::Interrupt::Implementation
 {
 public:
@@ -221,6 +232,19 @@ auto Database::Change::make_interrupt(
 {
   Change change = Implementation::make(Mode::Interrupt, id);
   change._pimpl->interrupt = Interrupt::Implementation::make_copy(
+        interruption_trajectory, original_id, delay);
+  return change;
+}
+
+//==============================================================================
+auto Database::Change::Implementation::make_interrupt_ref(
+    const std::size_t original_id,
+    const Trajectory* const interruption_trajectory,
+    const Duration delay,
+    const std::size_t id) -> Change
+{
+  Change change = Implementation::make(Mode::Interrupt, id);
+  change._pimpl->interrupt = Interrupt::Implementation::make_ref(
         interruption_trajectory, original_id, delay);
   return change;
 }
@@ -308,6 +332,18 @@ auto Database::Change::make_replace(
 {
   Change change = Implementation::make(Mode::Replace, id);
   change._pimpl->replace = Replace::Implementation::make_copy(
+        original_id, trajectory);
+  return change;
+}
+
+//==============================================================================
+auto Database::Change::Implementation::make_replace_ref(
+    const std::size_t original_id,
+    const Trajectory* const trajectory,
+    const std::size_t id) -> Change
+{
+  Change change = Implementation::make(Mode::Replace, id);
+  change._pimpl->replace = Replace::Implementation::make_ref(
         original_id, trajectory);
   return change;
 }
@@ -517,13 +553,16 @@ public:
 
   std::vector<Change> changes;
 
+  std::size_t latest_version;
+
   Implementation()
   {
     // Do nothing
   }
 
-  Implementation(std::vector<Change> _changes)
-    : changes(std::move(_changes))
+  Implementation(std::vector<Change> _changes, std::size_t _latest_version)
+    : changes(std::move(_changes)),
+      latest_version(_latest_version)
   {
     // Sort the changes to make sure they get applied in the correct order
     std::sort(changes.begin(), changes.end(),
@@ -544,8 +583,9 @@ public:
 };
 
 //==============================================================================
-Database::Patch::Patch(std::vector<Change> changes)
-  : _pimpl(rmf_utils::make_impl<Implementation>(std::move(changes)))
+Database::Patch::Patch(std::vector<Change> changes, std::size_t latest_version)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             std::move(changes), latest_version))
 {
   // Do nothing
 }
@@ -569,6 +609,12 @@ std::size_t Database::Patch::size() const
 }
 
 //==============================================================================
+std::size_t Database::Patch::latest_version() const
+{
+  return _pimpl->latest_version;
+}
+
+//==============================================================================
 Database::Patch::Patch()
 {
   // Do nothing
@@ -588,72 +634,147 @@ void ChangeRelevanceInspector::reserve(std::size_t size)
 }
 
 //==============================================================================
+namespace {
+
+ConstEntryPtr get_last_known_ancestor(
+    ConstEntryPtr from, const std::size_t last_known_version)
+{
+  ConstEntryPtr check = from;
+  while(check && last_known_version < check->version)
+    check = check->succeeds;
+
+  return check;
+}
+
+} // anonymous namespace
+
+//==============================================================================
 void ChangeRelevanceInspector::inspect(
     const ConstEntryPtr& entry,
-    const rmf_traffic::internal::Spacetime& spacetime)
+    const std::function<bool(const ConstEntryPtr&)>& relevant)
 {
   if(entry->succeeded_by)
     return;
 
-  if(after_version && entry->version < *after_version)
+  if(after_version && entry->version <= *after_version)
     return;
 
-  const bool relevant = rmf_traffic::internal::detect_conflicts(
-        entry->trajectory, spacetime, nullptr);
+  const bool needed = relevant(entry);
 
-  if(relevant)
+  if(needed)
   {
     // Check if this entry descends from an entry that the remote mirror does
     // not know about.
-    ConstEntryPtr check = entry;
+    ConstEntryPtr record_changes_from = nullptr;
     if(after_version)
     {
-      while(check && *after_version < check->version)
-        check = check->succeeds;
-    }
-    else
-    {
-      while(check->succeeds)
-        check = check->succeeds;
+      const ConstEntryPtr check =
+          get_last_known_ancestor(entry, *after_version);
+
+      if(check)
+      {
+        if(relevant(check))
+        {
+          // The remote mirror already knows the lineage of this entry, so we
+          // will transmit all of its changes from the last version that the
+          // mirror knew about.
+          record_changes_from = check;
+        }
+        else
+        {
+          // The remote mirror does not know the lineage of this entry, so we
+          // will simply transmit the current entry as an insertion. We simply
+          // leave record_changes_from as a nullptr.
+        }
+      }
+      else
+      {
+        // The remote mirror does not know the lineage of this entry, so we
+        // will simply transmit the current entry as an insertion. We simply
+        // leave record_changes_from as a nullptr.
+      }
     }
 
-    if(check)
+    if(record_changes_from)
     {
-      //
+      ConstEntryPtr record = record_changes_from->succeeded_by;
+      while(record)
+      {
+        relevant_changes.emplace_back(*record->change);
+        record = record->succeeded_by;
+      }
     }
     else
     {
-      // No descendents of this entry have ever been seen by the remote mirror,
-      // so we will simply add this trajectory as an insertion
+      // We are not transmitting the chain of changes that led to this entry,
+      // so just create an insertion for it and transmit that.
       relevant_changes.emplace_back(
             Database::Change::Implementation::make_insert_ref(
               &entry->trajectory, entry->version));
     }
   }
-  else
+  else if(after_version)
   {
     // Figure out if this trajectory needs to be erased
-  }
-
-  if(after_version)
-  {
-    bool relevant = false;
-    ConstEntryPtr check = entry;
-    while(check && *after_version < check->version)
+    const ConstEntryPtr check = get_last_known_ancestor(entry, *after_version);
+    if(check)
     {
-      check = check->succeeds;
+      if(relevant(check))
+      {
+        // This trajectory is no longer relevant to the remote mirror, so we
+        // will tell the remote mirror to erase it rather than continuing to
+        // transmit its change history. If a later version of this trajectory
+        // becomes relevant again, we will tell it to insert it at that time.
+        relevant_changes.emplace_back(
+              Database::Change::make_erase(check->version, entry->version));
+      }
     }
   }
-
-
+  else
+  {
+    // The remote mirror never knew about the lineage of this entry, so there's
+    // no need to transmit any information about it at all.
+  }
 }
+
+//==============================================================================
+void ChangeRelevanceInspector::inspect(
+    const ConstEntryPtr& entry,
+    const rmf_traffic::internal::Spacetime& spacetime)
+{
+  inspect(entry, [&](const ConstEntryPtr& e) -> bool {
+    return rmf_traffic::internal::detect_conflicts(
+          e->trajectory, spacetime, nullptr);
+  });
+}
+
+//==============================================================================
+void ChangeRelevanceInspector::inspect(
+    const ConstEntryPtr& entry,
+    const Time* const lower_time_bound,
+    const Time* const upper_time_bound)
+{
+  inspect(entry, [&](const ConstEntryPtr& e) -> bool {
+    const Trajectory& trajectory = e->trajectory;
+    assert(trajectory.start_time() != nullptr);
+
+    if(lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
+      return false;
+
+    if(upper_time_bound && *upper_time_bound < *trajectory.start_time())
+      return false;
+
+    return true;
+  });
+}
+
 } // namespace internal
 
 //==============================================================================
 auto Database::changes(const Query& parameters) const -> Patch
 {
   return Patch(_pimpl->inspect<internal::ChangeRelevanceInspector>(
-                 parameters).relevant_changes);
+                 parameters).relevant_changes, latest_version());
 }
 
 } // namespace schedule

@@ -325,7 +325,7 @@ public:
     class IterImpl;
     using const_iterator = base_iterator<const Change, IterImpl, Patch>;
 
-    Patch(std::vector<Change> changes);
+    Patch(std::vector<Change> changes, std::size_t latest_version);
 
     /// Returns an iterator to the first element of the Patch.
     const_iterator begin() const;
@@ -338,6 +338,9 @@ public:
     /// Get the number of elements in this Patch.
     std::size_t size() const;
 
+    /// Get the latest version of the Database that informed this Patch.
+    std::size_t latest_version() const;
+
     class Implementation;
   private:
     Patch();
@@ -345,7 +348,7 @@ public:
   };
 
   /// Get the changes in this Database that match the given Query parameters.
-  Patch changes(const Query &parameters) const;
+  Patch changes(const Query& parameters) const;
 
   /// Get the oldest version number inside this Database.
   std::size_t oldest_version() const;

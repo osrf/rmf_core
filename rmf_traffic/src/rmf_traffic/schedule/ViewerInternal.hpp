@@ -177,6 +177,10 @@ public:
 
   void inspect(
       const ConstEntryPtr& entry,
+      const std::function<bool(const ConstEntryPtr&)>& relevant);
+
+  void inspect(
+      const ConstEntryPtr& entry,
       const rmf_traffic::internal::Spacetime& spacetime) final;
 
   void inspect(
