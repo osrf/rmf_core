@@ -77,7 +77,7 @@ public:
     ///   The ID of this insertion.
     static Change make_insert(
         const Trajectory* trajectory,
-        std::size_t id);
+        Version id);
 
     /// Make an interruption change
     ///
@@ -93,10 +93,10 @@ public:
     /// \param[in] id
     ///   The ID of the modified Trajectory
     static Change make_interrupt(
-        std::size_t original_id,
+        Version original_id,
         const Trajectory* interruption_trajectory,
         Duration delay,
-        std::size_t id);
+        Version id);
 
     /// Make a delay change
     ///
@@ -113,10 +113,10 @@ public:
     /// \param[in] id
     ///   The ID of the modified Trajectory
     static Change make_delay(
-        std::size_t original_id,
+        Version original_id,
         Time from,
         Duration delay,
-        std::size_t id);
+        Version id);
 
     /// Make a replacement change
     ///
@@ -130,9 +130,9 @@ public:
     /// \param[in] id
     ///   The ID of this replacement.
     static Change make_replace(
-        std::size_t original_id,
+        Version original_id,
         const Trajectory* trajectory,
-        std::size_t id);
+        Version id);
 
     /// Make an erasure change
     ///
@@ -142,8 +142,8 @@ public:
     /// \param[in] id
     ///   The ID of this erasure.
     static Change make_erase(
-        std::size_t original_id,
-        std::size_t id);
+        Version original_id,
+        Version id);
 
     /// Make a culling
     ///
@@ -153,8 +153,8 @@ public:
     /// \param[in] id
     ///   The ID of this culling
     static Change make_cull(
-        std::vector<std::size_t> culled,
-        std::size_t id);
+        std::vector<Version> culled,
+        Version id);
 
     /// The API for an insertion
     class Insert
@@ -182,7 +182,7 @@ public:
     public:
 
       /// The ID of the Trajectory that was interrupted.
-      std::size_t original_id() const;
+      Version original_id() const;
 
       /// A pointer to the Trajectory that was inserted.
       ///
@@ -208,7 +208,7 @@ public:
     public:
 
       /// The ID of the Trajectory that was delayed.
-      std::size_t original_id() const;
+      Version original_id() const;
 
       /// The time that the delay began.
       Time from() const;
@@ -230,7 +230,7 @@ public:
     public:
 
       /// The ID of the Trajectory that was replaced
-      std::size_t original_id() const;
+      Version original_id() const;
 
       /// A pointer to the Trajectory that replaced it.
       ///
@@ -253,7 +253,7 @@ public:
     public:
 
       /// The ID of the Trajectory that was erased.
-      std::size_t original_id() const;
+      Version original_id() const;
 
       class Implementation;
     private:
@@ -268,7 +268,7 @@ public:
     public:
 
       /// The set of IDs that have been culled from the schedule.
-      const std::vector<std::size_t>& culled_ids() const;
+      const std::vector<Version>& culled_ids() const;
 
       class Implementation;
     private:
@@ -282,7 +282,7 @@ public:
     Mode get_mode() const;
 
     /// Get the version ID that this change refers to
-    std::size_t id() const;
+    Version id() const;
 
     /// Get the Insert interface if this is an Insert type change. Otherwise
     /// this returns a nullptr.
@@ -325,7 +325,7 @@ public:
     class IterImpl;
     using const_iterator = base_iterator<const Change, IterImpl, Patch>;
 
-    Patch(std::vector<Change> changes, std::size_t latest_version);
+    Patch(std::vector<Change> changes, Version latest_version);
 
     /// Returns an iterator to the first element of the Patch.
     const_iterator begin() const;
@@ -339,7 +339,7 @@ public:
     std::size_t size() const;
 
     /// Get the latest version of the Database that informed this Patch.
-    std::size_t latest_version() const;
+    Version latest_version() const;
 
     class Implementation;
   private:
@@ -353,7 +353,7 @@ public:
   /// Insert a Trajectory into this database.
   ///
   /// \return The database id for this new Trajectory.
-  std::size_t insert(Trajectory trajectory);
+  Version insert(Trajectory trajectory);
 
   /// Interrupt a trajectory by inserting another Trajectory inside of it.
   ///
@@ -380,8 +380,8 @@ public:
   /// \return The updated ID for this modified Trajectory.
   ///
   /// \sa delay()
-  std::size_t interrupt(
-      std::size_t id,
+  Version interrupt(
+      Version id,
       Trajectory interruption_trajectory,
       Duration delay);
 
@@ -410,8 +410,8 @@ public:
   /// \return The updated ID for this modified Trajectory
   ///
   /// \sa interrupt()
-  std::size_t delay(
-      std::size_t id,
+  Version delay(
+      Version id,
       Time from,
       Duration delay);
 
@@ -425,12 +425,12 @@ public:
   ///   The new trajectory to replace the old one with.
   ///
   /// \return The updated ID of the revised trajectory.
-  std::size_t replace(std::size_t previous_id, Trajectory trajectory);
+  Version replace(Version previous_id, Trajectory trajectory);
 
   /// Erase a Trajectory from this database.
   ///
   /// \return the new version of this database.
-  std::size_t erase(std::size_t id);
+  Version erase(Version id);
 
   /// Throw away all Trajectories up to the specified time.
   ///
@@ -441,7 +441,7 @@ public:
   ///
   /// \return The new version of the schedule database. If nothing was culled,
   /// this version number will remain the same.
-  std::size_t cull(Time time);
+  Version cull(Time time);
 
 };
 

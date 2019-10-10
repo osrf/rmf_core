@@ -47,7 +47,7 @@ struct Entry
   Trajectory trajectory;
 
   // The version number of this entry
-  std::size_t version;
+  Version version;
 
   // Succeeds
   ConstEntryPtr succeeds;
@@ -121,7 +121,7 @@ struct DeepIterator
 /// This class allows us to correctly handle version number overflow. Since the
 /// schedule needs to continue running for an arbitrarily long time, we cannot
 /// expect its versions numbers to get reset before it reaches the limit of
-/// std::size_t. This class allows us to compare version numbers that could have
+/// Version. This class allows us to compare version numbers that could have
 /// overflowed at some point. As long as database entries are getting culled
 /// before all version numbers are taken up, this should be guaranteed to handle
 /// the eventual integer overflow correctly.
@@ -131,15 +131,15 @@ public:
 
   VersionRange() = default;
 
-  VersionRange(std::size_t oldest);
+  VersionRange(Version oldest);
 
-  bool less(std::size_t lhs, std::size_t rhs) const;
+  bool less(Version lhs, Version rhs) const;
 
-  bool less_or_equal(std::size_t lhs, std::size_t rhs) const;
+  bool less_or_equal(Version lhs, Version rhs) const;
 
 private:
 
-  std::size_t _oldest;
+  Version _oldest;
 
 };
 
@@ -150,8 +150,8 @@ class RelevanceInspector
 {
 public:
   virtual void version_range(VersionRange range) = 0;
-  virtual void after(const std::size_t* after) = 0;
-  virtual void reserve(std::size_t size) = 0;
+  virtual void after(const Version* after) = 0;
+  virtual void reserve(Version size) = 0;
 
   virtual void inspect(
       const ConstEntryPtr& entry,
@@ -173,7 +173,7 @@ public:
 
   void version_range(VersionRange range) final;
 
-  void after(const std::size_t* _after) final;
+  void after(const Version* _after) final;
 
   void reserve(std::size_t size) final;
 
@@ -188,7 +188,7 @@ public:
 
   VersionRange versions;
 
-  const std::size_t* after_version;
+  const Version* after_version;
 
   std::vector<const Trajectory*> trajectories;
 
@@ -203,9 +203,9 @@ public:
 
   void version_range(VersionRange range) final;
 
-  void after(const std::size_t* _after) final;
+  void after(const Version* _after) final;
 
-  void reserve(std::size_t size) final;
+  void reserve(Version size) final;
 
   void inspect(
       const ConstEntryPtr& entry,
@@ -222,7 +222,7 @@ public:
 
   VersionRange versions;
 
-  const std::size_t* after_version;
+  const Version* after_version;
 
   std::vector<Database::Change> relevant_changes;
 };
@@ -242,23 +242,23 @@ public:
   using Timeline = std::map<Time, Bucket>;
   using MapToTimeline = std::unordered_map<std::string, Timeline>;
 
-  using EntryMap = std::map<std::size_t, internal::EntryPtr>;
+  using EntryMap = std::map<Version, internal::EntryPtr>;
 
   MapToTimeline timelines;
   std::vector<internal::EntryPtr> all_entries;
 
-  std::size_t oldest_version = 0;
-  std::size_t latest_version = 0;
+  Version oldest_version = 0;
+  Version latest_version = 0;
 
   /// A map from the version number of each culling to the culls that took place
-  std::map<std::size_t, std::vector<std::size_t>> culls;
+  std::map<Version, std::vector<Version>> culls;
 
   template<typename RelevanceInspectorT>
   void inspect_spacetime_region_entries(
       const Query::Spacetime::Regions& regions,
       RelevanceInspectorT& inspector) const
   {
-    std::unordered_set<std::size_t> checked;
+    std::unordered_set<Version> checked;
     checked.reserve(all_entries.size());
 
     for(const Region& region : regions)
@@ -315,7 +315,7 @@ public:
       const Time* upper_time_bound,
       RelevanceInspectorT& inspector) const
   {
-    std::unordered_set<std::size_t> checked;
+    std::unordered_set<Version> checked;
     checked.reserve(all_entries.size());
 
     for(const std::string& map : maps)
@@ -363,8 +363,8 @@ public:
 
     std::vector<internal::EntryPtr> qualified_entries;
 
-    std::size_t after_version;
-    const std::size_t* after_version_ptr = nullptr;
+    Version after_version;
+    const Version* after_version_ptr = nullptr;
     switch(versions_mode)
     {
       case Query::Versions::Mode::All:

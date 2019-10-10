@@ -29,14 +29,14 @@ namespace schedule {
 namespace internal {
 
 //==============================================================================
-VersionRange::VersionRange(const std::size_t oldest)
+VersionRange::VersionRange(const Version oldest)
   : _oldest(oldest)
 {
   // Do nothing
 }
 
 //==============================================================================
-bool VersionRange::less(std::size_t lhs, std::size_t rhs) const
+bool VersionRange::less(const Version lhs, const Version rhs) const
 {
   // This modular arithmetic should guarantee that even if version numbers
   // overflow after the schedule has been operating for a very long time, we
@@ -48,7 +48,7 @@ bool VersionRange::less(std::size_t lhs, std::size_t rhs) const
 }
 
 //==============================================================================
-bool VersionRange::less_or_equal(std::size_t lhs, std::size_t rhs) const
+bool VersionRange::less_or_equal(const Version lhs, const Version rhs) const
 {
   return (lhs == rhs) || less(lhs, rhs);
 }
@@ -60,13 +60,13 @@ void ViewRelevanceInspector::version_range(VersionRange _range)
 }
 
 //==============================================================================
-void ViewRelevanceInspector::after(const std::size_t* _after)
+void ViewRelevanceInspector::after(const Version* _after)
 {
   after_version = _after;
 }
 
 //==============================================================================
-void ViewRelevanceInspector::reserve(std::size_t size)
+void ViewRelevanceInspector::reserve(const std::size_t size)
 {
   trajectories.reserve(size);
 }
@@ -167,13 +167,13 @@ Viewer::View Viewer::query(const Query& parameters) const
 }
 
 //==============================================================================
-std::size_t Viewer::oldest_version() const
+Version Viewer::oldest_version() const
 {
   return _pimpl->oldest_version;
 }
 
 //==============================================================================
-std::size_t Viewer::latest_version() const
+Version Viewer::latest_version() const
 {
   return _pimpl->latest_version;
 }

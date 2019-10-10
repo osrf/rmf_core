@@ -395,7 +395,7 @@ public:
 };
 
 //==============================================================================
-Query::Versions::After::After(std::size_t version)
+Query::Versions::After::After(Version version)
   : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{version}))
 {
   // Do nothing
@@ -419,13 +419,13 @@ public:
 };
 
 //==============================================================================
-std::size_t Query::Versions::After::get_version() const
+Version Query::Versions::After::get_version() const
 {
   return _pimpl->after_version;
 }
 
 //==============================================================================
-auto Query::Versions::After::set_version(std::size_t version) -> After&
+auto Query::Versions::After::set_version(Version version) -> After&
 {
   _pimpl->after_version = version;
   return *this;
@@ -439,7 +439,7 @@ Query::Versions::Versions()
 }
 
 //==============================================================================
-Query::Versions::Versions(std::size_t version)
+Query::Versions::Versions(Version version)
   : _pimpl(rmf_utils::make_impl<Implementation>())
 {
   query_after(version);
@@ -459,7 +459,7 @@ auto Query::Versions::query_all() -> All&
 }
 
 //==============================================================================
-auto Query::Versions::query_after(std::size_t version) -> After&
+auto Query::Versions::query_after(Version version) -> After&
 {
   _pimpl->mode = Mode::After;
   if(_pimpl->after_instance._pimpl)
@@ -566,7 +566,7 @@ Query query_everything()
 }
 
 //==============================================================================
-Query make_query(std::size_t after_version)
+Query make_query(Version after_version)
 {
   return Query::Implementation::make_query(after_version);
 }
@@ -579,7 +579,7 @@ Query make_query(std::vector<Region> regions)
 
 //==============================================================================
 Query make_query(
-    std::size_t after_version,
+    Version after_version,
     std::vector<Region> regions)
 {
   return Query::Implementation::make_query(after_version, std::move(regions));

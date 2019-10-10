@@ -39,9 +39,9 @@ public:
   Erase erase;
   Cull cull;
 
-  std::size_t id;
+  Version id;
 
-  static Change make(const Mode mode, const std::size_t id)
+  static Change make(const Mode mode, const Version id)
   {
     Change change;
     change._pimpl->mode = mode;
@@ -52,18 +52,18 @@ public:
 
   static Change make_insert_ref(
       const Trajectory* trajectory,
-      std::size_t id);
+      Version id);
 
   static Change make_interrupt_ref(
-      std::size_t original_id,
+      Version original_id,
       const Trajectory* interruption_trajectory,
       Duration delay,
-      std::size_t id);
+      Version id);
 
   static Change make_replace_ref(
-      std::size_t original_id,
+      Version original_id,
       const Trajectory* trajectory,
-      std::size_t id);
+      Version id);
 };
 
 namespace {
@@ -160,7 +160,7 @@ Database::Change::Change()
 //==============================================================================
 auto Database::Change::make_insert(
     const Trajectory* const trajectory,
-    std::size_t id) -> Change
+    Version id) -> Change
 {
   Change change = Implementation::make(Mode::Insert, id);
   change._pimpl->insert = Insert::Implementation::make_copy(trajectory);
@@ -171,7 +171,7 @@ auto Database::Change::make_insert(
 //==============================================================================
 auto Database::Change::Implementation::make_insert_ref(
     const Trajectory* const trajectory,
-    const std::size_t id) -> Change
+    const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Insert, id);
   change._pimpl->insert = Insert::Implementation::make_ref(trajectory);
@@ -185,7 +185,7 @@ class Database::Change::Interrupt::Implementation
 public:
 
   DeepOrShallowTrajectory trajectory;
-  std::size_t original_id;
+  Version original_id;
   Duration delay;
 
   template<typename... Args>
@@ -225,10 +225,10 @@ Database::Change::Interrupt::Interrupt()
 
 //==============================================================================
 auto Database::Change::make_interrupt(
-    std::size_t original_id,
+    Version original_id,
     const Trajectory* const interruption_trajectory,
     Duration delay,
-    std::size_t id) -> Change
+    Version id) -> Change
 {
   Change change = Implementation::make(Mode::Interrupt, id);
   change._pimpl->interrupt = Interrupt::Implementation::make_copy(
@@ -238,10 +238,10 @@ auto Database::Change::make_interrupt(
 
 //==============================================================================
 auto Database::Change::Implementation::make_interrupt_ref(
-    const std::size_t original_id,
+    const Version original_id,
     const Trajectory* const interruption_trajectory,
     const Duration delay,
-    const std::size_t id) -> Change
+    const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Interrupt, id);
   change._pimpl->interrupt = Interrupt::Implementation::make_ref(
@@ -254,7 +254,7 @@ class Database::Change::Delay::Implementation
 {
 public:
 
-  std::size_t original_id;
+  Version original_id;
   Time from;
   Duration delay;
 
@@ -277,10 +277,10 @@ Database::Change::Delay::Delay()
 
 //==============================================================================
 auto Database::Change::make_delay(
-    std::size_t original_id,
+    Version original_id,
     Time from,
     Duration delay,
-    std::size_t id) -> Change
+    Version id) -> Change
 {
   Change change = Implementation::make(Mode::Delay, id);
   change._pimpl->delay = Delay::Implementation::make(
@@ -293,11 +293,11 @@ class Database::Change::Replace::Implementation
 {
 public:
 
-  std::size_t original_id;
+  Version original_id;
   DeepOrShallowTrajectory trajectory;
 
   static Replace make_copy(
-      const std::size_t original_id,
+      const Version original_id,
       const Trajectory* const trajectory)
   {
     Replace result;
@@ -307,7 +307,7 @@ public:
   }
 
   static Replace make_ref(
-      const std::size_t original_id,
+      const Version original_id,
       const Trajectory* const trajectory)
   {
     Replace result;
@@ -326,9 +326,9 @@ Database::Change::Replace::Replace()
 
 //==============================================================================
 auto Database::Change::make_replace(
-    const std::size_t original_id,
+    const Version original_id,
     const Trajectory* const trajectory,
-    const std::size_t id) -> Change
+    const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Replace, id);
   change._pimpl->replace = Replace::Implementation::make_copy(
@@ -338,9 +338,9 @@ auto Database::Change::make_replace(
 
 //==============================================================================
 auto Database::Change::Implementation::make_replace_ref(
-    const std::size_t original_id,
+    const Version original_id,
     const Trajectory* const trajectory,
-    const std::size_t id) -> Change
+    const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Replace, id);
   change._pimpl->replace = Replace::Implementation::make_ref(
@@ -353,9 +353,9 @@ class Database::Change::Erase::Implementation
 {
 public:
 
-  std::size_t original_id;
+  Version original_id;
 
-  static Erase make(const std::size_t original_id)
+  static Erase make(const Version original_id)
   {
     Erase result;
     result._pimpl = rmf_utils::make_impl<Implementation>(
@@ -373,8 +373,8 @@ Database::Change::Erase::Erase()
 
 //==============================================================================
 auto Database::Change::make_erase(
-    const std::size_t original_id,
-    const std::size_t id) -> Change
+    const Version original_id,
+    const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Erase, id);
   change._pimpl->erase = Erase::Implementation::make(original_id);
@@ -386,9 +386,9 @@ class Database::Change::Cull::Implementation
 {
 public:
 
-  std::vector<std::size_t> culled;
+  std::vector<Version> culled;
 
-  static Cull make(std::vector<std::size_t> _culled)
+  static Cull make(std::vector<Version> _culled)
   {
     Cull result;
     result._pimpl = rmf_utils::make_impl<Implementation>(
@@ -406,8 +406,8 @@ Database::Change::Cull::Cull()
 
 //==============================================================================
 auto Database::Change::make_cull(
-    std::vector<std::size_t> culled,
-    const std::size_t id) -> Change
+    std::vector<Version> culled,
+    const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Cull, id);
   change._pimpl->cull = Cull::Implementation::make(std::move(culled));
@@ -421,7 +421,7 @@ const Trajectory* Database::Change::Insert::trajectory() const
 }
 
 //==============================================================================
-std::size_t Database::Change::Interrupt::original_id() const
+Version Database::Change::Interrupt::original_id() const
 {
   return _pimpl->original_id;
 }
@@ -439,7 +439,7 @@ Duration Database::Change::Interrupt::delay() const
 }
 
 //==============================================================================
-std::size_t Database::Change::Delay::original_id() const
+Version Database::Change::Delay::original_id() const
 {
   return _pimpl->original_id;
 }
@@ -457,7 +457,7 @@ Duration Database::Change::Delay::duration() const
 }
 
 //==============================================================================
-std::size_t Database::Change::Replace::original_id() const
+Version Database::Change::Replace::original_id() const
 {
   return _pimpl->original_id;
 }
@@ -469,13 +469,13 @@ const Trajectory* Database::Change::Replace::trajectory() const
 }
 
 //==============================================================================
-std::size_t Database::Change::Erase::original_id() const
+Version Database::Change::Erase::original_id() const
 {
   return _pimpl->original_id;
 }
 
 //==============================================================================
-const std::vector<std::size_t>& Database::Change::Cull::culled_ids() const
+const std::vector<Version>& Database::Change::Cull::culled_ids() const
 {
   return _pimpl->culled;
 }
@@ -487,7 +487,7 @@ auto Database::Change::get_mode() const -> Mode
 }
 
 //==============================================================================
-std::size_t Database::Change::id() const
+Version Database::Change::id() const
 {
   return _pimpl->id;
 }
@@ -553,14 +553,14 @@ public:
 
   std::vector<Change> changes;
 
-  std::size_t latest_version;
+  Version latest_version;
 
   Implementation()
   {
     // Do nothing
   }
 
-  Implementation(std::vector<Change> _changes, std::size_t _latest_version)
+  Implementation(std::vector<Change> _changes, Version _latest_version)
     : changes(std::move(_changes)),
       latest_version(_latest_version)
   {
@@ -583,7 +583,7 @@ public:
 };
 
 //==============================================================================
-Database::Patch::Patch(std::vector<Change> changes, std::size_t latest_version)
+Database::Patch::Patch(std::vector<Change> changes, Version latest_version)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              std::move(changes), latest_version))
 {
@@ -609,7 +609,7 @@ std::size_t Database::Patch::size() const
 }
 
 //==============================================================================
-std::size_t Database::Patch::latest_version() const
+Version Database::Patch::latest_version() const
 {
   return _pimpl->latest_version;
 }
@@ -628,7 +628,7 @@ void ChangeRelevanceInspector::version_range(VersionRange range)
 }
 
 //==============================================================================
-void ChangeRelevanceInspector::after(const std::size_t* _after)
+void ChangeRelevanceInspector::after(const Version* _after)
 {
   after_version = _after;
 }
@@ -644,7 +644,7 @@ namespace {
 
 ConstEntryPtr get_last_known_ancestor(
     ConstEntryPtr from,
-    const std::size_t last_known_version,
+    const Version last_known_version,
     const VersionRange& versions)
 {
   while(from && versions.less(last_known_version, from->version))

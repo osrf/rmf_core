@@ -76,10 +76,10 @@ public:
   View query(const Query& parameters) const;
 
   /// Get the oldest version number inside this Database.
-  std::size_t oldest_version() const;
+  Version oldest_version() const;
 
   /// Get the latest version number of this Database.
-  std::size_t latest_version() const;
+  Version latest_version() const;
 
 
   class Implementation;

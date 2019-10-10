@@ -20,6 +20,8 @@
 
 #include <rmf_traffic/detail/bidirectional_iterator.hpp>
 
+#include <rmf_traffic/schedule/Version.hpp>
+
 #include <rmf_traffic/Region.hpp>
 #include <rmf_traffic/Time.hpp>
 
@@ -256,18 +258,18 @@ public:
     public:
 
       /// Constructor.
-      After(std::size_t version);
+      After(Version version);
 
       /// Get the specified version. The Query will only return Trajectories
       /// which were introduced after this version of the schedule.
-      std::size_t get_version() const;
+      Version get_version() const;
 
       /// Set the version.
       ///
       /// \param version
       ///   The Query will only return Trajectories which were introduced after
       ///   this version of the schedule.
-      After& set_version(std::size_t version);
+      After& set_version(Version version);
 
       class Implementation;
     private:
@@ -286,7 +288,7 @@ public:
     /// \param[in] version
     ///   The Query will only return Trajectories which were introduced after
     ///   this version of the schedule.
-    Versions(std::size_t version);
+    Versions(Version version);
 
     /// Get the current Versions mode of this query.
     Mode get_mode() const;
@@ -301,7 +303,7 @@ public:
     /// \param[in] version
     ///   The Query will only return Trajectories which were introduced after
     ///   this version of the schedule.
-    After& query_after(std::size_t version);
+    After& query_after(Version version);
 
     /// Get the Versions After interface to use for this Query. If this Versions
     /// is not in the After mode, then this will return a nullptr.
@@ -347,7 +349,7 @@ Query query_everything();
 ///   Only query Trajectories that were added to the schedule after this
 ///   version number.
 Query make_query(
-    std::size_t after_version);
+    Version after_version);
 
 //==============================================================================
 /// Query for all Trajectories that intersect with this set of spacetime
@@ -369,7 +371,7 @@ Query make_query(
 /// \param[in] regions
 ///   Only query Trajectories that intersect with the specified regions.
 Query make_query(
-    std::size_t after_version,
+    Version after_version,
     std::vector<Region> regions);
 
 } // namespace schedule
