@@ -35,14 +35,12 @@ namespace internal {
 struct Entry;
 using EntryPtr = std::shared_ptr<Entry>;
 using ConstEntryPtr = std::shared_ptr<const Entry>;
+using ChangePtr = std::unique_ptr<Database::Change>;
+using ConstChangePtr = std::unique_ptr<const Database::Change>;
 
-using ChangePtr = std::shared_ptr<Database::Change>;
-
+//==============================================================================
 struct Entry
 {
-  // The change that led to this entry
-  ChangePtr change;
-
   // The trajectory for this entry
   Trajectory trajectory;
 
@@ -54,8 +52,19 @@ struct Entry
 
   // A version that succeeded this entry, if such a version exists
   ConstEntryPtr succeeded_by;
+
+  // The change that led to this entry
+  ConstChangePtr change;
+
+  // Initialize this entry
+  Entry(
+      Trajectory _trajectory,
+      Version _version,
+      ConstEntryPtr _succeeds = nullptr,
+      ChangePtr _change = nullptr);
 };
 
+//==============================================================================
 struct DeepIterator
 {
   std::vector<const Trajectory*>::const_iterator it;
@@ -234,24 +243,38 @@ class Viewer::Implementation
 {
 public:
 
-  using Bucket = std::vector<internal::EntryPtr>;
+  using Bucket = std::vector<internal::ConstEntryPtr>;
 
   // TODO(MXG): A possible performance improvement could be to introduce spatial
   // buckets that are orthogonal to the time buckets. This could be added later
   // without negatively impacting the API or ABI.
+
+  //
   using Timeline = std::map<Time, Bucket>;
   using MapToTimeline = std::unordered_map<std::string, Timeline>;
 
-  using EntryMap = std::map<Version, internal::EntryPtr>;
 
   MapToTimeline timelines;
-  std::vector<internal::EntryPtr> all_entries;
+
+  // TODO(MXG): Consider using a sorted vector here instead of a
+  // std::unordered_map.
+  using EntryMap = std::map<Version, internal::EntryPtr>;
+  EntryMap all_entries;
 
   Version oldest_version = 0;
   Version latest_version = 0;
 
   /// A map from the version number of each culling to the culls that took place
   std::map<Version, std::vector<Version>> culls;
+
+  internal::EntryPtr add_entry(internal::EntryPtr entry);
+
+  Timeline::iterator get_timeline_iterator(
+      Timeline& timeline, Time time);
+
+  EntryMap::iterator get_entry_iterator(
+      Version id,
+      const std::string& operation);
 
   template<typename RelevanceInspectorT>
   void inspect_spacetime_region_entries(
@@ -296,7 +319,7 @@ public:
           auto entry_it = bucket.begin();
           for(; entry_it != bucket.end(); ++entry_it)
           {
-            const internal::EntryPtr& entry_ptr = *entry_it;
+            const internal::ConstEntryPtr& entry_ptr = *entry_it;
             // Test if we have already checked this entry
             if(!checked.insert(entry_ptr->version).second)
               continue;
@@ -342,7 +365,7 @@ public:
         auto entry_it = bucket.begin();
         for(; entry_it != bucket.end(); ++entry_it)
         {
-          const internal::EntryPtr& entry_ptr = *entry_it;
+          const internal::ConstEntryPtr& entry_ptr = *entry_it;
           if(!checked.insert(entry_ptr->version).second)
             continue;
 
@@ -392,7 +415,10 @@ public:
     {
       case Query::Spacetime::Mode::All:
       {
-        qualified_entries = all_entries;
+        qualified_entries.reserve(all_entries.size());
+        for(const auto& entry : all_entries)
+          qualified_entries.push_back(entry.second);
+
         if(after_version_ptr)
         {
           const auto removed = std::remove_if(
@@ -430,6 +456,18 @@ public:
   }
 
 };
+
+//==============================================================================
+Trajectory add_interruption(
+    Trajectory old_trajectory,
+    const Trajectory& interruption_trajectory,
+    const Duration delay);
+
+//==============================================================================
+Trajectory add_delay(
+    Trajectory old_trajectory,
+    const Time time,
+    const Duration delay);
 
 } // namespace schedule
 } // namespace rmf_traffic

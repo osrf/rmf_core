@@ -48,6 +48,10 @@ public:
     /// Enumeration for what type of change has occurred
     enum class Mode : uint16_t
     {
+      /// This is an invalid Change::Mode. If you ever find this a Change object
+      /// in this mode, please report it as a bug.
+      Void,
+
       /// A Trajectory was inserted
       Insert,
 

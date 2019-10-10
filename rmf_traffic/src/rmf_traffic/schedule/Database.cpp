@@ -50,10 +50,22 @@ public:
     return change;
   }
 
+  static Change make_void()
+  {
+    Change change;
+    change._pimpl->mode = Mode::Void;
+    return change;
+  }
+
   static Change make_insert_ref(
       const Trajectory* trajectory,
       Version id);
 
+  // Note(MXG): We're not using make_interrupt_ref yet, and perhaps we never
+  // will. In theory this function could be used to save time and memory when a
+  // Database generates a Patch that includes an interrupt, but it would add
+  // complexity to the implementation of Patch generation, so I'm deferring that
+  // feature for later.
   static Change make_interrupt_ref(
       Version original_id,
       const Trajectory* interruption_trajectory,
@@ -621,6 +633,7 @@ Database::Patch::Patch()
 }
 
 namespace internal {
+
 //==============================================================================
 void ChangeRelevanceInspector::version_range(VersionRange range)
 {
@@ -784,6 +797,121 @@ auto Database::changes(const Query& parameters) const -> Patch
 {
   return Patch(_pimpl->inspect<internal::ChangeRelevanceInspector>(
                  parameters).relevant_changes, latest_version());
+}
+
+//==============================================================================
+Version Database::insert(Trajectory trajectory)
+{
+  internal::EntryPtr new_entry =
+      std::make_shared<internal::Entry>(
+        std::move(trajectory),
+        ++_pimpl->latest_version);
+
+  new_entry->change = std::make_unique<Change>(
+        Change::Implementation::make_insert_ref(
+          &new_entry->trajectory, new_entry->version));
+
+  _pimpl->add_entry(new_entry);
+  return new_entry->version;
+}
+
+//==============================================================================
+Version Database::interrupt(
+    Version id,
+    Trajectory interruption_trajectory,
+    Duration delay)
+{
+  const internal::EntryPtr& old_entry =
+      _pimpl->get_entry_iterator(id, "interruption")->second;
+
+  Trajectory new_trajectory = add_interruption(
+        old_entry->trajectory, interruption_trajectory, delay);
+
+  const Version new_version = ++_pimpl->latest_version;
+  Change change = Database::Change::make_interrupt(
+        id, &interruption_trajectory, delay, new_version);
+
+  old_entry->succeeded_by = _pimpl->add_entry(
+      std::make_shared<internal::Entry>(
+        std::move(new_trajectory),
+        new_version,
+        old_entry,
+        std::make_unique<Change>(std::move(change))));
+
+  return new_version;
+}
+
+//==============================================================================
+Version Database::delay(
+    const Version id,
+    const Time from,
+    const Duration delay)
+{
+  const internal::EntryPtr& old_entry =
+      _pimpl->get_entry_iterator(id, "delay")->second;
+
+  Trajectory new_trajectory = add_delay(
+        old_entry->trajectory, from, delay);
+
+  const Version new_version = ++_pimpl->latest_version;
+  Change change = Database::Change::make_delay(id, from, delay, new_version);
+
+  old_entry->succeeded_by = _pimpl->add_entry(
+        std::make_shared<internal::Entry>(
+          std::move(new_trajectory),
+          new_version,
+          old_entry,
+          std::make_unique<Change>(std::move(change))));
+
+  return new_version;
+}
+
+//==============================================================================
+Version Database::replace(
+    Version previous_id,
+    Trajectory trajectory)
+{
+  const internal::EntryPtr& old_entry =
+      _pimpl->get_entry_iterator(previous_id, "replacement")->second;
+
+  const Version new_version = ++_pimpl->latest_version;
+  internal::EntryPtr new_entry =
+      std::make_shared<internal::Entry>(
+        std::move(trajectory),
+        new_version,
+        old_entry);
+
+  new_entry->change = std::make_unique<Change>(
+        Change::Implementation::make_replace_ref(
+          previous_id, &new_entry->trajectory, new_version));
+
+  old_entry->succeeded_by = _pimpl->add_entry(new_entry);
+
+  return new_version;
+}
+
+//==============================================================================
+Version Database::erase(Version id)
+{
+  const internal::EntryPtr& old_entry =
+      _pimpl->get_entry_iterator(id, "erasure")->second;
+
+  const Version new_version = ++_pimpl->latest_version;
+
+  old_entry->succeeded_by = _pimpl->add_entry(
+        std::make_shared<internal::Entry>(
+          Trajectory{old_entry->trajectory.get_map_name()},
+          new_version,
+          old_entry,
+          Change::make_erase(id, new_version)));
+
+  return new_version;
+}
+
+//==============================================================================
+Version Database::cull(Time time)
+{
+
 }
 
 } // namespace schedule
