@@ -256,18 +256,34 @@ public:
 
   MapToTimeline timelines;
 
-  // TODO(MXG): Consider using a sorted vector here instead of a
-  // std::unordered_map.
+  // TODO(MXG): Consider using a sorted vector here instead of a std::map.
   using EntryMap = std::map<Version, internal::EntryPtr>;
   EntryMap all_entries;
 
   Version oldest_version = 0;
   Version latest_version = 0;
 
-  /// A map from the version number of each culling to the culls that took place
-  std::map<Version, std::vector<Version>> culls;
+  /// Remembers the version number and time value of the last culling that took
+  /// place.
+  std::pair<Version, Time> last_cull;
+
+  static constexpr std::size_t ChangeModeNum =
+      static_cast<std::size_t>(Database::Change::Mode::NUM);
+  using Changers =
+      std::array<std::function<void(const Database::Change&)>, ChangeModeNum>;
+  /// Used by the Mirror class to apply changes to its record.
+  ///
+  /// This field does not get used by the Database class
+  Changers changers;
 
   internal::EntryPtr add_entry(internal::EntryPtr entry);
+
+  /// Used by the Mirror class to make efficient changes to entries
+  void modify_entry(const internal::EntryPtr& entry,
+      Trajectory new_trajectory, const Version new_id);
+
+  /// Used by the Mirror class to erase entries that are no longer needed
+  void erase_entry(Version id);
 
   Timeline::iterator get_timeline_iterator(
       Timeline& timeline, Time time);
@@ -275,6 +291,8 @@ public:
   EntryMap::iterator get_entry_iterator(
       Version id,
       const std::string& operation);
+
+  void cull(Version id, Time time);
 
   template<typename RelevanceInspectorT>
   void inspect_spacetime_region_entries(

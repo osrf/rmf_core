@@ -38,7 +38,9 @@ public:
   Mirror();
 
   /// Update this mirror.
-  void update(const Database::Patch& patch);
+  ///
+  /// \return the last version that this Mirror knows of
+  Version update(const Database::Patch& patch);
 
   // TODO(MXG): Consider a feature to log and report any possible
   // inconsistencies that might show up with the patches, e.g. replacing or

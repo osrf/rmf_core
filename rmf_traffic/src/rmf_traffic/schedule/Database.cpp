@@ -398,13 +398,12 @@ class Database::Change::Cull::Implementation
 {
 public:
 
-  std::vector<Version> culled;
+  Time time;
 
-  static Cull make(std::vector<Version> _culled)
+  static Cull make(Time time)
   {
     Cull result;
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(_culled)});
+    result._pimpl = rmf_utils::make_impl<Implementation>(Implementation{time});
     return result;
   }
 
@@ -418,11 +417,11 @@ Database::Change::Cull::Cull()
 
 //==============================================================================
 auto Database::Change::make_cull(
-    std::vector<Version> culled,
+    const Time time,
     const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Cull, id);
-  change._pimpl->cull = Cull::Implementation::make(std::move(culled));
+  change._pimpl->cull = Cull::Implementation::make(time);
   return change;
 }
 
@@ -487,9 +486,9 @@ Version Database::Change::Erase::original_id() const
 }
 
 //==============================================================================
-const std::vector<Version>& Database::Change::Cull::culled_ids() const
+Time Database::Change::Cull::time() const
 {
-  return _pimpl->culled;
+  return _pimpl->time;
 }
 
 //==============================================================================
@@ -793,10 +792,35 @@ void ChangeRelevanceInspector::inspect(
 } // namespace internal
 
 //==============================================================================
+Database::Database()
+{
+  // Do nothing
+}
+
+//==============================================================================
 auto Database::changes(const Query& parameters) const -> Patch
 {
-  return Patch(_pimpl->inspect<internal::ChangeRelevanceInspector>(
-                 parameters).relevant_changes, latest_version());
+  auto relevant_changes = _pimpl->inspect<internal::ChangeRelevanceInspector>(
+        parameters).relevant_changes;
+
+  const auto* after = parameters.versions().after();
+  const auto& last_cull = _pimpl->last_cull;
+  if(after)
+  {
+    const auto range = internal::VersionRange(_pimpl->oldest_version);
+    if(range.less(after->get_version(), last_cull.first))
+    {
+      relevant_changes.push_back(
+            Change::make_cull(last_cull.second, last_cull.first));
+    }
+  }
+  else
+  {
+    relevant_changes.push_back(
+          Change::make_cull(last_cull.second, last_cull.first));
+  }
+
+  return Patch(relevant_changes, latest_version());
 }
 
 //==============================================================================
@@ -903,7 +927,7 @@ Version Database::erase(Version id)
           Trajectory{old_entry->trajectory.get_map_name()},
           new_version,
           old_entry,
-          Change::make_erase(id, new_version)));
+          std::make_unique<Change>(Change::make_erase(id, new_version))));
 
   return new_version;
 }
@@ -911,7 +935,9 @@ Version Database::erase(Version id)
 //==============================================================================
 Version Database::cull(Time time)
 {
+  _pimpl->cull(++_pimpl->latest_version, time);
 
+  return _pimpl->latest_version;
 }
 
 } // namespace schedule

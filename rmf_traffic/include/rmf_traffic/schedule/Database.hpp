@@ -69,6 +69,11 @@ public:
 
       /// Some Trajectories were culled
       Cull,
+
+      /// The number of Modes. This must always come last in the list. This is
+      /// never a valid Mode. Please report if this is ever returned by the
+      /// get_mode() function.
+      NUM,
     };
 
     /// Make an insertion change
@@ -151,13 +156,15 @@ public:
 
     /// Make a culling
     ///
-    /// \param[in] culled
-    ///   The set of IDs that were culled.
+    /// \param[in] time
+    ///   The cut-off time for the culling. Trajectories that finish before this
+    ///   time-point will be culled from the database, and all memory of them
+    ///   will be destroyed.
     ///
     /// \param[in] id
     ///   The ID of this culling
     static Change make_cull(
-        std::vector<Version> culled,
+        Time time,
         Version id);
 
     /// The API for an insertion
@@ -271,8 +278,8 @@ public:
     {
     public:
 
-      /// The set of IDs that have been culled from the schedule.
-      const std::vector<Version>& culled_ids() const;
+      /// The cut-off time for the culling.
+      Time time() const;
 
       class Implementation;
     private:
@@ -350,6 +357,9 @@ public:
     Patch();
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
+
+  /// Initialize a Database
+  Database();
 
   /// Get the changes in this Database that match the given Query parameters.
   Patch changes(const Query& parameters) const;

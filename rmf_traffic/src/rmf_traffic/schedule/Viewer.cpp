@@ -169,6 +169,120 @@ internal::EntryPtr Viewer::Implementation::add_entry(internal::EntryPtr entry)
 }
 
 //==============================================================================
+void Viewer::Implementation::modify_entry(
+    const internal::EntryPtr& entry,
+    Trajectory new_trajectory,
+    const Version new_id)
+{
+  entry->version = new_id;
+
+  // TODO(MXG): It should be posssible to improve performance for entry
+  // modifications by applying the change directly to the original Trajectory
+  // object instead of making a copy.
+
+  Timeline& timeline = timelines.at(entry->trajectory.get_map_name());
+
+  const Time old_start = *entry->trajectory.start_time();
+  const Time old_end = *entry->trajectory.finish_time();
+  // TODO(MXG): A micro-optimization might be to store these iterators in the
+  // entry data so we don't need to look them up again.
+  const Timeline::iterator old_start_it = timeline.lower_bound(old_start);
+  const Timeline::iterator old_end_it = timeline.lower_bound(old_end);
+
+  const Time new_start = *new_trajectory.start_time();
+  const Time new_end = *new_trajectory.finish_time();
+  const Timeline::iterator new_start_it =
+      get_timeline_iterator(timeline, new_start);
+  const Timeline::iterator new_end_it =
+      get_timeline_iterator(timeline, new_end);
+
+  entry->trajectory = std::move(new_trajectory);
+
+  // Fix the bucketing for this entry
+  if(old_end_it->first < new_start_it->first
+     || new_end_it->first < old_start_it->first)
+  {
+    for(auto it = new_start_it; it != ++Timeline::iterator(new_end_it); ++it)
+    {
+      Bucket& bucket = it->second;
+      bucket.push_back(entry);
+    }
+
+    for(auto it = old_start_it; it != ++Timeline::iterator(old_end_it); ++it)
+    {
+      Bucket& bucket = it->second;
+      bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
+                   bucket.end());
+    }
+  }
+  else
+  {
+    if(old_start_it->first < new_start_it->first)
+    {
+      for(auto it = old_start_it; it != new_start_it; ++it)
+      {
+        Bucket& bucket = it->second;
+        bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
+                     bucket.end());
+      }
+    }
+    else
+    {
+      for(auto it = new_start_it; it != old_start_it; ++it)
+      {
+        Bucket& bucket = it->second;
+        bucket.push_back(entry);
+      }
+    }
+
+    if(new_end_it->first < old_end_it->first)
+    {
+      const auto begin_erase = ++Timeline::iterator(new_end_it);
+      const auto end_erase = ++Timeline::iterator(old_end_it);
+      for(auto it = begin_erase; it != end_erase; ++it)
+      {
+        Bucket& bucket = it->second;
+        bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
+                     bucket.end());
+      }
+    }
+    else
+    {
+      const auto begin_insert = ++Timeline::iterator(old_end_it);
+      const auto end_insert = ++Timeline::iterator(new_end_it);
+      for(auto it = begin_insert; it != end_insert; ++it)
+      {
+        Bucket& bucket = it->second;
+        bucket.push_back(entry);
+      }
+    }
+  }
+}
+
+//==============================================================================
+void Viewer::Implementation::erase_entry(Version id)
+{
+  const internal::EntryPtr& entry = get_entry_iterator(id, "erasure")->second;
+
+  Timeline& timeline = timelines.at(entry->trajectory.get_map_name());
+
+  const Time old_start = *entry->trajectory.start_time();
+  const Time old_end = *entry->trajectory.finish_time();
+  // TODO(MXG): A micro-optimization might be to store these iterators in the
+  // entry data so we don't need to look them up again.
+  const Timeline::iterator begin_it = timeline.lower_bound(old_start);
+  const Timeline::iterator end_it = ++timeline.lower_bound(old_end);
+  for(auto it = begin_it; it != end_it; ++it)
+  {
+    Bucket& bucket = it->second;
+    bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
+                 bucket.end());
+  }
+
+  all_entries.erase(id);
+}
+
+//==============================================================================
 auto Viewer::Implementation::get_timeline_iterator(
     Timeline& timeline, const Time time) -> Timeline::iterator
 {
@@ -237,6 +351,59 @@ auto Viewer::Implementation::get_entry_iterator(
   }
 
   return old_entry_it;
+}
+
+//==============================================================================
+void Viewer::Implementation::cull(Version id, Time time)
+{
+  last_cull = std::make_pair(id, time);
+
+  std::unordered_set<Version> culled;
+  for(auto& pair : timelines)
+  {
+    Timeline& timeline = pair.second;
+    const Timeline::iterator last_it = timeline.lower_bound(time);
+    const Timeline::iterator end_it = last_it == timeline.end()?
+          timeline.end() : ++Timeline::iterator(last_it);
+
+    for(Timeline::iterator it = timeline.begin(); it != end_it; ++it)
+    {
+      Bucket& bucket = it->second;
+      const Bucket::iterator removed =
+          std::remove_if(bucket.begin(), bucket.end(),
+                     [&](const internal::ConstEntryPtr& entry) -> bool
+      {
+        return *entry->trajectory.finish_time() < time;
+      });
+
+      for(Bucket::iterator bit = removed; bit != bucket.end(); ++bit)
+        culled.insert((*bit)->version);
+
+      bucket.erase(removed, bucket.end());
+    }
+
+    Timeline::iterator stop_erasing = timeline.begin();
+    for(Timeline::iterator it = timeline.begin(); it != end_it; ++it)
+    {
+      const Bucket& bucket = it->second;
+      if(!bucket.empty())
+      {
+        // If this bucket is not empty, then stop the erasing now
+        break;
+      }
+
+      // If this bucket is empty, then stop the erasing at the next entry
+      stop_erasing = ++Timeline::iterator(it);
+    }
+
+    timeline.erase(timeline.begin(), stop_erasing);
+  }
+
+  for(const Version v : culled)
+    all_entries.erase(v);
+
+  if(!all_entries.empty())
+    oldest_version = all_entries.begin()->first;
 }
 
 //==============================================================================
@@ -349,6 +516,13 @@ Version Viewer::oldest_version() const
 Version Viewer::latest_version() const
 {
   return _pimpl->latest_version;
+}
+
+//==============================================================================
+Viewer::Viewer()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
 }
 
 } // namespace schedule
