@@ -356,6 +356,7 @@ auto Viewer::Implementation::get_entry_iterator(
 //==============================================================================
 void Viewer::Implementation::cull(Version id, Time time)
 {
+  has_cull_occurred = true;
   last_cull = std::make_pair(id, time);
 
   std::unordered_set<Version> culled;
