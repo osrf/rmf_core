@@ -19,6 +19,11 @@
 #define RMF_TRAFFIC__AGV__GRAPH_HPP
 
 #include <rmf_traffic/Time.hpp>
+#include <rmf_traffic/Trajectory.hpp>
+
+#include <rmf_traffic/agv/VehicleTraits.hpp>
+
+#include <rmf_traffic/schedule/Viewer.hpp>
 
 #include <Eigen/Geometry>
 
@@ -288,7 +293,17 @@ public:
 //      Lane::Node exit,
 //      const Lift& lift);
 
+  /// Get the number of Lanes in this Graph.
   std::size_t num_lanes() const;
+
+  /// Use this Graph to solve
+  std::vector<Trajectory> solve(
+      std::size_t initial_waypoint,
+      double initial_orientation,
+      std::size_t final_waypoint,
+      double final_orientation,
+      const VehicleTraits& traits,
+      const schedule::Viewer& viewer) const;
 
   class Implementation;
 private:
