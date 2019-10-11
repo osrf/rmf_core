@@ -18,7 +18,7 @@
 
 #include "rmf_traffic/schedule/Database.hpp"
 #include <rmf_traffic/geometry/Box.hpp>
-
+#include "utils_Database.hpp"
 #include <rmf_utils/catch.hpp>
 #include<iostream>
 using namespace std::chrono_literals;

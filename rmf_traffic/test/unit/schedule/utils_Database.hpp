@@ -23,16 +23,16 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_utils/catch.hpp>
 
-inline void CHECK_TRAJECTORY_IS_EQUAL(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
+inline void CHECK_EQUAL_TRAJECTORY(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
 {
 
 REQUIRE(t1.size()==t2.size());
 
 for(auto it1=t1.begin(),it2=t2.begin();it1!=t1.end();it1++,it2++)
 {
-
-
-    
+CHECK(it1->get_finish_position()==it2->get_finish_position());
+CHECK(it1->get_finish_time()==it2->get_finish_time());
+CHECK(it1->get_profile()==it2->get_profile());
 }
 
 
