@@ -23,9 +23,9 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_utils/catch.hpp>
 
-inline void CHECK_EQUAL_TRAJECTORY(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
+inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory *t, rmf_traffic::Trajectory t2)
 {
-
+rmf_traffic::Trajectory t1= *t;
 REQUIRE(t1.size()==t2.size());
 
 for(auto it1=t1.begin(),it2=t2.begin();it1!=t1.end();it1++,it2++)

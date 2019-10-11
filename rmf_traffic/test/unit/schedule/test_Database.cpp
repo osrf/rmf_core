@@ -108,9 +108,7 @@ SCENARIO("Test Database Conflicts")
           REQUIRE(interrupt_change->interrupt()!=nullptr);
           auto interrupt=interrupt_change->interrupt();
           CHECK(interrupt->original_id()==1);
-          //CHECK(interrupt->interruption()==&t2); //INVALID. Write function to compare
-
-          //check for number of trajectories in db
+          CHECK_EQUAL_TRAJECTORY(interrupt->interruption(),t2);
   
 
         }
@@ -151,6 +149,7 @@ SCENARIO("Test Database Conflicts")
           auto replace=replace_change->replace();
           CHECK(replace->original_id()==1);
           REQUIRE(replace->trajectory()!=nullptr);
+          CHECK_EQUAL_TRAJECTORY(replace->trajectory(),t2);
 
           
 
