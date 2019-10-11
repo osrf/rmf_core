@@ -82,6 +82,9 @@ public:
   Version latest_version() const;
 
 
+  // The Debug class is for internal testing use only. Its definition is not
+  // visible to downstream users.
+  class Debug;
   class Implementation;
 protected:
   // These constructors and operators are protected so that users can only
