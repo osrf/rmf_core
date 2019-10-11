@@ -76,7 +76,7 @@ SCENARIO("Test Database Conflicts")
 
             rmf_traffic::schedule::Version version2= db.insert(t2);
             REQUIRE(version2==2);
-            changes=db.changes(query_everything);
+            changes=db.changes(query_everything); //works as querry_everything shares only insert changes
             REQUIRE(changes.size()==2);
             REQUIRE(changes.latest_version()==2);
             //get the latest query
@@ -101,14 +101,14 @@ SCENARIO("Test Database Conflicts")
           CHECK(rmf_traffic::schedule::Viewer::Debug::get_num_entries(db) == 2);
 
           changes=db.changes(rmf_traffic::schedule::make_query(1));
-          REQUIRE(changes.size()==2);
+          REQUIRE(changes.size()==1);
           CHECK(changes.latest_version()==2);
-          auto interrupt_change= --changes.end();
+          auto interrupt_change= changes.begin();
           REQUIRE(static_cast<int>(interrupt_change->get_mode())==2);
           REQUIRE(interrupt_change->interrupt()!=nullptr);
           auto interrupt=interrupt_change->interrupt();
           CHECK(interrupt->original_id()==1);
-          CHECK(interrupt->interruption()==&t2); //INVALID. Write function to compare
+          //CHECK(interrupt->interruption()==&t2); //INVALID. Write function to compare
 
           //check for number of trajectories in db
   
@@ -120,10 +120,10 @@ SCENARIO("Test Database Conflicts")
           //introduce a delay after the first segment in t1
           rmf_traffic::schedule::Version version2= db.delay(1,time,5s);
           CHECK(version2==2);
-          changes=db.changes(query_everything);
-          REQUIRE(changes.size()==2);
+          changes=db.changes(rmf_traffic::schedule::make_query(1));
+          REQUIRE(changes.size()==1);
           REQUIRE(changes.latest_version()==2);
-          auto delay_change= --changes.end();
+          auto delay_change= changes.begin();
           REQUIRE(static_cast<int>(delay_change->get_mode())==3);
           REQUIRE(delay_change->delay()!=nullptr);
           auto delay=delay_change->delay();
@@ -142,17 +142,15 @@ SCENARIO("Test Database Conflicts")
 
           rmf_traffic::schedule::Version version2= db.replace(1,t2);
           CHECK(version2==2);
-          changes=db.changes(query_everything);
-          REQUIRE(changes.size()==2);
+          changes=db.changes(rmf_traffic::schedule::make_query(1));
+          REQUIRE(changes.size()==1);
           REQUIRE(changes.latest_version()==2);
-          auto replace_change= --changes.end();
+          auto replace_change= changes.begin();
           REQUIRE(static_cast<int>(replace_change->get_mode())==4);
           REQUIRE(replace_change->replace()!=nullptr);
           auto replace=replace_change->replace();
           CHECK(replace->original_id()==1);
           REQUIRE(replace->trajectory()!=nullptr);
-
-          CHECK(replace->trajectory()==&t2); //CHANGE
 
           
 
@@ -163,10 +161,10 @@ SCENARIO("Test Database Conflicts")
 
           rmf_traffic::schedule::Version version2= db.erase(1);
           CHECK(version2==2);
-          changes=db.changes(query_everything);
-          REQUIRE(changes.size()==2);
+          changes=db.changes(rmf_traffic::schedule::make_query(1));
+          REQUIRE(changes.size()==1);
           REQUIRE(changes.latest_version()==2);
-          auto erase_change= --changes.end();
+          auto erase_change= changes.begin();
           REQUIRE(static_cast<int>(erase_change->get_mode())==5);
           REQUIRE(erase_change->erase()!=nullptr);
           auto erase=erase_change->erase();
@@ -178,10 +176,10 @@ SCENARIO("Test Database Conflicts")
           auto cull_time=time+20s;
           rmf_traffic::schedule::Version version2= db.cull(cull_time);
           CHECK(version2==2);
-          changes=db.changes(query_everything);
-          REQUIRE(changes.size()==2);
+          changes=db.changes(rmf_traffic::schedule::make_query(1));
+          REQUIRE(changes.size()==1);
           REQUIRE(changes.latest_version()==2);
-          auto cull_change= --changes.end();
+          auto cull_change= changes.begin();
           REQUIRE(static_cast<int>(cull_change->get_mode())==6);
           REQUIRE(cull_change->cull()!=nullptr);
           auto cull=cull_change->cull();
