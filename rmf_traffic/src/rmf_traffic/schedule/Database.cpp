@@ -803,21 +803,24 @@ auto Database::changes(const Query& parameters) const -> Patch
   auto relevant_changes = _pimpl->inspect<internal::ChangeRelevanceInspector>(
         parameters).relevant_changes;
 
-  const auto* after = parameters.versions().after();
-  const auto& last_cull = _pimpl->last_cull;
-  if(after)
+  if(_pimpl->cull_has_occurred)
   {
-    const auto range = internal::VersionRange(_pimpl->oldest_version);
-    if(range.less(after->get_version(), last_cull.first))
+    const auto* after = parameters.versions().after();
+    const auto& last_cull = _pimpl->last_cull;
+    if(after)
+    {
+      const auto range = internal::VersionRange(_pimpl->oldest_version);
+      if(range.less(after->get_version(), last_cull.first))
+      {
+        relevant_changes.push_back(
+              Change::make_cull(last_cull.second, last_cull.first));
+      }
+    }
+    else
     {
       relevant_changes.push_back(
             Change::make_cull(last_cull.second, last_cull.first));
     }
-  }
-  else
-  {
-    relevant_changes.push_back(
-          Change::make_cull(last_cull.second, last_cull.first));
   }
 
   return Patch(relevant_changes, latest_version());
