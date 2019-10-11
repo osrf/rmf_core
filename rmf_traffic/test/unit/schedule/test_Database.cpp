@@ -16,8 +16,10 @@
 */
 
 
-#include "rmf_traffic/schedule/Database.hpp"
+#include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/geometry/Box.hpp>
+
+#include "src/rmf_traffic/schedule/debug_Viewer.hpp"
 
 #include <rmf_utils/catch.hpp>
 #include<iostream>
@@ -96,9 +98,11 @@ SCENARIO("Test Database Conflicts")
           REQUIRE(t2.size()==2);
           rmf_traffic::schedule::Version version2= db.interrupt(1,t2,0s);
           CHECK(version2==2);
-          changes=db.changes(query_everything);
+          CHECK(rmf_traffic::schedule::Viewer::Debug::get_num_entries(db) == 2);
+
+          changes=db.changes(rmf_traffic::schedule::make_query(1));
           REQUIRE(changes.size()==2);
-          REQUIRE(changes.latest_version()==2);
+          CHECK(changes.latest_version()==2);
           auto interrupt_change= --changes.end();
           REQUIRE(static_cast<int>(interrupt_change->get_mode())==2);
           REQUIRE(interrupt_change->interrupt()!=nullptr);

@@ -16,6 +16,7 @@
 */
 
 #include "ViewerInternal.hpp"
+#include "debug_Viewer.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 #include "../DetectConflictInternal.hpp"
@@ -524,6 +525,12 @@ Viewer::Viewer()
   : _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // Do nothing
+}
+
+//==============================================================================
+std::size_t Viewer::Debug::get_num_entries(const Viewer& viewer)
+{
+  return viewer._pimpl->all_entries.size();
 }
 
 } // namespace schedule
