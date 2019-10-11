@@ -37,12 +37,7 @@ SCENARIO("Test Database Conflicts")
         const rmf_traffic::schedule::Query query_everything= rmf_traffic::schedule::query_everything();
         rmf_traffic::schedule::Database::Patch changes= db.changes(query_everything);
         REQUIRE(changes.size()==0);
-      /*  for(auto x :changes)
-        {
-            std::cout<<static_cast<int>(x.get_mode())<<std::endl;
-            std::cout<<x.cull()->time().time_since_epoch().count()<<std::endl;
 
-        }*/
         //adding simple two-point trajecotry
         const double profile_scale = 1.0;
         const rmf_traffic::Time time = std::chrono::steady_clock::now();
