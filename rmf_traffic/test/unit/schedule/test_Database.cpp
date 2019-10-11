@@ -92,14 +92,14 @@ SCENARIO("Test Database Conflicts")
 
           rmf_traffic::Trajectory t2("test_map");
           t2.insert(time+5s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
-          t2.insert(time+5s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
+          t2.insert(time+6s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
           REQUIRE(t2.size()==2);
           rmf_traffic::schedule::Version version2= db.interrupt(1,t2,0s);
           CHECK(version2==2);
           changes=db.changes(query_everything);
           REQUIRE(changes.size()==2);
           REQUIRE(changes.latest_version()==2);
-          auto interrupt_change= changes.end();
+          auto interrupt_change= --changes.end();
           REQUIRE(static_cast<int>(interrupt_change->get_mode())==2);
           REQUIRE(interrupt_change->interrupt()!=nullptr);
           auto interrupt=interrupt_change->interrupt();
@@ -119,7 +119,7 @@ SCENARIO("Test Database Conflicts")
           changes=db.changes(query_everything);
           REQUIRE(changes.size()==2);
           REQUIRE(changes.latest_version()==2);
-          auto delay_change= changes.end();
+          auto delay_change= --changes.end();
           REQUIRE(static_cast<int>(delay_change->get_mode())==3);
           REQUIRE(delay_change->delay()!=nullptr);
           auto delay=delay_change->delay();
@@ -133,7 +133,7 @@ SCENARIO("Test Database Conflicts")
         {
           rmf_traffic::Trajectory t2("test_map");
           t2.insert(time+5s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
-          t2.insert(time+5s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
+          t2.insert(time+6s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
           REQUIRE(t2.size()==2);
 
           rmf_traffic::schedule::Version version2= db.replace(1,t2);
@@ -141,7 +141,7 @@ SCENARIO("Test Database Conflicts")
           changes=db.changes(query_everything);
           REQUIRE(changes.size()==2);
           REQUIRE(changes.latest_version()==2);
-          auto replace_change= changes.end();
+          auto replace_change= --changes.end();
           REQUIRE(static_cast<int>(replace_change->get_mode())==4);
           REQUIRE(replace_change->replace()!=nullptr);
           auto replace=replace_change->replace();
@@ -162,7 +162,7 @@ SCENARIO("Test Database Conflicts")
           changes=db.changes(query_everything);
           REQUIRE(changes.size()==2);
           REQUIRE(changes.latest_version()==2);
-          auto erase_change= changes.end();
+          auto erase_change= --changes.end();
           REQUIRE(static_cast<int>(erase_change->get_mode())==5);
           REQUIRE(erase_change->erase()!=nullptr);
           auto erase=erase_change->erase();
@@ -177,7 +177,7 @@ SCENARIO("Test Database Conflicts")
           changes=db.changes(query_everything);
           REQUIRE(changes.size()==2);
           REQUIRE(changes.latest_version()==2);
-          auto cull_change= changes.end();
+          auto cull_change= --changes.end();
           REQUIRE(static_cast<int>(cull_change->get_mode())==6);
           REQUIRE(cull_change->cull()!=nullptr);
           auto cull=cull_change->cull();
