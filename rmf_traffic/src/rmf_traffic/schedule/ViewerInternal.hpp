@@ -265,6 +265,7 @@ public:
 
   /// Remembers the version number and time value of the last culling that took
   /// place.
+  bool cull_has_occurred = false;
   std::pair<Version, Time> last_cull;
 
   static constexpr std::size_t ChangeModeNum =
