@@ -134,9 +134,57 @@ VehicleTraits::VehicleTraits(
     Differential steering)
   : _pimpl(rmf_utils::make_unique_impl<Implementation>(
              this, nom_linear_vel, nom_linear_accel,
-             nom_rotation_vel, nom_rotation_accel, steering, reversible))
+             nom_rotation_vel, nom_rotation_accel, steering))
 {
   // Do nothing
+}
+
+//==============================================================================
+class VehicleTraits::Differential::Implementation
+{
+public:
+
+  Eigen::Vector2d forward;
+  bool reversible;
+
+};
+
+//==============================================================================
+VehicleTraits::Differential::Differential(
+    Eigen::Vector2d forward,
+    const bool reversible)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{std::move(forward), reversible}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto VehicleTraits::Differential::set_forward(Eigen::Vector2d forward)
+-> Differential&
+{
+  _pimpl->forward = std::move(forward);
+  return *this;
+}
+
+//==============================================================================
+const Eigen::Vector2d& VehicleTraits::Differential::get_forward() const
+{
+  return _pimpl->forward;
+}
+
+//==============================================================================
+auto VehicleTraits::Differential::set_reversible(bool reversible)
+-> Differential&
+{
+  _pimpl->reversible = reversible;
+  return *this;
+}
+
+//==============================================================================
+bool VehicleTraits::Differential::is_reversible() const
+{
+  return _pimpl->reversible;
 }
 
 //==============================================================================
@@ -161,13 +209,6 @@ VehicleTraits::Limits& VehicleTraits::rotational()
 const VehicleTraits::Limits& VehicleTraits::rotational() const
 {
   return _pimpl->_rotation;
-}
-
-//==============================================================================
-VehicleTraits& VehicleTraits::set_steering(Steering steering)
-{
-  _pimpl->_steering = steering;
-  return *this;
 }
 
 //==============================================================================

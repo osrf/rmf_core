@@ -34,20 +34,23 @@ public:
   {
   public:
 
-    VehicleTraits& set_nominal_velocity(double nom_vel);
+    Limits(
+        double velocity = 0.0,
+        double acceleration = 0.0);
+
+    Limits& set_nominal_velocity(double nom_vel);
     double get_nominal_velocity() const;
 
-    VehicleTraits& set_nominal_acceleration(double nom_accel);
+    Limits& set_nominal_acceleration(double nom_accel);
     double get_nominal_acceleration() const;
 
     /// Returns true if the values of these limits are valid, i.e. greater than
     /// zero.
     bool valid() const;
 
+    class Implementation;
   private:
-    Limits(void* pimpl);
-    friend class VehicleTraits;
-    void* _pimpl;
+    rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
   enum class Steering : uint16_t
@@ -102,10 +105,8 @@ public:
 
   /// Constructor. The default values of zero
   VehicleTraits(
-      double nom_linear_vel = 0.0,
-      double nom_linear_accel = 0.0,
-      double nom_rotation_vel = 0.0,
-      double nom_rotation_accel = 0.0,
+      Limits linear = Limits(),
+      Limits angular = Limits(),
       Differential steering = Differential());
 
   Differential& set_differential();
