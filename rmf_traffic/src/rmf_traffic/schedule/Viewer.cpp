@@ -22,6 +22,7 @@
 
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
+#include "debug_Viewer.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -531,7 +532,14 @@ Viewer::Viewer()
   // Do nothing
 }
 
+std::size_t Viewer::Debug::get_num_entries(const Viewer& viewer)
+{
+  return viewer._pimpl->all_entries.size();
+
+}
+
 } // namespace schedule
+
 
 namespace detail {
 

@@ -155,7 +155,7 @@ SCENARIO("Test Database Conflicts")
           CHECK_EQUAL_TRAJECTORY(replace->trajectory(),t2);
           CHECK_TRAJECTORY_COUNT(db,1);
         }
-
+      
         WHEN("Trajectory is erased")
         {
 
@@ -172,9 +172,11 @@ SCENARIO("Test Database Conflicts")
           CHECK_TRAJECTORY_COUNT(db,0);
     
         }
+        
+        
         WHEN("Trajectory is culled")
         {
-          auto cull_time=time+20s;
+          auto cull_time=time+30s;
           rmf_traffic::schedule::Version version2= db.cull(cull_time);
           CHECK(version2==2);
           changes=db.changes(rmf_traffic::schedule::make_query(1));
