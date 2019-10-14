@@ -277,7 +277,7 @@ public:
   /// This field does not get used by the Database class
   Changers changers;
 
-  internal::EntryPtr add_entry(internal::EntryPtr entry);
+  internal::EntryPtr add_entry(internal::EntryPtr entry, bool erasure = false);
 
   /// Used by the Mirror class to make efficient changes to entries
   void modify_entry(const internal::EntryPtr& entry,

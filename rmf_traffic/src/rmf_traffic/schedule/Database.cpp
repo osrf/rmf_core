@@ -930,7 +930,7 @@ Version Database::erase(Version id)
           Trajectory{old_entry->trajectory.get_map_name()},
           new_version,
           old_entry,
-          std::make_unique<Change>(Change::make_erase(id, new_version))));
+          std::make_unique<Change>(Change::make_erase(id, new_version))), true);
 
   return new_version;
 }

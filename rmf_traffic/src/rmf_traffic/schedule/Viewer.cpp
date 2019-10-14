@@ -139,30 +139,35 @@ void ViewRelevanceInspector::inspect(
 } // namespace internal
 
 //==============================================================================
-internal::EntryPtr Viewer::Implementation::add_entry(internal::EntryPtr entry)
+internal::EntryPtr Viewer::Implementation::add_entry(
+    internal::EntryPtr entry,
+    const bool erasure)
 {
   all_entries.insert(std::make_pair(entry->version, entry));
 
-  const Trajectory& trajectory = entry->trajectory;
-  assert(trajectory.start_time());
-  const Time start_time = *trajectory.start_time();
-  const Time finish_time = *trajectory.finish_time();
-
-  const MapToTimeline::iterator map_it = timelines.insert(
-        std::make_pair(entry->trajectory.get_map_name(), Timeline())).first;
-
-  Timeline& timeline = map_it->second;
-
-  const Timeline::iterator start_it =
-      get_timeline_iterator(timeline, start_time);
-  const Timeline::iterator finish_it =
-      get_timeline_iterator(timeline, finish_time);
-
-  const Timeline::const_iterator end_it = ++Timeline::iterator(finish_it);
-
-  for(auto it = start_it; it != end_it; ++it)
+  if(!erasure)
   {
-    it->second.push_back(entry);
+    const Trajectory& trajectory = entry->trajectory;
+    assert(trajectory.start_time());
+    const Time start_time = *trajectory.start_time();
+    const Time finish_time = *trajectory.finish_time();
+
+    const MapToTimeline::iterator map_it = timelines.insert(
+          std::make_pair(entry->trajectory.get_map_name(), Timeline())).first;
+
+    Timeline& timeline = map_it->second;
+
+    const Timeline::iterator start_it =
+        get_timeline_iterator(timeline, start_time);
+    const Timeline::iterator finish_it =
+        get_timeline_iterator(timeline, finish_time);
+
+    const Timeline::const_iterator end_it = ++Timeline::iterator(finish_it);
+
+    for(auto it = start_it; it != end_it; ++it)
+    {
+      it->second.push_back(entry);
+    }
   }
 
   return entry;
