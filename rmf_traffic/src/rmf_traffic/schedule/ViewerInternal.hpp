@@ -277,7 +277,7 @@ public:
   /// This field does not get used by the Database class
   Changers changers;
 
-  internal::EntryPtr add_entry(internal::EntryPtr entry);
+  internal::EntryPtr add_entry(internal::EntryPtr entry, bool erasure = false);
 
   /// Used by the Mirror class to make efficient changes to entries
   void modify_entry(const internal::EntryPtr& entry,
@@ -395,16 +395,6 @@ public:
   }
 
   template<typename RelevanceInspectorT>
-  void inspect_all(RelevanceInspectorT& inspector) const
-  {
-    for(const auto pair : all_entries)
-    {
-      const internal::ConstEntryPtr& entry_ptr = pair.second;
-      inspector.inspect(entry_ptr, nullptr, nullptr);
-    }
-  }
-
-  template<typename RelevanceInspectorT>
   RelevanceInspectorT inspect(const Query& parameters) const
   {
     const Query::Spacetime& spacetime = parameters.spacetime();
@@ -413,6 +403,7 @@ public:
     const Query::Versions& versions = parameters.versions();
     const Query::Versions::Mode versions_mode = versions.get_mode();
 
+    std::vector<internal::EntryPtr> qualified_entries;
 
     Version after_version;
     const Version* after_version_ptr = nullptr;
@@ -443,7 +434,19 @@ public:
     {
       case Query::Spacetime::Mode::All:
       {
-        inspect_all(inspector);
+        qualified_entries.reserve(all_entries.size());
+        for(const auto& entry : all_entries)
+          qualified_entries.push_back(entry.second);
+
+        if(after_version_ptr)
+        {
+          const auto removed = std::remove_if(
+                qualified_entries.begin(), qualified_entries.end(),
+                [&](const internal::EntryPtr& entry){
+                  return entry->version <= after_version;
+                });
+          qualified_entries.erase(removed, qualified_entries.end());
+        }
         break;
       }
 
