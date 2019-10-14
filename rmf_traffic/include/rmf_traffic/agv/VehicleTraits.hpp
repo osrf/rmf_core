@@ -20,6 +20,8 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <Eigen/Geometry>
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -59,14 +61,36 @@ public:
     Holonomic,
   };
 
-  /// Constructor. The default values of zero
-  VehicleTraits(
-      double nom_linear_vel = 0.0,
-      double nom_linear_accel = 0.0,
-      double nom_rotation_vel = 0.0,
-      double nom_rotation_accel = 0.0,
-      Steering steering = Steering::Differential,
-      bool reversible = false);
+  class Differential
+  {
+  public:
+
+    Differential(
+        Eigen::Vector2d forward = Eigen::Vector2d::UnitX(),
+        bool reversible = true);
+
+    Differential& set_forward(Eigen::Vector2d forward);
+
+    const Eigen::Vector2d& get_forward() const;
+
+    Differential& set_reversible(bool reversible);
+    bool is_reversible() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  class Holonomic
+  {
+  public:
+
+    Holonomic();
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
 
   Limits& linear();
   const Limits& linear() const;
@@ -74,11 +98,19 @@ public:
   Limits& rotational();
   const Limits& rotational() const;
 
-  VehicleTraits& set_steering(Steering steering);
   Steering get_steering() const;
 
-  VehicleTraits& set_reversible(bool reversible);
-  bool is_reversible() const;
+  /// Constructor. The default values of zero
+  VehicleTraits(
+      double nom_linear_vel = 0.0,
+      double nom_linear_accel = 0.0,
+      double nom_rotation_vel = 0.0,
+      double nom_rotation_accel = 0.0,
+      Differential steering = Differential());
+
+  Differential& set_differential();
+
+  Holonomic& set_holonomic();
 
   /// Returns true if the values of the traits are valid. Specifically this
   /// means that all velocity and acceleration values are greater than zero.

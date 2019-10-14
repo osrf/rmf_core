@@ -131,8 +131,7 @@ VehicleTraits::VehicleTraits(
     const double nom_linear_accel,
     const double nom_rotation_vel,
     const double nom_rotation_accel,
-    const Steering steering,
-    const bool reversible)
+    Differential steering)
   : _pimpl(rmf_utils::make_unique_impl<Implementation>(
              this, nom_linear_vel, nom_linear_accel,
              nom_rotation_vel, nom_rotation_accel, steering, reversible))
