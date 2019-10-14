@@ -15,6 +15,9 @@
  *
 */
 
+#include "GraphInternal.hpp"
+#include "PlannerInternal.hpp"
+
 #include <rmf_traffic/agv/Graph.hpp>
 
 namespace rmf_traffic {
@@ -358,17 +361,6 @@ Graph::Lane::Lane()
 }
 
 //==============================================================================
-class Graph::Implementation
-{
-public:
-
-  std::vector<Waypoint> waypoints;
-  std::vector<Door> doors;
-  std::vector<Lane> lanes;
-
-};
-
-//==============================================================================
 auto Graph::add_waypoint(
     std::string map_name,
     Eigen::Vector2d location,
@@ -378,6 +370,8 @@ auto Graph::add_waypoint(
         Waypoint::Implementation::make(
           _pimpl->waypoints.size(),
           std::move(map_name), std::move(location), is_holding_point));
+
+  _pimpl->lanes_from.push_back({});
 
   return _pimpl->waypoints.back();
 }
@@ -431,6 +425,12 @@ std::size_t Graph::num_doors() const
 //==============================================================================
 auto Graph::add_lane(Lane::Node entry, Lane::Node exit) -> Lane&
 {
+  assert(entry.waypoint_index() < _pimpl->waypoints.size());
+  assert(exit.waypoint_index() < _pimpl->waypoints.size());
+
+  const std::size_t lane_id = _pimpl->lanes.size();
+  _pimpl->lanes_from[entry.waypoint_index()].push_back(lane_id);
+
   _pimpl->lanes.emplace_back(
         Lane::Implementation::make(
           _pimpl->lanes.size(),
@@ -459,6 +459,25 @@ auto Graph::add_lane(Lane::Node entry, Lane::Node exit, const Door& door)
 std::size_t Graph::num_lanes() const
 {
   return _pimpl->lanes.size();
+}
+
+//==============================================================================
+std::vector<Trajectory> Graph::solve(
+    const std::size_t initial_waypoint,
+    const double initial_orientation,
+    const std::size_t final_waypoint,
+    const double * const final_orientation,
+    const VehicleTraits& traits,
+    const schedule::Viewer& viewer) const
+{
+  return internal::generate_plan(
+        *_pimpl,
+        initial_waypoint,
+        initial_orientation,
+        final_waypoint,
+        final_orientation,
+        traits,
+        viewer);
 }
 
 } // namespace avg

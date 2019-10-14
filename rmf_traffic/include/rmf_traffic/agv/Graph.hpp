@@ -301,7 +301,7 @@ public:
       std::size_t initial_waypoint,
       double initial_orientation,
       std::size_t final_waypoint,
-      double final_orientation,
+      const double* final_orientation,
       const VehicleTraits& traits,
       const schedule::Viewer& viewer) const;
 
