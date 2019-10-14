@@ -22,22 +22,28 @@
 #include <rmf_traffic/geometry/Box.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_utils/catch.hpp>
+#include <rmf_traffic/schedule/Database.hpp>
 
-inline void CHECK_TRAJECTORY_IS_EQUAL(rmf_traffic::Trajectory t1, rmf_traffic::Trajectory t2)
+inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory *t, rmf_traffic::Trajectory t2)
 {
-
+rmf_traffic::Trajectory t1= *t;
 REQUIRE(t1.size()==t2.size());
 
-for(auto it1=t1.begin(),it2=t2.begin();it1!=t1.end();it1++,it2++)
+    for(auto it1=t1.begin(),it2=t2.begin();it1!=t1.end();it1++,it2++)
+    {
+    CHECK(it1->get_finish_position()==it2->get_finish_position());
+    CHECK(it1->get_finish_time()==it2->get_finish_time());
+    CHECK(it1->get_profile()==it2->get_profile());
+    }
+}
+
+inline void CHECK_TRAJECTORY_COUNT(rmf_traffic::schedule::Database d, int n)
 {
+    auto query_everything= rmf_traffic::schedule::query_everything();
+    auto changes= d.changes(query_everything);
+    CHECK(changes.size()==n);
 
-
-    
-}
-
-
-
-}
+} 
 
 
 
