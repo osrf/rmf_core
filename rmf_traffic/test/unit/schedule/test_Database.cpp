@@ -51,7 +51,7 @@ SCENARIO("Test Database Conflicts")
         t1.insert(time + 10s, profile, Eigen::Vector3d{5,0,0}, Eigen::Vector3d{0,0,0});
         REQUIRE(t1.size()==2);
 
-        rmf_traffic::schedule::Version version=  db.insert(t1);
+        rmf_traffic::schedule::Version version = db.insert(t1);
         REQUIRE(version==1);
         //create a query after_version 0
         auto query= rmf_traffic::schedule::make_query(0);
