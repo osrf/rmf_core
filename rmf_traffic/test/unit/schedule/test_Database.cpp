@@ -86,6 +86,7 @@ SCENARIO("Test Database Conflicts")
             REQUIRE(changes.begin()->id()==2);
             REQUIRE(static_cast<int>(changes.begin()->get_mode())==1);
             REQUIRE(changes.begin()->insert()!=nullptr);
+            CHECK_TRAJECTORY_COUNT(db,2);
 
         }
 
@@ -109,6 +110,7 @@ SCENARIO("Test Database Conflicts")
           auto interrupt=interrupt_change->interrupt();
           CHECK(interrupt->original_id()==1);
           CHECK_EQUAL_TRAJECTORY(interrupt->interruption(),t2);
+          CHECK_TRAJECTORY_COUNT(db,1);
   
 
         }
@@ -128,6 +130,7 @@ SCENARIO("Test Database Conflicts")
           CHECK(delay->original_id()==1);
           CHECK(delay->from()==time);
           CHECK(delay->duration()==5s);
+          CHECK_TRAJECTORY_COUNT(db,1);
           
         }
 
@@ -150,9 +153,7 @@ SCENARIO("Test Database Conflicts")
           CHECK(replace->original_id()==1);
           REQUIRE(replace->trajectory()!=nullptr);
           CHECK_EQUAL_TRAJECTORY(replace->trajectory(),t2);
-
-          
-
+          CHECK_TRAJECTORY_COUNT(db,1);
         }
 
         WHEN("Trajectory is erased")
@@ -168,7 +169,8 @@ SCENARIO("Test Database Conflicts")
           REQUIRE(erase_change->erase()!=nullptr);
           auto erase=erase_change->erase();
           CHECK(erase->original_id()==1);
-            
+          CHECK_TRAJECTORY_COUNT(db,0);
+    
         }
         WHEN("Trajectory is culled")
         {
@@ -183,6 +185,7 @@ SCENARIO("Test Database Conflicts")
           REQUIRE(cull_change->cull()!=nullptr);
           auto cull=cull_change->cull();
           CHECK(cull->time()==cull_time);
+          CHECK_TRAJECTORY_COUNT(db,0);
             
         }
 
@@ -195,3 +198,4 @@ SCENARIO("Test Database Conflicts")
 
 
 }
+
