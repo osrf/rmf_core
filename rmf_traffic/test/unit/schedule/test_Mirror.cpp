@@ -91,35 +91,81 @@ CHECK(m1.latest_version()==version_2);
   {
 
     rmf_traffic::Trajectory t3("test_map");
-    t3.insert(time,profile,Eigen::Vector3d{0,0,0},Eigen::Vector3d{0,0,0});
-    t3.insert(time+10s,profile,Eigen::Vector3d{0,0,0},Eigen::Vector3d{0,0,0});
+    t3.insert(time,profile,Eigen::Vector3d{0,-5,0},Eigen::Vector3d{0,0,0});
+    t3.insert(time+10s,profile,Eigen::Vector3d{0,5,0},Eigen::Vector3d{0,0,0});
+    auto view=m1.query(query_everything);
+    auto collision_trajectories=get_collision_trajectories(view,t3);
+    CHECK(collision_trajectories.size()==1);
 
-    WHEN("t3 is checked for conflicts")
 
-    {
-      auto view=m1.query(query_everything);
-      auto collision_trajectories=get_collision_trajectories(view,t3);
-      CHECK(collision_trajectories.size()==1);
-
-      THEN("Erasing conflicting trajectory from db and updaring mirror should eliminate conflict")
+      WHEN("Replacing conflicting trajectory in db and updating mirror should eliminate conflict")
       {
-
-        db.erase(version_1);
+        rmf_traffic::Trajectory t4("test_map");
+        t4.insert(time,profile,Eigen::Vector3d{-5,0,0},Eigen::Vector3d{0,0,0});
+        t4.insert(time+10s,profile,Eigen::Vector3d{-2,0,0},Eigen::Vector3d{0,0,0});
+        db.replace(version_1,t4);
         changes= db.changes(rmf_traffic::schedule::make_query(db.latest_version()-1));
         m1.update(changes);
+        CHECK(db.latest_version()==m1.latest_version());
         view=m1.query(query_everything);
         collision_trajectories=get_collision_trajectories(view,t3);
         CHECK(collision_trajectories.size()==0);
       }
 
+      WHEN("Erasing conflicting trajectory in db and updating mirror should eliminate conflict")
+      {
+
+        db.erase(version_1);
+        changes= db.changes(rmf_traffic::schedule::make_query(db.latest_version()-1));
+        m1.update(changes);
+        CHECK(db.latest_version()==m1.latest_version());
+        view=m1.query(query_everything);
+        collision_trajectories=get_collision_trajectories(view,t3);
+        CHECK(collision_trajectories.size()==0);
+      }
+
+      WHEN("Delaying conflicting trajectory in db and updating mirror should eliminate conflict")
+
+      {
+        db.delay(version_1,time,20s); //this should delay the first trajecotory enough to avoid collision
+        changes= db.changes(rmf_traffic::schedule::make_query(db.latest_version()-1));
+        m1.update(changes);
+        CHECK(db.latest_version()==m1.latest_version());
+        view=m1.query(query_everything);
+        collision_trajectories=get_collision_trajectories(view,t3);
+        CHECK(collision_trajectories.size()==0);
+
+       }
 
 
-    }
+      WHEN("Interrupting conflicting trajectory in db and updating mirror should eliminate conflict")
 
+      {
 
+        rmf_traffic::Trajectory t4("test_map");
+        t4.insert(time+2s,profile,Eigen::Vector3d{-5,10,0},Eigen::Vector3d{0,0,0});
+        db.interrupt(version_1,t4,0s);
+        changes= db.changes(rmf_traffic::schedule::make_query(db.latest_version()-1));
+        m1.update(changes);
+        CHECK(db.latest_version()==m1.latest_version());
+        view=m1.query(query_everything);
+        collision_trajectories=get_collision_trajectories(view,t3);
+        CHECK(collision_trajectories.size()==0);
 
+       }
 
+      WHEN("Culling conflicting trajectory in db and updating mirror should eliminate conflict")
 
+      {
+        db.cull(time+11s);
+        changes= db.changes(rmf_traffic::schedule::make_query(db.latest_version()-1));
+        m1.update(changes);
+        CHECK(db.latest_version()==m1.latest_version());
+        view=m1.query(query_everything);
+        collision_trajectories=get_collision_trajectories(view,t3);
+        CHECK(collision_trajectories.size()==0);
+
+       }
 
   }
 
