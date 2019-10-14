@@ -10,8 +10,9 @@
 #include<iostream>
 using namespace std::chrono_literals;
 #include <rmf_traffic/schedule/Mirror.hpp>
+#include<rmf_traffic/Conflict.hpp>
 
-SCENARIO("Test Mirror given a Database with two non-conflicting trajectories")
+SCENARIO("Test Mirror of a Database with two trajectories")
 {
 
 //Creating database db and checking for empty initialziation 
@@ -41,27 +42,95 @@ const auto version_1=db.insert(t1);
 REQUIRE(version_1==1);
 const auto version_2= db.insert(t2);
 REQUIRE(version_2==2);
+REQUIRE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+REQUIRE(rmf_traffic::DetectConflict::narrow_phase(t1,t2).size()==0);
 
-GIVEN("A Mirror m1 of the Database db")
+rmf_traffic::schedule::Mirror m1;
+//updating mirror
+changes=db.changes(query_everything);
+auto version=m1.update(changes);
+REQUIRE(version==version_2);
+CHECK(m1.oldest_version()==0);
+CHECK(m1.latest_version()==version_2);
+
+
+
+  WHEN("A non-conflicting trajectory is added to db")
+        {   
+
+          rmf_traffic::Trajectory t3("test_map");
+          t3.insert(time,profile,Eigen::Vector3d{-5,-10,0},Eigen::Vector3d{0,0,0});
+          t3.insert(time+10s,profile,Eigen::Vector3d{5,10,0},Eigen::Vector3d{0,0,0});
+          const auto version_3=db.insert(t3);
+          REQUIRE(version_3==3);
+          CHECK_TRAJECTORY_COUNT(db,3);
+
+          THEN("m1 latest version is different from db")
+          {
+            CHECK(m1.latest_version()!=db.latest_version());
+            CHECK(m1.oldest_version()==db.oldest_version());
+
+          }
+
+          THEN("Updating the mirror should update its latest version")
+          {
+            rmf_traffic::schedule::Query query=rmf_traffic::schedule::make_query(version_2);
+            changes=db.changes(query);
+            m1.update(changes);
+            CHECK(m1.latest_version()==db.latest_version());
+
+            const auto view=m1.query(rmf_traffic::schedule::query_everything());
+            //check contents of view
+
+
+          }
+            
+        }
+
+  GIVEN ("A trajctory to be submitted to the scheduler that conflicts with the mirror's view")
+  {
+
+    rmf_traffic::Trajectory t3("test_map");
+    t3.insert(time,profile,Eigen::Vector3d{0,0,0},Eigen::Vector3d{0,0,0});
+    t3.insert(time+10s,profile,Eigen::Vector3d{0,0,0},Eigen::Vector3d{0,0,0});
+
+    WHEN("t3 is checked for conflicts")
+
     {
+      auto view=m1.query(query_everything);
+      auto collision_trajectories=get_collision_trajectories(view,t3);
+      CHECK(collision_trajectories.size()==1);
 
-        rmf_traffic::schedule::Mirror m1;
-        //updating mirror
-        changes=db.changes(query_everything);
-        auto version=m1.update(changes);
-        REQUIRE(version==version_2);
-        CHECK(m1.oldest_version()==0);
-        CHECK(m1.latest_version()==version_2);
+      THEN("Erasing conflicting trajectory from db and updaring mirror should eliminate conflict")
+      {
+
+        db.erase(version_1);
+        changes= db.changes(rmf_traffic::schedule::make_query(db.latest_version()-1));
+        m1.update(changes);
+        view=m1.query(query_everything);
+        collision_trajectories=get_collision_trajectories(view,t3);
+        CHECK(collision_trajectories.size()==0);
+      }
 
 
 
-
-
-        
-
-
-        
     }
+
+
+
+
+
+
+  }
+
+
+
+
+
+        
+
+
+        
 
 
 }

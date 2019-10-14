@@ -23,7 +23,8 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_utils/catch.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
-
+#include<iostream>
+#include<rmf_traffic/Conflict.hpp>
 inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory *t, rmf_traffic::Trajectory t2)
 {
 rmf_traffic::Trajectory t1= *t;
@@ -39,11 +40,33 @@ REQUIRE(t1.size()==t2.size());
 
 inline void CHECK_TRAJECTORY_COUNT(rmf_traffic::schedule::Database d, int n)
 {
+    int trajectory_count=0;
     auto query_everything= rmf_traffic::schedule::query_everything();
     auto changes= d.changes(query_everything);
-    CHECK(changes.size()==n);
+    for(auto it=changes.begin();it!=changes.end();it++)
+    {
+      //std::cout<<"ID:"<<static_cast<int>(it->get_mode())<<std::endl;
+      if(static_cast<int>(it->get_mode())==1)
+        ++trajectory_count;
+      }
+
+    CHECK(trajectory_count==n);
 
 } 
+
+inline std::vector<rmf_traffic::Trajectory> get_collision_trajectories(const rmf_traffic::schedule::Viewer::View& view,rmf_traffic::Trajectory& t)
+{
+
+  std::vector<rmf_traffic::Trajectory> collision_trajectories;
+  for(auto trajectory: view)
+  {
+    if(rmf_traffic::DetectConflict::between(trajectory,t).size()>0)
+        collision_trajectories.push_back(trajectory);
+
+  }
+  return collision_trajectories;
+
+}
 
 
 

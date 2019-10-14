@@ -69,6 +69,7 @@ SCENARIO("Test Database Conflicts")
     
         WHEN("Another Trajectory is inserted")
         {
+            std::cout<<"Insert\n";
             rmf_traffic::Trajectory t2("test_map");
             t2.insert(time,profile, Eigen::Vector3d{0,-5,0},Eigen::Vector3d{0,0,0});
             t2.insert(time+10s,profile, Eigen::Vector3d{0,5,0},Eigen::Vector3d{0,0,0});
@@ -92,7 +93,7 @@ SCENARIO("Test Database Conflicts")
 
         WHEN("Trajectory is interrupted")
         {
-
+          std::cout<<"Interrupt\n";
           rmf_traffic::Trajectory t2("test_map");
           t2.insert(time+5s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
           t2.insert(time+6s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
@@ -117,6 +118,8 @@ SCENARIO("Test Database Conflicts")
 
         WHEN("Trajectory is delayed")
         {
+          std::cout<<"Delay\n";
+
           //introduce a delay after the first segment in t1
           rmf_traffic::schedule::Version version2= db.delay(1,time,5s);
           CHECK(version2==2);
@@ -136,6 +139,8 @@ SCENARIO("Test Database Conflicts")
 
         WHEN("Trajectory is replaced")
         {
+          std::cout<<"Replace\n";
+
           rmf_traffic::Trajectory t2("test_map");
           t2.insert(time+5s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
           t2.insert(time+6s,profile, Eigen::Vector3d{0,1,0},Eigen::Vector3d{0,0,0});
@@ -158,6 +163,7 @@ SCENARIO("Test Database Conflicts")
       
         WHEN("Trajectory is erased")
         {
+          std::cout<<"Erase\n";
 
           rmf_traffic::schedule::Version version2= db.erase(1);
           CHECK(version2==2);
@@ -176,6 +182,8 @@ SCENARIO("Test Database Conflicts")
         
         WHEN("Trajectory is culled")
         {
+          std::cout<<"Cull\n";
+
           auto cull_time=time+30s;
           rmf_traffic::schedule::Version version2= db.cull(cull_time);
           CHECK(version2==2);
@@ -187,7 +195,7 @@ SCENARIO("Test Database Conflicts")
           REQUIRE(cull_change->cull()!=nullptr);
           auto cull=cull_change->cull();
           CHECK(cull->time()==cull_time);
-          CHECK_TRAJECTORY_COUNT(db,1); //database keeps track of culls to inform mirrors if needed
+          CHECK_TRAJECTORY_COUNT(db,0);
             
         }
 
