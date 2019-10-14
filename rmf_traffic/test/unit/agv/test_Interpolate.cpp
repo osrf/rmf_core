@@ -177,11 +177,13 @@ SCENARIO("Test Interpolations")
   const double alpha_n = 0.25;
 
   rmf_traffic::agv::VehicleTraits traits;
-  traits
-      .linear().set_nominal_velocity(v_n)
-      .linear().set_nominal_acceleration(a_n)
-      .rotational().set_nominal_velocity(w_n)
-      .rotational().set_nominal_acceleration(alpha_n);
+  traits.linear()
+      .set_nominal_velocity(v_n)
+      .set_nominal_acceleration(a_n);
+
+  traits.rotational()
+      .set_nominal_velocity(w_n)
+      .set_nominal_acceleration(alpha_n);
 
   GIVEN("Three distant points")
   {

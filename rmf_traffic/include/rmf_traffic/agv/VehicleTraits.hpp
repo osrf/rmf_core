@@ -79,6 +79,12 @@ public:
     Differential& set_reversible(bool reversible);
     bool is_reversible() const;
 
+    /// Returns true if the length of the forward vector is not too close to
+    /// zero. If it is too close to zero, then the direction of the forward
+    /// vector cannot be reliably interpreted. Ideally the forward vector should
+    /// have unit length.
+    bool valid() const;
+
     class Implementation;
   private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
@@ -95,6 +101,13 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  /// Constructor. The default values of zero, with an x-axis forward
+  /// differential drive.
+  VehicleTraits(
+      Limits linear = Limits(),
+      Limits angular = Limits(),
+      Differential steering = Differential());
+
   Limits& linear();
   const Limits& linear() const;
 
@@ -103,29 +116,25 @@ public:
 
   Steering get_steering() const;
 
-  /// Constructor. The default values of zero
-  VehicleTraits(
-      Limits linear = Limits(),
-      Limits angular = Limits(),
-      Differential steering = Differential());
+  Differential& set_differential(Differential parameters = Differential());
 
-  Differential& set_differential();
+  Differential* get_differential();
 
-  Holonomic& set_holonomic();
+  const Differential* get_differential() const;
 
-  /// Returns true if the values of the traits are valid. Specifically this
+  Holonomic& set_holonomic(Holonomic parameters);
+
+  Holonomic* get_holonomic();
+
+  const Holonomic* get_holonomic() const;
+
+  /// Returns true if the values of the traits are valid. For example, this
   /// means that all velocity and acceleration values are greater than zero.
   bool valid() const;
 
-  VehicleTraits(const VehicleTraits& other);
-  VehicleTraits(VehicleTraits&& other);
-  VehicleTraits& operator=(const VehicleTraits& other);
-  VehicleTraits& operator=(VehicleTraits&& other);
-
-private:
-
   class Implementation;
-  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 
 };
 

@@ -28,49 +28,55 @@ void test_independence(
   CHECK(copy.linear().get_nominal_acceleration() == Approx(0.2));
   CHECK(copy.rotational().get_nominal_velocity() == Approx(0.3));
   CHECK(copy.rotational().get_nominal_acceleration() == Approx(0.4));
-  CHECK(copy.is_reversible());
+  CHECK(!copy.get_differential()->is_reversible());
 
-  copy
-      .linear().set_nominal_velocity(1.0)
-      .linear().set_nominal_acceleration(2.0)
-      .rotational().set_nominal_velocity(3.0)
-      .rotational().set_nominal_acceleration(4.0)
-      .set_reversible(false);
+  copy.linear()
+      .set_nominal_velocity(1.0)
+      .set_nominal_acceleration(2.0);
+
+  copy.rotational()
+      .set_nominal_velocity(3.0)
+      .set_nominal_acceleration(4.0);
+
+  copy.get_differential()->set_reversible(true);
 
   // Check that we can succesfully change the properties of the copy
   CHECK(copy.linear().get_nominal_velocity() == Approx(1.0));
   CHECK(copy.linear().get_nominal_acceleration() == Approx(2.0));
   CHECK(copy.rotational().get_nominal_velocity() == Approx(3.0));
   CHECK(copy.rotational().get_nominal_acceleration() == Approx(4.0));
-  CHECK(!copy.is_reversible());
+  CHECK(copy.get_differential()->is_reversible());
 
   // Check that changing the copy does not alter the original
   CHECK(original.linear().get_nominal_velocity() == Approx(0.1));
   CHECK(original.linear().get_nominal_acceleration() == Approx(0.2));
   CHECK(original.rotational().get_nominal_velocity() == Approx(0.3));
   CHECK(original.rotational().get_nominal_acceleration() == Approx(0.4));
-  CHECK(original.is_reversible());
+  CHECK(!original.get_differential()->is_reversible());
 
-  original
-      .linear().set_nominal_velocity(10.0)
-      .linear().set_nominal_acceleration(20.0)
-      .rotational().set_nominal_velocity(30.0)
-      .rotational().set_nominal_acceleration(40.0)
-      .set_reversible(false);
+  original.linear()
+      .set_nominal_velocity(10.0)
+      .set_nominal_acceleration(20.0);
+
+  original.rotational()
+      .set_nominal_velocity(30.0)
+      .set_nominal_acceleration(40.0);
+
+  original.get_differential()->set_reversible(true);
 
   // Check that we can still change the original
   CHECK(original.linear().get_nominal_velocity() == Approx(10.0));
   CHECK(original.linear().get_nominal_acceleration() == Approx(20.0));
   CHECK(original.rotational().get_nominal_velocity() == Approx(30.0));
   CHECK(original.rotational().get_nominal_acceleration() == Approx(40.0));
-  CHECK(!original.is_reversible());
+  CHECK(original.get_differential()->is_reversible());
 
   // Check that changing the original does impact the copy
   CHECK(copy.linear().get_nominal_velocity() == Approx(1.0));
   CHECK(copy.linear().get_nominal_acceleration() == Approx(2.0));
   CHECK(copy.rotational().get_nominal_velocity() == Approx(3.0));
   CHECK(copy.rotational().get_nominal_acceleration() == Approx(4.0));
-  CHECK(!copy.is_reversible());
+  CHECK(copy.get_differential()->is_reversible());
 }
 
 SCENARIO("Test VehicleTraits")
@@ -82,21 +88,24 @@ SCENARIO("Test VehicleTraits")
   CHECK(original.linear().get_nominal_acceleration() == Approx(0.0));
   CHECK(original.rotational().get_nominal_velocity() == Approx(0.0));
   CHECK(original.rotational().get_nominal_acceleration() == Approx(0.0));
-  CHECK(!original.is_reversible());
+  CHECK(original.get_differential()->is_reversible());
 
-  original
-      .linear().set_nominal_velocity(0.1)
-      .linear().set_nominal_acceleration(0.2)
-      .rotational().set_nominal_velocity(0.3)
-      .rotational().set_nominal_acceleration(0.4)
-      .set_reversible(true);
+  original.linear()
+      .set_nominal_velocity(0.1)
+      .set_nominal_acceleration(0.2);
+
+  original.rotational()
+      .set_nominal_velocity(0.3)
+      .set_nominal_acceleration(0.4);
+
+  original.get_differential()->set_reversible(false);
 
   // Check that changing the properties worked
   CHECK(original.linear().get_nominal_velocity() == Approx(0.1));
   CHECK(original.linear().get_nominal_acceleration() == Approx(0.2));
   CHECK(original.rotational().get_nominal_velocity() == Approx(0.3));
   CHECK(original.rotational().get_nominal_acceleration() == Approx(0.4));
-  CHECK(original.is_reversible());
+  CHECK(!original.get_differential()->is_reversible());
 
   SECTION("Copy constructor")
   {
