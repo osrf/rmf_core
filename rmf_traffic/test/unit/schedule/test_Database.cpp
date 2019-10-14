@@ -187,7 +187,7 @@ SCENARIO("Test Database Conflicts")
           REQUIRE(cull_change->cull()!=nullptr);
           auto cull=cull_change->cull();
           CHECK(cull->time()==cull_time);
-          CHECK_TRAJECTORY_COUNT(db,0);
+          CHECK_TRAJECTORY_COUNT(db,1); //database keeps track of culls to inform mirrors if needed
             
         }
 

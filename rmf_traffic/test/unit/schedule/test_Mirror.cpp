@@ -46,9 +46,17 @@ GIVEN("A Mirror m1 of the Database db")
     {
 
         rmf_traffic::schedule::Mirror m1;
+        //updating mirror
         changes=db.changes(query_everything);
         auto version=m1.update(changes);
         REQUIRE(version==version_2);
+        CHECK(m1.oldest_version()==0);
+        CHECK(m1.latest_version()==version_2);
+
+
+
+
+
         
 
 
