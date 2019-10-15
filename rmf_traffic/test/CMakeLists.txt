@@ -10,6 +10,7 @@ set(unit_tests
   schedule/test_Query.cpp
   schedule/test_Database.cpp
   schedule/test_Mirror.cpp
+  schedule/test_SpaceTime.cpp
 )
 
 set(unit_test_srcs)
