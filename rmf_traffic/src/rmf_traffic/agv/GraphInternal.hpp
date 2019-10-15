@@ -35,6 +35,16 @@ public:
   // A map from a waypoint index to the set of lanes that can exit from it
   std::vector<std::vector<std::size_t>> lanes_from;
 
+  static Graph::Implementation& get(Graph& graph)
+  {
+    return *graph._pimpl;
+  }
+
+  static const Graph::Implementation& get(const Graph& graph)
+  {
+    return *graph._pimpl;
+  }
+
 };
 
 } // namespace agv

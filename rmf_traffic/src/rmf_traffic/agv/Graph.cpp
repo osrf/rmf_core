@@ -16,7 +16,6 @@
 */
 
 #include "GraphInternal.hpp"
-#include "PlannerInternal.hpp"
 
 #include <rmf_traffic/agv/Graph.hpp>
 
@@ -459,25 +458,6 @@ auto Graph::add_lane(Lane::Node entry, Lane::Node exit, const Door& door)
 std::size_t Graph::num_lanes() const
 {
   return _pimpl->lanes.size();
-}
-
-//==============================================================================
-std::vector<Trajectory> Graph::solve(
-    const std::size_t initial_waypoint,
-    const double initial_orientation,
-    const std::size_t final_waypoint,
-    const double * const final_orientation,
-    const VehicleTraits& traits,
-    const schedule::Viewer& viewer) const
-{
-  return internal::generate_plan(
-        *_pimpl,
-        initial_waypoint,
-        initial_orientation,
-        final_waypoint,
-        final_orientation,
-        traits,
-        viewer);
 }
 
 } // namespace avg

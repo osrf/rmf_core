@@ -15,13 +15,14 @@
  *
 */
 
-#include "PlannerInternal.hpp"
+#include "GraphInternal.hpp"
+
+#include <rmf_traffic/agv/Planner.hpp>
 
 #include <queue>
 
 namespace rmf_traffic {
 namespace agv {
-namespace internal {
 
 //==============================================================================
 struct ExpansionContext
@@ -30,8 +31,16 @@ struct ExpansionContext
   const std::size_t final_waypoint;
   const double* const final_orientation;
   const VehicleTraits& traits;
+  const Trajectory::ConstProfilePtr profile;
+  const Duration holding_time;
   const schedule::Viewer& viewer;
 };
+
+//==============================================================================
+Eigen::Vector3d to_3d(const Eigen::Vector2d& p, const double w)
+{
+  return Eigen::Vector3d(p[0], p[1], w);
+}
 
 //==============================================================================
 struct BaseExpander
@@ -39,8 +48,6 @@ struct BaseExpander
   const ExpansionContext context;
 
   const Eigen::Vector2d p_final;
-
-  std::unordered_set<std::size_t> visited_waypoints;
 
   struct Node;
   // TODO(MXG): Consider replacing this with std::unique_ptr
@@ -78,12 +85,18 @@ struct BaseExpander
 
   NodePtr make_initial_node(
       const std::size_t waypoint,
-      const double orientation) const
+      const double orientation,
+      const Time time) const
   {
+    Trajectory initial(context.graph.waypoints[waypoint].get_map_name());
+    initial.insert(
+          time, context.profile,
+          to_3d(context.graph.waypoints[waypoint].get_location(), orientation),
+          Eigen::Vector3d::Zero());
+
     return std::make_shared<Node>(
           Node{estimate_remaining_cost(waypoint), 0.0, waypoint, orientation,
-               Trajectory(context.graph.waypoints[waypoint].get_map_name()),
-               nullptr});
+               initial, nullptr});
   }
 
   bool is_finished(const NodePtr& node) const
@@ -137,6 +150,8 @@ struct DifferentialDriveExpander : BaseExpander
     {
       const Graph::Lane& lane = context.graph.lanes[l];
       assert(lane.entry().waypoint_index() == node->waypoint);
+
+
 
       // TODO(MXG): Finish this expansion function
       // * Calculate an expansion from this waypoint to each of the other
@@ -199,7 +214,11 @@ std::vector<Trajectory> reconstruct_trajectory(
   std::vector<Trajectory> trajectories;
   trajectories.push_back(
       Trajectory{node_sequence.back()->trajectory_from_parent.get_map_name()});
-  for(auto it = node_sequence.rbegin(); it != node_sequence.rend(); ++it)
+
+  // We exclude the first node in the sequence, because it contains a dummy
+  // trajectory which is not helpful.
+  const auto stop_it = --node_sequence.rend();
+  for(auto it = node_sequence.rbegin(); it != stop_it; ++it)
   {
     Trajectory& last_trajectory = trajectories.back();
     const Trajectory& next_trajectory = (*it)->trajectory_from_parent;
@@ -225,23 +244,29 @@ std::vector<Trajectory> reconstruct_trajectory(
 
 //==============================================================================
 template<class Expander>
-std::vector<Trajectory> search(
+bool search(
     const Graph::Implementation& graph,
+    const Time initial_time,
     const std::size_t initial_waypoint,
     const double initial_orientation,
     const std::size_t final_waypoint,
     const double* const final_orientation,
-    const VehicleTraits& traits,
-    const schedule::Viewer& viewer)
+    const Planner::Options& options,
+    std::vector<Trajectory> solution)
 {
   using NodePtr = typename Expander::NodePtr;
   using SearchQueue = typename Expander::SearchQueue;
 
   Expander expander(ExpansionContext{
-          graph, final_waypoint, final_orientation, traits, viewer});
+          graph, final_waypoint, final_orientation,
+                      options.get_vehicle_traits(),
+                      options.get_vehicle_traits().get_profile(),
+                      options.get_minimum_holding_time(),
+                      options.get_schedule_viewer()});
 
   SearchQueue queue;
-  queue.push(expander.make_initial_node(initial_waypoint, initial_orientation));
+  queue.push(expander.make_initial_node(
+               initial_waypoint, initial_orientation, initial_time));
 
   while(!queue.empty())
   {
@@ -249,36 +274,139 @@ std::vector<Trajectory> search(
     queue.pop();
 
     if(expander.is_finished(top))
-      return reconstruct_trajectory<Expander>(top);
+    {
+      solution = reconstruct_trajectory<Expander>(top);
+      return true;
+    }
 
     expander.expand(top, queue);
   }
 
   // Could not find a solution!
-  return {};
+  return false;
 }
 
 //==============================================================================
-std::vector<Trajectory> generate_plan(
-    const Graph::Implementation& graph,
+class Planner::Options::Implementation
+{
+public:
+
+  VehicleTraits traits;
+
+  Graph graph;
+
+  const schedule::Viewer* viewer;
+
+  Duration min_hold_time;
+};
+
+//==============================================================================
+Planner::Options::Options(VehicleTraits vehicle_traits,
+    Graph graph,
+    const schedule::Viewer& viewer, Duration min_hold_time)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{
+               std::move(vehicle_traits),
+               std::move(graph),
+               &viewer,
+               min_hold_time}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Planner::Options::set_vehicle_traits(VehicleTraits traits) -> Options&
+{
+  _pimpl->traits = std::move(traits);
+  return *this;
+}
+
+
+//==============================================================================
+VehicleTraits& Planner::Options::get_vehicle_traits()
+{
+  return _pimpl->traits;
+}
+
+//==============================================================================
+const VehicleTraits& Planner::Options::get_vehicle_traits() const
+{
+  return _pimpl->traits;
+}
+
+//==============================================================================
+auto Planner::Options::set_graph(Graph graph) -> Options&
+{
+  _pimpl->graph = std::move(graph);
+  return *this;
+}
+
+//==============================================================================
+Graph& Planner::Options::get_graph()
+{
+  return _pimpl->graph;
+}
+
+//==============================================================================
+const Graph& Planner::Options::get_graph() const
+{
+  return _pimpl->graph;
+}
+
+//==============================================================================
+auto Planner::Options::change_schedule_viewer(const schedule::Viewer& viewer)
+-> Options&
+{
+  _pimpl->viewer = &viewer;
+  return *this;
+}
+
+//==============================================================================
+const schedule::Viewer& Planner::Options::get_schedule_viewer() const
+{
+  return *_pimpl->viewer;
+}
+
+//==============================================================================
+auto Planner::Options::set_mininum_holding_time(Duration holding_time)
+-> Options&
+{
+  _pimpl->min_hold_time = holding_time;
+  return *this;
+}
+
+//==============================================================================
+Duration Planner::Options::get_minimum_holding_time() const
+{
+  return _pimpl->min_hold_time;
+}
+
+//==============================================================================
+bool Planner::solve(
+    const Time initial_time,
     const std::size_t initial_waypoint,
     const double initial_orientation,
     const std::size_t final_waypoint,
     const double* const final_orientation,
-    const VehicleTraits& traits,
-    const schedule::Viewer& viewer)
+    const Options& options,
+    std::vector<Trajectory>& solution)
 {
+  solution.clear();
+  const VehicleTraits& traits = options.get_vehicle_traits();
+  const Graph::Implementation& graph =
+      Graph::Implementation::get(options.get_graph());
+
   if(traits.get_steering() == VehicleTraits::Steering::Differential)
   {
     return search<DifferentialDriveExpander>(
-          graph, initial_waypoint, initial_orientation, final_waypoint,
-          final_orientation, traits, viewer);
+          graph, initial_time, initial_waypoint, initial_orientation,
+          final_waypoint, final_orientation, options, solution);
   }
 //  else if(traits.get_steering() == VehicleTraits::Steering::Holonomic)
 //  {
 //    return search<HolonomicExpander>(
-//          graph, initial_waypoint, initial_orientation, final_waypoint,
-//          final_orientation, traits, viewer);
+//          graph, initial_time, initial_waypoint, initial_orientation,
+//          final_waypoint, final_orientation, traits, viewer, solution);
 //  }
 
   throw std::runtime_error(
@@ -288,6 +416,5 @@ std::vector<Trajectory> generate_plan(
         + "]\n");
 }
 
-} // namespace internal
 } // namespace agv
 } // namespace rmf_traffic
