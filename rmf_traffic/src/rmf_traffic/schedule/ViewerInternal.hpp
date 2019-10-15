@@ -296,7 +296,7 @@ public:
   void cull(Version id, Time time);
 
   template<typename RelevanceInspectorT>
-  void inspect_spacetime_region_entries(
+  void inspect_spacetime_region(
       const Query::Spacetime::Regions& regions,
       RelevanceInspectorT& inspector) const
   {
@@ -318,9 +318,17 @@ public:
           (lower_time_bound == nullptr)?
             timeline.begin() : timeline.lower_bound(*lower_time_bound);
 
-      const auto timeline_end =
-          (upper_time_bound == nullptr)?
-            timeline.end() : timeline.upper_bound(*upper_time_bound);
+      const auto timeline_end = [&]()
+      {
+        if(upper_time_bound == nullptr)
+          return timeline.end();
+
+        auto end = timeline.upper_bound(*upper_time_bound);
+        if(end == timeline.end())
+          return end;
+
+        return ++end;
+      }();
 
       rmf_traffic::internal::Spacetime spacetime_data;
       spacetime_data.lower_time_bound = lower_time_bound;
@@ -343,6 +351,7 @@ public:
             if(!checked.insert(entry_ptr->version).second)
               continue;
 
+            std::cout << " ==== inspecting entry " << entry_ptr->version << std::endl;
             inspector.inspect(entry_ptr, spacetime_data);
           }
         }
@@ -450,7 +459,7 @@ public:
       case Query::Spacetime::Mode::Regions:
       {
         assert(spacetime.regions() != nullptr);
-        inspect_spacetime_region_entries(*spacetime.regions(), inspector);
+        inspect_spacetime_region(*spacetime.regions(), inspector);
         break;
       }
 

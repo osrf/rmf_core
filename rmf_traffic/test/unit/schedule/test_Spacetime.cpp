@@ -149,7 +149,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
   rmf_traffic::geometry::Circle shape(1); //radius 1m
   rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
   rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
-  
+
   t1.insert(time,profile,Eigen::Vector3d{-5,0,0},Eigen::Vector3d{1,0,0});
   t1.insert(time+10s,profile,Eigen::Vector3d{0,-5,0},Eigen::Vector3d{0,-1,0});
 
