@@ -391,7 +391,6 @@ bool detect_conflicts(
     // so it is impossible for them to conflict.
     return false;
   }
-  std::cout << " ===== diff: " << time::to_seconds(finish_time - start_time) << std::endl;
 
   const Trajectory::const_iterator begin_it =
       trajectory_start_time < start_time?
@@ -437,17 +436,10 @@ bool detect_conflicts(
       const auto obj_region = fcl::ContinuousCollisionObject(
             region_shape, motion_region);
 
-//      result.is_collide = true;
-//      result.time_of_contact = 2.0;
       fcl::ContinuousCollisionResult result;
       fcl::collide(&obj_trajectory, &obj_region, request, result);
       if(result.is_collide)
       {
-        std::cout << "Time of collision: "
-                  << time::to_seconds((--Trajectory::const_iterator(it))->get_finish_time() - trajectory_start_time)
-                  << " -> "
-                  << time::to_seconds(it->get_finish_time() - trajectory_start_time)
-                  << " | " << result.time_of_contact << std::endl;
         if(output_iterators)
         {
           output_iterators->push_back(it);

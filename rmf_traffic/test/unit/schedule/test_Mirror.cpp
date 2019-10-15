@@ -323,11 +323,7 @@ GIVEN("Query patch with spacetime region overlapping with t1")
   query.spacetime().regions()->push_back(region);
 
   //querying for Patch using defined spacetime query
-  std::cout << "========== getting patch" << std::endl;
   rmf_traffic::schedule::Database::Patch changes= db.changes(query);
-  std::cout << "===== Change IDs" << std::endl;
-  for(const auto& c : changes)
-    std::cout << c.id() << std::endl;
   REQUIRE(changes.size() != 0);
   CHECK(changes.size() == 1);
   CHECK(changes.begin()->id() == 1);

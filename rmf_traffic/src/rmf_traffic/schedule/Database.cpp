@@ -679,17 +679,14 @@ void ChangeRelevanceInspector::inspect(
     return;
 
   const bool needed = relevant(entry);
-  std::cout << " +++ needed: " << needed << std::endl;
 
   if(needed)
   {
-    std::cout << " ++++ needed is true" << std::endl;
     // Check if this entry descends from an entry that the remote mirror does
     // not know about.
     ConstEntryPtr record_changes_from = nullptr;
     if(after_version)
     {
-      std::cout << " ++++ version is specified: " << *after_version << std::endl;
       const ConstEntryPtr check =
           get_last_known_ancestor(entry, *after_version, versions);
 
@@ -719,7 +716,6 @@ void ChangeRelevanceInspector::inspect(
 
     if(record_changes_from)
     {
-      std::cout << " ++++ we should record changes" << std::endl;
       ConstEntryPtr record = record_changes_from->succeeded_by;
       while(record)
       {
@@ -729,7 +725,6 @@ void ChangeRelevanceInspector::inspect(
     }
     else
     {
-      std::cout << " ++++ we will just insert the trajectory" << std::endl;
       // We are not transmitting the chain of changes that led to this entry,
       // so just create an insertion for it and transmit that.
       relevant_changes.emplace_back(
@@ -739,7 +734,6 @@ void ChangeRelevanceInspector::inspect(
   }
   else if(after_version)
   {
-    std::cout << " +++ needed is not true, but we have an after version" << std::endl;
     // Figure out if this trajectory needs to be erased
     const ConstEntryPtr check =
         get_last_known_ancestor(entry, *after_version, versions);
@@ -759,7 +753,6 @@ void ChangeRelevanceInspector::inspect(
   }
   else
   {
-    std::cout << " +++ the remote mirror already knows about this entry" << std::endl;
     // The remote mirror never knew about the lineage of this entry, so there's
     // no need to transmit any information about it at all.
   }
@@ -774,13 +767,11 @@ void ChangeRelevanceInspector::inspect(
     const Trajectory& trajectory = e->trajectory;
     if(trajectory.start_time())
     {
-      std::cout << " --- trajectory detected" << std::endl;
       return rmf_traffic::internal::detect_conflicts(
             e->trajectory, spacetime, nullptr);
     }
     else
     {
-      std::cout << " --- NO trajectory detected! " << std::endl;
       assert(e->change->get_mode() == Database::Change::Mode::Erase);
       return false;
     }

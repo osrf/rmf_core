@@ -351,7 +351,6 @@ public:
             if(!checked.insert(entry_ptr->version).second)
               continue;
 
-            std::cout << " ==== inspecting entry " << entry_ptr->version << std::endl;
             inspector.inspect(entry_ptr, spacetime_data);
           }
         }
