@@ -184,14 +184,98 @@ CHECK(m1.latest_version()==version_2);
 
   }
 
+}
+
+SCENARIO("Testing specialized mirrors")
+
+{
+
+  rmf_traffic::schedule::Database db;
+  const rmf_traffic::schedule::Query query_everything= rmf_traffic::schedule::query_everything();
+  rmf_traffic::schedule::Database::Patch changes= db.changes(query_everything);
+  REQUIRE(changes.size()==0);
+
+  //Creating trajectories t1, t2, t3 in "test_map"
+  const rmf_traffic::Time time = std::chrono::steady_clock::now();
+  double profile_scale=1;
+  rmf_traffic::geometry::Box shape(profile_scale,profile_scale);
+  rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
+  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+
+  rmf_traffic::Trajectory t1("test_map");
+  t1.insert(time, profile, Eigen::Vector3d{-5,0,0}, Eigen::Vector3d{0,0,0});
+  t1.insert(time + 10s, profile, Eigen::Vector3d{5,0,0}, Eigen::Vector3d{0,0,0});
+  REQUIRE(t1.size()==2);
 
 
+  rmf_traffic::Trajectory t2("test_map");
+  t2.insert(time, profile, Eigen::Vector3d{-5,10,0}, Eigen::Vector3d{0,0,0});
+  t2.insert(time+10s,profile, Eigen::Vector3d{5,10,0},Eigen::Vector3d{0,0,0});
+  REQUIRE(t2.size()==2);
+
+  rmf_traffic::Trajectory t3("test_map");
+  t3.insert(time+10s, profile, Eigen::Vector3d{0,-5,0}, Eigen::Vector3d{0,0,0});
+  t3.insert(time+20s,profile, Eigen::Vector3d{0,5,0},Eigen::Vector3d{0,0,0});
+  REQUIRE(t3.size()==2);
 
 
-        
+  //creating trajectories t4 and t5 in "test_map_2"
+
+  rmf_traffic::Trajectory t4("test_map_2");
+  t4.insert(time, profile, Eigen::Vector3d{-5,0,0}, Eigen::Vector3d{0,0,0});
+  t4.insert(time + 10s, profile, Eigen::Vector3d{5,0,0}, Eigen::Vector3d{0,0,0});
+  REQUIRE(t4.size()==2);
 
 
-        
+  rmf_traffic::Trajectory t5("test_map_2");
+  t5.insert(time, profile, Eigen::Vector3d{-5,10,0}, Eigen::Vector3d{0,0,0});
+  t5.insert(time+10s,profile, Eigen::Vector3d{5,10,0},Eigen::Vector3d{0,0,0});
+  REQUIRE(t5.size()==2);
+
+  const auto version_1=db.insert(t1);
+  REQUIRE(version_1==1);
+  const auto version_2= db.insert(t2);
+  REQUIRE(version_2==2);
+  const auto version_3=db.insert(t3);
+  REQUIRE(version_3==3);
+  const auto version_4= db.insert(t4);
+  REQUIRE(version_4==4);
+  const auto version_5=db.insert(t5);
+  REQUIRE(version_5==5);
+
+REQUIRE(rmf_traffic::DetectConflict::between(t1,t2).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t1,t3).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t1,t4).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t1,t5).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t2,t3).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t2,t4).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t2,t5).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t3,t4).size()==0);
+REQUIRE(rmf_traffic::DetectConflict::between(t4,t5).size()==0);
+
+GIVEN("Query patch with spacetime region overlapping with t1")
+  {
+  rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
+  REQUIRE(query.spacetime().regions() != nullptr);
+
+  auto time = std::chrono::steady_clock::now();
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+
+  //creating space to add to region
+  const auto box = rmf_traffic::geometry::Box(10.0, 1.0);
+  const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+  rmf_traffic::geometry::Space space(final_box,tf);
+  std::vector<rmf_traffic::geometry::Space> spaces;
+  spaces.push_back(space);
+  rmf_traffic::Region region("test_map",time, time+10s,spaces);
+
+  query.spacetime().regions()->push_back(region);
+  rmf_traffic::schedule::Database::Patch changes= db.changes(query);
+
+  REQUIRE(changes.size()==1); //failing
+
+  }
+
 
 
 }
