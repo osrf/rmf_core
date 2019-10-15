@@ -255,11 +255,11 @@ REQUIRE(rmf_traffic::DetectConflict::between(t4,t5).size()==0);
 
 GIVEN("Query patch with spacetime region overlapping with t1")
   {
-  rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
-  REQUIRE(query.spacetime().regions() != nullptr);
-
   auto time = std::chrono::steady_clock::now();
   Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+  std::cout<<"DB Latest Version:"<<db.latest_version()<<std::endl;
+  rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
+  REQUIRE(query.spacetime().regions() != nullptr);
 
   //creating space to add to region
   const auto box = rmf_traffic::geometry::Box(10.0, 1.0);
@@ -267,12 +267,125 @@ GIVEN("Query patch with spacetime region overlapping with t1")
   rmf_traffic::geometry::Space space(final_box,tf);
   std::vector<rmf_traffic::geometry::Space> spaces;
   spaces.push_back(space);
+  //creating a region with time bounds and spaces that overlap with trajectory
   rmf_traffic::Region region("test_map",time, time+10s,spaces);
-
   query.spacetime().regions()->push_back(region);
-  rmf_traffic::schedule::Database::Patch changes= db.changes(query);
 
-  //REQUIRE(changes.size()==1); //failing
+  //querying for Patch using defined spacetime query
+  /*
+  std::vector<rmf_traffic::Region> regions;
+  regions.push_back(region);
+  query=rmf_traffic::schedule::make_query(regions);
+  //********STILL FAILS********
+  */
+  rmf_traffic::schedule::Database::Patch changes= db.changes(query);
+  CHECK(changes.size()==1); //failing
+
+  }
+
+  GIVEN("Query patch with spacetime region overlapping with t2")
+  {
+  auto time = std::chrono::steady_clock::now();
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+  std::cout<<"DB Latest Version:"<<db.latest_version()<<std::endl;
+  rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
+  REQUIRE(query.spacetime().regions() != nullptr);
+
+  //creating space to add to region
+  const auto box = rmf_traffic::geometry::Box(10.0, 1.0);
+  const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+  //tf.translate(Eigen::Translation2f{10,0});
+  rmf_traffic::geometry::Space space(final_box,tf);
+  std::vector<rmf_traffic::geometry::Space> spaces;
+  spaces.push_back(space);
+  //creating a region with time bounds and spaces that overlap with trajectory
+  rmf_traffic::Region region("test_map",time, time+10s,spaces);
+  query.spacetime().regions()->push_back(region);
+
+  //querying for Patch using defined spacetime query
+  rmf_traffic::schedule::Database::Patch changes= db.changes(query);
+  CHECK(changes.size()==1); //failing
+
+  }
+
+
+
+  GIVEN("Query patch with spacetime region overlapping with t1 and t2")
+  {
+  auto time = std::chrono::steady_clock::now();
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+
+  rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
+  REQUIRE(query.spacetime().regions() != nullptr);
+
+  //creating space to add to region
+  const auto box = rmf_traffic::geometry::Box(10.0, 1.0);
+  const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+  tf.rotate(Eigen::Rotation2Dd(M_PI_2));
+  rmf_traffic::geometry::Space space(final_box,tf);
+  std::vector<rmf_traffic::geometry::Space> spaces;
+  spaces.push_back(space);
+  //creating a region with time bounds and spaces that overlap with trajectory
+  rmf_traffic::Region region("test_map",time, time+10s,spaces);
+  query.spacetime().regions()->push_back(region);
+
+  //querying for Patch using defined spacetime query
+  rmf_traffic::schedule::Database::Patch changes= db.changes(query);
+  CHECK(changes.size()==2); //failing
+
+  }
+
+
+
+  GIVEN("Query patch with spacetime region overlapping with t3")
+  {
+  auto time = std::chrono::steady_clock::now();
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+
+  rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
+  REQUIRE(query.spacetime().regions() != nullptr);
+
+  //creating space to add to region
+  const auto box = rmf_traffic::geometry::Box(1.0, 1.0);
+  const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+  rmf_traffic::geometry::Space space(final_box,tf);
+  std::vector<rmf_traffic::geometry::Space> spaces;
+  spaces.push_back(space);
+
+  //creating a region with time bounds and spaces that overlap with trajectory
+  rmf_traffic::Region region("test_map",time+10s, time+20s,spaces);
+  query.spacetime().regions()->push_back(region);
+
+  //querying for Patch using defined spacetime query
+  rmf_traffic::schedule::Database::Patch changes= db.changes(query);
+  CHECK(changes.size()==1); //failing
+
+  }
+
+
+
+  GIVEN("Query patch with spacetime region overlapping with t1,t2 and t3")
+  {
+  auto time = std::chrono::steady_clock::now();
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+
+  rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
+  REQUIRE(query.spacetime().regions() != nullptr);
+
+  //creating space to add to region
+  const auto box = rmf_traffic::geometry::Box(10, 10);
+  const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+  rmf_traffic::geometry::Space space(final_box,tf);
+  std::vector<rmf_traffic::geometry::Space> spaces;
+  spaces.push_back(space);
+
+  //creating a region with time bounds and spaces that overlap with trajectory
+  rmf_traffic::Region region("test_map",time, time+20s,spaces);
+  query.spacetime().regions()->push_back(region);
+
+  //querying for Patch using defined spacetime query
+  rmf_traffic::schedule::Database::Patch changes= db.changes(query);
+  CHECK(changes.size()==3); //failing
 
   }
 
