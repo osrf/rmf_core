@@ -154,10 +154,15 @@ class DifferentialOrientationConstraint : public Graph::OrientationConstraint
 {
 public:
 
+  static double compute_forward_offset(const Eigen::Vector2d& forward)
+  {
+
+  }
+
   DifferentialOrientationConstraint(
       const Eigen::Vector2d& forward,
       const bool reversible)
-    : forward(forward),
+    : forward_offset(compute_forward_offset(forward)),
       reversible(reversible)
   {
     // Do nothing
@@ -167,6 +172,12 @@ public:
       Eigen::Vector3d& position,
       const Eigen::Vector2d& course_vector) const final
   {
+    const double initial_angle = position[2];
+    const Eigen::Vector2d actual_heading{
+      std::cos(initial_angle),
+      std::sin(initial_angle)
+    };
+    const double direction = std::atan2(course_vector[2], course_vector[1]);
 
   }
 
@@ -175,7 +186,7 @@ public:
     return std::make_unique<DifferentialOrientationConstraint>(*this);
   }
 
-  Eigen::Vector2d forward;
+  double forward_offset;
   bool reversible;
 
 };
