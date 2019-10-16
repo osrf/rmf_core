@@ -17,6 +17,8 @@
 
 #include <rmf_traffic/agv/Interpolate.hpp>
 
+#include "InterpolateInternal.hpp"
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -83,6 +85,9 @@ States compute_traversal(
   return states;
 }
 
+} // anonymous namespace
+
+namespace internal {
 //==============================================================================
 void interpolate_translation(
     Trajectory& trajectory,
@@ -139,8 +144,7 @@ void interpolate_rotation(
     trajectory.insert(state.t, nullptr, p, v);
   }
 }
-
-} // anonymous namespace
+} // namespace internal
 
 //==============================================================================
 class invalid_traits_error::Implementation
@@ -196,31 +200,6 @@ invalid_traits_error::invalid_traits_error()
 }
 
 //==============================================================================
-class Interpolate::Options::Implementation
-{
-public:
-
-  Implementation(
-      const bool always_stop,
-      const double translation_thresh,
-      const double rotation_thresh,
-      const double corner_angle_thresh)
-    : _always_stop(always_stop),
-      _translation_thresh(translation_thresh),
-      _rotation_thresh(rotation_thresh),
-      _corner_angle_thresh(corner_angle_thresh)
-  {
-    // Do nothing
-  }
-
-  bool _always_stop;
-  double _translation_thresh;
-  double _rotation_thresh;
-  double _corner_angle_thresh;
-
-};
-
-//==============================================================================
 Interpolate::Options::Options(
     const bool always_stop,
     const double translation_thresh,
@@ -238,56 +217,103 @@ Interpolate::Options::Options(
 //==============================================================================
 Interpolate::Options& Interpolate::Options::set_always_stop(bool choice)
 {
-  _pimpl->_always_stop = choice;
+  _pimpl->always_stop = choice;
   return *this;
 }
 
 //==============================================================================
 bool Interpolate::Options::always_stop() const
 {
-  return _pimpl->_always_stop;
+  return _pimpl->always_stop;
 }
 
 //==============================================================================
 Interpolate::Options& Interpolate::Options::set_translation_threshold(
     double dist)
 {
-  _pimpl->_translation_thresh = dist;
+  _pimpl->translation_thresh = dist;
   return *this;
 }
 
 //==============================================================================
 double Interpolate::Options::get_translation_threshold() const
 {
-  return _pimpl->_translation_thresh;
+  return _pimpl->translation_thresh;
 }
 
 //==============================================================================
 Interpolate::Options& Interpolate::Options::set_rotation_threshold(double angle)
 {
-  _pimpl->_rotation_thresh = angle;
+  _pimpl->rotation_thresh = angle;
   return *this;
 }
 
 //==============================================================================
 double Interpolate::Options::get_rotation_threshold() const
 {
-  return _pimpl->_rotation_thresh;
+  return _pimpl->rotation_thresh;
 }
 
 //==============================================================================
 Interpolate::Options& Interpolate::Options::set_corner_angle_threshold(
     double angle)
 {
-  _pimpl->_corner_angle_thresh = angle;
+  _pimpl->corner_angle_thresh = angle;
   return *this;
 }
 
 //==============================================================================
 double Interpolate::Options::get_corner_angle_threshold() const
 {
-  return _pimpl->_corner_angle_thresh;
+  return _pimpl->corner_angle_thresh;
 }
+
+//==============================================================================
+namespace internal {
+bool can_skip_interpolation(
+    const Eigen::Vector3d& last_position,
+    const Eigen::Vector3d& next_position,
+    const Eigen::Vector3d& future_position,
+    const Interpolate::Options::Implementation& options)
+{
+  const Eigen::Vector2d next_p = next_position.block<2,1>(0,0);
+  const Eigen::Vector2d last_p = last_position.block<2,1>(0,0);
+  const Eigen::Vector2d future_p = future_position.block<2,1>(0,0);
+
+  // If the waypoints are very close together, then we can skip it
+  bool can_skip =
+      (next_p - last_p).norm() < options.translation_thresh
+      || (future_p - next_p).norm() < options.translation_thresh;
+
+  // Check if the corner is too sharp
+  const Eigen::Vector2d d_next_p = next_p - last_p;
+  const Eigen::Vector2d d_future_p = future_p - next_p;
+  const double d_next_p_norm = d_next_p.norm();
+  const double d_future_p_norm = d_future_p.norm();
+
+  if(d_next_p_norm > 1e-8 && d_future_p_norm > 1e-8)
+  {
+    const double dot_product = d_next_p.dot(d_future_p);
+    const double angle = dot_product/(d_next_p_norm * d_future_p_norm);
+    // If the corner is smaller than the threshold, then we can skip it
+    if(angle < options.corner_angle_thresh)
+      can_skip = true;
+  }
+
+  const double next_angle = next_position[2];
+  const double last_angle = last_position[2];
+  const double future_angle = future_position[2];
+  if(can_skip && (
+       std::abs(next_angle - last_angle) > options.rotation_thresh
+       || std::abs(future_angle - next_angle) > options.rotation_thresh))
+  {
+    can_skip = false;
+  }
+
+  return can_skip;
+}
+
+} // namespace internal
 
 //==============================================================================
 Trajectory Interpolate::positions(
@@ -295,7 +321,7 @@ Trajectory Interpolate::positions(
     const VehicleTraits& traits,
     Time start_time,
     const std::vector<Eigen::Vector3d>& input_positions,
-    const Options& options)
+    const Options& input_options)
 {
   if(!traits.valid())
     throw invalid_traits_error::Implementation::make_error(traits);
@@ -315,11 +341,8 @@ Trajectory Interpolate::positions(
   const double a = traits.linear().get_nominal_acceleration();
   const double w = traits.rotational().get_nominal_velocity();
   const double alpha = traits.rotational().get_nominal_acceleration();
+  const auto options = Options::Implementation::get(input_options);
 
-  const bool always_stop = options.always_stop();
-  const double translation_thresh = options.get_translation_threshold();
-  const double rotation_thresh = options.get_rotation_threshold();
-  const double min_corner = options.get_corner_angle_threshold();
   const std::size_t N = input_positions.size();
   std::size_t last_stop_index = 0;
   for(std::size_t i=1; i < N; ++i)
@@ -327,52 +350,21 @@ Trajectory Interpolate::positions(
     const Eigen::Vector3d& last_position = input_positions[last_stop_index];
     const Eigen::Vector3d& next_position = input_positions[i];
 
-    if(!always_stop && i+1 < N)
+    if(!options.always_stop && i+1 < N)
     {
       const Eigen::Vector3d& future_position = input_positions[i+1];
-      const Eigen::Vector2d next_p = next_position.block<2,1>(0,0);
-      const Eigen::Vector2d last_p = last_position.block<2,1>(0,0);
-      const Eigen::Vector2d future_p = future_position.block<2,1>(0,0);
-
-      // If the waypoints are very close together, then we can skip it
-      bool can_skip =
-          (next_p - last_p).norm() < translation_thresh
-          || (future_p - next_p).norm() < translation_thresh;
-
-      // Check if the corner is too sharp
-      const Eigen::Vector2d d_next_p = next_p - last_p;
-      const Eigen::Vector2d d_future_p = future_p - next_p;
-      const double d_next_p_norm = d_next_p.norm();
-      const double d_future_p_norm = d_future_p.norm();
-
-      if(d_next_p_norm > 1e-8 && d_future_p_norm > 1e-8)
+      if(internal::can_skip_interpolation(
+           last_position, next_position, future_position, options))
       {
-        const double dot_product = d_next_p.dot(d_future_p);
-        const double angle = dot_product/(d_next_p_norm * d_future_p_norm);
-        // If the corner is smaller than the threshold, then we can skip it
-        if(angle < min_corner)
-          can_skip = true;
-      }
-
-      const double next_angle = next_position[2];
-      const double last_angle = last_position[2];
-      const double future_angle = future_position[2];
-      if(can_skip && (
-           std::abs(next_angle - last_angle) > rotation_thresh
-           || std::abs(future_angle - next_angle) > rotation_thresh))
-      {
-        can_skip = false;
-      }
-
-      if(can_skip)
         continue;
+      }
     }
 
-    interpolate_translation(
+    internal::interpolate_translation(
           trajectory, v, a, *trajectory.finish_time(),
           last_position, next_position);
 
-    interpolate_rotation(
+    internal::interpolate_rotation(
           trajectory, w, alpha, *trajectory.finish_time(),
           last_position, next_position);
 

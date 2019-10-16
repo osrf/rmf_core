@@ -81,11 +81,18 @@ public:
     /// Get the corner angle threshold
     double get_corner_angle_threshold() const;
 
-  private:
+    // TODO(MXG): The current behavior of Interpolate::positions() is to
+    // interpolate the (x,y) position and then interpolate the orientation. We
+    // should add a field to the Options that allows users to choose whether
+    // they want to interpolate using the current behavior or if they would
+    // rather interpolate positions and orientation in perfect sync, or whether
+    // they would rather interpolate positions and orientations concurrently at
+    // their nominal speeds.
+
     class Implementation;
+  private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
-
   static Trajectory positions(
       std::string map,
       const VehicleTraits& traits,

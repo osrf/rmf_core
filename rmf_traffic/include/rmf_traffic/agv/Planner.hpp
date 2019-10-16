@@ -21,6 +21,7 @@
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <rmf_traffic/agv/Graph.hpp>
+#include <rmf_traffic/agv/Interpolate.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 
 #include <rmf_traffic/schedule/Viewer.hpp>
@@ -65,7 +66,8 @@ public:
         VehicleTraits vehicle_traits,
         Graph graph,
         const schedule::Viewer& viewer,
-        Duration min_hold_time = std::chrono::seconds(2));
+        Duration min_hold_time = std::chrono::seconds(2),
+        Interpolate::Options interpolation = Interpolate::Options());
 
     /// Set the vehicle traits to use for planning
     Options& set_vehicle_traits(VehicleTraits traits);
@@ -102,6 +104,15 @@ public:
 
     /// Get the minimal amount of time to spend waiting at holding points
     Duration get_minimum_holding_time() const;
+
+    /// Set the interpolation options for the planner
+    Options& set_interpolation(Interpolate::Options interpolate);
+
+    /// Get a mutable reference to the interpolation options
+    Interpolate::Options& get_interpolation();
+
+    /// Get a const reference to the interpolation options
+    const Interpolate::Options& get_interpolation() const;
 
     // TODO(MXG): Consider adding an option to cap the maximum amount of time
     // that can be searched through. For example, if the planner has traversed

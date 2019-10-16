@@ -151,6 +151,9 @@ public:
   };
 
   /// A class that implicitly specifies a constraint on the robot's velocity.
+  //
+  // TODO(MXG): This class is not currently being used while planning. Remember
+  // to add this feature later, or else delete this API.
   class VelocityConstraint
   {
   public:
