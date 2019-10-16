@@ -1067,6 +1067,143 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     
   } 
 
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  //+++++++++++++++++++++++++++++++++++++++++++++++CIRCULAR TRAJECTORIES+++++++++++++++++++++++++++++
+
+
+  WHEN("Trajectory profile is circle(0.5), space is 10x1, space box rotated by 90deg ") //this fails
+    {
+
+    //Creating trajectory
+    rmf_traffic::Trajectory t1("test_map");
+    rmf_traffic::geometry::Circle shape(0.5); //radous 
+    rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
+    t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
+    REQUIRE(t1.size()==2);
+
+    //Creating Spacetime
+
+    const auto box = rmf_traffic::geometry::Box(10.0, 1.0); //Centered at (0,0) with width 10m and height 1m
+    const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+    lower_time_bound=time;
+    upper_time_bound=time+10s;
+
+    rotate=true;
+    rot_ang=90;
+    if(rotate)
+        tf.rotate(Eigen::Rotation2Dd(rot_ang*M_PI/180)); //conflict is only detected when angle is 69deg
+
+    //print out the translation compotent of tf
+    // for(int i=0;i<2;i++)
+    //   std::cout<<"Translation "<<i<<":"<<tf.translation()[i]<<std::endl;
+    
+
+    rmf_traffic::internal::Spacetime region={
+      &lower_time_bound,
+      &upper_time_bound,
+      tf,
+      final_box
+    };
+    std::cout<<"\nT_Circle("<<shape.get_radius()<<") Shape_box:("<<box.get_x_length()<<","<<box.get_y_length()<<")";
+    std::cout<<" Rot:"<<rotate<<" ";
+    if(rotate) std::cout<<" Ang:"<<rot_ang<<"\n";
+
+    bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+    CHECK(conflict);
+    CHECK(output_iterators.size()==1);
+    }
+
+    WHEN("Trajectory profile is circle(1), space is 10x1, space box rotated by 90deg ") //this fails
+    {
+
+    //Creating trajectory
+    rmf_traffic::Trajectory t1("test_map");
+    rmf_traffic::geometry::Circle shape(1); //radous 
+    rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
+    t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
+    REQUIRE(t1.size()==2);
+
+    //Creating Spacetime
+
+    const auto box = rmf_traffic::geometry::Box(10.0, 1.0); //Centered at (0,0) with width 10m and height 1m
+    const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+    lower_time_bound=time;
+    upper_time_bound=time+10s;
+
+    rotate=true;
+    rot_ang=90;
+    if(rotate)
+        tf.rotate(Eigen::Rotation2Dd(rot_ang*M_PI/180)); //conflict is only detected when angle is 69deg
+
+    //print out the translation compotent of tf
+    // for(int i=0;i<2;i++)
+    //   std::cout<<"Translation "<<i<<":"<<tf.translation()[i]<<std::endl;
+    
+
+    rmf_traffic::internal::Spacetime region={
+      &lower_time_bound,
+      &upper_time_bound,
+      tf,
+      final_box
+    };
+    std::cout<<"\nT_Circle("<<shape.get_radius()<<") Shape_box:("<<box.get_x_length()<<","<<box.get_y_length()<<")";
+    std::cout<<" Rot:"<<rotate<<" ";
+    if(rotate) std::cout<<" Ang:"<<rot_ang<<"\n";
+
+    bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+    CHECK(conflict);
+    CHECK(output_iterators.size()==1);
+    }
+
+
+    WHEN("Trajectory profile is circle(0.5), space is 1x10, space box not rotated ") //this fails
+    {
+
+    //Creating trajectory
+    rmf_traffic::Trajectory t1("test_map");
+    rmf_traffic::geometry::Circle shape(0.5); //radous 
+    rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
+    t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
+    REQUIRE(t1.size()==2);
+
+    //Creating Spacetime
+
+    const auto box = rmf_traffic::geometry::Box(1, 10.0); //Centered at (0,0) with width 10m and height 1m
+    const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+    lower_time_bound=time;
+    upper_time_bound=time+10s;
+
+    rotate=false;
+    rot_ang=90;
+    if(rotate)
+        tf.rotate(Eigen::Rotation2Dd(rot_ang*M_PI/180)); //conflict is only detected when angle is 69deg
+
+    //print out the translation compotent of tf
+    // for(int i=0;i<2;i++)
+    //   std::cout<<"Translation "<<i<<":"<<tf.translation()[i]<<std::endl;
+    
+
+    rmf_traffic::internal::Spacetime region={
+      &lower_time_bound,
+      &upper_time_bound,
+      tf,
+      final_box
+    };
+    std::cout<<"\nT_Circle("<<shape.get_radius()<<") Shape_box:("<<box.get_x_length()<<","<<box.get_y_length()<<")";
+    std::cout<<" Rot:"<<rotate<<" ";
+    if(rotate) std::cout<<" Ang:"<<rot_ang<<"\n";
+
+    bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+    CHECK(conflict);
+    CHECK(output_iterators.size()==1);
+    }
+
  /*
 
 //+++++++++++++CHANGE TIME RANGE OF TRAJECTORY
