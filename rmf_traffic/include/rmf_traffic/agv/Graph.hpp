@@ -294,6 +294,12 @@ public:
 //      Lane::Node exit,
 //      const Lift& lift);
 
+  /// Get the lane at the specified index
+  Lane& get_lane(std::size_t index);
+
+  /// const-qualified get_lane()
+  const Lane& get_lane(std::size_t index) const;
+
   /// Get the number of Lanes in this Graph.
   std::size_t num_lanes() const;
 

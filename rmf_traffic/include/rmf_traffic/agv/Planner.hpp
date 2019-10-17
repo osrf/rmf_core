@@ -78,6 +78,12 @@ public:
     /// Get a const reference to the vehicle traits
     const VehicleTraits& get_vehicle_traits() const;
 
+    // TODO(MXG): Instead of having Graph be one of the options, we should have
+    // a Planner class whose constructor takes in a Graph instance. That Planner
+    // instance can cache results as it solves planning problems on the Graph,
+    // allowing for better performance with each run. The solve() function would
+    // no longer be static.
+
     /// Set the graph to use for planning
     Options& set_graph(Graph graph);
 
@@ -165,10 +171,15 @@ public:
       const Options& options,
       std::vector<Trajectory>& solution);
 
-  // TODO(MXG): Consider optionally returning the sequence of waypoints that is
-  // being traversed. That may be useful for fleet adapters that need to
-  // instruct their fleets on what waypoints to pass through.
+  // TODO(MXG): Instead of returning a boolean and having an output parameter,
+  // the solve() function should return a Plan class (TBD), which will contain
+  // information about whether a solution was found, what the trajectory of the
+  // solution is, and what waypoints were traversed for the solution. It could
+  // also have functions for replanning when a schedule conflict arrives.
 
+  class Implementation;
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 

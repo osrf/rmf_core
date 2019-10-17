@@ -361,6 +361,10 @@ struct DifferentialDriveExpander : BaseExpander
 
           return {TargetOrientation::Result::Changed, new_target.value};
         }
+
+        // If there is no entry constraint, then we can just return whatever the
+        // exit_target happens to be.
+        return exit_target;
       }
     }
 

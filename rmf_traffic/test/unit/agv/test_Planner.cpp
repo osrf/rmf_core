@@ -42,6 +42,7 @@ SCENARIO("Test planning")
   graph.add_waypoint(test_map_name, { 0,  8}); // 9
   graph.add_waypoint(test_map_name, { 5,  8}); // 10
   graph.add_waypoint(test_map_name, {10, 12}); // 11
+  graph.add_waypoint(test_map_name, {12, 12}); // 12
 
   auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
   {
@@ -68,7 +69,7 @@ SCENARIO("Test planning")
 
   rmf_traffic::schedule::Database database;
 
-  const rmf_traffic::agv::Planner::Options options(traits, graph, database);
+  rmf_traffic::agv::Planner::Options options(traits, graph, database);
 
   std::vector<rmf_traffic::Trajectory> solution;
   CHECK(rmf_traffic::agv::Planner::solve(
@@ -78,4 +79,75 @@ SCENARIO("Test planning")
   const auto& t = solution.front();
   CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
   CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(10, 12)).norm() == Approx(0.0) );
+
+  std::cout << "Solved for 11" << std::endl;
+
+//  std::cout << t.back().get_finish_position().transpose() << std::endl;
+
+  const std::size_t N = 1;
+//  const auto start_time = std::chrono::steady_clock::now();
+//  for(std::size_t i=0; i < N; ++i)
+//  {
+//    rmf_traffic::agv::Planner::solve(
+//          time, 2, 0.0, 11, nullptr, options, solution);
+//  }
+//  const auto end_time = std::chrono::steady_clock::now();
+
+//  const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+//  std::cout << "Total: " << sec << std::endl;
+//  std::cout << "Per run: " << sec/N << std::endl;
+
+  WHEN("Docking must be at 0-degrees")
+  {
+    using namespace rmf_traffic::agv;
+    graph.add_lane(11, {12, Graph::OrientationConstraint::make({0.0})});
+    graph.add_lane({12, Graph::OrientationConstraint::make({0.0})}, 11);
+
+    options.set_graph(graph);
+
+
+    const auto start_time = std::chrono::steady_clock::now();
+    for(std::size_t i=0; i < N; ++i)
+      rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution);
+
+    const auto end_time = std::chrono::steady_clock::now();
+    const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+    std::cout << "For 0.0" << std::endl;
+    std::cout << "Total: " << sec << std::endl;
+    std::cout << "Per run: " << sec/N << std::endl;
+
+    REQUIRE(solution.size() == 1);
+    const auto& t = solution.front();
+    CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
+    CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+    CHECK( t.back().get_finish_position()[2] == Approx(0.0) );
+  }
+
+  WHEN("Docking must be at 180-degrees")
+  {
+    using namespace rmf_traffic::agv;
+    graph.add_lane(11, {12, Graph::OrientationConstraint::make({M_PI})});
+    graph.add_lane({12, Graph::OrientationConstraint::make({M_PI})}, 11);
+
+    options.set_graph(graph);
+
+    const auto start_time = std::chrono::steady_clock::now();
+    for(std::size_t i=0; i < N; ++i)
+      rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution);
+
+    const auto end_time = std::chrono::steady_clock::now();
+    const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+    std::cout << "For 180.0" << std::endl;
+    std::cout << "Total: " << sec << std::endl;
+    std::cout << "Per run: " << sec/N << std::endl;
+
+
+
+    REQUIRE(solution.size() == 1);
+    const auto& t = solution.front();
+    CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
+    CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+    CHECK( t.back().get_finish_position()[2] == Approx(M_PI) );
+  }
+
 }

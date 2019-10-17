@@ -460,6 +460,18 @@ auto Graph::add_lane(Lane::Node entry, Lane::Node exit, const Door& door)
 }
 
 //==============================================================================
+auto Graph::get_lane(const std::size_t index) -> Lane&
+{
+  return _pimpl->lanes.at(index);
+}
+
+//==============================================================================
+auto Graph::get_lane(const std::size_t index) const -> const Lane&
+{
+  return _pimpl->lanes.at(index);
+}
+
+//==============================================================================
 std::size_t Graph::num_lanes() const
 {
   return _pimpl->lanes.size();
