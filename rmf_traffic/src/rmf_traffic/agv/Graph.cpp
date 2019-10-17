@@ -19,6 +19,8 @@
 
 #include <rmf_traffic/agv/Graph.hpp>
 
+#include "../utils.hpp"
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -159,18 +161,6 @@ Graph::Door::Door()
 
 namespace {
 //==============================================================================
-double wrap_to_pi(double value)
-{
-  while(value < -M_PI)
-    value += 2.0*M_PI;
-
-  while(M_PI < value)
-    value -= 2.0*M_PI;
-
-  return value;
-}
-
-//==============================================================================
 class AcceptableOrientationConstraint : public Graph::OrientationConstraint
 {
 public:
@@ -197,7 +187,7 @@ public:
     double best_diff = std::numeric_limits<double>::infinity();
     for(const double theta : orientations)
     {
-      const double diff = std::abs(wrap_to_pi(theta - p));
+      const double diff = std::abs(internal::wrap_to_pi(theta - p));
       if(diff < best_diff)
       {
         closest = theta;
@@ -253,8 +243,16 @@ public:
 
     Constraints& operator=(const Constraints& other)
     {
-      orientation = other.orientation->clone();
-      velocity = other.velocity->clone();
+      if(other.orientation)
+        orientation = other.orientation->clone();
+      else
+        orientation = nullptr;
+
+      if(other.velocity)
+        velocity = other.velocity->clone();
+      else
+        velocity = nullptr;
+
       return *this;
     }
 
@@ -355,6 +353,13 @@ const std::size_t* Graph::Lane::door_index() const
 
 //==============================================================================
 Graph::Lane::Lane()
+{
+  // Do nothing
+}
+
+//==============================================================================
+Graph::Graph()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // Do nothing
 }

@@ -237,6 +237,9 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  /// Default constructor
+  Graph();
+
   /// Make a new waypoint for this graph. It will not be connected to any other
   /// waypoints until you use make_lane() to connect it.
   ///

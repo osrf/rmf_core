@@ -343,6 +343,9 @@ public:
       Eigen::Vector3d position,
       Eigen::Vector3d velocity);
 
+  /// Insert a copy of another Trajectory's Segment into this one.
+  InsertionResult insert(const Segment& other);
+
   /// Find the Segment of this Trajectory that is active during the given time.
   ///
   /// \note This will return Trajectory::end() if the time is before the
@@ -395,6 +398,26 @@ public:
 
   /// Explicitly call the const-qualified version of end()
   const_iterator cend() const;
+
+  /// Get a mutable reference to the first Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  Segment& front();
+
+  /// Get a const reference to the first Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  const Segment& front() const;
+
+  /// Get a mutable reference to the last Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  Segment& back();
+
+  /// Get a const reference to the last Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  const Segment& back() const;
 
   /// Get the start time, if available. This will return a nullptr if the
   /// Trajectory is empty.

@@ -142,7 +142,8 @@ public:
   /// \param[in] goal_orientation
   ///   The orientation that the vehicle should try to reach. If the orientation
   ///   at the end of the plan is irrelevant, then a nullptr can be given for
-  ///   this argument.
+  ///   this argument. TODO(MXG): Add an overload that uses std::optional when
+  ///   we can have C++17 support.
   ///
   /// \param[in] options
   ///   The options to use while planning.

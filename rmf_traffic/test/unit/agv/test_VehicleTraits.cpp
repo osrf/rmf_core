@@ -81,7 +81,7 @@ void test_independence(
 
 SCENARIO("Test VehicleTraits")
 {
-  rmf_traffic::agv::VehicleTraits original;
+  rmf_traffic::agv::VehicleTraits original({0.0, 0.0}, {0.0, 0.0}, nullptr);
 
   // Check that the initial properties are all zero
   CHECK(original.linear().get_nominal_velocity() == Approx(0.0));
@@ -115,7 +115,7 @@ SCENARIO("Test VehicleTraits")
 
   SECTION("Copy operator")
   {
-    rmf_traffic::agv::VehicleTraits copy;
+    rmf_traffic::agv::VehicleTraits copy({0.0, 0.0}, {0.0, 0.0}, nullptr);
     copy = original;
     test_independence(original, copy);
   }
@@ -131,7 +131,7 @@ SCENARIO("Test VehicleTraits")
   SECTION("Move operator")
   {
     rmf_traffic::agv::VehicleTraits moved = original;
-    rmf_traffic::agv::VehicleTraits copy;
+    rmf_traffic::agv::VehicleTraits copy({0.0, 0.0}, {0.0, 0.0}, nullptr);
     copy = std::move(moved);
     moved = original;
     test_independence(moved, copy);

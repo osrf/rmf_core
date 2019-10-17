@@ -294,7 +294,8 @@ bool can_skip_interpolation(
   if(d_next_p_norm > 1e-8 && d_future_p_norm > 1e-8)
   {
     const double dot_product = d_next_p.dot(d_future_p);
-    const double angle = dot_product/(d_next_p_norm * d_future_p_norm);
+    const double angle = std::acos(
+          dot_product/(d_next_p_norm * d_future_p_norm));
     // If the corner is smaller than the threshold, then we can skip it
     if(angle < options.corner_angle_thresh)
       can_skip = true;

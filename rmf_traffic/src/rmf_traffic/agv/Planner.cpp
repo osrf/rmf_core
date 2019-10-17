@@ -22,8 +22,12 @@
 
 #include <rmf_traffic/Conflict.hpp>
 
+#include "../utils.hpp"
+
 #include <iostream>
 #include <queue>
+
+using rmf_traffic::internal::wrap_to_pi;
 
 namespace rmf_traffic {
 namespace agv {
@@ -50,7 +54,7 @@ using NodePtr = std::shared_ptr<Node>;
 //==============================================================================
 struct Node
 {
-  double final_cost_estimate;
+  double remaining_cost_estimate;
 
   double current_cost;
 
@@ -154,18 +158,40 @@ class DifferentialOrientationConstraint : public Graph::OrientationConstraint
 {
 public:
 
-  static double compute_forward_offset(const Eigen::Vector2d& forward)
+  static Eigen::Rotation2Dd compute_forward_offset(
+      const Eigen::Vector2d& forward)
   {
-
+    return Eigen::Rotation2Dd(std::atan2(forward[1], forward[0]));
   }
+
+  static const Eigen::Rotation2Dd R_pi;
 
   DifferentialOrientationConstraint(
       const Eigen::Vector2d& forward,
       const bool reversible)
-    : forward_offset(compute_forward_offset(forward)),
+    : R_f(compute_forward_offset(forward)),
+      R_f_inv(R_f.inverse()),
       reversible(reversible)
   {
     // Do nothing
+  }
+
+  Eigen::Rotation2Dd compute_R_final(
+      const Eigen::Vector2d& course_vector,
+      const Eigen::Vector2d& heading) const
+  {
+    const Eigen::Rotation2Dd R_c(
+          std::atan2(course_vector[1], course_vector[0]));
+
+    if(reversible)
+    {
+      if(heading.dot(course_vector) >= 0.0)
+        return R_c * R_f_inv;
+      else
+        return R_pi * R_c * R_f_inv;
+    }
+
+    return R_c * R_f_inv;
   }
 
   bool apply(
@@ -173,12 +199,13 @@ public:
       const Eigen::Vector2d& course_vector) const final
   {
     const double initial_angle = position[2];
-    const Eigen::Vector2d actual_heading{
-      std::cos(initial_angle),
-      std::sin(initial_angle)
-    };
-    const double direction = std::atan2(course_vector[2], course_vector[1]);
+    const Eigen::Rotation2Dd R_r(initial_angle);
 
+    const Eigen::Rotation2Dd R = compute_R_final(
+          course_vector, R_f*R_r*Eigen::Vector2d::UnitX());
+
+    position[2] = wrap_to_pi(R.angle());
+    return true;
   }
 
   std::unique_ptr<OrientationConstraint> clone() const final
@@ -186,10 +213,15 @@ public:
     return std::make_unique<DifferentialOrientationConstraint>(*this);
   }
 
-  double forward_offset;
+  Eigen::Rotation2Dd R_f;
+  Eigen::Rotation2Dd R_f_inv;
   bool reversible;
 
 };
+
+//==============================================================================
+const Eigen::Rotation2Dd DifferentialOrientationConstraint::R_pi =
+    Eigen::Rotation2Dd(M_PI);
 
 //==============================================================================
 struct DifferentialDriveExpander : BaseExpander
@@ -215,7 +247,10 @@ struct DifferentialDriveExpander : BaseExpander
     {
       // Note(MXG): The priority queue puts the greater value first, so we
       // reverse the arguments in this comparison.
-      return b->final_cost_estimate < a->final_cost_estimate;
+      // TODO(MXG): Micro-optimization: consider saving the sum of these values
+      // in the Node instead of needing to re-add them for every comparison.
+      return b->remaining_cost_estimate + b->current_cost
+           < a->remaining_cost_estimate + a->current_cost;
     }
   };
 
@@ -256,7 +291,7 @@ struct DifferentialDriveExpander : BaseExpander
       return {TargetOrientation::Result::Invalid, orientation};
     }
 
-    if(std::abs(position[2] - orientation) < threshold)
+    if(std::abs(wrap_to_pi(position[2] - orientation)) < threshold)
       return {TargetOrientation::Result::Unchanged, position[2]};
 
     return {TargetOrientation::Result::Changed, position[2]};
@@ -270,7 +305,7 @@ struct DifferentialDriveExpander : BaseExpander
     const Eigen::Vector2d next_p =
         context.graph.waypoints[lane.exit().waypoint_index()]
         .get_location();
-    const Eigen::Vector2d course = next_p - initial_p;
+    const Eigen::Vector2d course = (next_p - initial_p).normalized();
     const double thresh = context.interpolate.rotation_thresh;
 
     // NOTE(MXG): This implementation assumes that the user-specified
@@ -365,13 +400,18 @@ struct DifferentialDriveExpander : BaseExpander
 
     Trajectory initial_trajectory{
       context.graph.waypoints[initial_waypoint].get_map_name()};
+
     const Trajectory::Segment& last_seg =
-        *(--initial_parent->trajectory_from_parent.end());
+        initial_parent->trajectory_from_parent.back();
+
+    const Eigen::Vector3d initial_position = last_seg.get_finish_position();
+
     initial_trajectory.insert(
           last_seg.get_finish_time(),
           context.profile,
-          last_seg.get_finish_position(),
+          initial_position,
           Eigen::Vector3d::Zero());
+
 
     // The orientation constraints are satisfied, so we'll proceed down the lane
     std::vector<LaneExpansionNode> expansion_queue;
@@ -384,23 +424,95 @@ struct DifferentialDriveExpander : BaseExpander
       expansion_queue.pop_back();
 
       const Graph::Lane& lane = context.graph.lanes[top.lane];
+      const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
       const Graph::Waypoint& exit_waypoint =
-          context.graph.waypoints[lane.exit().waypoint_index()];
+          context.graph.waypoints[exit_waypoint_index];
 
       const Eigen::Vector2d& next_p = exit_waypoint.get_location();
+      const Eigen::Vector3d next_position{next_p[0], next_p[1], orientation};
 
+      // TODO(MXG): Figure out what to do if the trajectory spans across
+      // multiple maps.
+      Trajectory trajectory = top.parent_trajectory;
+      const auto& continue_from = trajectory.back();
+      internal::interpolate_translation(
+            trajectory,
+            context.traits.linear().get_nominal_velocity(),
+            context.traits.linear().get_nominal_acceleration(),
+            continue_from.get_finish_time(),
+            continue_from.get_finish_position(),
+            next_position);
 
+      // NOTE(MXG): We cannot move the trajectory in this function call, because
+      // we may need to copy the trajectory later when we expand further down
+      // other lanes.
+      if(!add_if_valid(exit_waypoint_index, orientation, initial_parent,
+                       trajectory, queue))
+      {
+        // This lane was not successfully added, so we should not try to expand
+        // this any further.
+        continue;
+      }
+
+      // If this lane was successfully added, we can try to find more lanes to
+      // continue down, as a single expansion from the original parent.
+      const std::vector<std::size_t>& lanes =
+          context.graph.lanes_from[exit_waypoint_index];
+
+      for(const std::size_t l : lanes)
+      {
+        const Graph::Lane& future_lane = context.graph.lanes[l];
+        const TargetOrientation check_orientation =
+            get_target_orientation(initial_p, orientation, future_lane);
+
+        if(check_orientation.result == TargetOrientation::Result::Changed)
+        {
+          // The orientation needs to be changed to go down this lane, so we
+          // should not expand in this direction
+          continue;
+        }
+
+        const Eigen::Vector2d future_p =
+            context.graph.waypoints[future_lane.exit().waypoint_index()]
+            .get_location();
+        const Eigen::Vector3d future_position{
+            future_p[0], future_p[1], orientation};
+
+        if(!internal::can_skip_interpolation(
+             initial_position, next_position,
+             future_position, context.interpolate))
+        {
+          continue;
+        }
+
+        expansion_queue.push_back({l, trajectory});
+      }
+    }
+  }
+
+  bool add_if_valid(
+      const std::size_t waypoint,
+      const double orientation,
+      const NodePtr& parent_node,
+      Trajectory trajectory,
+      SearchQueue& queue) const
+  {
+    if(is_valid(trajectory))
+    {
+      const double cost = compute_current_cost(parent_node, trajectory);
+      queue.push(std::make_shared<Node>(
+                   Node{
+                     estimate_remaining_cost(waypoint),
+                     cost,
+                     waypoint,
+                     orientation,
+                     std::move(trajectory),
+                     parent_node
+                   }));
+      return true;
     }
 
-
-    // TODO(MXG): Finish this expansion function
-    // * Calculate an expansion from this waypoint to each of the other
-    //   waypoints that connect to this waypoint by at least one lane
-    // * When possible, calculate a multi-waypoint expansion (e.g. when there
-    //   are straight lines connecting a sequence of waypoints, and no
-    //   velocity constraint between them)
-    // * Check each expansion against the schedule to make sure that it is
-    //   indeed a valid expansion
+    return false;
   }
 
   bool expand_rotation(
@@ -411,13 +523,10 @@ struct DifferentialDriveExpander : BaseExpander
     const std::size_t waypoint = parent_node->waypoint;
     Trajectory trajectory{context.graph.waypoints[waypoint].get_map_name()};
     const Trajectory::Segment& last =
-        *(--parent_node->trajectory_from_parent.end());
+        parent_node->trajectory_from_parent.back();
+
     const Eigen::Vector3d& p = last.get_finish_position();
-    trajectory.insert(
-          last.get_finish_time(),
-          last.get_profile(),
-          p,
-          Eigen::Vector3d::Zero());
+    trajectory.insert(last);
 
     internal::interpolate_rotation(
           trajectory,
@@ -427,26 +536,39 @@ struct DifferentialDriveExpander : BaseExpander
           p,
           Eigen::Vector3d(p[0], p[1], target_orientation));
 
-    if(is_valid(trajectory))
-    {
-      queue.push(std::make_shared<Node>(
-                   Node{
-                     estimate_remaining_cost(waypoint),
-                     compute_current_cost(parent_node, trajectory),
-                     waypoint,
-                     target_orientation,
-                     trajectory,
-                     parent_node
-                   }));
-      return true;
-    }
+    return add_if_valid(waypoint, target_orientation, parent_node,
+                        std::move(trajectory), queue);
+  }
 
-    return false;
+  void expand_holding(
+      const std::size_t waypoint,
+      const NodePtr& parent_node,
+      SearchQueue& queue)
+  {
+    const Trajectory& parent_trajectory = parent_node->trajectory_from_parent;
+    const auto& initial_segment = parent_trajectory.back();
+
+    Trajectory trajectory{context.graph.waypoints[waypoint].get_map_name()};
+
+    const Time initial_time = initial_segment.get_finish_time();
+    const Eigen::Vector3d& initial_pos = initial_segment.get_finish_position();
+    trajectory.insert(initial_segment);
+
+    trajectory.insert(
+          initial_time + context.holding_time,
+          context.profile,
+          initial_pos,
+          Eigen::Vector3d::Zero());
+
+    add_if_valid(
+          waypoint, initial_pos[2], parent_node,
+          std::move(trajectory), queue);
   }
 
   void expand(const NodePtr& parent_node, SearchQueue& queue)
   {
-    if(parent_node->waypoint == context.final_waypoint)
+    const std::size_t parent_waypoint = parent_node->waypoint;
+    if(parent_waypoint == context.final_waypoint)
     {
       if(!context.final_orientation)
       {
@@ -466,52 +588,54 @@ struct DifferentialDriveExpander : BaseExpander
 
       // Note: If the rotation was not valid, then some other trajectory is
       // blocking us from rotating, so we should keep expanding as usual.
+      // If the rotation was valid, then the node that was added is a solution
+      // node, so we should not expand anything else from this parent node.
+      // We should, however, continue to expand other nodes, because a more
+      // optimal solution could still exist.
     }
 
     const std::vector<std::size_t>& lanes =
-        context.graph.lanes_from[parent_node->waypoint];
+        context.graph.lanes_from[parent_waypoint];
 
     for(const std::size_t l : lanes)
       expand_lane(parent_node, l, queue);
 
-    if(context.graph.waypoints[parent_node->waypoint].is_holding_point())
-    {
-
-    }
+    if(context.graph.waypoints[parent_waypoint].is_holding_point())
+      expand_holding(parent_waypoint, parent_node, queue);
   }
 
 };
 
 //==============================================================================
-struct HolonomicExpander
-{
-  const ExpansionContext context;
+//struct HolonomicExpander
+//{
+//  const ExpansionContext context;
 
-  HolonomicExpander(ExpansionContext ec)
-    : context(std::move(ec))
-  {
-    // Do nothing
-  }
+//  HolonomicExpander(ExpansionContext ec)
+//    : context(std::move(ec))
+//  {
+//    // Do nothing
+//  }
 
-  struct Node
-  {
-    double cost_estimate;
-  };
+//  struct Node
+//  {
+//    double cost_estimate;
+//  };
 
-  // TODO(MXG): Consider changing this to unique_ptr
-  using NodePtr = std::shared_ptr<Node>;
+//  // TODO(MXG): Consider changing this to unique_ptr
+//  using NodePtr = std::shared_ptr<Node>;
 
-  struct Compare
-  {
-    bool operator()(const NodePtr& a, const NodePtr& b)
-    {
-      // Note(MXG): The priority queue puts the greater value first, so we
-      // reverse the arguments in this comparison.
-      return b->cost_estimate < a->cost_estimate;
-    }
-  };
+//  struct Compare
+//  {
+//    bool operator()(const NodePtr& a, const NodePtr& b)
+//    {
+//      // Note(MXG): The priority queue puts the greater value first, so we
+//      // reverse the arguments in this comparison.
+//      return b->cost_estimate < a->cost_estimate;
+//    }
+//  };
 
-};
+//};
 
 //==============================================================================
 template<typename Expander>
@@ -533,21 +657,15 @@ std::vector<Trajectory> reconstruct_trajectory(
 
   // We exclude the first node in the sequence, because it contains a dummy
   // trajectory which is not helpful.
-  const auto stop_it = --node_sequence.rend();
-  for(auto it = node_sequence.rbegin(); it != stop_it; ++it)
+  const auto stop_it = node_sequence.rend();
+  for(auto it = ++node_sequence.rbegin(); it != stop_it; ++it)
   {
     Trajectory& last_trajectory = trajectories.back();
     const Trajectory& next_trajectory = (*it)->trajectory_from_parent;
     if(next_trajectory.get_map_name() == last_trajectory.get_map_name())
     {
       for(const auto& segment : next_trajectory)
-      {
-        last_trajectory.insert(
-              segment.get_finish_time(),
-              segment.get_profile(),
-              segment.get_finish_position(),
-              segment.get_finish_velocity());
-      }
+        last_trajectory.insert(segment);
     }
     else
     {
@@ -568,7 +686,7 @@ bool search(
     const std::size_t final_waypoint,
     const double* const final_orientation,
     const Planner::Options& options,
-    std::vector<Trajectory> solution)
+    std::vector<Trajectory>& solution)
 {
   using NodePtr = typename Expander::NodePtr;
   using SearchQueue = typename Expander::SearchQueue;

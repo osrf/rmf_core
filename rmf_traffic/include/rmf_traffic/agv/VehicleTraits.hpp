@@ -99,12 +99,11 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// Constructor. The default values of zero, with an x-axis forward
-  /// differential drive.
+  /// Constructor.
   VehicleTraits(
-      Limits linear = Limits(),
-      Limits angular = Limits(),
-      Trajectory::ConstProfilePtr profile = nullptr,
+      Limits linear,
+      Limits angular,
+      Trajectory::ConstProfilePtr profile,
       Differential steering = Differential());
 
   Limits& linear();

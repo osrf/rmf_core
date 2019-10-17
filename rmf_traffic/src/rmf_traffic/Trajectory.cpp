@@ -623,6 +623,12 @@ Trajectory::InsertionResult Trajectory::insert(
 }
 
 //==============================================================================
+Trajectory::InsertionResult Trajectory::insert(const Segment& other)
+{
+  return _pimpl->insert(internal::SegmentElement::Data{other._pimpl->data()});
+}
+
+//==============================================================================
 Trajectory::iterator Trajectory::find(Time time)
 {
   return _pimpl->find(time);
@@ -680,6 +686,30 @@ Trajectory::const_iterator Trajectory::end() const
 Trajectory::const_iterator Trajectory::cend() const
 {
   return const_cast<Implementation&>(*_pimpl).end();
+}
+
+//==============================================================================
+auto Trajectory::front() -> Segment&
+{
+  return *_pimpl->segments.front().myself;
+}
+
+//==============================================================================
+auto Trajectory::front() const -> const Segment&
+{
+  return *_pimpl->segments.front().myself;
+}
+
+//==============================================================================
+auto Trajectory::back() -> Segment&
+{
+  return *_pimpl->segments.back().myself;
+}
+
+//==============================================================================
+auto Trajectory::back() const -> const Segment&
+{
+  return *_pimpl->segments.back().myself;
 }
 
 //==============================================================================

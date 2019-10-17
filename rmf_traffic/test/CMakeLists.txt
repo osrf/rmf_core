@@ -6,6 +6,7 @@ set(unit_tests
   test_Conflict.cpp
   test_Spline.cpp
   agv/test_Interpolate.cpp
+  agv/test_Planner.cpp
   agv/test_VehicleTraits.cpp
   schedule/test_Query.cpp
 )
