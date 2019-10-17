@@ -95,15 +95,17 @@ void interpolate_translation(
     const double a_nom,
     const Time start_time,
     const Eigen::Vector3d& start,
-    const Eigen::Vector3d& finish)
+    const Eigen::Vector3d& finish,
+    const double threshold)
 {
   const double heading = start[2];
   const Eigen::Vector2d start_p = start.block<2,1>(0,0);
   const Eigen::Vector2d finish_p = finish.block<2,1>(0,0);
   const Eigen::Vector2d diff_p = finish_p - start_p;
   const double dist = diff_p.norm();
-  // TODO(MXG): We should have some safety checking for extremely low values of
-  // dist.
+  if(dist < threshold)
+    return;
+
   const Eigen::Vector2d dir = diff_p/dist;
 
   States states = compute_traversal(start_time, dist, v_nom, a_nom);
@@ -125,12 +127,16 @@ void interpolate_rotation(
     const double alpha_nom,
     const Time start_time,
     const Eigen::Vector3d& start,
-    const Eigen::Vector3d& finish)
+    const Eigen::Vector3d& finish,
+    const double threshold)
 {
   const double start_heading = start[2];
   const double finish_heading = finish[2];
 
   const double diff_heading = std::abs(finish_heading - start_heading);
+  if(std::abs(diff_heading) < threshold)
+    return;
+
   const double dir = finish_heading < start_heading? -1.0 : 1.0;
 
   States states = compute_traversal(start_time, diff_heading, w_nom, alpha_nom);
@@ -363,11 +369,11 @@ Trajectory Interpolate::positions(
 
     internal::interpolate_translation(
           trajectory, v, a, *trajectory.finish_time(),
-          last_position, next_position);
+          last_position, next_position, options.translation_thresh);
 
     internal::interpolate_rotation(
           trajectory, w, alpha, *trajectory.finish_time(),
-          last_position, next_position);
+          last_position, next_position, options.rotation_thresh);
 
     last_stop_index = i;
   }

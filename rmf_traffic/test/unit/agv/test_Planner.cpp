@@ -72,30 +72,37 @@ SCENARIO("Test planning")
   rmf_traffic::agv::Planner::Options options(traits, graph, database);
 
   std::vector<rmf_traffic::Trajectory> solution;
-  CHECK(rmf_traffic::agv::Planner::solve(
-          time, 2, 0.0, 11, nullptr, options, solution));
 
-  REQUIRE(solution.size() == 1);
-  const auto& t = solution.front();
-  CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
-  CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(10, 12)).norm() == Approx(0.0) );
+  // TODO(MXG): Move this content into a performance test folder
+  const bool test_performance = false;
+  const std::size_t N = test_performance? 100 : 1;
 
-  std::cout << "Solved for 11" << std::endl;
+  WHEN("Docking is not constrained")
+  {
+    using namespace rmf_traffic::agv;
+    add_bidir_lane(11, 12);
 
-//  std::cout << t.back().get_finish_position().transpose() << std::endl;
+    options.set_graph(graph);
 
-  const std::size_t N = 1;
-//  const auto start_time = std::chrono::steady_clock::now();
-//  for(std::size_t i=0; i < N; ++i)
-//  {
-//    rmf_traffic::agv::Planner::solve(
-//          time, 2, 0.0, 11, nullptr, options, solution);
-//  }
-//  const auto end_time = std::chrono::steady_clock::now();
+    const auto start_time = std::chrono::steady_clock::now();
 
-//  const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-//  std::cout << "Total: " << sec << std::endl;
-//  std::cout << "Per run: " << sec/N << std::endl;
+    for(std::size_t i=0; i < N; ++i)
+      CHECK(rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution));
+
+    const auto end_time = std::chrono::steady_clock::now();
+    if(test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "\nUnconstrained" << std::endl;
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
+
+    REQUIRE(solution.size() == 1);
+    const auto& t = solution.front();
+    CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
+    CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+  }
 
   WHEN("Docking must be at 0-degrees")
   {
@@ -105,16 +112,18 @@ SCENARIO("Test planning")
 
     options.set_graph(graph);
 
-
     const auto start_time = std::chrono::steady_clock::now();
     for(std::size_t i=0; i < N; ++i)
-      rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution);
+      CHECK(rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution));
 
     const auto end_time = std::chrono::steady_clock::now();
-    const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-    std::cout << "For 0.0" << std::endl;
-    std::cout << "Total: " << sec << std::endl;
-    std::cout << "Per run: " << sec/N << std::endl;
+    if(test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "\nConstrained to 0.0" << std::endl;
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
 
     REQUIRE(solution.size() == 1);
     const auto& t = solution.front();
@@ -136,12 +145,13 @@ SCENARIO("Test planning")
       rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution);
 
     const auto end_time = std::chrono::steady_clock::now();
-    const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-    std::cout << "For 180.0" << std::endl;
-    std::cout << "Total: " << sec << std::endl;
-    std::cout << "Per run: " << sec/N << std::endl;
-
-
+    if(test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "\nConstrained to 180.0" << std::endl;
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
 
     REQUIRE(solution.size() == 1);
     const auto& t = solution.front();

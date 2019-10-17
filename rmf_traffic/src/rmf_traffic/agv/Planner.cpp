@@ -26,6 +26,7 @@
 
 #include <iostream>
 #include <queue>
+#include <unordered_map>
 
 using rmf_traffic::internal::wrap_to_pi;
 
@@ -33,6 +34,45 @@ namespace rmf_traffic {
 namespace agv {
 
 namespace {
+//==============================================================================
+template<typename Expander>
+std::vector<Trajectory> reconstruct_trajectory(
+    const typename Expander::NodePtr& finish_node)
+{
+  using NodePtr = typename Expander::NodePtr;
+  NodePtr node = finish_node;
+  std::vector<NodePtr> node_sequence;
+  while(node)
+  {
+    node_sequence.push_back(node);
+    node = node->parent;
+  }
+
+  std::vector<Trajectory> trajectories;
+  trajectories.push_back(
+      Trajectory{node_sequence.back()->trajectory_from_parent.get_map_name()});
+
+  // We exclude the first node in the sequence, because it contains a dummy
+  // trajectory which is not helpful.
+  const auto stop_it = node_sequence.rend();
+  for(auto it = ++node_sequence.rbegin(); it != stop_it; ++it)
+  {
+    Trajectory& last_trajectory = trajectories.back();
+    const Trajectory& next_trajectory = (*it)->trajectory_from_parent;
+    if(next_trajectory.get_map_name() == last_trajectory.get_map_name())
+    {
+      for(const auto& segment : next_trajectory)
+        last_trajectory.insert(segment);
+    }
+    else
+    {
+      trajectories.push_back(next_trajectory);
+    }
+  }
+
+  return trajectories;
+}
+
 //==============================================================================
 struct ExpansionContext
 {
@@ -44,12 +84,27 @@ struct ExpansionContext
   const Duration holding_time;
   const Interpolate::Options::Implementation interpolate;
   const schedule::Viewer::View view;
+  const Time initial_time;
 };
 
 //==============================================================================
 struct Node;
 // TODO(MXG): Consider replacing this with std::unique_ptr
 using NodePtr = std::shared_ptr<Node>;
+
+template<typename NodePtr>
+struct Compare
+{
+  bool operator()(const NodePtr& a, const NodePtr& b)
+  {
+    // Note(MXG): The priority queue puts the greater value first, so we
+    // reverse the arguments in this comparison.
+    // TODO(MXG): Micro-optimization: consider saving the sum of these values
+    // in the Node instead of needing to re-add them for every comparison.
+    return b->remaining_cost_estimate + b->current_cost
+         < a->remaining_cost_estimate + a->current_cost;
+  }
+};
 
 //==============================================================================
 struct Node
@@ -68,6 +123,71 @@ struct Node
 };
 
 //==============================================================================
+template<
+    class Expander,
+    class InitialNodeArgs = typename Expander::InitialNodeArgs,
+    class NodePtr = typename Expander::NodePtr>
+NodePtr search(
+    typename Expander::ExpansionContext context,
+    InitialNodeArgs initial_node_args)
+{
+  using SearchQueue = typename Expander::SearchQueue;
+
+  Expander expander(std::move(context));
+
+  SearchQueue queue;
+  queue.push(expander.make_initial_node(initial_node_args));
+
+  while(!queue.empty())
+  {
+    NodePtr top = queue.top();
+    queue.pop();
+
+    if(expander.is_finished(top))
+      return top;
+
+    expander.expand(top, queue);
+  }
+
+  // Could not find a solution!
+  return nullptr;
+}
+
+//==============================================================================
+template<class Expander>
+bool search_and_construct(
+    const Graph::Implementation& graph,
+    const Time initial_time,
+    const std::size_t initial_waypoint,
+    const double initial_orientation,
+    const std::size_t final_waypoint,
+    const double* const final_orientation,
+    const Planner::Options& options,
+    std::vector<Trajectory>& solution)
+{
+  NodePtr goal = search<Expander>(
+        ExpansionContext{
+          graph, final_waypoint, final_orientation,
+          options.get_vehicle_traits(),
+          options.get_vehicle_traits().get_profile(),
+          options.get_minimum_holding_time(),
+          options.get_interpolation(),
+          options.get_schedule_viewer().query(schedule::query_everything()),
+          initial_time
+        },
+        typename Expander::InitialNodeArgs{
+          initial_waypoint,
+          initial_orientation
+        });
+
+  if(!goal)
+    return false;
+
+  solution = reconstruct_trajectory<Expander>(goal);
+  return true;
+}
+
+//==============================================================================
 Eigen::Vector3d to_3d(const Eigen::Vector2d& p, const double w)
 {
   return Eigen::Vector3d(p[0], p[1], w);
@@ -84,31 +204,178 @@ double compute_current_cost(
 }
 
 //==============================================================================
-struct BaseExpander
+struct NaiveExpander
 {
+  struct ExpansionContext
+  {
+    const Graph::Implementation& graph;
+    const std::size_t final_waypoint;
+  };
+
   const ExpansionContext context;
 
   const Eigen::Vector2d p_final;
 
-  BaseExpander(ExpansionContext context)
-    : context(std::move(context)),
+  struct Node;
+  using NodePtr = std::shared_ptr<NaiveExpander::Node>;
+
+  struct Node
+  {
+    double remaining_cost_estimate;
+    double current_cost;
+    std::size_t waypoint;
+    Eigen::Vector2d location;
+    NodePtr parent;
+  };
+
+  using Compare = agv::Compare<NodePtr>;
+
+  using SearchQueue =
+      std::priority_queue<NodePtr, std::vector<NodePtr>, Compare>;
+
+  NaiveExpander(ExpansionContext _context)
+    : context(std::move(_context)),
       p_final(context.graph.waypoints[context.final_waypoint].get_location())
   {
     // Do nothing
   }
 
-  double estimate_remaining_cost(std::size_t waypoint) const
+  double estimate_remaining_cost(const Eigen::Vector2d& p)
   {
-    const auto& p0 = context.graph.waypoints[waypoint].get_location();
+    return (p_final - p).norm();
+  }
+
+  void expand_lane(
+      const NodePtr& parent_node,
+      const std::size_t lane_index,
+      SearchQueue& queue)
+  {
+    const Graph::Lane& lane = context.graph.lanes[lane_index];
+    const std::size_t parent_waypoint_index = parent_node->waypoint;
+    assert(lane.entry().waypoint_index() == parent_waypoint_index);
+
+    const Eigen::Vector2d p_start = parent_node->location;
+
+    const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
+    const Eigen::Vector2d p_exit =
+        context.graph.waypoints[exit_waypoint_index].get_location();
+
+    const double cost = parent_node->current_cost + (p_exit - p_start).norm();
+    queue.push(std::make_shared<Node>(
+                 Node{
+                   estimate_remaining_cost(p_start),
+                   cost,
+                   exit_waypoint_index,
+                   p_exit,
+                   parent_node
+                 }));
+  }
+
+  bool is_finished(const NodePtr& node)
+  {
+    return node->waypoint == context.final_waypoint;
+  }
+
+  void expand(const NodePtr& parent_node, SearchQueue& queue)
+  {
+    const std::size_t parent_waypoint = parent_node->waypoint;
+
+    const std::vector<std::size_t>& lanes =
+        context.graph.lanes_from[parent_waypoint];
+
+    for(const std::size_t l : lanes)
+      expand_lane(parent_node, l, queue);
+  }
+
+  struct InitialNodeArgs
+  {
+    std::size_t waypoint;
+  };
+
+  NodePtr make_initial_node(const InitialNodeArgs& args)
+  {
+    const Eigen::Vector2d p_initial =
+        context.graph.waypoints[args.waypoint].get_location();
+
+    return std::make_shared<Node>(
+          Node{estimate_remaining_cost(p_initial), 0.0, args.waypoint,
+               context.graph.waypoints[args.waypoint].get_location(), nullptr});
+  }
+};
+
+//==============================================================================
+struct BaseExpander
+{
+  using ExpansionContext = agv::ExpansionContext;
+
+  const ExpansionContext context;
+
+  const Eigen::Vector2d p_final;
+
+  std::unordered_map<std::size_t, double> cost_estimate;
+
+  BaseExpander(ExpansionContext _context)
+    : context(std::move(_context)),
+      p_final(context.graph.waypoints[context.final_waypoint].get_location())
+  {
+    // Do nothing
+  }
+
+  double estimate_remaining_cost(std::size_t waypoint)
+  {
     // TODO(MXG): When we want to support multiple floors, this estimate should
     // be improved by accounting for the need to use lifts.
     //
-    // TODO(MXG): It would almost certainly be better to precompute the best
-    // path from each waypoint to the goal using a simpler time-agnostic A-star
-    // per waypoint. These results can be cached and reused every time we need
-    // to re-expand a waypoint, e.g. when a plan requires us to loop to avoid
-    // a conflict with another trajectory.
-    return (p_final - p0).norm()/context.traits.linear().get_nominal_velocity();
+    // TODO(MXG): We could probably improve the performance of the naive A-star
+    // even further by caching the solutions for every node along the way to
+    // the goal, but the current performance seems to be good enough for right
+    // now.
+    //
+    // TODO(MXG): We could possibly make the search faster by having the cost
+    // estimate account for the time required to rotate due to the orientation
+    // constraints. However, it will take additional effort to account for those
+    // constraints in the naive search, and it could (potentially) make it more
+    // difficult to cache the naive search results if the initial orientation
+    // needs to be a factor in the results cache map.
+
+    auto estimate_it = cost_estimate.insert(
+          std::make_pair(waypoint, std::numeric_limits<double>::infinity()));
+    if(estimate_it.second)
+    {
+      // The pair was inserted, which implies that the cost estimate for this
+      // waypoint has never been found before, and we should compute it now.
+      const NaiveExpander::NodePtr goal = search<NaiveExpander>(
+        NaiveExpander::ExpansionContext{context.graph, context.final_waypoint},
+        NaiveExpander::InitialNodeArgs{waypoint});
+
+      // TODO(MXG): Instead of asserting that the goal exists, we should
+      // probably take this opportunity to shortcircuit the planner and return
+      // that there is no solution.
+      assert(goal != nullptr);
+
+      std::vector<Eigen::Vector3d> positions;
+      NaiveExpander::NodePtr naive_node = goal;
+      // Note: this constructs positions in reverse, but that's okay because
+      // the Interpolate::positions function will produce a trajectory with the
+      // same duration whether it is interpolating forward or backwards.
+      while(naive_node)
+      {
+        const Eigen::Vector2d p = naive_node->location;
+        positions.push_back({p[0], p[1], 0.0});
+        naive_node = naive_node->parent;
+      }
+
+      // We pass in context.initial_time here because we don't actually care
+      // about the Trajectory's start/end time being correct, we only care
+      // about the difference between the two.
+      const rmf_traffic::Trajectory estimate = Interpolate::positions(
+            "", context.traits, context.initial_time, positions);
+
+      const double cost_estimate = time::to_seconds(estimate.duration());
+      estimate_it.first->second = cost_estimate;
+    }
+
+    return estimate_it.first->second;
   }
 
   bool is_valid(const Trajectory& trajectory) const
@@ -122,19 +389,24 @@ struct BaseExpander
     return true;
   }
 
-  NodePtr make_initial_node(
-      const std::size_t waypoint,
-      const double orientation,
-      const Time time) const
+  struct InitialNodeArgs
   {
-    Trajectory initial(context.graph.waypoints[waypoint].get_map_name());
+    std::size_t waypoint;
+    double orientation;
+  };
+
+  NodePtr make_initial_node(const InitialNodeArgs& args)
+  {
+    Trajectory initial(context.graph.waypoints[args.waypoint].get_map_name());
     initial.insert(
-          time, context.profile,
-          to_3d(context.graph.waypoints[waypoint].get_location(), orientation),
+          context.initial_time, context.profile,
+          to_3d(context.graph.waypoints[args.waypoint].get_location(),
+              args.orientation),
           Eigen::Vector3d::Zero());
 
     return std::make_shared<Node>(
-          Node{estimate_remaining_cost(waypoint), 0.0, waypoint, orientation,
+          Node{estimate_remaining_cost(args.waypoint),
+               0.0, args.waypoint, args.orientation,
                initial, nullptr});
   }
 
@@ -241,18 +513,7 @@ struct DifferentialDriveExpander : BaseExpander
   // directly in the vector
   using NodePtr = std::shared_ptr<Node>;
 
-  struct Compare
-  {
-    bool operator()(const NodePtr& a, const NodePtr& b)
-    {
-      // Note(MXG): The priority queue puts the greater value first, so we
-      // reverse the arguments in this comparison.
-      // TODO(MXG): Micro-optimization: consider saving the sum of these values
-      // in the Node instead of needing to re-add them for every comparison.
-      return b->remaining_cost_estimate + b->current_cost
-           < a->remaining_cost_estimate + a->current_cost;
-    }
-  };
+  using Compare = agv::Compare<NodePtr>;
 
   using SearchQueue =
       std::priority_queue<NodePtr, std::vector<NodePtr>, Compare>;
@@ -445,7 +706,7 @@ struct DifferentialDriveExpander : BaseExpander
             context.traits.linear().get_nominal_acceleration(),
             continue_from.get_finish_time(),
             continue_from.get_finish_position(),
-            next_position);
+            next_position, context.interpolate.translation_thresh);
 
       // NOTE(MXG): We cannot move the trajectory in this function call, because
       // we may need to copy the trajectory later when we expand further down
@@ -499,7 +760,7 @@ struct DifferentialDriveExpander : BaseExpander
       const double orientation,
       const NodePtr& parent_node,
       Trajectory trajectory,
-      SearchQueue& queue) const
+      SearchQueue& queue)
   {
     if(is_valid(trajectory))
     {
@@ -522,7 +783,7 @@ struct DifferentialDriveExpander : BaseExpander
   bool expand_rotation(
       const NodePtr& parent_node,
       const double target_orientation,
-      SearchQueue& queue) const
+      SearchQueue& queue)
   {
     const std::size_t waypoint = parent_node->waypoint;
     Trajectory trajectory{context.graph.waypoints[waypoint].get_map_name()};
@@ -538,7 +799,8 @@ struct DifferentialDriveExpander : BaseExpander
           context.traits.rotational().get_nominal_acceleration(),
           last.get_finish_time(),
           p,
-          Eigen::Vector3d(p[0], p[1], target_orientation));
+          Eigen::Vector3d(p[0], p[1], target_orientation),
+          context.interpolate.rotation_thresh);
 
     return add_if_valid(waypoint, target_orientation, parent_node,
                         std::move(trajectory), queue);
@@ -611,6 +873,8 @@ struct DifferentialDriveExpander : BaseExpander
 };
 
 //==============================================================================
+// TODO(MXG): Implement this class. It should be even easier than the
+// DifferentialDriveExpander.
 //struct HolonomicExpander
 //{
 //  const ExpansionContext context;
@@ -640,91 +904,6 @@ struct DifferentialDriveExpander : BaseExpander
 //  };
 
 //};
-
-//==============================================================================
-template<typename Expander>
-std::vector<Trajectory> reconstruct_trajectory(
-    const typename Expander::NodePtr& finish_node)
-{
-  using NodePtr = typename Expander::NodePtr;
-  NodePtr node = finish_node;
-  std::vector<NodePtr> node_sequence;
-  while(node)
-  {
-    node_sequence.push_back(node);
-    node = node->parent;
-  }
-
-  std::vector<Trajectory> trajectories;
-  trajectories.push_back(
-      Trajectory{node_sequence.back()->trajectory_from_parent.get_map_name()});
-
-  // We exclude the first node in the sequence, because it contains a dummy
-  // trajectory which is not helpful.
-  const auto stop_it = node_sequence.rend();
-  for(auto it = ++node_sequence.rbegin(); it != stop_it; ++it)
-  {
-    Trajectory& last_trajectory = trajectories.back();
-    const Trajectory& next_trajectory = (*it)->trajectory_from_parent;
-    if(next_trajectory.get_map_name() == last_trajectory.get_map_name())
-    {
-      for(const auto& segment : next_trajectory)
-        last_trajectory.insert(segment);
-    }
-    else
-    {
-      trajectories.push_back(next_trajectory);
-    }
-  }
-
-  return trajectories;
-}
-
-//==============================================================================
-template<class Expander>
-bool search(
-    const Graph::Implementation& graph,
-    const Time initial_time,
-    const std::size_t initial_waypoint,
-    const double initial_orientation,
-    const std::size_t final_waypoint,
-    const double* const final_orientation,
-    const Planner::Options& options,
-    std::vector<Trajectory>& solution)
-{
-  using NodePtr = typename Expander::NodePtr;
-  using SearchQueue = typename Expander::SearchQueue;
-
-  Expander expander(ExpansionContext{
-          graph, final_waypoint, final_orientation,
-                      options.get_vehicle_traits(),
-                      options.get_vehicle_traits().get_profile(),
-                      options.get_minimum_holding_time(),
-                      options.get_interpolation(),
-                      options.get_schedule_viewer().query(
-                          schedule::query_everything())});
-
-  SearchQueue queue;
-  queue.push(expander.make_initial_node(
-               initial_waypoint, initial_orientation, initial_time));
-
-  while(!queue.empty())
-  {
-    NodePtr top = queue.top();
-    queue.pop();
-
-    if(expander.is_finished(top))
-    {
-      solution = reconstruct_trajectory<Expander>(top);
-      return true;
-    }
-
-    expander.expand(top, queue);
-  }
-
-  // Could not find a solution!
-  return false;
-}
 } // anonymous namespace
 
 //==============================================================================
@@ -865,7 +1044,7 @@ bool Planner::solve(
 
   if(traits.get_steering() == VehicleTraits::Steering::Differential)
   {
-    return search<DifferentialDriveExpander>(
+    return search_and_construct<DifferentialDriveExpander>(
           graph, initial_time, initial_waypoint, initial_orientation,
           final_waypoint, final_orientation, options, solution);
   }

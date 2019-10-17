@@ -75,7 +75,8 @@ void interpolate_translation(
     const double a_nom,
     const Time start_time,
     const Eigen::Vector3d& start,
-    const Eigen::Vector3d& finish);
+    const Eigen::Vector3d& finish,
+    const double threshold);
 
 //==============================================================================
 void interpolate_rotation(
@@ -84,7 +85,8 @@ void interpolate_rotation(
     const double alpha_nom,
     const Time start_time,
     const Eigen::Vector3d& start,
-    const Eigen::Vector3d& finish);
+    const Eigen::Vector3d& finish,
+    const double threshold);
 
 } // namespace internal
 } // namespace agv
