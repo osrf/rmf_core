@@ -782,6 +782,9 @@ struct DifferentialDriveExpander : BaseExpander
     if(is_valid(trajectory))
     {
       const double cost = compute_current_cost(parent_node, trajectory);
+      // TODO(MXG): Consider short-circuiting the rest of the search and
+      // returning the solution if this Node solves the search problem. It could
+      // be an optional behavior configurable from the Planner::Options.
       queue.push(std::make_shared<Node>(
                    Node{
                      estimate_remaining_cost(waypoint),
@@ -802,6 +805,18 @@ struct DifferentialDriveExpander : BaseExpander
       const double target_orientation,
       SearchQueue& queue)
   {
+    // TODO(MXG): This function should be completely changed. Instead of
+    // expanding towards the target orientation and creating a new node for it,
+    // it should just create a trajectory to get the AGV facing the correct
+    // direction and check whether that trajectory is feasible. Then it should
+    // return that trajectory so it can be the start of an expansion that
+    // actually goes down a lane. This should offer a significant reduction to
+    // the branching factor of the search.
+    //
+    // TODO(MXG): For completeness, adding to the above TODO, we should expand
+    // towards both forward and backward orientations every time (except when
+    // constraints forbid it). Otherwise we could be missing out on potential
+    // solutions (or getting sub-optimal solutions) for extreme edge cases.
     const std::size_t waypoint = parent_node->waypoint;
     Trajectory trajectory{context.graph.waypoints[waypoint].get_map_name()};
     const Trajectory::Segment& last =
