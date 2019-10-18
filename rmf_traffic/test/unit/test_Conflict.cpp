@@ -483,6 +483,10 @@ SCENARIO("DetectConflict unit tests")
                   auto conflicts=rmf_traffic::DetectConflict::between(t1,t2);
                   CHECK(conflicts.size()==1);
                   CHECK(conflicts.front().get_segments().first==++t1.begin()); //segment with the conflict
+
+                  const double expected_time=4.32931077;
+                  const double computed_time = rmf_traffic::time::to_seconds(conflicts.front().get_time() - time);
+                  CHECK(computed_time==Approx(expected_time).margin(fcl_error_margin));
                   
             }
 
@@ -497,6 +501,11 @@ SCENARIO("DetectConflict unit tests")
                   auto conflicts=rmf_traffic::DetectConflict::between(t1,t2);
                   CHECK(conflicts.size()==1);
                   CHECK(conflicts.front().get_segments().first==--t1.end()); //segment with the conflict
+
+
+                  const double expected_time=24.32931077;
+                  const double computed_time = rmf_traffic::time::to_seconds(conflicts.front().get_time() - time);
+                  CHECK(computed_time==Approx(expected_time).margin(fcl_error_margin));
                   
             }
 
@@ -516,7 +525,8 @@ SCENARIO("DetectConflict unit tests")
                   auto conflicts=rmf_traffic::DetectConflict::between(t1,t2);
                   CHECK(conflicts.size()==2);
                   CHECK(conflicts.front().get_segments().first==++t1.begin()); //segment with the conflict
-                  CHECK(conflicts.back().get_segments().first==--t1.end()); //segment with the conflict
+                  CHECK(conflicts.back().get_segments().first==--t1.end()); //segment with the conflict                 
+
                   
             }
 
