@@ -78,7 +78,24 @@ SCENARIO("Test planning")
   // TODO(MXG): Move this content into a performance test folder
 //  const bool test_performance = false;
   const bool test_performance = true;
-  const std::size_t N = test_performance? 100 : 1;
+  const std::size_t N = test_performance? 10 : 1;
+
+  rmf_traffic::Trajectory obstacle{test_map_name};
+  obstacle.insert(
+        time + 24s,
+        make_test_profile(UnitCircle),
+        {0.0, 8.0, 0.0},
+        {0.0, 0.0, 0.0});
+  obstacle.insert(
+        time + 50s,
+        make_test_profile(UnitCircle),
+        {0.0, 0.0, 0.0},
+        {0.0, 0.0, 0.0});
+  obstacle.insert(
+        time + 70s,
+        make_test_profile(UnitCircle),
+        {0.0, -5.0, 0.0},
+        {0.0, 0.0, 0.0});
 
   WHEN("Docking is not constrained")
   {
@@ -122,21 +139,10 @@ SCENARIO("Test planning")
     const rmf_traffic::Time halfway_t =
         (spline->finish_time() - spline->start_time())/2 + spline->start_time();
     const rmf_traffic::Duration halfway_dt = halfway_t - *t.start_time();
-
+    std::cout << "Time to reach 9: " << rmf_traffic::time::to_seconds(spline->finish_time() - time) << std::endl;
 
     WHEN("An obstacle is introduced")
     {
-      rmf_traffic::Trajectory obstacle{test_map_name};
-      obstacle.insert(
-            time + 22s,
-            make_test_profile(UnitCircle),
-            {0.0, 8.0, 0.0},
-            {0.0, 0.0, 0.0});
-      obstacle.insert(
-            time + 25s,
-            make_test_profile(UnitCircle),
-            {0.0, 0.0, 0.0},
-            {0.0, 0.0, 0.0});
       database.insert(obstacle);
 
       const auto start_time = std::chrono::steady_clock::now();
@@ -162,6 +168,20 @@ SCENARIO("Test planning")
       // schedule
       for(const auto& entry : database.query(rmf_traffic::schedule::query_everything()))
         CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
+
+      // Confirm that the vehicle pulled into holding point 4 in order to avoid
+      // the conflict
+      auto hold_it = t_obs.end();
+      for(auto it = t_obs.begin(); it != t_obs.end(); ++it)
+      {
+        if((it->get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(-5, 0)).norm() < 1e-8)
+        {
+          hold_it = it;
+          break;
+        }
+      }
+
+      CHECK(hold_it != t_obs.end());
     }
   }
 

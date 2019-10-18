@@ -884,6 +884,11 @@ struct DifferentialDriveExpander : BaseExpander
     for(const std::size_t l : lanes)
       expand_lane(parent_node, l, queue);
 
+    // TODO(MXG): There is an unintended behavior where robots may still try to
+    // hold themselves at waypoints that are not holding points by spinning in
+    // place instead of moving anywhere. Perhaps we should consider allowing all
+    // points to be considered valid holding points, and then the planner won't
+    // try to cheat the constraints by having the robot spin in place.
     if(context.graph.waypoints[parent_waypoint].is_holding_point())
       expand_holding(parent_waypoint, parent_node, queue);
   }
