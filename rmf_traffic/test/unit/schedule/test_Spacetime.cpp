@@ -1557,6 +1557,29 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
           CHECK(output_iterators.size()==3);
         }
 
+      WHEN("Checked with circular spacetime intersecting 1 segment of t1")
+        {      
+          //Creating Spacetime
+
+          auto space_shape = rmf_traffic::geometry::Circle(0.5); 
+          const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+          lower_time_bound=time;
+          upper_time_bound=time+81s;
+
+          tf.translate(Eigen::Vector2d{5,10});
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==1);
+        }
+
 
       WHEN("Checked with box spacetime encompassing t1")
         {      
@@ -1633,12 +1656,118 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
         }
 
 
+      WHEN("Checked with box spacetime partially overlapping with t1")
+        {      
+          //Creating Spacetime
 
+          auto space_shape = rmf_traffic::geometry::Box(30,30); 
+          const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
 
+          THEN("Single conflict when time bounds overlap with first segment only")
+          {
+          lower_time_bound=time;
+          upper_time_bound=time+19s;
 
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+  
+        
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==1);
+
+          }
+
+        THEN("Single conflict when time bounds overlap with second segment only")
+          {
+          lower_time_bound=time+21s;
+          upper_time_bound=time+39s;
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+  
+        
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==1);
+
+          }
+
+        THEN("Single conflict when time bounds overlap with third segment only")
+          {
+          lower_time_bound=time+41s;
+          upper_time_bound=time+59s;
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+  
+        
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==1);
+
+          }
+
+        THEN("Single conflict when time bounds overlap with fourth segment only")
+          {
+          lower_time_bound=time+61s;
+          upper_time_bound=time+79s;
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==1);
+
+          }
+
+        }
 
       
     } //end of given
+
+
+  GIVEN("A Trajectory t1 with circular profile which traces the outline of a circle")
+   { 
+      rmf_traffic::Trajectory t1("test_map");
+      rmf_traffic::geometry::Circle t_shape(0.5); //radius 
+      rmf_traffic::geometry::ConstFinalConvexShapePtr final_t_shape =rmf_traffic::geometry::make_final_convex(t_shape);
+      auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_t_shape);
+      auto time =std::chrono::steady_clock::now();
+    //defining t1 as circle with corners of radius 10m
+
+      t1.insert(time, profile, Eigen::Vector3d{0,10.0,0}, Eigen::Vector3d{-1,0,0});
+      t1.insert(time+20s, profile, Eigen::Vector3d{-10.0,0,0}, Eigen::Vector3d{1,0,0});
+
+      
+      t1.insert(time+40s, profile, Eigen::Vector3d{10.0,-10.0,0}, Eigen::Vector3d{0,0,0});
+      t1.insert(time+60s, profile, Eigen::Vector3d{10.0,10.0,0}, Eigen::Vector3d{0,0,0});
+      t1.insert(time+80s, profile, Eigen::Vector3d{-10.0,10.0,0}, Eigen::Vector3d{0,0,0});
+
+      REQUIRE(t1.size()==5);
+
+      std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
+      Eigen::Isometry2d tf= Eigen::Isometry2d::Identity();
 
 
 
