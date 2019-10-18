@@ -390,14 +390,10 @@ struct BaseExpander
 
     // TODO(MXG): When we start generating plans across multiple maps, we should
     // account for the trajectory's map name(s) here.
-//    const auto view = context.viewer.query(query);
-    const auto view = context.viewer.query(schedule::query_everything());
+    const auto view = context.viewer.query(query);
 
     for(const auto& check : view)
     {
-      std::cout << "===== TESTING AGAINST A TRAJECTORY ["
-                << time::to_seconds(*check.start_time() - context.initial_time) << ", "
-                << time::to_seconds(*check.finish_time() - context.initial_time) << "]" << std::endl;
       if(!DetectConflict::between(trajectory, check).empty())
         return false;
     }

@@ -76,8 +76,8 @@ SCENARIO("Test planning")
   std::vector<rmf_traffic::Trajectory> solution;
 
   // TODO(MXG): Move this content into a performance test folder
-  const bool test_performance = false;
-//  const bool test_performance = true;
+//  const bool test_performance = false;
+  const bool test_performance = true;
   const std::size_t N = test_performance? 100 : 1;
 
   WHEN("Docking is not constrained")
@@ -123,13 +123,6 @@ SCENARIO("Test planning")
         (spline->finish_time() - spline->start_time())/2 + spline->start_time();
     const rmf_traffic::Duration halfway_dt = halfway_t - *t.start_time();
 
-    std::cout << "Origin time into trajectory: " << rmf_traffic::time::to_seconds(spline->start_time() - *t.start_time())
-              << std::endl;
-    std::cout << "Halfway time into trajectory: " << rmf_traffic::time::to_seconds(halfway_dt)
-              << std::endl;
-    std::cout << "Corner time into trajectory: " << rmf_traffic::time::to_seconds(spline->finish_time() - *t.start_time())
-              << std::endl;
-
 
     WHEN("An obstacle is introduced")
     {
@@ -144,14 +137,13 @@ SCENARIO("Test planning")
             make_test_profile(UnitCircle),
             {0.0, 0.0, 0.0},
             {0.0, 0.0, 0.0});
-
       database.insert(obstacle);
 
       const auto start_time = std::chrono::steady_clock::now();
-
       for(std::size_t i=0; i < N; ++i)
         CHECK(rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution));
 
+      const auto end_time = std::chrono::steady_clock::now();
       if(test_performance)
       {
         const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
@@ -162,25 +154,14 @@ SCENARIO("Test planning")
 
       REQUIRE(solution.size() == 1);
       const auto t_obs = solution.front();
-
-      std::size_t count_total = 0;
-      std::size_t count_null = 0;
-      for(auto it = t_obs.begin(); it != t_obs.end(); ++it)
-      {
-        ++count_total;
-        if(!it->get_profile())
-          ++count_null;
-      }
-
-      std::cout << "====== Total: " << count_total << " | Null: " << count_null << std::endl;
-
       CHECK( (t_obs.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
       CHECK( (t_obs.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
-      std::cout << "Original duration: " << rmf_traffic::time::to_seconds(t.duration()) << std::endl;
-      std::cout << "Duration with obstacle: " << rmf_traffic::time::to_seconds(t_obs.duration()) << std::endl;
       CHECK( t.duration() < t_obs.duration() );
 
-      CHECK(rmf_traffic::DetectConflict::between(t_obs, obstacle).empty());
+      // Confirm that the trajectory does not conflict with anything in the
+      // schedule
+      for(const auto& entry : database.query(rmf_traffic::schedule::query_everything()))
+        CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
     }
   }
 

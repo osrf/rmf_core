@@ -249,7 +249,8 @@ public:
   // buckets that are orthogonal to the time buckets. This could be added later
   // without negatively impacting the API or ABI.
 
-  //
+  // Each bucket stores trajectories whose time span intersects with the range
+  // ( key(timeline_it - 1), key(timeline_it) ].
   using Timeline = std::map<Time, Bucket>;
   using MapToTimeline = std::unordered_map<std::string, Timeline>;
 
@@ -295,6 +296,19 @@ public:
 
   void cull(Version id, Time time);
 
+  static Timeline::const_iterator get_timeline_end(
+      const Timeline& timeline, const Time* upper_time_bound)
+  {
+    if(upper_time_bound == nullptr)
+      return timeline.end();
+
+    auto end = timeline.upper_bound(*upper_time_bound);
+    if(end == timeline.end())
+      return end;
+
+    return ++end;
+  }
+
   template<typename RelevanceInspectorT>
   void inspect_spacetime_region(
       const Query::Spacetime::Regions& regions,
@@ -318,17 +332,7 @@ public:
           (lower_time_bound == nullptr)?
             timeline.begin() : timeline.lower_bound(*lower_time_bound);
 
-      const auto timeline_end = [&]()
-      {
-        if(upper_time_bound == nullptr)
-          return timeline.end();
-
-        auto end = timeline.upper_bound(*upper_time_bound);
-        if(end == timeline.end())
-          return end;
-
-        return ++end;
-      }();
+      const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
 
       rmf_traffic::internal::Spacetime spacetime_data;
       spacetime_data.lower_time_bound = lower_time_bound;
@@ -380,9 +384,7 @@ public:
           (lower_time_bound == nullptr)?
             timeline.begin() : timeline.lower_bound(*lower_time_bound);
 
-      const auto timeline_end =
-          (upper_time_bound == nullptr)?
-            timeline.end() : timeline.upper_bound(*upper_time_bound);
+      const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
 
       auto timeline_it = timeline_begin;
       for(; timeline_it != timeline_end; ++timeline_it)
