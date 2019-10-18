@@ -1076,7 +1076,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
 
     //Creating trajectory
     rmf_traffic::Trajectory t1("test_map");
-    rmf_traffic::geometry::Circle shape(0.5); //radous 
+    rmf_traffic::geometry::Circle shape(0.5); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
     auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
@@ -1120,7 +1120,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
 
     //Creating trajectory
     rmf_traffic::Trajectory t1("test_map");
-    rmf_traffic::geometry::Circle shape(1); //radous 
+    rmf_traffic::geometry::Circle shape(1); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
     auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
@@ -1165,7 +1165,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
 
     //Creating trajectory
     rmf_traffic::Trajectory t1("test_map");
-    rmf_traffic::geometry::Circle shape(0.5); //radous 
+    rmf_traffic::geometry::Circle shape(0.5); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
     auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
@@ -1210,7 +1210,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
 
     //Creating trajectory
     rmf_traffic::Trajectory t1("test_map");
-    rmf_traffic::geometry::Circle shape(0.5); //radous 
+    rmf_traffic::geometry::Circle shape(0.5); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
     auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
@@ -1248,6 +1248,10 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     CHECK(conflict);
     CHECK(output_iterators.size()==1);
     }
+
+
+
+    
 
  /*
 
@@ -1391,7 +1395,6 @@ WHEN("Trajectory profile is 1x1 and length is 1x1, space is 10x2, space box rota
 
 
 
-
 SCENARIO("Testing intersection of curved trajectory with various spacetimes")
 {
   using namespace std::chrono_literals;
@@ -1479,14 +1482,172 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
   }
 
 
-
-
-
-  
-
-
-
-
-
-
 }
+
+
+  SCENARIO("Testing multi-segment trajectories with various spacetimes")
+ {  
+
+   using namespace std::chrono_literals; 
+   std::chrono::_V2::steady_clock::time_point lower_time_bound;
+   std::chrono::_V2::steady_clock::time_point upper_time_bound;
+   
+  GIVEN("A Trajectory t1 with circular profile which traces the outline of a box")
+  {
+      rmf_traffic::Trajectory t1("test_map");
+      rmf_traffic::geometry::Circle t_shape(0.5); //radius 
+      rmf_traffic::geometry::ConstFinalConvexShapePtr final_t_shape =rmf_traffic::geometry::make_final_convex(t_shape);
+      auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_t_shape);
+      auto time =std::chrono::steady_clock::now();
+    //defining t1 as box with corners (-10,10), (-10,-10), (10,-10) and (10,10)
+
+      t1.insert(time, profile, Eigen::Vector3d{-10.0,10.0,0}, Eigen::Vector3d{0,0,0});
+      t1.insert(time+20s, profile, Eigen::Vector3d{-10.0,-10.0,0}, Eigen::Vector3d{0,0,0});
+      t1.insert(time+40s, profile, Eigen::Vector3d{10.0,-10.0,0}, Eigen::Vector3d{0,0,0});
+      t1.insert(time+60s, profile, Eigen::Vector3d{10.0,10.0,0}, Eigen::Vector3d{0,0,0});
+      t1.insert(time+80s, profile, Eigen::Vector3d{-10.0,10.0,0}, Eigen::Vector3d{0,0,0});
+
+      REQUIRE(t1.size()==5);
+
+      std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
+      Eigen::Isometry2d tf= Eigen::Isometry2d::Identity();
+
+
+      WHEN("Checked with circular spacetime circumscribing t1")
+        {      
+          //Creating Spacetime
+
+          auto space_shape = rmf_traffic::geometry::Circle(15); 
+          const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+          lower_time_bound=time;
+          upper_time_bound=time+81s;
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==4);
+        }
+
+      WHEN("Checked with circular spacetime intersecting 3 segments of t1")
+        {      
+          //Creating Spacetime
+
+          auto space_shape = rmf_traffic::geometry::Circle(15); 
+          const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+          lower_time_bound=time;
+          upper_time_bound=time+81s;
+
+          tf.translate(Eigen::Vector2d{10,0});
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==3);
+        }
+
+
+      WHEN("Checked with box spacetime encompassing t1")
+        {      
+          //Creating Spacetime
+
+          auto space_shape = rmf_traffic::geometry::Box(30,30); 
+          const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+          lower_time_bound=time;
+          upper_time_bound=time+81s;
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+
+        
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==4);
+        }
+
+
+      WHEN("Checked with box spacetime intersecting 3 segments of t1")
+        {      
+          //Creating Spacetime
+
+          auto space_shape = rmf_traffic::geometry::Box(30,30); 
+          const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+          lower_time_bound=time;
+          upper_time_bound=time+81s;
+
+          tf.translate(Eigen::Vector2d{-10,0});
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+  
+        
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==3);
+        }
+
+      WHEN("Checked with box spacetime intersecting 1 segment of t1")
+        {      
+          //Creating Spacetime
+
+          auto space_shape = rmf_traffic::geometry::Box(1,1); 
+          const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+          lower_time_bound=time;
+          upper_time_bound=time+81s;
+
+          tf.translate(Eigen::Vector2d{-10,0});
+
+          rmf_traffic::internal::Spacetime region={
+            &lower_time_bound,
+            &upper_time_bound,
+            tf,
+            final_space_shape
+          };
+  
+        
+
+          bool conflict= rmf_traffic::internal::detect_conflicts(t1,region,&output_iterators);
+          CHECK(conflict);
+          CHECK(output_iterators.size()==1);
+        }
+
+
+
+
+
+
+      
+    } //end of given
+
+
+
+ }//end of scenario
+
+
+
+
+
+
+
+
