@@ -66,7 +66,7 @@ public:
         VehicleTraits vehicle_traits,
         Graph graph,
         const schedule::Viewer& viewer,
-        Duration min_hold_time = std::chrono::seconds(2),
+        Duration min_hold_time = std::chrono::seconds(5),
         Interpolate::Options interpolation = Interpolate::Options());
 
     /// Set the vehicle traits to use for planning

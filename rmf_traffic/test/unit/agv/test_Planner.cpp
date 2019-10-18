@@ -26,6 +26,58 @@
 
 #include <iostream>
 
+void test_with_obstacle(
+    const std::string& parent,
+    rmf_traffic::schedule::Database& database,
+    const rmf_traffic::Trajectory& obstacle,
+    const rmf_traffic::agv::Planner::Options& options,
+    const rmf_traffic::Trajectory& original_trajectory,
+    const rmf_traffic::Time time,
+    const bool test_performance,
+    const std::size_t N)
+{
+  database.insert(obstacle);
+
+  const auto start_time = std::chrono::steady_clock::now();
+  std::vector<rmf_traffic::Trajectory> solution;
+  for(std::size_t i=0; i < N; ++i)
+    CHECK(rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution));
+
+  const auto end_time = std::chrono::steady_clock::now();
+  if(test_performance)
+  {
+    const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+    std::cout << "\n" << parent << " w/ obstacle" << std::endl;
+    std::cout << "Total: " << sec << std::endl;
+    std::cout << "Per run: " << sec/N << std::endl;
+  }
+
+  REQUIRE(solution.size() == 1);
+  const auto t_obs = solution.front();
+  CHECK( (t_obs.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
+  CHECK( (t_obs.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+  CHECK( original_trajectory.duration() < t_obs.duration() );
+
+  // Confirm that the trajectory does not conflict with anything in the
+  // schedule
+  for(const auto& entry : database.query(rmf_traffic::schedule::query_everything()))
+    CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
+
+  // Confirm that the vehicle pulled into holding point 4 in order to avoid
+  // the conflict
+  auto hold_it = t_obs.end();
+  for(auto it = t_obs.begin(); it != t_obs.end(); ++it)
+  {
+    if((it->get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(-5, 0)).norm() < 1e-8)
+    {
+      hold_it = it;
+      break;
+    }
+  }
+
+  CHECK(hold_it != t_obs.end());
+}
+
 SCENARIO("Test planning")
 {
   using namespace std::chrono_literals;
@@ -76,8 +128,8 @@ SCENARIO("Test planning")
   std::vector<rmf_traffic::Trajectory> solution;
 
   // TODO(MXG): Move this content into a performance test folder
-//  const bool test_performance = false;
-  const bool test_performance = true;
+  const bool test_performance = false;
+//  const bool test_performance = true;
   const std::size_t N = test_performance? 10 : 1;
 
   rmf_traffic::Trajectory obstacle{test_map_name};
@@ -123,65 +175,11 @@ SCENARIO("Test planning")
     CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
     CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
-    rmf_traffic::Trajectory::const_iterator origin_it = t.end();
-    for(auto it = t.begin(); it != t.end(); ++it)
-    {
-      if((it->get_finish_position().block<2,1>(0,0) - Eigen::Vector2d::Zero()).norm() < 1e-8)
-      {
-        origin_it = it;
-        break;
-      }
-    }
-
-    REQUIRE(origin_it != t.end());
-    ++origin_it;
-    const auto spline = origin_it->compute_motion();
-    const rmf_traffic::Time halfway_t =
-        (spline->finish_time() - spline->start_time())/2 + spline->start_time();
-    const rmf_traffic::Duration halfway_dt = halfway_t - *t.start_time();
-    std::cout << "Time to reach 9: " << rmf_traffic::time::to_seconds(spline->finish_time() - time) << std::endl;
-
     WHEN("An obstacle is introduced")
     {
-      database.insert(obstacle);
-
-      const auto start_time = std::chrono::steady_clock::now();
-      for(std::size_t i=0; i < N; ++i)
-        CHECK(rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution));
-
-      const auto end_time = std::chrono::steady_clock::now();
-      if(test_performance)
-      {
-        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-        std::cout << "\nUnconstrained w/ obstacle" << std::endl;
-        std::cout << "Total: " << sec << std::endl;
-        std::cout << "Per run: " << sec/N << std::endl;
-      }
-
-      REQUIRE(solution.size() == 1);
-      const auto t_obs = solution.front();
-      CHECK( (t_obs.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
-      CHECK( (t_obs.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
-      CHECK( t.duration() < t_obs.duration() );
-
-      // Confirm that the trajectory does not conflict with anything in the
-      // schedule
-      for(const auto& entry : database.query(rmf_traffic::schedule::query_everything()))
-        CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
-
-      // Confirm that the vehicle pulled into holding point 4 in order to avoid
-      // the conflict
-      auto hold_it = t_obs.end();
-      for(auto it = t_obs.begin(); it != t_obs.end(); ++it)
-      {
-        if((it->get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(-5, 0)).norm() < 1e-8)
-        {
-          hold_it = it;
-          break;
-        }
-      }
-
-      CHECK(hold_it != t_obs.end());
+      test_with_obstacle(
+            "Unconstrained", database, obstacle,
+            options, t, time, test_performance, N);
     }
   }
 
@@ -211,6 +209,13 @@ SCENARIO("Test planning")
     CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
     CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
     CHECK( t.back().get_finish_position()[2] == Approx(0.0) );
+
+    WHEN("An obstacle is introduced")
+    {
+      test_with_obstacle(
+            "Constrained to 0.0", database, obstacle,
+            options, t, time, test_performance, N);
+    }
   }
 
   WHEN("Docking must be at 180-degrees")
@@ -239,6 +244,13 @@ SCENARIO("Test planning")
     CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
     CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
     CHECK( t.back().get_finish_position()[2] == Approx(M_PI) );
+
+    WHEN("An obstacle is introduced")
+    {
+      test_with_obstacle(
+            "Constrained to 180.0", database, obstacle,
+            options, t, time, test_performance, N);
+    }
   }
 
 }
