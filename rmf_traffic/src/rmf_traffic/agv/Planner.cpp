@@ -83,7 +83,7 @@ struct ExpansionContext
   const Trajectory::ConstProfilePtr profile;
   const Duration holding_time;
   const Interpolate::Options::Implementation interpolate;
-  const schedule::Viewer::View view;
+  const schedule::Viewer& viewer;
   const Time initial_time;
 };
 
@@ -172,7 +172,7 @@ bool search_and_construct(
           options.get_vehicle_traits().get_profile(),
           options.get_minimum_holding_time(),
           options.get_interpolation(),
-          options.get_schedule_viewer().query(schedule::query_everything()),
+          options.get_schedule_viewer(),
           initial_time
         },
         typename Expander::InitialNodeArgs{
@@ -312,11 +312,14 @@ struct BaseExpander
 
   const Eigen::Vector2d p_final;
 
+  schedule::Query query;
+
   std::unordered_map<std::size_t, double> cost_estimate;
 
   BaseExpander(ExpansionContext _context)
     : context(std::move(_context)),
-      p_final(context.graph.waypoints[context.final_waypoint].get_location())
+      p_final(context.graph.waypoints[context.final_waypoint].get_location()),
+      query(schedule::make_query({}, nullptr, nullptr))
   {
     // Do nothing
   }
@@ -366,7 +369,7 @@ struct BaseExpander
       }
 
       // We pass in context.initial_time here because we don't actually care
-      // about the Trajectory's start/end time being correct, we only care
+      // about the Trajectory's start/end time being correct; we only care
       // about the difference between the two.
       const rmf_traffic::Trajectory estimate = Interpolate::positions(
             "", context.traits, context.initial_time, positions);
@@ -378,10 +381,23 @@ struct BaseExpander
     return estimate_it.first->second;
   }
 
-  bool is_valid(const Trajectory& trajectory) const
+  bool is_valid(const Trajectory& trajectory)
   {
-    for(const auto& check : context.view)
+    query.spacetime().timespan()->set_lower_time_bound(
+          *trajectory.start_time());
+    query.spacetime().timespan()->set_upper_time_bound(
+          *trajectory.finish_time());
+
+    // TODO(MXG): When we start generating plans across multiple maps, we should
+    // account for the trajectory's map name(s) here.
+//    const auto view = context.viewer.query(query);
+    const auto view = context.viewer.query(schedule::query_everything());
+
+    for(const auto& check : view)
     {
+      std::cout << "===== TESTING AGAINST A TRAJECTORY ["
+                << time::to_seconds(*check.start_time() - context.initial_time) << ", "
+                << time::to_seconds(*check.finish_time() - context.initial_time) << "]" << std::endl;
       if(!DetectConflict::between(trajectory, check).empty())
         return false;
     }
@@ -397,7 +413,12 @@ struct BaseExpander
 
   NodePtr make_initial_node(const InitialNodeArgs& args)
   {
-    Trajectory initial(context.graph.waypoints[args.waypoint].get_map_name());
+    const std::string& map_name =
+        context.graph.waypoints[args.waypoint].get_map_name();
+
+    query.spacetime().timespan()->add_map(map_name);
+
+    Trajectory initial(map_name);
     initial.insert(
           context.initial_time, context.profile,
           to_3d(context.graph.waypoints[args.waypoint].get_location(),
@@ -705,8 +726,8 @@ struct DifferentialDriveExpander : BaseExpander
             context.traits.linear().get_nominal_velocity(),
             context.traits.linear().get_nominal_acceleration(),
             continue_from.get_finish_time(),
-            continue_from.get_finish_position(),
-            next_position, context.interpolate.translation_thresh);
+            continue_from.get_finish_position(), next_position,
+            context.profile, context.interpolate.translation_thresh);
 
       // NOTE(MXG): We cannot move the trajectory in this function call, because
       // we may need to copy the trajectory later when we expand further down
@@ -800,6 +821,7 @@ struct DifferentialDriveExpander : BaseExpander
           last.get_finish_time(),
           p,
           Eigen::Vector3d(p[0], p[1], target_orientation),
+          context.profile,
           context.interpolate.rotation_thresh);
 
     return add_if_valid(waypoint, target_orientation, parent_node,

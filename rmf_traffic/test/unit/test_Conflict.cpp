@@ -390,4 +390,4 @@ SCENARIO("Test trajectory-region conflicts")
 ///   DetectConflict::between() and DetectConflict::broad_phase()
 /// * trajectories that include rotating boxes which collide due to rotating
 
-// A useful website for playing with 2D cubic splines: https://www.desmos.com/calculator/
+// A useful website for playing with 2D cubic splines: https://www.desmos.com/calculator/k6fuejmow2

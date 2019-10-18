@@ -361,6 +361,21 @@ Query make_query(
     std::vector<Region> regions);
 
 //==============================================================================
+/// Query for all Trajectories that fall within a time range.
+///
+/// \param[in] start_time
+///   A pointer to the lower bound for the time range. Pass in a nullptr to
+///   indicate that there is no lower bound.
+///
+/// \param[in] finish_time
+///   A pointer to the upper bound for the time range. Pass in a nullptr to
+///   indicate that there is no upper bound.
+Query make_query(
+    std::vector<std::string> maps,
+    const Time* start_time,
+    const Time* finish_time);
+
+//==============================================================================
 /// Query for all Trajectories that were introduced after a specified version of
 /// the schedule, and which intersect with this set of spacetime regions.
 ///

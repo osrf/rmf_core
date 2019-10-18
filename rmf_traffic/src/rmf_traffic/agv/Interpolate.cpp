@@ -96,6 +96,7 @@ void interpolate_translation(
     const Time start_time,
     const Eigen::Vector3d& start,
     const Eigen::Vector3d& finish,
+    const Trajectory::ConstProfilePtr& profile,
     const double threshold)
 {
   const double heading = start[2];
@@ -116,7 +117,7 @@ void interpolate_translation(
 
     const Eigen::Vector3d p{p_s[0], p_s[1], heading};
     const Eigen::Vector3d v{v_s[0], v_s[1], 0.0};
-    trajectory.insert(state.t, nullptr, p, v);
+    trajectory.insert(state.t, profile, p, v);
   }
 }
 
@@ -128,6 +129,7 @@ void interpolate_rotation(
     const Time start_time,
     const Eigen::Vector3d& start,
     const Eigen::Vector3d& finish,
+    const Trajectory::ConstProfilePtr& profile,
     const double threshold)
 {
   const double start_heading = start[2];
@@ -147,7 +149,7 @@ void interpolate_rotation(
 
     const Eigen::Vector3d p{finish[0], finish[1], s};
     const Eigen::Vector3d v{0.0, 0.0, w};
-    trajectory.insert(state.t, nullptr, p, v);
+    trajectory.insert(state.t, profile, p, v);
   }
 }
 } // namespace internal
@@ -349,6 +351,7 @@ Trajectory Interpolate::positions(
   const double w = traits.rotational().get_nominal_velocity();
   const double alpha = traits.rotational().get_nominal_acceleration();
   const auto options = Options::Implementation::get(input_options);
+  const auto profile = traits.get_profile();
 
   const std::size_t N = input_positions.size();
   std::size_t last_stop_index = 0;
@@ -368,12 +371,12 @@ Trajectory Interpolate::positions(
     }
 
     internal::interpolate_translation(
-          trajectory, v, a, *trajectory.finish_time(),
-          last_position, next_position, options.translation_thresh);
+          trajectory, v, a, *trajectory.finish_time(), last_position,
+          next_position, profile, options.translation_thresh);
 
     internal::interpolate_rotation(
-          trajectory, w, alpha, *trajectory.finish_time(),
-          last_position, next_position, options.rotation_thresh);
+          trajectory, w, alpha, *trajectory.finish_time(), last_position,
+          next_position, profile, options.rotation_thresh);
 
     last_stop_index = i;
   }

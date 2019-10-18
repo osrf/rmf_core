@@ -517,6 +517,23 @@ public:
   }
 
   static Query make_query(
+      std::vector<std::string> maps,
+      const Time* start_time,
+      const Time* finish_time)
+  {
+    Query result;
+    result.spacetime().query_timespan(std::move(maps));
+    auto& timespan = *result.spacetime().timespan();
+    if(start_time)
+      timespan.set_lower_time_bound(*start_time);
+
+    if(finish_time)
+      timespan.set_upper_time_bound(*finish_time);
+
+    return result;
+  }
+
+  static Query make_query(
       std::size_t after_version,
       std::vector<Region> regions)
   {
@@ -575,6 +592,16 @@ Query make_query(Version after_version)
 Query make_query(std::vector<Region> regions)
 {
   return Query::Implementation::make_query(std::move(regions));
+}
+
+//==============================================================================
+Query make_query(
+    std::vector<std::string> maps,
+    const Time* start_time,
+    const Time* finish_time)
+{
+  return Query::Implementation::make_query(
+        std::move(maps), start_time, finish_time);
 }
 
 //==============================================================================

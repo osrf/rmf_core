@@ -18,6 +18,8 @@
 #include <rmf_traffic/agv/Planner.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 
+#include <rmf_traffic/Conflict.hpp>
+
 #include <rmf_utils/catch.hpp>
 
 #include "../utils_Trajectory.hpp"
@@ -75,6 +77,7 @@ SCENARIO("Test planning")
 
   // TODO(MXG): Move this content into a performance test folder
   const bool test_performance = false;
+//  const bool test_performance = true;
   const std::size_t N = test_performance? 100 : 1;
 
   WHEN("Docking is not constrained")
@@ -99,9 +102,86 @@ SCENARIO("Test planning")
     }
 
     REQUIRE(solution.size() == 1);
-    const auto& t = solution.front();
+    const auto t = solution.front();
     CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
     CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+
+    rmf_traffic::Trajectory::const_iterator origin_it = t.end();
+    for(auto it = t.begin(); it != t.end(); ++it)
+    {
+      if((it->get_finish_position().block<2,1>(0,0) - Eigen::Vector2d::Zero()).norm() < 1e-8)
+      {
+        origin_it = it;
+        break;
+      }
+    }
+
+    REQUIRE(origin_it != t.end());
+    ++origin_it;
+    const auto spline = origin_it->compute_motion();
+    const rmf_traffic::Time halfway_t =
+        (spline->finish_time() - spline->start_time())/2 + spline->start_time();
+    const rmf_traffic::Duration halfway_dt = halfway_t - *t.start_time();
+
+    std::cout << "Origin time into trajectory: " << rmf_traffic::time::to_seconds(spline->start_time() - *t.start_time())
+              << std::endl;
+    std::cout << "Halfway time into trajectory: " << rmf_traffic::time::to_seconds(halfway_dt)
+              << std::endl;
+    std::cout << "Corner time into trajectory: " << rmf_traffic::time::to_seconds(spline->finish_time() - *t.start_time())
+              << std::endl;
+
+
+    WHEN("An obstacle is introduced")
+    {
+      rmf_traffic::Trajectory obstacle{test_map_name};
+      obstacle.insert(
+            time + 22s,
+            make_test_profile(UnitCircle),
+            {0.0, 8.0, 0.0},
+            {0.0, 0.0, 0.0});
+      obstacle.insert(
+            time + 25s,
+            make_test_profile(UnitCircle),
+            {0.0, 0.0, 0.0},
+            {0.0, 0.0, 0.0});
+
+      database.insert(obstacle);
+
+      const auto start_time = std::chrono::steady_clock::now();
+
+      for(std::size_t i=0; i < N; ++i)
+        CHECK(rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution));
+
+      if(test_performance)
+      {
+        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+        std::cout << "\nUnconstrained w/ obstacle" << std::endl;
+        std::cout << "Total: " << sec << std::endl;
+        std::cout << "Per run: " << sec/N << std::endl;
+      }
+
+      REQUIRE(solution.size() == 1);
+      const auto t_obs = solution.front();
+
+      std::size_t count_total = 0;
+      std::size_t count_null = 0;
+      for(auto it = t_obs.begin(); it != t_obs.end(); ++it)
+      {
+        ++count_total;
+        if(!it->get_profile())
+          ++count_null;
+      }
+
+      std::cout << "====== Total: " << count_total << " | Null: " << count_null << std::endl;
+
+      CHECK( (t_obs.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
+      CHECK( (t_obs.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+      std::cout << "Original duration: " << rmf_traffic::time::to_seconds(t.duration()) << std::endl;
+      std::cout << "Duration with obstacle: " << rmf_traffic::time::to_seconds(t_obs.duration()) << std::endl;
+      CHECK( t.duration() < t_obs.duration() );
+
+      CHECK(rmf_traffic::DetectConflict::between(t_obs, obstacle).empty());
+    }
   }
 
   WHEN("Docking must be at 0-degrees")
