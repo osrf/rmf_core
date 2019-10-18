@@ -384,6 +384,14 @@ bool detect_conflicts(
         std::min(*region.upper_time_bound, trajectory_finish_time)
       : trajectory_finish_time;
 
+  if(finish_time < start_time)
+  {
+    // If the trajectory or region finishes before the other has started, that
+    // means there is no overlap in time between the region and the trajectory,
+    // so it is impossible for them to conflict.
+    return false;
+  }
+
   const Trajectory::const_iterator begin_it =
       trajectory_start_time < start_time?
         trajectory.find(start_time) : ++trajectory.begin();
@@ -398,7 +406,6 @@ bool detect_conflicts(
       std::make_shared<internal::StaticMotion>(region.pose);
 
   const fcl::ContinuousCollisionRequest request = make_fcl_request();
-  fcl::ContinuousCollisionResult result;
 
   bool collision_detected = false;
 
@@ -429,6 +436,7 @@ bool detect_conflicts(
       const auto obj_region = fcl::ContinuousCollisionObject(
             region_shape, motion_region);
 
+      fcl::ContinuousCollisionResult result;
       fcl::collide(&obj_trajectory, &obj_region, request, result);
       if(result.is_collide)
       {

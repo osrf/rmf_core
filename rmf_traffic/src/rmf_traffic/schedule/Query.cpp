@@ -182,8 +182,7 @@ auto Query::Spacetime::Regions::begin() const -> const_iterator
 //==============================================================================
 auto Query::Spacetime::Regions::cbegin() const -> const_iterator
 {
-  return Implementation::make_iterator(
-        const_cast<Implementation::RegionSet&>(_pimpl->regions).begin());
+  return begin();
 }
 
 //==============================================================================
@@ -196,14 +195,13 @@ auto Query::Spacetime::Regions::end() -> iterator
 auto Query::Spacetime::Regions::end() const -> const_iterator
 {
   return Implementation::make_iterator(
-        const_cast<Implementation::RegionSet&>(_pimpl->regions).begin());
+        const_cast<Implementation::RegionSet&>(_pimpl->regions).end());
 }
 
 //==============================================================================
 auto Query::Spacetime::Regions::cend() const -> const_iterator
 {
-  return Implementation::make_iterator(
-        const_cast<Implementation::RegionSet&>(_pimpl->regions).begin());
+  return end();
 }
 
 //==============================================================================

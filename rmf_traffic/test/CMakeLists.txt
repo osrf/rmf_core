@@ -9,6 +9,9 @@ set(unit_tests
   agv/test_Planner.cpp
   agv/test_VehicleTraits.cpp
   schedule/test_Query.cpp
+  schedule/test_Database.cpp
+  schedule/test_Mirror.cpp
+  schedule/test_Spacetime.cpp
 )
 
 set(unit_test_srcs)
