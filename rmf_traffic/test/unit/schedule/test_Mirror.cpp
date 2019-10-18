@@ -257,7 +257,6 @@ GIVEN("Query patch with spacetime region overlapping with t1")
   {
   auto time = std::chrono::steady_clock::now();
   Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
-  //std::cout<<"DB Latest Version:"<<db.latest_version()<<std::endl;
   rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
   REQUIRE(query.spacetime().regions() != nullptr);
 
@@ -282,7 +281,6 @@ GIVEN("Query patch with spacetime region overlapping with t1")
   {
   auto time = std::chrono::steady_clock::now();
   Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
-  std::cout<<"DB Latest Version:"<<db.latest_version()<<std::endl;
   rmf_traffic::schedule::Query query= rmf_traffic::schedule::make_query(0,{});
   REQUIRE(query.spacetime().regions() != nullptr);
 
