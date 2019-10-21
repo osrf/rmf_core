@@ -434,7 +434,7 @@ struct BaseExpander
 
     if(context.final_orientation)
     {
-      if(std::abs(node->orientation - *context.final_orientation) < 1e-6)
+      if(std::abs(node->orientation - *context.final_orientation) > 1e-6)
         return false;
     }
 
