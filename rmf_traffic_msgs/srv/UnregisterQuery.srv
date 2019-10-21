@@ -1,0 +1,12 @@
+
+# The ID of the query description to unregister
+uint64 query_id
+
+---
+
+# Confirmation that the query was unregistered
+bool confirmation
+
+# A description of any errors that were encountered, such as the query_id being
+# unknown
+string error

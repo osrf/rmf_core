@@ -24,6 +24,7 @@ set(msg_files
   "msg/TrajectoryProfile.msg"
   "msg/TrajectorySegment.msg"
   "msg/Trajectory.msg"
+  "msg/Region.msg"
   "msg/ScheduleChangeCull.msg"
   "msg/ScheduleChangeDelay.msg"
   "msg/ScheduleChangeErase.msg"
@@ -32,11 +33,19 @@ set(msg_files
   "msg/ScheduleChangeReplace.msg"
   "msg/SchedulePatch.msg"
   "msg/ScheduleConflict.msg"
+  "msg/Shape.msg"
+  "msg/Space.msg"
+  "msg/ScheduleQuerySpacetime.msg"
+  "msg/ScheduleQuery.msg"
+  "msg/Timespan.msg"
 )
 
 set(srv_files
   "srv/SubmitTrajectory.srv"
   "srv/EraseSchedule.srv"
+  "srv/RegisterQuery.srv"
+  "srv/RequestScheduleUpdate.srv"
+  "srv/UnregisterQuery.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

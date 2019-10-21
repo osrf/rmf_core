@@ -14,7 +14,11 @@ bool accepted
 # schedule, with the new trajectories added. If the submission was rejected,
 # this will be the version number of the schedule that the trajectories were
 # checked against.
-uint64 version
+uint64 current_version
+
+# This will be the version number of the schedule that the trajectories were
+# checked against.
+uint64 original_version
 
 # If the submission was rejected, this will contain the known conflicts against
 # the specified version of the schedule.

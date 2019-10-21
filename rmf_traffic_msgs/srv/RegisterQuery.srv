@@ -1,0 +1,8 @@
+
+# The query to be registered
+ScheduleQuery query
+
+---
+
+# The ID given to the registered query. Use this ID when making a query request.
+uint64 query_id
