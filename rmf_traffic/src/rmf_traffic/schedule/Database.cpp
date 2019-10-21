@@ -716,6 +716,11 @@ void ChangeRelevanceInspector::inspect(
 
     if(record_changes_from)
     {
+      // TODO(MXG): We can improve bandwidth usage a bit if we check whether a
+      // Replace operation has taken place since the last known ancestor. If
+      // that is the case, then we can skip recording all of the changes and
+      // just use a single replace from the old version number to the current
+      // version of the trajectory.
       ConstEntryPtr record = record_changes_from->succeeded_by;
       while(record)
       {

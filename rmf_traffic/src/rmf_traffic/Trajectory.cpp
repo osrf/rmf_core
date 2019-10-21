@@ -233,7 +233,7 @@ public:
 
   Implementation(geometry::ConstFinalConvexShapePtr shape)
     : shape(std::move(shape)),
-      strict_info(this),
+      guided_info(this),
       autonomous_info(this),
       queue_info(this)
   {
@@ -243,26 +243,26 @@ public:
   // Basic information
   geometry::ConstFinalConvexShapePtr shape;
 
-  // Strict mode information (only used when in the Strict agency mode)
-  StrictInfo strict_info;
+  // Guided mode information (only used when in the Guided autonomy mode)
+  GuidedInfo guided_info;
 
-  // Autonomous mode information (only used when in the Autonomous agency mode)
+  // Autonomous mode information (only used when in the Autonomous autonomy mode)
   AutonomousInfo autonomous_info;
 
-  // Queued mode information (only used when in the Queued agency mode)
+  // Queued mode information (only used when in the Queued autonomy mode)
   QueueInfo queue_info;
   std::string queue_id;
 
-  // Agency mode
-  Agency agency_mode;
+  // Autonomy mode
+  Autonomy autonomy_mode;
 };
 
 //==============================================================================
-Trajectory::ProfilePtr Trajectory::Profile::make_strict(
+Trajectory::ProfilePtr Trajectory::Profile::make_guided(
     geometry::ConstFinalConvexShapePtr shape)
 {
   ProfilePtr result(new Profile(std::move(shape)));
-  result->set_to_strict();
+  result->set_to_guided();
   return result;
 }
 
@@ -300,23 +300,23 @@ Trajectory::Profile& Trajectory::Profile::set_shape(
 }
 
 //==============================================================================
-Trajectory::Profile::Agency Trajectory::Profile::get_agency() const
+Trajectory::Profile::Autonomy Trajectory::Profile::get_autonomy() const
 {
-  return _pimpl->agency_mode;
+  return _pimpl->autonomy_mode;
 }
 
 //==============================================================================
-Trajectory::Profile::StrictInfo::StrictInfo(void* pimpl)
+Trajectory::Profile::GuidedInfo::GuidedInfo(void* pimpl)
   : _pimpl(pimpl)
 {
   // Do nothing
 }
 
 //==============================================================================
-Trajectory::Profile::StrictInfo& Trajectory::Profile::set_to_strict()
+Trajectory::Profile::GuidedInfo& Trajectory::Profile::set_to_guided()
 {
-  _pimpl->agency_mode = Agency::Strict;
-  return _pimpl->strict_info;
+  _pimpl->autonomy_mode = Autonomy::Guided;
+  return _pimpl->guided_info;
 }
 
 //==============================================================================
@@ -329,7 +329,7 @@ Trajectory::Profile::AutonomousInfo::AutonomousInfo(void* pimpl)
 //==============================================================================
 Trajectory::Profile::AutonomousInfo& Trajectory::Profile::set_to_autonomous()
 {
-  _pimpl->agency_mode = Agency::Autonomous;
+  _pimpl->autonomy_mode = Autonomy::Autonomous;
   return _pimpl->autonomous_info;
 }
 
@@ -337,7 +337,7 @@ Trajectory::Profile::AutonomousInfo& Trajectory::Profile::set_to_autonomous()
 Trajectory::Profile::QueueInfo& Trajectory::Profile::set_to_queued(
     const std::string& queue_id)
 {
-  _pimpl->agency_mode = Agency::Queued;
+  _pimpl->autonomy_mode = Autonomy::Queued;
   _pimpl->queue_id = queue_id;
   return _pimpl->queue_info;
 }
@@ -358,7 +358,7 @@ Trajectory::Profile::QueueInfo::QueueInfo(void* pimpl)
 //==============================================================================
 auto Trajectory::Profile::get_queue_info() const -> const QueueInfo*
 {
-  if(Agency::Queued == _pimpl->agency_mode)
+  if(Autonomy::Queued == _pimpl->autonomy_mode)
     return &_pimpl->queue_info;
 
   return nullptr;

@@ -251,8 +251,7 @@ struct NaiveExpander
       SearchQueue& queue)
   {
     const Graph::Lane& lane = context.graph.lanes[lane_index];
-    const std::size_t parent_waypoint_index = parent_node->waypoint;
-    assert(lane.entry().waypoint_index() == parent_waypoint_index);
+    assert(lane.entry().waypoint_index() == parent_node->waypoint);
 
     const Eigen::Vector2d p_start = parent_node->location;
 

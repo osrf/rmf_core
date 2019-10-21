@@ -45,7 +45,7 @@ SCENARIO("Test Database Conflicts")
         const rmf_traffic::Time time = std::chrono::steady_clock::now();
         rmf_traffic::geometry::Box shape(profile_scale,profile_scale);
         rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
-        rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+        rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
         rmf_traffic::Trajectory t1("test_map");
         t1.insert(time, profile, Eigen::Vector3d{-5,0,0}, Eigen::Vector3d{0,0,0});
         t1.insert(time + 10s, profile, Eigen::Vector3d{5,0,0}, Eigen::Vector3d{0,0,0});

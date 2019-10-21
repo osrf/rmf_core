@@ -1,0 +1,26 @@
+
+# The identifier for the fleet that is submitting the trajectories
+string fleet_id
+
+# The set of trajectories to submit to the schedule
+Trajectory[] trajectories
+
+---
+
+# True if the submission was accepted; false if it was rejected.
+bool accepted
+
+# If the submission was accepted, this will be the latest version number of the
+# schedule, with the new trajectories added. If the submission was rejected,
+# this will be the version number of the schedule that the trajectories were
+# checked against.
+uint64 version
+
+# If the submission was rejected, this will contain the known conflicts against
+# the specified version of the schedule.
+ScheduleConflict[] conflicts
+
+# If an exceptional error occurs, this will be filled with a description of that
+# error. For example, if a trajectory message was malformed, or if a trajectory
+# had fewer than 2 segments.
+string error

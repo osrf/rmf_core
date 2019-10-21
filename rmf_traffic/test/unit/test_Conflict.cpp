@@ -129,7 +129,7 @@ SCENARIO("Test trajectory-trajectory conflicts")
         rmf_traffic::geometry::Circle>(R);
 
     const auto small_profile =
-        rmf_traffic::Trajectory::Profile::make_strict(small_circle);
+        rmf_traffic::Trajectory::Profile::make_guided(small_circle);
 
     rmf_traffic::Trajectory trajectory_a("test_map");
     trajectory_a.insert(
@@ -211,7 +211,7 @@ SCENARIO("Test trajectory-trajectory conflicts")
         rmf_traffic::geometry::Box>(w, w);
 
     const auto small_profile =
-        rmf_traffic::Trajectory::Profile::make_strict(small_box);
+        rmf_traffic::Trajectory::Profile::make_guided(small_box);
 
     rmf_traffic::Trajectory trajectory_a("test_map");
     trajectory_a.insert(
@@ -262,7 +262,7 @@ SCENARIO("Test trajectory-region conflicts")
     const auto box = rmf_traffic::geometry::make_final_convex<
         rmf_traffic::geometry::Box>(w, w);
 
-    const auto profile = rmf_traffic::Trajectory::Profile::make_strict(box);
+    const auto profile = rmf_traffic::Trajectory::Profile::make_guided(box);
 
     rmf_traffic::Trajectory trajectory("test_map");
     trajectory.insert(
@@ -292,7 +292,7 @@ SCENARIO("Test trajectory-region conflicts")
     const auto circle = rmf_traffic::geometry::make_final_convex<
         rmf_traffic::geometry::Circle>(r);
 
-    const auto profile = rmf_traffic::Trajectory::Profile::make_strict(circle);
+    const auto profile = rmf_traffic::Trajectory::Profile::make_guided(circle);
 
     rmf_traffic::Trajectory trajectory("test_map");
     trajectory.insert(

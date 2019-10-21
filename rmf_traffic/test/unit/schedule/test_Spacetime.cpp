@@ -56,7 +56,7 @@ SCENARIO("Testing intersection of spacetime with trajectories")
     //creating trajectory
   rmf_traffic::geometry::Box shape(1,1);
   rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
-  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
   rmf_traffic::Trajectory t1("test_map");
 
   t1.insert(time, profile, Eigen::Vector3d{-5,10,0},Eigen::Vector3d{5,0,0});
@@ -73,7 +73,7 @@ SCENARIO("Testing intersection of spacetime with trajectories")
   //creating trajectory
   rmf_traffic::geometry::Box shape(1,1);
   rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
-  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
   rmf_traffic::Trajectory t1("test_map");
 
   t1.insert(time, profile, Eigen::Vector3d{-5,0,0},Eigen::Vector3d{5,0,0});
@@ -90,7 +90,7 @@ SCENARIO("Testing intersection of spacetime with trajectories")
   //creating trajectory
   rmf_traffic::geometry::Box shape(1,1);
   rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
-  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
   rmf_traffic::Trajectory t1("test_map");
 
   t1.insert(time, profile, Eigen::Vector3d{-1,0,0},Eigen::Vector3d{5,0,0});
@@ -108,7 +108,7 @@ SCENARIO("Testing intersection of spacetime with trajectories")
   //creating trajectory
   rmf_traffic::geometry::Circle shape(1); //radius 1m
   rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
-  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
   rmf_traffic::Trajectory t1("test_map");
 
   t1.insert(time, profile, Eigen::Vector3d{-1,-1.5,0},Eigen::Vector3d{5,0,0});
@@ -125,7 +125,7 @@ SCENARIO("Testing intersection of spacetime with trajectories")
   //creating trajectory
   rmf_traffic::geometry::Circle shape(1); //radius 1m
   rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
-  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
   rmf_traffic::Trajectory t1("test_map");
 
   t1.insert(time, profile, Eigen::Vector3d{-1,-2,0},Eigen::Vector3d{5,0,0});
@@ -158,7 +158,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time + 10s, profile, Eigen::Vector3d{5,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -191,7 +191,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5,10,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time + 10s, profile, Eigen::Vector3d{5,10,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -225,7 +225,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time+11s, profile, Eigen::Vector3d{0,-5,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+20s, profile, Eigen::Vector3d{0,5,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -265,7 +265,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -304,7 +304,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -348,7 +348,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -394,7 +394,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -435,7 +435,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -477,7 +477,7 @@ std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -517,7 +517,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(2.0,2.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -555,7 +555,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(2.0,2.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -596,7 +596,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(2.0,2.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -639,7 +639,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(2.0,2.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -684,7 +684,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -726,7 +726,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -768,7 +768,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(2.0,2.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -809,7 +809,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -851,7 +851,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -894,7 +894,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -935,7 +935,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -977,7 +977,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(0.5,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     //++++++++++++ SEGMENT LENGTHS CHANGED
     t1.insert(time, profile, Eigen::Vector3d{-0.25,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{0.25,0,0}, Eigen::Vector3d{0,0,0});
@@ -1021,7 +1021,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     //++++++++++++ SEGMENT LENGTHS CHANGED
     t1.insert(time, profile, Eigen::Vector3d{0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{0,0,0}, Eigen::Vector3d{0,0,0});
@@ -1068,7 +1068,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Circle shape(0.5); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -1112,7 +1112,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Circle shape(1); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -1157,7 +1157,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Circle shape(0.5); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -1202,7 +1202,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Circle shape(0.5); //radius 
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     t1.insert(time, profile, Eigen::Vector3d{-5.0,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{5.0,0,0}, Eigen::Vector3d{0,0,0});
     REQUIRE(t1.size()==2);
@@ -1253,7 +1253,7 @@ WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     //++++++++++++ SEGMENT LENGTHS CHANGED
     t1.insert(time, profile, Eigen::Vector3d{-5,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+60s, profile, Eigen::Vector3d{5,0,0}, Eigen::Vector3d{0,0,0});
@@ -1296,7 +1296,7 @@ WHEN("Trajectory profile is 1x1 and length is 1x1, space is 10x2, space box rota
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(1.0,1.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     //++++++++++++ SEGMENT LENGTHS CHANGED
     t1.insert(time, profile, Eigen::Vector3d{-0.5,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{0.5,0,0}, Eigen::Vector3d{0,0,0});
@@ -1340,7 +1340,7 @@ WHEN("Trajectory profile is 1x1 and length is 1x1, space is 10x2, space box rota
     rmf_traffic::Trajectory t1("test_map");
     rmf_traffic::geometry::Box shape(2.0,2.0);
     rmf_traffic::geometry::ConstFinalConvexShapePtr final_shape =rmf_traffic::geometry::make_final_convex(shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
     //++++++++++++ SEGMENT LENGTHS CHANGED
     t1.insert(time, profile, Eigen::Vector3d{-0.5,0,0}, Eigen::Vector3d{0,0,0});
     t1.insert(time+10s, profile, Eigen::Vector3d{0.5,0,0}, Eigen::Vector3d{0,0,0});
@@ -1392,7 +1392,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
   rmf_traffic::Trajectory t1("test_map");
   rmf_traffic::geometry::Circle shape(1); //radius 1m
   rmf_traffic::geometry::FinalConvexShapePtr final_shape= rmf_traffic::geometry::make_final_convex(shape);
-  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_strict(final_shape);
+  rmf_traffic::Trajectory::ProfilePtr profile = rmf_traffic::Trajectory::Profile::make_guided(final_shape);
 
   t1.insert(time,profile,Eigen::Vector3d{-5,0,0},Eigen::Vector3d{1,0,0});
   t1.insert(time+10s,profile,Eigen::Vector3d{0,-5,0},Eigen::Vector3d{0,-1,0});
@@ -1487,7 +1487,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
       rmf_traffic::Trajectory t1("test_map");
       rmf_traffic::geometry::Circle t_shape(0.5); //radius 
       rmf_traffic::geometry::ConstFinalConvexShapePtr final_t_shape =rmf_traffic::geometry::make_final_convex(t_shape);
-      auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_t_shape);
+      auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_t_shape);
       auto time =std::chrono::steady_clock::now();
     //defining t1 as box with corners (-10,10), (-10,-10), (10,-10) and (10,10)
 
@@ -1742,7 +1742,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
       rmf_traffic::Trajectory t1("test_map");
       rmf_traffic::geometry::Circle t_shape(0.5); //radius 
       rmf_traffic::geometry::ConstFinalConvexShapePtr final_t_shape =rmf_traffic::geometry::make_final_convex(t_shape);
-      auto profile = rmf_traffic::Trajectory::Profile::make_strict(final_t_shape);
+      auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_t_shape);
       auto time =std::chrono::steady_clock::now();
     //defining t1 as circle with corners of radius 10m
 

@@ -26,6 +26,9 @@ find_package(rmf_utils REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+# TODO(MXG): rclcpp should not actually be needed here, because rmf_traffic_ros2
+# has been split off into another package.
+
 # ===== Traffic control library
 file(GLOB_RECURSE core_lib_srcs "src/rmf_traffic/*.cpp")
 add_library(rmf_traffic SHARED
@@ -50,6 +53,7 @@ target_include_directories(rmf_traffic
 )
 
 ament_export_interfaces(rmf_traffic HAS_LIBRARY_TARGET)
+ament_export_dependencies(rmf_utils rclcpp)
 
 install(
   DIRECTORY include/

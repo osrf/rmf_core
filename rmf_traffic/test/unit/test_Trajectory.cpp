@@ -36,10 +36,10 @@ SCENARIO("Profile unit tests")
         rmf_traffic::geometry::make_final_convex(unitCircle_shape);
     std::string queue_number = "5";
 
-    WHEN("Constructing a Profile given shape and agency")
+    WHEN("Constructing a Profile given shape and autonomy")
     {
-      rmf_traffic::Trajectory::ProfilePtr strict_profile =
-          rmf_traffic::Trajectory::Profile::make_strict(final_unitBox_shape);
+      rmf_traffic::Trajectory::ProfilePtr guided_profile =
+          rmf_traffic::Trajectory::Profile::make_guided(final_unitBox_shape);
 
       rmf_traffic::Trajectory::ProfilePtr queue_profile =
           rmf_traffic::Trajectory::Profile::make_queued(
@@ -47,20 +47,20 @@ SCENARIO("Profile unit tests")
 
       THEN("Profile is constructed according to specifications.")
       {
-        CHECK(strict_profile->get_shape() == final_unitBox_shape);
-        CHECK(strict_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Strict);
-        CHECK(strict_profile->get_queue_info() == nullptr);
+        CHECK(guided_profile->get_shape() == final_unitBox_shape);
+        CHECK(guided_profile->get_autonomy() == rmf_traffic::Trajectory::Profile::Autonomy::Guided);
+        CHECK(guided_profile->get_queue_info() == nullptr);
 
         CHECK(queue_profile->get_shape() == final_unitCircle_shape);
-        CHECK(queue_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Queued);
+        CHECK(queue_profile->get_autonomy() == rmf_traffic::Trajectory::Profile::Autonomy::Queued);
         CHECK(queue_profile->get_queue_info()->get_queue_id() == queue_number);
       }
     }
 
     WHEN("Shape object used for profile construction is changed")
     {
-      const rmf_traffic::Trajectory::ProfilePtr strict_profile =
-          rmf_traffic::Trajectory::Profile::make_strict(final_unitBox_shape);
+      const rmf_traffic::Trajectory::ProfilePtr guided_profile =
+          rmf_traffic::Trajectory::Profile::make_guided(final_unitBox_shape);
 
       unitBox_shape = rmf_traffic::geometry::Box(2.0, 2.0);
       CHECK(unitBox_shape.get_x_length() == 2.0);
@@ -68,9 +68,9 @@ SCENARIO("Profile unit tests")
 
       THEN("Finalized profile shape is not changed")
       {
-        CHECK(strict_profile->get_shape() == final_unitBox_shape);
+        CHECK(guided_profile->get_shape() == final_unitBox_shape);
         const auto &box = static_cast<const rmf_traffic::geometry::Box&>(
-              strict_profile->get_shape()->source());
+              guided_profile->get_shape()->source());
         CHECK(box.get_x_length() == 1.0);
         CHECK(box.get_y_length() == 1.0);
       }
@@ -80,13 +80,13 @@ SCENARIO("Profile unit tests")
     {
       // Move constructor
 
-      const rmf_traffic::Trajectory::ProfilePtr strict_profile =
-          rmf_traffic::Trajectory::Profile::make_strict(final_unitBox_shape);
+      const rmf_traffic::Trajectory::ProfilePtr guided_profile =
+          rmf_traffic::Trajectory::Profile::make_guided(final_unitBox_shape);
       const auto new_unitBox_shape = std::move(final_unitBox_shape);
 
       THEN("Profile shape is unaffected")
       {
-        CHECK(strict_profile->get_shape() == new_unitBox_shape);
+        CHECK(guided_profile->get_shape() == new_unitBox_shape);
       }
     }
 
@@ -108,41 +108,41 @@ SCENARIO("Profile unit tests")
   // Profile Function Tests
   GIVEN("Sample Profiles and Shapes")
   {
-    const rmf_traffic::Trajectory::ProfilePtr strict_unitbox_profile = create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict);
-    const rmf_traffic::Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Agency::Queued, "3");
+    const rmf_traffic::Trajectory::ProfilePtr guided_unitbox_profile = create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided);
+    const rmf_traffic::Trajectory::ProfilePtr queued_unitCircle_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Autonomy::Queued, "3");
     const auto new_Box_shape = rmf_traffic::geometry::make_final_convex<
         rmf_traffic::geometry::Box>(2.0, 2.0);
 
-    WHEN("Profile agency is changed using API set_to_* function")
+    WHEN("Profile autonomy is changed using API set_to_* function")
     {
-      THEN("Profile agency is successfully changed")
+      THEN("Profile autonomy is successfully changed")
       {
-        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Strict);
-        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+        CHECK(guided_unitbox_profile->get_autonomy() == rmf_traffic::Trajectory::Profile::Autonomy::Guided);
+        CHECK(guided_unitbox_profile->get_queue_info() == nullptr);
 
-        strict_unitbox_profile->set_to_autonomous();
-        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Autonomous);
-        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+        guided_unitbox_profile->set_to_autonomous();
+        CHECK(guided_unitbox_profile->get_autonomy() == rmf_traffic::Trajectory::Profile::Autonomy::Autonomous);
+        CHECK(guided_unitbox_profile->get_queue_info() == nullptr);
 
-        strict_unitbox_profile->set_to_queued("2");
-        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Queued);
-        REQUIRE(strict_unitbox_profile->get_queue_info() != nullptr);
-        CHECK(strict_unitbox_profile->get_queue_info()->get_queue_id() == "2");
+        guided_unitbox_profile->set_to_queued("2");
+        CHECK(guided_unitbox_profile->get_autonomy() == rmf_traffic::Trajectory::Profile::Autonomy::Queued);
+        REQUIRE(guided_unitbox_profile->get_queue_info() != nullptr);
+        CHECK(guided_unitbox_profile->get_queue_info()->get_queue_id() == "2");
 
-        strict_unitbox_profile->set_to_strict();
-        CHECK(strict_unitbox_profile->get_agency() == rmf_traffic::Trajectory::Profile::Agency::Strict);
-        CHECK(strict_unitbox_profile->get_queue_info() == nullptr);
+        guided_unitbox_profile->set_to_guided();
+        CHECK(guided_unitbox_profile->get_autonomy() == rmf_traffic::Trajectory::Profile::Autonomy::Guided);
+        CHECK(guided_unitbox_profile->get_queue_info() == nullptr);
       }
     }
 
     WHEN("Changing profile shapes using API set_shape function")
     {
-      CHECK(strict_unitbox_profile->get_shape() != new_Box_shape);
-      strict_unitbox_profile->set_shape(new_Box_shape);
+      CHECK(guided_unitbox_profile->get_shape() != new_Box_shape);
+      guided_unitbox_profile->set_shape(new_Box_shape);
 
       THEN("ProfilePtr is updated accordingly.")
       {
-        CHECK(strict_unitbox_profile->get_shape() == new_Box_shape);
+        CHECK(guided_unitbox_profile->get_shape() == new_Box_shape);
       }
     }
   }
@@ -153,13 +153,13 @@ SCENARIO("Segment Unit Tests")
   // Segment Construction and Getters
   GIVEN("Construction values for Segments")
   {
-    rmf_traffic::Trajectory::ProfilePtr strict_unitbox_profile =
+    rmf_traffic::Trajectory::ProfilePtr guided_unitbox_profile =
         create_test_profile(
-          UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict);
+          UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided);
 
     const rmf_traffic::Trajectory::ProfilePtr queued_unitCircle_profile =
         create_test_profile(
-          UnitCircle, rmf_traffic::Trajectory::Profile::Agency::Queued, "3");
+          UnitCircle, rmf_traffic::Trajectory::Profile::Autonomy::Queued, "3");
 
     const auto time = std::chrono::steady_clock::now();
     const Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
@@ -168,7 +168,7 @@ SCENARIO("Segment Unit Tests")
     WHEN("Attemping to construct Segment using rmf_traffic::Trajectory::insert()")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
-      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
 
       const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
@@ -179,23 +179,23 @@ SCENARIO("Segment Unit Tests")
         CHECK(segment.get_finish_time() == time);
         CHECK(segment.get_finish_position() == pos);
         CHECK(segment.get_finish_velocity() == vel);
-        CHECK(segment.get_profile() == strict_unitbox_profile);
+        CHECK(segment.get_profile() == guided_unitbox_profile);
       }
     }
 
     WHEN("Profile used for construction is changed")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
-      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
       const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
-      *strict_unitbox_profile = *queued_unitCircle_profile;
+      *guided_unitbox_profile = *queued_unitCircle_profile;
 
       THEN("Segment profile is updated.")
       {
-        CHECK(segment.get_profile() == strict_unitbox_profile);
+        CHECK(segment.get_profile() == guided_unitbox_profile);
         const auto circle = static_cast<const rmf_traffic::geometry::Circle*>(
-              &strict_unitbox_profile->get_shape()->source());
+              &guided_unitbox_profile->get_shape()->source());
         REQUIRE(circle);
         CHECK(circle->get_radius() == 1.0);
       }
@@ -204,14 +204,14 @@ SCENARIO("Segment Unit Tests")
     WHEN("Pointer for profile used for construction is changed")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
-      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
       const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
-      const rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+      const rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(guided_unitbox_profile);
 
       THEN("Segment profile is updated")
       {
-        CHECK(segment.get_profile() != strict_unitbox_profile);
+        CHECK(segment.get_profile() != guided_unitbox_profile);
         CHECK(segment.get_profile() == new_profile);
       }
     }
@@ -219,14 +219,14 @@ SCENARIO("Segment Unit Tests")
     WHEN("Profile used for construction is moved")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
-      auto result = trajectory.insert(time, strict_unitbox_profile, pos, vel);
+      auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
       const rmf_traffic::Trajectory::Segment &segment = *(result.it);
 
-      rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(strict_unitbox_profile);
+      rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(guided_unitbox_profile);
 
       THEN("Segment profile is updated")
       {
-        CHECK(segment.get_profile() != strict_unitbox_profile);
+        CHECK(segment.get_profile() != guided_unitbox_profile);
         CHECK(segment.get_profile() == new_profile);
       }
     }
@@ -247,7 +247,7 @@ SCENARIO("Segment Unit Tests")
 
     WHEN("Setting a new profile using set_profile function")
     {
-      const rmf_traffic::Trajectory::ProfilePtr new_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Agency::Autonomous);
+      const rmf_traffic::Trajectory::ProfilePtr new_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Autonomy::Autonomous);
       segment.set_profile(new_profile);
 
       THEN("Profile is updated successfully.")
@@ -457,7 +457,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
     {
       rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(
-          time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+          time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
           pos_0, vel_0);
       const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
 
@@ -482,11 +482,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
     WHEN("Construct a length 2 trajectory")
     {
       rmf_traffic::Trajectory trajectory("test_map");
-      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                       pos_0,
                                       vel_0);
       const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
-      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                         pos_1,
                                         vel_1);
       const rmf_traffic::Trajectory::iterator first_it = result_1.it;
@@ -522,11 +522,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
     WHEN("Inserting a segment with a unique finish_time violation")
     {
       rmf_traffic::Trajectory trajectory("test_map");
-      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                       pos_0,
                                       vel_0);
       rmf_traffic::Trajectory::iterator zeroth_it = result.it;
-      auto result_1 = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result_1 = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                         pos_1,
                                         vel_1);
 
@@ -540,11 +540,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
     WHEN("Copy Construction from another base_iterator")
     {
       rmf_traffic::Trajectory trajectory("test_map");
-      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                       pos_0,
                                       vel_0);
       rmf_traffic::Trajectory::iterator zeroth_it = result.it;
-      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                         pos_1,
                                         vel_1);
       rmf_traffic::Trajectory::iterator first_it = result_1.it;
@@ -561,11 +561,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
     WHEN("Copy Construction from rvalue base_iterator")
     {
       rmf_traffic::Trajectory trajectory("test_map");
-      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                       pos_0,
                                       vel_0);
       rmf_traffic::Trajectory::iterator zeroth_it = result.it;
-      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                         pos_1,
                                         vel_1);
       rmf_traffic::Trajectory::iterator first_it = result_1.it;
@@ -582,11 +582,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
     WHEN("Move Construction from another base_iterator")
     {
       rmf_traffic::Trajectory trajectory("test_map");
-      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                       pos_0,
                                       vel_0);
       const rmf_traffic::Trajectory::iterator zeroth_it = result.it;
-      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+      auto result_1 = trajectory.insert(time + 10s, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                         pos_1,
                                         vel_1);
       const rmf_traffic::Trajectory::iterator first_it = result_1.it;
@@ -654,7 +654,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
       rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
-                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                                                   pos_3, vel_3)
                                                         .it;
 
@@ -683,7 +683,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
       rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
-                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                                                   pos_3, vel_3)
                                                         .it;
 
@@ -712,7 +712,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
       rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
-                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Agency::Strict),
+                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
                                                                   pos_3, vel_3)
                                                         .it;
 

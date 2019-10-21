@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(rmf_schedule_msgs)
+project(rmf_traffic_msgs)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
@@ -18,12 +18,26 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
-  "msg/VehicleTrajectory.msg"
-  "msg/VehicleTrajectoryPoint.msg"
-  "msg/VehicleTrajectorySegment.msg")
+  "msg/ConvexShape.msg"
+  "msg/Box.msg"
+  "msg/Circle.msg"
+  "msg/TrajectoryProfile.msg"
+  "msg/TrajectorySegment.msg"
+  "msg/Trajectory.msg"
+  "msg/ScheduleChangeCull.msg"
+  "msg/ScheduleChangeDelay.msg"
+  "msg/ScheduleChangeErase.msg"
+  "msg/ScheduleChangeInsert.msg"
+  "msg/ScheduleChangeInterrupt.msg"
+  "msg/ScheduleChangeReplace.msg"
+  "msg/SchedulePatch.msg"
+  "msg/ScheduleConflict.msg"
+)
 
-# set(srv_files
-#   "srv/Foo.srv")
+set(srv_files
+  "srv/SubmitTrajectory.srv"
+  "srv/EraseSchedule.srv"
+)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
