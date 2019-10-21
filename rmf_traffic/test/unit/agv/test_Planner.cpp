@@ -43,7 +43,7 @@ inline void print_trajectory_info(const rmf_traffic::Trajectory t,rmf_traffic::T
 void test_with_obstacle(
     const std::string& parent,
     rmf_traffic::schedule::Database& database,
-    const rmf_traffic::Trajectory& obstacle,
+    const std::vector<rmf_traffic::Trajectory> obstacles,
     const rmf_traffic::agv::Planner::Options& options,
     const rmf_traffic::Trajectory& original_trajectory,
     const int start_index,
@@ -54,7 +54,8 @@ void test_with_obstacle(
     const std::size_t N,
     const bool print_info=false)
 {
-  database.insert(obstacle);
+  for(auto obstacle:obstacles)
+    database.insert(obstacle);
 
   const auto start_time = std::chrono::steady_clock::now();
   std::vector<rmf_traffic::Trajectory> solution;
@@ -142,6 +143,25 @@ SCENARIO("Test planning")
   add_bidir_lane(9, 10);
   add_bidir_lane(10, 11);
 
+
+  //TODO abort planning that is impossible as lane does not exit in the graph
+
+  /*WHEN("goal waypoint does not have a lane in the graph")
+  {
+
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const rmf_traffic::agv::VehicleTraits traits(
+        {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
+    rmf_traffic::schedule::Database database;
+    rmf_traffic::agv::Planner::Options options(traits, graph, database);
+    std::vector<rmf_traffic::Trajectory> solution;
+    
+    bool solved=rmf_traffic::agv::Planner::solve(time,3,0.0,9,nullptr,options,solution);
+    CHECK_FALSE(solved);
+    CHECK(solution.size()==0);
+
+  } */
+
   WHEN("initial conditions satisfy the goals")
   {
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -203,22 +223,49 @@ SCENARIO("Test planning")
     //std::cout<<"T final time: "<<rmf_traffic::time::to_seconds(t.back().get_finish_time()-time)<<std::endl;
   }
 
-  //TODO abort planning that is impossible as lane does not exit in the graph
-  /*WHEN("goal waypoint does not have a lane in the graph")
+  WHEN("goal waypoint is an adjacent node")
   {
-
-    const rmf_traffic::Time time = std::chrono::steady_clock::now();
     const rmf_traffic::agv::VehicleTraits traits(
         {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
+
     rmf_traffic::schedule::Database database;
     rmf_traffic::agv::Planner::Options options(traits, graph, database);
     std::vector<rmf_traffic::Trajectory> solution;
-    
-    bool solved=rmf_traffic::agv::Planner::solve(time,3,0.0,9,nullptr,options,solution);
-    CHECK_FALSE(solved);
-    CHECK(solution.size()==0);
 
-  } */
+    double goal_orientation=M_PI;
+    // TODO(MXG): Move this content into a performance test folder
+    const bool test_performance = false;
+    //  const bool test_performance = true;
+    const std::size_t N = test_performance? 10 : 1;
+    bool solved=false;
+    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+
+    for(std::size_t i=0;i<N;++i)
+     {
+      solved=rmf_traffic::agv::Planner::solve(start_time,3,M_PI,2,&goal_orientation,options,solution);
+      CHECK(solved);
+     }
+     
+    const auto end_time = std::chrono::steady_clock::now();
+      if(test_performance)
+      {
+        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+        std::cout << "\nUnconstrained" << std::endl;
+        std::cout << "Total: " << sec << std::endl;
+        std::cout << "Per run: " << sec/N << std::endl;
+      }
+
+    CHECK(solution.size()==1);
+    auto t=solution.front();
+    CHECK(t.size()==4); //start,stop acc, start decc, goal
+
+    CHECK((t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(10, -5)).norm() == Approx(0.0) );
+    CHECK((t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
+    CHECK(t.back().get_finish_position()[2]-goal_orientation==Approx(0));
+    CHECK(t.back().get_finish_time()>start_time);
+  }
+
+
 
   GIVEN("Goal from 12->5 and obstacle from 5->12")
   {
@@ -232,8 +279,9 @@ SCENARIO("Test planning")
     rmf_traffic::schedule::Database database;
 
     rmf_traffic::agv::Planner::Options options(traits, graph, database);
-
     std::vector<rmf_traffic::Trajectory> solution;
+    std::vector<rmf_traffic::Trajectory> obstacles;
+
 
     // TODO(MXG): Move this content into a performance test folder
     const bool test_performance = false;
@@ -257,6 +305,7 @@ SCENARIO("Test planning")
           {10.0, 12.0, 0.0},
           {0.0, 0.0, 0.0});
     REQUIRE(obstacle.size()==3);
+    obstacles.push_back(obstacle);
 
     WHEN("Docking is not constrained")
     {
@@ -281,14 +330,14 @@ SCENARIO("Test planning")
       const auto t = solution.front();
       CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
       CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(0, 0)).norm() == Approx(0.0) );
-      print_trajectory_info(t,time); //for debugging 
+      //print_trajectory_info(t,time); //for debugging 
 
     
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Unconstrained", database, obstacle,
-              options, t,start_index,goal_index,6, time, test_performance, N,false);
+              "Unconstrained", database, obstacles,
+              options, t,start_index,goal_index,6, time, test_performance, N,true);
       } 
     }
 
@@ -323,16 +372,13 @@ SCENARIO("Test planning")
      WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 0.0", database, obstacle,
+              "Constrained to 0.0", database, obstacles,
               options, t, start_index,goal_index,6,time, test_performance, N,false);
       } 
     }
+
+
   }
-
-  //TEST with database with multiple trajectories 
-
-
-
 
   GIVEN("Goal from 2->12 and obstacle from 9->1")
   {
@@ -340,12 +386,10 @@ SCENARIO("Test planning")
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     const rmf_traffic::agv::VehicleTraits traits(
         {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
-
     rmf_traffic::schedule::Database database;
-
     rmf_traffic::agv::Planner::Options options(traits, graph, database);
-
     std::vector<rmf_traffic::Trajectory> solution;
+    std::vector<rmf_traffic::Trajectory> obstacles;
 
     // TODO(MXG): Move this content into a performance test folder
     const bool test_performance = false;
@@ -368,6 +412,7 @@ SCENARIO("Test planning")
           make_test_profile(UnitCircle),
           {0.0, -5.0, 0.0},
           {0.0, 0.0, 0.0});
+    obstacles.push_back(obstacle);
 
     WHEN("Docking is not constrained")
     {
@@ -398,7 +443,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Unconstrained", database, obstacle,
+              "Unconstrained", database, obstacles,
               options, t,2,12,4 ,time, test_performance, N);
       }
     }
@@ -433,7 +478,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 0.0", database, obstacle,
+              "Constrained to 0.0", database, obstacles,
               options, t, 2,12,4,time, test_performance, N);
       }
     }
@@ -468,14 +513,108 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 180.0", database, obstacle,
+              "Constrained to 180.0", database, obstacles,
               options, t,2,12,4,time, test_performance, N);
       }
     }
   }//end of GIVEN
 
+
+
+ GIVEN("Goal from 12->0 and two obstacles : 5->12 and 1->9")
+  {
+
+    //expect robot to wait at holding point 6 nad 4
+
+    const int start_index=12;
+    const int goal_index=0;
+    //const int hold_index=6;
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const rmf_traffic::agv::VehicleTraits traits(
+        {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
+    rmf_traffic::schedule::Database database;
+    rmf_traffic::agv::Planner::Options options(traits, graph, database);
+    std::vector<rmf_traffic::Trajectory> obstacles;
+    std::vector<rmf_traffic::Trajectory> solution;
+
+    // TODO(MXG): Move this content into a performance test folder
+    const bool test_performance = false;
+  //  const bool test_performance = true;
+    const std::size_t N = test_performance? 10 : 1;
+
+    rmf_traffic::Trajectory obstacle_1{test_map_name};
+    obstacle_1.insert(
+          time + 19s,
+          make_test_profile(UnitCircle),
+          {0.0, 8.0, 0.0},
+          {0.0, 0.0, 0.0});
+    obstacle_1.insert(
+          time + 40s,
+          make_test_profile(UnitCircle),
+          {5.0, 8.0, 0.0},
+          {0.0, 0.0, 0.0});
+    obstacle_1.insert(
+          time + 50s,
+          make_test_profile(UnitCircle),
+          {10.0, 12.0, 0.0},
+          {0.0, 0.0, 0.0});
+    REQUIRE(obstacle_1.size()==3);
+
+    rmf_traffic::Trajectory obstacle_2{test_map_name};
+    obstacle_2.insert(
+          time + 80s,
+          make_test_profile(UnitCircle),
+          {0.0, -5.0, 0.0},
+          {0.0, 0.0, 0.0});
+    obstacle_2.insert(
+          time + 90s,
+          make_test_profile(UnitCircle),
+          {0.0, 0.0, 0.0},
+          {0.0, 0.0, 0.0});
+    obstacle_2.insert(
+          time + 100s,
+          make_test_profile(UnitCircle),
+          {0.0, 8.0, 0.0},
+          {0.0, 0.0, 0.0});
+    REQUIRE(obstacle_2.size()==3);
+
+    obstacles.push_back(obstacle_1);
+
+    WHEN("Docking is not constrained")
+    {
+      using namespace rmf_traffic::agv;
+      add_bidir_lane(5, 9);
+      add_bidir_lane(11, 12);
+      options.set_graph(graph);
+      const auto start_time = std::chrono::steady_clock::now();
+      for(std::size_t i=0; i < N; ++i)
+        CHECK(rmf_traffic::agv::Planner::solve(time, start_index, 0.0, goal_index, nullptr, options, solution));
+
+      const auto end_time = std::chrono::steady_clock::now();
+      if(test_performance)
+      {
+        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+        std::cout << "\nUnconstrained" << std::endl;
+        std::cout << "Total: " << sec << std::endl;
+        std::cout << "Per run: " << sec/N << std::endl;
+      }
+
+      REQUIRE(solution.size() == 1);
+      const auto t = solution.front();
+      CHECK( (t.front().get_finish_position().block<2,1>(0,0) - graph.get_waypoint(start_index).get_location()).norm() == Approx(0.0) );
+      CHECK( (t.back().get_finish_position().block<2,1>(0,0) - graph.get_waypoint(goal_index).get_location()).norm() == Approx(0.0) );
+      print_trajectory_info(t,time); //for debugging 
+
+    
+      WHEN("An obstacle is introduced")
+      {
+        test_with_obstacle(
+              "Unconstrained", database, obstacles,
+              options, t,start_index,goal_index,6, time, test_performance, N,true);
+      }  
+    } 
  
-  
+  }
 
 
 
