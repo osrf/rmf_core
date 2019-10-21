@@ -40,7 +40,36 @@ inline void print_trajectory_info(const rmf_traffic::Trajectory t,rmf_traffic::T
 
   }
 
-void test_with_obstacle(
+void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
+{
+
+  //this is a very bad algorithm but will be improved
+  const auto start_time = std::chrono::steady_clock::now();
+
+    std::vector<Eigen::Vector2d> graph_locations;
+    std::vector<int> path;
+    for(std::size_t i=0;i<graph.num_waypoints();i++)
+      graph_locations.push_back(graph.get_waypoint(i).get_location());
+
+    for(auto it=t.begin();it!=t.end();it++)
+    {
+     auto it2 = std::find(graph_locations.begin(), graph_locations.end(),it->get_finish_position().block<2,1>(0,0));
+     if(it2!=graph_locations.end())
+        path.push_back(std::distance(graph_locations.begin(),it2));
+
+    }  
+
+    
+      const auto end_time = std::chrono::steady_clock::now();
+    std::cout<<"Path comupted in: "<<rmf_traffic::time::to_seconds(end_time-start_time)<<"s\n";
+
+for(auto it=path.begin();it!=path.end();it++)
+  std::cout<<*it<<"->"; 
+std::cout<<std::endl;
+
+}
+
+rmf_traffic::Trajectory test_with_obstacle(
     const std::string& parent,
     rmf_traffic::schedule::Database& database,
     const std::vector<rmf_traffic::Trajectory> obstacles,
@@ -54,8 +83,13 @@ void test_with_obstacle(
     const std::size_t N,
     const bool print_info=false)
 {
+
+  rmf_traffic::Trajectory return_t{""};
+
   for(auto obstacle:obstacles)
     database.insert(obstacle);
+
+  std::cout<<"Database size: "<<database.query(rmf_traffic::schedule::query_everything()).size()<<std::endl;
 
   const auto start_time = std::chrono::steady_clock::now();
   std::vector<rmf_traffic::Trajectory> solution;
@@ -73,6 +107,7 @@ void test_with_obstacle(
 
   REQUIRE(solution.size() == 1);
   const auto t_obs = solution.front();
+  return_t=t_obs;
   const auto initial_position=options.get_graph().get_waypoint(start_index).get_location();
   const auto goal_position=options.get_graph().get_waypoint(goal_index).get_location();
   const auto hold_position=options.get_graph().get_waypoint(hold_index).get_location();
@@ -102,6 +137,8 @@ void test_with_obstacle(
 
   if(print_info) 
     print_trajectory_info(t_obs,time);
+
+  return return_t;
 }
 
 SCENARIO("Test planning")
@@ -337,7 +374,7 @@ SCENARIO("Test planning")
       {
         test_with_obstacle(
               "Unconstrained", database, obstacles,
-              options, t,start_index,goal_index,6, time, test_performance, N,true);
+              options, t,start_index,goal_index,6, time, test_performance, N,false);
       } 
     }
 
@@ -562,7 +599,7 @@ SCENARIO("Test planning")
 
     rmf_traffic::Trajectory obstacle_2{test_map_name};
     obstacle_2.insert(
-          time + 80s,
+          time + 75s,
           make_test_profile(UnitCircle),
           {0.0, -5.0, 0.0},
           {0.0, 0.0, 0.0});
@@ -572,13 +609,16 @@ SCENARIO("Test planning")
           {0.0, 0.0, 0.0},
           {0.0, 0.0, 0.0});
     obstacle_2.insert(
-          time + 100s,
+          time + 105s,
           make_test_profile(UnitCircle),
           {0.0, 8.0, 0.0},
           {0.0, 0.0, 0.0});
     REQUIRE(obstacle_2.size()==3);
+    
+    REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,obstacle_2).size()==0);
 
     obstacles.push_back(obstacle_1);
+
 
     WHEN("Docking is not constrained")
     {
@@ -604,14 +644,31 @@ SCENARIO("Test planning")
       CHECK( (t.front().get_finish_position().block<2,1>(0,0) - graph.get_waypoint(start_index).get_location()).norm() == Approx(0.0) );
       CHECK( (t.back().get_finish_position().block<2,1>(0,0) - graph.get_waypoint(goal_index).get_location()).norm() == Approx(0.0) );
       print_trajectory_info(t,time); //for debugging 
-
+      display_path(t,graph);
     
-      WHEN("An obstacle is introduced")
+      WHEN("First obstacle is introduced")
       {
-        test_with_obstacle(
+        auto t_obs=test_with_obstacle(
               "Unconstrained", database, obstacles,
               options, t,start_index,goal_index,6, time, test_performance, N,true);
+      
+            display_path(t_obs,graph);
+
       }  
+
+      WHEN("Second obstacle is also introduced")
+      {
+          obstacles.push_back(obstacle_2);
+          auto t_obs=test_with_obstacle(
+          "Unconstrained", database, obstacles,
+          options, t,start_index,goal_index,6, time, test_performance, N,true);
+  
+        display_path(t_obs,graph);
+
+      }
+
+
+
     } 
  
   }
