@@ -15,11 +15,11 @@ int64 final_time
 #
 # The position that the vehicle will arrive at when this trajectory segment
 # ends.
-float32[3] final_position
+float64[3] final_position
 
 # This is a 2D homogeneous screw velocity with 2 translational components (x, y)
 # and 1 rotational component (yaw).
 #
 # The velocity that this vehicle will end with when this trajectory segment
 # ends.
-float32[3] final_velocity
+float64[3] final_velocity

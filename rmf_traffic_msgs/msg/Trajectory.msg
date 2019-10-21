@@ -16,3 +16,7 @@ Box[] boxes
 
 # The circles that are available for the profiles to use.
 Circle[] circles
+
+# TODO(MXG): Consider a message type called something like TrajectoryContext to
+# act as the heap for profiles, boxes, and circles. That context could be shared
+# by multiple Trajectory.msg instances.
