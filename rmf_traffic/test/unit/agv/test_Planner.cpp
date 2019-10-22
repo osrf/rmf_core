@@ -60,7 +60,7 @@ void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
     }  
 
     
-      const auto end_time = std::chrono::steady_clock::now();
+    const auto end_time = std::chrono::steady_clock::now();
     std::cout<<"Path comupted in: "<<rmf_traffic::time::to_seconds(end_time-start_time)<<"s\n";
 
 for(auto it=path.begin();it!=path.end();it++)
@@ -303,7 +303,7 @@ SCENARIO("Test planning")
   }
 
 
-
+/*
   GIVEN("Goal from 12->5 and obstacle from 5->12")
   {
     const int start_index=12;
@@ -557,8 +557,8 @@ SCENARIO("Test planning")
   }//end of GIVEN
 
 
-
- GIVEN("Goal from 12->0 and two obstacles : 5->12 and 1->9")
+*/
+ GIVEN("Goal from 12->0 and two obstacles : 9->11 and 1->9")
   {
 
     //expect robot to wait at holding point 6 nad 4
@@ -596,28 +596,8 @@ SCENARIO("Test planning")
           {10.0, 12.0, 0.0},
           {0.0, 0.0, 0.0});
     REQUIRE(obstacle_1.size()==3);
-
-    rmf_traffic::Trajectory obstacle_2{test_map_name};
-    obstacle_2.insert(
-          time + 75s,
-          make_test_profile(UnitCircle),
-          {0.0, -5.0, 0.0},
-          {0.0, 0.0, 0.0});
-    obstacle_2.insert(
-          time + 90s,
-          make_test_profile(UnitCircle),
-          {0.0, 0.0, 0.0},
-          {0.0, 0.0, 0.0});
-    obstacle_2.insert(
-          time + 105s,
-          make_test_profile(UnitCircle),
-          {0.0, 8.0, 0.0},
-          {0.0, 0.0, 0.0});
-    REQUIRE(obstacle_2.size()==3);
     
-    REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,obstacle_2).size()==0);
-
-    obstacles.push_back(obstacle_1);
+    //REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,obstacle_2).size()==0);
 
 
     WHEN("Docking is not constrained")
@@ -648,6 +628,8 @@ SCENARIO("Test planning")
     
       WHEN("First obstacle is introduced")
       {
+        CHECK(rmf_traffic::DetectConflict::between(t,obstacle_1).size()>0);
+        obstacles.push_back(obstacle_1);
         auto t_obs=test_with_obstacle(
               "Unconstrained", database, obstacles,
               options, t,start_index,goal_index,6, time, test_performance, N,true);
@@ -656,16 +638,73 @@ SCENARIO("Test planning")
 
       }  
 
-      WHEN("Second obstacle is also introduced")
+      WHEN("Second obstacle is introduced")
       {
+        REQUIRE(graph.get_waypoint(4).is_holding_point());
+        rmf_traffic::Trajectory obstacle_2{test_map_name};
+        obstacle_2.insert(
+              time + 49s,
+              make_test_profile(UnitCircle),
+              {0.0, -5.0, M_PI_2},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 60s,
+              make_test_profile(UnitCircle),
+              {0.0, 0.0, M_PI_2},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 87s,
+              make_test_profile(UnitCircle),
+              {0.0, 8.0, M_PI_2},
+              {0.0, 0.0, 0.0});
+        REQUIRE(obstacle_2.size()==3);
+        CHECK(rmf_traffic::DetectConflict::between(t,obstacle_2).size()>0);
+        for(auto conflict : rmf_traffic::DetectConflict::between(t,obstacle_2))
+          {
+           auto conflict_time= rmf_traffic::time::to_seconds(conflict.get_time()-time);
+           std::cout<<"Conflict time: "<<conflict_time<<std::endl;
+
+          }
+
           obstacles.push_back(obstacle_2);
           auto t_obs=test_with_obstacle(
           "Unconstrained", database, obstacles,
-          options, t,start_index,goal_index,6, time, test_performance, N,true);
-  
-        display_path(t_obs,graph);
+          options, t,start_index,goal_index,4, time, test_performance, N,true);
+          display_path(t_obs,graph);
 
       }
+
+
+
+      WHEN("Both obstacles are introduced")
+      {
+        
+        rmf_traffic::Trajectory obstacle_2{test_map_name};
+        obstacle_2.insert(
+              time + 81s,
+              make_test_profile(UnitCircle),
+              {0.0, -5.0, 0.0},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 92s,
+              make_test_profile(UnitCircle),
+              {0.0, 0.0, 0.0},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 110s,
+              make_test_profile(UnitCircle),
+              {0.0, 8.0, 0.0},
+              {0.0, 0.0, 0.0});
+        REQUIRE(obstacle_2.size()==3);
+          obstacles.push_back(obstacle_1);
+          obstacles.push_back(obstacle_2);
+
+          auto t_obs=test_with_obstacle(
+          "Unconstrained", database, obstacles,
+          options, t,start_index,goal_index,6, time, test_performance, N,true);
+          display_path(t_obs,graph);
+
+      } 
 
 
 
