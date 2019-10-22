@@ -155,6 +155,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   return return_t;
 }
 
+
 SCENARIO("Test planning")
 {
   using namespace std::chrono_literals;
@@ -315,7 +316,8 @@ SCENARIO("Test planning")
     CHECK(t.back().get_finish_position()[2]-goal_orientation==Approx(0));
     CHECK(t.back().get_finish_time()>start_time);
   }
-
+  
+/*
   GIVEN("Goal from 12->5 and obstacle from 5->12")
   {
     const int start_index=12;
@@ -668,13 +670,6 @@ SCENARIO("Test planning")
         REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,obstacle_2).size()==0);
         CHECK(rmf_traffic::DetectConflict::between(t,obstacle_2).size()>0);
 
-        for(auto conflict : rmf_traffic::DetectConflict::between(t,obstacle_2))
-          {
-           auto conflict_time= rmf_traffic::time::to_seconds(conflict.get_time()-time);
-           //std::cout<<"Conflict time: "<<conflict_time<<std::endl;
-
-          }
-
           obstacles.push_back(obstacle_2);
           auto t_obs=test_with_obstacle(
           "Unconstrained", database, obstacles,
@@ -719,7 +714,114 @@ SCENARIO("Test planning")
  
   }
 
+  */
 
+
+}
+
+
+
+
+SCENARIO("DP1 Graph")
+{
+  using namespace std::chrono_literals;
+
+  //initialize graph
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, {12, -12});       // 0
+  graph.add_waypoint(test_map_name, {18, -12}, true); // 1
+  graph.add_waypoint(test_map_name, {-10, -8});       // 2
+  graph.add_waypoint(test_map_name, {-2, -8}, true);  // 3
+  graph.add_waypoint(test_map_name, { 3,  -8});       // 4
+  graph.add_waypoint(test_map_name, {12,  -8});       // 5
+  graph.add_waypoint(test_map_name, {18,  -8}, true); // 6
+  graph.add_waypoint(test_map_name, {-15,  -4},true); // 7
+  graph.add_waypoint(test_map_name, {-10,  -4});      // 8
+  graph.add_waypoint(test_map_name, { -2,  -4},true); // 9
+  graph.add_waypoint(test_map_name, { 3,  -4});       // 10
+  graph.add_waypoint(test_map_name, {6, -4});         // 11
+  graph.add_waypoint(test_map_name, {9, -4});         // 12
+  graph.add_waypoint(test_map_name, {-15,  0});       // 13
+  graph.add_waypoint(test_map_name, {-10,  0});       // 14
+  graph.add_waypoint(test_map_name, { 0,  0});        // 15
+  graph.add_waypoint(test_map_name, { 3,  0});        // 16
+  graph.add_waypoint(test_map_name, {6, 0});          // 17
+  graph.add_waypoint(test_map_name, {9, 0});          // 18
+  graph.add_waypoint(test_map_name, {15,  0},true);   // 19
+  graph.add_waypoint(test_map_name, {18,  0},true);   // 20
+  graph.add_waypoint(test_map_name, { -2,  4},true);  // 21
+  graph.add_waypoint(test_map_name, { 3,  4});        // 22
+  graph.add_waypoint(test_map_name, {6, 4});          // 23
+  graph.add_waypoint(test_map_name, {9, 4});          // 24
+  graph.add_waypoint(test_map_name, {15,  4});        // 25
+  graph.add_waypoint(test_map_name, {18,  4});        // 26
+  graph.add_waypoint(test_map_name, { -15,  8},true); // 27
+  graph.add_waypoint(test_map_name, {-10,  8},true);  // 28
+  graph.add_waypoint(test_map_name, {3, 8}, true);    // 29
+  graph.add_waypoint(test_map_name, {6, 8}, true);    // 30
+  graph.add_waypoint(test_map_name, {15,  8}, true);  // 31
+  graph.add_waypoint(test_map_name, {18,  8}, true);  // 32
+
+  REQUIRE(graph.num_waypoints()==33);
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+  {
+    graph.add_lane(w0, w1);
+    graph.add_lane(w1, w0);
+  };
+  //horizontal lates
+  add_bidir_lane(0, 1);
+  add_bidir_lane(2, 3);
+  add_bidir_lane(4, 5);
+  add_bidir_lane(5, 6);
+  add_bidir_lane(7, 8);
+  add_bidir_lane(8, 9);
+  add_bidir_lane(10, 11); 
+  add_bidir_lane(11, 12);
+  add_bidir_lane(13, 14);
+  add_bidir_lane(14, 15);
+  add_bidir_lane(15, 16);
+  add_bidir_lane(16, 17);
+  add_bidir_lane(17, 18);
+  add_bidir_lane(21, 22);
+  add_bidir_lane(23, 24);
+  add_bidir_lane(24, 25);
+  add_bidir_lane(25, 26);
+
+
+//vertical lanes
+  add_bidir_lane(0, 5); 
+  add_bidir_lane(2, 8);
+  add_bidir_lane(4, 10);
+  add_bidir_lane(8, 14);
+  add_bidir_lane(10, 16);
+  add_bidir_lane(11, 17); 
+  add_bidir_lane(12, 18);
+  add_bidir_lane(13, 27);
+  add_bidir_lane(14, 18);
+  add_bidir_lane(16, 22);
+  add_bidir_lane(17, 23); 
+  add_bidir_lane(18, 24);
+  add_bidir_lane(19, 25);
+  add_bidir_lane(20, 26);
+  add_bidir_lane(22, 29);
+  add_bidir_lane(23, 30); 
+  add_bidir_lane(25, 31);
+  add_bidir_lane(26, 32);
+
+
+  std::vector<rmf_traffic::Trajectory> solution;
+  rmf_traffic::schedule::Database database;
+  const rmf_traffic::agv::VehicleTraits vehicle_traits({1.0, 0.4}, {1.0, 0.5}, make_test_profile(UnitCircle));
+  rmf_traffic::Time time= std::chrono::steady_clock::now();
+  rmf_traffic::agv::Planner::Options options(vehicle_traits,graph, database);    
+
+
+  bool solved= rmf_traffic::agv::Planner::solve(time,1,0,31,nullptr,options,solution);
+  CHECK(solved);
+  CHECK(solution.size()==1);
+  print_trajectory_info(solution.front(),time,graph);
 
 
 
