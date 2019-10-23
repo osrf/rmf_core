@@ -128,6 +128,32 @@ Query::Spacetime::Spacetime(std::vector<Region> regions)
 }
 
 //==============================================================================
+Query::Spacetime::Spacetime(std::vector<std::string> maps)
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  query_timespan(std::move(maps));
+}
+
+//==============================================================================
+Query::Spacetime::Spacetime(
+    std::vector<std::string> maps,
+    Time lower_bound)
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  query_timespan(std::move(maps), lower_bound);
+}
+
+//==============================================================================
+Query::Spacetime::Spacetime(
+    std::vector<std::string> maps,
+    Time lower_bound,
+    Time upper_bound)
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  query_timespan(std::move(maps), lower_bound, upper_bound);
+}
+
+//==============================================================================
 auto Query::Spacetime::get_mode() const -> Mode
 {
   return _pimpl->mode;

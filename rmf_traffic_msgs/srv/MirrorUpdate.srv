@@ -3,7 +3,12 @@
 uint64 query_id
 
 # The last known version of the mirror
-uint64 last_version
+uint64 latest_mirror_version
+
+# TODO(MXG): When time permits, introduce the ability to request a minimum
+# version for the patch. This can be useful when the schedule node becomes
+# multi-threaded and there's a possibility that a thread is out of sync.
+uint64 minimum_patch_version
 
 ---
 

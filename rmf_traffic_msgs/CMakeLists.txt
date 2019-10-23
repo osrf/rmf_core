@@ -18,13 +18,11 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
-  "msg/ConvexShape.msg"
-  "msg/ConvexShapeContext.msg"
   "msg/Box.msg"
   "msg/Circle.msg"
-  "msg/TrajectoryProfile.msg"
-  "msg/TrajectorySegment.msg"
-  "msg/Trajectory.msg"
+  "msg/ConvexShape.msg"
+  "msg/ConvexShapeContext.msg"
+  "msg/MirrorWakeup.msg"
   "msg/Region.msg"
   "msg/ScheduleChangeCull.msg"
   "msg/ScheduleChangeDelay.msg"
@@ -34,11 +32,14 @@ set(msg_files
   "msg/ScheduleChangeReplace.msg"
   "msg/SchedulePatch.msg"
   "msg/ScheduleConflict.msg"
+  "msg/ScheduleQuerySpacetime.msg"
   "msg/Shape.msg"
   "msg/ShapeContext.msg"
   "msg/Space.msg"
-  "msg/ScheduleQuerySpacetime.msg"
   "msg/Timespan.msg"
+  "msg/Trajectory.msg"
+  "msg/TrajectoryProfile.msg"
+  "msg/TrajectorySegment.msg"
 )
 
 set(srv_files

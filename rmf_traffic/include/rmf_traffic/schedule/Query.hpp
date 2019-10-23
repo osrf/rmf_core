@@ -173,11 +173,51 @@ public:
     /// Default constructor, uses All mode.
     Spacetime();
 
-    /// Regions mode constructor
+    /// Regions mode constructor.
     ///
     /// \param[in] regions
     ///   The regions to use
     Spacetime(std::vector<Region> regions);
+
+    /// Timespan mode constructor.
+    ///
+    /// This will query all trajectories across all time for the specified maps.
+    ///
+    /// \param[in] maps
+    ///   The maps to query from
+    Spacetime(std::vector<std::string> maps);
+
+    /// Timespan mode constructor.
+    ///
+    /// This will query all trajectories that have at least one segment active
+    /// after the lower bound on the specified maps.
+    ///
+    /// \param[in] maps
+    ///   The maps to query from
+    ///
+    /// \param[in] lower_bound
+    ///   The lower bound on time
+    Spacetime(
+        std::vector<std::string> maps,
+        Time lower_bound);
+
+    /// Timespan mode constructor.
+    ///
+    /// This will query all trajectories that have at least one segment active
+    /// after the lower bound and before the upper bound on the specified maps.
+    ///
+    /// \param[in] maps
+    ///   The maps to query from
+    ///
+    /// \param[in] lower_bound
+    ///   The lower bound on time
+    ///
+    /// \param[in] upper_bound
+    ///   The upper bound on time
+    Spacetime(
+        std::vector<std::string> maps,
+        Time lower_bound,
+        Time upper_bound);
 
     /// Get the current Spacetime Mode of this query.
     Mode get_mode() const;
