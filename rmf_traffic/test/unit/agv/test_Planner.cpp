@@ -923,7 +923,7 @@ SCENARIO("DP1 Graph")
 
       auto t_obs1=test_with_obstacle(
               "Obstacle 28->2", database, obstacles,
-              options, t,start_index,goal_index,27, time, test_performance, N,true);
+              options, t,start_index,goal_index,27, time, test_performance, N,false);
       
     
       WHEN("Obstacle 28->2 , 29->4")
@@ -952,7 +952,7 @@ SCENARIO("DP1 Graph")
 
           auto t_obs2=test_with_obstacle(
                     "Obstacle 28->2 , 29->4", database, obstacles,
-                    options, t,start_index,goal_index,27, time, test_performance, N,true);          
+                    options, t,start_index,goal_index,27, time, test_performance, N,false);          
 
 
           WHEN("Obstacle 28->2 , 29->4, 23->26")
@@ -979,11 +979,11 @@ SCENARIO("DP1 Graph")
               REQUIRE(rmf_traffic::DetectConflict::between(t_obs2,obstacle_3).size()>0);
 
               obstacles.push_back(obstacle_3);
-              std::cout<<"Obstacle Size: "<<obstacles.size()<<std::endl;
+              //std::cout<<"Obstacle Size: "<<obstacles.size()<<std::endl;
               
               t_obs2=test_with_obstacle(
                         "Obstacle 28->2 , 29->4, 23->26", database, obstacles,
-                        options, t,start_index,goal_index,27, time, test_performance, N,true);
+                        options, t,start_index,goal_index,27, time, test_performance, N,false);
               
                 
             }
