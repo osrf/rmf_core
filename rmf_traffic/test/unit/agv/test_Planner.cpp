@@ -319,7 +319,7 @@ SCENARIO("Test planning")
     CHECK(t.back().get_finish_time()>start_time);
   }
   
-/*
+
   GIVEN("Goal from 12->5 and obstacle from 5->12")
   {
     const int start_index=12;
@@ -716,7 +716,6 @@ SCENARIO("Test planning")
  
   }
 
-  */
 
 
 }
