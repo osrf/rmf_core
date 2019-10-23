@@ -929,7 +929,7 @@ SCENARIO("DP1 Graph")
     
       WHEN("Obstacle 28->2 , 29->4")
         {
-          //robot waits 10s at 27 and then rotates on the spot at 15 for another 5s
+          //robot waits 10s at 27 and then rotates on the spot at 13 for another 5s
           rmf_traffic::Trajectory obstacle_2(test_map_name);
           obstacle_2.insert(
             time,
@@ -958,6 +958,8 @@ SCENARIO("DP1 Graph")
 
           WHEN("Obstacle 28->2 , 29->4, 23->26")
             {
+              //robot waits 10s at 27 and then rotates on the spot at 13, 16
+
               rmf_traffic::Trajectory obstacle_3(test_map_name);
               obstacle_3.insert(
                 time+50s,
