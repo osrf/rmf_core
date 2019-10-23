@@ -44,8 +44,8 @@ set(msg_files
 set(srv_files
   "srv/SubmitTrajectory.srv"
   "srv/EraseSchedule.srv"
+  "srv/MirrorUpdate.srv"
   "srv/RegisterQuery.srv"
-  "srv/RequestScheduleUpdate.srv"
   "srv/UnregisterQuery.srv"
 )
 

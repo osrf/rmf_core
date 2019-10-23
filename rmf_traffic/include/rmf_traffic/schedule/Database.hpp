@@ -79,13 +79,12 @@ public:
     /// Make an insertion change
     ///
     /// \param[in] trajectory
-    ///   A pointer to the Trajectory that was inserted for this change, or a
-    ///   nullptr if this insertion is voided later.
+    ///   The Trajectory that was inserted for this change
     ///
     /// \param[in] id
     ///   The ID of this insertion.
     static Change make_insert(
-        const Trajectory* trajectory,
+        Trajectory trajectory,
         Version id);
 
     /// Make an interruption change
@@ -94,7 +93,7 @@ public:
     ///   The original ID of the Trajectory that will be interrupted
     ///
     /// \param[in] interruption_trajectory
-    ///   The trajectory that is being inserted as an interruption
+    ///   The Trajectory that is being inserted as an interruption
     ///
     /// \param[in] delay
     ///   The additional delay following the interruption.
@@ -103,7 +102,7 @@ public:
     ///   The ID of the modified Trajectory
     static Change make_interrupt(
         Version original_id,
-        const Trajectory* interruption_trajectory,
+        Trajectory interruption_trajectory,
         Duration delay,
         Version id);
 
@@ -133,14 +132,13 @@ public:
     ///   The original ID of the Trajectory that is being replaced
     ///
     /// \param[in] trajectory
-    ///   A pointer to the Trajectory that was inserted for this change, or a
-    ///   nullptr if this replacement is voided later.
+    ///   The Trajectory that was inserted for this change
     ///
     /// \param[in] id
     ///   The ID of this replacement.
     static Change make_replace(
         Version original_id,
-        const Trajectory* trajectory,
+        Trajectory trajectory,
         Version id);
 
     /// Make an erasure change

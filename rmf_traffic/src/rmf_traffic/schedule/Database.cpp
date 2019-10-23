@@ -101,12 +101,11 @@ public:
 };
 
 //==============================================================================
-DeepOrShallowTrajectory make_deep(const Trajectory* const deep)
+DeepOrShallowTrajectory make_deep(Trajectory deep)
 {
   DeepOrShallowTrajectory traj;
   traj.is_deep = true;
-  if(deep)
-    traj.deep = rmf_utils::make_impl<const Trajectory>(*deep);
+  traj.deep = rmf_utils::make_impl<const Trajectory>(std::move(deep));
 
   return traj;
 }
@@ -132,12 +131,12 @@ public:
 
   /// This is used to create a Change whose lifetime is not tied to the Database
   /// instance that constructed it.
-  static Insert make_copy(const Trajectory* const trajectory)
+  static Insert make_copy(Trajectory trajectory)
   {
     Insert result;
 
     result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{make_deep(trajectory)});
+          Implementation{make_deep(std::move(trajectory))});
 
     return result;
   }
@@ -171,7 +170,7 @@ Database::Change::Change()
 
 //==============================================================================
 auto Database::Change::make_insert(
-    const Trajectory* const trajectory,
+    Trajectory trajectory,
     Version id) -> Change
 {
   Change change = Implementation::make(Mode::Insert, id);
@@ -202,13 +201,14 @@ public:
 
   template<typename... Args>
   static Interrupt make_copy(
-      const Trajectory* const trajectory,
+      Trajectory trajectory,
       Args&&... args)
   {
     Interrupt result;
 
     result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{make_deep(trajectory), std::forward<Args>(args)...});
+          Implementation{make_deep(std::move(trajectory)),
+                         std::forward<Args>(args)...});
 
     return result;
   }
@@ -238,13 +238,13 @@ Database::Change::Interrupt::Interrupt()
 //==============================================================================
 auto Database::Change::make_interrupt(
     Version original_id,
-    const Trajectory* const interruption_trajectory,
+    Trajectory interruption_trajectory,
     Duration delay,
     Version id) -> Change
 {
   Change change = Implementation::make(Mode::Interrupt, id);
   change._pimpl->interrupt = Interrupt::Implementation::make_copy(
-        interruption_trajectory, original_id, delay);
+        std::move(interruption_trajectory), original_id, delay);
   return change;
 }
 
@@ -310,11 +310,11 @@ public:
 
   static Replace make_copy(
       const Version original_id,
-      const Trajectory* const trajectory)
+      Trajectory trajectory)
   {
     Replace result;
     result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{original_id, make_deep(trajectory)});
+          Implementation{original_id, make_deep(std::move(trajectory))});
     return result;
   }
 
@@ -339,12 +339,12 @@ Database::Change::Replace::Replace()
 //==============================================================================
 auto Database::Change::make_replace(
     const Version original_id,
-    const Trajectory* const trajectory,
+    Trajectory trajectory,
     const Version id) -> Change
 {
   Change change = Implementation::make(Mode::Replace, id);
   change._pimpl->replace = Replace::Implementation::make_copy(
-        original_id, trajectory);
+        original_id, std::move(trajectory));
   return change;
 }
 
@@ -876,7 +876,7 @@ Version Database::interrupt(
 
   const Version new_version = ++_pimpl->latest_version;
   Change change = Database::Change::make_interrupt(
-        id, &interruption_trajectory, delay, new_version);
+        id, std::move(interruption_trajectory), delay, new_version);
 
   old_entry->succeeded_by = _pimpl->add_entry(
       std::make_shared<internal::Entry>(
