@@ -19,6 +19,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
   "msg/ConvexShape.msg"
+  "msg/ConvexShapeContext.msg"
   "msg/Box.msg"
   "msg/Circle.msg"
   "msg/TrajectoryProfile.msg"
@@ -34,9 +35,9 @@ set(msg_files
   "msg/SchedulePatch.msg"
   "msg/ScheduleConflict.msg"
   "msg/Shape.msg"
+  "msg/ShapeContext.msg"
   "msg/Space.msg"
   "msg/ScheduleQuerySpacetime.msg"
-  "msg/ScheduleQuery.msg"
   "msg/Timespan.msg"
 )
 

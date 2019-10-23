@@ -87,7 +87,7 @@ protected:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using FinalShapePtr = std::shared_ptr<Shape>;
+using FinalShapePtr = std::shared_ptr<FinalShape>;
 using ConstFinalShapePtr = std::shared_ptr<const FinalShape>;
 
 //==============================================================================

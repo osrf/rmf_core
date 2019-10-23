@@ -11,12 +11,10 @@ TrajectorySegment[] segments
 # share a profile, so we store them here to avoid redundancy.
 TrajectoryProfile[] profiles
 
-# The boxes that are available for the profiles to use.
-Box[] boxes
+# The convex shapes that are available for the profiles to use
+ConvexShapeContext convex_shape_context
 
-# The circles that are available for the profiles to use.
-Circle[] circles
-
-# TODO(MXG): Consider a message type called something like TrajectoryContext to
-# act as the heap for profiles, boxes, and circles. That context could be shared
-# by multiple Trajectory.msg instances.
+# TODO(MXG): Consider moving convex_shape_context up a level in the message
+# stack (e.g. SubmitTrajectory) so that it can be shared by multiple Trajectory
+# messages. Also consider making a TrajectoryContext message that contains the
+# TrajectoryProfile[] data and the ConvexShapeContext.
