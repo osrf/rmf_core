@@ -1,9 +1,9 @@
 
-uint8 ALL=1
-uint8 REGIONS=2
-uint8 TIMESPAN=3
+uint16 ALL=1
+uint16 REGIONS=2
+uint16 TIMESPAN=3
 
-uint8 type
+uint16 type
 
 # =====================
 # ===== REGIONS =====
