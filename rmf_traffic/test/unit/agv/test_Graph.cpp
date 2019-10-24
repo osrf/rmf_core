@@ -36,12 +36,21 @@ void CHECK_WAYPOINT(rmf_traffic::agv::Graph::Waypoint wp,Eigen::Vector2d waypoin
 
     }
 
+void CHECK_LANE(rmf_traffic::agv::Graph::Lane lane, std::size_t lane_index, rmf_traffic::agv::Graph::Lane::Node entry_node,rmf_traffic::agv::Graph::Lane::Node exit_node,std::size_t* door_index=nullptr)
+    {
+        CHECK(lane.index()==lane_index);
+        CHECK(lane.entry().waypoint_index()==entry_node.waypoint_index());
+        CHECK(lane.exit().waypoint_index()==exit_node.waypoint_index());
+        CHECK(lane.door_index()==door_index);
+
+    }
+
 SCENARIO("Tests for Graph API")
 {
 
 using namespace std::chrono_literals;
 
-rmf_traffic::Time time= std::chrono::steady_clock::now();
+//rmf_traffic::Time time= std::chrono::steady_clock::now();
 rmf_traffic::agv::Graph graph;
 REQUIRE(graph.num_waypoints()==0);
 REQUIRE(graph.num_lanes()==0);
@@ -78,15 +87,75 @@ WHEN("A non-holding waypoint is added")
             graph.add_waypoint(test_map_name,Eigen::Vector2d{2,2});
             CHECK(graph.num_waypoints()==2);
             CHECK_WAYPOINT(graph.get_waypoint(1),Eigen::Vector2d{2,2},test_map_name,1,false);
-
+ 
 
         }
 
     }
 WHEN("A lane without a door is added")
     {
+        graph.add_waypoint(test_map_name,Eigen::Vector2d{0,0});
+        graph.add_waypoint(test_map_name,Eigen::Vector2d{10,10});
 
+        rmf_traffic::agv::Graph::Lane::Node entry_node{0};
+        CHECK(entry_node.waypoint_index()==0);
+        CHECK(entry_node.velocity_constraint()==nullptr);
+        CHECK(entry_node.orientation_constraint()==nullptr);
+
+        std::vector<double> acceptable_orientations {0,M_PI};
         
+        rmf_traffic::agv::Graph::Lane::Node exit_node{
+            1,
+            rmf_traffic::agv::Graph::OrientationConstraint::make(acceptable_orientations),
+            };
+
+        CHECK(exit_node.waypoint_index()==1);
+        CHECK(exit_node.velocity_constraint()==nullptr);
+        CHECK(exit_node.orientation_constraint()!=nullptr);
+
+
+        auto& lane1=graph.add_lane(entry_node, exit_node);
+        CHECK(graph.num_lanes()==1);
+        CHECK_LANE(lane1,0,entry_node,exit_node);
+        CHECK_LANE(graph.get_lane(0),0,entry_node,exit_node);
+
+
+
+        auto& lane2=graph.add_lane(exit_node, entry_node);
+        CHECK(graph.num_lanes()==2);
+        CHECK_LANE(lane2,1,exit_node,entry_node);
+        CHECK_LANE(graph.get_lane(1),1,exit_node,entry_node);
+
+
+    }
+
+WHEN("A lane with a door is added")
+    {
+
+        graph.add_waypoint(test_map_name,Eigen::Vector2d{0,0});
+        graph.add_waypoint(test_map_name,Eigen::Vector2d{10,10});
+
+        //Door not implemented yet
+        // auto door =rmf_traffic::agv::Graph::Door();
+        // graph.add_lane({1},{2},door);
+        // CHECK(graph.num_doors()==1);
+        // auto& _door=graph.get_door(0);
+        // CHECK(_door.index()==0);
+        
+
+    }
+
+WHEN("Adding N waypoints to graph")
+    {
+
+        const std::size_t N = 1000;
+
+        for(std::size_t i=0;i<N;i++)
+            graph.add_waypoint(test_map_name,Eigen::Vector2d{std::rand(),std::rand()});
+
+        CHECK(graph.num_waypoints()==N);
+
+
     }
 
 
