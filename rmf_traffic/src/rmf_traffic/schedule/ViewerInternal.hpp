@@ -428,6 +428,12 @@ public:
     const Version* after_version_ptr = nullptr;
     switch(versions_mode)
     {
+      case Query::Versions::Mode::Invalid:
+      {
+        throw std::runtime_error(
+            "[rmf_traffic::schedule::Viewer] Invalid Query::Version::Mode "
+            "used. Please report this as a bug.");
+      }
       case Query::Versions::Mode::All:
       {
         // Do nothing
@@ -451,6 +457,13 @@ public:
     // Spacetime::Mode type is ever added and we forget to handle it.
     switch(spacetime_mode)
     {
+      case Query::Spacetime::Mode::Invalid:
+      {
+        throw std::runtime_error(
+            "[rmf_traffic::schedule::Viewer] Invalid Query::Spacetime::Mode "
+            "used. Please report this as a bug.");
+      }
+
       case Query::Spacetime::Mode::All:
       {
         inspect_all(inspector);

@@ -50,7 +50,7 @@ public:
     {
       /// This is an invalid Change::Mode. If you ever find this a Change object
       /// in this mode, please report it as a bug.
-      Void,
+      Invalid,
 
       /// A Trajectory was inserted
       Insert,

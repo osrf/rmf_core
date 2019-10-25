@@ -52,6 +52,9 @@ public:
     /// This enumerator determines what Spacetime mode the query will be in.
     enum class Mode : uint16_t
     {
+      /// Invalid mode, behavior is undefined.
+      Invalid,
+
       /// Request trajectories throughout all of space and time. This will still
       /// be constrained by the version field.
       All,
@@ -274,6 +277,9 @@ public:
     /// The mode for how to filter versions in a schedule database query.
     enum class Mode : uint16_t
     {
+      /// Invalid mode, behavior is undefined.
+      Invalid,
+
       /// Get everything, regardless of version.
       All,
 

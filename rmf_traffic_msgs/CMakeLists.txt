@@ -40,6 +40,8 @@ set(msg_files
   "msg/Trajectory.msg"
   "msg/TrajectoryProfile.msg"
   "msg/TrajectorySegment.msg"
+
+  "msg/TestTaskRequest.msg"
 )
 
 set(srv_files

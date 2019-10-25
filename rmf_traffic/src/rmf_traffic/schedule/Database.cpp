@@ -50,13 +50,6 @@ public:
     return change;
   }
 
-  static Change make_void()
-  {
-    Change change;
-    change._pimpl->mode = Mode::Void;
-    return change;
-  }
-
   static Change make_insert_ref(
       const Trajectory* trajectory,
       Version id);
