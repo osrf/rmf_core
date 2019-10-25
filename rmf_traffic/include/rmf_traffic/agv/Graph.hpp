@@ -127,6 +127,15 @@ public:
     static std::unique_ptr<OrientationConstraint>
     make(std::vector<double> acceptable_orientations);
 
+    enum class Direction
+    {
+      Forward,
+      Backward,
+    };
+
+    static std::unique_ptr<OrientationConstraint>
+    make(Direction direction, const Eigen::Vector2d& forward_vector);
+
     /// Apply the constraint to the given homogeneous position.
     ///
     /// \param[in,out] position

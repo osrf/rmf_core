@@ -205,6 +205,67 @@ public:
   }
 
 };
+
+//==============================================================================
+// TODO(MXG): Think about how to refactor this constraint so that it can share
+// an implementation with DifferentialOrientationConstraint. Maybe instead of
+// a single direction it could have a std::vector of acceptable directions.
+// Or it can have `bool forward_okay` and `bool backward_okay` fields.
+class DirectionConstraint : public Graph::OrientationConstraint
+{
+public:
+
+  static Eigen::Rotation2Dd compute_forward_offset(
+      const Eigen::Vector2d& forward)
+  {
+    return Eigen::Rotation2Dd(std::atan2(forward[1], forward[0]));
+  }
+
+  static const Eigen::Rotation2Dd R_pi;
+
+  DirectionConstraint(
+      Direction _direction,
+      const Eigen::Vector2d& _forward_vector)
+    : R_f(compute_forward_offset(_forward_vector)),
+      R_f_inv(R_f.inverse()),
+      direction(_direction)
+  {
+    // Do nothing
+  }
+
+  Eigen::Rotation2Dd R_f;
+  Eigen::Rotation2Dd R_f_inv;
+  Direction direction;
+
+  Eigen::Rotation2Dd compute_R_final(
+      const Eigen::Vector2d& course_vector) const
+  {
+    const Eigen::Rotation2Dd R_c(
+          std::atan2(course_vector[1], course_vector[0]));
+
+    if(Direction::Backward == direction)
+      return R_pi * R_c * R_f_inv;
+
+    return R_c * R_f_inv;
+  }
+
+  bool apply(
+      Eigen::Vector3d& position,
+      const Eigen::Vector2d& course_vector) const final
+  {
+    position[2] = internal::wrap_to_pi(compute_R_final(course_vector).angle());
+    return true;
+  }
+
+  std::unique_ptr<OrientationConstraint> clone() const final
+  {
+    return std::make_unique<DirectionConstraint>(*this);
+  }
+};
+
+//==============================================================================
+const Eigen::Rotation2Dd DirectionConstraint::R_pi = Eigen::Rotation2Dd(M_PI);
+
 } // anonymous namespace
 
 //==============================================================================
@@ -213,6 +274,15 @@ Graph::OrientationConstraint::make(std::vector<double> acceptable_orientations)
 {
   return std::make_unique<AcceptableOrientationConstraint>(
         std::move(acceptable_orientations));
+}
+
+//==============================================================================
+std::unique_ptr<Graph::OrientationConstraint>
+Graph::OrientationConstraint::make(
+    Direction direction,
+    const Eigen::Vector2d& forward)
+{
+  return std::make_unique<DirectionConstraint>(direction, forward);
 }
 
 //==============================================================================
