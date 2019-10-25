@@ -148,13 +148,57 @@ WHEN("A lane with a door is added")
 WHEN("Adding N waypoints to graph")
     {
 
-        const std::size_t N = 1000;
+        const std::size_t N = 100;
 
         for(std::size_t i=0;i<N;i++)
             graph.add_waypoint(test_map_name,Eigen::Vector2d{std::rand(),std::rand()});
 
         CHECK(graph.num_waypoints()==N);
 
+        WHEN("Copy operator is checked")
+        {
+        //CHECKING for Independence 
+        rmf_traffic::agv::Graph graph2;
+        graph2=graph;
+        graph.add_waypoint(test_map_name,Eigen::Vector2d{-10,-10});
+        CHECK(graph.num_waypoints()==N+1);
+        CHECK(graph2.num_waypoints()==N);
+        }
+
+        WHEN("Copy constructor is checked")
+        {
+            rmf_traffic::agv::Graph graph2{graph};
+            graph.add_waypoint(test_map_name,Eigen::Vector2d{-10,-10});
+            CHECK(graph.num_waypoints()==N+1);
+            CHECK(graph2.num_waypoints()==N);
+            
+
+        }
+        WHEN("Move operator is checked")
+            {
+                rmf_traffic::agv::Graph moved= graph;
+                rmf_traffic::agv::Graph graph2;
+                graph2=std::move(moved);
+                moved=graph;
+                graph.add_waypoint(test_map_name,Eigen::Vector2d{-10,-10});
+
+                CHECK(graph.num_waypoints()==N+1);
+                CHECK(graph2.num_waypoints()==N);
+                CHECK(moved.num_waypoints()==N);
+
+            }
+        WHEN("Move constructor is checked")
+            {
+                rmf_traffic::agv::Graph moved= graph;
+                rmf_traffic::agv::Graph graph2=std::move(moved);
+                moved=graph;
+                graph.add_waypoint(test_map_name,Eigen::Vector2d{-10,-10});
+
+                CHECK(graph.num_waypoints()==N+1);
+                CHECK(graph2.num_waypoints()==N);
+                CHECK(moved.num_waypoints()==N);
+
+            }
 
     }
 
