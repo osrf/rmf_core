@@ -226,6 +226,7 @@ SCENARIO("Test planning")
 
     options.set_graph(graph);
 
+    std::vector<Eigen::Vector3d> positions;
     const auto start_time = std::chrono::steady_clock::now();
     for(std::size_t i=0; i < N; ++i)
       rmf_traffic::agv::Planner::solve(time, 2, 0.0, 12, nullptr, options, solution);
@@ -251,6 +252,7 @@ SCENARIO("Test planning")
             "Constrained to 180.0", database, obstacle,
             options, t, time, test_performance, N);
     }
+
   }
 
 }

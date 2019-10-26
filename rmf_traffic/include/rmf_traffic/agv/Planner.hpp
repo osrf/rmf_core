@@ -131,6 +131,12 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  struct Waypoint
+  {
+    Eigen::Vector3d location;
+    rmf_traffic::Time time;
+  };
+
   /// Find a solution to a planning problem.
   ///
   /// \param[in] initial_time
@@ -161,6 +167,10 @@ public:
   ///   the initial conditions already satisfy the goals, this will be empty but
   ///   the function will return true.
   ///
+  /// \param[out] positions
+  ///   If non-null, this vector will be filled with the waypoint positions that
+  ///   the robot is expected to pass through.
+  ///
   /// \return True if a solution was found, false otherwise.
   static bool solve(
       Time initial_time,
@@ -169,7 +179,8 @@ public:
       std::size_t goal_waypoint,
       const double* goal_orientation,
       const Options& options,
-      std::vector<Trajectory>& solution);
+      std::vector<Trajectory>& solution,
+      std::vector<Waypoint>* waypoints = nullptr);
 
   // TODO(MXG): Instead of returning a boolean and having an output parameter,
   // the solve() function should return a Plan class (TBD), which will contain

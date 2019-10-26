@@ -74,6 +74,34 @@ std::vector<Trajectory> reconstruct_trajectory(
 }
 
 //==============================================================================
+template<typename Expander>
+std::vector<Planner::Waypoint> reconstruct_waypoints(
+    const typename Expander::NodePtr& finish_node,
+    const Graph::Implementation& graph)
+{
+  using NodePtr = typename Expander::NodePtr;
+  NodePtr node = finish_node;
+  std::vector<NodePtr> node_sequence;
+  while(node)
+  {
+    node_sequence.push_back(node);
+    node = node->parent;
+  }
+
+  std::vector<Planner::Waypoint> waypoints;
+  for(auto it = node_sequence.rbegin(); it != node_sequence.rend(); ++it)
+  {
+    const auto& n = *it;
+    const Eigen::Vector2d p = graph.waypoints[n->waypoint].get_location();
+    const Eigen::Vector3d wp{p[0], p[1], n->orientation};
+    const Time time{*n->trajectory_from_parent.finish_time()};
+    waypoints.emplace_back(Planner::Waypoint{wp, time});
+  }
+
+  return waypoints;
+}
+
+//==============================================================================
 struct ExpansionContext
 {
   const Graph::Implementation& graph;
@@ -163,7 +191,8 @@ bool search_and_construct(
     const std::size_t final_waypoint,
     const double* const final_orientation,
     const Planner::Options& options,
-    std::vector<Trajectory>& solution)
+    std::vector<Trajectory>& solution,
+    std::vector<Planner::Waypoint>* waypoints)
 {
   NodePtr goal = search<Expander>(
         ExpansionContext{
@@ -184,6 +213,9 @@ bool search_and_construct(
     return false;
 
   solution = reconstruct_trajectory<Expander>(goal);
+  if(waypoints)
+    *waypoints = reconstruct_waypoints<Expander>(goal, graph);
+
   return true;
 }
 
@@ -1072,7 +1104,8 @@ bool Planner::solve(
     const std::size_t final_waypoint,
     const double* const final_orientation,
     const Options& options,
-    std::vector<Trajectory>& solution)
+    std::vector<Trajectory>& solution,
+    std::vector<Waypoint>* waypoints)
 {
   solution.clear();
   const VehicleTraits& traits = options.get_vehicle_traits();
@@ -1083,7 +1116,7 @@ bool Planner::solve(
   {
     return search_and_construct<DifferentialDriveExpander>(
           graph, initial_time, initial_waypoint, initial_orientation,
-          final_waypoint, final_orientation, options, solution);
+          final_waypoint, final_orientation, options, solution, waypoints);
   }
 //  else if(traits.get_steering() == VehicleTraits::Steering::Holonomic)
 //  {

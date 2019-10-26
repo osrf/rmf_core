@@ -41,6 +41,7 @@ set(msg_files
   "msg/TrajectoryProfile.msg"
   "msg/TrajectorySegment.msg"
 
+  # Test message definitions
   "msg/TestTaskRequest.msg"
 )
 
