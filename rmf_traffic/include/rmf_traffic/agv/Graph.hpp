@@ -261,6 +261,9 @@ public:
       Eigen::Vector2d location,
       bool is_holding_point = false);
 
+  // TODO(MXG): Allow waypoints to have keynames so that they can be gotten by
+  // a string value instead of an index value.
+
   /// Get a waypoint based on its index.
   Waypoint& get_waypoint(std::size_t index);
 
