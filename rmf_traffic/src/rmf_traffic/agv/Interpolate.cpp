@@ -19,6 +19,8 @@
 
 #include "InterpolateInternal.hpp"
 
+#include "../utils.hpp"
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -134,14 +136,18 @@ void interpolate_rotation(
 {
   const double start_heading = start[2];
   const double finish_heading = finish[2];
+  const double diff_heading =
+      rmf_traffic::internal::wrap_to_pi(finish_heading - start_heading);
 
-  const double diff_heading = std::abs(finish_heading - start_heading);
-  if(std::abs(diff_heading) < threshold)
+  const double diff_heading_abs = std::abs(diff_heading);
+  if(diff_heading_abs < threshold)
     return;
 
-  const double dir = finish_heading < start_heading? -1.0 : 1.0;
+  const double dir = diff_heading < 0.0? -1.0 : 1.0;
 
-  States states = compute_traversal(start_time, diff_heading, w_nom, alpha_nom);
+  States states = compute_traversal(
+        start_time, diff_heading_abs, w_nom, alpha_nom);
+
   for(const State& state : states)
   {
     const double s = start_heading + dir*state.s;

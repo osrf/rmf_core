@@ -4,3 +4,4 @@
 string fleet_name
 string start_waypoint_name
 string goal_waypoint_name
+float64 initial_orientation

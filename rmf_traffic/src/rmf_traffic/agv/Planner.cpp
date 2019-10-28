@@ -808,7 +808,8 @@ struct DifferentialDriveExpander : BaseExpander
       const double orientation,
       const NodePtr& parent_node,
       Trajectory trajectory,
-      SearchQueue& queue)
+      SearchQueue& queue,
+      const double cost_factor = 1.0)
   {
     if(is_valid(trajectory))
     {
@@ -819,7 +820,7 @@ struct DifferentialDriveExpander : BaseExpander
       queue.push(std::make_shared<Node>(
                    Node{
                      estimate_remaining_cost(waypoint),
-                     cost,
+                     cost * cost_factor,
                      waypoint,
                      orientation,
                      std::move(trajectory),
@@ -890,9 +891,13 @@ struct DifferentialDriveExpander : BaseExpander
           initial_pos,
           Eigen::Vector3d::Zero());
 
+    // TODO(MXG): Consider better ways to encourage holding instead of
+    // needlessly moving around. Right now we just cut the cost of holding down
+    // by 1/10, which may be a bit of a hack. Something energy based might be
+    // more meaningful.
     add_if_valid(
           waypoint, initial_pos[2], parent_node,
-          std::move(trajectory), queue);
+          std::move(trajectory), queue, 1.0);
   }
 
   void expand(const NodePtr& parent_node, SearchQueue& queue)
