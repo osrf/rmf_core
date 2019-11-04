@@ -44,21 +44,6 @@ target_include_directories(rmf_traffic_ros2
 ament_export_interfaces(rmf_traffic_ros2 HAS_LIBRARY_TARGET)
 ament_export_dependencies(rmf_traffic rmf_traffic_msgs rclcpp)
 
-install(
-  DIRECTORY include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-install(
-  TARGETS rmf_traffic_ros2
-  EXPORT rmf_traffic_ros2
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
-ament_package()
-
 # TODO(MXG): Change these executables into shared libraries that can act as
 # ROS2 node components
 
@@ -87,3 +72,20 @@ target_include_directories(proto_fleet_adapter
   PRIVATE
     ${rmf_msgs_INCLUDE_DIRS}
 )
+
+
+#===============================================================================
+install(
+  DIRECTORY include/
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(
+  TARGETS rmf_traffic_ros2 rmf_traffic_schedule
+  EXPORT rmf_traffic_ros2
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+ament_package()
