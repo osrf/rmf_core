@@ -236,7 +236,7 @@ double compute_current_cost(
 }
 
 //==============================================================================
-struct NaiveExpander
+struct EuclideanExpander
 {
   struct ExpansionContext
   {
@@ -249,7 +249,7 @@ struct NaiveExpander
   const Eigen::Vector2d p_final;
 
   struct Node;
-  using NodePtr = std::shared_ptr<NaiveExpander::Node>;
+  using NodePtr = std::shared_ptr<EuclideanExpander::Node>;
 
   struct Node
   {
@@ -265,7 +265,7 @@ struct NaiveExpander
   using SearchQueue =
       std::priority_queue<NodePtr, std::vector<NodePtr>, Compare>;
 
-  NaiveExpander(ExpansionContext _context)
+  EuclideanExpander(ExpansionContext _context)
     : context(std::move(_context)),
       p_final(context.graph.waypoints[context.final_waypoint].get_location())
   {
@@ -378,9 +378,9 @@ struct BaseExpander
     {
       // The pair was inserted, which implies that the cost estimate for this
       // waypoint has never been found before, and we should compute it now.
-      const NaiveExpander::NodePtr goal = search<NaiveExpander>(
-        NaiveExpander::ExpansionContext{context.graph, context.final_waypoint},
-        NaiveExpander::InitialNodeArgs{waypoint});
+      const EuclideanExpander::NodePtr goal = search<EuclideanExpander>(
+        EuclideanExpander::ExpansionContext{context.graph, context.final_waypoint},
+        EuclideanExpander::InitialNodeArgs{waypoint});
 
       // TODO(MXG): Instead of asserting that the goal exists, we should
       // probably take this opportunity to shortcircuit the planner and return
@@ -388,7 +388,7 @@ struct BaseExpander
       assert(goal != nullptr);
 
       std::vector<Eigen::Vector3d> positions;
-      NaiveExpander::NodePtr naive_node = goal;
+      EuclideanExpander::NodePtr naive_node = goal;
       // Note: this constructs positions in reverse, but that's okay because
       // the Interpolate::positions function will produce a trajectory with the
       // same duration whether it is interpolating forward or backwards.
@@ -526,6 +526,24 @@ public:
 
     position[2] = wrap_to_pi(R.angle());
     return true;
+  }
+
+  std::vector<double> get_orientations(
+      const Eigen::Vector2d& course_vector) const
+  {
+    std::vector<double> orientations;
+    orientations.reserve(2);
+
+    const Eigen::Rotation2Dd R_c(
+          std::atan2(course_vector[1], course_vector[2]));
+    const Eigen::Rotation2Dd R_h = R_c * R_f_inv;
+
+    orientations.push_back(wrap_to_pi(R_h.angle()));
+
+    if(reversible)
+      orientations.push_back(wrap_to_pi((R_pi * R_h).angle()));
+
+    return orientations;
   }
 
   std::unique_ptr<OrientationConstraint> clone() const final
@@ -680,6 +698,31 @@ struct DifferentialDriveExpander : BaseExpander
     return target;
   }
 
+  bool is_orientation_okay(
+      const Eigen::Vector2d& initial_p,
+      const double orientation,
+      const Eigen::Vector2d& course,
+      const Graph::Lane& lane) const
+  {
+    for(const auto* constraint : {
+        lane.entry().orientation_constraint(),
+        lane.exit().orientation_constraint()})
+    {
+      if(!constraint)
+        continue;
+
+      Eigen::Vector3d position{initial_p[0], initial_p[1], orientation};
+      if(!constraint->apply(position, course))
+        return false;
+
+      if(std::abs(wrap_to_pi(orientation - position[2]))
+         > context.interpolate.rotation_thresh)
+        return false;
+    }
+
+    return true;
+  }
+
   struct LaneExpansionNode
   {
     std::size_t lane;
@@ -691,25 +734,20 @@ struct DifferentialDriveExpander : BaseExpander
       const std::size_t initial_lane_index,
       SearchQueue& queue)
   {
-    const Graph::Lane& initial_lane = context.graph.lanes[initial_lane_index];
+    for(const auto& parent : expand_rotations(initial_parent, initial_lane_index))
+      expand_down_lane(parent, initial_lane_index, queue);
+  }
+
+  void expand_down_lane(
+      const NodePtr& initial_parent,
+      const std::size_t initial_lane_index,
+      SearchQueue& queue)
+  {
     const std::size_t initial_waypoint = initial_parent->waypoint;
     assert(initial_lane.entry().waypoint_index() == initial_waypoint);
     const Eigen::Vector2d initial_p =
         context.graph.waypoints[initial_waypoint].get_location();
     const double orientation = initial_parent->orientation;
-
-    const TargetOrientation orientation_change =
-        get_target_orientation(initial_p, orientation, initial_lane);
-    if(orientation_change.result == TargetOrientation::Result::Invalid)
-      return;
-
-    if(orientation_change.result == TargetOrientation::Result::Changed)
-    {
-      // We need to rotate before we can travel down this lane, so we'll expand
-      // towards the rotation and then quit the expansion.
-      expand_rotation(initial_parent, orientation_change.value, queue);
-      return;
-    }
 
     Trajectory initial_trajectory{
       context.graph.waypoints[initial_waypoint].get_map_name()};
@@ -725,8 +763,6 @@ struct DifferentialDriveExpander : BaseExpander
           initial_position,
           Eigen::Vector3d::Zero());
 
-
-    // The orientation constraints are satisfied, so we'll proceed down the lane
     std::vector<LaneExpansionNode> expansion_queue;
     expansion_queue.push_back(
         {initial_lane_index, std::move(initial_trajectory)});
@@ -775,19 +811,23 @@ struct DifferentialDriveExpander : BaseExpander
       for(const std::size_t l : lanes)
       {
         const Graph::Lane& future_lane = context.graph.lanes[l];
-        const TargetOrientation check_orientation =
-            get_target_orientation(initial_p, orientation, future_lane);
 
-        if(check_orientation.result == TargetOrientation::Result::Changed)
+        const Eigen::Vector2d future_p =
+            context.graph.waypoints[future_lane.exit().waypoint_index()]
+            .get_location();
+
+        const Eigen::Vector2d course = future_p - initial_p;
+
+        const bool check_orientation =
+            is_orientation_okay(initial_p, orientation, course, future_lane);
+
+        if(!check_orientation)
         {
           // The orientation needs to be changed to go down this lane, so we
           // should not expand in this direction
           continue;
         }
 
-        const Eigen::Vector2d future_p =
-            context.graph.waypoints[future_lane.exit().waypoint_index()]
-            .get_location();
         const Eigen::Vector3d future_position{
             future_p[0], future_p[1], orientation};
 
@@ -832,10 +872,9 @@ struct DifferentialDriveExpander : BaseExpander
     return false;
   }
 
-  bool expand_rotation(
+  NodePtr expand_rotation(
       const NodePtr& parent_node,
-      const double target_orientation,
-      SearchQueue& queue)
+      const double target_orientation)
   {
     // TODO(MXG): This function should be completely changed. Instead of
     // expanding towards the target orientation and creating a new node for it,
@@ -867,8 +906,63 @@ struct DifferentialDriveExpander : BaseExpander
           context.profile,
           context.interpolate.rotation_thresh);
 
-    return add_if_valid(waypoint, target_orientation, parent_node,
-                        std::move(trajectory), queue);
+    if(is_valid(trajectory))
+    {
+      return std::make_shared<Node>(
+            Node{
+              estimate_remaining_cost(waypoint),
+              compute_current_cost(parent_node, trajectory),
+              waypoint,
+              target_orientation,
+              std::move(trajectory),
+              parent_node
+            });
+    }
+
+    return nullptr;
+  }
+
+  std::vector<NodePtr> expand_rotations(
+      const NodePtr& parent_node,
+      const std::size_t lane_index)
+  {
+    const Graph::Lane& lane = context.graph.lanes[lane_index];
+
+    const Graph::Waypoint& initial_waypoint =
+        context.graph.waypoints[lane.entry().waypoint_index()];
+    const Eigen::Vector2d& initial_p = initial_waypoint.get_location();
+
+    const Graph::Waypoint& next_waypoint =
+        context.graph.waypoints[lane.exit().waypoint_index()];
+    const Eigen::Vector2d& next_p = next_waypoint.get_location();
+
+    const Eigen::Vector2d course = (next_p - initial_p).normalized();
+
+    const std::vector<double> orientations =
+        differential_constraint.get_orientations(course);
+
+    std::vector<NodePtr> rotations;
+    rotations.reserve(orientations.size());
+    for(const double orientation : orientations)
+    {
+      if(!is_orientation_okay(initial_p, orientation, course, lane))
+        continue;
+
+      if(std::abs(orientation - parent_node->orientation)
+         < context.interpolate.rotation_thresh )
+      {
+        // No rotation is needed here
+        rotations.push_back(parent_node);
+      }
+      else
+      {
+        const NodePtr rotation = expand_rotation(parent_node, orientation);
+        if(rotation)
+          rotations.push_back(rotation);
+      }
+    }
+
+    return rotations;
   }
 
   void expand_holding(
@@ -891,10 +985,6 @@ struct DifferentialDriveExpander : BaseExpander
           initial_pos,
           Eigen::Vector3d::Zero());
 
-    // TODO(MXG): Consider better ways to encourage holding instead of
-    // needlessly moving around. Right now we just cut the cost of holding down
-    // by 1/10, which may be a bit of a hack. Something energy based might be
-    // more meaningful.
     add_if_valid(
           waypoint, initial_pos[2], parent_node,
           std::move(trajectory), queue, 1.0);
@@ -918,8 +1008,15 @@ struct DifferentialDriveExpander : BaseExpander
         assert(false);
       }
 
-      if(expand_rotation(parent_node, *context.final_orientation, queue))
+      const double final_orientation = wrap_to_pi(*context.final_orientation);
+      std::cout << "Final orientation: " << final_orientation << std::endl;
+      const auto final_node =
+          expand_rotation(parent_node, final_orientation);
+      if(final_node)
+      {
+        queue.push(final_node);
         return;
+      }
 
       // Note: If the rotation was not valid, then some other trajectory is
       // blocking us from rotating, so we should keep expanding as usual.
@@ -935,11 +1032,6 @@ struct DifferentialDriveExpander : BaseExpander
     for(const std::size_t l : lanes)
       expand_lane(parent_node, l, queue);
 
-    // TODO(MXG): There is an unintended behavior where robots may still try to
-    // hold themselves at waypoints that are not holding points by spinning in
-    // place instead of moving anywhere. Perhaps we should consider allowing all
-    // points to be considered valid holding points, and then the planner won't
-    // try to cheat the constraints by having the robot spin in place.
     if(context.graph.waypoints[parent_waypoint].is_holding_point())
       expand_holding(parent_waypoint, parent_node, queue);
   }
