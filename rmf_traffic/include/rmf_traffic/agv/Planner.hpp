@@ -164,8 +164,9 @@ public:
   ///   A vector of Trajectory instances that bring the robot from the
   ///   initial waypoint to the goal waypoint. If the goal could not be reached,
   ///   then this vector will be empty, and the function will return false. If
-  ///   the initial conditions already satisfy the goals, this will be empty but
-  ///   the function will return true.
+  ///   the initial conditions already satisfy the goals, the solution will contain 
+  ///   an empty trajectory while the function will return true.
+  ///   
   ///
   /// \param[out] positions
   ///   If non-null, this vector will be filled with the waypoint positions that
