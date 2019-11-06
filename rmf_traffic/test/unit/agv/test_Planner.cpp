@@ -23,10 +23,10 @@
 #include <rmf_utils/catch.hpp>
 
 #include "../utils_Trajectory.hpp"
+#include <src/rmf_traffic/utils.hpp>
 
 #include <iostream>
 #include <iomanip>
-
 
 
 void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
@@ -574,7 +574,7 @@ SCENARIO("Test planning")
        const auto& t = solution.front();
        CHECK( (t.front().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
        CHECK( (t.back().get_finish_position().block<2,1>(0,0) - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
-       CHECK( t.back().get_finish_position()[2] == Approx(M_PI) );
+       CHECK( rmf_traffic::internal::wrap_to_pi(t.back().get_finish_position()[2] - M_PI) == Approx(0.0) );
 
        WHEN("An obstacle is introduced")
        {

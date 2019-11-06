@@ -414,6 +414,7 @@ struct BaseExpander
 
   bool is_valid(const Trajectory& trajectory)
   {
+    assert(trajectory.size() > 1);
     query.spacetime().timespan()->set_lower_time_bound(
           *trajectory.start_time());
     query.spacetime().timespan()->set_upper_time_bound(
@@ -425,6 +426,8 @@ struct BaseExpander
 
     for(const auto& check : view)
     {
+      assert(trajectory.size() > 1);
+      assert(check.size() > 1);
       if(!DetectConflict::between(trajectory, check).empty())
         return false;
     }
@@ -465,7 +468,8 @@ struct BaseExpander
 
     if(context.final_orientation)
     {
-      if(std::abs(node->orientation - *context.final_orientation) > 1e-6)
+      if(std::abs(node->orientation - *context.final_orientation)
+         > context.interpolate.rotation_thresh)
         return false;
     }
 
@@ -535,7 +539,7 @@ public:
     orientations.reserve(2);
 
     const Eigen::Rotation2Dd R_c(
-          std::atan2(course_vector[1], course_vector[2]));
+          std::atan2(course_vector[1], course_vector[0]));
     const Eigen::Rotation2Dd R_h = R_c * R_f_inv;
 
     orientations.push_back(wrap_to_pi(R_h.angle()));
@@ -624,80 +628,6 @@ struct DifferentialDriveExpander : BaseExpander
     return {TargetOrientation::Result::Changed, position[2]};
   }
 
-  TargetOrientation get_target_orientation(
-      const Eigen::Vector2d& initial_p,
-      const double initial_orientation,
-      const Graph::Lane& lane)
-  {
-    const Eigen::Vector2d next_p =
-        context.graph.waypoints[lane.exit().waypoint_index()]
-        .get_location();
-    const Eigen::Vector2d course = (next_p - initial_p).normalized();
-    const double thresh = context.interpolate.rotation_thresh;
-
-    // NOTE(MXG): This implementation assumes that the user-specified
-    // entry_constraint and exit_constraint will not violate the differential
-    // drive constraint, because if they ever do then the lane is impossible to
-    // traverse.
-    //
-    // TODO(MXG): Maybe that assumption should be encoded in an assertion.
-    TargetOrientation target = apply_constraint(
-          &differential_constraint, initial_p,
-          initial_orientation, course, thresh);
-
-    const auto* entry_constraint =
-        lane.entry().orientation_constraint();
-    if(entry_constraint)
-    {
-      target.update(apply_constraint(
-            entry_constraint, initial_p, target.value, course, thresh));
-      if(TargetOrientation::Result::Invalid == target.result)
-        return target;
-    }
-
-    const auto* exit_constraint =
-        lane.exit().orientation_constraint();
-    if(exit_constraint)
-    {
-      const TargetOrientation exit_target = apply_constraint(
-            exit_constraint, initial_p, target.value, course, thresh);
-      if(TargetOrientation::Result::Invalid == exit_target.result)
-        return exit_target;
-
-      if(TargetOrientation::Result::Changed == exit_target.result)
-      {
-        if(entry_constraint)
-        {
-          // The solution that was given earlier by the entry_constraint did not
-          // satisfy the exit_constraint. Let's see if the entry_constraint is
-          // satisfied by the new exit_constraint's orientation.
-          const TargetOrientation new_target = apply_constraint(
-                entry_constraint, initial_p, exit_target.value, course, thresh);
-
-          if(TargetOrientation::Result::Invalid == new_target.result
-             || TargetOrientation::Result::Changed == new_target.result)
-          {
-            // The entry_constraint did not accept the output of the
-            // exit_constraint, so we will give up now.
-            //
-            // TODO(MXG): This makes some assumptions about the behavior of the
-            // constraint classes, and those assumptions are not explicit in the
-            // documentation or the API. This should be fixed.
-            return {TargetOrientation::Result::Invalid, initial_orientation};
-          }
-
-          return {TargetOrientation::Result::Changed, new_target.value};
-        }
-
-        // If there is no entry constraint, then we can just return whatever the
-        // exit_target happens to be.
-        return exit_target;
-      }
-    }
-
-    return target;
-  }
-
   bool is_orientation_okay(
       const Eigen::Vector2d& initial_p,
       const double orientation,
@@ -744,7 +674,8 @@ struct DifferentialDriveExpander : BaseExpander
       SearchQueue& queue)
   {
     const std::size_t initial_waypoint = initial_parent->waypoint;
-    assert(initial_lane.entry().waypoint_index() == initial_waypoint);
+    assert(context.graph.lanes[initial_lane_index].entry().waypoint_index()
+           == initial_waypoint);
     const Eigen::Vector2d initial_p =
         context.graph.waypoints[initial_waypoint].get_location();
     const double orientation = initial_parent->orientation;
@@ -851,6 +782,7 @@ struct DifferentialDriveExpander : BaseExpander
       SearchQueue& queue,
       const double cost_factor = 1.0)
   {
+    assert(trajectory.size() > 1);
     if(is_valid(trajectory))
     {
       const double cost = compute_current_cost(parent_node, trajectory);
@@ -948,7 +880,7 @@ struct DifferentialDriveExpander : BaseExpander
       if(!is_orientation_okay(initial_p, orientation, course, lane))
         continue;
 
-      if(std::abs(orientation - parent_node->orientation)
+      if(std::abs(wrap_to_pi(orientation - parent_node->orientation))
          < context.interpolate.rotation_thresh )
       {
         // No rotation is needed here
@@ -978,12 +910,14 @@ struct DifferentialDriveExpander : BaseExpander
     const Time initial_time = initial_segment.get_finish_time();
     const Eigen::Vector3d& initial_pos = initial_segment.get_finish_position();
     trajectory.insert(initial_segment);
+    assert(trajectory.size() == 1);
 
     trajectory.insert(
           initial_time + context.holding_time,
           context.profile,
           initial_pos,
           Eigen::Vector3d::Zero());
+    assert(trajectory.size() == 2);
 
     add_if_valid(
           waypoint, initial_pos[2], parent_node,
@@ -1009,7 +943,6 @@ struct DifferentialDriveExpander : BaseExpander
       }
 
       const double final_orientation = wrap_to_pi(*context.final_orientation);
-      std::cout << "Final orientation: " << final_orientation << std::endl;
       const auto final_node =
           expand_rotation(parent_node, final_orientation);
       if(final_node)
