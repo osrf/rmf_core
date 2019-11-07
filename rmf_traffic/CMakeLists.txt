@@ -15,6 +15,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+if(NOT CMAKE_BUILD_TYPE)
+  # Use the Release build type by default if the user has not specified one
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 include(GNUInstallDirs)
 
 include(FindPkgConfig)

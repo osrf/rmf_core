@@ -57,7 +57,7 @@ public:
     ///   The graph which is being planned over
     Configuration(
         Graph graph,
-        VehicleTraits vehicle_traits,
+        VehicleTraits traits,
         Interpolate::Options interpolation = Interpolate::Options());
 
     /// Set the graph to use for planning
@@ -131,7 +131,7 @@ public:
     const schedule::Viewer& schedule_viewer() const;
 
     /// Set the minimal amount of time to spend waiting at holding points
-    Options& mininum_holding_time(Duration holding_time);
+    Options& minimum_holding_time(Duration holding_time);
 
     /// Get the minimal amount of time to spend waiting at holding points
     Duration minimum_holding_time() const;
@@ -141,7 +141,7 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-
+  /// Describe the starting conditions of a plan.
   class Start
   {
   public:
@@ -161,19 +161,22 @@ public:
         std::size_t initial_waypoint,
         double initial_orientation);
 
-
+    /// Set the starting time of a plan
     Start& time(Time initial_time);
 
+    /// Get the starting time
     Time time() const;
 
-
+    /// Set the starting waypoint of a plan
     Start& waypoint(std::size_t initial_waypoint);
 
+    /// Get the starting waypoint
     std::size_t waypoint() const;
 
-
+    /// Set the starting orientation of a plan
     Start& orientation(double initial_orientation);
 
+    /// Get the starting orientation
     double orientation() const;
 
     class Implementation;
@@ -181,7 +184,7 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-
+  /// Describe the goal conditions of a plan.
   class Goal
   {
   public:
@@ -278,7 +281,7 @@ public:
   ///
   /// \param[in] goal
   ///   The goal conditions
-  Plan solve(Start start, Goal goal);
+  Plan plan(Start start, Goal goal) const;
 
   /// Product a plan for the given start and goal conditions. Override the
   /// default options.
@@ -292,7 +295,7 @@ public:
   /// \param[in] options
   ///   The Options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
-  Plan solve(Start start, Goal goal, Options options);
+  Plan plan(Start start, Goal goal, Options options) const;
 
 
   class Implementation;
@@ -318,7 +321,18 @@ public:
   /// Implicitly cast this Plan instance to the return value of valid()
   operator bool() const;
 
-  const Trajectory& get_trajectory();
+  /// If this
+  const Trajectory& get_trajectory() const;
+
+  const std::vector<std::size_t> get_waypoints() const;
+
+  Plan replan(Planner::Start new_start) const;
+
+  Plan replan(Planner::Start new_start, Planner::Options new_options) const;
+
+  // TODO(MXG): Create a feature that can diff two plans to produce the most
+  // efficient schedule::Database::Change to get from the original plan to the
+  // new plan.
 
   class Implementation;
 private:
