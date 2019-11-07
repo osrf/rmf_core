@@ -38,6 +38,14 @@ public:
   // TODO(MXG): Consider using libguarded instead of using mutexes manually
   std::mutex mutex;
 
+  // We need to explicitly define these because the std::mutex does not have
+  // a copy constructor
+  Cache() = default;
+  Cache(const Cache&);
+  Cache(Cache&&);
+  Cache& operator=(const Cache&);
+  Cache& operator=(Cache&&);
+
   virtual CachePtr clone() const = 0;
 
   virtual void update(const Cache& other) = 0;
@@ -54,28 +62,14 @@ class CacheHandle
 {
 public:
 
-  CacheHandle(CachePtr original)
-    : _original(std::move(original))
-  {
-    std::unique_lock<std::mutex> lock(_original->mutex);
-    _copy = original->clone();
-  }
+  CacheHandle(CachePtr original);
 
   agv::Plan plan(
       agv::Planner::Start start,
       agv::Planner::Goal goal,
-      agv::Planner::Options options)
-  {
-    return _copy->plan(std::move(start), std::move(goal), std::move(options));
-  }
+      agv::Planner::Options options);
 
-  ~CacheHandle()
-  {
-    // We are now done with the copy, so we will update the original cache with
-    // whatever new searches have been accomplished by the copy.
-    std::unique_lock<std::mutex> lock(_original->mutex);
-    _original->update(*_copy);
-  }
+  ~CacheHandle();
 
 private:
 
@@ -90,16 +84,9 @@ class CacheManager
 {
 public:
 
-  CacheManager(CachePtr cache)
-    : _cache(std::move(cache))
-  {
-    // Do nothing
-  }
+  CacheManager(CachePtr cache);
 
-  CacheHandle get() const
-  {
-    return CacheHandle(_cache);
-  }
+  CacheHandle get() const;
 
 private:
   CachePtr _cache;
@@ -107,50 +94,7 @@ private:
 };
 
 //==============================================================================
-class DifferentialDriveCache : public Cache
-{
-public:
-
-  DifferentialDriveCache(agv::Planner::Configuration config)
-  {
-    // Do nothing
-  }
-
-  CachePtr clone() const override final
-  {
-    // TODO(MXG): Fix this
-    return nullptr;
-  }
-
-  void update(const Cache& newer_cache) override final
-  {
-
-  }
-
-  agv::Plan plan(
-      agv::Planner::Start start,
-      agv::Planner::Goal goal,
-      agv::Planner::Options options) override final
-  {
-
-  }
-
-
-};
-
-//==============================================================================
-CacheManager make_cache(agv::Planner::Configuration config)
-{
-  if(config.vehicle_traits().get_differential())
-  {
-    return CacheManager(std::make_shared<DifferentialDriveCache>(
-                          std::move(config)));
-  }
-
-  throw std::runtime_error(
-        "[rmf_traffic::agv::Planner] Planning utilities are currently only "
-        "implemented for AGVs that use a differential drive.");
-}
+CacheManager make_cache(agv::Planner::Configuration config);
 
 } // namespace planning
 } // namespace internal
