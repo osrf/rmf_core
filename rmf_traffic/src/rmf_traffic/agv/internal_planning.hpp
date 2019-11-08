@@ -31,6 +31,18 @@ class Cache;
 using CachePtr = std::shared_ptr<Cache>;
 
 //==============================================================================
+struct Result
+{
+  bool solved = false;
+  Trajectory trajectory;
+  std::vector<agv::Plan::Waypoint> waypoints;
+
+  agv::Planner::Start start;
+  agv::Planner::Goal goal;
+  agv::Planner::Options options;
+};
+
+//==============================================================================
 class Cache
 {
 public:
@@ -50,7 +62,7 @@ public:
 
   virtual void update(const Cache& other) = 0;
 
-  virtual agv::Plan plan(
+  virtual Result plan(
       agv::Planner::Start start,
       agv::Planner::Goal goal,
       agv::Planner::Options options) = 0;
@@ -64,7 +76,13 @@ public:
 
   CacheHandle(CachePtr original);
 
-  agv::Plan plan(
+  // Copying this class does not make sense
+  CacheHandle(const CacheHandle&) = delete;
+
+  // Moving it is okay
+  CacheHandle(CacheHandle&&) = default;
+
+  Result plan(
       agv::Planner::Start start,
       agv::Planner::Goal goal,
       agv::Planner::Options options);

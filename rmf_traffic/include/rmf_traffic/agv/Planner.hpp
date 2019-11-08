@@ -309,6 +309,41 @@ class Plan
 {
 public:
 
+  /// A Waypoint within a Plan.
+  ///
+  /// This class helps to discretize a Plan based on the Waypoints belonging to
+  /// the agv::Graph. Each Graph::Waypoint that the Plan stops or turns at will
+  /// be accounted for by a Plan::Waypoint.
+  ///
+  /// To indicate the intended orientation, each of these Waypoints provides an
+  /// Eigen::Vector3d where the third element is the orientation.
+  ///
+  /// The time that the position is meant to be arrived at is also given by the
+  /// Waypoint.
+  ///
+  /// \note Users are not allowed to make their own Waypoint instances, because
+  /// it is too easy to accidentally get inconsistencies in the position and
+  /// graph_index fields. Plan::Waypoints can only be created by Plan instances
+  /// and can only be retrieved using Plan::get_waypoints().
+  class Waypoint
+  {
+  public:
+
+    /// Get the position for this Waypoint
+    const Eigen::Vector3d& position() const;
+
+    /// Get the time for this Waypoint
+    rmf_traffic::Time time() const;
+
+    /// Get the graph index of this Waypoint
+    std::size_t graph_index() const;
+
+    class Implementation;
+  private:
+    Waypoint();
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
   /// Returns true if this instance contains a valid plan and returns false
   /// otherwise. Using any member function besides valid() when the Plan is
   /// invalid is undefined behavior, potentially resulting in a segmentation
@@ -316,18 +351,55 @@ public:
   ///
   /// \note A default-constructed Plan instance will be invalid until a valid
   /// plan is copy-assigned or move-assigned into it.
+  //
+  // TODO(MXG): When C++17 is supported, consider using std::optional to express
+  // the validity of a plan so that Plan instances are always valid and its
+  // member functions are always well-behaved.
   bool valid() const;
 
   /// Implicitly cast this Plan instance to the return value of valid()
   operator bool() const;
 
-  /// If this
+  /// If this Plan is valid, this will return the trajectory of the successful
+  /// plan.
+  ///
+  /// \warning If this plan is not valid, this will have undefined behavior, and
+  /// will cause a segmentation fault if this Plan is uninitialized
+  /// (default-constructed).
   const Trajectory& get_trajectory() const;
 
-  const std::vector<std::size_t> get_waypoints() const;
+  /// If this plan is valid, this will return the waypoints of the successful
+  /// plan.
+  ///
+  /// \warning If this plan is not valid, this will have undefined behavior, and
+  /// will cause a segmentation fault if this Plan is uninitialized
+  /// (default-constructed).
+  const std::vector<Waypoint>& get_waypoints() const;
 
+  /// If this Plan was valid, this will ask for a new plan to the same goal
+  /// using the same options but with new starting conditions. This can be used
+  /// to replan after the schedule has changed or if the robot is not tracking
+  /// the original plan well.
+  ///
+  /// \warning If this Plan instance is not valid, this will have undefined
+  /// behavior, and will cause a segmentation fault if this Plan is
+  /// uninitialized.
+  ///
+  /// \param[in] new_start
+  ///   The starting conditions that should be used for replanning.
   Plan replan(Planner::Start new_start) const;
 
+  /// If this Plan was valid, this will ask for a new plan to the same goal.
+  ///
+  /// \warning If this Plan instance is not valid, this will have undefined
+  /// behavior, and will cause a segmentation fault if this Plan is
+  /// uninitialized.
+  ///
+  /// \param[in] new_start
+  ///   The starting conditions that should be used for replanning.
+  ///
+  /// \param[in] new_options
+  ///   The options that should be used for replanning.
   Plan replan(Planner::Start new_start, Planner::Options new_options) const;
 
   // TODO(MXG): Create a feature that can diff two plans to produce the most

@@ -15,7 +15,7 @@
  *
 */
 
-#include "planning_internal.hpp"
+#include "internal_planning.hpp"
 
 namespace rmf_traffic {
 namespace internal {
@@ -56,7 +56,7 @@ CacheHandle::CacheHandle(CachePtr original)
 }
 
 //==============================================================================
-agv::Plan CacheHandle::plan(
+Result CacheHandle::plan(
     agv::Planner::Start start,
     agv::Planner::Goal goal,
     agv::Planner::Options options)
@@ -106,7 +106,7 @@ public:
 
   }
 
-  agv::Plan plan(
+  Result plan(
       agv::Planner::Start start,
       agv::Planner::Goal goal,
       agv::Planner::Options options) override final

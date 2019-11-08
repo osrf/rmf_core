@@ -17,7 +17,8 @@
 
 #include <rmf_traffic/agv/Planner.hpp>
 
-#include "planning_internal.hpp"
+#include "internal_Planner.hpp"
+#include "internal_planning.hpp"
 
 namespace rmf_traffic {
 namespace agv {
@@ -313,6 +314,34 @@ public:
 };
 
 //==============================================================================
+class Plan::Implementation
+{
+public:
+
+  internal::planning::Result result;
+
+  internal::planning::CacheManager cache_mgr;
+
+
+  static Plan generate(
+      internal::planning::CacheManager cache_mgr,
+      Planner::Start start,
+      Planner::Goal goal,
+      Planner::Options options)
+  {
+    auto result = cache_mgr.get().plan(
+          std::move(start), std::move(goal), std::move(options));
+
+    Plan plan;
+    plan._pimpl = rmf_utils::make_impl<Implementation>(
+          Implementation{std::move(result), std::move(cache_mgr)});
+
+    return plan;
+  }
+
+};
+
+//==============================================================================
 Planner::Planner(
     Configuration config,
     Options default_options)
@@ -329,40 +358,89 @@ Planner::Planner(
 //==============================================================================
 Plan Planner::plan(Start start, Goal goal) const
 {
-  return _pimpl->cache_mgr.get().plan(
-        std::move(start), std::move(goal), _pimpl->default_options);
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        std::move(start),
+        std::move(goal),
+        _pimpl->default_options);
 }
 
 //==============================================================================
 Plan Planner::plan(Start start, Goal goal, Options options) const
 {
-  return _pimpl->cache_mgr.get().plan(
-        std::move(start), std::move(goal), std::move(options));
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        std::move(start),
+        std::move(goal),
+        std::move(options));
 }
 
 //==============================================================================
-class Plan::Implementation
+const Eigen::Vector3d& Plan::Waypoint::position() const
 {
-public:
+  return _pimpl->position;
+}
 
-  bool solved;
+//==============================================================================
+rmf_traffic::Time Plan::Waypoint::time() const
+{
+  return _pimpl->time;
+}
 
-  internal::planning::CacheManager cache_mgr;
+//==============================================================================
+std::size_t Plan::Waypoint::graph_index() const
+{
+  return _pimpl->graph_index;
+}
 
-  Planner::Options options;
-
-};
+//==============================================================================
+Plan::Waypoint::Waypoint()
+{
+  // Do nothing
+}
 
 //==============================================================================
 bool Plan::valid() const
 {
-  return (_pimpl && _pimpl->solved);
+  return (_pimpl && _pimpl->result.solved);
 }
 
 //==============================================================================
 Plan::operator bool() const
 {
   return valid();
+}
+
+//==============================================================================
+const Trajectory& Plan::get_trajectory() const
+{
+  return _pimpl->result.trajectory;
+}
+
+//==============================================================================
+const std::vector<Plan::Waypoint> &Plan::get_waypoints() const
+{
+  return _pimpl->result.waypoints;
+}
+
+//==============================================================================
+Plan Plan::replan(Planner::Start new_start) const
+{
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        std::move(new_start),
+        _pimpl->result.goal,
+        _pimpl->result.options);
+}
+
+//==============================================================================
+Plan Plan::replan(Planner::Start new_start, Planner::Options new_options) const
+{
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        std::move(new_start),
+        _pimpl->result.goal,
+        std::move(new_options));
 }
 
 } // namespace agv
