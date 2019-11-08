@@ -16,6 +16,10 @@
 */
 
 #include "internal_planning.hpp"
+#include "GraphInternal.hpp"
+
+#include <map>
+#include <unordered_map>
 
 namespace rmf_traffic {
 namespace internal {
@@ -87,9 +91,60 @@ CacheHandle CacheManager::get() const
 }
 
 //==============================================================================
+struct DifferentialDriverExpander
+{
+  struct Node
+  {
+    std::size_t waypoint;
+    double orientation;
+  };
+
+  class Heuristic
+  {
+  public:
+
+    double estimate_remaining_cost(const Node& node)
+    {
+      auto wp_costs = *known_costs.insert(
+            std::make_pair(node.waypoint, OrientationToCostMap{})).first;
+
+      const auto insertion = wp_costs.second.insert(
+            std::make_pair(node.orientation, ))
+    }
+
+    void update(const Heuristic& other)
+    {
+      for(const auto& wp_costs : other.known_costs)
+      {
+        OrientationToCostMap& wp_it = known_costs.insert(
+              std::make_pair(wp_costs.first, OrientationToCostMap{}))
+            .first->second;
+
+        for(const auto& cost : wp_costs.second)
+          wp_it.insert(cost);
+      }
+    }
+
+  private:
+
+    using OrientationToCostMap = std::map<double, double>;
+    std::unordered_map<std::size_t, OrientationToCostMap> known_costs;
+  };
+
+  struct Context
+  {
+    const agv::Graph::Implementation& graph;
+    const std::size_t final_waypoint;
+    const double* const final_orientation;
+  };
+};
+
+//==============================================================================
 class DifferentialDriveCache : public Cache
 {
 public:
+
+  using Heuristic = DifferentialDriverExpander::Heuristic;
 
   DifferentialDriveCache(agv::Planner::Configuration config)
   {
@@ -103,7 +158,15 @@ public:
 
   void update(const Cache& newer_cache) override final
   {
+    const auto& newer = static_cast<const DifferentialDriveCache&>(newer_cache);
 
+    for(const auto& h : newer.heuristics)
+    {
+      auto& heuristic =
+          heuristics.insert(std::make_pair(h.first, Heuristic{})).first->second;
+
+      heuristic.update(h.second);
+    }
   }
 
   Result plan(
@@ -114,7 +177,12 @@ public:
 
   }
 
+private:
 
+  // This maps from a goal waypoint to the cached Heuristic object that tries to
+  // plan to that goal waypoint.
+  using HeuristicDatabase = std::unordered_map<std::size_t, Heuristic>;
+  HeuristicDatabase heuristics;
 };
 
 //==============================================================================
@@ -130,6 +198,9 @@ CacheManager make_cache(agv::Planner::Configuration config)
         "[rmf_traffic::agv::Planner] Planning utilities are currently only "
         "implemented for AGVs that use a differential drive.");
 }
+
+//==============================================================================
+
 
 } // namespace planning
 } // namespace internal
