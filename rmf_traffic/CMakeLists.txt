@@ -32,6 +32,23 @@ add_library(rmf_traffic SHARED
   ${core_lib_srcs}
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_catch2 REQUIRED)
+
+  file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
+
+  ament_add_catch2(test_rmf_traffic test/main.cpp ${unit_test_srcs})
+  target_link_libraries(test_rmf_traffic
+      rmf_traffic
+      ${PC_FCL_LIBRARIES}
+  )
+
+  target_include_directories(test_rmf_traffic
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
+  )
+endif()
+
 target_link_libraries(rmf_traffic
   PUBLIC
     rmf_utils::rmf_utils
@@ -80,7 +97,5 @@ target_include_directories(submission_component
     ${PC_FCL_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
 )
-
-add_subdirectory(test)
 
 ament_package()

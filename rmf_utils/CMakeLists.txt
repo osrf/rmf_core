@@ -49,5 +49,6 @@ install(
 )
 
 add_subdirectory(test/unit)
+add_subdirectory(cmake/ament_cmake_catch2)
 
 ament_package()
