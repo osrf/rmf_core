@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef SRC__RMF_TRAFFIC__DEBUG_TRAJECTORY_HPP
 #define SRC__RMF_TRAFFIC__DEBUG_TRAJECTORY_HPP
@@ -22,15 +22,12 @@
 
 namespace rmf_traffic {
 
-class Trajectory::Debug
-{
-public:
-
-  static bool check_iterator_time_consistency(
-      const Trajectory& trajectory, bool print_inconsistency);
+class Trajectory::Debug {
+ public:
+  static bool check_iterator_time_consistency(const Trajectory& trajectory,
+                                              bool print_inconsistency);
 };
 
+}  // namespace rmf_traffic
 
-} // namespace rmf_traffic
-
-#endif // SRC__RMF_TRAFFIC__DEBUG_TRAJECTORY_HPP
+#endif  // SRC__RMF_TRAFFIC__DEBUG_TRAJECTORY_HPP

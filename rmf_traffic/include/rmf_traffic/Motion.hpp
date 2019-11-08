@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__MOTION_HPP
 #define RMF_TRAFFIC__MOTION_HPP
@@ -26,10 +26,8 @@ namespace rmf_traffic {
 
 //==============================================================================
 /// Pure abstract interface for describing a continuous motion
-class Motion
-{
-public:
-
+class Motion {
+ public:
   /// Get the lower bound on the time range where this motion is valid
   virtual Time start_time() const = 0;
 
@@ -62,9 +60,8 @@ public:
 
   // Default destructor
   virtual ~Motion() = default;
-
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__MOTION_HPP
+#endif  // RMF_TRAFFIC__MOTION_HPP

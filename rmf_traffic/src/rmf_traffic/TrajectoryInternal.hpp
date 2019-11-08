@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef SRC__RMF_TRAFFIC__TRAJECTORYINTERNAL_HPP
 #define SRC__RMF_TRAFFIC__TRAJECTORYINTERNAL_HPP
@@ -31,10 +31,8 @@ struct SegmentElement;
 using SegmentList = std::list<SegmentElement>;
 using OrderMap = std::map<Time, SegmentList::iterator>;
 
-struct SegmentElement
-{
-  struct Data
-  {
+struct SegmentElement {
+  struct Data {
     Time finish_time;
     Trajectory::ConstProfilePtr profile;
     Eigen::Vector3d position;
@@ -49,20 +47,15 @@ struct SegmentElement
   // will remain valid.
   std::unique_ptr<Trajectory::Segment> myself;
 
-  SegmentElement(Data input_data)
-    : data(std::move(input_data))
-  {
+  SegmentElement(Data input_data) : data(std::move(input_data)) {
     // Do nothing
   }
 
-  SegmentElement(const SegmentElement& other)
-    : data(other.data)
-  {
+  SegmentElement(const SegmentElement& other) : data(other.data) {
     // Do nothing
   }
 
-  SegmentElement& operator=(const SegmentElement& other)
-  {
+  SegmentElement& operator=(const SegmentElement& other) {
     data = other.data;
     return *this;
   }
@@ -71,7 +64,7 @@ struct SegmentElement
   SegmentElement& operator=(SegmentElement&&) = default;
 };
 
-} // namespace internal
-} // namespace rmf_traffic
+}  // namespace internal
+}  // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__TRAJECTORYINTERNAL_HPP
+#endif  // SRC__RMF_TRAFFIC__TRAJECTORYINTERNAL_HPP

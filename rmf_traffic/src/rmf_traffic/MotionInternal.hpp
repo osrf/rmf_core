@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef SRC__RMF_TRAFFIC__MOTIONINTERNAL_HPP
 #define SRC__RMF_TRAFFIC__MOTIONINTERNAL_HPP
@@ -25,14 +25,9 @@
 namespace rmf_traffic {
 
 //==============================================================================
-class SinglePointMotion : public Motion
-{
-public:
-
-  SinglePointMotion(
-      const Time t,
-      Eigen::Vector3d p,
-      Eigen::Vector3d v);
+class SinglePointMotion : public Motion {
+ public:
+  SinglePointMotion(const Time t, Eigen::Vector3d p, Eigen::Vector3d v);
 
   Time start_time() const override;
   Time finish_time() const override;
@@ -40,19 +35,15 @@ public:
   Eigen::Vector3d compute_velocity(Time t) const override;
   Eigen::Vector3d compute_acceleration(Time t) const override;
 
-private:
-
+ private:
   Time _t;
   Eigen::Vector3d _p;
   Eigen::Vector3d _v;
-
 };
 
 //==============================================================================
-class SplineMotion : public Motion
-{
-public:
-
+class SplineMotion : public Motion {
+ public:
   SplineMotion(Spline spline);
 
   Time start_time() const override;
@@ -61,12 +52,10 @@ public:
   Eigen::Vector3d compute_velocity(Time t) const override;
   Eigen::Vector3d compute_acceleration(Time t) const override;
 
-private:
-
+ private:
   Spline _spline;
-
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__MOTIONINTERNAL_HPP
+#endif  // SRC__RMF_TRAFFIC__MOTIONINTERNAL_HPP

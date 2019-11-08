@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
+#include <fcl/ccd/motion.h>
 #include <fcl/continuous_collision.h>
 #include <fcl/shape/geometric_shapes.h>
-#include <fcl/ccd/motion.h>
 
 #include <rclcpp/node.hpp>
 
@@ -25,16 +25,9 @@
 
 namespace rmf_traffic {
 
-class SubmissionComponent : public rclcpp::Node
-{
-public:
-
-
-
-private:
-
-
-
+class SubmissionComponent : public rclcpp::Node {
+ public:
+ private:
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic

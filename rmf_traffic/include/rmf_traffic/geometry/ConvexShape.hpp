@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
-
+ */
 
 #ifndef RMF_TRAFFIC__CONVEXSHAPE_HPP
 #define RMF_TRAFFIC__CONVEXSHAPE_HPP
@@ -32,18 +31,15 @@ namespace geometry {
 /// ConvexShape types.
 ///
 /// \sa Box, Circle
-class ConvexShape : public Shape
-{
-protected:
-
+class ConvexShape : public Shape {
+ protected:
   ConvexShape(std::unique_ptr<Shape::Internal> internal);
-
 };
 
 using ConvexShapePtr = std::shared_ptr<ConvexShape>;
 using ConstConvexShapePtr = std::shared_ptr<const ConvexShape>;
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__CONVEXSHAPE_HPP
+#endif  // RMF_TRAFFIC__CONVEXSHAPE_HPP

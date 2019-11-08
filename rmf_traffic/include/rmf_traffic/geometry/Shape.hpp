@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
-
+ */
 
 #ifndef RMF_TRAFFIC__GEOMETRY__SHAPE_HPP
 #define RMF_TRAFFIC__GEOMETRY__SHAPE_HPP
@@ -31,10 +30,8 @@ namespace geometry {
 /// shape types belonging to this library.
 ///
 /// \sa Box, Circle, Polygon
-class Shape
-{
-public:
-
+class Shape {
+ public:
   // Abstract shape references must not be moved, because we cannot ensure that
   // they get moved into the same derived type.
   Shape(Shape&&) = delete;
@@ -54,18 +51,15 @@ public:
 
   virtual ~Shape();
 
-protected:
-
+ protected:
   /// \internal
   Shape(std::unique_ptr<Internal> internal);
 
-private:
-
+ private:
   std::unique_ptr<Internal> _internal;
-
 };
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__GEOMETRY__SHAPE_HPP
+#endif  // RMF_TRAFFIC__GEOMETRY__SHAPE_HPP

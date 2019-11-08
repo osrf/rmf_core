@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #include <rmf_traffic/Schedule.hpp>
 #include <rmf_traffic/Trajectory.hpp>
@@ -25,16 +25,14 @@
 namespace rmf_traffic {
 
 //==============================================================================
-template<typename T>
-struct Range
-{
+template <typename T>
+struct Range {
   T lower;
   T upper;
 };
 
 //==============================================================================
-struct ChronoSpatialBlock
-{
+struct ChronoSpatialBlock {
   Range<uint64_t> time;
   Range<double> x;
   Range<double> y;
@@ -42,54 +40,35 @@ struct ChronoSpatialBlock
   std::unordered_set<const Trajectory*> trajectories;
 };
 
-
 //==============================================================================
-class ChronoBucket
-{
-public:
-
+class ChronoBucket {
+ public:
   bool intersection(const ChronoSpatialBlock& test) const;
 
-private:
-
+ private:
   std::vector<std::shared_ptr<ChronoSpatialBlock>> blocks;
-
 };
 
 //==============================================================================
 /// \brief This class performs very simple rectangular broadphase collision
 /// detection over time and 2D space.
-class ChronoSpatialBroadphase
-{
-public:
-
-
-
-private:
-
+class ChronoSpatialBroadphase {
+ public:
+ private:
   std::vector<ChronoBucket> buckets;
-
 };
 
 //==============================================================================
-class Schedule::Implementation
-{
-public:
-
-
-
-private:
-
+class Schedule::Implementation {
+ public:
+ private:
   std::vector<std::unique_ptr<Trajectory>> trajectories;
 
   // Each "floor" (a.k.a. "map", a.k.a. "layout") has its own broadphase
   // instance.
   std::vector<ChronoSpatialBroadphase> broadphases;
-
 };
 
 //==============================================================================
 
-
-
-} // namespace rmf_traffic
+}  // namespace rmf_traffic

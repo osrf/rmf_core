@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #include "ShapeInternal.hpp"
 
@@ -25,46 +25,36 @@ namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
-class BoxInternal : public Shape::Internal
-{
-public:
-
-  BoxInternal(double x, double y)
-    : _x(x),
-      _y(y)
-  {
+class BoxInternal : public Shape::Internal {
+ public:
+  BoxInternal(double x, double y) : _x(x), _y(y) {
     // Do nothing
   }
 
-  CollisionGeometries make_fcl() const final
-  {
+  CollisionGeometries make_fcl() const final {
     // Note: The z-value doesn't really matter, as long as it's greater than 0.0
     return {std::make_shared<fcl::Box>(_x, _y, 1.0)};
   }
 
   double _x;
   double _y;
-
 };
 
 //==============================================================================
 Box::Box(double x_length, double y_length)
-  : ConvexShape(std::make_unique<BoxInternal>(x_length, y_length))
-{
+    : ConvexShape(std::make_unique<BoxInternal>(x_length, y_length)) {
   // Do nothing
 }
 
 //==============================================================================
 Box::Box(const Box& other)
-  : ConvexShape(std::make_unique<BoxInternal>(
-                  static_cast<const BoxInternal&>(*other._get_internal())))
-{
+    : ConvexShape(std::make_unique<BoxInternal>(
+          static_cast<const BoxInternal&>(*other._get_internal()))) {
   // Do nothing
 }
 
 //==============================================================================
-Box& Box::operator=(const Box& other)
-{
+Box& Box::operator=(const Box& other) {
   static_cast<BoxInternal&>(*_get_internal()) =
       static_cast<const BoxInternal&>(*other._get_internal());
 
@@ -72,28 +62,24 @@ Box& Box::operator=(const Box& other)
 }
 
 //==============================================================================
-void Box::set_x_length(double x_length)
-{
+void Box::set_x_length(double x_length) {
   static_cast<BoxInternal*>(_get_internal())->_x = x_length;
 }
 
 //==============================================================================
-void Box::set_y_length(double y_length)
-{
+void Box::set_y_length(double y_length) {
   static_cast<BoxInternal*>(_get_internal())->_y = y_length;
 }
 
 //==============================================================================
-double Box::get_x_length() const
-{
+double Box::get_x_length() const {
   return static_cast<const BoxInternal*>(_get_internal())->_x;
 }
 
 //==============================================================================
-double Box::get_y_length() const
-{
+double Box::get_y_length() const {
   return static_cast<const BoxInternal*>(_get_internal())->_y;
 }
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic

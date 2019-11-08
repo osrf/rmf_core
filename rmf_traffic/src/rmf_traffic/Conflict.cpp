@@ -13,92 +13,79 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
-#include "geometry/ShapeInternal.hpp"
 #include "Spline.hpp"
+#include "geometry/ShapeInternal.hpp"
 
 #include <rmf_traffic/Conflict.hpp>
 
-#include <fcl/continuous_collision.h>
 #include <fcl/ccd/motion.h>
+#include <fcl/continuous_collision.h>
 
 #include <unordered_map>
 
 namespace rmf_traffic {
 
 //==============================================================================
-class ConflictData::Implementation
-{
-public:
-
+class ConflictData::Implementation {
+ public:
   Time time;
   Segments segments;
-
 };
 
 //==============================================================================
-Time ConflictData::get_time() const
-{
-  return _pimpl->time;
-}
+Time ConflictData::get_time() const { return _pimpl->time; }
 
 //==============================================================================
-const ConflictData::Segments& ConflictData::get_segments()
-{
+const ConflictData::Segments& ConflictData::get_segments() {
   return _pimpl->segments;
 }
 
 //==============================================================================
-ConflictData::ConflictData()
-{
+ConflictData::ConflictData() {
   // Do nothing
 }
 
 //==============================================================================
-class invalid_trajectory_error::Implementation
-{
-public:
-
+class invalid_trajectory_error::Implementation {
+ public:
   std::string what;
 
   static invalid_trajectory_error make_segment_num_error(
-      std::size_t num_segments)
-  {
+      std::size_t num_segments) {
     invalid_trajectory_error error;
-    error._pimpl->what = std::string()
-        + "[rmf_traffic::invalid_trajectory_error] Attempted to check a "
-        + "conflict with a Trajectory that has [" + std::to_string(num_segments)
-        + "] segments. This is not supported. Trajectories must have at least "
-        + "2 segments to check them for conflicts.";
+    error._pimpl->what =
+        std::string() +
+        "[rmf_traffic::invalid_trajectory_error] Attempted to check a " +
+        "conflict with a Trajectory that has [" + std::to_string(num_segments) +
+        "] segments. This is not supported. Trajectories must have at least " +
+        "2 segments to check them for conflicts.";
     return error;
   }
 
-  static invalid_trajectory_error make_missing_shape_error(
-      const Time time)
-  {
+  static invalid_trajectory_error make_missing_shape_error(const Time time) {
     invalid_trajectory_error error;
-    error._pimpl->what = std::string()
-        + "[rmf_traffic::invalid_trajectory_error] Attempting to check a "
-        + "conflict with a Trajectory that has no shape specified for the "
-        + "profile of its segment at time ["
-        + std::to_string(time.time_since_epoch().count())
-        + "ns]. This is not supported.";
+    error._pimpl->what =
+        std::string() +
+        "[rmf_traffic::invalid_trajectory_error] Attempting to check a " +
+        "conflict with a Trajectory that has no shape specified for the " +
+        "profile of its segment at time [" +
+        std::to_string(time.time_since_epoch().count()) +
+        "ns]. This is not supported.";
 
     return error;
   }
 };
 
 //==============================================================================
-const char* invalid_trajectory_error::what() const noexcept
-{
+const char* invalid_trajectory_error::what() const noexcept {
   return _pimpl->what.c_str();
 }
 
 //==============================================================================
 invalid_trajectory_error::invalid_trajectory_error()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
-{
+    : _pimpl(rmf_utils::make_impl<Implementation>()) {
   // This constructor is a no-op, but we'll keep a definition for it in case we
   // need it in the future. Allowing the default constructor to be inferred
   // could cause issues if we want to change the implementation of this
@@ -108,29 +95,22 @@ invalid_trajectory_error::invalid_trajectory_error()
 
 //==============================================================================
 std::vector<ConflictData> DetectConflict::between(
-    const Trajectory& trajectory_a,
-    const Trajectory& trajectory_b)
-{
-  if(!broad_phase(trajectory_a, trajectory_b))
-    return {};
+    const Trajectory& trajectory_a, const Trajectory& trajectory_b) {
+  if (!broad_phase(trajectory_a, trajectory_b)) return {};
 
   return narrow_phase(trajectory_a, trajectory_b);
 }
 
 //==============================================================================
-bool DetectConflict::broad_phase(
-    const Trajectory& trajectory_a,
-    const Trajectory& trajectory_b)
-{
+bool DetectConflict::broad_phase(const Trajectory& trajectory_a,
+                                 const Trajectory& trajectory_b) {
   std::size_t min_size = std::min(trajectory_a.size(), trajectory_b.size());
-  if(min_size < 2)
-  {
-    throw invalid_trajectory_error::Implementation
-        ::make_segment_num_error(min_size);
+  if (min_size < 2) {
+    throw invalid_trajectory_error::Implementation ::make_segment_num_error(
+        min_size);
   }
 
-  if(trajectory_a.get_map_name() != trajectory_b.get_map_name())
-    return false;
+  if (trajectory_a.get_map_name() != trajectory_b.get_map_name()) return false;
 
   const auto* t_a0 = trajectory_a.start_time();
   const auto* t_bf = trajectory_b.finish_time();
@@ -140,8 +120,7 @@ bool DetectConflict::broad_phase(
   assert(t_a0 != nullptr);
   assert(t_bf != nullptr);
 
-  if(*t_bf < *t_a0)
-  {
+  if (*t_bf < *t_a0) {
     // If Trajectory `b` finishes before Trajectory `a` starts, then there
     // cannot be any conflict.
     return false;
@@ -155,8 +134,7 @@ bool DetectConflict::broad_phase(
   assert(t_b0 != nullptr);
   assert(t_af != nullptr);
 
-  if(*t_af < *t_b0)
-  {
+  if (*t_af < *t_b0) {
     // If Trajectory `a` finished before Trajectory `b` starts, then there
     // cannot be any conflict.
     return false;
@@ -167,30 +145,25 @@ bool DetectConflict::broad_phase(
 
 namespace {
 
-using GeometryMap = std::unordered_map<
-    geometry::ConstConvexShapePtr,
-    geometry::Shape::Internal::CollisionGeometryPtr>;
+using GeometryMap =
+    std::unordered_map<geometry::ConstConvexShapePtr,
+                       geometry::Shape::Internal::CollisionGeometryPtr>;
 
 //==============================================================================
-GeometryMap make_geometry_map(std::vector<const Trajectory*> trajectories)
-{
+GeometryMap make_geometry_map(std::vector<const Trajectory*> trajectories) {
   GeometryMap result;
-  for(const Trajectory* trajectory : trajectories)
-  {
-    for(Trajectory::const_iterator it = trajectory->cbegin();
-        it != trajectory->cend(); ++it)
-    {
+  for (const Trajectory* trajectory : trajectories) {
+    for (Trajectory::const_iterator it = trajectory->cbegin();
+         it != trajectory->cend(); ++it) {
       const Trajectory::ConstProfilePtr profile = it->get_profile();
       const geometry::ConstConvexShapePtr shape = profile->get_shape();
-      if(!shape)
-      {
-        throw invalid_trajectory_error::Implementation
-          ::make_missing_shape_error(it->get_finish_time());
+      if (!shape) {
+        throw invalid_trajectory_error::Implementation ::
+            make_missing_shape_error(it->get_finish_time());
       }
 
       auto insertion = result.emplace(shape, nullptr);
-      if(insertion.second)
-      {
+      if (insertion.second) {
         const auto fcl_shapes = shape->_get_internal()->make_fcl();
         assert(fcl_shapes.size() == 1);
         insertion.first->second = fcl_shapes.front();
@@ -202,8 +175,7 @@ GeometryMap make_geometry_map(std::vector<const Trajectory*> trajectories)
 }
 
 //==============================================================================
-std::shared_ptr<fcl::SplineMotion> make_uninitialized_fcl_spline_motion()
-{
+std::shared_ptr<fcl::SplineMotion> make_uninitialized_fcl_spline_motion() {
   // This function is only necessary because SplineMotion does not provide a
   // default constructor, and we want to be able to instantiate one before
   // we have any paramters to provide to it.
@@ -219,15 +191,12 @@ std::shared_ptr<fcl::SplineMotion> make_uninitialized_fcl_spline_motion()
 
 //==============================================================================
 std::tuple<Trajectory::const_iterator, Trajectory::const_iterator>
-get_initial_iterators(
-    const Trajectory& trajectory_a,
-    const Trajectory& trajectory_b)
-{
+get_initial_iterators(const Trajectory& trajectory_a,
+                      const Trajectory& trajectory_b) {
   std::size_t min_size = std::min(trajectory_a.size(), trajectory_b.size());
-  if(min_size < 2)
-  {
-    throw invalid_trajectory_error::Implementation
-        ::make_segment_num_error(min_size);
+  if (min_size < 2) {
+    throw invalid_trajectory_error::Implementation ::make_segment_num_error(
+        min_size);
   }
 
   const Time& t_a0 = *trajectory_a.start_time();
@@ -236,22 +205,17 @@ get_initial_iterators(
   Trajectory::const_iterator a_it;
   Trajectory::const_iterator b_it;
 
-  if(t_a0 < t_b0)
-  {
+  if (t_a0 < t_b0) {
     // Trajectory `a` starts first, so we begin evaluating at the time
     // that `b` begins
     a_it = trajectory_a.find(t_b0);
     b_it = ++trajectory_b.begin();
-  }
-  else if(t_b0 < t_a0)
-  {
+  } else if (t_b0 < t_a0) {
     // Trajectory `b` starts first, so we begin evaluating at the time
     // that `a` begins
     a_it = ++trajectory_a.begin();
     b_it = trajectory_b.find(t_a0);
-  }
-  else
-  {
+  } else {
     // The Trajectories begin at the exact same time, so both will begin
     // from their start
     a_it = ++trajectory_a.begin();
@@ -261,16 +225,15 @@ get_initial_iterators(
   return {a_it, b_it};
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
-class DetectConflict::Implementation
-{
-public:
-  static ConflictData make_conflict(Time time, ConflictData::Segments segments)
-  {
+class DetectConflict::Implementation {
+ public:
+  static ConflictData make_conflict(Time time,
+                                    ConflictData::Segments segments) {
     ConflictData result;
     result._pimpl = rmf_utils::make_impl<ConflictData::Implementation>(
-          ConflictData::Implementation{time, std::move(segments)});
+        ConflictData::Implementation{time, std::move(segments)});
 
     return result;
   }
@@ -278,9 +241,7 @@ public:
 
 //==============================================================================
 std::vector<ConflictData> DetectConflict::narrow_phase(
-    const Trajectory& trajectory_a,
-    const Trajectory& trajectory_b)
-{
+    const Trajectory& trajectory_a, const Trajectory& trajectory_b) {
   Trajectory::const_iterator a_it;
   Trajectory::const_iterator b_it;
   std::tie(a_it, b_it) = get_initial_iterators(trajectory_a, trajectory_b);
@@ -303,22 +264,20 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
       make_uninitialized_fcl_spline_motion();
   std::shared_ptr<fcl::SplineMotion> motion_b =
       make_uninitialized_fcl_spline_motion();
-  const fcl::ContinuousCollisionRequest request; // Using default values for now
+  const fcl::ContinuousCollisionRequest
+      request;  // Using default values for now
   fcl::ContinuousCollisionResult result;
   std::vector<ConflictData> conflicts;
 
-  while(a_it != trajectory_a.end() && b_it != trajectory_b.end())
-  {
+  while (a_it != trajectory_a.end() && b_it != trajectory_b.end()) {
     // Increment a_it until spline_a will overlap with spline_b
-    if(a_it->get_finish_time() < spline_b.start_time())
-    {
+    if (a_it->get_finish_time() < spline_b.start_time()) {
       ++a_it;
       continue;
     }
 
     // Increment b_it until spline_b will overlap with spline_a
-    if(b_it->get_finish_time() < spline_a.start_time())
-    {
+    if (b_it->get_finish_time() < spline_a.start_time()) {
       ++b_it;
       continue;
     }
@@ -342,30 +301,24 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
     *motion_b = spline_b.to_fcl(start_time, finish_time);
 
     const auto obj_a = fcl::ContinuousCollisionObject(
-          geometries.at(profile_a->get_shape()), motion_a);
+        geometries.at(profile_a->get_shape()), motion_a);
     const auto obj_b = fcl::ContinuousCollisionObject(
-          geometries.at(profile_b->get_shape()), motion_b);
+        geometries.at(profile_b->get_shape()), motion_b);
 
     fcl::collide(&obj_a, &obj_b, request, result);
-    if(result.is_collide)
-    {
+    if (result.is_collide) {
       const double scaled_time = result.time_of_contact;
       const Duration delta_t{
-        Duration::rep(scaled_time * (finish_time - start_time).count())};
+          Duration::rep(scaled_time * (finish_time - start_time).count())};
       const Time time = start_time + delta_t;
       conflicts.emplace_back(Implementation::make_conflict(time, {a_it, b_it}));
     }
 
-    if(spline_a.finish_time() < spline_b.finish_time())
-    {
+    if (spline_a.finish_time() < spline_b.finish_time()) {
       ++a_it;
-    }
-    else if(spline_b.finish_time() < spline_a.finish_time())
-    {
+    } else if (spline_b.finish_time() < spline_a.finish_time()) {
       ++b_it;
-    }
-    else
-    {
+    } else {
       ++a_it;
       ++b_it;
     }
@@ -374,4 +327,4 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
   return conflicts;
 }
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic

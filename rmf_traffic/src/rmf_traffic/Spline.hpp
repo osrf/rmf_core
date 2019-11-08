@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef SRC__RMF_TRAFFIC__SPLINE_HPP
 #define SRC__RMF_TRAFFIC__SPLINE_HPP
@@ -33,10 +33,8 @@ namespace rmf_traffic {
 /// \warning For now this class is only meant for internal use; it is not part
 /// of the public API. If we ever decide to migrate it to the public API, then
 /// we should apply the PIMPL pattern to it.
-class Spline
-{
-public:
-
+class Spline {
+ public:
   /// Create a spline that goes from the end of the preceding to the Segment of
   /// `it`.
   Spline(const Trajectory::const_iterator& it);
@@ -47,16 +45,15 @@ public:
 
   /// Compute the knots for the motion of this spline from start_time to
   /// finish_time, scaled to a "time" range of [0, 1].
-  std::array<Eigen::Vector3d, 4> compute_knots(
-      const Time start_time, const Time finish_time) const;
+  std::array<Eigen::Vector3d, 4> compute_knots(const Time start_time,
+                                               const Time finish_time) const;
 
   fcl::SplineMotion to_fcl(const Time start_time, const Time finish_time) const;
 
   Time start_time() const;
   Time finish_time() const;
 
-  struct Parameters
-  {
+  struct Parameters {
     std::array<Eigen::Vector4d, 3> coeffs;
     double delta_t;
     std::array<Time, 2> time_range;
@@ -71,12 +68,10 @@ public:
   /// Compute the velocity of the spline at this moment in time
   Eigen::Vector3d compute_acceleration(const Time at_time) const;
 
-private:
-
+ private:
   Parameters params;
-
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__SPLINE_HPP
+#endif  // SRC__RMF_TRAFFIC__SPLINE_HPP

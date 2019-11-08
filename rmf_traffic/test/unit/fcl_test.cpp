@@ -13,16 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
+#include <fcl/ccd/motion.h>
 #include <fcl/continuous_collision.h>
 #include <fcl/shape/geometric_shapes.h>
-#include <fcl/ccd/motion.h>
 
 #include <rmf_utils/catch.hpp>
 
-TEST_CASE("Verify that FCL can handle continuous collisions")
-{
+TEST_CASE("Verify that FCL can handle continuous collisions") {
   // Make sphere
   std::shared_ptr<fcl::CollisionGeometry> sphere_geom =
       std::make_shared<fcl::Sphere>(0.5);
@@ -51,7 +50,7 @@ TEST_CASE("Verify that FCL can handle continuous collisions")
   tf_box_final.setTranslation(fcl::Vec3f(0.0, -5.0, 0.0));
 
   fcl::Quaternion3f R_box;
-  R_box.fromAxisAngle(fcl::Vec3f(0.0, 0.0, 1.0), 90.0*M_PI/180.0);
+  R_box.fromAxisAngle(fcl::Vec3f(0.0, 0.0, 1.0), 90.0 * M_PI / 180.0);
 
   tf_box_final.setQuatRotation(R_box);
 
@@ -59,10 +58,8 @@ TEST_CASE("Verify that FCL can handle continuous collisions")
   request.ccd_motion_type = fcl::CCDM_LINEAR;
   fcl::ContinuousCollisionResult result;
 
-  fcl::continuousCollide(
-        object_1.get(), tf_sphere_final,
-        object_2.get(), tf_box_final,
-        request, result);
+  fcl::continuousCollide(object_1.get(), tf_sphere_final, object_2.get(),
+                         tf_box_final, request, result);
 
   CHECK(result.is_collide);
 }

@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
-
+ */
 
 #ifndef RMF_TRAFFIC__ZONE_HPP
 #define RMF_TRAFFIC__ZONE_HPP
@@ -23,20 +22,15 @@
 
 namespace rmf_traffic {
 
-class Zone
-{
-public:
-
+class Zone {
+ public:
   // TODO(MXG): Design and implement this class
 
-
-private:
-
+ private:
   class Implementation;
   std::unique_ptr<Implementation> _pimpl;
-
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__ZONE_HPP
+#endif  // RMF_TRAFFIC__ZONE_HPP

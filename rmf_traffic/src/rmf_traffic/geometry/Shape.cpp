@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #include <rmf_traffic/geometry/Shape.hpp>
 
@@ -23,29 +23,21 @@ namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
-Shape::Internal* Shape::_get_internal()
-{
-  return _internal.get();
-}
+Shape::Internal* Shape::_get_internal() { return _internal.get(); }
 
 //==============================================================================
-const Shape::Internal* Shape::_get_internal() const
-{
-  return _internal.get();
-}
+const Shape::Internal* Shape::_get_internal() const { return _internal.get(); }
 
 //==============================================================================
 Shape::Shape(std::unique_ptr<Internal> internal)
-  : _internal(std::move(internal))
-{
+    : _internal(std::move(internal)) {
   // Do nothing
 }
 
 //==============================================================================
-Shape::~Shape()
-{
+Shape::~Shape() {
   // Do nothing
 }
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic

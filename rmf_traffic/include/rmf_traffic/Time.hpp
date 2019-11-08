@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__TIME_HPP
 #define RMF_TRAFFIC__TIME_HPP
@@ -45,15 +45,13 @@ double to_seconds(Duration delta_t);
 ///   The number of seconds to add to the start_time
 Time apply_offset(Time start_time, double delta_seconds);
 
-} // namespace time
-
-
+}  // namespace time
 
 // TODO(MXG): Make user-friendly interfaces for interacting with the STL
 // time points and durations. They have good semantics from a technical point
 // of view, but they tend to be difficult for users to do tests and experiments
 // with, so it might be good to provide some APIs to help people use it.
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__TIME_HPP
+#endif  // RMF_TRAFFIC__TIME_HPP

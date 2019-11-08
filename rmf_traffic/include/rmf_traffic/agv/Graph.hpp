@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__AGV__GRAPH_HPP
 #define RMF_TRAFFIC__AGV__GRAPH_HPP
@@ -24,41 +24,28 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
-class Graph
-{
-public:
-
-  class Waypoint
-  {
-  public:
-
+class Graph {
+ public:
+  class Waypoint {
+   public:
     /// Set the position of this Waypoint
     Waypoint& set_position(const Eigen::Vector2d& position);
 
     /// Get the position of this Waypoint
     Eigen::Vector2d get_position() const;
-
-
-
-
   };
 
-  class Edge
-  {
-  public:
-
-    enum class Type
-    {
+  class Edge {
+   public:
+    enum class Type {
       Free,
       Door,
       Lift,
     };
-
   };
-
 };
 
-} // namespace agv
-} // namespace rmf_traffic
+}  // namespace agv
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__AGV__GRAPH_HPP
+#endif  // RMF_TRAFFIC__AGV__GRAPH_HPP

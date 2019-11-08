@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #include <rmf_traffic/geometry/ConvexShape.hpp>
 
@@ -24,10 +24,9 @@ namespace geometry {
 
 //==============================================================================
 ConvexShape::ConvexShape(std::unique_ptr<Shape::Internal> internal)
-  : Shape(std::move(internal))
-{
+    : Shape(std::move(internal)) {
   // Do nothing
 }
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic

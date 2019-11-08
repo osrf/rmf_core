@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
-
+ */
 
 #ifndef RMF_TRAFFIC__GEOMETRY__CIRCLE_HPP
 #define RMF_TRAFFIC__GEOMETRY__CIRCLE_HPP
@@ -27,10 +26,8 @@ namespace geometry {
 //==============================================================================
 /// \brief This class represent a circle shape which can be added into a Zone or
 /// Trajectory.
-class Circle : public ConvexShape
-{
-public:
-
+class Circle : public ConvexShape {
+ public:
   Circle(double radius);
 
   // The typical copy constructor/assignment operator
@@ -40,10 +37,9 @@ public:
   void set_radius(double r);
 
   double get_radius() const;
-
 };
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__GEOMETRY__CIRCLE_HPP
+#endif  // RMF_TRAFFIC__GEOMETRY__CIRCLE_HPP

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__AGV__INTERPOLATE_HPP
 #define RMF_TRAFFIC__AGV__INTERPOLATE_HPP
@@ -28,32 +28,25 @@ namespace agv {
 //==============================================================================
 /// This exception is thrown by Interpolate functions when the VehicleTraits
 /// that are provided cannot be interpolated as requested.
-class invalid_traits_error : public std::exception
-{
-public:
-
+class invalid_traits_error : public std::exception {
+ public:
   const char* what() const noexcept override;
 
   class Implementation;
-private:
+
+ private:
   invalid_traits_error();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 //==============================================================================
-class Interpolate
-{
-public:
-
-  class Options
-  {
-  public:
-
-    Options(
-        bool always_stop = false,
-        double translation_thresh = 1e-3,
-        double rotation_thresh = 1.0 * M_PI/180.0,
-        double corner_angle_thresh = 1.0 * M_PI/180.0);
+class Interpolate {
+ public:
+  class Options {
+   public:
+    Options(bool always_stop = false, double translation_thresh = 1e-3,
+            double rotation_thresh = 1.0 * M_PI / 180.0,
+            double corner_angle_thresh = 1.0 * M_PI / 180.0);
 
     /// The robot must always come to a complete stop at every position. When
     /// this is true, all other properties in the options will have no effect.
@@ -81,21 +74,18 @@ public:
     /// Get the corner angle threshold
     double get_corner_angle_threshold() const;
 
-  private:
+   private:
     class Implementation;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
   static Trajectory positions(
-      std::string map,
-      const VehicleTraits& traits,
-      Time start_time,
+      std::string map, const VehicleTraits& traits, Time start_time,
       const std::vector<Eigen::Vector3d>& input_positions,
       const Options& options = Options());
-
 };
 
-} // namespace agv
-} // namespace rmf_traffic
+}  // namespace agv
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__AGV__INTERPOLATE_HPP
+#endif  // RMF_TRAFFIC__AGV__INTERPOLATE_HPP

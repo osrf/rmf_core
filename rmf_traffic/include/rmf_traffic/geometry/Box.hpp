@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
-
+ */
 
 #ifndef RMF_TRAFFIC__GEOMETRY__BOX_HPP
 #define RMF_TRAFFIC__GEOMETRY__BOX_HPP
@@ -27,10 +26,8 @@ namespace geometry {
 //==============================================================================
 /// \brief This class represent a box shape which can be added into a Zone or
 /// Trajectory.
-class Box : public ConvexShape
-{
-public:
-
+class Box : public ConvexShape {
+ public:
   /// \brief Create a box with the indicated dimensions.
   ///
   /// The origin of the box will be in its center, so the box will extend:
@@ -53,11 +50,9 @@ public:
 
   /// \brief Get the length of the box along its y axis
   double get_y_length() const;
-
 };
 
+}  // namespace geometry
+}  // namespace rmf_traffic
 
-} // namespace geometry
-} // namespace rmf_traffic
-
-#endif // RMF_TRAFFIC__GEOMETRY__BOX_HPP
+#endif  // RMF_TRAFFIC__GEOMETRY__BOX_HPP

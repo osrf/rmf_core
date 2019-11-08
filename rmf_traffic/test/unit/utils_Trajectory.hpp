@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP
 #define RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP
@@ -24,93 +24,77 @@
 #include <rmf_utils/catch.hpp>
 
 //==============================================================================
-enum TestProfileType
-{
-  UnitBox,
-  UnitCircle
-};
+enum TestProfileType { UnitBox, UnitCircle };
 
-inline rmf_traffic::Trajectory::ProfilePtr create_test_profile(TestProfileType shape,
-                                                  rmf_traffic::Trajectory::Profile::Agency agency = rmf_traffic::Trajectory::Profile::Agency::Strict,
-                                                  std::string queue_number = "0")
-{
-  if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Agency::Strict == agency)
-  {
+inline rmf_traffic::Trajectory::ProfilePtr create_test_profile(
+    TestProfileType shape,
+    rmf_traffic::Trajectory::Profile::Agency agency =
+        rmf_traffic::Trajectory::Profile::Agency::Strict,
+    std::string queue_number = "0") {
+  if (UnitBox == shape &&
+      rmf_traffic::Trajectory::Profile::Agency::Strict == agency) {
     return rmf_traffic::Trajectory::Profile::make_strict(
         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
-  }
-  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Agency::Strict == agency)
-  {
+  } else if (UnitCircle == shape &&
+             rmf_traffic::Trajectory::Profile::Agency::Strict == agency) {
     return rmf_traffic::Trajectory::Profile::make_strict(
         std::make_shared<rmf_traffic::geometry::Circle>(1.0));
-  }
-  else if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Agency::Queued == agency)
-  {
+  } else if (UnitBox == shape &&
+             rmf_traffic::Trajectory::Profile::Agency::Queued == agency) {
     return rmf_traffic::Trajectory::Profile::make_queued(
         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0), queue_number);
-  }
-  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Agency::Queued == agency)
-  {
+  } else if (UnitCircle == shape &&
+             rmf_traffic::Trajectory::Profile::Agency::Queued == agency) {
     return rmf_traffic::Trajectory::Profile::make_queued(
         std::make_shared<rmf_traffic::geometry::Circle>(1.0), queue_number);
-  }
-  else
-  {
+  } else {
     return nullptr;
   }
 }
 
 //==============================================================================
-struct TrajectoryInsertInput
-{
+struct TrajectoryInsertInput {
   rmf_traffic::Time time;
   TestProfileType profile_type;
   Eigen::Vector3d pos;
   Eigen::Vector3d vel;
 };
 
-inline rmf_traffic::Trajectory create_test_trajectory()
-{
+inline rmf_traffic::Trajectory create_test_trajectory() {
   rmf_traffic::Trajectory trajectory("test_map");
   return trajectory;
 }
 
-inline rmf_traffic::Trajectory create_test_trajectory(std::vector<TrajectoryInsertInput> param_list)
-{
+inline rmf_traffic::Trajectory create_test_trajectory(
+    std::vector<TrajectoryInsertInput> param_list) {
   rmf_traffic::Trajectory trajectory("test_map");
-  for (auto x : param_list)
-  {
-    trajectory.insert(x.time, create_test_profile(x.profile_type), x.pos, x.vel);
+  for (auto x : param_list) {
+    trajectory.insert(x.time, create_test_profile(x.profile_type), x.pos,
+                      x.vel);
   }
   return trajectory;
 }
 
 // For backward compatibility in other tests
 //==============================================================================
-inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
-{
-  if (UnitBox == shape)
-  {
+inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(
+    TestProfileType shape) {
+  if (UnitBox == shape) {
     return rmf_traffic::Trajectory::Profile::make_strict(
         std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
-  }
-  else if (UnitCircle == shape)
-  {
+  } else if (UnitCircle == shape) {
     return rmf_traffic::Trajectory::Profile::make_strict(
         std::make_shared<rmf_traffic::geometry::Circle>(1.0));
-  }
-  else
-  {
+  } else {
     return nullptr;
   }
 }
 
-inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int length, int dur)
-{
+inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t,
+                                                    int length, int dur) {
   using namespace std::chrono_literals;
   rmf_traffic::Trajectory trajectory("test_map");
-  for (auto i = 0; i < length; ++i)
-  {
+  for (auto i = 0; i < length; ++i) {
     const auto finish_time = t + std::chrono::seconds(i * dur);
     const auto profile = make_test_profile(UnitBox);
     const Eigen::Vector3d final_pos = Eigen::Vector3d(1, 1, 1);
@@ -120,4 +104,4 @@ inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int len
   return trajectory;
 }
 
-#endif // RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP
+#endif  // RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP

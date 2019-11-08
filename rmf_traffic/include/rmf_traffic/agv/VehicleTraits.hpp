@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
 #define RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
@@ -24,14 +24,10 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
-class VehicleTraits
-{
-public:
-
-  class Limits
-  {
-  public:
-
+class VehicleTraits {
+ public:
+  class Limits {
+   public:
     VehicleTraits& set_nominal_velocity(double nom_vel);
     double get_nominal_velocity() const;
 
@@ -42,26 +38,22 @@ public:
     /// zero.
     bool valid() const;
 
-  private:
+   private:
     Limits(void* pimpl);
     friend class VehicleTraits;
     void* _pimpl;
   };
 
   /// Constructor. The default values of zero
-  VehicleTraits(
-      double nom_linear_vel = 0.0,
-      double nom_linear_accel = 0.0,
-      double nom_rotation_vel = 0.0,
-      double nom_rotation_accel = 0.0,
-      bool reversible = false);
+  VehicleTraits(double nom_linear_vel = 0.0, double nom_linear_accel = 0.0,
+                double nom_rotation_vel = 0.0, double nom_rotation_accel = 0.0,
+                bool reversible = false);
 
   Limits& linear();
   const Limits& linear() const;
 
   Limits& rotational();
   const Limits& rotational() const;
-
 
   VehicleTraits& set_reversible(bool reversible);
   bool is_reversible() const;
@@ -75,14 +67,12 @@ public:
   VehicleTraits& operator=(const VehicleTraits& other);
   VehicleTraits& operator=(VehicleTraits&& other);
 
-private:
-
+ private:
   class Implementation;
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
-
 };
 
-} // namespace agv
-} // namespace rmf_traffic
+}  // namespace agv
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
+#endif  // RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP

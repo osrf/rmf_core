@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__SCHEDULE_HPP
 #define RMF_TRAFFIC__SCHEDULE_HPP
@@ -22,19 +22,13 @@
 
 namespace rmf_traffic {
 
-class Schedule
-{
-public:
-
-
-
-private:
-
+class Schedule {
+ public:
+ private:
   class Implementation;
   rmf_utils::impl_ptr<Implementation> _pimpl;
-
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SCHEDULE_HPP
+#endif  // RMF_TRAFFIC__SCHEDULE_HPP

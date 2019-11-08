@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP
 #define SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP
@@ -30,18 +30,15 @@ namespace geometry {
 //==============================================================================
 /// \brief Implementations of this class must be created by the child classes of
 /// Shape, and then passed to the constructor of Shape.
-class Shape::Internal
-{
-public:
-
+class Shape::Internal {
+ public:
   using CollisionGeometryPtr = std::shared_ptr<fcl::CollisionGeometry>;
   using CollisionGeometries = std::vector<CollisionGeometryPtr>;
 
   virtual CollisionGeometries make_fcl() const = 0;
-
 };
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP
+#endif  // SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP

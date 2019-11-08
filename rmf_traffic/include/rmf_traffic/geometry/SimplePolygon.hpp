@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
-
+ */
 
 #ifndef RMF_TRAFFIC__GEOMETRY__POLYGON_HPP
 #define RMF_TRAFFIC__GEOMETRY__POLYGON_HPP
@@ -37,14 +36,11 @@ namespace geometry {
 ///
 /// A simple polygon is also closed, but this class will automatically "close"
 /// itself by assuming a connection between the last vertex and the first.
-class SimplePolygon : public Shape
-{
-public:
-
+class SimplePolygon : public Shape {
+ public:
   /// \brief A simple struct to provide information about an edge on the
   /// polygon, including the index and location of each vertex.
-  struct EdgeInfo
-  {
+  struct EdgeInfo {
     /// \brief The index of each vertex along this edge.
     std::array<std::size_t, 2> indices;
 
@@ -104,19 +100,16 @@ public:
   /// currently at the specified index and after will have their indices
   /// incremented.
   void insert_point(std::size_t index, const Eigen::Vector2d& p);
-
 };
 
 //==============================================================================
 /// \brief If an invalid simple polygon (a polygon having self-intersections or
 /// having less than 3 vertices) is passed into a schedule, this exception will
 /// be raised.
-struct InvalidSimplePolygonException : public std::exception
-{
+struct InvalidSimplePolygonException : public std::exception {
   /// \brief Constructor for an invalid Polygon that has self-intersections.
-  InvalidSimplePolygonException(
-      SimplePolygon::Intersections intersections,
-      std::size_t num_vertices);
+  InvalidSimplePolygonException(SimplePolygon::Intersections intersections,
+                                std::size_t num_vertices);
 
   /// \brief Constructor for an invalid Polygon that has too few vertices.
   InvalidSimplePolygonException(std::size_t num_vertices);
@@ -133,7 +126,7 @@ struct InvalidSimplePolygonException : public std::exception
   const std::string _what;
 };
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__GEOMETRY__POLYGON_HPP
+#endif  // RMF_TRAFFIC__GEOMETRY__POLYGON_HPP

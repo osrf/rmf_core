@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__CONFLICT_HPP
 #define RMF_TRAFFIC__CONFLICT_HPP
 
-#include <rmf_traffic/Trajectory.hpp>
 #include <exception>
+#include <rmf_traffic/Trajectory.hpp>
 
 namespace rmf_traffic {
 
@@ -27,10 +27,8 @@ namespace rmf_traffic {
 class DetectConflict;
 
 //==============================================================================
-class ConflictData
-{
-public:
-
+class ConflictData {
+ public:
   /// Get the point in time that the conflict occurs.
   Time get_time() const;
 
@@ -49,43 +47,38 @@ public:
   /// later.
   ConflictData();
 
-private:
+ private:
   friend class DetectConflict;
   class Implementation;
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 //==============================================================================
-class invalid_trajectory_error : public std::exception
-{
-public:
-
+class invalid_trajectory_error : public std::exception {
+ public:
   const char* what() const noexcept override;
 
   class Implementation;
-private:
+
+ private:
   invalid_trajectory_error();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 //==============================================================================
-class DetectConflict
-{
-public:
-
+class DetectConflict {
+ public:
   /// Checks if there are any conflicts between the two trajectories.
   ///
   /// First broad_phase will be run, and if there is an intersection in the
   /// broad_phase, then the result of narrow_phase will be returned.
-  static std::vector<ConflictData> between(
-      const Trajectory& trajectory_a,
-      const Trajectory& trajectory_b);
+  static std::vector<ConflictData> between(const Trajectory& trajectory_a,
+                                           const Trajectory& trajectory_b);
 
   /// Checks if there is any overlap in the map name and time of the two
   /// trajectories.
-  static bool broad_phase(
-      const Trajectory& trajectory_a,
-      const Trajectory& trajectory_b);
+  static bool broad_phase(const Trajectory& trajectory_a,
+                          const Trajectory& trajectory_b);
 
   /// Assumes that:
   ///
@@ -99,13 +92,12 @@ public:
   /// pair of Trajectories that would fail the broad_phase() test. Segmentation
   /// faults or false positives may occur when this function is called on
   /// Trajectories that do not pass the broad_phase test.
-  static std::vector<ConflictData> narrow_phase(
-      const Trajectory& trajectory_a,
-      const Trajectory& trajectory_b);
+  static std::vector<ConflictData> narrow_phase(const Trajectory& trajectory_a,
+                                                const Trajectory& trajectory_b);
 
   class Implementation;
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__CONFLICT_HPP
+#endif  // RMF_TRAFFIC__CONFLICT_HPP

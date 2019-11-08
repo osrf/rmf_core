@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #include "ShapeInternal.hpp"
 
@@ -25,18 +25,13 @@ namespace rmf_traffic {
 namespace geometry {
 
 //==============================================================================
-class CircleInternal : public Shape::Internal
-{
-public:
-
-  CircleInternal(double radius)
-    : _radius(radius)
-  {
+class CircleInternal : public Shape::Internal {
+ public:
+  CircleInternal(double radius) : _radius(radius) {
     // Do nothing
   }
 
-  CollisionGeometries make_fcl() const final
-  {
+  CollisionGeometries make_fcl() const final {
     return {std::make_shared<fcl::Sphere>(_radius)};
   }
 
@@ -45,22 +40,19 @@ public:
 
 //==============================================================================
 Circle::Circle(double radius)
-  : ConvexShape(std::make_unique<CircleInternal>(radius))
-{
+    : ConvexShape(std::make_unique<CircleInternal>(radius)) {
   // Do nothing
 }
 
 //==============================================================================
 Circle::Circle(const Circle& other)
-  : ConvexShape(std::make_unique<CircleInternal>(
-                  static_cast<const CircleInternal&>(*other._get_internal())))
-{
+    : ConvexShape(std::make_unique<CircleInternal>(
+          static_cast<const CircleInternal&>(*other._get_internal()))) {
   // Do nothing
 }
 
 //==============================================================================
-Circle& Circle::operator=(const Circle& other)
-{
+Circle& Circle::operator=(const Circle& other) {
   static_cast<CircleInternal&>(*_get_internal()) =
       static_cast<const CircleInternal&>(*other._get_internal());
 
@@ -68,16 +60,14 @@ Circle& Circle::operator=(const Circle& other)
 }
 
 //==============================================================================
-void Circle::set_radius(double r)
-{
+void Circle::set_radius(double r) {
   static_cast<CircleInternal*>(_get_internal())->_radius = r;
 }
 
 //==============================================================================
-double Circle::get_radius() const
-{
+double Circle::get_radius() const {
   return static_cast<const CircleInternal*>(_get_internal())->_radius;
 }
 
-} // namespace geometry
-} // namespace rmf_traffic
+}  // namespace geometry
+}  // namespace rmf_traffic

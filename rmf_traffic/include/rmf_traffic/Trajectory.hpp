@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef RMF_TRAFFIC__TRAJECTORY_HPP
 #define RMF_TRAFFIC__TRAJECTORY_HPP
 
-#include <rmf_traffic/geometry/ConvexShape.hpp>
 #include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/Time.hpp>
+#include <rmf_traffic/geometry/ConvexShape.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
@@ -36,13 +36,11 @@ namespace detail {
 /// \internal We declare this private PIMPL class outside of the base_iterator
 /// class so that it does not need to be templated.
 class TrajectoryIteratorImplementation;
-} // namespace detail
+}  // namespace detail
 
 //==============================================================================
-class Trajectory
-{
-public:
-
+class Trajectory {
+ public:
   class Profile;
   using ProfilePtr = std::shared_ptr<Profile>;
   using ConstProfilePtr = std::shared_ptr<const Profile>;
@@ -60,10 +58,8 @@ public:
   ///  * queue_id
   ///
   /// The queue_id indicates which queue the robot will be waiting in.
-  class Profile
-  {
-  public:
-
+  class Profile {
+   public:
     /// The Trajectory::Profile::Agency enum describes how much freedom the
     /// robot has during this phase of its Trajectory.
     enum class Agency {
@@ -105,9 +101,8 @@ public:
     static ProfilePtr make_autonomous(geometry::ConstConvexShapePtr shape);
 
     /// Create a profile for a Queued segment
-    static ProfilePtr make_queued(
-        geometry::ConstConvexShapePtr shape,
-        const std::string& queue_id);
+    static ProfilePtr make_queued(geometry::ConstConvexShapePtr shape,
+                                  const std::string& queue_id);
 
     /// Get the shape being used for this profile
     geometry::ConstConvexShapePtr get_shape() const;
@@ -121,13 +116,11 @@ public:
     //==========================================================================
     /// This class is a placeholder in case we ever want to extend the features
     /// of the Strict mode. Currently it does not do anything.
-    class StrictInfo
-    {
-    public:
-
+    class StrictInfo {
+     public:
       // There are no special information features for Strict mode yet.
 
-    private:
+     private:
       StrictInfo(void* pimpl);
       friend class Profile;
       const void* const _pimpl;
@@ -139,13 +132,11 @@ public:
     //==========================================================================
     /// This class is a placeholder in case we ever want to extend the features
     /// of the Autonomous mode. Currently it does not do anything.
-    class AutonomousInfo
-    {
-    public:
-
+    class AutonomousInfo {
+     public:
       // There are no special information features for Autonomous mode yet.
 
-    private:
+     private:
       AutonomousInfo(void* pimpl);
       friend class Profile;
       const void* const _pimpl;
@@ -155,14 +146,12 @@ public:
     AutonomousInfo& set_to_autonomous();
 
     //==========================================================================
-    class QueueInfo
-    {
-    public:
-
+    class QueueInfo {
+     public:
       /// Get the id of the queue that this profile is waiting in
       std::string get_queue_id() const;
 
-    private:
+     private:
       QueueInfo(void* pimpl);
       friend class Profile;
       const void* const _pimpl;
@@ -180,18 +169,15 @@ public:
     // TODO(MXG): Change this to a std::optional when we can have C++17 support
     const QueueInfo* get_queue_info() const;
 
-  private:
-
+   private:
     Profile(geometry::ConstConvexShapePtr shape);
 
     class Implementation;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  class Segment
-  {
-  public:
-
+  class Segment {
+   public:
     /// Get the profile of this Trajectory Segment
     ConstProfilePtr get_profile() const;
 
@@ -286,8 +272,8 @@ public:
     std::unique_ptr<Motion> compute_motion() const;
 
     class Implementation;
-  private:
 
+   private:
     /// \internal Private constructor. Use Trajectory::add_segment() to create
     /// a new Trajectory Segment.
     Segment();
@@ -302,7 +288,7 @@ public:
   // These classes allow users to traverse the contents of the Trajectory.
   // The trajectory operates much like a typical C++ container, but only for
   // Trajectory::Segment information.
-  template<typename SegT>
+  template <typename SegT>
   class base_iterator;
   using iterator = base_iterator<Segment>;
   using const_iterator = base_iterator<const Segment>;
@@ -339,11 +325,8 @@ public:
   ///
   /// The Segment will be inserted into the Trajectory according to its
   /// finish_time, ensuring correct ordering of all Segments.
-  InsertionResult insert(
-      Time finish_time,
-      ConstProfilePtr profile,
-      Eigen::Vector3d position,
-      Eigen::Vector3d velocity);
+  InsertionResult insert(Time finish_time, ConstProfilePtr profile,
+                         Eigen::Vector3d position, Eigen::Vector3d velocity);
 
   /// Find the Segment of this Trajectory that is active during the given time.
   ///
@@ -389,7 +372,8 @@ public:
   ///
   /// \note In compliance with C++ standards, this is really a one-past-the-end
   /// iterator and must not be dereferenced. It should only be used to identify
-  /// when an iteration must end. See: https://en.cppreference.com/w/cpp/container/list/end
+  /// when an iteration must end. See:
+  /// https://en.cppreference.com/w/cpp/container/list/end
   iterator end();
 
   /// const-qualified version of end()
@@ -418,19 +402,16 @@ public:
   /// private imeplementation details.
   class Debug;
 
-private:
+ private:
   friend class detail::TrajectoryIteratorImplementation;
   class Implementation;
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
-
 };
 
 //==============================================================================
-template<typename SegT>
-class Trajectory::base_iterator
-{
-public:
-
+template <typename SegT>
+class Trajectory::base_iterator {
+ public:
   /// Dereference operator
   SegT& operator*() const;
 
@@ -461,7 +442,6 @@ public:
   /// \return a copy of the iterator before it was decremented
   base_iterator operator--(int);
 
-
   // TODO(MXG): Consider the spaceship operator when we can use C++20
 
   /// Equality comparison operator
@@ -484,10 +464,8 @@ public:
   /// Greater-than-or-equal comparison operator
   bool operator>=(const base_iterator& other) const;
 
-
   // Allow regular iterator to be cast to const_iterator
   operator const_iterator() const;
-
 
   // Allow typical copying and moving
   base_iterator(const base_iterator& other) = default;
@@ -500,7 +478,7 @@ public:
   // (like insert, find, etc) to initialize it first.
   base_iterator();
 
-private:
+ private:
   friend class Trajectory;
   friend class detail::TrajectoryIteratorImplementation;
   rmf_utils::impl_ptr<detail::TrajectoryIteratorImplementation> _pimpl;
@@ -510,12 +488,11 @@ extern template class Trajectory::base_iterator<Trajectory::Segment>;
 extern template class Trajectory::base_iterator<const Trajectory::Segment>;
 
 //==============================================================================
-struct Trajectory::InsertionResult
-{
+struct Trajectory::InsertionResult {
   iterator it;
   bool inserted;
 };
 
-} // namespace rmf_traffic
+}  // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__TRAJECTORY_HPP
+#endif  // RMF_TRAFFIC__TRAJECTORY_HPP

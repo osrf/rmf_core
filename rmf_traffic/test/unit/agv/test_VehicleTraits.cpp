@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 
 #include <rmf_utils/catch.hpp>
 
-void test_independence(
-    rmf_traffic::agv::VehicleTraits& original,
-    rmf_traffic::agv::VehicleTraits& copy)
-{
+void test_independence(rmf_traffic::agv::VehicleTraits& original,
+                       rmf_traffic::agv::VehicleTraits& copy) {
   // Check that the copy has the same properties as the original
   CHECK(copy.linear().get_nominal_velocity() == Approx(0.1));
   CHECK(copy.linear().get_nominal_acceleration() == Approx(0.2));
@@ -30,11 +28,14 @@ void test_independence(
   CHECK(copy.rotational().get_nominal_acceleration() == Approx(0.4));
   CHECK(copy.is_reversible());
 
-  copy
-      .linear().set_nominal_velocity(1.0)
-      .linear().set_nominal_acceleration(2.0)
-      .rotational().set_nominal_velocity(3.0)
-      .rotational().set_nominal_acceleration(4.0)
+  copy.linear()
+      .set_nominal_velocity(1.0)
+      .linear()
+      .set_nominal_acceleration(2.0)
+      .rotational()
+      .set_nominal_velocity(3.0)
+      .rotational()
+      .set_nominal_acceleration(4.0)
       .set_reversible(false);
 
   // Check that we can succesfully change the properties of the copy
@@ -51,11 +52,14 @@ void test_independence(
   CHECK(original.rotational().get_nominal_acceleration() == Approx(0.4));
   CHECK(original.is_reversible());
 
-  original
-      .linear().set_nominal_velocity(10.0)
-      .linear().set_nominal_acceleration(20.0)
-      .rotational().set_nominal_velocity(30.0)
-      .rotational().set_nominal_acceleration(40.0)
+  original.linear()
+      .set_nominal_velocity(10.0)
+      .linear()
+      .set_nominal_acceleration(20.0)
+      .rotational()
+      .set_nominal_velocity(30.0)
+      .rotational()
+      .set_nominal_acceleration(40.0)
       .set_reversible(false);
 
   // Check that we can still change the original
@@ -73,8 +77,7 @@ void test_independence(
   CHECK(!copy.is_reversible());
 }
 
-SCENARIO("Test VehicleTraits")
-{
+SCENARIO("Test VehicleTraits") {
   rmf_traffic::agv::VehicleTraits original;
 
   // Check that the initial properties are all zero
@@ -84,11 +87,14 @@ SCENARIO("Test VehicleTraits")
   CHECK(original.rotational().get_nominal_acceleration() == Approx(0.0));
   CHECK(!original.is_reversible());
 
-  original
-      .linear().set_nominal_velocity(0.1)
-      .linear().set_nominal_acceleration(0.2)
-      .rotational().set_nominal_velocity(0.3)
-      .rotational().set_nominal_acceleration(0.4)
+  original.linear()
+      .set_nominal_velocity(0.1)
+      .linear()
+      .set_nominal_acceleration(0.2)
+      .rotational()
+      .set_nominal_velocity(0.3)
+      .rotational()
+      .set_nominal_acceleration(0.4)
       .set_reversible(true);
 
   // Check that changing the properties worked
@@ -98,29 +104,25 @@ SCENARIO("Test VehicleTraits")
   CHECK(original.rotational().get_nominal_acceleration() == Approx(0.4));
   CHECK(original.is_reversible());
 
-  SECTION("Copy constructor")
-  {
+  SECTION("Copy constructor") {
     rmf_traffic::agv::VehicleTraits copy{original};
     test_independence(original, copy);
   }
 
-  SECTION("Copy operator")
-  {
+  SECTION("Copy operator") {
     rmf_traffic::agv::VehicleTraits copy;
     copy = original;
     test_independence(original, copy);
   }
 
-  SECTION("Move constructor")
-  {
+  SECTION("Move constructor") {
     rmf_traffic::agv::VehicleTraits moved = original;
     rmf_traffic::agv::VehicleTraits copy = std::move(moved);
     moved = original;
     test_independence(moved, copy);
   }
 
-  SECTION("Move operator")
-  {
+  SECTION("Move operator") {
     rmf_traffic::agv::VehicleTraits moved = original;
     rmf_traffic::agv::VehicleTraits copy;
     copy = std::move(moved);
