@@ -7,7 +7,6 @@ find_package(ament_cmake_core REQUIRED)
 ament_package(CONFIG_EXTRAS
   cmake/ament_add_catch2.cmake
   cmake/ament_add_catch2_test.cmake
-  cmake/ament_add_catch2_executable.cmake
 )
 
 install(
