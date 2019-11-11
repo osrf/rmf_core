@@ -13,13 +13,11 @@
 # limitations under the License.
 
 #
-# Add a catch2.
+# Add a catch2 test.
 #
-# Call add_executable(target ARGN), link it against the catch2 libraries
-# and register the executable as a test.
+# Call add_executable(target ARGN) and register the executable as a test.
 #
-# If catch2 is not available the specified target is not being created and
-# therefore the target existence should be checked before being used.
+# Assumes catch2 has been included in the user's project
 #
 # :param target: the target name which will also be used as the test name
 # :type target: string
@@ -33,9 +31,6 @@
 # :param WORKING_DIRECTORY: the working directory for invoking the
 #   executable in, default defined by ``ament_add_test()``
 # :type WORKING_DIRECTORY: string
-# :param SKIP_LINKING_MAIN_LIBRARIES: if set skip linking against the catch2
-#   main libraries
-# :type SKIP_LINKING_MAIN_LIBRARIES: option
 # :param SKIP_TEST: if set mark the test as being skipped
 # :type SKIP_TEST: option
 # :param ENV: list of env vars to set; listed as ``VAR=value``
@@ -51,7 +46,7 @@
 #
 macro(ament_add_catch2 target)
   cmake_parse_arguments(_ARG
-    "SKIP_LINKING_MAIN_LIBRARIES;SKIP_TEST"
+    "SKIP_TEST"
     "RUNNER;TIMEOUT;WORKING_DIRECTORY"
     "APPEND_ENV;APPEND_LIBRARY_DIRS;ENV"
     ${ARGN})
@@ -61,11 +56,7 @@ macro(ament_add_catch2 target)
   endif()
 
   # add executable
-  set(_argn_executable ${_ARG_UNPARSED_ARGUMENTS})
-  if(_ARG_SKIP_LINKING_MAIN_LIBRARIES)
-    list(APPEND _argn_executable "SKIP_LINKING_MAIN_LIBRARIES")
-  endif()
-  ament_add_catch2_executable("${target}" ${_argn_executable})
+  add_executable("${target}" ${_ARG_UNPARSED_ARGUMENTS})
 
   # add test
   set(_argn_test "")
