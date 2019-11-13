@@ -16,6 +16,7 @@
 */
 
 #include "InterpolateInternal.hpp"
+#include "internal_Planner.hpp"
 #include "internal_planning.hpp"
 #include "GraphInternal.hpp"
 
@@ -78,7 +79,7 @@ CacheHandle::CacheHandle(CachePtr original)
   : _original(std::move(original))
 {
   std::unique_lock<std::mutex> lock(_original->mutex);
-  _copy = original->clone();
+  _copy = _original->clone();
 }
 
 //==============================================================================
@@ -113,6 +114,12 @@ CacheHandle CacheManager::get() const
 }
 
 //==============================================================================
+const agv::Planner::Configuration& CacheManager::get_configuration() const
+{
+  return _cache->get_configuration();
+}
+
+//==============================================================================
 template<
     class Expander,
     class Context = typename Expander::Context,
@@ -143,6 +150,72 @@ NodePtr search(
   return nullptr;
 }
 
+//==============================================================================
+template<typename NodePtr>
+std::vector<Trajectory> reconstruct_trajectories(const NodePtr& finish_node)
+{
+  NodePtr node = finish_node;
+  std::vector<NodePtr> node_sequence;
+  while (node)
+  {
+    node_sequence.push_back(node);
+    node = node->parent;
+  }
+
+  std::vector<Trajectory> trajectories;
+  trajectories.push_back(
+        Trajectory{
+          node_sequence.back()->trajectory_from_parent.get_map_name()
+        });
+
+  // We exclude the first node in the sequence, because it contains a dummy
+  // trajectory which is not helpful.
+  const auto stop_it = node_sequence.rend();
+  for (auto it = ++node_sequence.rbegin(); it != stop_it; ++it)
+  {
+    Trajectory& last_trajectory = trajectories.back();
+    const Trajectory& next_trajectory = (*it)->trajectory_from_parent;
+    if(next_trajectory.get_map_name() == last_trajectory.get_map_name())
+    {
+      for(const auto& segment : next_trajectory)
+        last_trajectory.insert(segment);
+    }
+    else
+    {
+      trajectories.push_back(next_trajectory);
+    }
+  }
+
+  return trajectories;
+}
+
+//==============================================================================
+template<typename NodePtr>
+std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
+    const NodePtr& finish_node,
+    const agv::Graph::Implementation& graph)
+{
+  NodePtr node = finish_node;
+  std::vector<NodePtr> node_sequence;
+  while(node)
+  {
+    node_sequence.push_back(node);
+    node = node->parent;
+  }
+
+  std::vector<agv::Plan::Waypoint> waypoints;
+  for (auto it = node_sequence.rbegin(); it != node_sequence.rend(); ++it)
+  {
+    const auto& n = *it;
+    const Eigen::Vector2d p = graph.waypoints[n->waypoint].get_location();
+    const Time time{*n->trajectory_from_parent.finish_time()};
+    waypoints.emplace_back(
+          agv::Plan::Waypoint::Implementation::make(
+            Eigen::Vector3d{p[0], p[1], n->orientation}, time, n->waypoint));
+  }
+
+  return waypoints;
+}
 
 //==============================================================================
 struct EuclideanExpander
@@ -270,6 +343,55 @@ double compute_current_cost(
 }
 
 //==============================================================================
+class DifferentialDriveConstraint
+{
+public:
+
+  static Eigen::Rotation2Dd compute_forward_offset(
+      const Eigen::Vector2d& forward)
+  {
+    return Eigen::Rotation2Dd(std::atan2(forward[1], forward[0]));
+  }
+
+  static const Eigen::Rotation2Dd R_pi;
+
+  DifferentialDriveConstraint(
+      const Eigen::Vector2d& forward,
+      const bool reversible)
+  : R_f_inv(compute_forward_offset(forward).inverse()),
+    reversible(reversible)
+  {
+    // Do nothing
+  }
+
+  std::vector<double> get_orientations(
+      const Eigen::Vector2d& course_vector)
+  {
+    std::vector<double> orientations;
+    orientations.reserve(2);
+
+    const Eigen::Rotation2Dd R_c(
+          std::atan2(course_vector[1], course_vector[0]));
+    const Eigen::Rotation2Dd R_h = R_c * R_f_inv;
+
+    orientations.push_back(wrap_to_pi(R_h.angle()));
+
+    if(reversible)
+      orientations.push_back(wrap_to_pi((R_pi * R_h).angle()));
+
+    return orientations;
+  }
+
+  Eigen::Rotation2Dd R_f_inv;
+  bool reversible;
+
+};
+
+//==============================================================================
+const Eigen::Rotation2Dd DifferentialDriveConstraint::R_pi =
+    Eigen::Rotation2Dd(M_PI);
+
+//==============================================================================
 struct DifferentialDriveExpander
 {
   struct Node;
@@ -359,9 +481,9 @@ struct DifferentialDriveExpander
   {
     const agv::Graph::Implementation& graph;
     const agv::VehicleTraits& traits;
-    const Trajectory::ConstProfilePtr profile;
+    const Trajectory::ConstProfilePtr& profile;
     const Duration holding_time;
-    const agv::Interpolate::Options::Implementation interpolate;
+    const agv::Interpolate::Options::Implementation& interpolate;
     const schedule::Viewer& viewer;
     const std::size_t final_waypoint;
     const double* const final_orientation;
@@ -371,7 +493,10 @@ struct DifferentialDriveExpander
 
   DifferentialDriveExpander(Context& context)
   : _context(context),
-    _query(schedule::make_query({}, nullptr, nullptr))
+    _query(schedule::make_query({}, nullptr, nullptr)),
+    _differential_constraint(
+      _context.traits.get_differential()->get_forward(),
+      _context.traits.get_differential()->is_reversible())
   {
     // Do nothing
   }
@@ -484,6 +609,253 @@ struct DifferentialDriveExpander
     return nullptr;
   }
 
+  bool is_orientation_okay(
+      const Eigen::Vector2d& initial_p,
+      const double orientation,
+      const Eigen::Vector2d& course,
+      const agv::Graph::Lane& lane) const
+  {
+    for(const auto* constraint : {
+        lane.entry().orientation_constraint(),
+        lane.exit().orientation_constraint()})
+    {
+      if(!constraint)
+        continue;
+
+      Eigen::Vector3d position{initial_p[0], initial_p[1], orientation};
+      if(!constraint->apply(position, course))
+        return false;
+
+      if(std::abs(wrap_to_pi(orientation - position[2]))
+         > _context.interpolate.rotation_thresh)
+        return false;
+    }
+
+    return true;
+  }
+
+  std::vector<NodePtr> expand_rotations(
+      const NodePtr& parent_node,
+      const std::size_t lane_index)
+  {
+    const agv::Graph::Lane& lane = _context.graph.lanes[lane_index];
+
+    const agv::Graph::Waypoint& initial_waypoint =
+        _context.graph.waypoints[lane.entry().waypoint_index()];
+    const Eigen::Vector2d& initial_p = initial_waypoint.get_location();
+
+    const agv::Graph::Waypoint& next_waypoint =
+        _context.graph.waypoints[lane.exit().waypoint_index()];
+    const Eigen::Vector2d& next_p = next_waypoint.get_location();
+
+    const Eigen::Vector2d course = (next_p - initial_p).normalized();
+
+    const std::vector<double> orientations =
+        _differential_constraint.get_orientations(course);
+
+    std::vector<NodePtr> rotations;
+    rotations.reserve(orientations.size());
+    for(const double orientation : orientations)
+    {
+      if(!is_orientation_okay(initial_p, orientation, course, lane))
+        continue;
+
+      if(std::abs(wrap_to_pi(orientation - parent_node->orientation))
+         < _context.interpolate.rotation_thresh)
+      {
+        // No rotation is needed to reach this orientation
+        rotations.push_back(parent_node);
+      }
+      else
+      {
+        const NodePtr rotation = expand_rotation(parent_node, orientation);
+        if(rotation)
+          rotations.push_back(rotation);
+      }
+    }
+
+    return rotations;
+  }
+
+  bool add_if_valid(
+      const std::size_t waypoint,
+      const double orientation,
+      const NodePtr& parent_node,
+      Trajectory trajectory,
+      SearchQueue& queue)
+  {
+    assert(trajectory.size() > 1);
+    if(is_valid(trajectory))
+    {
+      // TODO(MXG): Consider short-circuiting the rest of the search and
+      // returning the solution if this Node solves the search problem. It could
+      // be an optional behavior configurable from the Planner::Options.
+      queue.push(std::make_shared<Node>(
+                 Node{
+                   _context.heuristic.estimate_remaining_cost(_context, waypoint),
+                   compute_current_cost(parent_node, trajectory),
+                   waypoint,
+                   orientation,
+                   std::move(trajectory),
+                   parent_node
+                 }));
+      return true;
+    }
+
+    return false;
+  }
+
+  struct LaneExpansionNode
+  {
+    std::size_t lane;
+    Trajectory parent_trajectory;
+  };
+
+  void expand_down_lane(
+      const NodePtr& initial_parent,
+      const std::size_t initial_lane_index,
+      SearchQueue& queue)
+  {
+    const std::size_t initial_waypoint = initial_parent->waypoint;
+    assert(_context.graph.lanes[initial_lane_index].entry().waypoint_index()
+           == initial_waypoint);
+    const Eigen::Vector2d initial_p =
+        _context.graph.waypoints[initial_waypoint].get_location();
+    const double orientation = initial_parent->orientation;
+
+    Trajectory initial_trajectory{
+      _context.graph.waypoints[initial_waypoint].get_map_name()
+    };
+
+    const Trajectory::Segment& last_seg =
+        initial_parent->trajectory_from_parent.back();
+
+    const Eigen::Vector3d initial_position = last_seg.get_finish_position();
+
+    initial_trajectory.insert(
+          last_seg.get_finish_time(),
+          _context.profile,
+          initial_position,
+          Eigen::Vector3d::Zero());
+
+    std::vector<LaneExpansionNode> lane_expansion_queue;
+    lane_expansion_queue.push_back(
+        {initial_lane_index, std::move(initial_trajectory)});
+
+    while (!lane_expansion_queue.empty())
+    {
+      const LaneExpansionNode top = std::move(lane_expansion_queue.back());
+      lane_expansion_queue.pop_back();
+
+      const agv::Graph::Lane& lane = _context.graph.lanes[top.lane];
+      const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
+      const agv::Graph::Waypoint& exit_waypoint =
+          _context.graph.waypoints[exit_waypoint_index];
+
+      const Eigen::Vector2d& next_p = exit_waypoint.get_location();
+      const Eigen::Vector3d next_position{next_p[0], next_p[1], orientation};
+
+      // TODO(MXG): Figure out what to do if the trajectory spans across
+      // multiple maps.
+      Trajectory trajectory = top.parent_trajectory;
+      const auto& continue_from = trajectory.back();
+      agv::internal::interpolate_translation(
+            trajectory,
+            _context.traits.linear().get_nominal_velocity(),
+            _context.traits.linear().get_nominal_acceleration(),
+            continue_from.get_finish_time(),
+            continue_from.get_finish_position(),
+            next_position,
+            _context.profile,
+            _context.interpolate.translation_thresh);
+
+      // NOTE(MXG): We cannot move the trajectory in this function call, because
+      // we may need to copy the trajectory later when we expand further down
+      // other lanes.
+      if (!add_if_valid(exit_waypoint_index, orientation, initial_parent,
+                        trajectory, queue))
+      {
+        // This lane was not successfully added, so we should not try to expand
+        // this any further.
+        continue;
+      }
+
+      // If this lane was successfully added, we can try to find more lanes to
+      // continue down, as a single expansion from the original parent.
+      const std::vector<std::size_t>& lanes =
+          _context.graph.lanes_from[exit_waypoint_index];
+
+      for (const std::size_t l : lanes)
+      {
+        const agv::Graph::Lane& future_lane = _context.graph.lanes[l];
+
+        const Eigen::Vector2d future_p =
+            _context.graph.waypoints[future_lane.exit().waypoint_index()]
+            .get_location();
+
+        const Eigen::Vector2d course = future_p - initial_p;
+
+        const bool check_orientation =
+            is_orientation_okay(initial_p, orientation, course, future_lane);
+
+        if (!check_orientation)
+        {
+          // The orientation needs to be changed to go down this lane, so we
+          // should not expand in this direction
+          continue;
+        }
+
+        const Eigen::Vector3d future_position{
+          future_p[0], future_p[1], orientation
+        };
+
+        if(!agv::internal::can_skip_interpolation(
+             initial_position, next_position,
+             future_position, _context.interpolate))
+        {
+          continue;
+        }
+
+        lane_expansion_queue.push_back({l, trajectory});
+      }
+    }
+  }
+
+  void expand_lane(
+      const NodePtr& initial_parent,
+      const std::size_t initial_lane_index,
+      SearchQueue& queue)
+  {
+    const auto rotations = expand_rotations(initial_parent, initial_lane_index);
+    for (const auto& parent : rotations)
+      expand_down_lane(parent, initial_lane_index, queue);
+  }
+
+  void expand_holding(
+      const std::size_t waypoint,
+      const NodePtr& parent_node,
+      SearchQueue& queue)
+  {
+    const Trajectory& parent_trajectory = parent_node->trajectory_from_parent;
+    const auto& initial_segment = parent_trajectory.back();
+
+    Trajectory trajectory{_context.graph.waypoints[waypoint].get_map_name()};
+
+    const Time initial_time = initial_segment.get_finish_time();
+    const Eigen::Vector3d& initial_pos = initial_segment.get_finish_position();
+    trajectory.insert(initial_segment);
+
+    trajectory.insert(
+          initial_time + _context.holding_time,
+          _context.profile,
+          initial_pos,
+          Eigen::Vector3d::Zero());
+    assert(trajectory.size() == 2);
+
+    add_if_valid(
+        waypoint, initial_pos[2], parent_node, std::move(trajectory), queue);
+  }
+
   void expand(const NodePtr& parent_node, SearchQueue& queue)
   {
     const std::size_t parent_waypoint = parent_node->waypoint;
@@ -518,6 +890,15 @@ struct DifferentialDriveExpander
       // We should, however, continue to expand other nodes, because a more
       // optimal solution could still exist.
     }
+
+    const std::vector<std::size_t>& lanes =
+        _context.graph.lanes_from[parent_waypoint];
+
+    for (const std::size_t l : lanes)
+      expand_lane(parent_node, l, queue);
+
+    if(_context.graph.waypoints[parent_waypoint].is_holding_point())
+      expand_holding(parent_waypoint, parent_node, queue);
   }
 
 
@@ -525,6 +906,7 @@ private:
 
   Context& _context;
   schedule::Query _query;
+  DifferentialDriveConstraint _differential_constraint;
 };
 
 //==============================================================================
@@ -533,15 +915,20 @@ class DifferentialDriveCache : public Cache
 public:
 
   using Heuristic = DifferentialDriveExpander::Heuristic;
+  using NodePtr = DifferentialDriveExpander::NodePtr;
 
   DifferentialDriveCache(agv::Planner::Configuration config)
-  : graph(agv::Graph::Implementation::get(config.graph())),
-    traits(config.vehicle_traits())
+  : _config(std::move(config)),
+    _graph(agv::Graph::Implementation::get(_config.graph())),
+    _traits(_config.vehicle_traits()),
+    _profile(_traits.get_profile()),
+    _interpolate(agv::Interpolate::Options::Implementation::get(
+                   _config.interpolation()))
   {
     // Do nothing
   }
 
-  CachePtr clone() const override final
+  CachePtr clone() const final
   {
     return std::make_shared<DifferentialDriveCache>(*this);
   }
@@ -550,11 +937,11 @@ public:
   {
     const auto& newer = static_cast<const DifferentialDriveCache&>(newer_cache);
 
-    for(const auto& h : newer.heuristics)
+    for(const auto& h : newer._heuristics)
     {
 
-      auto& heuristic =
-          heuristics.insert(std::make_pair(h.first, Heuristic{})).first->second;
+      auto& heuristic = _heuristics.insert(
+            std::make_pair(h.first, Heuristic{})).first->second;
 
       heuristic.update(h.second);
     }
@@ -563,21 +950,24 @@ public:
   Result plan(
       agv::Planner::Start start,
       agv::Planner::Goal goal,
-      agv::Planner::Options options) override final
+      agv::Planner::Options options) final
   {
     const std::string& map_name =
-        graph.waypoints[start.waypoint()].get_map_name();
+        _graph.waypoints[start.waypoint()].get_map_name();
 
     Result result{false, {map_name}, {}, start, goal, options};
     const std::size_t goal_waypoint = goal.waypoint();
-    Heuristic& h = heuristics.insert(
+    Heuristic& h = _heuristics.insert(
           std::make_pair(goal_waypoint, Heuristic{})).first->second;
 
-    const DifferentialDriveExpander::NodePtr solution =
-        search<DifferentialDriveExpander>(
+    const NodePtr solution = search<DifferentialDriveExpander>(
           DifferentialDriveExpander::Context{
-            graph,
-            traits,
+            _graph,
+            _traits,
+            _profile,
+            options.minimum_holding_time(),
+            _interpolate,
+            options.schedule_viewer(),
             goal_waypoint,
             goal.orientation(),
             start.time(),
@@ -588,18 +978,30 @@ public:
             start.orientation()
           });
 
+    result.trajectories = reconstruct_trajectories(solution);
+    result.waypoints = reconstruct_waypoints(solution, _graph);
 
+    return result;
+  }
+
+  const agv::Planner::Configuration& get_configuration() const final
+  {
+    return _config;
   }
 
 private:
 
-  const agv::Graph::Implementation& graph;
-  const agv::VehicleTraits& traits;
+  agv::Planner::Configuration _config;
+
+  const agv::Graph::Implementation& _graph;
+  const agv::VehicleTraits& _traits;
+  const Trajectory::ConstProfilePtr& _profile;
+  const agv::Interpolate::Options::Implementation& _interpolate;
 
   // This maps from a goal waypoint to the cached Heuristic object that tries to
   // plan to that goal waypoint.
   using HeuristicDatabase = std::unordered_map<std::size_t, Heuristic>;
-  HeuristicDatabase heuristics;
+  HeuristicDatabase _heuristics;
 };
 
 //==============================================================================

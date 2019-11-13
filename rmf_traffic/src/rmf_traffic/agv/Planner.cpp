@@ -356,6 +356,9 @@ Planner::Planner(
 }
 
 //==============================================================================
+
+
+//==============================================================================
 Plan Planner::plan(Start start, Goal goal) const
 {
   return Plan::Implementation::generate(
@@ -412,9 +415,9 @@ Plan::operator bool() const
 }
 
 //==============================================================================
-const Trajectory& Plan::get_trajectory() const
+const std::vector<Trajectory>& Plan::get_trajectories() const
 {
-  return _pimpl->result.trajectory;
+  return _pimpl->result.trajectories;
 }
 
 //==============================================================================
@@ -441,6 +444,30 @@ Plan Plan::replan(Planner::Start new_start, Planner::Options new_options) const
         std::move(new_start),
         _pimpl->result.goal,
         std::move(new_options));
+}
+
+//==============================================================================
+const Planner::Start& Plan::get_start() const
+{
+  return _pimpl->result.start;
+}
+
+//==============================================================================
+const Planner::Goal& Plan::get_goal() const
+{
+  return _pimpl->result.goal;
+}
+
+//==============================================================================
+const Planner::Options& Plan::get_options() const
+{
+  return _pimpl->result.options;
+}
+
+//==============================================================================
+const Planner::Configuration& Plan::get_configuration() const
+{
+  return _pimpl->cache_mgr.get_configuration();
 }
 
 } // namespace agv

@@ -34,7 +34,7 @@ using CachePtr = std::shared_ptr<Cache>;
 struct Result
 {
   bool solved = false;
-  Trajectory trajectory;
+  std::vector<Trajectory> trajectories;
   std::vector<agv::Plan::Waypoint> waypoints;
 
   agv::Planner::Start start;
@@ -67,6 +67,9 @@ public:
       agv::Planner::Goal goal,
       agv::Planner::Options options) = 0;
 
+  virtual const agv::Planner::Configuration& get_configuration() const =0;
+
+  virtual ~Cache() = default;
 };
 
 //==============================================================================
@@ -105,6 +108,8 @@ public:
   CacheManager(CachePtr cache);
 
   CacheHandle get() const;
+
+  const agv::Planner::Configuration& get_configuration() const;
 
 private:
   CachePtr _cache;

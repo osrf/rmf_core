@@ -366,7 +366,7 @@ public:
   /// \warning If this plan is not valid, this will have undefined behavior, and
   /// will cause a segmentation fault if this Plan is uninitialized
   /// (default-constructed).
-  const Trajectory& get_trajectory() const;
+  const std::vector<Trajectory>& get_trajectories() const;
 
   /// If this plan is valid, this will return the waypoints of the successful
   /// plan.
@@ -401,6 +401,30 @@ public:
   /// \param[in] new_options
   ///   The options that should be used for replanning.
   Plan replan(Planner::Start new_start, Planner::Options new_options) const;
+
+  /// If this Plan is valid, this will return the Planner::Start that was used
+  /// to produce it.
+  const Planner::Start& get_start() const;
+
+  /// If this Plan is valid, this will return the Planner::Goal that was used
+  /// to produce it.
+  ///
+  /// If replan() is called, this goal will be used to produce the new Plan.
+  const Planner::Goal& get_goal() const;
+
+  /// If this Plan is valid, this will return the Planner::Options that were
+  /// used to produce it.
+  ///
+  /// If replan(Planner::Start) is called, these Planner::Options will be used
+  /// to produce the new Plan.
+  const Planner::Options& get_options() const;
+
+  /// If this Plan is valid, this will return the Planner::Configuration that
+  /// was used to produce it.
+  ///
+  /// If replan() is called, this Planner::Configuration will be used to produce
+  /// the new Plan.
+  const Planner::Configuration& get_configuration() const;
 
   // TODO(MXG): Create a feature that can diff two plans to produce the most
   // efficient schedule::Database::Change to get from the original plan to the
