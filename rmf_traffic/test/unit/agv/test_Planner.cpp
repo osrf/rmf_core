@@ -1266,7 +1266,7 @@ SCENARIO("DP1 Graph")
 
     WHEN("First obstacle is introduced")
     {
-       REQUIRE(rmf_traffic::DetectConflict::between(obstacle,t).size()!=0);
+       REQUIRE(!rmf_traffic::DetectConflict::between(obstacle, t).empty());
        obstacles.push_back(obstacle);
        test_with_obstacle("Unconstrained", plan, database, obstacles, 32, time);
     }

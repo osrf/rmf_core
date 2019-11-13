@@ -691,14 +691,14 @@ struct DifferentialDriveExpander
       // returning the solution if this Node solves the search problem. It could
       // be an optional behavior configurable from the Planner::Options.
       queue.push(std::make_shared<Node>(
-                 Node{
-                   _context.heuristic.estimate_remaining_cost(_context, waypoint),
-                   compute_current_cost(parent_node, trajectory),
-                   waypoint,
-                   orientation,
-                   std::move(trajectory),
-                   parent_node
-                 }));
+               Node{
+                 _context.heuristic.estimate_remaining_cost(_context, waypoint),
+                 compute_current_cost(parent_node, trajectory),
+                 waypoint,
+                 orientation,
+                 std::move(trajectory),
+                 parent_node
+               }));
       return true;
     }
 
@@ -897,7 +897,7 @@ struct DifferentialDriveExpander
     for (const std::size_t l : lanes)
       expand_lane(parent_node, l, queue);
 
-    if(_context.graph.waypoints[parent_waypoint].is_holding_point())
+    if (_context.graph.waypoints[parent_waypoint].is_holding_point())
       expand_holding(parent_waypoint, parent_node, queue);
   }
 
