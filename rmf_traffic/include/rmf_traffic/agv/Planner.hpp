@@ -309,6 +309,11 @@ class Plan
 {
 public:
 
+  using Start = Planner::Start;
+  using Goal = Planner::Goal;
+  using Options = Planner::Options;
+  using Configuration = Planner::Configuration;
+
   /// A Waypoint within a Plan.
   ///
   /// This class helps to discretize a Plan based on the Waypoints belonging to
@@ -387,7 +392,7 @@ public:
   ///
   /// \param[in] new_start
   ///   The starting conditions that should be used for replanning.
-  Plan replan(Planner::Start new_start) const;
+  Plan replan(Start new_start) const;
 
   /// If this Plan was valid, this will ask for a new plan to the same goal.
   ///
@@ -400,31 +405,31 @@ public:
   ///
   /// \param[in] new_options
   ///   The options that should be used for replanning.
-  Plan replan(Planner::Start new_start, Planner::Options new_options) const;
+  Plan replan(Start new_start, Options new_options) const;
 
   /// If this Plan is valid, this will return the Planner::Start that was used
   /// to produce it.
-  const Planner::Start& get_start() const;
+  const Start& get_start() const;
 
   /// If this Plan is valid, this will return the Planner::Goal that was used
   /// to produce it.
   ///
   /// If replan() is called, this goal will be used to produce the new Plan.
-  const Planner::Goal& get_goal() const;
+  const Goal& get_goal() const;
 
   /// If this Plan is valid, this will return the Planner::Options that were
   /// used to produce it.
   ///
   /// If replan(Planner::Start) is called, these Planner::Options will be used
   /// to produce the new Plan.
-  const Planner::Options& get_options() const;
+  const Options& get_options() const;
 
   /// If this Plan is valid, this will return the Planner::Configuration that
   /// was used to produce it.
   ///
   /// If replan() is called, this Planner::Configuration will be used to produce
   /// the new Plan.
-  const Planner::Configuration& get_configuration() const;
+  const Configuration& get_configuration() const;
 
   // TODO(MXG): Create a feature that can diff two plans to produce the most
   // efficient schedule::Database::Change to get from the original plan to the

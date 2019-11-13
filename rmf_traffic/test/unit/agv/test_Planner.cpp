@@ -29,8 +29,8 @@
 #include <iomanip>
 
 // TODO(MXG): Move performance testing content into a performance test folder
-const bool test_performance = false;
-//  const bool test_performance = true;
+//const bool test_performance = false;
+  const bool test_performance = true;
 const std::size_t N = test_performance? 10 : 1;
 
 void print_timing(const std::chrono::steady_clock::time_point& start_time)
@@ -102,11 +102,10 @@ rmf_traffic::Trajectory test_with_obstacle(
     const std::vector<rmf_traffic::Trajectory>& obstacles,
     const std::size_t hold_index,
     const rmf_traffic::Time time,
-    const bool print_info=false,
+    const bool expect_conflict=true,
     const bool check_holding=true,
-    const bool expect_conflict=true)
+    const bool print_info=false)
 {
-
   rmf_traffic::Trajectory t_obs{""};
 
   for(const auto& obstacle : obstacles)
@@ -147,7 +146,9 @@ rmf_traffic::Trajectory test_with_obstacle(
   
   const auto& original_trajectory = original_plan.get_trajectories().front();
   if (expect_conflict)
+  {
     CHECK( original_trajectory.duration() < t_obs.duration() );
+  }
   else
   {
     const auto time_diff = original_trajectory.duration() - t_obs.duration();
@@ -270,7 +271,6 @@ SCENARIO("Test planning")
     CHECK(plan.get_trajectories().front().size()==0);
   }
 
-
   WHEN("initial and goal waypoints are same but goal_orientation is different")
   {
     rmf_traffic::agv::Plan plan;
@@ -278,7 +278,7 @@ SCENARIO("Test planning")
     const double goal_orientation = M_PI/2.0;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
-    for(std::size_t i=0; i < N; ++i)
+    for(std::size_t i = 0; i < N; ++i)
     {
       plan = planner.plan(
           rmf_traffic::agv::Planner::Start{start_time, 3, 0.0},
@@ -310,18 +310,18 @@ SCENARIO("Test planning")
   {
     rmf_traffic::agv::Plan plan;
     CHECK(!plan);
-    double goal_orientation=M_PI;
+    const double goal_orientation = M_PI;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
-    for(std::size_t i=0;i<N;++i)
+    for(std::size_t i = 0; i < N; ++i)
     {
       plan = planner.plan(
             rmf_traffic::agv::Planner::Start{start_time, 3, M_PI},
-            rmf_traffic::agv::Planner::Goal{3, goal_orientation});
+            rmf_traffic::agv::Planner::Goal{2, goal_orientation});
       REQUIRE(plan);
       CHECK(plan.valid());
     }
-     
+
     const auto end_time = std::chrono::steady_clock::now();
     if(test_performance)
     {
@@ -333,7 +333,7 @@ SCENARIO("Test planning")
 
     CHECK(plan.get_trajectories().size()==1);
     const auto t = plan.get_trajectories().front();
-    CHECK(t.size()==4); //start, stop acc, start decc, goal
+    REQUIRE(t.size() == 4); //start, stop acc, start decc, goal
 
     const auto initial_p = t.front().get_finish_position().block<2,1>(0, 0);
     CHECK((initial_p - Eigen::Vector2d(10, -5)).norm() == Approx(0.0) );
@@ -344,7 +344,6 @@ SCENARIO("Test planning")
     CHECK(t.back().get_finish_position()[2] - goal_orientation==Approx(0));
     CHECK(t.back().get_finish_time() > start_time);
   }
-  
 
   GIVEN("Goal from 12->5 and obstacle from 5->12")
   {
@@ -370,7 +369,7 @@ SCENARIO("Test planning")
           make_test_profile(UnitCircle),
           {10.0, 12.0, 0.0},
           {0.0, 0.0, 0.0});
-    REQUIRE(obstacle.size()==3);
+    REQUIRE(obstacle.size() == 3);
     obstacles.push_back(obstacle);
 
     WHEN("Docking is not constrained")
@@ -386,7 +385,7 @@ SCENARIO("Test planning")
       rmf_traffic::agv::Plan plan;
       const auto start_time = std::chrono::steady_clock::now();
 
-      for(std::size_t i=0; i < N; ++i)
+      for(std::size_t i = 0; i < N; ++i)
       {
         plan = planner.plan(start, goal);
 
@@ -634,708 +633,756 @@ SCENARIO("Test planning")
 
 
 
-//  GIVEN("Goal from 12->0 and two obstacles : 9->11 and 1->9")
-//  {
+  GIVEN("Goal from 12->0 and two obstacles : 9->11 and 1->9")
+  {
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    // expect robot to wait at holding point 6 and 4
+    const std::size_t start_index = 12;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
 
-//    //expect robot to wait at holding point 6 nad 4
+    const std::size_t goal_index = 0;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
 
-//    const int start_index=12;
-//    const int goal_index=0;
-//    //const int hold_index=6;
-//    const rmf_traffic::Time time = std::chrono::steady_clock::now();
-//    const rmf_traffic::agv::VehicleTraits traits(
-//       {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
-//    rmf_traffic::schedule::Database database;
-//    rmf_traffic::agv::Planner::Options options(traits, graph, database);
-//    std::vector<rmf_traffic::Trajectory> obstacles;
-//    std::vector<rmf_traffic::Trajectory> solution;
+    std::vector<rmf_traffic::Trajectory> obstacles;
 
+    rmf_traffic::Trajectory obstacle_1{test_map_name};
+    obstacle_1.insert(
+         time + 19s,
+         make_test_profile(UnitCircle),
+         {0.0, 8.0, 0.0},
+         {0.0, 0.0, 0.0});
+    obstacle_1.insert(
+         time + 40s,
+         make_test_profile(UnitCircle),
+         {5.0, 8.0, 0.0},
+         {0.0, 0.0, 0.0});
+    obstacle_1.insert(
+         time + 50s,
+         make_test_profile(UnitCircle),
+         {10.0, 12.0, 0.0},
+         {0.0, 0.0, 0.0});
+    REQUIRE(obstacle_1.size() == 3);
 
-//    rmf_traffic::Trajectory obstacle_1{test_map_name};
-//    obstacle_1.insert(
-//         time + 19s,
-//         make_test_profile(UnitCircle),
-//         {0.0, 8.0, 0.0},
-//         {0.0, 0.0, 0.0});
-//    obstacle_1.insert(
-//         time + 40s,
-//         make_test_profile(UnitCircle),
-//         {5.0, 8.0, 0.0},
-//         {0.0, 0.0, 0.0});
-//    obstacle_1.insert(
-//         time + 50s,
-//         make_test_profile(UnitCircle),
-//         {10.0, 12.0, 0.0},
-//         {0.0, 0.0, 0.0});
-//    REQUIRE(obstacle_1.size()==3);
+    WHEN("Docking is not constrained")
+    {
+      using namespace rmf_traffic::agv;
+      add_bidir_lane(5, 9);
+      add_bidir_lane(11, 12);
 
+      planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
+      rmf_traffic::agv::Plan plan;
 
-//    WHEN("Docking is not constrained")
-//    {
-//     using namespace rmf_traffic::agv;
-//     add_bidir_lane(5, 9);
-//     add_bidir_lane(11, 12);
-//     options.set_graph(graph);
-//     const auto start_time = std::chrono::steady_clock::now();
-//     for(std::size_t i=0; i < N; ++i)
-//       CHECK(rmf_traffic::agv::Planner::solve(time, start_index, 0.0, goal_index, nullptr, options, solution));
+      const auto start_time = std::chrono::steady_clock::now();
+      for(std::size_t i=0; i < N; ++i)
+      {
+        plan = planner.plan(start, goal);
+        REQUIRE(plan);
+      }
 
-//     const auto end_time = std::chrono::steady_clock::now();
-//     if(test_performance)
-//     {
-//       const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-//       std::cout << "\nUnconstrained" << std::endl;
-//       std::cout << "Total: " << sec << std::endl;
-//       std::cout << "Per run: " << sec/N << std::endl;
-//     }
+      const auto end_time = std::chrono::steady_clock::now();
+      if(test_performance)
+      {
+        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+        std::cout << "\nUnconstrained" << std::endl;
+        std::cout << "Total: " << sec << std::endl;
+        std::cout << "Per run: " << sec/N << std::endl;
+      }
 
-//     REQUIRE(solution.size() == 1);
-//     const auto t = solution.front();
-//     CHECK( (t.front().get_finish_position().block<2,1>(0,0) - graph.get_waypoint(start_index).get_location()).norm() == Approx(0.0) );
-//     CHECK( (t.back().get_finish_position().block<2,1>(0,0) - graph.get_waypoint(goal_index).get_location()).norm() == Approx(0.0) );
-//     //print_trajectory_info(t,time,graph); //for debugging
+      REQUIRE(plan.get_trajectories().size() == 1);
+      const auto t = plan.get_trajectories().front();
 
-//     WHEN("First obstacle is introduced")
-//     {
-//       CHECK(rmf_traffic::DetectConflict::between(t,obstacle_1).size()>0);
-//       obstacles.push_back(obstacle_1);
-//       auto t_obs=test_with_obstacle(
-//             "Unconstrained", database, obstacles,
-//             options, t,start_index,goal_index,6, time, test_performance, N,false);
+      const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+      const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+      CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
 
-//     }
+      const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+      const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+      CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
 
-//     WHEN("Second obstacle is introduced")
-//     {
-//       REQUIRE(graph.get_waypoint(4).is_holding_point());
-//       rmf_traffic::Trajectory obstacle_2{test_map_name};
-//       obstacle_2.insert(
-//             time + 49s,
-//             make_test_profile(UnitCircle),
-//             {0.0, -5.0, M_PI_2},
-//             {0.0, 0.0, 0.0});
-//       obstacle_2.insert(
-//             time + 60s,
-//             make_test_profile(UnitCircle),
-//             {0.0, 0.0, M_PI_2},
-//             {0.0, 0.0, 0.0});
-//       obstacle_2.insert(
-//             time + 87s,
-//             make_test_profile(UnitCircle),
-//             {0.0, 8.0, M_PI_2},
-//             {0.0, 0.0, 0.0});
-//       REQUIRE(obstacle_2.size()==3);
-//       REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,obstacle_2).size()==0);
-//       CHECK(rmf_traffic::DetectConflict::between(t,obstacle_2).size()>0);
+      WHEN("First obstacle is introduced")
+      {
+        CHECK(rmf_traffic::DetectConflict::between(t,obstacle_1).size() > 0);
+        obstacles.push_back(obstacle_1);
 
-//         obstacles.push_back(obstacle_2);
-//         auto t_obs=test_with_obstacle(
-//         "Unconstrained", database, obstacles,
-//         options, t,start_index,goal_index,4, time, test_performance, N,false);
+        auto t_obs=test_with_obstacle(
+              "Unconstrained", plan, database, obstacles, 6, time);
+      }
 
-//     }
+      WHEN("Second obstacle is introduced")
+      {
+        REQUIRE(graph.get_waypoint(4).is_holding_point());
+        rmf_traffic::Trajectory obstacle_2{test_map_name};
+        obstacle_2.insert(
+              time + 49s,
+              make_test_profile(UnitCircle),
+              {0.0, -5.0, M_PI_2},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 60s,
+              make_test_profile(UnitCircle),
+              {0.0, 0.0, M_PI_2},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 87s,
+              make_test_profile(UnitCircle),
+              {0.0, 8.0, M_PI_2},
+              {0.0, 0.0, 0.0});
+        REQUIRE(obstacle_2.size()==3);
+        REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,obstacle_2).size()==0);
+        CHECK(rmf_traffic::DetectConflict::between(t,obstacle_2).size()>0);
 
+        obstacles.push_back(obstacle_2);
+        auto t_obs = test_with_obstacle(
+              "Unconstrained", plan, database, obstacles, 4, time);
+      }
 
+      WHEN("Both obstacles are introduced")
+      {
+        rmf_traffic::Trajectory obstacle_2{test_map_name};
+        obstacle_2.insert(
+              time + 81s,
+              make_test_profile(UnitCircle),
+              {0.0, -5.0, 0.0},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 92s,
+              make_test_profile(UnitCircle),
+              {0.0, 0.0, 0.0},
+              {0.0, 0.0, 0.0});
+        obstacle_2.insert(
+              time + 110s,
+              make_test_profile(UnitCircle),
+              {0.0, 8.0, 0.0},
+              {0.0, 0.0, 0.0});
+        REQUIRE(obstacle_2.size()==3);
+        obstacles.push_back(obstacle_1);
+        obstacles.push_back(obstacle_2);
 
-//     WHEN("Both obstacles are introduced")
-//     {
-
-//       rmf_traffic::Trajectory obstacle_2{test_map_name};
-//       obstacle_2.insert(
-//             time + 81s,
-//             make_test_profile(UnitCircle),
-//             {0.0, -5.0, 0.0},
-//             {0.0, 0.0, 0.0});
-//       obstacle_2.insert(
-//             time + 92s,
-//             make_test_profile(UnitCircle),
-//             {0.0, 0.0, 0.0},
-//             {0.0, 0.0, 0.0});
-//       obstacle_2.insert(
-//             time + 110s,
-//             make_test_profile(UnitCircle),
-//             {0.0, 8.0, 0.0},
-//             {0.0, 0.0, 0.0});
-//       REQUIRE(obstacle_2.size()==3);
-//         obstacles.push_back(obstacle_1);
-//         obstacles.push_back(obstacle_2);
-
-//         auto t_obs=test_with_obstacle(
-//         "Unconstrained", database, obstacles,
-//         options, t,start_index,goal_index,6, time, test_performance, N,false);
-
-//     }
-
-
-
-//    }
-
-//  }
-
-
-
+        auto t_obs=test_with_obstacle(
+              "Unconstrained", plan, database, obstacles, 6, time);
+      }
+    }
+  }
 }
 
 
 
 
-// SCENARIO("DP1 Graph")
-// {
-//   using namespace std::chrono_literals;
-
-//   //initialize graph
-//   const std::string test_map_name = "test_map";
-//   rmf_traffic::agv::Graph graph;
-//   graph.add_waypoint(test_map_name, {12, -12});       // 0
-//   graph.add_waypoint(test_map_name, {18, -12}, true); // 1
-//   graph.add_waypoint(test_map_name, {-10, -8});       // 2
-//   graph.add_waypoint(test_map_name, {-2, -8}, true);  // 3
-//   graph.add_waypoint(test_map_name, { 3,  -8});       // 4
-//   graph.add_waypoint(test_map_name, {12,  -8});       // 5
-//   graph.add_waypoint(test_map_name, {18,  -8}, true); // 6
-//   graph.add_waypoint(test_map_name, {-15,  -4},true); // 7
-//   graph.add_waypoint(test_map_name, {-10,  -4});      // 8
-//   graph.add_waypoint(test_map_name, { -2,  -4},true); // 9
-//   graph.add_waypoint(test_map_name, { 3,  -4});       // 10
-//   graph.add_waypoint(test_map_name, {6, -4});         // 11
-//   graph.add_waypoint(test_map_name, {9, -4});         // 12
-//   graph.add_waypoint(test_map_name, {-15,  0});       // 13
-//   graph.add_waypoint(test_map_name, {-10,  0});       // 14
-//   graph.add_waypoint(test_map_name, { 0,  0});        // 15 DOOR (not implemented)
-//   graph.add_waypoint(test_map_name, { 3,  0});        // 16
-//   graph.add_waypoint(test_map_name, {6, 0});          // 17
-//   graph.add_waypoint(test_map_name, {9, 0});          // 18
-//   graph.add_waypoint(test_map_name, {15,  0},true);   // 19
-//   graph.add_waypoint(test_map_name, {18,  0},true);   // 20
-//   graph.add_waypoint(test_map_name, { -2,  4},true);  // 21
-//   graph.add_waypoint(test_map_name, { 3,  4});        // 22
-//   graph.add_waypoint(test_map_name, {6, 4});          // 23
-//   graph.add_waypoint(test_map_name, {9, 4});          // 24
-//   graph.add_waypoint(test_map_name, {15,  4});        // 25
-//   graph.add_waypoint(test_map_name, {18,  4});        // 26
-//   graph.add_waypoint(test_map_name, { -15,  8},true); // 27
-//   graph.add_waypoint(test_map_name, {-10,  8},true);  // 28
-//   graph.add_waypoint(test_map_name, {3, 8}, true);    // 29
-//   graph.add_waypoint(test_map_name, {6, 8}, true);    // 30
-//   graph.add_waypoint(test_map_name, {15,  8}, true);  // 31
-//   graph.add_waypoint(test_map_name, {18,  8}, true);  // 32
-
-//   REQUIRE(graph.num_waypoints()==33);
-
-//   auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
-//   {
-//     graph.add_lane(w0, w1);
-//     graph.add_lane(w1, w0);
-//   };
-//   //horizontal lates
-//   add_bidir_lane(0, 1);
-//   add_bidir_lane(2, 3);
-//   add_bidir_lane(4, 5);
-//   add_bidir_lane(5, 6);
-//   add_bidir_lane(7, 8);
-//   add_bidir_lane(8, 9);
-//   add_bidir_lane(10, 11);
-//   add_bidir_lane(11, 12);
-//   add_bidir_lane(13, 14);
-//   add_bidir_lane(14, 15);
-//   add_bidir_lane(15, 16);
-//   add_bidir_lane(16, 17);
-//   add_bidir_lane(17, 18);
-//   add_bidir_lane(21, 22);
-//   add_bidir_lane(23, 24);
-//   add_bidir_lane(24, 25);
-//   add_bidir_lane(25, 26);
-
-
-// //vertical lanes
-//   add_bidir_lane(0, 5);
-//   add_bidir_lane(2, 8);
-//   add_bidir_lane(4, 10);
-//   add_bidir_lane(8, 14);
-//   add_bidir_lane(10, 16);
-//   add_bidir_lane(11, 17);
-//   add_bidir_lane(12, 18);
-//   add_bidir_lane(13, 27);
-//   add_bidir_lane(14, 28);
-//   add_bidir_lane(16, 22);
-//   add_bidir_lane(17, 23);
-//   add_bidir_lane(18, 24);
-//   add_bidir_lane(19, 25);
-//   add_bidir_lane(20, 26);
-//   add_bidir_lane(22, 29);
-//   add_bidir_lane(23, 30);
-//   add_bidir_lane(25, 31);
-//   add_bidir_lane(26, 32);
-
-
-//   std::size_t start_index=17;
-//   std::size_t goal_index=12;
-
-//   std::vector<rmf_traffic::Trajectory> solution;
-//   std::vector<rmf_traffic::Trajectory> obstacles;
-//   rmf_traffic::schedule::Database database;
-//   const rmf_traffic::agv::VehicleTraits vehicle_traits({1.0, 0.4}, {1.0, 0.5}, make_test_profile(UnitCircle));
-//   rmf_traffic::Time time= std::chrono::steady_clock::now();
-//   rmf_traffic::agv::Planner::Options options(vehicle_traits,graph, database);
-
-//   const bool test_performance=false;
-//   const std::size_t N = test_performance? 10 : 1;
-  
-// WHEN("Robot moves from 1->30 given multiple non-conflicting obstacles that partially overlap in time")
-//   {
-//     start_index=1;
-//     goal_index=30;
-
-//     const auto start_time = std::chrono::steady_clock::now();
-//     CHECK(rmf_traffic::agv::Planner::solve(time,start_index,0,goal_index,nullptr,options,solution));
-//     print_timing(start_time);
-//     CHECK(solution.size()==1);
-//     auto t= solution.front();
-//     CHECK((t.front().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(start_index).get_location()).norm()==Approx(0.0));
-//     CHECK((t.back().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(goal_index).get_location()).norm()==Approx(0.0));
-//     //print_trajectory_info(t,time,graph);
-//     WHEN("Obstacle 28->3 that partially overlaps in time")
-//       {
-
-//         rmf_traffic::Trajectory obstacle_1(test_map_name);
-//         obstacle_1.insert(
-//             time,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-10,8,-M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_1.insert(
-//             time+20s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-10,-8,-M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_1.insert(
-//             time+25s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-10,-8,0},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_1.insert(
-//             time+35s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-2,-8,0},
-//             Eigen::Vector3d{0,0,0});
-//         REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,t).size()==0);
-//         obstacles.push_back(obstacle_1);
-//         const auto t_obs1=test_with_obstacle("Partial 28->3",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-      
-
-//       WHEN("Obstacle 28->3, 16-29 added")
-//       {
-//         rmf_traffic::Trajectory obstacle_2(test_map_name);
-//         obstacle_2.insert(
-//             time+20s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{3,0,M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_2.insert(
-//             time+30s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{3,8,M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-
-//         for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//           REQUIRE(rmf_traffic::DetectConflict::between(obstacle_2,_t).size()==0);
-//         REQUIRE(rmf_traffic::DetectConflict::between(obstacle_2,t).size()==0);
-//         obstacles.push_back(obstacle_2);
-//         const auto t_obs2=test_with_obstacle("Partial 28->3, 16-29",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-
-//         WHEN("Obstacle 28->3, 16-29, 24->26 added")
-//         {
-//           rmf_traffic::Trajectory obstacle_3(test_map_name);
-//           obstacle_3.insert(
-//               time+40s,
-//               make_test_profile(UnitCircle),
-//               Eigen::Vector3d{9,4, 0},
-//               Eigen::Vector3d{0,0,0});
-//           obstacle_3.insert(
-//               time+60s,
-//               make_test_profile(UnitCircle),
-//               Eigen::Vector3d{18,4,0},
-//               Eigen::Vector3d{0,0,0});
-//           for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//             REQUIRE(rmf_traffic::DetectConflict::between(obstacle_3,_t).size()==0);
-//           REQUIRE(rmf_traffic::DetectConflict::between(obstacle_3,t).size()==0);
-//           obstacles.push_back(obstacle_3);
-
-//           const auto t_obs3=test_with_obstacle("Partial 28->3, 16-29, 24->26",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-
-
-//           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
-//             {
-//               rmf_traffic::Trajectory obstacle_4(test_map_name);
-//               obstacle_4.insert(
-//                   time+10s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-2,-4, 0},
-//                   Eigen::Vector3d{0,0,0});
-//               obstacle_4.insert(
-//                   time+20s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{3,4,0},
-//                   Eigen::Vector3d{0,0,0});
-//               for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//                 REQUIRE(rmf_traffic::DetectConflict::between(obstacle_4,_t).size()==0);
-//               REQUIRE(rmf_traffic::DetectConflict::between(obstacle_4,t).size()==0);
-//               obstacles.push_back(obstacle_4);
-
-//               rmf_traffic::Trajectory obstacle_5(test_map_name);
-//               obstacle_5.insert(
-//                   time+15s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-15,0, 0},
-//                   Eigen::Vector3d{0,0,0});
-//               obstacle_5.insert(
-//                   time+45s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-10,0,0},
-//                   Eigen::Vector3d{0,0,0});
-//               for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//                 REQUIRE(rmf_traffic::DetectConflict::between(obstacle_5,_t).size()==0);
-//               REQUIRE(rmf_traffic::DetectConflict::between(obstacle_5,t).size()==0);
-//               obstacles.push_back(obstacle_5);
-
-
-//               rmf_traffic::Trajectory obstacle_6(test_map_name);
-//               obstacle_6.insert(
-//                   time+60s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-12,-8, 0},
-//                   Eigen::Vector3d{0,0,0});
-//               obstacle_6.insert(
-//                   time+75s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-18,-8,0},
-//                   Eigen::Vector3d{0,0,0});
-
-//               for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//                 REQUIRE(rmf_traffic::DetectConflict::between(obstacle_6,_t).size()==0);
-//               REQUIRE(rmf_traffic::DetectConflict::between(obstacle_6,t).size()==0);
-//               obstacles.push_back(obstacle_6);
-
-//               const auto t_obs4=test_with_obstacle("Partial 28->3, 16-29, 24->26, 21->22, 13->14, 5->6",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-//             }
-
-
-//         }
-//       }
-//     }
-
-
-//   }
-
-// WHEN("Robot moves from 1->30 given multiple non-conflicting obstacles that fully overlap in time")
-//   {
-//     start_index=1;
-//     goal_index=30;
-
-//     const auto start_time = std::chrono::steady_clock::now();
-//     CHECK(rmf_traffic::agv::Planner::solve(time,start_index,0,goal_index,nullptr,options,solution));
-//     print_timing(start_time);
-//     CHECK(solution.size()==1);
-//     auto t= solution.front();
-//     CHECK((t.front().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(start_index).get_location()).norm()==Approx(0.0));
-//     CHECK((t.back().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(goal_index).get_location()).norm()==Approx(0.0));
-//     //print_trajectory_info(t,time,graph);
-//     WHEN("Obstacle 28->3 that partially overlaps in time")
-//       {
-
-//         rmf_traffic::Trajectory obstacle_1(test_map_name);
-//         obstacle_1.insert(
-//             time,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-10,8,-M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_1.insert(
-//             time+30s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-10,-8,-M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_1.insert(
-//             time+50s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-10,-8,0},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_1.insert(
-//             time+76s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{-2,-8,0},
-//             Eigen::Vector3d{0,0,0});
-//         REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1,t).size()==0);
-//         obstacles.push_back(obstacle_1);
-//         const auto t_obs1=test_with_obstacle("Full 28->3",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-      
-
-//       WHEN("Obstacle 28->3, 16-29 added")
-//       {
-//         rmf_traffic::Trajectory obstacle_2(test_map_name);
-//         obstacle_2.insert(
-//             time,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{3,0,M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//         obstacle_2.insert(
-//             time+76s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{3,8,M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-
-//         for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//           REQUIRE(rmf_traffic::DetectConflict::between(obstacle_2,_t).size()==0);
-//         REQUIRE(rmf_traffic::DetectConflict::between(obstacle_2,t).size()==0);
-//         obstacles.push_back(obstacle_2);
-//         const auto t_obs2=test_with_obstacle("Full 28->3, 16-29",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-
-//         WHEN("Obstacle 28->3, 16-29, 24->26 added")
-//         {
-//           rmf_traffic::Trajectory obstacle_3(test_map_name);
-//           obstacle_3.insert(
-//               time,
-//               make_test_profile(UnitCircle),
-//               Eigen::Vector3d{9,4, 0},
-//               Eigen::Vector3d{0,0,0});
-//           obstacle_3.insert(
-//               time+76s,
-//               make_test_profile(UnitCircle),
-//               Eigen::Vector3d{18,4,0},
-//               Eigen::Vector3d{0,0,0});
-//           for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//             REQUIRE(rmf_traffic::DetectConflict::between(obstacle_3,_t).size()==0);
-//           REQUIRE(rmf_traffic::DetectConflict::between(obstacle_3,t).size()==0);
-//           obstacles.push_back(obstacle_3);
-
-//           const auto t_obs3=test_with_obstacle("Full 28->3, 16-29, 24->26",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-
-
-//           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
-//             {
-//               rmf_traffic::Trajectory obstacle_4(test_map_name);
-//               obstacle_4.insert(
-//                   time,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-2,4, 0},
-//                   Eigen::Vector3d{0,0,0});
-//               obstacle_4.insert(
-//                   time+76s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{3,4,0},
-//                   Eigen::Vector3d{0,0,0});
-//               for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//                 REQUIRE(rmf_traffic::DetectConflict::between(obstacle_4,_t).size()==0);
-//               REQUIRE(rmf_traffic::DetectConflict::between(obstacle_4,t).size()==0);
-//               obstacles.push_back(obstacle_4);
-
-//               rmf_traffic::Trajectory obstacle_5(test_map_name);
-//               obstacle_5.insert(
-//                   time,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-15,0, 0},
-//                   Eigen::Vector3d{0,0,0});
-//               obstacle_5.insert(
-//                   time+76s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-10,0,0},
-//                   Eigen::Vector3d{0,0,0});
-//               for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//                 REQUIRE(rmf_traffic::DetectConflict::between(obstacle_5,_t).size()==0);
-//               REQUIRE(rmf_traffic::DetectConflict::between(obstacle_5,t).size()==0);
-//               obstacles.push_back(obstacle_5);
-
-
-//               rmf_traffic::Trajectory obstacle_6(test_map_name);
-//               obstacle_6.insert(
-//                   time,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-12,-8, 0},
-//                   Eigen::Vector3d{0,0,0});
-//               obstacle_6.insert(
-//                   time+76s,
-//                   make_test_profile(UnitCircle),
-//                   Eigen::Vector3d{-18,-8,0},
-//                   Eigen::Vector3d{0,0,0});
-
-//               for(auto _t:database.query(rmf_traffic::schedule::query_everything()))
-//                 REQUIRE(rmf_traffic::DetectConflict::between(obstacle_6,_t).size()==0);
-//               REQUIRE(rmf_traffic::DetectConflict::between(obstacle_6,t).size()==0);
-//               obstacles.push_back(obstacle_6);
-
-//               const auto t_obs4=test_with_obstacle("Full 28->3, 16-29, 24->26, 2->3, 13->14, 5->6",database,obstacles,options,t,start_index,goal_index,0,time,test_performance,N,false,false,false);
-//             }
-
-
-//         }
-//       }
-//     }
-
-
-//   }
-
-
-//   WHEN("Robot moves from 20->23 and obstacle moves from 23->20")
-//   {
-
-//   start_index=20;
-//   goal_index=23;
-
-//   const auto start_time = std::chrono::steady_clock::now();
-//   CHECK(rmf_traffic::agv::Planner::solve(time,start_index,M_PI_2,goal_index,nullptr,options,solution));
-//   print_timing(start_time);
-//   CHECK(solution.size()==1);
-//   auto t= solution.front();
-//   CHECK((t.front().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(start_index).get_location()).norm()==Approx(0.0));
-//   CHECK((t.back().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(goal_index).get_location()).norm()==Approx(0.0));
-  
-//   //print_trajectory_info(t,time,graph);
-
-//   rmf_traffic::Trajectory obstacle(test_map_name);
-//   obstacle.insert(
-//       time+6s,
-//       make_test_profile(UnitCircle),
-//       Eigen::Vector3d{6,4,0},
-//       Eigen::Vector3d{0,0,0});
-//   obstacle.insert(
-//       time+16s,
-//       make_test_profile(UnitCircle),
-//       Eigen::Vector3d{18,4,0},
-//       Eigen::Vector3d{0,0,0});
-//   obstacle.insert(
-//       time+26s,
-//       make_test_profile(UnitCircle),
-//       Eigen::Vector3d{18,0,0},
-//       Eigen::Vector3d{0,0,0});
-
-//   WHEN("First obstacle is introduced")
-//     {
-//       REQUIRE(rmf_traffic::DetectConflict::between(obstacle,t).size()!=0);
-//       obstacles.push_back(obstacle);
-//       auto t_obs=test_with_obstacle(
-//             "Unconstrained", database, obstacles,
-//             options, t,start_index,goal_index,32, time, test_performance, N,false);
-    
-//     }
-
-//   }
-
-
-//   WHEN("Robot moves from 27->32 with multiple obstacles along the way")
-//   {
-
-//     start_index=27;
-//     goal_index=32;
-
-//     const auto start_time = std::chrono::steady_clock::now();
-//     CHECK(rmf_traffic::agv::Planner::solve(time,start_index,0,goal_index,nullptr,options,solution));
-//     print_timing(start_time);
-//     CHECK(solution.size()==1);
-//     auto t= solution.front();
-//     CHECK((t.front().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(start_index).get_location()).norm()==Approx(0.0));
-//     CHECK((t.back().get_finish_position().block<2,1>(0,0)-graph.get_waypoint(goal_index).get_location()).norm()==Approx(0.0));
-//     //print_trajectory_info(t,time,graph);
-
-
-
-//     rmf_traffic::Trajectory obstacle_1(test_map_name);
-//     obstacle_1.insert(
-//       time,
-//       make_test_profile(UnitCircle),
-//       Eigen::Vector3d{-10,8,-M_PI_2},
-//       Eigen::Vector3d{0,0,0});
-//     obstacle_1.insert(
-//       time+25s,
-//       make_test_profile(UnitCircle),
-//       Eigen::Vector3d{-10,0,-M_PI_2},
-//       Eigen::Vector3d{0,0,0});
-//     obstacle_1.insert(
-//       time+50s,
-//       make_test_profile(UnitCircle),
-//       Eigen::Vector3d{-10,-8,-M_PI_2},
-//       Eigen::Vector3d{0,0,0});
-//     REQUIRE(obstacle_1.size()==3);
-//     REQUIRE(rmf_traffic::DetectConflict::between(t,obstacle_1).size()>0);
-//     // rmf_traffic::Trajectory t_obs1(test_map_name);
-//     // rmf_traffic::Trajectory t_obs2(test_map_name);
-//     // rmf_traffic::Trajectory t_obs3(test_map_name);
-
-//     WHEN("Obstacle 28->2")
-//     {
-//       obstacles.push_back(obstacle_1);
-
-//       auto t_obs1=test_with_obstacle(
-//               "Obstacle 28->2", database, obstacles,
-//               options, t,start_index,goal_index,27, time, test_performance, N,false);
-      
-    
-//       WHEN("Obstacle 28->2 , 29->4")
-//         {
-//           //robot waits 10s at 27 and then rotates on the spot at 13 for another 5s
-//           rmf_traffic::Trajectory obstacle_2(test_map_name);
-//           obstacle_2.insert(
-//             time,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{3, 8,-M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//           obstacle_2.insert(
-//             time+53s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{3, 0,-M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//           obstacle_2.insert(
-//             time+60s,
-//             make_test_profile(UnitCircle),
-//             Eigen::Vector3d{3,-4,-M_PI_2},
-//             Eigen::Vector3d{0,0,0});
-//           REQUIRE(obstacle_2.size()==3);
-//           REQUIRE(rmf_traffic::DetectConflict::between(t_obs1,obstacle_2).size()>0);
-
-//           obstacles.push_back(obstacle_2);
-
-//           auto t_obs2=test_with_obstacle(
-//                     "Obstacle 28->2 , 29->4", database, obstacles,
-//                     options, t,start_index,goal_index,27, time, test_performance, N,false);
-
-
-//           WHEN("Obstacle 28->2 , 29->4, 23->26")
-//             {
-//               //robot waits 10s at 27 and then rotates on the spot at 13, 16
-
-//               rmf_traffic::Trajectory obstacle_3(test_map_name);
-//               obstacle_3.insert(
-//                 time+50s,
-//                 make_test_profile(UnitCircle),
-//                 Eigen::Vector3d{6, 4, 0},
-//                 Eigen::Vector3d{0,0,0});
-//               obstacle_3.insert(
-//                 time+85s,
-//                 make_test_profile(UnitCircle),
-//                 Eigen::Vector3d{9, 4, 0},
-//                 Eigen::Vector3d{0,0,0});
-//               obstacle_3.insert(
-//                 time+95s,
-//                 make_test_profile(UnitCircle),
-//                 Eigen::Vector3d{18 , 4 , 0},
-//                 Eigen::Vector3d{0 , 0 , 0});
-//               REQUIRE(obstacle_3.size()==3);
-//               REQUIRE(rmf_traffic::DetectConflict::between(t_obs2,obstacle_3).size()>0);
-
-//               obstacles.push_back(obstacle_3);
-//               //std::cout<<"Obstacle Size: "<<obstacles.size()<<std::endl;
-              
-//               t_obs2=test_with_obstacle(
-//                         "Obstacle 28->2 , 29->4, 23->26", database, obstacles,
-//                         options, t,start_index,goal_index,27, time, test_performance, N,false);
-              
-                
-//             }
-//           }
-//       }
-
-
-//   }
-
-
-
-// }
+SCENARIO("DP1 Graph")
+{
+  using namespace std::chrono_literals;
+
+  //initialize graph
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, {12, -12});       // 0
+  graph.add_waypoint(test_map_name, {18, -12}, true); // 1
+  graph.add_waypoint(test_map_name, {-10, -8});       // 2
+  graph.add_waypoint(test_map_name, {-2, -8}, true);  // 3
+  graph.add_waypoint(test_map_name, { 3,  -8});       // 4
+  graph.add_waypoint(test_map_name, {12,  -8});       // 5
+  graph.add_waypoint(test_map_name, {18,  -8}, true); // 6
+  graph.add_waypoint(test_map_name, {-15,  -4},true); // 7
+  graph.add_waypoint(test_map_name, {-10,  -4});      // 8
+  graph.add_waypoint(test_map_name, { -2,  -4},true); // 9
+  graph.add_waypoint(test_map_name, { 3,  -4});       // 10
+  graph.add_waypoint(test_map_name, {6, -4});         // 11
+  graph.add_waypoint(test_map_name, {9, -4});         // 12
+  graph.add_waypoint(test_map_name, {-15,  0});       // 13
+  graph.add_waypoint(test_map_name, {-10,  0});       // 14
+  graph.add_waypoint(test_map_name, { 0,  0});        // 15 DOOR (not implemented)
+  graph.add_waypoint(test_map_name, { 3,  0});        // 16
+  graph.add_waypoint(test_map_name, {6, 0});          // 17
+  graph.add_waypoint(test_map_name, {9, 0});          // 18
+  graph.add_waypoint(test_map_name, {15,  0},true);   // 19
+  graph.add_waypoint(test_map_name, {18,  0},true);   // 20
+  graph.add_waypoint(test_map_name, { -2,  4},true);  // 21
+  graph.add_waypoint(test_map_name, { 3,  4});        // 22
+  graph.add_waypoint(test_map_name, {6, 4});          // 23
+  graph.add_waypoint(test_map_name, {9, 4});          // 24
+  graph.add_waypoint(test_map_name, {15,  4});        // 25
+  graph.add_waypoint(test_map_name, {18,  4});        // 26
+  graph.add_waypoint(test_map_name, { -15,  8},true); // 27
+  graph.add_waypoint(test_map_name, {-10,  8},true);  // 28
+  graph.add_waypoint(test_map_name, {3, 8}, true);    // 29
+  graph.add_waypoint(test_map_name, {6, 8}, true);    // 30
+  graph.add_waypoint(test_map_name, {15,  8}, true);  // 31
+  graph.add_waypoint(test_map_name, {18,  8}, true);  // 32
+
+  REQUIRE(graph.num_waypoints()==33);
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+  {
+    graph.add_lane(w0, w1);
+    graph.add_lane(w1, w0);
+  };
+  //horizontal lates
+  add_bidir_lane(0, 1);
+  add_bidir_lane(2, 3);
+  add_bidir_lane(4, 5);
+  add_bidir_lane(5, 6);
+  add_bidir_lane(7, 8);
+  add_bidir_lane(8, 9);
+  add_bidir_lane(10, 11);
+  add_bidir_lane(11, 12);
+  add_bidir_lane(13, 14);
+  add_bidir_lane(14, 15);
+  add_bidir_lane(15, 16);
+  add_bidir_lane(16, 17);
+  add_bidir_lane(17, 18);
+  add_bidir_lane(21, 22);
+  add_bidir_lane(23, 24);
+  add_bidir_lane(24, 25);
+  add_bidir_lane(25, 26);
+
+
+  //vertical lanes
+  add_bidir_lane(0, 5);
+  add_bidir_lane(2, 8);
+  add_bidir_lane(4, 10);
+  add_bidir_lane(8, 14);
+  add_bidir_lane(10, 16);
+  add_bidir_lane(11, 17);
+  add_bidir_lane(12, 18);
+  add_bidir_lane(13, 27);
+  add_bidir_lane(14, 28);
+  add_bidir_lane(16, 22);
+  add_bidir_lane(17, 23);
+  add_bidir_lane(18, 24);
+  add_bidir_lane(19, 25);
+  add_bidir_lane(20, 26);
+  add_bidir_lane(22, 29);
+  add_bidir_lane(23, 30);
+  add_bidir_lane(25, 31);
+  add_bidir_lane(26, 32);
+
+//  std::size_t start_index=17;
+//  std::size_t goal_index=12;
+
+  rmf_traffic::schedule::Database database;
+  const rmf_traffic::agv::VehicleTraits traits{
+      {1.0, 0.4},
+      {1.0, 0.5},
+      make_test_profile(UnitCircle)
+  };
+  const rmf_traffic::Time time = std::chrono::steady_clock::now();
+  const rmf_traffic::agv::Planner::Options default_options{database};
+
+  rmf_traffic::agv::Planner planner{
+    rmf_traffic::agv::Planner::Configuration{graph, traits},
+    default_options
+  };
+
+  std::vector<rmf_traffic::Trajectory> obstacles;
+
+  using rmf_traffic::DetectConflict;
+
+  WHEN("Robot moves from 1->30 given multiple non-conflicting "
+       "obstacles that partially overlap in time")
+  {
+    const std::size_t start_index = 1;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+    const std::size_t goal_index = 30;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan);
+    print_timing(start_time);
+
+    CHECK(plan.get_trajectories().size() == 1);
+    const auto t= plan.get_trajectories().front();
+
+    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    CHECK( (p_initial - p_initial_g).norm()==Approx(0.0));
+
+    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
+
+    WHEN("Obstacle 28->3 that partially overlaps in time")
+    {
+      rmf_traffic::Trajectory obstacle_1(test_map_name);
+      obstacle_1.insert(
+            time,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-10,8,-M_PI_2},
+            Eigen::Vector3d{0,0,0});
+      obstacle_1.insert(
+            time + 20s,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-10,-8,-M_PI_2},
+            Eigen::Vector3d{0,0,0});
+      obstacle_1.insert(
+            time + 25s,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-10,-8,0},
+            Eigen::Vector3d{0,0,0});
+      obstacle_1.insert(
+            time + 35s,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-2,-8,0},
+            Eigen::Vector3d{0,0,0});
+
+      REQUIRE(rmf_traffic::DetectConflict::between(obstacle_1, t).size() == 0);
+      obstacles.push_back(obstacle_1);
+
+      test_with_obstacle(
+            "Partial 28->3", plan, database, obstacles, 0, time, false);
+
+      WHEN("Obstacle 28->3, 16-29 added")
+      {
+        rmf_traffic::Trajectory obstacle_2(test_map_name);
+        obstacle_2.insert(
+              time+20s,
+              make_test_profile(UnitCircle),
+              Eigen::Vector3d{3,0,M_PI_2},
+              Eigen::Vector3d{0,0,0});
+        obstacle_2.insert(
+              time+30s,
+              make_test_profile(UnitCircle),
+              Eigen::Vector3d{3,8,M_PI_2},
+              Eigen::Vector3d{0,0,0});
+
+        const auto view =
+            database.query(rmf_traffic::schedule::query_everything());
+        for(const auto& _t : view)
+          REQUIRE(DetectConflict::between(obstacle_2, _t).empty());
+
+        REQUIRE(DetectConflict::between(obstacle_2, t).empty());
+        obstacles.push_back(obstacle_2);
+        test_with_obstacle(
+              "Partial 28->3, 16-29",
+              plan, database, obstacles, 0, time, false);
+
+        WHEN("Obstacle 28->3, 16-29, 24->26 added")
+        {
+          rmf_traffic::Trajectory obstacle_3(test_map_name);
+          obstacle_3.insert(
+                time+40s,
+                make_test_profile(UnitCircle),
+                Eigen::Vector3d{9,4, 0},
+                Eigen::Vector3d{0,0,0});
+          obstacle_3.insert(
+                time+60s,
+                make_test_profile(UnitCircle),
+                Eigen::Vector3d{18,4,0},
+                Eigen::Vector3d{0,0,0});
+
+          const auto view =
+              database.query(rmf_traffic::schedule::query_everything());
+          for(const auto& _t : view)
+            REQUIRE(DetectConflict::between(obstacle_3, _t).empty());
+
+          REQUIRE(DetectConflict::between(obstacle_3, t).empty());
+          obstacles.push_back(obstacle_3);
+
+          test_with_obstacle(
+                "Partial 28->3, 16-29, 24->26", plan, database,
+                obstacles, 0, time, false);
+
+          WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
+          {
+            rmf_traffic::Trajectory obstacle_4(test_map_name);
+            obstacle_4.insert(
+                  time + 10s,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{-2, -4, 0},
+                  Eigen::Vector3d{0, 0, 0});
+            obstacle_4.insert(
+                  time + 20s,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{3, 4, 0},
+                  Eigen::Vector3d{0, 0, 0});
+
+            const auto view =
+                database.query(rmf_traffic::schedule::query_everything());
+            for(const auto& _t : view)
+              REQUIRE(DetectConflict::between(obstacle_4,_t).empty());
+
+            REQUIRE(DetectConflict::between(obstacle_4, t).empty());
+            obstacles.push_back(obstacle_4);
+
+            rmf_traffic::Trajectory obstacle_5(test_map_name);
+            obstacle_5.insert(
+                  time + 15s,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{-15, 0, 0},
+                  Eigen::Vector3d{0, 0, 0});
+
+            obstacle_5.insert(
+                  time + 45s,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{-10, 0, 0},
+                  Eigen::Vector3d{0, 0, 0});
+
+            for(const auto& _t : view)
+              REQUIRE(DetectConflict::between(obstacle_5, _t).empty());
+
+            REQUIRE(DetectConflict::between(obstacle_5, t).empty());
+            obstacles.push_back(obstacle_5);
+
+            rmf_traffic::Trajectory obstacle_6(test_map_name);
+            obstacle_6.insert(
+                  time + 60s,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{-12, -8, 0},
+                  Eigen::Vector3d{0, 0, 0});
+            obstacle_6.insert(
+                  time + 75s,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{-18, -8, 0},
+                  Eigen::Vector3d{0, 0, 0});
+
+            for(const auto& _t : view)
+              REQUIRE(DetectConflict::between(obstacle_6, _t).empty());
+            REQUIRE(DetectConflict::between(obstacle_6,t).empty());
+            obstacles.push_back(obstacle_6);
+
+            test_with_obstacle(
+                  "Partial 28->3, 16-29, 24->26, 21->22, 13->14, 5->6",
+                  plan, database, obstacles, 0, time, false);
+          }
+        }
+      }
+    }
+  }
+
+  WHEN("Robot moves from 1->30 given multiple non-conflicting obstacles that fully overlap in time")
+  {
+    const auto time = std::chrono::steady_clock::now();
+    const std::size_t start_index = 1;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+
+    const std::size_t goal_index = 30;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan);
+    print_timing(start_time);
+
+    CHECK(plan.get_trajectories().size()==1);
+    auto t = plan.get_trajectories().front();
+
+    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
+
+    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    CHECK( (p_final - p_final_g).norm()==Approx(0.0) );
+
+    WHEN("Obstacle 28->3 that partially overlaps in time")
+    {
+      rmf_traffic::Trajectory obstacle_1(test_map_name);
+      obstacle_1.insert(
+            time,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-10,8,-M_PI_2},
+            Eigen::Vector3d{0,0,0});
+      obstacle_1.insert(
+            time + 30s,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-10,-8,-M_PI_2},
+            Eigen::Vector3d{0,0,0});
+      obstacle_1.insert(
+            time + 50s,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-10,-8,0},
+            Eigen::Vector3d{0,0,0});
+      obstacle_1.insert(
+            time + 76s,
+            make_test_profile(UnitCircle),
+            Eigen::Vector3d{-2,-8,0},
+            Eigen::Vector3d{0,0,0});
+
+      REQUIRE(DetectConflict::between(obstacle_1,t).empty());
+      obstacles.push_back(obstacle_1);
+      test_with_obstacle(
+            "Full 28->3", plan, database, obstacles, 0, time, false);
+
+      WHEN("Obstacle 28->3, 16-29 added")
+      {
+        rmf_traffic::Trajectory obstacle_2(test_map_name);
+        obstacle_2.insert(
+           time,
+           make_test_profile(UnitCircle),
+           Eigen::Vector3d{3,0,M_PI_2},
+           Eigen::Vector3d{0,0,0});
+        obstacle_2.insert(
+           time+76s,
+           make_test_profile(UnitCircle),
+           Eigen::Vector3d{3,8,M_PI_2},
+           Eigen::Vector3d{0,0,0});
+
+        const auto view =
+            database.query(rmf_traffic::schedule::query_everything());
+        for(const auto& _t : view)
+          REQUIRE(DetectConflict::between(obstacle_2,_t).empty());
+
+        REQUIRE(DetectConflict::between(obstacle_2,t).empty());
+        obstacles.push_back(obstacle_2);
+        test_with_obstacle(
+              "Full 28->3, 16-29", plan, database, obstacles, 0, time, false);
+
+        WHEN("Obstacle 28->3, 16-29, 24->26 added")
+        {
+          rmf_traffic::Trajectory obstacle_3(test_map_name);
+          obstacle_3.insert(
+                time,
+                make_test_profile(UnitCircle),
+                Eigen::Vector3d{9,4, 0},
+                Eigen::Vector3d{0,0,0});
+          obstacle_3.insert(
+                time + 76s,
+                make_test_profile(UnitCircle),
+                Eigen::Vector3d{18,4,0},
+                Eigen::Vector3d{0,0,0});
+
+          const auto view =
+              database.query(rmf_traffic::schedule::query_everything());
+          for(const auto& _t : view)
+            REQUIRE(DetectConflict::between(obstacle_3,_t).empty());
+
+          REQUIRE(DetectConflict::between(obstacle_3,t).empty());
+          obstacles.push_back(obstacle_3);
+
+          test_with_obstacle(
+                "Full 28->3, 16-29, 24->26",
+                plan, database, obstacles, 0, time, false);
+
+          WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
+          {
+            rmf_traffic::Trajectory obstacle_4(test_map_name);
+            obstacle_4.insert(
+                 time,
+                 make_test_profile(UnitCircle),
+                 Eigen::Vector3d{-2, 4, 0},
+                 Eigen::Vector3d{0, 0, 0});
+            obstacle_4.insert(
+                 time + 76s,
+                 make_test_profile(UnitCircle),
+                 Eigen::Vector3d{3, 4, 0},
+                 Eigen::Vector3d{0, 0, 0});
+
+            const auto view =
+                database.query(rmf_traffic::schedule::query_everything());
+            for(const auto& _t : view)
+              REQUIRE(DetectConflict::between(obstacle_4,_t).empty());
+
+            REQUIRE(DetectConflict::between(obstacle_4,t).empty());
+            obstacles.push_back(obstacle_4);
+
+            rmf_traffic::Trajectory obstacle_5(test_map_name);
+            obstacle_5.insert(
+                  time,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{-15,0, 0},
+                  Eigen::Vector3d{0,0,0});
+            obstacle_5.insert(
+                  time + 76s,
+                  make_test_profile(UnitCircle),
+                  Eigen::Vector3d{-10,0,0},
+                  Eigen::Vector3d{0,0,0});
+
+            for(const auto& _t : view)
+              REQUIRE(DetectConflict::between(obstacle_5, _t).empty());
+
+            REQUIRE(DetectConflict::between(obstacle_5, t).empty());
+            obstacles.push_back(obstacle_5);
+
+            rmf_traffic::Trajectory obstacle_6(test_map_name);
+            obstacle_6.insert(
+               time,
+               make_test_profile(UnitCircle),
+               Eigen::Vector3d{-12,-8, 0},
+               Eigen::Vector3d{0,0,0});
+            obstacle_6.insert(
+               time + 76s,
+               make_test_profile(UnitCircle),
+               Eigen::Vector3d{-18,-8,0},
+               Eigen::Vector3d{0,0,0});
+
+            for(const auto& _t : view)
+              REQUIRE(DetectConflict::between(obstacle_6, _t).empty());
+
+            REQUIRE(DetectConflict::between(obstacle_6, t).empty());
+            obstacles.push_back(obstacle_6);
+
+            test_with_obstacle(
+                  "Full 28->3, 16-29, 24->26, 2->3, 13->14, 5->6",
+                  plan, database, obstacles, 0, time, false);
+          }
+        }
+      }
+    }
+  }
+
+
+  WHEN("Robot moves from 20->23 and obstacle moves from 23->20")
+  {
+    const auto time = std::chrono::steady_clock::now();
+    const std::size_t start_index = 20;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, M_PI/2};
+
+    const std::size_t goal_index = 23;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan);
+    print_timing(start_time);
+
+    CHECK(plan.get_trajectories().size() == 1);
+    const auto t = plan.get_trajectories().front();
+
+    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
+
+    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
+
+    rmf_traffic::Trajectory obstacle(test_map_name);
+    obstacle.insert(
+          time + 6s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{6,4,0},
+          Eigen::Vector3d{0,0,0});
+    obstacle.insert(
+          time + 16s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{18,4,0},
+          Eigen::Vector3d{0,0,0});
+    obstacle.insert(
+          time + 26s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{18,0,0},
+          Eigen::Vector3d{0,0,0});
+
+    WHEN("First obstacle is introduced")
+    {
+       REQUIRE(rmf_traffic::DetectConflict::between(obstacle,t).size()!=0);
+       obstacles.push_back(obstacle);
+       test_with_obstacle("Unconstrained", plan, database, obstacles, 32, time);
+    }
+  }
+
+  WHEN("Robot moves from 27->32 with multiple obstacles along the way")
+  {
+    const auto time = std::chrono::steady_clock::now();
+    const std::size_t start_index = 27;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+
+    const std::size_t goal_index = 32;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto plan = planner.plan(start, goal);
+    CHECK(plan);
+    print_timing(start_time);
+
+    CHECK(plan.get_trajectories().size()==1);
+    auto t = plan.get_trajectories().front();
+
+    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
+
+    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
+
+    rmf_traffic::Trajectory obstacle_1(test_map_name);
+    obstacle_1.insert(
+          time,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{-10, 8, -M_PI/2.0},
+          Eigen::Vector3d{0, 0, 0});
+    obstacle_1.insert(
+          time + 25s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{-10, 0, -M_PI/2.0},
+          Eigen::Vector3d{0,0,0});
+    obstacle_1.insert(
+          time + 50s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{-10, -8, -M_PI/2.0},
+          Eigen::Vector3d{0, 0, 0});
+
+    REQUIRE(obstacle_1.size() == 3);
+    REQUIRE(DetectConflict::between(t,obstacle_1).size() > 0);
+
+    WHEN("Obstacle 28->2")
+    {
+      obstacles.push_back(obstacle_1);
+
+      const auto t_obs1 = test_with_obstacle(
+            "Obstacle 28->2", plan, database, obstacles, 27, time);
+
+      WHEN("Obstacle 28->2 , 29->4")
+      {
+        //robot waits 10s at 27 and then rotates on the spot at 13 for another 5s
+        rmf_traffic::Trajectory obstacle_2(test_map_name);
+        obstacle_2.insert(
+              time,
+              make_test_profile(UnitCircle),
+              Eigen::Vector3d{3, 8,-M_PI_2},
+              Eigen::Vector3d{0,0,0});
+        obstacle_2.insert(
+              time + 53s,
+              make_test_profile(UnitCircle),
+              Eigen::Vector3d{3, 0,-M_PI_2},
+              Eigen::Vector3d{0,0,0});
+        obstacle_2.insert(
+              time + 60s,
+              make_test_profile(UnitCircle),
+              Eigen::Vector3d{3,-4,-M_PI_2},
+              Eigen::Vector3d{0,0,0});
+
+        REQUIRE(obstacle_2.size() == 3);
+        REQUIRE(DetectConflict::between(t_obs1, obstacle_2).size() > 0);
+
+        obstacles.push_back(obstacle_2);
+
+        const auto t_obs2=test_with_obstacle(
+               "Obstacle 28->2 , 29->4", plan, database, obstacles, 27, time);
+
+        WHEN("Obstacle 28->2 , 29->4, 23->26")
+        {
+          //robot waits 10s at 27 and then rotates on the spot at 13, 16
+
+          rmf_traffic::Trajectory obstacle_3(test_map_name);
+          obstacle_3.insert(
+                time + 50s,
+                make_test_profile(UnitCircle),
+                Eigen::Vector3d{6, 4, 0},
+                Eigen::Vector3d{0, 0, 0});
+          obstacle_3.insert(
+                time + 85s,
+                make_test_profile(UnitCircle),
+                Eigen::Vector3d{9, 4, 0},
+                Eigen::Vector3d{0, 0, 0});
+          obstacle_3.insert(
+                time + 95s,
+                make_test_profile(UnitCircle),
+                Eigen::Vector3d{18, 4, 0},
+                Eigen::Vector3d{0 , 0 , 0});
+          REQUIRE(obstacle_3.size() == 3);
+          REQUIRE(DetectConflict::between(t_obs2, obstacle_3).size() > 0);
+
+          obstacles.push_back(obstacle_3);
+          //std::cout<<"Obstacle Size: "<<obstacles.size()<<std::endl;
+
+          test_with_obstacle(
+                "Obstacle 28->2 , 29->4, 23->26",
+                plan, database, obstacles, 27, time);
+        }
+      }
+    }
+  }
+}

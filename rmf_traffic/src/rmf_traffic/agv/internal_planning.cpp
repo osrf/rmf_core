@@ -978,6 +978,10 @@ public:
             start.orientation()
           });
 
+    if(!solution)
+      return result;
+
+    result.solved = true;
     result.trajectories = reconstruct_trajectories(solution);
     result.waypoints = reconstruct_waypoints(solution, _graph);
 
