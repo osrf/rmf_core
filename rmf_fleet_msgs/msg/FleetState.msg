@@ -1,0 +1,2 @@
+string name
+RobotState[] robots
