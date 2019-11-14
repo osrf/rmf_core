@@ -29,9 +29,7 @@ endforeach()
 
 add_executable(rmf_fleet_adapter
   src/main.cpp
-  # src/FullControlFleetAdapter.cpp
-  # src/StopControlFleetAdapter.cpp
-  src/NoControlFleetAdapter.cpp
+  src/ReadOnlyFleetAdapter.cpp
   src/utils/ParseGraph.cpp
 )
 
@@ -54,14 +52,22 @@ target_include_directories(rmf_fleet_adapter
     ${rclcpp_INCLUDE_DIRS}
 )
 
+# -----------------------------------------------------------------------------
+
+add_executable(fake_fleet
+  test/FakeFleet.cpp
+)
+ament_target_dependencies(fake_fleet rclcpp rmf_fleet_msgs)
+
+# -----------------------------------------------------------------------------
+
 install(
-  TARGETS rmf_fleet_adapter
-  EXPORT rmf_fleet_adapter
+  TARGETS 
+    rmf_fleet_adapter
+    fake_fleet
   RUNTIME DESTINATION lib/rmf_fleet_adapter
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
 )
-
-# -----------------------------------------------------------------------------
 
 ament_package()

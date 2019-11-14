@@ -15,35 +15,23 @@
  *
 */
 
-#ifndef RMF_FLEET_ADAPTER__SRC__COMPONENTS__FLEETSTATELISTENER_HPP
-#define RMF_FLEET_ADAPTER__SRC__COMPONENTS__FLEETSTATELISTENER_HPP
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
+#include <rmf_fleet_msgs/msg/robot_state.hpp>
+#include <rmf_fleet_msgs/msg/location.hpp>
 
-namespace rmf_fleet {
-namespace adapter {
-
-class FleetStateListener
+int main(int argc, char** argv)
 {
-public:
-
-  FleetStateListener(rclcpp::Node& node, const std::string& fleet_name);
-
-private:
-
-  // TODO(MXG): Replace this with a std::optional as soon as we can use C++17
-  std::unique_ptr<FleetComponents> components;
+  const std::vector<std::string> args =
+      rclcpp::init_and_remove_ros_arguments(argc, argv);
 
   using FleetState = rmf_fleet_msgs::msg::FleetState;
+  using RobotState = rmf_fleet_msgs::msg::RobotState;
+  using Location = rmf_fleet_msgs::msg::Location;
 
-  void fleet_state_cb(FleetState::UniquePtr msg);
-
-};
-
+  std::cout << "all done" << std::endl;
+  return 0;
 }
-}
-
-
-#endif // RMF_FLEET_ADAPTER__SRC__COMPONENTS__FLEETSTATELISTENER_HPP

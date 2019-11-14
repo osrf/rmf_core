@@ -22,9 +22,12 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <rmf_traffic/agv/Graph.hpp>
+#include <rmf_traffic/agv/VehicleTraits.hpp>
+
 #include <rmf_traffic_ros2/schedule/MirrorManager.hpp>
 
-#include <rmf_fleet_msgs/msg/fleet_state.hpp>
+#include <rmf_traffic_msgs/srv/submit_trajectory.hpp>
 
 
 namespace rmf_fleet {
@@ -34,7 +37,7 @@ enum class FleetControlLevel : uint8_t
 {
   FullControl,
   StopControl,
-  NoControl
+  ReadOnly
 };
 
 struct FleetComponents
@@ -50,6 +53,8 @@ struct FleetComponents
   /// Service handle to submit trajectories to the schedule database, to be
   /// forcefully registered for uncontrollable fleets, or to be accept 
   /// feedback if conflict arises.
+  // Note (AC): this will be changed once the API for updating the main
+  // database has been confirmed
   using SubmitTrajectory = rmf_traffic_msgs::srv::SubmitTrajectory;
   using SubmitTrajectoryClient = rclcpp::Client<SubmitTrajectory>;
   using SubmitTrajectoryHandle = SubmitTrajectoryClient::SharedPtr;
@@ -61,18 +66,23 @@ class FleetAdapterNode : public rclcpp::Node
 {
 public:
 
-  std::string fleet_name;
+  std::string fleet_id;
 
   FleetControlLevel control_level;
 
   FleetAdapterNode(
-      const std::string& _fleet_name, FleetControlLevel _control_level)
-  : Node(_fleet_name + "_fleet_adapter_node"),
-    fleet_name(_fleet_name),
+      const std::string& _fleet_id, FleetControlLevel _control_level)
+  : Node(_fleet_id + "_fleet_adapter_node"),
+    fleet_id(_fleet_id),
     control_level(_control_level)
   {}
 
-  virtual bool is_ready() const = 0;
+private:
+
+  /// Allows a fleet adapter to start spinning, typically for changes the 
+  /// ownership of fleet components to this particular fleet, and also
+  /// initializes the other various members of each type of fleets.
+  virtual void start(FleetComponents components) = 0;
 
 };
 
