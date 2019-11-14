@@ -462,6 +462,11 @@ struct DifferentialDriveExpander
 
         const double cost_esimate = time::to_seconds(estimate.duration());
         estimate_it.first->second = cost_esimate;
+
+        // TODO(MXG): We could get significantly better performance if we
+        // accounted for the cost of rotating when making this estimate, but
+        // that would add considerable complexity to the caching, so we'll leave
+        // that for a future improvement.
       }
 
       return estimate_it.first->second;

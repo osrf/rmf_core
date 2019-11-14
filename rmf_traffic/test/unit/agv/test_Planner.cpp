@@ -226,7 +226,6 @@ SCENARIO("Test planning")
   add_bidir_lane(7, 8);
   add_bidir_lane(9, 10);
   add_bidir_lane(10, 11);
-  add_bidir_lane(11, 12);
 
   const rmf_traffic::agv::VehicleTraits traits(
       {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
@@ -397,7 +396,7 @@ SCENARIO("Test planning")
       if(test_performance)
       {
         const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-        std::cout << "\nUnconstrained" << std::endl;
+        std::cout << "\nUnconstrained 12->5" << std::endl;
         std::cout << "Total: " << sec << std::endl;
         std::cout << "Per run: " << sec/N << std::endl;
       }
@@ -414,7 +413,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Unconstrained", plan, database, obstacles, 6, time);
+              "Unconstrained 12->5", plan, database, obstacles, 6, time);
       }
     }
 
@@ -442,7 +441,7 @@ SCENARIO("Test planning")
       if(test_performance)
       {
         const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-        std::cout << "\nConstrained to 0.0" << std::endl;
+        std::cout << "\nConstrained to 0.0  12->5" << std::endl;
         std::cout << "Total: " << sec << std::endl;
         std::cout << "Per run: " << sec/N << std::endl;
       }
@@ -460,7 +459,7 @@ SCENARIO("Test planning")
      WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 0.0", plan, database, obstacles, 6, time);
+              "Constrained to 0.0  12->5", plan, database, obstacles, 6, time);
       }
     }
   }
@@ -515,7 +514,7 @@ SCENARIO("Test planning")
       if(test_performance)
       {
         const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-        std::cout << "\nUnconstrained" << std::endl;
+        std::cout << "\nUnconstrained 2->12" << std::endl;
         std::cout << "Total: " << sec << std::endl;
         std::cout << "Per run: " << sec/N << std::endl;
       }
@@ -532,7 +531,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Unconstrained", plan, database, obstacles, 4, time);
+              "Unconstrained  2->12", plan, database, obstacles, 4, time);
       }
     }
 
@@ -560,7 +559,7 @@ SCENARIO("Test planning")
       if(test_performance)
       {
         const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-        std::cout << "\nConstrained to 0.0" << std::endl;
+        std::cout << "\nConstrained to 0.0  2->12" << std::endl;
         std::cout << "Total: " << sec << std::endl;
         std::cout << "Per run: " << sec/N << std::endl;
       }
@@ -578,7 +577,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 0.0", plan, database, obstacles, 4, time);
+              "Constrained to 0.0  2->12", plan, database, obstacles, 4, time);
       }
     }
 
@@ -605,7 +604,7 @@ SCENARIO("Test planning")
       if(test_performance)
       {
         const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-        std::cout << "\nConstrained to 180.0" << std::endl;
+        std::cout << "\nConstrained to 180.0  2->12" << std::endl;
         std::cout << "Total: " << sec << std::endl;
         std::cout << "Per run: " << sec/N << std::endl;
       }
@@ -626,7 +625,8 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 180.0", plan, database, obstacles, 4, time);
+              "Constrained to 180.0  2->12",
+              plan, database, obstacles, 4, time);
       }
     }
   } //end of GIVEN
@@ -684,7 +684,7 @@ SCENARIO("Test planning")
       if(test_performance)
       {
         const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-        std::cout << "\nUnconstrained" << std::endl;
+        std::cout << "\nUnconstrained  12->0" << std::endl;
         std::cout << "Total: " << sec << std::endl;
         std::cout << "Per run: " << sec/N << std::endl;
       }
@@ -706,7 +706,7 @@ SCENARIO("Test planning")
         obstacles.push_back(obstacle_1);
 
         auto t_obs=test_with_obstacle(
-              "Unconstrained", plan, database, obstacles, 6, time);
+              "Unconstrained (1)  12->0", plan, database, obstacles, 6, time);
       }
 
       WHEN("Second obstacle is introduced")
@@ -734,7 +734,7 @@ SCENARIO("Test planning")
 
         obstacles.push_back(obstacle_2);
         auto t_obs = test_with_obstacle(
-              "Unconstrained", plan, database, obstacles, 4, time);
+              "Unconstrained (2)  12->0", plan, database, obstacles, 4, time);
       }
 
       WHEN("Both obstacles are introduced")
@@ -760,7 +760,7 @@ SCENARIO("Test planning")
         obstacles.push_back(obstacle_2);
 
         auto t_obs=test_with_obstacle(
-              "Unconstrained", plan, database, obstacles, 6, time);
+              "Unconstrained (3)  12->0", plan, database, obstacles, 6, time);
       }
     }
   }
