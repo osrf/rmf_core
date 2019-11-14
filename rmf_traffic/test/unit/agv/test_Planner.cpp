@@ -29,16 +29,19 @@
 #include <iomanip>
 
 // TODO(MXG): Move performance testing content into a performance test folder
-//const bool test_performance = false;
-  const bool test_performance = true;
+const bool test_performance = false;
+//const bool test_performance = true;
 const std::size_t N = test_performance? 10 : 1;
 
 void print_timing(const std::chrono::steady_clock::time_point& start_time)
 {
-  const auto finish_time = std::chrono::steady_clock::now();
-  std::cout << Catch::getResultCapture().getCurrentTestName()
-            << ": " << rmf_traffic::time::to_seconds(finish_time - start_time)
-            << std::endl;
+  if(test_performance)
+  {
+    const auto finish_time = std::chrono::steady_clock::now();
+    std::cout << Catch::getResultCapture().getCurrentTestName()
+              << ": " << rmf_traffic::time::to_seconds(finish_time - start_time)
+              << std::endl;
+  }
 }
 
 void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
