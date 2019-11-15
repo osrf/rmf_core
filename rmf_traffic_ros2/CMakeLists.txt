@@ -79,7 +79,7 @@ install(
 )
 
 install(
-  TARGETS rmf_traffic_ros2 rmf_traffic_schedule
+  TARGETS rmf_traffic_ros2 rmf_traffic_schedule proto_fleet_adapter
   EXPORT rmf_traffic_ros2
   RUNTIME DESTINATION lib/rmf_traffic_ros2
   LIBRARY DESTINATION lib
