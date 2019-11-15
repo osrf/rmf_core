@@ -81,9 +81,9 @@ install(
 install(
   TARGETS rmf_traffic_ros2 rmf_traffic_schedule
   EXPORT rmf_traffic_ros2
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION lib/rmf_traffic_ros2
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
 )
 
 ament_package()
