@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_FLEET_ADAPTER__SRC__PARSEGRAPH_HPP
-#define RMF_FLEET_ADAPTER__SRC__PARSEGRAPH_HPP
+#ifndef RMF_FLEET_ADAPTER__SRC__UTILS__PARSEGRAPH_HPP
+#define RMF_FLEET_ADAPTER__SRC__UTILS__PARSEGRAPH_HPP
 
 #include <rmf_traffic/agv/Graph.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
@@ -39,4 +39,4 @@ bool parse_graph(
 } // namespace adapter
 } // namespace rmf_fleet
 
-#endif // RMF_FLEET_ADAPTER__SRC__PARSEGRAPH_HPP
+#endif // RMF_FLEET_ADAPTER__SRC__UTILS__PARSEGRAPH_HPP
