@@ -1,7 +1,6 @@
 
 # TODO(MXG): Delete this message description. This exists only for prototyping
 # and testing purposes.
-string task_guid
 string fleet_name
 string start_waypoint_name
 string goal_waypoint_name
