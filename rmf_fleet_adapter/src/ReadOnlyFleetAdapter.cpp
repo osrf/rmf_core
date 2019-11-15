@@ -171,21 +171,19 @@ void ReadOnlyFleetAdapter::fleet_state_cb(FleetState::UniquePtr _msg)
             interpolate_options);
 
     // insert the interpolated trajectory into the service request message
-    auto coverted_traj = rmf_traffic_ros2::convert(robot_trajectory);
-
-    // request_msg.trajectories.emplace_back(
-    //     rmf_traffic_ros2::convert(robot_trajectory));
+    request_msg.trajectories.emplace_back(
+        rmf_traffic_ros2::convert(robot_trajectory));
   }
 
   // submit the service request
-  // RCLCPP_INFO(get_logger(), "sending request");
-  // ready_to_update_schedule = false;
-  // components->submit_trajectory->async_send_request(
-  //     std::make_shared<SubmitTrajectory::Request>(std::move(request_msg)),
-  //     [&](const SubmitTrajectoryClient::SharedFuture _response)
-  // {
-  //   scheduler_updated_response_fn(_response);
-  // });
+  RCLCPP_INFO(get_logger(), "sending request");
+  ready_to_update_schedule = false;
+  components->submit_trajectory->async_send_request(
+      std::make_shared<SubmitTrajectory::Request>(std::move(request_msg)),
+      [&](const SubmitTrajectoryClient::SharedFuture _response)
+  {
+    scheduler_updated_response_fn(_response);
+  });
 }
 
 void ReadOnlyFleetAdapter::scheduler_updated_response_fn(
