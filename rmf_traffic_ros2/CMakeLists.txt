@@ -79,11 +79,19 @@ install(
 )
 
 install(
+<<<<<<< HEAD
   TARGETS rmf_traffic_ros2 rmf_traffic_schedule
   EXPORT rmf_traffic_ros2
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+=======
+  TARGETS rmf_traffic_ros2 rmf_traffic_schedule proto_fleet_adapter
+  EXPORT rmf_traffic_ros2
+  RUNTIME DESTINATION lib/rmf_traffic_ros2
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+>>>>>>> cmake-install-rmf-traffic-ros2
 )
 
 ament_package()
