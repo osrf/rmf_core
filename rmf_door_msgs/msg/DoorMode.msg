@@ -2,9 +2,9 @@
 # Most door controllers default to running in "closed" mode, and transition
 # through some sort of "moving" mode until reaching the "open" mode.
 
-uint32 mode
+uint32 value
 
-# door_mode must be one of the following enumerated values:
+# "value" must be one of the following enumerations:
 uint32 MODE_CLOSED=0
 uint32 MODE_MOVING=1
 uint32 MODE_OPEN=2
