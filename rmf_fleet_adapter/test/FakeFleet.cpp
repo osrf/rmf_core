@@ -53,46 +53,34 @@ public:
     // fake fleet
     fleet_state_msg.name = fleet_name;
 
-    // fake robot 1
-    RobotState straight_robot;
-    straight_robot.name = "straight_robot";
-    straight_robot.model = "pepper";
+    RobotState robot;
+    robot.name = "diagonal_robot";
+    robot.model = "pepper";
     RobotMode sr_mode;
     sr_mode.mode = sr_mode.MODE_MOVING;
-    straight_robot.mode = sr_mode;
-    straight_robot.battery_percent = 88.8;
-    Location sr_location;
-    sr_location.t = steady_clock->now();
-    sr_location.x = 0.0;
-    sr_location.y = 0.0;
-    sr_location.yaw = 0.0;
-    sr_location.level_name = "B1";
-    straight_robot.location = sr_location;
-    straight_robot.path.clear();
-    Location sr_loc_1;
-    sr_loc_1.t = sr_location.t;
-    sr_loc_1.t.sec += 1;
-    sr_loc_1.x = 0.0;
-    sr_loc_1.y = 0.0;
-    sr_loc_1.yaw = 0.0;
-    sr_loc_1.level_name = "B1";
-    Location sr_loc_2;
-    sr_loc_2.t = sr_loc_1.t;
-    sr_loc_2.t.sec += 1;
-    sr_loc_2.x = 1.0;
-    sr_loc_2.y = 1.0;
-    sr_loc_2.yaw = 0.0;
-    sr_loc_2.level_name = "B1";
-    Location sr_loc_3;
-    sr_loc_3.t = sr_loc_2.t;
-    sr_loc_3.t.sec += 1;
-    sr_loc_3.x = 2.0;
-    sr_loc_3.y = 2.0;
-    sr_loc_3.yaw = 0.0;
-    sr_loc_3.level_name = "B1";
-    straight_robot.path = {sr_loc_1, sr_loc_2, sr_loc_3};
+    robot.mode = sr_mode;
+    robot.battery_percent = 88.8;
+    Location sr_loc;
+    sr_loc.t = steady_clock->now();
+    sr_loc.x = 0.0;
+    sr_loc.y = 0.0;
+    sr_loc.yaw = 0.0;
+    sr_loc.level_name = "B1";
+    robot.location = sr_loc;
 
-    fleet_state_msg.robots = {straight_robot};
+    robot.path.clear();
+    for (int j = 0; j < 10; ++j)
+    {
+      Location wp;
+      wp = sr_loc;
+      wp.t.sec += 1 * (j + 1);
+      wp.x += 1.0 * (j + 1);
+      wp.y += 1.0 * (j + 1);
+      robot.path.push_back(wp);
+    }
+
+    fleet_state_msg.robots.clear();
+    fleet_state_msg.robots = {robot};
   }
 
 private:
@@ -107,9 +95,36 @@ private:
 
   FleetState fleet_state_msg;
 
+  void generate_next_fleet_state_msg()
+  {
+    auto robot = fleet_state_msg.robots[0];
+
+    robot.location = robot.path[robot.path.size() - 1];
+    robot.location.t = steady_clock->now();
+    robot.location.x += 1.0;
+    robot.location.y += 1.0;
+
+    robot.path.clear();
+    for (int i = 0; i < 10; ++i)
+    {
+      Location wp;
+      wp = robot.location;
+      wp.t.sec += 1 * (i + 1);
+      wp.x += 1.0 * (i + 1);
+      wp.y += 1.0 * (i + 1);
+      robot.path.push_back(wp);
+    }
+
+    fleet_state_msg.robots.clear();
+    fleet_state_msg.robots = {robot};
+  }
+
   void publish_fleet_state()
   {
-    RCLCPP_INFO(get_logger(), "publishing fleet state!");
+    RCLCPP_INFO(get_logger(), "generate next fleet state!");
+    generate_next_fleet_state_msg();
+
+    RCLCPP_INFO(get_logger(), "publishing new fleet state!");
     fleet_state_pub->publish(fleet_state_msg);
   }
 
