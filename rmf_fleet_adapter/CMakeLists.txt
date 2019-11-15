@@ -14,7 +14,6 @@ find_package(ament_cmake REQUIRED)
 
 set(dep_pkgs
   rclcpp
-  rmf_msgs    # will be phased out soon
   rmf_utils
   rmf_fleet_msgs
   rmf_traffic
@@ -37,7 +36,6 @@ target_link_libraries(rmf_fleet_adapter
   PUBLIC
     rmf_traffic_ros2::rmf_traffic_ros2
     yaml-cpp
-    ${rmf_msgs_LIBRARIES}
     ${rmf_fleet_msgs_LIBRARIES}
     ${rclcpp_LIBRARIES}
 )
@@ -48,7 +46,6 @@ target_include_directories(rmf_fleet_adapter
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     ${rmf_traffic_ros2_INCLUDE_DIRS}
     ${rmf_fleet_msgs_INCLUDE_DIRS}
-    ${rmf_msgs_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
 )
 

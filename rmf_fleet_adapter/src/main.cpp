@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 
   // --------------------------------------------------------------------------
   // seed data, will be replaced with arg parser soon
-  std::string fleet_name = "test_fleet";
+  std::string fleet_name = "fake_fleet";
   std::string graph_file_path = "/home/aaron/Desktop/chart_nav_4.yaml";
   double scaling = 1.0;
   auto profile = rmf_traffic::Trajectory::Profile::make_guided(

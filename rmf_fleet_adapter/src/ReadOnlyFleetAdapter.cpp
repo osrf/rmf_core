@@ -105,6 +105,8 @@ void ReadOnlyFleetAdapter::start(FleetComponents _components)
 
 void ReadOnlyFleetAdapter::fleet_state_cb(FleetState::UniquePtr _msg)
 {
+  RCLCPP_INFO(get_logger(), "got something from " + _msg->name);
+
   /// If the previous schedule database update has not been completed yet,
   /// skip this callback.
   if (!ready_to_update_schedule)
@@ -112,6 +114,13 @@ void ReadOnlyFleetAdapter::fleet_state_cb(FleetState::UniquePtr _msg)
 
   // parses through each robot state message, going through their waypoints
   // updates their trajectories with the schedule database
+
+  RCLCPP_INFO(get_logger(), "handling it now");
+  if (_msg->robots.empty())
+  {
+    RCLCPP_INFO(get_logger(), "no robots found.");
+    return;
+  }
 
   // populate the request message
   SubmitTrajectory::Request request_msg;

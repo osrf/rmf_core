@@ -11,7 +11,6 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <depend>rmf_msgs</depend>
   <depend>rmf_utils</depend>
   <depend>rmf_fleet_msgs</depend>
   <depend>rmf_fleet_utils</depend>
