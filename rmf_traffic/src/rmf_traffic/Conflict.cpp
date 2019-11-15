@@ -46,7 +46,7 @@ Time ConflictData::get_time() const
 }
 
 //==============================================================================
-ConflictData::Segments ConflictData::get_segments()
+const ConflictData::Segments& ConflictData::get_segments() const
 {
   return _pimpl->segments;
 }
@@ -124,18 +124,23 @@ bool DetectConflict::broad_phase(
     const Trajectory& trajectory_a,
     const Trajectory& trajectory_b)
 {
+  std::size_t min_size = std::min(trajectory_a.size(), trajectory_b.size());
+  if(min_size < 2)
+  {
+    throw invalid_trajectory_error::Implementation
+        ::make_segment_num_error(min_size);
+  }
+
   if(trajectory_a.get_map_name() != trajectory_b.get_map_name())
     return false;
 
   const auto* t_a0 = trajectory_a.start_time();
   const auto* t_bf = trajectory_b.finish_time();
 
-  if(!t_a0 || !t_bf)
-  {
-    // If the start or finish time of either Trajectory is missing, then it is
-    // an empty Trajectory, and so no conflict can happen.
-    return false;
-  }
+  // Neither of these can be null, because both trajectories should have at
+  // least two elements.
+  assert(t_a0 != nullptr);
+  assert(t_bf != nullptr);
 
   if(*t_bf < *t_a0)
   {
@@ -146,6 +151,11 @@ bool DetectConflict::broad_phase(
 
   const auto* t_b0 = trajectory_b.start_time();
   const auto* t_af = trajectory_a.finish_time();
+
+  // Neither of these can be null, because both trajectories should have at
+  // least two elements.
+  assert(t_b0 != nullptr);
+  assert(t_af != nullptr);
 
   if(*t_af < *t_b0)
   {
@@ -249,13 +259,6 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
     const Trajectory& trajectory_a,
     const Trajectory& trajectory_b)
 {
-  std::size_t min_size = std::min(trajectory_a.size(), trajectory_b.size());
-  if(min_size < 2)
-  {
-    throw invalid_trajectory_error::Implementation
-        ::make_segment_num_error(min_size);
-  }
-
   Trajectory::const_iterator a_it;
   Trajectory::const_iterator b_it;
   std::tie(a_it, b_it) = get_initial_iterators(trajectory_a, trajectory_b);

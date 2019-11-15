@@ -150,7 +150,9 @@ void interpolate_rotation(
 
   for(const State& state : states)
   {
-    const double s = start_heading + dir*state.s;
+    const double s =
+        rmf_traffic::internal::wrap_to_pi(start_heading + dir*state.s);
+
     const double w = dir*state.v;
 
     const Eigen::Vector3d p{finish[0], finish[1], s};
