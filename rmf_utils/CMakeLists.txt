@@ -29,15 +29,6 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-set(extra_cmake_modules
-  Catch.cmake
-)
-
-install(
-  FILES cmake/CatchAddTests.cmake
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/cmake
-)
-
 foreach(module ${extra_cmake_modules})
   list(APPEND ${PROJECT_NAME}_CONFIG_EXTRAS cmake/${module})
 endforeach()
@@ -49,5 +40,6 @@ install(
 )
 
 add_subdirectory(test/unit)
+add_subdirectory(cmake/ament_cmake_catch2)
 
 ament_package()
