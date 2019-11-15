@@ -82,7 +82,9 @@ ReadOnlyFleetAdapter::SharedPtr ReadOnlyFleetAdapter::make(
 }
 
 ReadOnlyFleetAdapter::ReadOnlyFleetAdapter(const std::string& _fleet_id)
-: FleetAdapterNode(_fleet_id, FleetControlLevel::ReadOnly)
+: Node(_fleet_id),
+  fleet_id(_fleet_id),
+  fleet_control_level(FleetControlLevel::ReadOnly)
 {}
 
 ReadOnlyFleetAdapter::~ReadOnlyFleetAdapter()

@@ -61,31 +61,6 @@ struct FleetComponents
   SubmitTrajectoryHandle submit_trajectory;
 };
 
-/// Abstract base fleet adapter class
-class FleetAdapterNode : public rclcpp::Node
-{
-public:
-
-  std::string fleet_id;
-
-  FleetControlLevel control_level;
-
-  FleetAdapterNode(
-      const std::string& _fleet_id, FleetControlLevel _control_level)
-  : Node(_fleet_id + "_fleet_adapter_node"),
-    fleet_id(_fleet_id),
-    control_level(_control_level)
-  {}
-
-private:
-
-  /// Allows a fleet adapter to start spinning, typically for changes the 
-  /// ownership of fleet components to this particular fleet, and also
-  /// initializes the other various members of each type of fleets.
-  virtual void start(FleetComponents components) = 0;
-
-};
-
 } // adapter
 } // rmf_fleet
 

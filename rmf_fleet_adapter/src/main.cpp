@@ -18,9 +18,7 @@
 #include <memory>
 #include <iostream>
 
-#include "FleetAdapterNode.hpp"
 #include "ReadOnlyFleetAdapter.hpp"
-
 #include "utils/ParseGraph.hpp"
 
 #include <rclcpp/rclcpp.hpp>
@@ -52,7 +50,7 @@ int main(int argc, char* argv[])
 
   // --------------------------------------------------------------------------
 
-  std::shared_ptr<rmf_fleet::adapter::FleetAdapterNode> fleet_adapter_node;
+  std::shared_ptr<rclcpp::Node> fleet_adapter_node;
 
   if (control_level == FleetControlLevel::FullControl)
     std::cout << "not implemented yet!" << std::endl;

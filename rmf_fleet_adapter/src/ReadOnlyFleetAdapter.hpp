@@ -28,13 +28,13 @@
 
 #include <rmf_traffic_msgs/srv/submit_trajectory.hpp>
 
-#include "FleetAdapterNode.hpp"
+#include "FleetComponents.hpp"
 
 
 namespace rmf_fleet {
 namespace adapter {
 
-class ReadOnlyFleetAdapter : public FleetAdapterNode
+class ReadOnlyFleetAdapter : public rclcpp::Node
 {
 public:
 
@@ -58,6 +58,10 @@ public:
 
 private:
 
+  std::string fleet_id;
+
+  FleetControlLevel fleet_control_level;
+
   rclcpp::Subscription<FleetState>::SharedPtr fleet_state_sub;
 
   ReadOnlyFleetAdapter(const std::string& fleet_id);
@@ -66,13 +70,9 @@ private:
   /// control the fleet adapters have over the fleet.
   std::unique_ptr<FleetComponents> components;
 
-  void start(FleetComponents components) final;
-
-  /// In order not to bog up the callback, this map will ensure that robot
-  /// trajectories are only updated only in a specific interval and not
-  /// whenever it is received
-  // std::unordered_map<std::string, std::chrono::steady_clock::time_point>
-  //     robot_trajectory_last_updated_time;
+  /// This function should only be called when everything has finished
+  /// initilializing, especially the schedule database mirror
+  void start(FleetComponents components);
 
   /// Allow the callback to update the schedule only when the previous 
   /// udpate is done.
@@ -83,6 +83,8 @@ private:
   /// ensure that only the lastest updates used for the scheduler.
   void fleet_state_cb(FleetState::UniquePtr _msg);
 
+  /// Callback function for when the trajectory updating service completes
+  /// and receives a response.
   void scheduler_updated_response_fn(
       const SubmitTrajectoryClient::SharedFuture& response);
 
