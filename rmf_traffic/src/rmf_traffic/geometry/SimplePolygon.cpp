@@ -652,5 +652,13 @@ void SimplePolygon::insert_point(
   points.insert(points.begin()+index, p);
 }
 
+//==============================================================================
+FinalShape SimplePolygon::finalize() const
+{
+  return FinalShape::Implementation::make_final_shape(
+        rmf_utils::make_derived_impl<const Shape, const SimplePolygon>(*this),
+        _get_internal()->make_fcl());
+}
+
 } // namespace geometry
 } // namespace rmf_traffic

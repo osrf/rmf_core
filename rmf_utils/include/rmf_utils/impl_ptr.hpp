@@ -460,6 +460,15 @@ inline impl_ptr<T> make_impl(Args&&... args)
   return impl_ptr<T>(new T(std::forward<Args>(args)...), &details::default_delete<T>, &details::default_copy<T>);
 }
 
+template<class U, class D, class... Args>
+impl_ptr<U> make_derived_impl(Args&&... args)
+{
+  return impl_ptr<U>(
+        new D(std::forward<Args>(args)...),
+        [](U* ptr) -> void { delete static_cast<D*>(ptr); },
+        [](const U* ptr) -> U* { return new D(*static_cast<const D*>(ptr)); });
+}
+
 template<class T, class D, class C>
 inline void swap(impl_ptr<T, D, C>& l,impl_ptr<T, D, C>& r) noexcept
 {

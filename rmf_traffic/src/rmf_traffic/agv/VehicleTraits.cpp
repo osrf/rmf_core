@@ -21,116 +21,156 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
+class VehicleTraits::Limits::Implementation
+{
+public:
+
+  double velocity;
+
+  double acceleration;
+
+};
+
+//==============================================================================
 class VehicleTraits::Implementation
 {
 public:
 
-  struct LimitInfo
-  {
-    LimitInfo(
-        VehicleTraits* parent,
-        const double nom_vel,
-        const double nom_accel)
-      : parent(parent),
-        nominal_velocity(nom_vel),
-        nominal_acceleration(nom_accel)
-    {
-      // Do nothing
-    }
-
-    VehicleTraits* parent;
-    double nominal_velocity;
-    double nominal_acceleration;
-  };
-
-  LimitInfo _linear_info;
   Limits _linear;
 
-  LimitInfo _rotation_info;
   Limits _rotation;
 
-  bool _reversible;
+  Trajectory::ConstProfilePtr _profile;
+
+  Steering _steering_mode;
+  Differential _differential;
+  Holonomic _holonomic;
 
   Implementation(
-      VehicleTraits* const parent,
-      const double nom_linear_vel,
-      const double nom_linear_accel,
-      const double nom_rotation_vel,
-      const double nom_rotation_accel,
-      const bool reversible)
-    : _linear_info(parent, nom_linear_vel, nom_linear_accel),
-      _linear(&_linear_info),
-      _rotation_info(parent, nom_rotation_vel, nom_rotation_accel),
-      _rotation(&_rotation_info),
-      _reversible(reversible)
+      Limits linear,
+      Limits rotation,
+      Trajectory::ConstProfilePtr profile,
+      Differential differential)
+    : _linear(std::move(linear)),
+      _rotation(std::move(rotation)),
+      _profile(std::move(profile)),
+      _steering_mode(Steering::Differential),
+      _differential(differential)
   {
     // Do nothing
-  }
-
-  void set_parent(VehicleTraits* parent)
-  {
-    _linear_info.parent = parent;
-    _rotation_info.parent = parent;
-
-    _linear._pimpl = &_linear_info;
-    _rotation._pimpl = &_rotation_info;
   }
 };
 
 //==============================================================================
-VehicleTraits::Limits::Limits(void* pimpl)
-  : _pimpl(pimpl)
+VehicleTraits::Limits::Limits(const double velocity, const double acceleration)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{velocity, acceleration}))
 {
   // Do nothing
 }
 
 //==============================================================================
-VehicleTraits& VehicleTraits::Limits::set_nominal_velocity(double nom_vel)
+auto VehicleTraits::Limits::set_nominal_velocity(double nom_vel) -> Limits&
 {
-  auto& info = *static_cast<Implementation::LimitInfo*>(_pimpl);
-  info.nominal_velocity = nom_vel;
-  return *info.parent;
+  _pimpl->velocity = nom_vel;
+  return *this;
 }
 
 //==============================================================================
 double VehicleTraits::Limits::get_nominal_velocity() const
 {
-  const auto& info = *static_cast<const Implementation::LimitInfo*>(_pimpl);
-  return info.nominal_velocity;
+  return _pimpl->velocity;
 }
 
 //==============================================================================
-VehicleTraits& VehicleTraits::Limits::set_nominal_acceleration(double nom_accel)
+auto VehicleTraits::Limits::set_nominal_acceleration(double nom_accel)
+-> Limits&
 {
-  auto& info = *static_cast<Implementation::LimitInfo*>(_pimpl);
-  info.nominal_acceleration = nom_accel;
-  return *info.parent;
+  _pimpl->acceleration = nom_accel;
+  return *this;
 }
 
 //==============================================================================
 double VehicleTraits::Limits::get_nominal_acceleration() const
 {
-  const auto& info = *static_cast<const Implementation::LimitInfo*>(_pimpl);
-  return info.nominal_acceleration;
+  return _pimpl->acceleration;
 }
 
 //==============================================================================
 bool VehicleTraits::Limits::valid() const
 {
-  const auto& info = *static_cast<const Implementation::LimitInfo*>(_pimpl);
-  return info.nominal_velocity > 0.0 && info.nominal_acceleration > 0.0;
+  return _pimpl->velocity > 0.0 && _pimpl->acceleration > 0.0;
+}
+
+//==============================================================================
+class VehicleTraits::Differential::Implementation
+{
+public:
+
+  Eigen::Vector2d forward;
+  bool reversible;
+
+};
+
+//==============================================================================
+VehicleTraits::Differential::Differential(
+    Eigen::Vector2d forward,
+    const bool reversible)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{std::move(forward), reversible}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto VehicleTraits::Differential::set_forward(Eigen::Vector2d forward)
+-> Differential&
+{
+  _pimpl->forward = std::move(forward);
+  return *this;
+}
+
+//==============================================================================
+const Eigen::Vector2d& VehicleTraits::Differential::get_forward() const
+{
+  return _pimpl->forward;
+}
+
+//==============================================================================
+auto VehicleTraits::Differential::set_reversible(bool reversible)
+-> Differential&
+{
+  _pimpl->reversible = reversible;
+  return *this;
+}
+
+//==============================================================================
+bool VehicleTraits::Differential::is_reversible() const
+{
+  return _pimpl->reversible;
+}
+
+//==============================================================================
+bool VehicleTraits::Differential::valid() const
+{
+  return _pimpl->forward.norm() > 1e-6;
+}
+
+//==============================================================================
+VehicleTraits::Holonomic::Holonomic()
+{
+  // Do nothing. No need to instantiate _pimpl because it's not being used (yet)
 }
 
 //==============================================================================
 VehicleTraits::VehicleTraits(
-    const double nom_linear_vel,
-    const double nom_linear_accel,
-    const double nom_rotation_vel,
-    const double nom_rotation_accel,
-    const bool reversible)
-  : _pimpl(rmf_utils::make_unique_impl<Implementation>(
-             this, nom_linear_vel, nom_linear_accel,
-             nom_rotation_vel, nom_rotation_accel, reversible))
+    Limits linear,
+    Limits rotational,
+    Trajectory::ConstProfilePtr profile,
+    Differential steering)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             std::move(linear), std::move(rotational),
+             std::move(profile), std::move(steering)))
 {
   // Do nothing
 }
@@ -160,56 +200,89 @@ const VehicleTraits::Limits& VehicleTraits::rotational() const
 }
 
 //==============================================================================
-VehicleTraits& VehicleTraits::set_reversible(bool reversible)
+auto VehicleTraits::set_profile(Trajectory::ConstProfilePtr profile)
+-> VehicleTraits&
 {
-  _pimpl->_reversible = reversible;
+  _pimpl->_profile = std::move(profile);
   return *this;
 }
 
 //==============================================================================
-bool VehicleTraits::is_reversible() const
+const Trajectory::ConstProfilePtr& VehicleTraits::get_profile() const
 {
-  return _pimpl->_reversible;
+  return _pimpl->_profile;
+}
+
+//==============================================================================
+VehicleTraits::Steering VehicleTraits::get_steering() const
+{
+  return _pimpl->_steering_mode;
+}
+
+//==============================================================================
+auto VehicleTraits::set_differential(Differential parameters) -> Differential&
+{
+  _pimpl->_steering_mode = Steering::Differential;
+  _pimpl->_differential = std::move(parameters);
+  return _pimpl->_differential;
+}
+
+//==============================================================================
+auto VehicleTraits::get_differential() -> Differential*
+{
+  if(_pimpl->_steering_mode == Steering::Differential)
+    return &_pimpl->_differential;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto VehicleTraits::get_differential() const -> const Differential*
+{
+  if(_pimpl->_steering_mode == Steering::Differential)
+    return &_pimpl->_differential;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto VehicleTraits::set_holonomic(Holonomic parameters) -> Holonomic&
+{
+  _pimpl->_steering_mode = Steering::Holonomic;
+  _pimpl->_holonomic = std::move(parameters);
+  return _pimpl->_holonomic;
+}
+
+//==============================================================================
+auto VehicleTraits::get_holonomic() -> Holonomic*
+{
+  if(_pimpl->_steering_mode == Steering::Holonomic)
+    return &_pimpl->_holonomic;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto VehicleTraits::get_holonomic() const -> const Holonomic*
+{
+  if(_pimpl->_steering_mode == Steering::Holonomic)
+    return &_pimpl->_holonomic;
+
+  return nullptr;
 }
 
 //==============================================================================
 bool VehicleTraits::valid() const
 {
-  return linear().valid() && rotational().valid();
-}
+  const bool steering_valid = [&]() -> bool
+  {
+    if(_pimpl->_steering_mode == Steering::Differential)
+      return get_differential()->valid();
 
-//==============================================================================
-VehicleTraits::VehicleTraits(const VehicleTraits& other)
-  : _pimpl(rmf_utils::make_unique_impl<Implementation>(*other._pimpl))
-{
-  _pimpl->set_parent(this);
-}
+    return true;
+  }();
 
-//==============================================================================
-VehicleTraits::VehicleTraits(VehicleTraits&& other)
-  : _pimpl(std::move(other._pimpl))
-{
-  _pimpl->set_parent(this);
-}
-
-//==============================================================================
-VehicleTraits& VehicleTraits::operator=(const VehicleTraits& other)
-{
-  if(_pimpl)
-    *_pimpl = *other._pimpl;
-  else
-    _pimpl = rmf_utils::make_unique_impl<Implementation>(*other._pimpl);
-
-  _pimpl->set_parent(this);
-  return *this;
-}
-
-//==============================================================================
-VehicleTraits& VehicleTraits::operator=(VehicleTraits&& other)
-{
-  _pimpl = std::move(other._pimpl);
-  _pimpl->set_parent(this);
-  return *this;
+  return linear().valid() && rotational().valid() && steering_valid;
 }
 
 } // namespace agv

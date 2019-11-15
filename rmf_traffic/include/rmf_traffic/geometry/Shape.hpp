@@ -19,10 +19,14 @@
 #ifndef RMF_TRAFFIC__GEOMETRY__SHAPE_HPP
 #define RMF_TRAFFIC__GEOMETRY__SHAPE_HPP
 
+#include <rmf_utils/impl_ptr.hpp>
+
 #include <memory>
 
 namespace rmf_traffic {
 namespace geometry {
+
+class FinalShape;
 
 //==============================================================================
 /// \brief This is the base class of different shape classes that can be used
@@ -35,6 +39,10 @@ class Shape
 {
 public:
 
+  /// Finalize the shape so that it can be given to a Trajectory::Profile or a
+  /// Zone.
+  virtual FinalShape finalize() const = 0;
+
   // Abstract shape references must not be moved, because we cannot ensure that
   // they get moved into the same derived type.
   Shape(Shape&&) = delete;
@@ -42,19 +50,13 @@ public:
 
   /// \internal
   class Internal;
-
-  /// \internal
-  /// These accessors can only be used by the rmf_traffic library
-  /// internally. The Internal class cannot be accessed by downstream users
-  /// (and downstream users should never need it anyway).
-  Internal* _get_internal();
-
-  /// \internal
-  const Internal* _get_internal() const;
-
   virtual ~Shape();
 
 protected:
+
+  Internal* _get_internal();
+
+  const Internal* _get_internal() const;
 
   /// \internal
   Shape(std::unique_ptr<Internal> internal);
@@ -64,6 +66,44 @@ private:
   std::unique_ptr<Internal> _internal;
 
 };
+
+using ShapePtr = std::shared_ptr<Shape>;
+using ConstShapePtr = std::shared_ptr<const Shape>;
+
+//==============================================================================
+/// This is a finalized shape whose parameters can no longer be mutated.
+class FinalShape
+{
+public:
+
+  /// Look at the source of this FinalShape to inspect its parameters.
+  const Shape& source() const;
+
+  virtual ~FinalShape() = default;
+
+  class Implementation;
+protected:
+  FinalShape();
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+};
+
+using FinalShapePtr = std::shared_ptr<FinalShape>;
+using ConstFinalShapePtr = std::shared_ptr<const FinalShape>;
+
+//==============================================================================
+template<typename T, typename... Args>
+FinalShapePtr make_final(Args&&... args)
+{
+  return std::make_shared<FinalShape>(
+        T(std::forward<Args>(args)...).finalize());
+}
+
+//==============================================================================
+template<typename T>
+FinalShapePtr make_final(const T& shape)
+{
+  return std::make_shared<FinalShape>(shape.finalize());
+}
 
 } // namespace geometry
 } // namespace rmf_traffic

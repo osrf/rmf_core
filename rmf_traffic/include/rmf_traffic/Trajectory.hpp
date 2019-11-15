@@ -33,8 +33,8 @@ namespace rmf_traffic {
 
 //==============================================================================
 namespace detail {
-/// \internal We declare this private PIMPL class outside of the base_iterator
-/// class so that it does not need to be templated.
+/// \internal We declare this private PIMPL class outside of the
+/// Trajectory::base_iterator class so that it does not need to be templated.
 class TrajectoryIteratorImplementation;
 } // namespace detail
 
@@ -64,11 +64,11 @@ public:
   {
   public:
 
-    /// The Trajectory::Profile::Agency enum describes how much freedom the
+    /// The Trajectory::Profile::Autonomy enum describes how much freedom the
     /// robot has during this phase of its Trajectory.
-    enum class Agency {
-
-      /// This agency type is illegal and will always be rejected by the
+    enum class Autonomy : uint16_t
+    {
+      /// This autonomy type is illegal and will always be rejected by the
       /// schedule verifier. Having this movement type implies a major bug in
       /// the code and should be reported immediately.
       Unspecified = 0,
@@ -76,7 +76,7 @@ public:
       /// The robot will try to follow the specified trajectory exactly, and
       /// the collision geometry represents all of the clearance space that the
       /// robot will need while traveling.
-      Strict,
+      Guided,
 
       /// The robot is waiting in a queue, and will wait to traverse the
       /// trajectory segment until the rmf_traffic_monitor tells it to proceed.
@@ -90,7 +90,7 @@ public:
       /// exactly what that occupied space will be.
       ///
       /// If this plan is accepted by the Schedule, then any time another plan
-      /// is submitted where a Strict or Queued trajectory segment conflicts
+      /// is submitted where a Guided or Queued trajectory segment conflicts
       /// with this Trajectory's Autonomous space, the Fleet Adapter that
       /// submitted this Trajectory will be asked to approve or reject the other
       /// plan based on whether the other plan will interfere with this
@@ -98,43 +98,43 @@ public:
       Autonomous,
     };
 
-    /// Create a profile with Strict movement
-    static ProfilePtr make_strict(geometry::ConstConvexShapePtr shape);
+    /// Create a profile with Guided movement
+    static ProfilePtr make_guided(geometry::ConstFinalConvexShapePtr shape);
 
     /// Create a profile with Autonomous movement
-    static ProfilePtr make_autonomous(geometry::ConstConvexShapePtr shape);
+    static ProfilePtr make_autonomous(geometry::ConstFinalConvexShapePtr shape);
 
     /// Create a profile for a Queued segment
     static ProfilePtr make_queued(
-        geometry::ConstConvexShapePtr shape,
+        geometry::ConstFinalConvexShapePtr shape,
         const std::string& queue_id);
 
     /// Get the shape being used for this profile
-    geometry::ConstConvexShapePtr get_shape() const;
+    geometry::ConstFinalConvexShapePtr get_shape() const;
 
     /// Set the shape that will be used by this profile
-    Profile& set_shape(geometry::ConstConvexShapePtr new_shape);
+    Profile& set_shape(geometry::ConstFinalConvexShapePtr new_shape);
 
-    /// Get the agency type being used for this profile
-    Agency get_agency() const;
+    /// Get the autonomy type being used for this profile
+    Autonomy get_autonomy() const;
 
     //==========================================================================
     /// This class is a placeholder in case we ever want to extend the features
-    /// of the Strict mode. Currently it does not do anything.
-    class StrictInfo
+    /// of the Guided mode. Currently it does not do anything.
+    class GuidedInfo
     {
     public:
 
-      // There are no special information features for Strict mode yet.
+      // There are no special information features for Guided mode yet.
 
     private:
-      StrictInfo(void* pimpl);
+      GuidedInfo(void* pimpl);
       friend class Profile;
       const void* const _pimpl;
     };
 
-    /// Set the movement of this profile to Strict
-    StrictInfo& set_to_strict();
+    /// Set the movement of this profile to Guided
+    GuidedInfo& set_to_guided();
 
     //==========================================================================
     /// This class is a placeholder in case we ever want to extend the features
@@ -176,13 +176,11 @@ public:
     ///
     /// This pointer is potentially invalidated any time a modification is made
     /// to the Profile object that provided it.
-    //
-    // TODO(MXG): Change this to a std::optional when we can have C++17 support
     const QueueInfo* get_queue_info() const;
 
   private:
 
-    Profile(geometry::ConstConvexShapePtr shape);
+    Profile(geometry::ConstFinalConvexShapePtr shape);
 
     class Implementation;
     rmf_utils::impl_ptr<Implementation> _pimpl;
@@ -345,6 +343,9 @@ public:
       Eigen::Vector3d position,
       Eigen::Vector3d velocity);
 
+  /// Insert a copy of another Trajectory's Segment into this one.
+  InsertionResult insert(const Segment& other);
+
   /// Find the Segment of this Trajectory that is active during the given time.
   ///
   /// \note This will return Trajectory::end() if the time is before the
@@ -397,6 +398,26 @@ public:
 
   /// Explicitly call the const-qualified version of end()
   const_iterator cend() const;
+
+  /// Get a mutable reference to the first Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  Segment& front();
+
+  /// Get a const reference to the first Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  const Segment& front() const;
+
+  /// Get a mutable reference to the last Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  Segment& back();
+
+  /// Get a const reference to the last Segment in this Trajectory.
+  ///
+  /// \warning Calling this function on an empty trajectory is undefined.
+  const Segment& back() const;
 
   /// Get the start time, if available. This will return a nullptr if the
   /// Trajectory is empty.

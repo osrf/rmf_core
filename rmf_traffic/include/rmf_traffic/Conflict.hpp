@@ -38,7 +38,7 @@ public:
       std::pair<Trajectory::const_iterator, Trajectory::const_iterator>;
 
   /// Get iterators to the Segment of each Trajectory that is in conflict.
-  Segments get_segments();
+  const Segments& get_segments() const;
 
   /// Create uninitialized ConflictData.
   ///

@@ -176,12 +176,8 @@ SCENARIO("Test Interpolations")
   const double w_n = 0.3;
   const double alpha_n = 0.25;
 
-  rmf_traffic::agv::VehicleTraits traits;
-  traits
-      .linear().set_nominal_velocity(v_n)
-      .linear().set_nominal_acceleration(a_n)
-      .rotational().set_nominal_velocity(w_n)
-      .rotational().set_nominal_acceleration(alpha_n);
+  const rmf_traffic::agv::VehicleTraits traits(
+      {v_n, a_n}, {w_n, alpha_n}, nullptr);
 
   GIVEN("Three distant points")
   {
@@ -238,9 +234,9 @@ SCENARIO("Test Interpolations")
     const double angle1 = 2.0*M_PI/180.0;
     const double angle2 = -1.0*M_PI/180.0;
     const std::vector<Eigen::Vector3d> positions = {
-      Eigen::Vector3d{x0, y0, theta0},
-      Eigen::Vector3d{x0 - pf, -15.0, theta0 + angle1},
-      Eigen::Vector3d{x0 - pf, -15 + pf, theta0 + angle2}
+      {x0, y0, theta0},
+      {x0 - pf, -15.0, theta0 + angle1},
+      {x0 - pf, -15 + pf, theta0 + angle2}
     };
 
     rmf_traffic::Trajectory trajectory =
@@ -272,6 +268,24 @@ SCENARIO("Test Interpolations")
             Eigen::Vector3d{x0 - pf, -15 + pf, theta0 + angle1},
             -Eigen::Vector3d::UnitZ(), alpha_n, times4, trajectory);
     }
+  }
+
+  GIVEN("Six distant waypoints with no rotation")
+  {
+    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+
+    const std::vector<Eigen::Vector3d> positions = {
+      {10, 12, 0}, {5, 8, 0}, {0, 8, 0}, {0, 0, 0}, {0, -5, 0}, {5, -5, 0}
+    };
+
+    rmf_traffic::Trajectory trajectory =
+        rmf_traffic::agv::Interpolate::positions(
+          "test_map", traits, start_time, positions);
+
+    // NOTE(MXG): This test is here because a bug was found when orientations
+    // were not getting changed. It's a simple test, but please do not delete
+    // it. If anything, it should be expanded upon.
+    CHECK(rmf_traffic::time::to_seconds(trajectory.duration()) > 0.0);
   }
 }
 

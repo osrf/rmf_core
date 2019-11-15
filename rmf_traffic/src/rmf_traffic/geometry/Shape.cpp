@@ -47,5 +47,18 @@ Shape::~Shape()
   // Do nothing
 }
 
+//==============================================================================
+const Shape& FinalShape::source() const
+{
+  return *_pimpl->_shape;
+}
+
+//==============================================================================
+FinalShape::FinalShape()
+{
+  // Do nothing. The _pimpl will be constructed by
+  // Implementation::make_final_shape
+}
+
 } // namespace geometry
 } // namespace rmf_traffic
