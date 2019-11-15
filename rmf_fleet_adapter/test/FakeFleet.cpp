@@ -57,7 +57,8 @@ public:
     RobotState straight_robot;
     straight_robot.name = "straight_robot";
     straight_robot.model = "pepper";
-    RobotMode sr_mode = RobotMode.MODE_MOVING;
+    RobotMode sr_mode;
+    sr_mode.mode = sr_mode.MODE_MOVING;
     straight_robot.mode = sr_mode;
     straight_robot.battery_percent = 88.8;
     Location sr_location;
@@ -68,6 +69,30 @@ public:
     sr_location.level_name = "B1";
     straight_robot.location = sr_location;
     straight_robot.path.clear();
+    Location sr_loc_1;
+    sr_loc_1.t = sr_location.t;
+    sr_loc_1.t.sec += 1;
+    sr_loc_1.x = 0.0;
+    sr_loc_1.y = 0.0;
+    sr_loc_1.yaw = 0.0;
+    sr_loc_1.level_name = "B1";
+    Location sr_loc_2;
+    sr_loc_2.t = sr_loc_1.t;
+    sr_loc_2.t.sec += 1;
+    sr_loc_2.x = 0.0;
+    sr_loc_2.y = 0.0;
+    sr_loc_2.yaw = 0.0;
+    sr_loc_2.level_name = "B1";
+    Location sr_loc_3;
+    sr_loc_3.t = sr_loc_2.t;
+    sr_loc_3.t.sec += 1;
+    sr_loc_3.x = 0.0;
+    sr_loc_3.y = 0.0;
+    sr_loc_3.yaw = 0.0;
+    sr_loc_3.level_name = "B1";
+    straight_robot.path = {sr_loc_1, sr_loc_2, sr_loc_3};
+
+    fleet_state_msg.robots = {straight_robot};
   }
 
 private:
