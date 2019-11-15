@@ -82,38 +82,122 @@ public:
   {
   public:
 
+    /// Constructor
+    ///
+    /// \param[in] name
+    ///   Unique name of the door.
+    ///
+    /// \param[in] delay
+    ///   How long the door takes to open. This will also be used for how long
+    ///   the door takes to close, so the total delay incurred by opening and
+    ///   closing will be 2*delay.
+    Door(std::string name, Duration delay);
+
+    /// Constructor
+    ///
+    /// \param[in] name
+    ///   Unique name of the door.
+    ///
+    /// \param[in] open_delay
+    ///   How long the door takes to open.
+    ///
+    /// \param[in] close_delay
+    ///   How long the door takes to close.
+    Door(std::string name, Duration open_delay, Duration close_delay);
+
     /// Get the unique name (ID) of this Door
-    const std::string& get_name() const;
+    const std::string& name() const;
 
     /// Set the unique name (ID) of this Door
-    Door& set_name(std::string name);
+    Door& name(std::string name);
 
-    /// Get the delay incurred by waiting for this door to open or close.
-    Duration get_delay() const;
+    /// Get the delay incurred by waiting for this door to open.
+    Duration open_delay() const;
 
-    /// Set the delay.
-    Door& set_delay(Duration duration);
+    /// Set the delay incurred by waiting for this door to open.
+    Door& open_delay(Duration duration);
 
-    /// Get this Door's index within the Graph.
-    std::size_t index() const;
+    /// Get the delay incurred by waiting for this door to close.
+    Duration close_delay() const;
+
+    /// Get the delay incurred by waiting for this door to close.
+    Door& close_delay(Duration duration);
+
+    /// Get the total delay incurred by waiting for this door to open and then
+    /// close.
+    Duration total_delay() const;
 
     class Implementation;
   private:
-    Door();
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// A lift in the graph which the robot can use to move between floors.
-  //
-  // TODO(MXG): Design and implement the lift class, and incorporate it into
-  // the planner.
-  class Lift
+  /// A door in the graph which belongs to a lift. The lift needs to be summoned
+  /// to this floor before the robot can proceed.
+  ///
+  /// \note The planner will naively assume that the lift is already on the
+  /// desired floor and ready to be opened right away.
+  ///
+  // TODO(MXG): If we can have a centralized lift schedule we can make better
+  // predictions and more accurate plans.
+  class LiftDoor
   {
   public:
 
+    /// Constructor
+    ///
+    /// \param[in] floor_name
+    ///   Name of the floor
+    ///
+    /// \param[in] door_info
+    ///   Information about the door
+    LiftDoor(std::string floor_name, Door door_info);
+
+    /// Get the door information of this LiftDoor
+    const Door& door() const;
+
+    /// Set the door information of this LiftDoor
+    LiftDoor& door(Door door_info);
+
+    /// Get the name of the floor that this LiftDoor is on
+    const std::string& floor_name() const;
+
+    /// Set the name of the floor that this LiftDoor is on
+    LiftDoor& floor_name(std::string name);
+
     class Implementation;
   private:
-    Lift();
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  /// The lane traverses up or down a lift.
+  class LiftShaft
+  {
+  public:
+
+    /// Constructor
+    ///
+    /// \param[in] destination_floor_name
+    ///   Name of the floor that the lane will take the robot to.
+    ///
+    /// \param[in] delay
+    ///   How long the robot will take to get to the destination floor.
+    LiftShaft(std::string destination_floor_name, Duration delay);
+
+    /// Get the name of the destination floor.
+    const std::string& destination_floor_name() const;
+
+    /// Set the name of the destination floor.
+    LiftShaft& destination_floor_name(std::string name);
+
+    /// Get how long the lift will take to move between the floors.
+    Duration delay() const;
+
+    /// Set how long the lift will take to move between the floors.
+    LiftShaft& delay(Duration duration);
+
+    class Implementation;
+  private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -202,7 +286,18 @@ public:
     {
     public:
 
-      // Constructor
+      /// Constructor
+      ///
+      /// \param waypoint_index
+      ///   The index of the waypoint for this Node
+      ///
+      /// \param orientation
+      ///   Any orientation constraints for moving to/from this Node (depending
+      ///   on whether it's an entry Node or an exit Node).
+      ///
+      /// \param velocity
+      ///   Any velocity constraints for moving to/from this Node (depending on
+      ///   whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
            std::unique_ptr<OrientationConstraint> orientation = nullptr,
            std::unique_ptr<VelocityConstraint> velocity = nullptr);
@@ -229,16 +324,44 @@ public:
     /// that goes into this node.
     const Node& exit() const;
 
+    class Feature
+    {
+    public:
+
+
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
     /// Get the index of this Lane within the Graph.
     std::size_t index() const;
 
-    /// Get a pointer to the index of the door that blocks this lane, if one
-    /// exists.
+    /// This exception gets thrown when a user tries to change a Lane in a way
+    /// that does not make sense. For example if a lane is given both a Door
+    /// and a LiftDoor. Right now we only support having one Lane feature at a
+    /// time.
+    ///
+    /// To avoid getting this error, be sure to remove any feature
+    class bad_feature_change : std::logic_error
+    {
+
+    };
+
+    /// Get a reference to the door that blocks this lane, if one exists.
     ///
     /// If there is no door along this lane, then return a nullptr.
-    // TODO(MXG): Consider replacing this with std::optional<std::size_t> when
-    // we can rely on C++17 support.
-    const std::size_t* door_index() const;
+    const Door* get_door() const;
+
+    /// Set the door for this lane
+    Lane& set_door(Door door);
+
+    /// Remove the door for this lane
+    Lane& remove_door();
+
+
+    Lane& clear_feature();
 
     class Implementation;
   private:
@@ -297,14 +420,7 @@ public:
   Lane& add_lane(
       Lane::Node entry,
       Lane::Node exit,
-      const Door& door);
-
-  // TODO(MXG): Make a lane with a lift. Or perhaps have lifts be a completely
-  // different type of graph edge than Lane.
-//  Lane& add_lane(
-//      Lane::Node entry,
-//      Lane::Node exit,
-//      const Lift& lift);
+      Door door);
 
   /// Get the lane at the specified index
   Lane& get_lane(std::size_t index);

@@ -220,6 +220,13 @@ std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
 //==============================================================================
 struct EuclideanExpander
 {
+  // TODO(MXG): We should be able to improve the performance of this Euclidean
+  // search by making it two-sided (i.e. expanding from both the start and the
+  // goal at the same time).
+
+  // TODO(MXG): We can also make multi-floor planning more efficient by
+  // explicitly expanding to/from the LiftShaft bottlenecks.
+
   struct Node;
   using NodePtr = std::shared_ptr<Node>;
 

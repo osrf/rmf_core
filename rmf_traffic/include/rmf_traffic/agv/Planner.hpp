@@ -343,6 +343,12 @@ public:
     /// Get the graph index of this Waypoint
     std::size_t graph_index() const;
 
+    /// A reference to the graph edge that needs to be traversed to reach this
+    /// waypoint.
+    ///
+    /// Sometimes
+    const std::size_t* graph_edge() const;
+
     class Implementation;
   private:
     Waypoint();
