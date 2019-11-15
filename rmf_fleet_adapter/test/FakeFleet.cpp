@@ -37,12 +37,12 @@ public:
   using RobotMode = rmf_fleet_msgs::msg::RobotMode;
   using Location = rmf_fleet_msgs::msg::Location;
 
-  FakeFleetDriver(const std::string& _fleet_name)
-  : fleet_name(_fleet_name),
-    Node(_fleet_name + "_driver")
+  FakeFleetDriver(const std::string& _fleet_id)
+  : fleet_id(_fleet_id),
+    Node(_fleet_id + "_driver")
   {
     fleet_state_pub = create_publisher<FleetState>(
-        fleet_name + "/fleet_state", rclcpp::SystemDefaultsQoS());
+        fleet_id + "/fleet_state", rclcpp::SystemDefaultsQoS());
 
     using namespace std::chrono_literals;
     timer = create_wall_timer(
@@ -51,7 +51,7 @@ public:
     steady_clock.reset(new rclcpp::Clock(RCL_STEADY_TIME));
 
     // fake fleet
-    fleet_state_msg.name = fleet_name;
+    fleet_state_msg.name = fleet_id;
 
     RobotState robot;
     robot.name = "diagonal_robot";
@@ -85,7 +85,7 @@ public:
 
 private:
 
-  std::string fleet_name;
+  std::string fleet_id;
 
   rclcpp::Publisher<FleetState>::SharedPtr fleet_state_pub;
 
