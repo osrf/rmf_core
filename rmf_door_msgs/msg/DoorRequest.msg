@@ -1,0 +1,4 @@
+builtin_interfaces/Time request_time
+string requester_id
+string door_name
+DoorMode requested_mode

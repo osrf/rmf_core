@@ -350,7 +350,7 @@ Trajectory Interpolate::positions(
 
   trajectory.insert(
         start_time,
-        nullptr,
+        traits.get_profile(),
         input_positions.front(),
         Eigen::Vector3d::Zero());
 
