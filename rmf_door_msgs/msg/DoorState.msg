@@ -1,0 +1,3 @@
+builtin_interfaces/Time door_time
+string door_name
+DoorMode current_mode
