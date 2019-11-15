@@ -15,26 +15,22 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE_HPP
-#define RMF_TRAFFIC__SCHEDULE_HPP
+#include <rmf_traffic_ros2/geometry/Box.hpp>
 
-#include <rmf_utils/impl_ptr.hpp>
+namespace rmf_traffic_ros2 {
 
-namespace rmf_traffic {
-
-class Schedule
+//==============================================================================
+rmf_traffic_msgs::msg::Box convert(const rmf_traffic::geometry::Box& box)
 {
-public:
+  rmf_traffic_msgs::msg::Box output;
+  output.dimensions = {box.get_x_length(), box.get_y_length()};
+  return output;
+}
 
+//==============================================================================
+rmf_traffic::geometry::Box convert(const rmf_traffic_msgs::msg::Box& box)
+{
+  return rmf_traffic::geometry::Box(box.dimensions[0], box.dimensions[1]);
+}
 
-
-private:
-
-  class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
-
-};
-
-} // namespace rmf_traffic
-
-#endif // RMF_TRAFFIC__SCHEDULE_HPP
+} // namespace rmf_traffic_ros2

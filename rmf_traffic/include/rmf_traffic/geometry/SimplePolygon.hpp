@@ -105,6 +105,9 @@ public:
   /// incremented.
   void insert_point(std::size_t index, const Eigen::Vector2d& p);
 
+  // Documentation inherited
+  FinalShape finalize() const final;
+
 };
 
 //==============================================================================

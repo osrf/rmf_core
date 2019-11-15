@@ -15,6 +15,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+if(NOT CMAKE_BUILD_TYPE)
+  # Use the Release build type by default if the user has not specified one
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 include(GNUInstallDirs)
 
 include(FindPkgConfig)
@@ -25,6 +30,9 @@ find_package(ament_cmake REQUIRED)
 find_package(rmf_utils REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Eigen3 REQUIRED)
+
+# TODO(MXG): rclcpp should not actually be needed here, because rmf_traffic_ros2
+# has been split off into another package.
 
 # ===== Traffic control library
 file(GLOB_RECURSE core_lib_srcs "src/rmf_traffic/*.cpp")
@@ -37,7 +45,9 @@ if(BUILD_TESTING)
 
   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
 
-  ament_add_catch2(test_rmf_traffic test/main.cpp ${unit_test_srcs})
+  ament_add_catch2(
+    test_rmf_traffic test/main.cpp ${unit_test_srcs}
+    TIMEOUT 300)
   target_link_libraries(test_rmf_traffic
       rmf_traffic
       ${PC_FCL_LIBRARIES}
@@ -67,6 +77,7 @@ target_include_directories(rmf_traffic
 )
 
 ament_export_interfaces(rmf_traffic HAS_LIBRARY_TARGET)
+ament_export_dependencies(rmf_utils rclcpp)
 
 install(
   DIRECTORY include/

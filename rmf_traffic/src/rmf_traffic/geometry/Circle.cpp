@@ -79,5 +79,21 @@ double Circle::get_radius() const
   return static_cast<const CircleInternal*>(_get_internal())->_radius;
 }
 
+//==============================================================================
+FinalShape Circle::finalize() const
+{
+  return FinalShape::Implementation::make_final_shape(
+        rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
+        _get_internal()->make_fcl());
+}
+
+//==============================================================================
+FinalConvexShape Circle::finalize_convex() const
+{
+  return FinalConvexShape::Implementation::make_final_shape(
+        rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
+        _get_internal()->make_fcl());
+}
+
 } // namespace geometry
 } // namespace rmf_traffic

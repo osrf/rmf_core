@@ -30,29 +30,35 @@ enum TestProfileType
   UnitCircle
 };
 
-inline rmf_traffic::Trajectory::ProfilePtr create_test_profile(TestProfileType shape,
-                                                  rmf_traffic::Trajectory::Profile::Agency agency = rmf_traffic::Trajectory::Profile::Agency::Strict,
-                                                  std::string queue_number = "0")
+inline rmf_traffic::Trajectory::ProfilePtr create_test_profile(
+    TestProfileType shape,
+    rmf_traffic::Trajectory::Profile::Autonomy autonomy =
+        rmf_traffic::Trajectory::Profile::Autonomy::Guided,
+    std::string queue_number = "0")
 {
-  if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Agency::Strict == agency)
+  if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Autonomy::Guided == autonomy)
   {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+    return rmf_traffic::Trajectory::Profile::make_guided(
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Box>(1.0, 1.0));
   }
-  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Agency::Strict == agency)
+  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Autonomy::Guided == autonomy)
   {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
+    return rmf_traffic::Trajectory::Profile::make_guided(
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Circle>(1.0));
   }
-  else if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Agency::Queued == agency)
+  else if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Autonomy::Queued == autonomy)
   {
     return rmf_traffic::Trajectory::Profile::make_queued(
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0), queue_number);
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Box>(1.0, 1.0), queue_number);
   }
-  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Agency::Queued == agency)
+  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Autonomy::Queued == autonomy)
   {
     return rmf_traffic::Trajectory::Profile::make_queued(
-        std::make_shared<rmf_traffic::geometry::Circle>(1.0), queue_number);
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Circle>(1.0), queue_number);
   }
   else
   {
@@ -91,13 +97,15 @@ inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(TestProfileType sha
 {
   if (UnitBox == shape)
   {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0));
+    return rmf_traffic::Trajectory::Profile::make_guided(
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Box>(1.0, 1.0));
   }
   else if (UnitCircle == shape)
   {
-    return rmf_traffic::Trajectory::Profile::make_strict(
-        std::make_shared<rmf_traffic::geometry::Circle>(1.0));
+    return rmf_traffic::Trajectory::Profile::make_guided(
+        rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Circle>(1.0));
   }
   else
   {

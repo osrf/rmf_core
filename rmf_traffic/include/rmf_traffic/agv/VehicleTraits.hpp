@@ -18,7 +18,7 @@
 #ifndef RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
 #define RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
 
-#include <rmf_utils/impl_ptr.hpp>
+#include <rmf_traffic/Trajectory.hpp>
 
 namespace rmf_traffic {
 namespace agv {
@@ -32,29 +32,79 @@ public:
   {
   public:
 
-    VehicleTraits& set_nominal_velocity(double nom_vel);
+    Limits(
+        double velocity = 0.0,
+        double acceleration = 0.0);
+
+    Limits& set_nominal_velocity(double nom_vel);
     double get_nominal_velocity() const;
 
-    VehicleTraits& set_nominal_acceleration(double nom_accel);
+    Limits& set_nominal_acceleration(double nom_accel);
     double get_nominal_acceleration() const;
 
     /// Returns true if the values of these limits are valid, i.e. greater than
     /// zero.
     bool valid() const;
 
+    class Implementation;
   private:
-    Limits(void* pimpl);
-    friend class VehicleTraits;
-    void* _pimpl;
+    rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// Constructor. The default values of zero
+  enum class Steering : uint16_t
+  {
+    /// The vehicle uses differential steering, making it impossible to move
+    /// laterally.
+    Differential,
+
+    /// The vehicle can move holonomically, so it has no limitations about how
+    /// it steers.
+    Holonomic,
+  };
+
+  class Differential
+  {
+  public:
+
+    Differential(
+        Eigen::Vector2d forward = Eigen::Vector2d::UnitX(),
+        bool reversible = true);
+
+    Differential& set_forward(Eigen::Vector2d forward);
+
+    const Eigen::Vector2d& get_forward() const;
+
+    Differential& set_reversible(bool reversible);
+    bool is_reversible() const;
+
+    /// Returns true if the length of the forward vector is not too close to
+    /// zero. If it is too close to zero, then the direction of the forward
+    /// vector cannot be reliably interpreted. Ideally the forward vector should
+    /// have unit length.
+    bool valid() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  class Holonomic
+  {
+  public:
+
+    Holonomic();
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  /// Constructor.
   VehicleTraits(
-      double nom_linear_vel = 0.0,
-      double nom_linear_accel = 0.0,
-      double nom_rotation_vel = 0.0,
-      double nom_rotation_accel = 0.0,
-      bool reversible = false);
+      Limits linear,
+      Limits angular,
+      Trajectory::ConstProfilePtr profile,
+      Differential steering = Differential());
 
   Limits& linear();
   const Limits& linear() const;
@@ -62,23 +112,31 @@ public:
   Limits& rotational();
   const Limits& rotational() const;
 
+  VehicleTraits& set_profile(Trajectory::ConstProfilePtr profile);
 
-  VehicleTraits& set_reversible(bool reversible);
-  bool is_reversible() const;
+  const Trajectory::ConstProfilePtr& get_profile() const;
 
-  /// Returns true if the values of the traits are valid. Specifically this
+  Steering get_steering() const;
+
+  Differential& set_differential(Differential parameters = Differential());
+
+  Differential* get_differential();
+
+  const Differential* get_differential() const;
+
+  Holonomic& set_holonomic(Holonomic parameters);
+
+  Holonomic* get_holonomic();
+
+  const Holonomic* get_holonomic() const;
+
+  /// Returns true if the values of the traits are valid. For example, this
   /// means that all velocity and acceleration values are greater than zero.
   bool valid() const;
 
-  VehicleTraits(const VehicleTraits& other);
-  VehicleTraits(VehicleTraits&& other);
-  VehicleTraits& operator=(const VehicleTraits& other);
-  VehicleTraits& operator=(VehicleTraits&& other);
-
-private:
-
   class Implementation;
-  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 
 };
 

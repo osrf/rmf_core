@@ -15,81 +15,54 @@
  *
 */
 
-#include <rmf_traffic/Schedule.hpp>
-#include <rmf_traffic/Trajectory.hpp>
-
-#include <string>
-#include <unordered_set>
-#include <vector>
+#include <rmf_traffic/geometry/Space.hpp>
 
 namespace rmf_traffic {
+namespace geometry {
 
 //==============================================================================
-template<typename T>
-struct Range
-{
-  T lower;
-  T upper;
-};
-
-//==============================================================================
-struct ChronoSpatialBlock
-{
-  Range<uint64_t> time;
-  Range<double> x;
-  Range<double> y;
-
-  std::unordered_set<const Trajectory*> trajectories;
-};
-
-
-//==============================================================================
-class ChronoBucket
+class Space::Implementation
 {
 public:
 
-  bool intersection(const ChronoSpatialBlock& test) const;
-
-private:
-
-  std::vector<std::shared_ptr<ChronoSpatialBlock>> blocks;
+  geometry::ConstFinalShapePtr shape;
+  Eigen::Isometry2d pose;
 
 };
 
 //==============================================================================
-/// \brief This class performs very simple rectangular broadphase collision
-/// detection over time and 2D space.
-class ChronoSpatialBroadphase
+Space::Space(ConstFinalShapePtr shape, Eigen::Isometry2d tf)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{std::move(shape), std::move(tf)}))
 {
-public:
-
-
-
-private:
-
-  std::vector<ChronoBucket> buckets;
-
-};
+  // Do nothing
+}
 
 //==============================================================================
-class Schedule::Implementation
+const ConstFinalShapePtr &Space::get_shape() const
 {
-public:
-
-
-
-private:
-
-  std::vector<std::unique_ptr<Trajectory>> trajectories;
-
-  // Each "floor" (a.k.a. "map", a.k.a. "layout") has its own broadphase
-  // instance.
-  std::vector<ChronoSpatialBroadphase> broadphases;
-
-};
+  return _pimpl->shape;
+}
 
 //==============================================================================
+Space& Space::set_shape(geometry::ConstFinalShapePtr shape)
+{
+  _pimpl->shape = std::move(shape);
+  return *this;
+}
 
+//==============================================================================
+const Eigen::Isometry2d& Space::get_pose() const
+{
+  return _pimpl->pose;
+}
 
+//==============================================================================
+Space& Space::set_pose(Eigen::Isometry2d tf)
+{
+  _pimpl->pose = std::move(tf);
+  return *this;
+}
 
+} // namespace geometry
 } // namespace rmf_traffic

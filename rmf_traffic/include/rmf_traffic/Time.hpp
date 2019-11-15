@@ -25,7 +25,15 @@ namespace rmf_traffic {
 /// Specifies a specific point in time, with nanosecond precision.
 ///
 /// Conventionally this will be represented relative to the Unix Epoch.
+//
+// NOTE(MXG): An int64 nanosecond representation of time since the Unix Epoch
+// will not overflow until the year 2262. Please be sure to change this
+// implementation before then.
 using Time = std::chrono::steady_clock::time_point;
+// TODO(MXG): Before the first official release, we should seriously consider
+// pimpling this class. That would make the API robust to potential changes in
+// how we want to implement the underlying concept of Time.
+
 
 /// Specifies a change in time, with nanosecond precision.
 using Duration = std::chrono::steady_clock::duration;

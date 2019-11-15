@@ -231,9 +231,9 @@ class Trajectory::Profile::Implementation
 {
 public:
 
-  Implementation(geometry::ConstConvexShapePtr shape)
+  Implementation(geometry::ConstFinalConvexShapePtr shape)
     : shape(std::move(shape)),
-      strict_info(this),
+      guided_info(this),
       autonomous_info(this),
       queue_info(this)
   {
@@ -241,34 +241,34 @@ public:
   }
 
   // Basic information
-  geometry::ConstConvexShapePtr shape;
+  geometry::ConstFinalConvexShapePtr shape;
 
-  // Strict mode information (only used when in the Strict agency mode)
-  StrictInfo strict_info;
+  // Guided mode information (only used when in the Guided autonomy mode)
+  GuidedInfo guided_info;
 
-  // Autonomous mode information (only used when in the Autonomous agency mode)
+  // Autonomous mode information (only used when in the Autonomous autonomy mode)
   AutonomousInfo autonomous_info;
 
-  // Queued mode information (only used when in the Queued agency mode)
+  // Queued mode information (only used when in the Queued autonomy mode)
   QueueInfo queue_info;
   std::string queue_id;
 
-  // Agency mode
-  Agency agency_mode;
+  // Autonomy mode
+  Autonomy autonomy_mode;
 };
 
 //==============================================================================
-Trajectory::ProfilePtr Trajectory::Profile::make_strict(
-    geometry::ConstConvexShapePtr shape)
+Trajectory::ProfilePtr Trajectory::Profile::make_guided(
+    geometry::ConstFinalConvexShapePtr shape)
 {
   ProfilePtr result(new Profile(std::move(shape)));
-  result->set_to_strict();
+  result->set_to_guided();
   return result;
 }
 
 //==============================================================================
 Trajectory::ProfilePtr Trajectory::Profile::make_autonomous(
-    geometry::ConstConvexShapePtr shape)
+    geometry::ConstFinalConvexShapePtr shape)
 {
   ProfilePtr result(new Profile(std::move(shape)));
   result->set_to_autonomous();
@@ -277,7 +277,7 @@ Trajectory::ProfilePtr Trajectory::Profile::make_autonomous(
 
 //==============================================================================
 Trajectory::ProfilePtr Trajectory::Profile::make_queued(
-    geometry::ConstConvexShapePtr shape,
+    geometry::ConstFinalConvexShapePtr shape,
     const std::string& queue_id)
 {
   ProfilePtr result(new Profile(std::move(shape)));
@@ -286,37 +286,37 @@ Trajectory::ProfilePtr Trajectory::Profile::make_queued(
 }
 
 //==============================================================================
-geometry::ConstConvexShapePtr Trajectory::Profile::get_shape() const
+geometry::ConstFinalConvexShapePtr Trajectory::Profile::get_shape() const
 {
   return _pimpl->shape;
 }
 
 //==============================================================================
 Trajectory::Profile& Trajectory::Profile::set_shape(
-    geometry::ConstConvexShapePtr new_shape)
+    geometry::ConstFinalConvexShapePtr new_shape)
 {
   _pimpl->shape = std::move(new_shape);
   return *this;
 }
 
 //==============================================================================
-Trajectory::Profile::Agency Trajectory::Profile::get_agency() const
+Trajectory::Profile::Autonomy Trajectory::Profile::get_autonomy() const
 {
-  return _pimpl->agency_mode;
+  return _pimpl->autonomy_mode;
 }
 
 //==============================================================================
-Trajectory::Profile::StrictInfo::StrictInfo(void* pimpl)
+Trajectory::Profile::GuidedInfo::GuidedInfo(void* pimpl)
   : _pimpl(pimpl)
 {
   // Do nothing
 }
 
 //==============================================================================
-Trajectory::Profile::StrictInfo& Trajectory::Profile::set_to_strict()
+Trajectory::Profile::GuidedInfo& Trajectory::Profile::set_to_guided()
 {
-  _pimpl->agency_mode = Agency::Strict;
-  return _pimpl->strict_info;
+  _pimpl->autonomy_mode = Autonomy::Guided;
+  return _pimpl->guided_info;
 }
 
 //==============================================================================
@@ -329,7 +329,7 @@ Trajectory::Profile::AutonomousInfo::AutonomousInfo(void* pimpl)
 //==============================================================================
 Trajectory::Profile::AutonomousInfo& Trajectory::Profile::set_to_autonomous()
 {
-  _pimpl->agency_mode = Agency::Autonomous;
+  _pimpl->autonomy_mode = Autonomy::Autonomous;
   return _pimpl->autonomous_info;
 }
 
@@ -337,7 +337,7 @@ Trajectory::Profile::AutonomousInfo& Trajectory::Profile::set_to_autonomous()
 Trajectory::Profile::QueueInfo& Trajectory::Profile::set_to_queued(
     const std::string& queue_id)
 {
-  _pimpl->agency_mode = Agency::Queued;
+  _pimpl->autonomy_mode = Autonomy::Queued;
   _pimpl->queue_id = queue_id;
   return _pimpl->queue_info;
 }
@@ -358,14 +358,14 @@ Trajectory::Profile::QueueInfo::QueueInfo(void* pimpl)
 //==============================================================================
 auto Trajectory::Profile::get_queue_info() const -> const QueueInfo*
 {
-  if(Agency::Queued == _pimpl->agency_mode)
+  if(Autonomy::Queued == _pimpl->autonomy_mode)
     return &_pimpl->queue_info;
 
   return nullptr;
 }
 
 //==============================================================================
-Trajectory::Profile::Profile(geometry::ConstConvexShapePtr shape)
+Trajectory::Profile::Profile(geometry::ConstFinalConvexShapePtr shape)
   : _pimpl(rmf_utils::make_impl<Implementation>(std::move(shape)))
 {
   // Do nothing
@@ -623,6 +623,12 @@ Trajectory::InsertionResult Trajectory::insert(
 }
 
 //==============================================================================
+Trajectory::InsertionResult Trajectory::insert(const Segment& other)
+{
+  return _pimpl->insert(internal::SegmentElement::Data{other._pimpl->data()});
+}
+
+//==============================================================================
 Trajectory::iterator Trajectory::find(Time time)
 {
   return _pimpl->find(time);
@@ -680,6 +686,30 @@ Trajectory::const_iterator Trajectory::end() const
 Trajectory::const_iterator Trajectory::cend() const
 {
   return const_cast<Implementation&>(*_pimpl).end();
+}
+
+//==============================================================================
+auto Trajectory::front() -> Segment&
+{
+  return *_pimpl->segments.front().myself;
+}
+
+//==============================================================================
+auto Trajectory::front() const -> const Segment&
+{
+  return *_pimpl->segments.front().myself;
+}
+
+//==============================================================================
+auto Trajectory::back() -> Segment&
+{
+  return *_pimpl->segments.back().myself;
+}
+
+//==============================================================================
+auto Trajectory::back() const -> const Segment&
+{
+  return *_pimpl->segments.back().myself;
 }
 
 //==============================================================================

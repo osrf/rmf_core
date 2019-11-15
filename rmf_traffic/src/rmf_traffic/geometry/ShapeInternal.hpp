@@ -19,6 +19,7 @@
 #define SRC__RMF_TRAFFIC__GEOMETRY__SHAPEINTERNAL_HPP
 
 #include <rmf_traffic/geometry/Shape.hpp>
+#include <rmf_traffic/geometry/ConvexShape.hpp>
 
 #include <fcl/collision_object.h>
 
@@ -27,6 +28,9 @@
 namespace rmf_traffic {
 namespace geometry {
 
+using CollisionGeometryPtr = std::shared_ptr<fcl::CollisionGeometry>;
+using CollisionGeometries = std::vector<CollisionGeometryPtr>;
+
 //==============================================================================
 /// \brief Implementations of this class must be created by the child classes of
 /// Shape, and then passed to the constructor of Shape.
@@ -34,11 +38,55 @@ class Shape::Internal
 {
 public:
 
-  using CollisionGeometryPtr = std::shared_ptr<fcl::CollisionGeometry>;
-  using CollisionGeometries = std::vector<CollisionGeometryPtr>;
-
   virtual CollisionGeometries make_fcl() const = 0;
 
+};
+
+//==============================================================================
+class FinalShape::Implementation
+{
+public:
+
+  rmf_utils::impl_ptr<const Shape> _shape;
+
+  CollisionGeometries _collisions;
+
+  static const CollisionGeometries& get_collisions(const FinalShape& shape)
+  {
+    return shape._pimpl->_collisions;
+  }
+
+  static FinalShape make_final_shape(
+      rmf_utils::impl_ptr<const Shape> shape,
+      CollisionGeometries collisions)
+  {
+    FinalShape result;
+    result._pimpl = rmf_utils::make_impl<Implementation>(
+          Implementation{std::move(shape), std::move(collisions)});
+    return result;
+  }
+
+};
+
+//==============================================================================
+class FinalConvexShape::Implementation
+{
+public:
+
+  static CollisionGeometryPtr get_collision(const FinalConvexShape& shape)
+  {
+    return shape._pimpl->_collisions.front();
+  }
+
+  static FinalConvexShape make_final_shape(
+      rmf_utils::impl_ptr<const Shape> shape,
+      CollisionGeometries collisions)
+  {
+    FinalConvexShape result;
+    result._pimpl = rmf_utils::make_impl<FinalShape::Implementation>(
+          FinalShape::Implementation{std::move(shape), std::move(collisions)});
+    return result;
+  }
 };
 
 } // namespace geometry

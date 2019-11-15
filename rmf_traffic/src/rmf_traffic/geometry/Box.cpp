@@ -95,5 +95,21 @@ double Box::get_y_length() const
   return static_cast<const BoxInternal*>(_get_internal())->_y;
 }
 
+//==============================================================================
+FinalShape Box::finalize() const
+{
+  return FinalShape::Implementation::make_final_shape(
+        rmf_utils::make_derived_impl<const Shape, const Box>(*this),
+        _get_internal()->make_fcl());
+}
+
+//==============================================================================
+FinalConvexShape Box::finalize_convex() const
+{
+  return FinalConvexShape::Implementation::make_final_shape(
+        rmf_utils::make_derived_impl<const Shape, const Box>(*this),
+        _get_internal()->make_fcl());
+}
+
 } // namespace geometry
 } // namespace rmf_traffic
