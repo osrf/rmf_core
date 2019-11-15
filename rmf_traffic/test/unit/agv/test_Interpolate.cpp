@@ -289,7 +289,7 @@ SCENARIO("Test Interpolations")
   }
 }
 
-/// ================ Testing wishlist ================
+/// ================ TODO(MXG): Testing wishlist ================
 /// * Test the different Interpolate::Options features:
 ///   - always stop
 ///   - translation threshold
@@ -298,4 +298,5 @@ SCENARIO("Test Interpolations")
 /// * Test a trajectory that moves diagonally through the x/y plane
 /// * Compute some points along an expected trajectory by hand, and compare the
 ///   rmf_traffic::avg::Interpolate results against the hand-computed expectations
+/// * A regression test for pull request #15: https://github.com/osrf/rmf_core/pull/15
 ///
