@@ -48,12 +48,12 @@ require that `rmf_core` totally clear its predicted travel lane of all other
 robots, whereas fleets that support "pause/resume motion" or "complete paths"
 allow many other potential options for de-conflicting robot traffic.
 
-| Integration Feature | Required Message |
-| --- | --- |
-| state reporting | `rmf_fleet_msgs/FleetState` |
-| set destinations | `rmf_fleet_msgs/DestinationRequest` |
-| pause/resume motion | `rmf_fleet_msgs/ModeRequest` |
-| set complete paths | `rmf_fleet_msgs/PathRequest` |
+| Integration Feature | Required Message | Default topic name |
+| --- | --- | --- |
+| state reporting | `rmf_fleet_msgs/FleetState` | `fleet_states ` |
+| set destinations | `rmf_fleet_msgs/DestinationRequest` | `destination_requests` |
+| pause/resume motion | `rmf_fleet_msgs/ModeRequest` | `mode_requests` |
+| set complete paths | `rmf_fleet_msgs/PathRequest` | `path_requests` |
 
 ### Door integration
 
