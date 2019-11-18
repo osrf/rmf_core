@@ -23,6 +23,7 @@
 #include <Eigen/Geometry>
 
 #include <rmf_utils/impl_ptr.hpp>
+#include <rmf_utils/clone_ptr.hpp>
 
 #include <vector>
 
@@ -83,7 +84,7 @@ public:
 
     /// Make an orientation constraint that requires a specific value for the
     /// orientation.
-    static std::unique_ptr<OrientationConstraint>
+    static rmf_utils::clone_ptr<OrientationConstraint>
     make(std::vector<double> acceptable_orientations);
 
     enum class Direction
@@ -94,7 +95,7 @@ public:
 
     /// Make an orientation constraint that requires the vehicle to face forward
     /// or backward.
-    static std::unique_ptr<OrientationConstraint>
+    static rmf_utils::clone_ptr<OrientationConstraint>
     make(Direction direction, const Eigen::Vector2d& forward_vector);
 
     /// Apply the constraint to the given homogeneous position.
@@ -114,7 +115,7 @@ public:
         const Eigen::Vector2d& course_vector) const = 0;
 
     /// Clone this OrientationConstraint.
-    virtual std::unique_ptr<OrientationConstraint> clone() const = 0;
+    virtual rmf_utils::clone_ptr<OrientationConstraint> clone() const = 0;
 
     // Default destructor.
     virtual ~OrientationConstraint() = default;
@@ -296,7 +297,7 @@ public:
     };
 
     class Event;
-    using EventPtr = std::unique_ptr<Event>;
+    using EventPtr = rmf_utils::clone_ptr<Event>;
 
     /// An abstraction for the different kinds of Lane events
     class Event
@@ -309,15 +310,15 @@ public:
       template<typename DerivedExecutor>
       DerivedExecutor& execute(DerivedExecutor& executor) const
       {
-        return static_cast<DerivedExecutor&>(
-              static_cast<Executor&>(executor));
+        return static_cast<DerivedExecutor&>(execute(
+              static_cast<Executor&>(executor)));
       }
 
       /// Execute this event
       virtual Executor& execute(Executor& executor) const = 0;
 
       /// Clone this event
-      virtual std::unique_ptr<Event> clone() const = 0;
+      virtual EventPtr clone() const = 0;
 
       virtual ~Event() = default;
 
@@ -353,9 +354,9 @@ public:
       ///   Any velocity constraints for moving to/from this Node (depending on
       ///   whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
-           std::unique_ptr<Event> event = nullptr,
-           std::unique_ptr<OrientationConstraint> orientation = nullptr,
-           std::unique_ptr<VelocityConstraint> velocity = nullptr);
+           rmf_utils::clone_ptr<Event> event = nullptr,
+           rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr,
+           rmf_utils::clone_ptr<VelocityConstraint> velocity = nullptr);
 
       /// Constructor, event and velocity_constraint parameters will be nullptr
       ///
@@ -366,7 +367,7 @@ public:
       ///   Any orientation constraints for moving to/from this Node (depending
       ///   on whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
-           std::unique_ptr<OrientationConstraint> orientation);
+           rmf_utils::clone_ptr<OrientationConstraint> orientation);
 
       /// Get the index of the waypoint that this Node is wrapped around.
       std::size_t waypoint_index() const;

@@ -139,9 +139,9 @@ public:
     return true;
   }
 
-  std::unique_ptr<OrientationConstraint> clone() const final
+  rmf_utils::clone_ptr<OrientationConstraint> clone() const final
   {
-    return std::make_unique<AcceptableOrientationConstraint>(*this);
+    return rmf_utils::make_clone<AcceptableOrientationConstraint>(*this);
   }
 
 };
@@ -197,9 +197,9 @@ public:
     return true;
   }
 
-  std::unique_ptr<OrientationConstraint> clone() const final
+  rmf_utils::clone_ptr<OrientationConstraint> clone() const final
   {
-    return std::make_unique<DirectionConstraint>(*this);
+    return rmf_utils::make_clone<DirectionConstraint>(*this);
   }
 };
 
@@ -209,20 +209,20 @@ const Eigen::Rotation2Dd DirectionConstraint::R_pi = Eigen::Rotation2Dd(M_PI);
 } // anonymous namespace
 
 //==============================================================================
-std::unique_ptr<Graph::OrientationConstraint>
+rmf_utils::clone_ptr<Graph::OrientationConstraint>
 Graph::OrientationConstraint::make(std::vector<double> acceptable_orientations)
 {
-  return std::make_unique<AcceptableOrientationConstraint>(
+  return rmf_utils::make_clone<AcceptableOrientationConstraint>(
         std::move(acceptable_orientations));
 }
 
 //==============================================================================
-std::unique_ptr<Graph::OrientationConstraint>
+rmf_utils::clone_ptr<Graph::OrientationConstraint>
 Graph::OrientationConstraint::make(
     Direction direction,
     const Eigen::Vector2d& forward)
 {
-  return std::make_unique<DirectionConstraint>(direction, forward);
+  return rmf_utils::make_clone<DirectionConstraint>(direction, forward);
 }
 
 //==============================================================================
@@ -432,12 +432,12 @@ public:
     return executor;
   }
 
-  static std::unique_ptr<Event> make(EventT _event)
+  static Graph::Lane::EventPtr make(EventT _event)
   {
-    return std::make_unique<This>(std::move(_event));
+    return rmf_utils::make_clone<This>(std::move(_event));
   }
 
-  std::unique_ptr<Event> clone() const final
+  Graph::Lane::EventPtr clone() const final
   {
     return make(_event);
   }
@@ -450,31 +450,31 @@ private:
 } // anonymous namespace
 
 //==============================================================================
-auto Graph::Lane::Event::make(DoorOpen open) -> std::unique_ptr<Event>
+auto Graph::Lane::Event::make(DoorOpen open) -> EventPtr
 {
   return TemplateEvent<DoorOpen>::make(std::move(open));
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(DoorClose close) -> std::unique_ptr<Event>
+auto Graph::Lane::Event::make(DoorClose close) -> EventPtr
 {
   return TemplateEvent<DoorClose>::make(std::move(close));
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(LiftDoorOpen open) -> std::unique_ptr<Event>
+auto Graph::Lane::Event::make(LiftDoorOpen open) -> EventPtr
 {
   return TemplateEvent<LiftDoorOpen>::make(std::move(open));
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(LiftDoorClose close) -> std::unique_ptr<Event>
+auto Graph::Lane::Event::make(LiftDoorClose close) -> EventPtr
 {
   return TemplateEvent<LiftDoorClose>::make(std::move(close));
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(LiftMove move) -> std::unique_ptr<Event>
+auto Graph::Lane::Event::make(LiftMove move) -> EventPtr
 {
   return TemplateEvent<LiftMove>::make(std::move(move));
 }
@@ -486,69 +486,27 @@ public:
 
   std::size_t waypoint;
 
-  struct Constraints
-  {
-    Constraints(
-        std::unique_ptr<Event> _event,
-        std::unique_ptr<OrientationConstraint> _orientation,
-        std::unique_ptr<VelocityConstraint> _velocity)
-      : event(std::move(_event)),
-        orientation(std::move(_orientation)),
-        velocity(std::move(_velocity))
-    {
-      // Do nothing
-    }
+  rmf_utils::clone_ptr<Event> _event;
 
-    std::unique_ptr<Event> event;
-    std::unique_ptr<OrientationConstraint> orientation;
-    std::unique_ptr<VelocityConstraint> velocity;
+  rmf_utils::clone_ptr<OrientationConstraint> _orientation;
 
-    Constraints(const Constraints& other)
-    {
-      *this = other;
-    }
-
-    Constraints& operator=(const Constraints& other)
-    {
-      if(other.event)
-        event = other.event->clone();
-      else
-        event = nullptr;
-
-      if(other.orientation)
-        orientation = other.orientation->clone();
-      else
-        orientation = nullptr;
-
-      if(other.velocity)
-        velocity = other.velocity->clone();
-      else
-        velocity = nullptr;
-
-      return *this;
-    }
-
-    Constraints(Constraints&&) = default;
-    Constraints& operator=(Constraints&&) = default;
-  };
-
-  Constraints constraints;
+  rmf_utils::clone_ptr<VelocityConstraint> _velocity;
 
 };
 
 //==============================================================================
 Graph::Lane::Node::Node(
     std::size_t waypoint_index,
-    std::unique_ptr<Event> event,
-    std::unique_ptr<OrientationConstraint> orientation,
-    std::unique_ptr<VelocityConstraint> velocity)
+    rmf_utils::clone_ptr<Event> event,
+    rmf_utils::clone_ptr<OrientationConstraint> orientation,
+    rmf_utils::clone_ptr<VelocityConstraint> velocity)
 : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                waypoint_index,
-               Implementation::Constraints(
-                std::move(event),
-                std::move(orientation),
-                std::move(velocity))}))
+               std::move(event),
+               std::move(orientation),
+               std::move(velocity)
+             }))
 {
   // Do nothing
 }
@@ -556,14 +514,13 @@ Graph::Lane::Node::Node(
 //==============================================================================
 Graph::Lane::Node::Node(
     std::size_t waypoint_index,
-    std::unique_ptr<OrientationConstraint> orientation)
+    rmf_utils::clone_ptr<OrientationConstraint> orientation)
 : _pimpl(rmf_utils::make_impl<Implementation>(
            Implementation{
              waypoint_index,
-             Implementation::Constraints(
-              nullptr,
-              std::move(orientation),
-              nullptr)
+             nullptr,
+             std::move(orientation),
+             nullptr
            }))
 {
   // Do nothing
@@ -578,21 +535,21 @@ std::size_t Graph::Lane::Node::waypoint_index() const
 //==============================================================================
 auto Graph::Lane::Node::event() const -> const Event*
 {
-  return _pimpl->constraints.event.get();
+  return _pimpl->_event.get();
 }
 
 //==============================================================================
 auto Graph::Lane::Node::orientation_constraint() const
 -> const OrientationConstraint*
 {
-  return _pimpl->constraints.orientation.get();
+  return _pimpl->_orientation.get();
 }
 
 //==============================================================================
 auto Graph::Lane::Node::velocity_constraint() const
 -> const VelocityConstraint*
 {
-  return _pimpl->constraints.velocity.get();
+  return _pimpl->_velocity.get();
 }
 
 //==============================================================================

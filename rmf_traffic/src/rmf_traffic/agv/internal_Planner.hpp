@@ -34,6 +34,8 @@ public:
 
   std::size_t graph_index;
 
+  Graph::Lane::EventPtr event;
+
   template<typename... Args>
   static Waypoint make(Args&&... args)
   {

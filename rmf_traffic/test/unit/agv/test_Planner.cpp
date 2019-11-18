@@ -1394,26 +1394,162 @@ SCENARIO("DP1 Graph")
   }
 }
 
+std::size_t count_events(const rmf_traffic::agv::Plan& plan)
+{
+  std::size_t count = 0;
+  for(const auto& wp : plan.get_waypoints())
+  {
+    if(wp.event())
+      ++count;
+  }
 
-SCENARIO("Graph with door")
+  return count;
+}
+
+class ExpectEvent : public rmf_traffic::agv::Graph::Lane::Executor
+{
+public:
+
+  enum Expectation
+  {
+    DoorOpen,
+    DoorClose,
+    LiftDoorOpen,
+    LiftDoorClose,
+    LiftMove
+  };
+
+  using Lane = rmf_traffic::agv::Graph::Lane;
+
+  ExpectEvent(Expectation e)
+  : _expectation(e),
+    _result(false)
+  {
+    // Do nothing
+  }
+
+  void execute(const Lane::DoorOpen&) final
+  {
+    _result = _expectation == DoorOpen;
+  }
+
+  void execute(const Lane::DoorClose&) final
+  {
+    _result = _expectation == DoorClose;
+  }
+
+  void execute(const Lane::LiftDoorOpen&) final
+  {
+    _result = _expectation == LiftDoorOpen;
+  }
+
+  void execute(const Lane::LiftDoorClose&) final
+  {
+    _result = _expectation == LiftDoorClose;
+  }
+
+  void execute(const Lane::LiftMove&) final
+  {
+    _result = _expectation == LiftDoorClose;
+  }
+
+  bool result() const
+  {
+    return _result;
+  }
+
+private:
+
+  Expectation _expectation;
+  bool _result;
+
+};
+
+bool has_event(
+    ExpectEvent::Expectation expectation,
+    const rmf_traffic::agv::Plan& plan)
+{
+  ExpectEvent executor(expectation);
+  for(const auto& wp : plan.get_waypoints())
+  {
+    if(wp.event() && wp.event()->execute(executor).result())
+      return true;
+  }
+
+  return false;
+}
+
+SCENARIO("Graph with door", "[door]")
 {
   using namespace std::chrono_literals;
   using rmf_traffic::agv::Graph;
   using Event = Graph::Lane::Event;
   using DoorOpen = Graph::Lane::DoorOpen;
+  using DoorClose = Graph::Lane::DoorClose;
 
   const std::string test_map_name = "test_map";
   Graph graph;
   graph.add_waypoint(test_map_name, {  0, 0}); // 0
   graph.add_waypoint(test_map_name, {  0, 0}); // 1
-  graph.add_waypoint(test_map_name, {  5, 0}); // 2
-  graph.add_waypoint(test_map_name, { 10, 0}); // 3
+  graph.add_waypoint(test_map_name, {  0, 0}); // 2
+  graph.add_waypoint(test_map_name, {  5, 0}); // 3
+  graph.add_waypoint(test_map_name, { 10, 0}); // 4
+  CHECK(graph.num_waypoints() == 5);
 
-  graph.add_lane(0, 2);
-  graph.add_lane({1, Event::make(DoorOpen("door", 5s))}, 2);
-  graph.add_lane(2, 3);
+  graph.add_lane(0, 3);
+  graph.add_lane({1, Event::make(DoorOpen("door", 5s))}, 3);
+  graph.add_lane(
+      {2, Event::make(DoorOpen("door", 4s))},
+      {3, Event::make(DoorClose("door", 4s))});
+  graph.add_lane(3, 4);
 
+  const rmf_traffic::agv::VehicleTraits traits(
+      {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
 
+  rmf_traffic::schedule::Database database;
 
+  const auto default_options = rmf_traffic::agv::Planner::Options{database};
+  rmf_traffic::agv::Planner planner{
+    rmf_traffic::agv::Planner::Configuration{graph, traits},
+    default_options
+  };
+
+  const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+
+  const auto plan_no_door = planner.plan(
+        rmf_traffic::agv::Planner::Start(start_time, 0, 0.0),
+        rmf_traffic::agv::Planner::Goal(4));
+  REQUIRE(plan_no_door);
+  REQUIRE(plan_no_door.get_trajectories().size() == 1);
+  CHECK(count_events(plan_no_door) == 0);
+
+  const auto plan_with_door_open = planner.plan(
+        rmf_traffic::agv::Planner::Start(start_time, 1, 0.0),
+        rmf_traffic::agv::Planner::Goal(4));
+  REQUIRE(plan_with_door_open);
+  REQUIRE(plan_with_door_open.get_trajectories().size() == 1);
+  CHECK(count_events(plan_with_door_open) == 1);
+  CHECK(has_event(ExpectEvent::DoorOpen, plan_with_door_open));
+
+  const auto t_with_door_open =
+      plan_with_door_open.get_trajectories().front().duration();
+  const auto t_no_door =
+      plan_no_door.get_trajectories().front().duration();
+  CHECK(rmf_traffic::time::to_seconds(t_with_door_open - t_no_door)
+        == Approx(5.0).margin(1e-12));
+
+  const auto plan_with_door_open_close = planner.plan(
+        rmf_traffic::agv::Planner::Start(start_time, 2, 0.0),
+        rmf_traffic::agv::Planner::Goal(4));
+  REQUIRE(plan_with_door_open_close);
+  REQUIRE(plan_with_door_open_close.get_trajectories().size() == 1);
+  CHECK(count_events(plan_with_door_open_close) == 2);
+
+  const auto t_with_door_open_close =
+      plan_with_door_open_close.get_trajectories().front().duration();
+  CHECK(rmf_traffic::time::to_seconds(t_with_door_open_close - t_no_door)
+        > rmf_traffic::time::to_seconds(8s));
+  CHECK(has_event(ExpectEvent::DoorOpen, plan_with_door_open_close));
+  CHECK(has_event(ExpectEvent::DoorClose, plan_with_door_open_close));
 }
 
