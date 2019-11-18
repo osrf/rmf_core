@@ -408,14 +408,12 @@ auto Graph::Lane::LiftMove::duration(Duration duration) -> LiftMove&
 
 namespace {
 //==============================================================================
-template<
-    typename EventT,
-    void (Graph::Lane::Executor::*callback)(const EventT&)>
+template<typename EventT>
 class TemplateEvent : public Graph::Lane::Event
 {
 public:
 
-  using This = TemplateEvent<EventT, callback>;
+  using This = TemplateEvent<EventT>;
 
   TemplateEvent(EventT event)
   : _event(std::move(event))
@@ -428,9 +426,10 @@ public:
     return _event.duration();
   }
 
-  void execute(Graph::Lane::Executor& executor) const final
+  Graph::Lane::Executor& execute(Graph::Lane::Executor& executor) const final
   {
-    (executor.*callback)(_event);
+    executor.execute(_event);
+    return executor;
   }
 
   static std::unique_ptr<Event> make(EventT _event)
@@ -453,36 +452,31 @@ private:
 //==============================================================================
 auto Graph::Lane::Event::make(DoorOpen open) -> std::unique_ptr<Event>
 {
-  return TemplateEvent<DoorOpen, &Executor::door_open>::make(
-        std::move(open));
+  return TemplateEvent<DoorOpen>::make(std::move(open));
 }
 
 //==============================================================================
 auto Graph::Lane::Event::make(DoorClose close) -> std::unique_ptr<Event>
 {
-  return TemplateEvent<DoorClose, &Executor::door_close>::make(
-        std::move(close));
+  return TemplateEvent<DoorClose>::make(std::move(close));
 }
 
 //==============================================================================
 auto Graph::Lane::Event::make(LiftDoorOpen open) -> std::unique_ptr<Event>
 {
-  return TemplateEvent<LiftDoorOpen, &Executor::lift_door_open>::make(
-        std::move(open));
+  return TemplateEvent<LiftDoorOpen>::make(std::move(open));
 }
 
 //==============================================================================
 auto Graph::Lane::Event::make(LiftDoorClose close) -> std::unique_ptr<Event>
 {
-  return TemplateEvent<LiftDoorClose, &Executor::lift_door_close>::make(
-        std::move(close));
+  return TemplateEvent<LiftDoorClose>::make(std::move(close));
 }
 
 //==============================================================================
 auto Graph::Lane::Event::make(LiftMove move) -> std::unique_ptr<Event>
 {
-  return TemplateEvent<LiftMove, &Executor::lift_move>::make(
-        std::move(move));
+  return TemplateEvent<LiftMove>::make(std::move(move));
 }
 
 //==============================================================================

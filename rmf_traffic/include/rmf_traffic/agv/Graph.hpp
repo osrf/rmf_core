@@ -286,14 +286,17 @@ public:
     {
     public:
 
-      virtual void door_open(const DoorOpen& open) = 0;
-      virtual void door_close(const DoorClose& close) = 0;
-      virtual void lift_door_open(const LiftDoorOpen& open) = 0;
-      virtual void lift_door_close(const LiftDoorClose& close) = 0;
-      virtual void lift_move(const LiftMove& move) = 0;
+      virtual void execute(const DoorOpen& open) = 0;
+      virtual void execute(const DoorClose& close) = 0;
+      virtual void execute(const LiftDoorOpen& open) = 0;
+      virtual void execute(const LiftDoorClose& close) = 0;
+      virtual void execute(const LiftMove& move) = 0;
 
       virtual ~Executor() = default;
     };
+
+    class Event;
+    using EventPtr = std::unique_ptr<Event>;
 
     /// An abstraction for the different kinds of Lane events
     class Event
@@ -303,19 +306,26 @@ public:
       /// An estimate of how long the event will take
       virtual Duration duration() const = 0;
 
+      template<typename DerivedExecutor>
+      DerivedExecutor& execute(DerivedExecutor& executor) const
+      {
+        return static_cast<DerivedExecutor&>(
+              static_cast<Executor&>(executor));
+      }
+
       /// Execute this event
-      virtual void execute(Executor& executor) const = 0;
+      virtual Executor& execute(Executor& executor) const = 0;
 
       /// Clone this event
       virtual std::unique_ptr<Event> clone() const = 0;
 
       virtual ~Event() = default;
 
-      static std::unique_ptr<Event> make(DoorOpen open);
-      static std::unique_ptr<Event> make(DoorClose close);
-      static std::unique_ptr<Event> make(LiftDoorOpen open);
-      static std::unique_ptr<Event> make(LiftDoorClose close);
-      static std::unique_ptr<Event> make(LiftMove move);
+      static EventPtr make(DoorOpen open);
+      static EventPtr make(DoorClose close);
+      static EventPtr make(LiftDoorOpen open);
+      static EventPtr make(LiftDoorClose close);
+      static EventPtr make(LiftMove move);
     };
 
 

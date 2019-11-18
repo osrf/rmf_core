@@ -1393,3 +1393,27 @@ SCENARIO("DP1 Graph")
     }
   }
 }
+
+
+SCENARIO("Graph with door")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using Event = Graph::Lane::Event;
+  using DoorOpen = Graph::Lane::DoorOpen;
+
+  const std::string test_map_name = "test_map";
+  Graph graph;
+  graph.add_waypoint(test_map_name, {  0, 0}); // 0
+  graph.add_waypoint(test_map_name, {  0, 0}); // 1
+  graph.add_waypoint(test_map_name, {  5, 0}); // 2
+  graph.add_waypoint(test_map_name, { 10, 0}); // 3
+
+  graph.add_lane(0, 2);
+  graph.add_lane({1, Event::make(DoorOpen("door", 5s))}, 2);
+  graph.add_lane(2, 3);
+
+
+
+}
+
