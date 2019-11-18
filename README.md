@@ -46,4 +46,3 @@ facility.
 to `rmf_core`. These messages express the current mode of the door as `CLOSED`, `MOVING`, or `OPEN`
  * `rmf_door_msgs/DoorRequest` messages are sent from `rmf_core` to doors when
 they need to open or close for robot operations.
->>>>>>> readme_diagram
