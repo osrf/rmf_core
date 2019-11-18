@@ -36,3 +36,13 @@ type of "mixed levels of control" and to plan accordingly.
 to go to a particular destination.
  * `rmf_fleet_msgs/ModeRequest` is a request for a particular robot to change modes, for example, from `MOVING` to `PAUSED`, in order to preserve spatial separation between robots of different fleets.
  * `rmf_fleet_msgs/PathRequest` is a request for a particular robot to follow a particular path.
+
+### Door integration
+
+The `rmf_door_msgs` package contains two messages. This interface allows
+RMF to open and close motorized doors for robots as they move throughout a
+facility.
+ * `rmf_door_msgs/DoorState` messages are periodically sent by door controllers
+to `rmf_core`. These messages express the current mode of the door as `CLOSED`, `MOVING`, or `OPEN`
+ * `rmf_door_msgs/DoorRequest` messages are sent from `rmf_core` to doors when
+they need to open or close for robot operations.
