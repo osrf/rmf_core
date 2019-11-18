@@ -89,7 +89,8 @@ int main(int argc, char* argv[])
         rmf_traffic::geometry::make_final_convex<
           rmf_traffic::geometry::Circle>(0.6));
 
-  std::cout << "Vehicle traits: v: " << v_nom << " | a: " << a_nom << std::endl;
+  std::cout << "Vehicle traits: v: " << v_nom << " | a: " << a_nom 
+      << std::endl;
   rmf_traffic::agv::VehicleTraits traits{
     {v_nom*scaling, a_nom*scaling},
     {0.3*scaling, 1.5*scaling},
