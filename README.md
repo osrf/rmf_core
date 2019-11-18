@@ -48,7 +48,7 @@ require that `rmf_core` totally clear its predicted travel lane of all other
 robots, whereas fleets that support "pause/resume motion" or "complete paths"
 allow many other potential options for de-conflicting robot traffic.
 
-| Integration Feature | Required Messages |
+| Integration Feature | Required Message |
 | --- | --- |
 | state reporting | `rmf_fleet_msgs/FleetState` |
 | set destinations | `rmf_fleet_msgs/DestinationRequest` |
