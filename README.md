@@ -9,4 +9,4 @@ All packages in this repo will be written in ROS 2.
 To create a useful deployment, `rmf_core` must be connected
 to many other subsystems, as shown in the following diagram.
 
-![integration-diagram](/doc/rmf_core_integration_diagram.png)
+![integration-diagram](/docs/rmf_core_integration_diagram.png)
