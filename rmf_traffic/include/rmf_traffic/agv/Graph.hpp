@@ -76,131 +76,6 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// A door in the graph which needs to be opened before a robot can enter any
-  /// lane which crosses through it.
-  class Door
-  {
-  public:
-
-    /// Constructor
-    ///
-    /// \param[in] name
-    ///   Unique name of the door.
-    ///
-    /// \param[in] delay
-    ///   How long the door takes to open. This will also be used for how long
-    ///   the door takes to close, so the total delay incurred by opening and
-    ///   closing will be 2*delay.
-    Door(std::string name, Duration delay);
-
-    /// Constructor
-    ///
-    /// \param[in] name
-    ///   Unique name of the door.
-    ///
-    /// \param[in] open_delay
-    ///   How long the door takes to open.
-    ///
-    /// \param[in] close_delay
-    ///   How long the door takes to close.
-    Door(std::string name, Duration open_delay, Duration close_delay);
-
-    /// Get the unique name (ID) of this Door
-    const std::string& name() const;
-
-    /// Set the unique name (ID) of this Door
-    Door& name(std::string name);
-
-    /// Get the delay incurred by waiting for this door to open.
-    Duration open_delay() const;
-
-    /// Set the delay incurred by waiting for this door to open.
-    Door& open_delay(Duration duration);
-
-    /// Get the delay incurred by waiting for this door to close.
-    Duration close_delay() const;
-
-    /// Get the delay incurred by waiting for this door to close.
-    Door& close_delay(Duration duration);
-
-    /// Get the total delay incurred by waiting for this door to open and then
-    /// close.
-    Duration total_delay() const;
-
-    class Implementation;
-  private:
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
-  /// A door in the graph which belongs to a lift. The lift needs to be summoned
-  /// to this floor before the robot can proceed.
-  ///
-  /// \note The planner will naively assume that the lift is already on the
-  /// desired floor and ready to be opened right away.
-  ///
-  // TODO(MXG): If we can have a centralized lift schedule we can make better
-  // predictions and more accurate plans.
-  class LiftDoor
-  {
-  public:
-
-    /// Constructor
-    ///
-    /// \param[in] floor_name
-    ///   Name of the floor
-    ///
-    /// \param[in] door_info
-    ///   Information about the door
-    LiftDoor(std::string floor_name, Door door_info);
-
-    /// Get the door information of this LiftDoor
-    const Door& door() const;
-
-    /// Set the door information of this LiftDoor
-    LiftDoor& door(Door door_info);
-
-    /// Get the name of the floor that this LiftDoor is on
-    const std::string& floor_name() const;
-
-    /// Set the name of the floor that this LiftDoor is on
-    LiftDoor& floor_name(std::string name);
-
-    class Implementation;
-  private:
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
-  /// The lane traverses up or down a lift.
-  class LiftShaft
-  {
-  public:
-
-    /// Constructor
-    ///
-    /// \param[in] destination_floor_name
-    ///   Name of the floor that the lane will take the robot to.
-    ///
-    /// \param[in] delay
-    ///   How long the robot will take to get to the destination floor.
-    LiftShaft(std::string destination_floor_name, Duration delay);
-
-    /// Get the name of the destination floor.
-    const std::string& destination_floor_name() const;
-
-    /// Set the name of the destination floor.
-    LiftShaft& destination_floor_name(std::string name);
-
-    /// Get how long the lift will take to move between the floors.
-    Duration delay() const;
-
-    /// Set how long the lift will take to move between the floors.
-    LiftShaft& delay(Duration duration);
-
-    class Implementation;
-  private:
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
   /// A class that implicitly specifies a constraint on the robot's orientation.
   class OrientationConstraint
   {
@@ -217,6 +92,8 @@ public:
       Backward,
     };
 
+    /// Make an orientation constraint that requires the vehicle to face forward
+    /// or backward.
     static std::unique_ptr<OrientationConstraint>
     make(Direction direction, const Eigen::Vector2d& forward_vector);
 
@@ -251,7 +128,7 @@ public:
   {
   public:
 
-    /// Appl the constraint to the given homogeneous velocity.
+    /// Apply the constraint to the given homogeneous velocity.
     ///
     /// \param[in,out] velocity
     ///   The velocity which needs to be constrained. The function should modify
@@ -279,6 +156,169 @@ public:
   {
   public:
 
+    /// A door in the graph which needs to be opened before a robot can enter a
+    /// certain lane or closed before the robot can exit the lane.
+    class Door
+    {
+    public:
+
+      /// Constructor
+      ///
+      /// \param[in] name
+      ///   Unique name of the door.
+      ///
+      /// \param[in] duration
+      ///   How long the door takes to open or close.
+      Door(std::string name, Duration duration);
+
+      /// Get the unique name (ID) of this Door
+      const std::string& name() const;
+
+      /// Set the unique name (ID) of this Door
+      Door& name(std::string name);
+
+      /// Get the duration incurred by waiting for this door to open or close.
+      Duration duration() const;
+
+      /// Set the duration incurred by waiting for this door to open or close.
+      Door& duration(Duration duration);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    class DoorOpen : public Door { public: using Door::Door; };
+    class DoorClose : public Door { public: using Door::Door; };
+
+    /// A lift door in the graph which needs to be opened before a robot can
+    /// enter a certain lane or closed before the robot can exit the lane.
+    class LiftDoor
+    {
+    public:
+
+      /// Constructor
+      ///
+      /// \param[in] lift_name
+      ///   Name of the lift that this door belongs to.
+      ///
+      /// \param[in] floor_name
+      ///   Name of the floor that this door belongs to.
+      ///
+      /// \param[in] duration
+      ///   How long the door takes to open or close.
+      LiftDoor(
+          std::string lift_name,
+          std::string floor_name,
+          Duration duration);
+
+      /// Get the name of the lift that the door belongs to
+      const std::string& lift_name() const;
+
+      /// Set the name of the lift that the door belongs to
+      LiftDoor& lift_name(std::string name);
+
+      /// Get the name of the floor that this door is on
+      const std::string& floor_name() const;
+
+      /// Set the name of the floor that this door is on
+      LiftDoor& floor_name(std::string name);
+
+      /// Get an estimate of how long it will take the door to open or close
+      Duration duration() const;
+
+      /// Set an estimate of how long it will take the door to open or close
+      LiftDoor& duration(Duration duration);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    class LiftDoorOpen : public LiftDoor { public: using LiftDoor::LiftDoor; };
+    class LiftDoorClose : public LiftDoor { public: using LiftDoor::LiftDoor; };
+
+    class LiftMove
+    {
+    public:
+
+      /// Constructor
+      ///
+      /// \param[in] lift_name
+      ///   Name of the lift that will move.
+      ///
+      /// \param[in] destination_floor_name
+      ///   Name of the floor that will be moved to.
+      ///
+      /// \param[in] duration
+      ///   How long the lift will take to move.
+      LiftMove(
+          std::string lift_name,
+          std::string destination_floor_name,
+          Duration duration);
+
+      /// Get the name of the lift that needs to move
+      const std::string& lift_name() const;
+
+      /// Set the name of the lift that needs to move
+      LiftMove& lift_name(std::string name);
+
+      /// Get the name of the destination floor
+      const std::string& destination_floor() const;
+
+      /// Set the name of the destination floor
+      LiftMove& destination_floor(std::string name);
+
+      /// Get an estimate of how long the move will take
+      Duration duration() const;
+
+      /// Set an estimate for how long the move will take
+      LiftMove& duration(Duration d);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// A customizable Executor that can carry out actions based on which Event
+    /// type is present.
+    class Executor
+    {
+    public:
+
+      virtual void door_open(const DoorOpen& open) = 0;
+      virtual void door_close(const DoorClose& close) = 0;
+      virtual void lift_door_open(const LiftDoorOpen& open) = 0;
+      virtual void lift_door_close(const LiftDoorClose& close) = 0;
+      virtual void lift_move(const LiftMove& move) = 0;
+
+      virtual ~Executor() = default;
+    };
+
+    /// An abstraction for the different kinds of Lane events
+    class Event
+    {
+    public:
+
+      /// An estimate of how long the event will take
+      virtual Duration duration() const = 0;
+
+      /// Execute this event
+      virtual void execute(Executor& executor) const = 0;
+
+      /// Clone this event
+      virtual std::unique_ptr<Event> clone() const = 0;
+
+      virtual ~Event() = default;
+
+      static std::unique_ptr<Event> make(DoorOpen open);
+      static std::unique_ptr<Event> make(DoorClose close);
+      static std::unique_ptr<Event> make(LiftDoorOpen open);
+      static std::unique_ptr<Event> make(LiftDoorClose close);
+      static std::unique_ptr<Event> make(LiftMove move);
+    };
+
+
     /// A Lane Node wraps up a Waypoint with constraints. The constraints
     /// stipulate the conditions for entering or exiting the lane to reach this
     /// waypoint.
@@ -291,6 +331,10 @@ public:
       /// \param waypoint_index
       ///   The index of the waypoint for this Node
       ///
+      /// \param event
+      ///   An event that must happen before/after this Node is approached
+      ///   (before if it's an entry Node or after if it's an exit Node).
+      ///
       /// \param orientation
       ///   Any orientation constraints for moving to/from this Node (depending
       ///   on whether it's an entry Node or an exit Node).
@@ -299,16 +343,38 @@ public:
       ///   Any velocity constraints for moving to/from this Node (depending on
       ///   whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
+           std::unique_ptr<Event> event = nullptr,
            std::unique_ptr<OrientationConstraint> orientation = nullptr,
            std::unique_ptr<VelocityConstraint> velocity = nullptr);
 
+      /// Constructor, event and velocity_constraint parameters will be nullptr
+      ///
+      /// \param waypoint_index
+      ///   The index of the waypoint for this Node
+      ///
+      /// \param orientation
+      ///   Any orientation constraints for moving to/from this Node (depending
+      ///   on whether it's an entry Node or an exit Node).
+      Node(std::size_t waypoint_index,
+           std::unique_ptr<OrientationConstraint> orientation);
+
       /// Get the index of the waypoint that this Node is wrapped around.
       std::size_t waypoint_index() const;
+
+      /// Get a reference to an event that must occur before or after this Node
+      /// is visited.
+      ///
+      /// \note Before if this is an entry node or after if this is an exit node
+      const Event* event() const;
 
       /// Get the constraint on orientation that is tied to this Node.
       const OrientationConstraint* orientation_constraint() const;
 
       /// Get the constraint on velocity that is tied to this Node.
+      ///
+      /// \warning This is currently not being used anyway
+      //
+      // TODO(MXG): Decide if this should be used or thrown away.
       const VelocityConstraint* velocity_constraint() const;
 
       class Implementation;
@@ -324,44 +390,8 @@ public:
     /// that goes into this node.
     const Node& exit() const;
 
-    class Feature
-    {
-    public:
-
-
-
-      class Implementation;
-    private:
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
     /// Get the index of this Lane within the Graph.
     std::size_t index() const;
-
-    /// This exception gets thrown when a user tries to change a Lane in a way
-    /// that does not make sense. For example if a lane is given both a Door
-    /// and a LiftDoor. Right now we only support having one Lane feature at a
-    /// time.
-    ///
-    /// To avoid getting this error, be sure to remove any feature
-    class bad_feature_change : std::logic_error
-    {
-
-    };
-
-    /// Get a reference to the door that blocks this lane, if one exists.
-    ///
-    /// If there is no door along this lane, then return a nullptr.
-    const Door* get_door() const;
-
-    /// Set the door for this lane
-    Lane& set_door(Door door);
-
-    /// Remove the door for this lane
-    Lane& remove_door();
-
-
-    Lane& clear_feature();
 
     class Implementation;
   private:
@@ -396,31 +426,11 @@ public:
   /// Get the number of waypoints in this Graph
   std::size_t num_waypoints() const;
 
-  /// Make a new door for this Graph.
-  Door& add_door(
-      std::string name,
-      Duration delay = std::chrono::seconds(3));
-
-  /// Get the door at the specified index
-  Door& get_door(std::size_t index);
-
-  /// const-qualified get_door()
-  const Door& get_door(std::size_t index) const;
-
-  /// Get the number of doors in this Graph
-  std::size_t num_doors() const;
-
   /// Make a lane for this graph. Lanes connect waypoints together, allowing the
   /// graph to know how the robot is allowed to traverse between waypoints.
   Lane& add_lane(
       Lane::Node entry,
       Lane::Node exit);
-
-  /// Make a lane with a door.
-  Lane& add_lane(
-      Lane::Node entry,
-      Lane::Node exit,
-      Door door);
 
   /// Get the lane at the specified index
   Lane& get_lane(std::size_t index);

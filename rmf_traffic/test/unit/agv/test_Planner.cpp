@@ -29,8 +29,8 @@
 #include <iomanip>
 
 // TODO(MXG): Move performance testing content into a performance test folder
-const bool test_performance = false;
-//const bool test_performance = true;
+//const bool test_performance = false;
+const bool test_performance = true;
 const std::size_t N = test_performance? 10 : 1;
 
 void print_timing(const std::chrono::steady_clock::time_point& start_time)
@@ -333,9 +333,13 @@ SCENARIO("Test planning")
       std::cout << "Per run: " << sec/N << std::endl;
     }
 
+    const auto expected_t = rmf_traffic::agv::Interpolate::positions(
+          "test_map", traits, start_time,
+          {{10.0, -5.0, M_PI}, {5.0, -5.0, M_PI}});
+
     CHECK(plan.get_trajectories().size()==1);
     const auto t = plan.get_trajectories().front();
-    REQUIRE(t.size() == 4); //start, stop acc, start decc, goal
+    REQUIRE(t.size() == expected_t.size());
 
     const auto initial_p = t.front().get_finish_position().block<2,1>(0, 0);
     CHECK((initial_p - Eigen::Vector2d(10, -5)).norm() == Approx(0.0) );

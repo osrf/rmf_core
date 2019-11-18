@@ -99,66 +99,6 @@ Graph::Waypoint::Waypoint()
   // Do nothing
 }
 
-//==============================================================================
-class Graph::Door::Implementation
-{
-public:
-
-  std::size_t index;
-
-  std::string name;
-
-  Duration delay;
-
-  template<typename... Args>
-  static Door make(Args&&... args)
-  {
-    Door result;
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::forward<Args>(args)...});
-
-    return result;
-  }
-};
-
-//==============================================================================
-const std::string& Graph::Door::get_name() const
-{
-  return _pimpl->name;
-}
-
-//==============================================================================
-auto Graph::Door::set_name(std::string name) -> Door&
-{
-  _pimpl->name = std::move(name);
-  return *this;
-}
-
-//==============================================================================
-Duration Graph::Door::get_delay() const
-{
-  return _pimpl->delay;
-}
-
-//==============================================================================
-auto Graph::Door::set_delay(const Duration duration) -> Door&
-{
-  _pimpl->delay = duration;
-  return *this;
-}
-
-//==============================================================================
-std::size_t Graph::Door::index() const
-{
-  return _pimpl->index;
-}
-
-//==============================================================================
-Graph::Door::Door()
-{
-  // Do nothing
-}
-
 namespace {
 //==============================================================================
 class AcceptableOrientationConstraint : public Graph::OrientationConstraint
@@ -286,6 +226,266 @@ Graph::OrientationConstraint::make(
 }
 
 //==============================================================================
+class Graph::Lane::Door::Implementation
+{
+public:
+
+  std::string name;
+  Duration duration;
+
+};
+
+//==============================================================================
+Graph::Lane::Door::Door(
+    std::string name,
+    Duration duration)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             std::move(name),
+             duration
+           }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::string& Graph::Lane::Door::name() const
+{
+  return _pimpl->name;
+}
+
+//==============================================================================
+auto Graph::Lane::Door::name(std::string name) -> Door&
+{
+  _pimpl->name = std::move(name);
+  return *this;
+}
+
+//==============================================================================
+Duration Graph::Lane::Door::duration() const
+{
+  return _pimpl->duration;
+}
+
+//==============================================================================
+auto Graph::Lane::Door::duration(Duration duration_) -> Door&
+{
+  _pimpl->duration = duration_;
+  return *this;
+}
+
+//==============================================================================
+class Graph::Lane::LiftDoor::Implementation
+{
+public:
+
+  std::string lift_name;
+  std::string floor_name;
+  Duration duration;
+
+};
+
+//==============================================================================
+Graph::Lane::LiftDoor::LiftDoor(
+    std::string lift_name,
+    std::string floor_name,
+    Duration duration)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{
+               std::move(lift_name),
+               std::move(floor_name),
+               duration
+             }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::string& Graph::Lane::LiftDoor::lift_name() const
+{
+  return _pimpl->lift_name;
+}
+
+//==============================================================================
+auto Graph::Lane::LiftDoor::lift_name(std::string name) -> LiftDoor&
+{
+  _pimpl->lift_name = std::move(name);
+  return *this;
+}
+
+//==============================================================================
+const std::string& Graph::Lane::LiftDoor::floor_name() const
+{
+  return _pimpl->floor_name;
+}
+
+//==============================================================================
+auto Graph::Lane::LiftDoor::floor_name(std::string name) -> LiftDoor&
+{
+  _pimpl->floor_name = std::move(name);
+  return *this;
+}
+
+//==============================================================================
+Duration Graph::Lane::LiftDoor::duration() const
+{
+  return _pimpl->duration;
+}
+
+//==============================================================================
+auto Graph::Lane::LiftDoor::duration(Duration duration_) -> LiftDoor&
+{
+  _pimpl->duration = duration_;
+  return *this;
+}
+
+//==============================================================================
+class Graph::Lane::LiftMove::Implementation
+{
+public:
+
+  std::string lift_name;
+
+  std::string destination_floor;
+
+  Duration duration;
+
+};
+
+//==============================================================================
+Graph::Lane::LiftMove::LiftMove(
+    std::string lift_name,
+    std::string destination_floor_name,
+    Duration duration)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             std::move(lift_name),
+             std::move(destination_floor_name),
+             duration
+           }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::string& Graph::Lane::LiftMove::lift_name() const
+{
+  return _pimpl->lift_name;
+}
+
+//==============================================================================
+auto Graph::Lane::LiftMove::lift_name(std::string name) -> LiftMove&
+{
+  _pimpl->lift_name = std::move(name);
+  return *this;
+}
+
+//==============================================================================
+const std::string& Graph::Lane::LiftMove::destination_floor() const
+{
+  return _pimpl->destination_floor;
+}
+
+//==============================================================================
+auto Graph::Lane::LiftMove::destination_floor(std::string name) -> LiftMove&
+{
+  _pimpl->destination_floor = std::move(name);
+  return *this;
+}
+
+//==============================================================================
+Duration Graph::Lane::LiftMove::duration() const
+{
+  return _pimpl->duration;
+}
+
+//==============================================================================
+auto Graph::Lane::LiftMove::duration(Duration duration) -> LiftMove&
+{
+  _pimpl->duration = duration;
+  return *this;
+}
+
+namespace {
+//==============================================================================
+template<
+    typename EventT,
+    void (Graph::Lane::Executor::*callback)(const EventT&)>
+class TemplateEvent : public Graph::Lane::Event
+{
+public:
+
+  using This = TemplateEvent<EventT, callback>;
+
+  TemplateEvent(EventT event)
+  : _event(std::move(event))
+  {
+    // Do nothing
+  }
+
+  Duration duration() const final
+  {
+    return _event.duration();
+  }
+
+  void execute(Graph::Lane::Executor& executor) const final
+  {
+    (executor.*callback)(_event);
+  }
+
+  static std::unique_ptr<Event> make(EventT _event)
+  {
+    return std::make_unique<This>(std::move(_event));
+  }
+
+  std::unique_ptr<Event> clone() const final
+  {
+    return make(_event);
+  }
+
+private:
+
+  EventT _event;
+
+};
+} // anonymous namespace
+
+//==============================================================================
+auto Graph::Lane::Event::make(DoorOpen open) -> std::unique_ptr<Event>
+{
+  return TemplateEvent<DoorOpen, &Executor::door_open>::make(
+        std::move(open));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(DoorClose close) -> std::unique_ptr<Event>
+{
+  return TemplateEvent<DoorClose, &Executor::door_close>::make(
+        std::move(close));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(LiftDoorOpen open) -> std::unique_ptr<Event>
+{
+  return TemplateEvent<LiftDoorOpen, &Executor::lift_door_open>::make(
+        std::move(open));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(LiftDoorClose close) -> std::unique_ptr<Event>
+{
+  return TemplateEvent<LiftDoorClose, &Executor::lift_door_close>::make(
+        std::move(close));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(LiftMove move) -> std::unique_ptr<Event>
+{
+  return TemplateEvent<LiftMove, &Executor::lift_move>::make(
+        std::move(move));
+}
+
+//==============================================================================
 class Graph::Lane::Node::Implementation
 {
 public:
@@ -295,14 +495,17 @@ public:
   struct Constraints
   {
     Constraints(
+        std::unique_ptr<Event> _event,
         std::unique_ptr<OrientationConstraint> _orientation,
         std::unique_ptr<VelocityConstraint> _velocity)
-      : orientation(std::move(_orientation)),
+      : event(std::move(_event)),
+        orientation(std::move(_orientation)),
         velocity(std::move(_velocity))
     {
       // Do nothing
     }
 
+    std::unique_ptr<Event> event;
     std::unique_ptr<OrientationConstraint> orientation;
     std::unique_ptr<VelocityConstraint> velocity;
 
@@ -313,6 +516,11 @@ public:
 
     Constraints& operator=(const Constraints& other)
     {
+      if(other.event)
+        event = other.event->clone();
+      else
+        event = nullptr;
+
       if(other.orientation)
         orientation = other.orientation->clone();
       else
@@ -337,14 +545,32 @@ public:
 //==============================================================================
 Graph::Lane::Node::Node(
     std::size_t waypoint_index,
+    std::unique_ptr<Event> event,
     std::unique_ptr<OrientationConstraint> orientation,
     std::unique_ptr<VelocityConstraint> velocity)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
+: _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                waypoint_index,
                Implementation::Constraints(
+                std::move(event),
                 std::move(orientation),
                 std::move(velocity))}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Graph::Lane::Node::Node(
+    std::size_t waypoint_index,
+    std::unique_ptr<OrientationConstraint> orientation)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             waypoint_index,
+             Implementation::Constraints(
+              nullptr,
+              std::move(orientation),
+              nullptr)
+           }))
 {
   // Do nothing
 }
@@ -353,6 +579,12 @@ Graph::Lane::Node::Node(
 std::size_t Graph::Lane::Node::waypoint_index() const
 {
   return _pimpl->waypoint;
+}
+
+//==============================================================================
+auto Graph::Lane::Node::event() const -> const Event*
+{
+  return _pimpl->constraints.event.get();
 }
 
 //==============================================================================
@@ -413,15 +645,6 @@ std::size_t Graph::Lane::index() const
 }
 
 //==============================================================================
-const std::size_t* Graph::Lane::door_index() const
-{
-  if(_pimpl->has_door)
-    return &_pimpl->door_index;
-
-  return nullptr;
-}
-
-//==============================================================================
 Graph::Lane::Lane()
 {
   // Do nothing
@@ -469,34 +692,6 @@ std::size_t Graph::num_waypoints() const
 }
 
 //==============================================================================
-auto Graph::add_door(std::string name, Duration delay) -> Door&
-{
-  _pimpl->doors.emplace_back(
-        Door::Implementation::make(
-          _pimpl->doors.size(), std::move(name), delay));
-
-  return _pimpl->doors.back();
-}
-
-//==============================================================================
-auto Graph::get_door(const std::size_t index) -> Door&
-{
-  return _pimpl->doors.at(index);
-}
-
-//==============================================================================
-auto Graph::get_door(const std::size_t index) const -> const Door&
-{
-  return _pimpl->doors.at(index);
-}
-
-//==============================================================================
-std::size_t Graph::num_doors() const
-{
-  return _pimpl->doors.size();
-}
-
-//==============================================================================
 auto Graph::add_lane(Lane::Node entry, Lane::Node exit) -> Lane&
 {
   assert(entry.waypoint_index() < _pimpl->waypoints.size());
@@ -511,20 +706,6 @@ auto Graph::add_lane(Lane::Node entry, Lane::Node exit) -> Lane&
           std::move(entry),
           std::move(exit),
           false, std::size_t()));
-
-  return _pimpl->lanes.back();
-}
-
-//==============================================================================
-auto Graph::add_lane(Lane::Node entry, Lane::Node exit, const Door& door)
--> Lane&
-{
-  _pimpl->lanes.emplace_back(
-        Lane::Implementation::make(
-          _pimpl->lanes.size(),
-          std::move(entry),
-          std::move(exit),
-          true, door.index()));
 
   return _pimpl->lanes.back();
 }

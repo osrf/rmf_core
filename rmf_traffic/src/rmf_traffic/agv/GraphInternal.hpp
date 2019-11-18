@@ -29,7 +29,6 @@ class Graph::Implementation
 public:
 
   std::vector<Waypoint> waypoints;
-  std::vector<Door> doors;
   std::vector<Lane> lanes;
 
   // A map from a waypoint index to the set of lanes that can exit from it

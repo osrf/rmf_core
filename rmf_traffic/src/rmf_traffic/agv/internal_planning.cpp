@@ -285,6 +285,18 @@ struct EuclideanExpander
     return node->waypoint == context.final_waypoint;
   }
 
+  static double lane_event_cost(const agv::Graph::Lane& lane)
+  {
+    double cost = 0.0;
+    if(const auto* event = lane.entry().event())
+      cost += time::to_seconds(event->duration());
+
+    if(const auto* event = lane.exit().event())
+      cost += time::to_seconds(event->duration());
+
+    return cost;
+  }
+
   void expand_lane(
       const NodePtr& parent_node,
       const std::size_t lane_index,
@@ -304,7 +316,11 @@ struct EuclideanExpander
     const Eigen::Vector2d p_exit =
         context.graph.waypoints[exit_waypoint_index].get_location();
 
-    const double cost = parent_node->current_cost + (p_exit - p_start).norm();
+    const double cost =
+        parent_node->current_cost
+        + lane_event_cost(lane)
+        + (p_exit - p_start).norm();
+
     queue.push(std::make_shared<Node>(
                  Node{
                    exit_waypoint_index,
@@ -720,7 +736,6 @@ struct DifferentialDriveExpander
   struct LaneExpansionNode
   {
     std::size_t lane;
-    Trajectory parent_trajectory;
   };
 
   void expand_down_lane(
@@ -735,24 +750,18 @@ struct DifferentialDriveExpander
         _context.graph.waypoints[initial_waypoint].get_location();
     const double orientation = initial_parent->orientation;
 
-    Trajectory initial_trajectory{
-      _context.graph.waypoints[initial_waypoint].get_map_name()
-    };
+    const std::string map_name =
+        _context.graph.waypoints[initial_waypoint].get_map_name();
+    Trajectory initial_trajectory{map_name};
 
-    const Trajectory::Segment& last_seg =
+    const Trajectory::Segment& initial_seg =
         initial_parent->trajectory_from_parent.back();
 
-    const Eigen::Vector3d initial_position = last_seg.get_finish_position();
-
-    initial_trajectory.insert(
-          last_seg.get_finish_time(),
-          _context.profile,
-          initial_position,
-          Eigen::Vector3d::Zero());
+    const Time initial_time = initial_seg.get_finish_time();
+    const Eigen::Vector3d initial_position = initial_seg.get_finish_position();
 
     std::vector<LaneExpansionNode> lane_expansion_queue;
-    lane_expansion_queue.push_back(
-        {initial_lane_index, std::move(initial_trajectory)});
+    lane_expansion_queue.push_back({initial_lane_index});
 
     while (!lane_expansion_queue.empty())
     {
@@ -769,14 +778,14 @@ struct DifferentialDriveExpander
 
       // TODO(MXG): Figure out what to do if the trajectory spans across
       // multiple maps.
-      Trajectory trajectory = top.parent_trajectory;
-      const auto& continue_from = trajectory.back();
+      Trajectory trajectory{map_name};
+      trajectory.insert(initial_seg);
       agv::internal::interpolate_translation(
             trajectory,
             _context.traits.linear().get_nominal_velocity(),
             _context.traits.linear().get_nominal_acceleration(),
-            continue_from.get_finish_time(),
-            continue_from.get_finish_position(),
+            initial_time,
+            initial_position,
             next_position,
             _context.profile,
             _context.interpolate.translation_thresh);
@@ -817,6 +826,13 @@ struct DifferentialDriveExpander
           continue;
         }
 
+        if (future_lane.entry().event())
+        {
+          // An event needs to take place before proceeding down this lane, so
+          // we should not expand in this direction
+          continue;
+        }
+
         const Eigen::Vector3d future_position{
           future_p[0], future_p[1], orientation
         };
@@ -828,7 +844,7 @@ struct DifferentialDriveExpander
           continue;
         }
 
-        lane_expansion_queue.push_back({l, trajectory});
+        lane_expansion_queue.push_back({l});
       }
     }
   }
@@ -922,6 +938,7 @@ private:
 };
 
 //==============================================================================
+namespace {
 class DifferentialDriveCache : public Cache
 {
 public:
@@ -1019,6 +1036,7 @@ private:
   using HeuristicDatabase = std::unordered_map<std::size_t, Heuristic>;
   HeuristicDatabase _heuristics;
 };
+} // anonymous namespace
 
 //==============================================================================
 CacheManager make_cache(agv::Planner::Configuration config)
@@ -1033,9 +1051,6 @@ CacheManager make_cache(agv::Planner::Configuration config)
         "[rmf_traffic::agv::Planner] Planning utilities are currently only "
         "implemented for AGVs that use a differential drive.");
 }
-
-//==============================================================================
-
 
 } // namespace planning
 } // namespace internal
