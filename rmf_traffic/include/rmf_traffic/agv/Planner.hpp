@@ -191,8 +191,7 @@ public:
   {
   public:
 
-    // TODO(MXG): Use std::optional for the goal orientation when we can have
-    // support for C++17.
+    // TODO(MXG): Consider uing optional for the goal orientation
 
     // TODO(MXG): Consider supporting goals that have multiple acceptable goal
     // orientations.

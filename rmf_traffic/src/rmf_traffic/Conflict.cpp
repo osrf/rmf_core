@@ -302,10 +302,9 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
     const Trajectory::ConstProfilePtr profile_a = a_it->get_profile();
     const Trajectory::ConstProfilePtr profile_b = b_it->get_profile();
 
-    // TODO(MXG): When we can use C++17, we can change spline_a and spline_b to
-    // use std::optional<Spline> so that we can easily keep track of which needs
-    // to be updated. There's some wasted computational cycles here whenever we
-    // are using the same spline as a previous iteration.
+    // TODO(MXG): Consider using optional<Spline> so that we can easily keep
+    // track of which needs to be updated. There's some wasted computational
+    // cycles here whenever we are using the same spline as a previous iteration
     spline_a = Spline(a_it);
     spline_b = Spline(b_it);
 

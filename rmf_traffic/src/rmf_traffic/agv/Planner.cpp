@@ -231,9 +231,7 @@ public:
 
   std::size_t waypoint;
 
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_orientation;
-  double orientation;
+  rmf_utils::optional<double> orientation;
 
 };
 
@@ -242,8 +240,7 @@ Planner::Goal::Goal(const std::size_t waypoint)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                waypoint,
-               false,
-               0.0
+               rmf_utils::nullopt
              }))
 {
   // Do nothing
@@ -256,7 +253,6 @@ Planner::Goal::Goal(
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                waypoint,
-               true,
                goal_orientation
              }))
 {
@@ -279,7 +275,6 @@ std::size_t Planner::Goal::waypoint() const
 //==============================================================================
 auto Planner::Goal::orientation(const double goal_orientation) -> Goal&
 {
-  _pimpl->has_orientation = true;
   _pimpl->orientation = goal_orientation;
   return *this;
 }
@@ -287,15 +282,15 @@ auto Planner::Goal::orientation(const double goal_orientation) -> Goal&
 //==============================================================================
 auto Planner::Goal::any_orientation() -> Goal&
 {
-  _pimpl->has_orientation = false;
+  _pimpl->orientation = rmf_utils::nullopt;
   return *this;
 }
 
 //==============================================================================
 const double* Planner::Goal::orientation() const
 {
-  if(_pimpl->has_orientation)
-    return &_pimpl->orientation;
+  if(_pimpl->orientation)
+    return &(*_pimpl->orientation);
 
   return nullptr;
 }
@@ -357,9 +352,6 @@ Planner::Planner(
 {
   // Do nothing
 }
-
-//==============================================================================
-
 
 //==============================================================================
 rmf_utils::optional<Plan> Planner::plan(Start start, Goal goal) const
