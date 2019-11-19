@@ -1,6 +1,6 @@
 # Example - running a simulated read-only fleet
 
-A read-only fleet does not allow any of the `rmf_core` systems to control it in anyway. It only reports its status through `rmf_fleet_msgs/FleetState`, expecting other `rmf_core` nodes to divert other fleets' traffic away from its intended routes.
+A read-only fleet does not allow any of the `rmf_core` systems to control it in any way. It only reports its status through `rmf_fleet_msgs/FleetState`, expecting other `rmf_core` nodes to divert other fleets' traffic away from its intended routes.
 
 ## Instructions
 
