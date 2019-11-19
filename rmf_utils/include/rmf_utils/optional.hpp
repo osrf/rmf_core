@@ -141,14 +141,14 @@ public:
 
   T&& operator*() &&
   {
-    if (_has_value)
+    if (!_has_value)
       throw bad_optional_access();
 
     return std::move(_storage._value);
   }
   const T&& operator*() const&&
   {
-    if (_has_value)
+    if (!_has_value)
       throw bad_optional_access();
 
     return std::move(_storage._value);
