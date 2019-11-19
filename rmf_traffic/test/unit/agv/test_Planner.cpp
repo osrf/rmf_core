@@ -114,7 +114,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   for(const auto& obstacle : obstacles)
     database.insert(obstacle);
 
-  rmf_traffic::agv::Plan plan;
+  rmf_utils::optional<rmf_traffic::agv::Plan> plan;
   const auto start_time = std::chrono::steady_clock::now();
   for(std::size_t i=0; i < N; ++i)
   {
@@ -133,8 +133,8 @@ rmf_traffic::Trajectory test_with_obstacle(
 
   const auto& graph = original_plan.get_configuration().graph();
 
-  REQUIRE(plan.get_trajectories().size() == 1);
-  t_obs = plan.get_trajectories().front();
+  REQUIRE(plan->get_trajectories().size() == 1);
+  t_obs = plan->get_trajectories().front();
   const std::size_t start_index = original_plan.get_start().waypoint();
   const auto initial_position = graph.get_waypoint(start_index).get_location();
 
@@ -169,7 +169,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   if (check_holding)
   {
     bool used_holding_point = false;
-    for (const auto& wp : plan.get_waypoints())
+    for (const auto& wp : plan->get_waypoints())
     {
       if (wp.graph_index() == hold_index)
       {
@@ -268,14 +268,13 @@ SCENARIO("Test planning")
           rmf_traffic::agv::Planner::Goal(3, 0.0));
 
     REQUIRE(plan);
-    CHECK(plan.valid());
-    CHECK(plan.get_trajectories().size()==1);
-    CHECK(plan.get_trajectories().front().size()==0);
+    CHECK(plan->get_trajectories().size()==1);
+    CHECK(plan->get_trajectories().front().size()==0);
   }
 
   WHEN("initial and goal waypoints are same but goal_orientation is different")
   {
-    rmf_traffic::agv::Plan plan;
+    rmf_utils::optional<rmf_traffic::agv::Plan> plan;
     CHECK(!plan);
     const double goal_orientation = M_PI/2.0;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
@@ -287,7 +286,6 @@ SCENARIO("Test planning")
           rmf_traffic::agv::Planner::Goal{3, goal_orientation});
 
       REQUIRE(plan);
-      CHECK(plan.valid());
     }
 
     const auto end_time = std::chrono::steady_clock::now();
@@ -299,8 +297,9 @@ SCENARIO("Test planning")
       std::cout << "Per run: " << sec/N << std::endl;
     }
 
-    CHECK(plan.get_trajectories().size()==1);
-    const auto t = plan.get_trajectories().front();
+    CHECK(plan->get_trajectories().size()==1);
+    REQUIRE(plan->get_trajectories().front().size() > 0);
+    const auto t = plan->get_trajectories().front();
     const auto final_p = t.front().get_finish_position().block<2,1>(0,0);
     const auto err = (final_p - Eigen::Vector2d(10, -5)).norm();
     CHECK(err == Approx(0.0) );
@@ -310,7 +309,7 @@ SCENARIO("Test planning")
 
   WHEN("goal waypoint is an adjacent node")
   {
-    rmf_traffic::agv::Plan plan;
+    rmf_utils::optional<rmf_traffic::agv::Plan> plan;
     CHECK(!plan);
     const double goal_orientation = M_PI;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
@@ -321,7 +320,6 @@ SCENARIO("Test planning")
             rmf_traffic::agv::Planner::Start{start_time, 3, M_PI},
             rmf_traffic::agv::Planner::Goal{2, goal_orientation});
       REQUIRE(plan);
-      CHECK(plan.valid());
     }
 
     const auto end_time = std::chrono::steady_clock::now();
@@ -337,8 +335,8 @@ SCENARIO("Test planning")
           "test_map", traits, start_time,
           {{10.0, -5.0, M_PI}, {5.0, -5.0, M_PI}});
 
-    CHECK(plan.get_trajectories().size()==1);
-    const auto t = plan.get_trajectories().front();
+    REQUIRE(plan->get_trajectories().size()==1);
+    const rmf_traffic::Trajectory t = plan->get_trajectories().front();
     REQUIRE(t.size() == expected_t.size());
 
     const auto initial_p = t.front().get_finish_position().block<2,1>(0, 0);
@@ -388,7 +386,7 @@ SCENARIO("Test planning")
           default_options
       };
 
-      rmf_traffic::agv::Plan plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
       const auto start_time = std::chrono::steady_clock::now();
 
       for(std::size_t i = 0; i < N; ++i)
@@ -396,7 +394,6 @@ SCENARIO("Test planning")
         plan = planner.plan(start, goal);
 
         REQUIRE(plan);
-        CHECK(plan.valid());
       }
 
       const auto end_time = std::chrono::steady_clock::now();
@@ -408,8 +405,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan.get_trajectories().size() == 1);
-      const auto t = plan.get_trajectories().front();
+      REQUIRE(plan->get_trajectories().size() == 1);
+      const auto t = plan->get_trajectories().front();
 
       const auto initial_p = t.front().get_finish_position().block<2,1>(0, 0);
       CHECK( (initial_p - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
@@ -420,7 +417,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Unconstrained 12->5", plan, database, obstacles, 6, time);
+              "Unconstrained 12->5", *plan, database, obstacles, 6, time);
       }
     }
 
@@ -436,7 +433,7 @@ SCENARIO("Test planning")
           default_options
       };
 
-      rmf_traffic::agv::Plan plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
       const auto start_time = std::chrono::steady_clock::now();
       for(std::size_t i=0; i < N; ++i)
       {
@@ -453,8 +450,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan.get_trajectories().size() == 1);
-      const auto& t = plan.get_trajectories().front();
+      REQUIRE(plan->get_trajectories().size() == 1);
+      const auto& t = plan->get_trajectories().front();
 
       const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
@@ -466,7 +463,7 @@ SCENARIO("Test planning")
      WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 0.0  12->5", plan, database, obstacles, 6, time);
+              "Constrained to 0.0  12->5", *plan, database, obstacles, 6, time);
       }
     }
   }
@@ -508,7 +505,7 @@ SCENARIO("Test planning")
           default_options
       };
 
-      rmf_traffic::agv::Plan plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
       const auto start_time = std::chrono::steady_clock::now();
 
       for(std::size_t i=0; i < N; ++i)
@@ -526,8 +523,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan.get_trajectories().size() == 1);
-      const auto t = plan.get_trajectories().front();
+      REQUIRE(plan->get_trajectories().size() == 1);
+      const auto t = plan->get_trajectories().front();
 
       const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
@@ -538,7 +535,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Unconstrained  2->12", plan, database, obstacles, 4, time);
+              "Unconstrained  2->12", *plan, database, obstacles, 4, time);
       }
     }
 
@@ -553,7 +550,7 @@ SCENARIO("Test planning")
           default_options
       };
 
-      rmf_traffic::agv::Plan plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
       const auto start_time = std::chrono::steady_clock::now();
 
       for(std::size_t i=0; i < N; ++i)
@@ -571,8 +568,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan.get_trajectories().size() == 1);
-      const auto& t = plan.get_trajectories().front();
+      REQUIRE(plan->get_trajectories().size() == 1);
+      const auto& t = plan->get_trajectories().front();
 
       const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
@@ -584,7 +581,7 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-              "Constrained to 0.0  2->12", plan, database, obstacles, 4, time);
+              "Constrained to 0.0  2->12", *plan, database, obstacles, 4, time);
       }
     }
 
@@ -599,7 +596,7 @@ SCENARIO("Test planning")
           default_options
       };
 
-      rmf_traffic::agv::Plan plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
       const auto start_time = std::chrono::steady_clock::now();
       for(std::size_t i=0; i < N; ++i)
       {
@@ -616,8 +613,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan.get_trajectories().size() == 1);
-      const auto& t = plan.get_trajectories().front();
+      REQUIRE(plan->get_trajectories().size() == 1);
+      const auto& t = plan->get_trajectories().front();
 
       const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
@@ -633,7 +630,7 @@ SCENARIO("Test planning")
       {
         test_with_obstacle(
               "Constrained to 180.0  2->12",
-              plan, database, obstacles, 4, time);
+              *plan, database, obstacles, 4, time);
       }
     }
   } //end of GIVEN
@@ -678,7 +675,7 @@ SCENARIO("Test planning")
 
       planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-      rmf_traffic::agv::Plan plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
 
       const auto start_time = std::chrono::steady_clock::now();
       for(std::size_t i=0; i < N; ++i)
@@ -696,8 +693,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan.get_trajectories().size() == 1);
-      const auto t = plan.get_trajectories().front();
+      REQUIRE(plan->get_trajectories().size() == 1);
+      const auto t = plan->get_trajectories().front();
 
       const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
       const auto p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -713,7 +710,7 @@ SCENARIO("Test planning")
         obstacles.push_back(obstacle_1);
 
         auto t_obs=test_with_obstacle(
-              "Unconstrained (1)  12->0", plan, database, obstacles, 6, time);
+              "Unconstrained (1)  12->0", *plan, database, obstacles, 6, time);
       }
 
       WHEN("Second obstacle is introduced")
@@ -741,7 +738,7 @@ SCENARIO("Test planning")
 
         obstacles.push_back(obstacle_2);
         auto t_obs = test_with_obstacle(
-              "Unconstrained (2)  12->0", plan, database, obstacles, 4, time);
+              "Unconstrained (2)  12->0", *plan, database, obstacles, 4, time);
       }
 
       WHEN("Both obstacles are introduced")
@@ -767,7 +764,7 @@ SCENARIO("Test planning")
         obstacles.push_back(obstacle_2);
 
         auto t_obs=test_with_obstacle(
-              "Unconstrained (3)  12->0", plan, database, obstacles, 6, time);
+              "Unconstrained (3)  12->0", *plan, database, obstacles, 6, time);
       }
     }
   }
@@ -898,8 +895,8 @@ SCENARIO("DP1 Graph")
     REQUIRE(plan);
     print_timing(start_time);
 
-    CHECK(plan.get_trajectories().size() == 1);
-    const auto t= plan.get_trajectories().front();
+    CHECK(plan->get_trajectories().size() == 1);
+    const auto t= plan->get_trajectories().front();
 
     const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
     const auto p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -937,7 +934,7 @@ SCENARIO("DP1 Graph")
       obstacles.push_back(obstacle_1);
 
       test_with_obstacle(
-            "Partial 28->3", plan, database, obstacles, 0, time, false);
+            "Partial 28->3", *plan, database, obstacles, 0, time, false);
 
       WHEN("Obstacle 28->3, 16-29 added")
       {
@@ -962,7 +959,7 @@ SCENARIO("DP1 Graph")
         obstacles.push_back(obstacle_2);
         test_with_obstacle(
               "Partial 28->3, 16-29",
-              plan, database, obstacles, 0, time, false);
+              *plan, database, obstacles, 0, time, false);
 
         WHEN("Obstacle 28->3, 16-29, 24->26 added")
         {
@@ -987,7 +984,7 @@ SCENARIO("DP1 Graph")
           obstacles.push_back(obstacle_3);
 
           test_with_obstacle(
-                "Partial 28->3, 16-29, 24->26", plan, database,
+                "Partial 28->3, 16-29, 24->26", *plan, database,
                 obstacles, 0, time, false);
 
           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
@@ -1050,7 +1047,7 @@ SCENARIO("DP1 Graph")
 
             test_with_obstacle(
                   "Partial 28->3, 16-29, 24->26, 21->22, 13->14, 5->6",
-                  plan, database, obstacles, 0, time, false);
+                  *plan, database, obstacles, 0, time, false);
           }
         }
       }
@@ -1071,8 +1068,8 @@ SCENARIO("DP1 Graph")
     REQUIRE(plan);
     print_timing(start_time);
 
-    CHECK(plan.get_trajectories().size()==1);
-    auto t = plan.get_trajectories().front();
+    CHECK(plan->get_trajectories().size()==1);
+    auto t = plan->get_trajectories().front();
 
     const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
     const auto p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1109,7 +1106,7 @@ SCENARIO("DP1 Graph")
       REQUIRE(DetectConflict::between(obstacle_1,t).empty());
       obstacles.push_back(obstacle_1);
       test_with_obstacle(
-            "Full 28->3", plan, database, obstacles, 0, time, false);
+            "Full 28->3", *plan, database, obstacles, 0, time, false);
 
       WHEN("Obstacle 28->3, 16-29 added")
       {
@@ -1133,7 +1130,7 @@ SCENARIO("DP1 Graph")
         REQUIRE(DetectConflict::between(obstacle_2,t).empty());
         obstacles.push_back(obstacle_2);
         test_with_obstacle(
-              "Full 28->3, 16-29", plan, database, obstacles, 0, time, false);
+              "Full 28->3, 16-29", *plan, database, obstacles, 0, time, false);
 
         WHEN("Obstacle 28->3, 16-29, 24->26 added")
         {
@@ -1159,7 +1156,7 @@ SCENARIO("DP1 Graph")
 
           test_with_obstacle(
                 "Full 28->3, 16-29, 24->26",
-                plan, database, obstacles, 0, time, false);
+                *plan, database, obstacles, 0, time, false);
 
           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
           {
@@ -1221,7 +1218,7 @@ SCENARIO("DP1 Graph")
 
             test_with_obstacle(
                   "Full 28->3, 16-29, 24->26, 2->3, 13->14, 5->6",
-                  plan, database, obstacles, 0, time, false);
+                  *plan, database, obstacles, 0, time, false);
           }
         }
       }
@@ -1243,8 +1240,8 @@ SCENARIO("DP1 Graph")
     REQUIRE(plan);
     print_timing(start_time);
 
-    CHECK(plan.get_trajectories().size() == 1);
-    const auto t = plan.get_trajectories().front();
+    CHECK(plan->get_trajectories().size() == 1);
+    const auto t = plan->get_trajectories().front();
 
     const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
     const auto p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1275,7 +1272,7 @@ SCENARIO("DP1 Graph")
     {
        REQUIRE(!rmf_traffic::DetectConflict::between(obstacle, t).empty());
        obstacles.push_back(obstacle);
-       test_with_obstacle("Unconstrained", plan, database, obstacles, 32, time);
+       test_with_obstacle("Unconstrained", *plan, database, obstacles, 32, time);
     }
   }
 
@@ -1293,8 +1290,8 @@ SCENARIO("DP1 Graph")
     CHECK(plan);
     print_timing(start_time);
 
-    CHECK(plan.get_trajectories().size()==1);
-    auto t = plan.get_trajectories().front();
+    CHECK(plan->get_trajectories().size()==1);
+    auto t = plan->get_trajectories().front();
 
     const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
     const auto p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1329,7 +1326,7 @@ SCENARIO("DP1 Graph")
       obstacles.push_back(obstacle_1);
 
       const auto t_obs1 = test_with_obstacle(
-            "Obstacle 28->2", plan, database, obstacles, 27, time);
+            "Obstacle 28->2", *plan, database, obstacles, 27, time);
 
       WHEN("Obstacle 28->2 , 29->4")
       {
@@ -1357,7 +1354,7 @@ SCENARIO("DP1 Graph")
         obstacles.push_back(obstacle_2);
 
         const auto t_obs2=test_with_obstacle(
-               "Obstacle 28->2 , 29->4", plan, database, obstacles, 27, time);
+               "Obstacle 28->2 , 29->4", *plan, database, obstacles, 27, time);
 
         WHEN("Obstacle 28->2 , 29->4, 23->26")
         {
@@ -1387,7 +1384,7 @@ SCENARIO("DP1 Graph")
 
           test_with_obstacle(
                 "Obstacle 28->2 , 29->4, 23->26",
-                plan, database, obstacles, 27, time);
+                *plan, database, obstacles, 27, time);
         }
       }
     }
@@ -1520,21 +1517,21 @@ SCENARIO("Graph with door", "[door]")
         rmf_traffic::agv::Planner::Start(start_time, 0, 0.0),
         rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_no_door);
-  REQUIRE(plan_no_door.get_trajectories().size() == 1);
-  CHECK(count_events(plan_no_door) == 0);
+  REQUIRE(plan_no_door->get_trajectories().size() == 1);
+  CHECK(count_events(*plan_no_door) == 0);
 
   const auto plan_with_door_open = planner.plan(
         rmf_traffic::agv::Planner::Start(start_time, 1, 0.0),
         rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_with_door_open);
-  REQUIRE(plan_with_door_open.get_trajectories().size() == 1);
-  CHECK(count_events(plan_with_door_open) == 1);
-  CHECK(has_event(ExpectEvent::DoorOpen, plan_with_door_open));
+  REQUIRE(plan_with_door_open->get_trajectories().size() == 1);
+  CHECK(count_events(*plan_with_door_open) == 1);
+  CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open));
 
   const auto t_with_door_open =
-      plan_with_door_open.get_trajectories().front().duration();
+      plan_with_door_open->get_trajectories().front().duration();
   const auto t_no_door =
-      plan_no_door.get_trajectories().front().duration();
+      plan_no_door->get_trajectories().front().duration();
   CHECK(rmf_traffic::time::to_seconds(t_with_door_open - t_no_door)
         == Approx(5.0).margin(1e-12));
 
@@ -1542,14 +1539,14 @@ SCENARIO("Graph with door", "[door]")
         rmf_traffic::agv::Planner::Start(start_time, 2, 0.0),
         rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_with_door_open_close);
-  REQUIRE(plan_with_door_open_close.get_trajectories().size() == 1);
-  CHECK(count_events(plan_with_door_open_close) == 2);
+  REQUIRE(plan_with_door_open_close->get_trajectories().size() == 1);
+  CHECK(count_events(*plan_with_door_open_close) == 2);
 
   const auto t_with_door_open_close =
-      plan_with_door_open_close.get_trajectories().front().duration();
+      plan_with_door_open_close->get_trajectories().front().duration();
   CHECK(rmf_traffic::time::to_seconds(t_with_door_open_close - t_no_door)
         > rmf_traffic::time::to_seconds(8s));
-  CHECK(has_event(ExpectEvent::DoorOpen, plan_with_door_open_close));
-  CHECK(has_event(ExpectEvent::DoorClose, plan_with_door_open_close));
+  CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open_close));
+  CHECK(has_event(ExpectEvent::DoorClose, *plan_with_door_open_close));
 }
 

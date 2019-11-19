@@ -19,6 +19,8 @@
 
 #include "detail/internal_bidirectional_iterator.hpp"
 
+#include <rmf_utils/optional.hpp>
+
 namespace rmf_traffic {
 
 //==============================================================================
@@ -36,14 +38,8 @@ class Region::Implementation
 public:
 
   std::string map;
-
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_lower_bound = false;
-  Time lower_bound;
-
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_upper_bound = false;
-  Time upper_bound;
+  rmf_utils::optional<Time> lower_bound;
+  rmf_utils::optional<Time> upper_bound;
 
   using Spaces = std::vector<geometry::Space>;
   Spaces spaces;
@@ -68,9 +64,7 @@ Region::Region(
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                std::move(map),
-               true,
                lower_bound,
-               true,
                upper_bound,
                std::move(spaces)}))
 {
@@ -84,7 +78,8 @@ Region::Region(
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                std::move(map),
-               false, Time(), false, Time(),
+               rmf_utils::nullopt,
+               rmf_utils::nullopt,
                std::move(spaces)}))
 {
   // Do nothing
@@ -106,8 +101,8 @@ auto Region::set_map(std::string map) -> Region&
 //==============================================================================
 const Time* Region::get_lower_time_bound() const
 {
-  if(_pimpl->has_lower_bound)
-    return &_pimpl->lower_bound;
+  if(_pimpl->lower_bound)
+    return &(*_pimpl->lower_bound);
 
   return nullptr;
 }
@@ -115,7 +110,6 @@ const Time* Region::get_lower_time_bound() const
 //==============================================================================
 auto Region::set_lower_time_bound(Time time) -> Region&
 {
-  _pimpl->has_lower_bound = true;
   _pimpl->lower_bound = time;
   return *this;
 }
@@ -123,15 +117,15 @@ auto Region::set_lower_time_bound(Time time) -> Region&
 //==============================================================================
 auto Region::remove_lower_time_bound() -> Region&
 {
-  _pimpl->has_lower_bound = false;
+  _pimpl->lower_bound = rmf_utils::nullopt;
   return *this;
 }
 
 //==============================================================================
 const Time* Region::get_upper_time_bound() const
 {
-  if(_pimpl->has_upper_bound)
-    return &_pimpl->upper_bound;
+  if(_pimpl->upper_bound)
+    return &(*_pimpl->upper_bound);
 
   return nullptr;
 }
@@ -139,7 +133,6 @@ const Time* Region::get_upper_time_bound() const
 //==============================================================================
 auto Region::set_upper_time_bound(Time time) -> Region&
 {
-  _pimpl->has_upper_bound = true;
   _pimpl->upper_bound = time;
   return *this;
 }
@@ -147,7 +140,7 @@ auto Region::set_upper_time_bound(Time time) -> Region&
 //==============================================================================
 auto Region::remove_upper_time_bound() -> Region&
 {
-  _pimpl->has_upper_bound = false;
+  _pimpl->upper_bound = rmf_utils::nullopt;
   return *this;
 }
 

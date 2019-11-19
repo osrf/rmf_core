@@ -19,6 +19,8 @@
 
 #include <rmf_traffic/schedule/Query.hpp>
 
+#include <rmf_utils/optional.hpp>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -62,13 +64,8 @@ public:
 
   std::unordered_set<std::string> maps;
 
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_lower_bound = false;
-  Time lower_bound;
-
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_upper_bound = false;
-  Time upper_bound;
+  rmf_utils::optional<Time> lower_bound;
+  rmf_utils::optional<Time> upper_bound;
 
   static Timespan make(
       std::vector<std::string> maps,
@@ -80,13 +77,15 @@ public:
           std::make_move_iterator(maps.begin()),
           std::make_move_iterator(maps.end())};
 
-    span._pimpl->has_lower_bound = static_cast<bool>(lower_bound);
     if(lower_bound)
       span._pimpl->lower_bound = *lower_bound;
+    else
+      span._pimpl->lower_bound = rmf_utils::nullopt;
 
-    span._pimpl->has_upper_bound = static_cast<bool>(upper_bound);
     if(upper_bound)
       span._pimpl->upper_bound = *upper_bound;
+    else
+      span._pimpl->upper_bound = rmf_utils::nullopt;
 
     return span;
   }
@@ -268,8 +267,8 @@ auto Query::Spacetime::Timespan::remove_map(const std::string& map_name)
 //==============================================================================
 const Time* Query::Spacetime::Timespan::get_lower_time_bound() const
 {
-  if(_pimpl->has_lower_bound)
-    return &_pimpl->lower_bound;
+  if(_pimpl->lower_bound)
+    return &(*_pimpl->lower_bound);
 
   return nullptr;
 }
@@ -277,7 +276,6 @@ const Time* Query::Spacetime::Timespan::get_lower_time_bound() const
 //==============================================================================
 auto Query::Spacetime::Timespan::set_lower_time_bound(Time time) -> Timespan&
 {
-  _pimpl->has_lower_bound = true;
   _pimpl->lower_bound = time;
   return *this;
 }
@@ -285,15 +283,15 @@ auto Query::Spacetime::Timespan::set_lower_time_bound(Time time) -> Timespan&
 //==============================================================================
 auto Query::Spacetime::Timespan::remove_lower_time_bound() -> Timespan&
 {
-  _pimpl->has_lower_bound = false;
+  _pimpl->lower_bound = rmf_utils::nullopt;
   return *this;
 }
 
 //==============================================================================
 const Time* Query::Spacetime::Timespan::get_upper_time_bound() const
 {
-  if(_pimpl->has_upper_bound)
-    return &_pimpl->upper_bound;
+  if(_pimpl->upper_bound)
+    return &(*_pimpl->upper_bound);
 
   return nullptr;
 }
@@ -301,7 +299,6 @@ const Time* Query::Spacetime::Timespan::get_upper_time_bound() const
 //==============================================================================
 auto Query::Spacetime::Timespan::set_upper_time_bound(Time time) -> Timespan&
 {
-  _pimpl->has_upper_bound = true;
   _pimpl->upper_bound = time;
   return *this;
 }
@@ -309,7 +306,7 @@ auto Query::Spacetime::Timespan::set_upper_time_bound(Time time) -> Timespan&
 //==============================================================================
 auto Query::Spacetime::Timespan::remove_upper_time_bound() -> Timespan&
 {
-  _pimpl->has_upper_bound = false;
+  _pimpl->upper_bound = rmf_utils::nullopt;
   return *this;
 }
 

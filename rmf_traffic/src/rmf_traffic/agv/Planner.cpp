@@ -231,9 +231,7 @@ public:
 
   std::size_t waypoint;
 
-  // TODO(MXG): Replace with std::optional when we have C++17 support
-  bool has_orientation;
-  double orientation;
+  rmf_utils::optional<double> orientation;
 
 };
 
@@ -242,8 +240,7 @@ Planner::Goal::Goal(const std::size_t waypoint)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                waypoint,
-               false,
-               0.0
+               rmf_utils::nullopt
              }))
 {
   // Do nothing
@@ -256,7 +253,6 @@ Planner::Goal::Goal(
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                waypoint,
-               true,
                goal_orientation
              }))
 {
@@ -279,7 +275,6 @@ std::size_t Planner::Goal::waypoint() const
 //==============================================================================
 auto Planner::Goal::orientation(const double goal_orientation) -> Goal&
 {
-  _pimpl->has_orientation = true;
   _pimpl->orientation = goal_orientation;
   return *this;
 }
@@ -287,15 +282,15 @@ auto Planner::Goal::orientation(const double goal_orientation) -> Goal&
 //==============================================================================
 auto Planner::Goal::any_orientation() -> Goal&
 {
-  _pimpl->has_orientation = false;
+  _pimpl->orientation = rmf_utils::nullopt;
   return *this;
 }
 
 //==============================================================================
 const double* Planner::Goal::orientation() const
 {
-  if(_pimpl->has_orientation)
-    return &_pimpl->orientation;
+  if(_pimpl->orientation)
+    return &(*_pimpl->orientation);
 
   return nullptr;
 }
@@ -323,7 +318,7 @@ public:
   internal::planning::CacheManager cache_mgr;
 
 
-  static Plan generate(
+  static rmf_utils::optional<Plan> generate(
       internal::planning::CacheManager cache_mgr,
       Planner::Start start,
       Planner::Goal goal,
@@ -332,11 +327,14 @@ public:
     auto result = cache_mgr.get().plan(
           std::move(start), std::move(goal), std::move(options));
 
+    if (!result.solved)
+      return rmf_utils::nullopt;
+
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
           Implementation{std::move(result), std::move(cache_mgr)});
 
-    return plan;
+    return std::move(plan);
   }
 
 };
@@ -356,10 +354,7 @@ Planner::Planner(
 }
 
 //==============================================================================
-
-
-//==============================================================================
-Plan Planner::plan(Start start, Goal goal) const
+rmf_utils::optional<Plan> Planner::plan(Start start, Goal goal) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
@@ -369,7 +364,10 @@ Plan Planner::plan(Start start, Goal goal) const
 }
 
 //==============================================================================
-Plan Planner::plan(Start start, Goal goal, Options options) const
+rmf_utils::optional<Plan> Planner::plan(
+    Start start,
+    Goal goal,
+    Options options) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
@@ -409,31 +407,19 @@ Plan::Waypoint::Waypoint()
 }
 
 //==============================================================================
-bool Plan::valid() const
-{
-  return (_pimpl && _pimpl->result.solved);
-}
-
-//==============================================================================
-Plan::operator bool() const
-{
-  return valid();
-}
-
-//==============================================================================
 const std::vector<Trajectory>& Plan::get_trajectories() const
 {
   return _pimpl->result.trajectories;
 }
 
 //==============================================================================
-const std::vector<Plan::Waypoint> &Plan::get_waypoints() const
+const std::vector<Plan::Waypoint>& Plan::get_waypoints() const
 {
   return _pimpl->result.waypoints;
 }
 
 //==============================================================================
-Plan Plan::replan(Planner::Start new_start) const
+rmf_utils::optional<Plan> Plan::replan(Planner::Start new_start) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
@@ -443,7 +429,9 @@ Plan Plan::replan(Planner::Start new_start) const
 }
 
 //==============================================================================
-Plan Plan::replan(Planner::Start new_start, Planner::Options new_options) const
+rmf_utils::optional<Plan> Plan::replan(
+    Planner::Start new_start,
+    Planner::Options new_options) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,

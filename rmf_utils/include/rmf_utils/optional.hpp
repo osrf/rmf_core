@@ -23,7 +23,9 @@
 
 namespace rmf_utils {
 
-struct nullopt { };
+struct nullopt_t { };
+
+inline constexpr nullopt_t nullopt{};
 
 struct bad_optional_access : std::logic_error
 {
@@ -42,22 +44,79 @@ public:
 
   optional()
   : _has_value(false),
-    _storage(nullopt())
+    _storage(nullopt)
   {
     // Do nothing
   }
-  optional(nullopt)
+  optional(nullopt_t)
   : _has_value(false),
-    _storage(nullopt())
+    _storage(nullopt)
   {
     // Do nothing
   }
-  optional& operator=(nullopt)
+  optional& operator=(nullopt_t)
   {
+    if (_has_value)
+      _storage._value.~T();
+
     _has_value = false;
+    _storage._null = nullopt;
     return *this;
   }
 
+  optional(const optional& other)
+  : _has_value(other._has_value),
+    _storage(other._has_value, other._storage)
+  {
+    // Do nothing
+  }
+
+  optional(optional&& other)
+  : _has_value(other._has_value),
+    _storage(other._has_value, std::move(other._storage))
+  {
+    // Do nothing
+  }
+
+  optional& operator=(const optional& other)
+  {
+    if (other._has_value)
+    {
+      *this = other._storage._value;
+      return *this;
+    }
+
+    if (_has_value)
+    {
+      // If the other does not have a value but this one does,
+      // then destruct the value contained in this object's storage.
+      _storage._value.~T();
+    }
+
+    _has_value = false;
+    _storage._null = nullopt;
+    return *this;
+  }
+
+  optional& operator=(optional&& other)
+  {
+    if (other._has_value)
+    {
+      *this = std::move(other._storage._value);
+      return *this;
+    }
+
+    if (_has_value)
+    {
+      // If the other does not have a value but this one does,
+      // then destruct the value contained in this object's storage.
+      _storage._value.~T();
+    }
+
+    _has_value = false;
+    _storage._null = nullopt;
+    return *this;
+  }
 
   optional(const T& value)
   : _has_value(true),
@@ -73,14 +132,31 @@ public:
   }
   optional& operator=(const T& value)
   {
+    if (_has_value)
+    {
+      _storage._value = value;
+    }
+    else
+    {
+      new (&_storage._value) T(value);
+    }
+
     _has_value = true;
-    _storage = value;
     return *this;
   }
   optional& operator=(T&& value)
   {
+    if (_has_value)
+    {
+      _storage._value = std::move(value);
+    }
+    else
+    {
+      new (&_storage._value) T(std::move(value));
+    }
+
     _has_value = true;
-    _storage = std::move(value);
+    return *this;
   }
 
 
@@ -114,14 +190,14 @@ public:
     if (!_has_value)
       throw bad_optional_access();
 
-    return _storage._value;
+    return &_storage._value;
   }
   const T* operator->() const
   {
     if (!_has_value)
       throw bad_optional_access();
 
-    return _storage._value;
+    return &_storage._value;
   }
 
   T& operator*() &
@@ -157,15 +233,54 @@ public:
   ~optional()
   {
     if(_has_value)
-      _storage.~T();
+      _storage._value.~T();
   }
 
 private:
 
   bool _has_value;
-  union {
-    nullopt _null;
+  union Storage {
+
+    Storage(nullopt_t)
+    : _null(nullopt)
+    {
+      // Do nothing
+    }
+
+    Storage(const T& other)
+    : _value(other)
+    {
+      // Do nothing
+    }
+
+    Storage(T&& other)
+    : _value(std::move(other))
+    {
+      // Do nothing
+    }
+
+    Storage(bool has_value, const Storage& other)
+    : _null(nullopt)
+    {
+      if (has_value)
+      {
+        new (&_value) T(other._value);
+      }
+    }
+
+    Storage(bool has_value, Storage&& other)
+    : _null(nullopt)
+    {
+      if (has_value)
+      {
+        new (&_value) T(std::move(other._value));
+      }
+    }
+
+    nullopt_t _null;
     T _value;
+
+    ~Storage() { }
   } _storage;
 
 };
