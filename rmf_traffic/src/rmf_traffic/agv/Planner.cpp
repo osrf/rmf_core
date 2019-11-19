@@ -323,7 +323,7 @@ public:
   internal::planning::CacheManager cache_mgr;
 
 
-  static Plan generate(
+  static rmf_utils::optional<Plan> generate(
       internal::planning::CacheManager cache_mgr,
       Planner::Start start,
       Planner::Goal goal,
@@ -332,11 +332,14 @@ public:
     auto result = cache_mgr.get().plan(
           std::move(start), std::move(goal), std::move(options));
 
+    if (!result.solved)
+      return rmf_utils::nullopt;
+
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
           Implementation{std::move(result), std::move(cache_mgr)});
 
-    return plan;
+    return std::move(plan);
   }
 
 };
@@ -359,7 +362,7 @@ Planner::Planner(
 
 
 //==============================================================================
-Plan Planner::plan(Start start, Goal goal) const
+rmf_utils::optional<Plan> Planner::plan(Start start, Goal goal) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
@@ -369,7 +372,10 @@ Plan Planner::plan(Start start, Goal goal) const
 }
 
 //==============================================================================
-Plan Planner::plan(Start start, Goal goal, Options options) const
+rmf_utils::optional<Plan> Planner::plan(
+    Start start,
+    Goal goal,
+    Options options) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
@@ -409,31 +415,19 @@ Plan::Waypoint::Waypoint()
 }
 
 //==============================================================================
-bool Plan::valid() const
-{
-  return (_pimpl && _pimpl->result.solved);
-}
-
-//==============================================================================
-Plan::operator bool() const
-{
-  return valid();
-}
-
-//==============================================================================
 const std::vector<Trajectory>& Plan::get_trajectories() const
 {
   return _pimpl->result.trajectories;
 }
 
 //==============================================================================
-const std::vector<Plan::Waypoint> &Plan::get_waypoints() const
+const std::vector<Plan::Waypoint>& Plan::get_waypoints() const
 {
   return _pimpl->result.waypoints;
 }
 
 //==============================================================================
-Plan Plan::replan(Planner::Start new_start) const
+rmf_utils::optional<Plan> Plan::replan(Planner::Start new_start) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
@@ -443,7 +437,9 @@ Plan Plan::replan(Planner::Start new_start) const
 }
 
 //==============================================================================
-Plan Plan::replan(Planner::Start new_start, Planner::Options new_options) const
+rmf_utils::optional<Plan> Plan::replan(
+    Planner::Start new_start,
+    Planner::Options new_options) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,

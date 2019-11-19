@@ -26,6 +26,8 @@
 
 #include <rmf_traffic/schedule/Viewer.hpp>
 
+#include <rmf_utils/optional.hpp>
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -281,7 +283,7 @@ public:
   ///
   /// \param[in] goal
   ///   The goal conditions
-  Plan plan(Start start, Goal goal) const;
+  rmf_utils::optional<Plan> plan(Start start, Goal goal) const;
 
   /// Product a plan for the given start and goal conditions. Override the
   /// default options.
@@ -295,7 +297,7 @@ public:
   /// \param[in] options
   ///   The Options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
-  Plan plan(Start start, Goal goal, Options options) const;
+  rmf_utils::optional<Plan> plan(Start start, Goal goal, Options options) const;
 
 
   class Implementation;
@@ -352,22 +354,6 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// Returns true if this instance contains a valid plan and returns false
-  /// otherwise. Using any member function besides valid() when the Plan is
-  /// invalid is undefined behavior, potentially resulting in a segmentation
-  /// fault or worse.
-  ///
-  /// \note A default-constructed Plan instance will be invalid until a valid
-  /// plan is copy-assigned or move-assigned into it.
-  //
-  // TODO(MXG): When C++17 is supported, consider using std::optional to express
-  // the validity of a plan so that Plan instances are always valid and its
-  // member functions are always well-behaved.
-  bool valid() const;
-
-  /// Implicitly cast this Plan instance to the return value of valid()
-  operator bool() const;
-
   /// If this Plan is valid, this will return the trajectory of the successful
   /// plan.
   ///
@@ -395,7 +381,7 @@ public:
   ///
   /// \param[in] new_start
   ///   The starting conditions that should be used for replanning.
-  Plan replan(Start new_start) const;
+  rmf_utils::optional<Plan> replan(Start new_start) const;
 
   /// If this Plan was valid, this will ask for a new plan to the same goal.
   ///
@@ -408,7 +394,7 @@ public:
   ///
   /// \param[in] new_options
   ///   The options that should be used for replanning.
-  Plan replan(Start new_start, Options new_options) const;
+  rmf_utils::optional<Plan> replan(Start new_start, Options new_options) const;
 
   /// If this Plan is valid, this will return the Planner::Start that was used
   /// to produce it.
