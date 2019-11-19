@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(rmf_fleet_msgs)
+project(rmf_task_msgs)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
@@ -17,21 +17,14 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
-  "msg/Location.msg"
-  "msg/RobotMode.msg"
-  "msg/RobotState.msg"
-  "msg/FleetState.msg"
-  "msg/ModeRequest.msg"
-  "msg/DestinationRequest.msg"
-  "msg/PathRequest.msg"
+  "msg/Delivery.msg"
+  "msg/Behavior.msg"
+  "msg/BehaviorParameter.msg"
+  "msg/Station.msg"
 )
-
-# set(srv_files
-#   "srv/Foo.srv")
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
-  ${srv_files}
   DEPENDENCIES builtin_interfaces
   ADD_LINTER_TESTS
 )
