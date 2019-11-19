@@ -397,6 +397,12 @@ std::size_t Plan::Waypoint::graph_index() const
 }
 
 //==============================================================================
+const Graph::Lane::Event* Plan::Waypoint::event() const
+{
+  return _pimpl->event.get();
+}
+
+//==============================================================================
 Plan::Waypoint::Waypoint()
 {
   // Do nothing

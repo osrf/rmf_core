@@ -211,7 +211,8 @@ std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
     const Time time{*n->trajectory_from_parent.finish_time()};
     waypoints.emplace_back(
           agv::Plan::Waypoint::Implementation::make(
-            Eigen::Vector3d{p[0], p[1], n->orientation}, time, n->waypoint));
+            Eigen::Vector3d{p[0], p[1], n->orientation}, time,
+            n->waypoint, n->event));
   }
 
   return waypoints;
@@ -220,6 +221,13 @@ std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
 //==============================================================================
 struct EuclideanExpander
 {
+  // TODO(MXG): We should be able to improve the performance of this Euclidean
+  // search by making it two-sided (i.e. expanding from both the start and the
+  // goal at the same time).
+
+  // TODO(MXG): We can also make multi-floor planning more efficient by
+  // explicitly expanding to/from the LiftShaft bottlenecks.
+
   struct Node;
   using NodePtr = std::shared_ptr<Node>;
 
@@ -278,6 +286,18 @@ struct EuclideanExpander
     return node->waypoint == context.final_waypoint;
   }
 
+  static double lane_event_cost(const agv::Graph::Lane& lane)
+  {
+    double cost = 0.0;
+    if(const auto* event = lane.entry().event())
+      cost += time::to_seconds(event->duration());
+
+    if(const auto* event = lane.exit().event())
+      cost += time::to_seconds(event->duration());
+
+    return cost;
+  }
+
   void expand_lane(
       const NodePtr& parent_node,
       const std::size_t lane_index,
@@ -297,7 +317,11 @@ struct EuclideanExpander
     const Eigen::Vector2d p_exit =
         context.graph.waypoints[exit_waypoint_index].get_location();
 
-    const double cost = parent_node->current_cost + (p_exit - p_start).norm();
+    const double cost =
+        parent_node->current_cost
+        + lane_event_cost(lane)
+        + (p_exit - p_start).norm();
+
     queue.push(std::make_shared<Node>(
                  Node{
                    exit_waypoint_index,
@@ -404,11 +428,83 @@ struct DifferentialDriveExpander
     std::size_t waypoint;
     double orientation;
     Trajectory trajectory_from_parent;
+    agv::Graph::Lane::EventPtr event;
     NodePtr parent;
   };
 
   using SearchQueue =
       std::priority_queue<NodePtr, std::vector<NodePtr>, Compare<NodePtr>>;
+
+  class LaneEventExecutor : public agv::Graph::Lane::Executor
+  {
+  public:
+
+    LaneEventExecutor& update(const NodePtr& parent)
+    {
+      _parent = parent;
+      return *this;
+    }
+
+    void execute(const agv::Graph::Lane::DoorOpen& open) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(open);
+    }
+
+    void execute(const agv::Graph::Lane::DoorClose& close) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(close);
+    }
+
+    void execute(const agv::Graph::Lane::LiftDoorOpen& open) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(open);
+    }
+
+    void execute(const agv::Graph::Lane::LiftDoorClose& close) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(close);
+    }
+
+    void execute(const agv::Graph::Lane::LiftMove& move) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(move);
+    }
+
+    NodePtr get(DifferentialDriveExpander* expander)
+    {
+      assert(_event);
+      const auto duration = _event->duration();
+      return expander->make_delay(
+            _parent->waypoint,
+            _parent,
+            duration,
+            std::move(_event));
+    }
+
+    LaneEventExecutor& add_if_valid(
+        DifferentialDriveExpander* expander,
+        SearchQueue& queue)
+    {
+      assert(_event);
+      const auto duration = _event->duration();
+      expander->expand_delay(
+            _parent->waypoint,
+            _parent,
+            duration,
+            queue,
+            std::move(_event));
+      return *this;
+    }
+
+  private:
+    NodePtr _parent;
+    agv::Graph::Lane::EventPtr _event;
+  };
 
   struct Context;
 
@@ -531,6 +627,7 @@ struct DifferentialDriveExpander
             waypoint,
             args.orientation,
             initial,
+            nullptr,
             nullptr
           });
   }
@@ -607,6 +704,7 @@ struct DifferentialDriveExpander
               waypoint,
               target_orientation,
               std::move(trajectory),
+              nullptr,
               parent_node
             });
     }
@@ -682,28 +780,52 @@ struct DifferentialDriveExpander
     return rotations;
   }
 
+  NodePtr make_if_valid(
+      const std::size_t waypoint,
+      const double orientation,
+      const NodePtr& parent_node,
+      Trajectory trajectory,
+      agv::Graph::Lane::EventPtr event = nullptr)
+  {
+    assert(trajectory.size() > 1);
+    if(is_valid(trajectory))
+    {
+      return std::make_shared<Node>(
+            Node{
+              _context.heuristic.estimate_remaining_cost(_context, waypoint),
+              compute_current_cost(parent_node, trajectory),
+              waypoint,
+              orientation,
+              std::move(trajectory),
+              std::move(event),
+              parent_node
+            });
+    }
+
+    return nullptr;
+  }
+
   bool add_if_valid(
       const std::size_t waypoint,
       const double orientation,
       const NodePtr& parent_node,
       Trajectory trajectory,
-      SearchQueue& queue)
+      SearchQueue& queue,
+      agv::Graph::Lane::EventPtr event = nullptr)
   {
-    assert(trajectory.size() > 1);
-    if(is_valid(trajectory))
+    const auto node = make_if_valid(
+          waypoint,
+          orientation,
+          parent_node,
+          std::move(trajectory),
+          std::move(event));
+
+    if(node)
     {
       // TODO(MXG): Consider short-circuiting the rest of the search and
       // returning the solution if this Node solves the search problem. It could
       // be an optional behavior configurable from the Planner::Options.
-      queue.push(std::make_shared<Node>(
-               Node{
-                 _context.heuristic.estimate_remaining_cost(_context, waypoint),
-                 compute_current_cost(parent_node, trajectory),
-                 waypoint,
-                 orientation,
-                 std::move(trajectory),
-                 parent_node
-               }));
+      queue.push(node);
       return true;
     }
 
@@ -713,11 +835,10 @@ struct DifferentialDriveExpander
   struct LaneExpansionNode
   {
     std::size_t lane;
-    Trajectory parent_trajectory;
   };
 
   void expand_down_lane(
-      const NodePtr& initial_parent,
+      NodePtr initial_parent,
       const std::size_t initial_lane_index,
       SearchQueue& queue)
   {
@@ -728,24 +849,30 @@ struct DifferentialDriveExpander
         _context.graph.waypoints[initial_waypoint].get_location();
     const double orientation = initial_parent->orientation;
 
-    Trajectory initial_trajectory{
-      _context.graph.waypoints[initial_waypoint].get_map_name()
-    };
+    const auto& initial_lane = _context.graph.lanes[initial_lane_index];
+    if (const auto* entry_event = initial_lane.entry().event())
+    {
+      initial_parent = entry_event->execute(
+            _executor.update(initial_parent)).get(this);
 
-    const Trajectory::Segment& last_seg =
+      if (!initial_parent)
+      {
+        // The entry event was not feasible, so we will stop expanding
+        return;
+      }
+    }
+
+    const std::string map_name =
+        _context.graph.waypoints[initial_waypoint].get_map_name();
+
+    const Trajectory::Segment& initial_seg =
         initial_parent->trajectory_from_parent.back();
 
-    const Eigen::Vector3d initial_position = last_seg.get_finish_position();
-
-    initial_trajectory.insert(
-          last_seg.get_finish_time(),
-          _context.profile,
-          initial_position,
-          Eigen::Vector3d::Zero());
+    const Time initial_time = initial_seg.get_finish_time();
+    const Eigen::Vector3d initial_position = initial_seg.get_finish_position();
 
     std::vector<LaneExpansionNode> lane_expansion_queue;
-    lane_expansion_queue.push_back(
-        {initial_lane_index, std::move(initial_trajectory)});
+    lane_expansion_queue.push_back({initial_lane_index});
 
     while (!lane_expansion_queue.empty())
     {
@@ -762,22 +889,44 @@ struct DifferentialDriveExpander
 
       // TODO(MXG): Figure out what to do if the trajectory spans across
       // multiple maps.
-      Trajectory trajectory = top.parent_trajectory;
-      const auto& continue_from = trajectory.back();
+      Trajectory trajectory{map_name};
+      trajectory.insert(initial_seg);
       agv::internal::interpolate_translation(
             trajectory,
             _context.traits.linear().get_nominal_velocity(),
             _context.traits.linear().get_nominal_acceleration(),
-            continue_from.get_finish_time(),
-            continue_from.get_finish_position(),
+            initial_time,
+            initial_position,
             next_position,
             _context.profile,
             _context.interpolate.translation_thresh);
 
+      if (const auto* event = lane.exit().event())
+      {
+        if(!is_valid(trajectory))
+          continue;
+
+        auto parent_to_event = std::make_shared<Node>(
+              Node{
+                _context.heuristic.estimate_remaining_cost(
+                    _context, exit_waypoint_index),
+                compute_current_cost(initial_parent, trajectory),
+                exit_waypoint_index,
+                orientation,
+                std::move(trajectory),
+                nullptr,
+                initial_parent
+              });
+
+        event->execute(_executor.update(parent_to_event))
+            .add_if_valid(this, queue);
+
+        continue;
+      }
       // NOTE(MXG): We cannot move the trajectory in this function call, because
       // we may need to copy the trajectory later when we expand further down
       // other lanes.
-      if (!add_if_valid(exit_waypoint_index, orientation, initial_parent,
+      else if (!add_if_valid(exit_waypoint_index, orientation, initial_parent,
                         trajectory, queue))
       {
         // This lane was not successfully added, so we should not try to expand
@@ -810,6 +959,13 @@ struct DifferentialDriveExpander
           continue;
         }
 
+        if (future_lane.entry().event())
+        {
+          // An event needs to take place before proceeding down this lane, so
+          // we should not expand in this direction
+          continue;
+        }
+
         const Eigen::Vector3d future_position{
           future_p[0], future_p[1], orientation
         };
@@ -821,7 +977,7 @@ struct DifferentialDriveExpander
           continue;
         }
 
-        lane_expansion_queue.push_back({l, trajectory});
+        lane_expansion_queue.push_back({l});
       }
     }
   }
@@ -836,10 +992,11 @@ struct DifferentialDriveExpander
       expand_down_lane(parent, initial_lane_index, queue);
   }
 
-  void expand_holding(
+  NodePtr make_delay(
       const std::size_t waypoint,
       const NodePtr& parent_node,
-      SearchQueue& queue)
+      const Duration delay,
+      agv::Graph::Lane::EventPtr event = nullptr)
   {
     const Trajectory& parent_trajectory = parent_node->trajectory_from_parent;
     const auto& initial_segment = parent_trajectory.back();
@@ -851,14 +1008,37 @@ struct DifferentialDriveExpander
     trajectory.insert(initial_segment);
 
     trajectory.insert(
-          initial_time + _context.holding_time,
+          initial_time + delay,
           _context.profile,
           initial_pos,
           Eigen::Vector3d::Zero());
     assert(trajectory.size() == 2);
 
-    add_if_valid(
-        waypoint, initial_pos[2], parent_node, std::move(trajectory), queue);
+    return make_if_valid(
+          waypoint, initial_pos[2], parent_node,
+          std::move(trajectory), std::move(event));
+  }
+
+  void expand_delay(
+      const std::size_t waypoint,
+      const NodePtr& parent_node,
+      const Duration delay,
+      SearchQueue& queue,
+      agv::Graph::Lane::EventPtr event = nullptr)
+  {
+    const auto node = make_delay(
+          waypoint, parent_node, delay, std::move(event));
+
+    if(node)
+      queue.push(node);
+  }
+
+  void expand_holding(
+      const std::size_t waypoint,
+      const NodePtr& parent_node,
+      SearchQueue& queue)
+  {
+    expand_delay(waypoint, parent_node, _context.holding_time, queue);
   }
 
   void expand(const NodePtr& parent_node, SearchQueue& queue)
@@ -912,9 +1092,11 @@ private:
   Context& _context;
   schedule::Query _query;
   DifferentialDriveConstraint _differential_constraint;
+  LaneEventExecutor _executor;
 };
 
 //==============================================================================
+namespace {
 class DifferentialDriveCache : public Cache
 {
 public:
@@ -1012,6 +1194,7 @@ private:
   using HeuristicDatabase = std::unordered_map<std::size_t, Heuristic>;
   HeuristicDatabase _heuristics;
 };
+} // anonymous namespace
 
 //==============================================================================
 CacheManager make_cache(agv::Planner::Configuration config)
@@ -1026,9 +1209,6 @@ CacheManager make_cache(agv::Planner::Configuration config)
         "[rmf_traffic::agv::Planner] Planning utilities are currently only "
         "implemented for AGVs that use a differential drive.");
 }
-
-//==============================================================================
-
 
 } // namespace planning
 } // namespace internal

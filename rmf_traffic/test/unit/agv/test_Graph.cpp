@@ -36,12 +36,11 @@ void CHECK_WAYPOINT(rmf_traffic::agv::Graph::Waypoint wp,Eigen::Vector2d waypoin
 
     }
 
-void CHECK_LANE(rmf_traffic::agv::Graph::Lane lane, std::size_t lane_index, rmf_traffic::agv::Graph::Lane::Node entry_node,rmf_traffic::agv::Graph::Lane::Node exit_node,std::size_t* door_index=nullptr)
+void CHECK_LANE(rmf_traffic::agv::Graph::Lane lane, std::size_t lane_index, rmf_traffic::agv::Graph::Lane::Node entry_node,rmf_traffic::agv::Graph::Lane::Node exit_node)
     {
         CHECK(lane.index()==lane_index);
         CHECK(lane.entry().waypoint_index()==entry_node.waypoint_index());
         CHECK(lane.exit().waypoint_index()==exit_node.waypoint_index());
-        CHECK(lane.door_index()==door_index);
 
     }
 
@@ -54,7 +53,6 @@ using namespace std::chrono_literals;
 rmf_traffic::agv::Graph graph;
 REQUIRE(graph.num_waypoints()==0);
 REQUIRE(graph.num_lanes()==0);
-REQUIRE(graph.num_doors()==0);
 
 
 const std::string test_map_name="test_map";
@@ -105,7 +103,7 @@ WHEN("A lane without a door is added")
         std::vector<double> acceptable_orientations {0,M_PI};
         
         rmf_traffic::agv::Graph::Lane::Node exit_node{
-            1,
+            1, nullptr,
             rmf_traffic::agv::Graph::OrientationConstraint::make(acceptable_orientations),
             };
 

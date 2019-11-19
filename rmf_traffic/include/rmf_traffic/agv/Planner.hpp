@@ -343,6 +343,9 @@ public:
     /// Get the graph index of this Waypoint
     std::size_t graph_index() const;
 
+    /// An event that should occur when this waypoint is reached.
+    const Graph::Lane::Event* event() const;
+
     class Implementation;
   private:
     Waypoint();
