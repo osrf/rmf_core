@@ -1,0 +1,11 @@
+uint64[] replace_ids
+
+Trajectory[] trajectories
+
+---
+
+uint64 current_version
+
+uint64 original_version
+
+string error

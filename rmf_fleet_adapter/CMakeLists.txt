@@ -26,10 +26,8 @@ endforeach()
 
 # -----------------------------------------------------------------------------
 
-add_executable(rmf_fleet_adapter
-  src/main.cpp
-  src/ReadOnlyFleetAdapter.cpp
-  src/utils/ParseGraph.cpp
+add_library(rmf_fleet_adapter
+  src/rmf_fleet_adapter/ParseGraph.cpp
 )
 
 target_link_libraries(rmf_fleet_adapter
@@ -47,6 +45,18 @@ target_include_directories(rmf_fleet_adapter
     ${rmf_traffic_ros2_INCLUDE_DIRS}
     ${rmf_fleet_msgs_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
+)
+
+# -----------------------------------------------------------------------------
+
+add_executable(read_only
+  src/read_only/main.cpp
+  src/read_only/FleetAdapterNode.cpp
+)
+
+target_link_libraries(read_only
+  PRIVATE
+    rmf_fleet_adapter
 )
 
 # -----------------------------------------------------------------------------

@@ -22,6 +22,7 @@ set(msg_files
   "msg/Circle.msg"
   "msg/ConvexShape.msg"
   "msg/ConvexShapeContext.msg"
+  "msg/FleetProperties.msg"
   "msg/MirrorWakeup.msg"
   "msg/Region.msg"
   "msg/ScheduleChangeCull.msg"
@@ -46,10 +47,12 @@ set(msg_files
 )
 
 set(srv_files
-  "srv/SubmitTrajectory.srv"
-  "srv/EraseSchedule.srv"
+  "srv/DelayTrajectories.srv"
+  "srv/SubmitTrajectories.srv"
+  "srv/EraseTrajectories.srv"
   "srv/MirrorUpdate.srv"
   "srv/RegisterQuery.srv"
+  "srv/ReplaceTrajectories.srv"
   "srv/UnregisterQuery.srv"
 )
 
