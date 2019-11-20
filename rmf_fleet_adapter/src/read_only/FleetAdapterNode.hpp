@@ -44,19 +44,23 @@ public:
   static std::shared_ptr<FleetAdapterNode> make(
       const std::string& fleet_name,
       rmf_traffic::agv::VehicleTraits traits,
+      rmf_traffic::Duration delay_threshold,
       rmf_traffic::Duration wait_time = std::chrono::seconds(10));
 
 private:
 
   FleetAdapterNode(
       const std::string& fleet_name,
-      rmf_traffic::agv::VehicleTraits traits);
+      rmf_traffic::agv::VehicleTraits traits,
+      rmf_traffic::Duration delay_threshold);
 
   bool wait_until(rmf_traffic::Time stop_waiting) const;
 
   std::string _fleet_name;
 
   rmf_traffic::agv::VehicleTraits _traits;
+
+  rmf_traffic::Duration _delay_threshold;
 
   using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
   rclcpp::Client<SubmitTrajectories>::SharedPtr _client_submit_trajectories;
@@ -77,7 +81,16 @@ private:
   struct ScheduleEntry
   {
     uint64_t schedule_id;
+    bool dirty_id;
     std::vector<Location> path;
+    rmf_traffic::Trajectory trajectory;
+
+    ScheduleEntry()
+    : dirty_id(true),
+      trajectory("")
+    {
+      // Do nothing
+    }
   };
 
   // TODO(MXG): We could add threads to make this adapter more efficient, but
