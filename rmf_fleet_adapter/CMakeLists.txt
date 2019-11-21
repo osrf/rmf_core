@@ -71,6 +71,7 @@ ament_target_dependencies(fake_fleet rclcpp rmf_fleet_msgs)
 install(
   TARGETS 
     rmf_fleet_adapter
+    read_only
     fake_fleet
   RUNTIME DESTINATION lib/rmf_fleet_adapter
   LIBRARY DESTINATION lib

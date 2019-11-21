@@ -26,6 +26,7 @@
 #include <rmf_fleet_adapter/StandardNames.hpp>
 
 #include <rclcpp/macros.hpp>
+#include <rclcpp/executors.hpp>
 
 namespace rmf_fleet_adapter {
 namespace read_only {
@@ -37,7 +38,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
     rmf_traffic::Duration delay_threshold,
     rmf_traffic::Duration wait_time)
 {
-  const auto stop_waiting = std::chrono::steady_clock::now() + wait_time;
+  const auto stop_time = std::chrono::steady_clock::now() + wait_time;
 
   auto node = std::shared_ptr<FleetAdapterNode>(
         new FleetAdapterNode(
@@ -45,8 +46,18 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
           std::move(traits),
           delay_threshold));
 
-  if(node->wait_until(stop_waiting))
-    return node;
+  while(rclcpp::ok() && std::chrono::steady_clock::now() < stop_time)
+  {
+    rclcpp::spin_some(node);
+
+    bool keep_waiting = false;
+    keep_waiting |= node->_client_submit_trajectories->service_is_ready();
+    keep_waiting |= node->_client_replace_trajectories->service_is_ready();
+    keep_waiting |= node->_client_delay_trajectories->service_is_ready();
+
+    if (!keep_waiting)
+      return node;
+  }
 
   RCLCPP_INFO(
         node->get_logger(),
@@ -83,26 +94,6 @@ FleetAdapterNode::FleetAdapterNode(
   {
     this->fleet_state_update(std::move(msg));
   });
-
-
-}
-
-//==============================================================================
-bool FleetAdapterNode::wait_until(const rmf_traffic::Time stop_waiting) const
-{
-  if(!_client_submit_trajectories->wait_for_service(
-        stop_waiting - std::chrono::steady_clock::now()))
-    return false;
-
-  if(!_client_delay_trajectories->wait_for_service(
-        stop_waiting - std::chrono::steady_clock::now()))
-    return false;
-
-  if(!_client_replace_trajectories->wait_for_service(
-        stop_waiting - std::chrono::steady_clock::now()))
-    return false;
-
-  return true;
 }
 
 //==============================================================================

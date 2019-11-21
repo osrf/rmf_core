@@ -54,8 +54,6 @@ private:
       rmf_traffic::agv::VehicleTraits traits,
       rmf_traffic::Duration delay_threshold);
 
-  bool wait_until(rmf_traffic::Time stop_waiting) const;
-
   std::string _fleet_name;
 
   rmf_traffic::agv::VehicleTraits _traits;
