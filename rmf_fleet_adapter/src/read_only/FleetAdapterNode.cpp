@@ -99,6 +99,9 @@ FleetAdapterNode::FleetAdapterNode(
 //==============================================================================
 void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr state)
 {
+  if (state->name != _fleet_name)
+    return;
+
   for(const auto& robot : state->robots)
   {
     const auto it = _schedule_entries.find(robot.name);

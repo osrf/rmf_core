@@ -14,6 +14,7 @@
   <depend>rmf_utils</depend>
   <depend>rmf_fleet_msgs</depend>
   <depend>rmf_fleet_utils</depend>
+  <depend>rmf_task_msgs</depend>
   <depend>rmf_traffic</depend>
   <depend>rmf_traffic_ros2</depend>
   <depend>rmf_traffic_msgs</depend>

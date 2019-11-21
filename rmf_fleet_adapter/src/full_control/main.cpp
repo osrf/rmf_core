@@ -15,20 +15,7 @@
  *
 */
 
-#ifndef RMF_FLEET_ADAPTER__STANDARDNAMES_HPP
-#define RMF_FLEET_ADAPTER__STANDARDNAMES_HPP
+int main()
+{
 
-#include <string>
-
-namespace rmf_fleet_adapter {
-
-const std::string FleetStateTopicName = "fleet_states";
-const std::string DestinationRequestTopicName = "destination_requests";
-const std::string ModeRequestTopicName = "mode_requests";
-const std::string PathRequestTopicName = "path_requests";
-
-const std::string DeliveryTopicName = "delivery_requests";
-
-} // namespace rmf_fleet_adapter
-
-#endif // RMF_FLEET_ADAPTER__STANDARDNAMES_HPP
+}

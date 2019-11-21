@@ -16,6 +16,7 @@ set(dep_pkgs
   rclcpp
   rmf_utils
   rmf_fleet_msgs
+  rmf_task_msgs
   rmf_traffic
   rmf_traffic_ros2
   rmf_traffic_msgs
@@ -57,6 +58,24 @@ add_executable(read_only
 target_link_libraries(read_only
   PRIVATE
     rmf_fleet_adapter
+)
+
+# -----------------------------------------------------------------------------
+
+add_executable(full_control
+  src/full_control/main.cpp
+  src/full_control/FleetAdapterNode.cpp
+)
+
+target_link_libraries(full_control
+  PRIVATE
+    rmf_fleet_adapter
+    ${rmf_task_msgs_LIBRARIES}
+)
+
+target_include_directories(full_control
+  PRIVATE
+    ${rmf_task_msgs_INCLUDE_DIRS}
 )
 
 # -----------------------------------------------------------------------------
