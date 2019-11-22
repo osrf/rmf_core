@@ -23,11 +23,9 @@ Testing the read_only_fleet_adapter requires 5 terminals and each command run in
 ```ros2 run rmf_fleet_adapter test_read_only_adapter```
 
 5. The tests
-```ros2 topic pub /test_adapter_fleet1/cmd std_msgs/msg/String "{data: <TEST_NAME>}" --once
+```ros2 topic pub /test_adapter_fleet1/cmd std_msgs/msg/String "{data: <TEST_NAME>}" --once ```
 
 where <TEST_NAME> is either test_insert, test_advance, test_delay or test_replace
-
-``` 
 
 ## Test Procedure
 
