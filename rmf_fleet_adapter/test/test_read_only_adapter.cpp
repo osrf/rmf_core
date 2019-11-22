@@ -54,7 +54,7 @@ public:
     // publisher to send FleetState messages to fleet adapter
 
     _fleet_state_pub = create_publisher<FleetState>(
-        _fleet_name + "/" + rmf_fleet_adapter::FleetStateTopicName,
+        rmf_fleet_adapter::FleetStateTopicName,
         rclcpp::SystemDefaultsQoS());
     
     // publisher to send String messages to rmf_schedule_visualizer node
@@ -120,16 +120,16 @@ public:
 
     robot.path.push_back(
         get_location(
-        modify_time(robot.location.t, 5),
-        3.5,
+        modify_time(robot.location.t, 100),
+        70.0,
         0.0,
         0.0,
         "level1"));
 
     robot.path.push_back(
         get_location(
-        modify_time(robot.location.t, 10),
-        7.0,
+        modify_time(robot.location.t, 200),
+        140.0,
         0.0,
         0.0,
         "level1"));
@@ -197,7 +197,7 @@ private:
       // make a copy of the final location
       // clear robot path and append copy with modified time
       Location last_location = robot.path[robot.path.size()-1];
-      auto modified_t = modify_time(last_location.t , -2);
+      auto modified_t = modify_time(last_location.t , -6);
       last_location = get_location(
           modified_t,
           last_location.x,
@@ -210,6 +210,10 @@ private:
       robot.path.push_back(last_location);
       new_msg.robots.clear();
       new_msg.robots.push_back(robot);
+
+      std::cout<<"Delta: "<<std::to_string(
+        new_msg.robots[0].path[0].t.sec
+        -_fleet_state_msg.robots[0].path[1].t.sec)<<std::endl;
 
       //publishing new FleetState msg
       _fleet_state_pub->publish(new_msg);
@@ -231,13 +235,16 @@ private:
 
       RobotState robot = _fleet_state_msg.robots[0];
 
+      // for debugging
+      std::cout<<"Original Path Size: "<< robot.path.size()<<std::endl;
+
       // advance robot location to first location in current path
       robot.location = robot.path[0];
 
       // make a copy of the final location
       // clear robot path and append copy with modified time
       Location last_location = robot.path[robot.path.size()-1];
-      auto modified_t = modify_time(last_location.t , 10);
+      auto modified_t = modify_time(last_location.t , 20);
       last_location = get_location(
           modified_t,
           last_location.x,
@@ -246,10 +253,14 @@ private:
           last_location.level_name);
 
       // updating new FleetState msg
-      //robot.path.clear();
+      robot.path.clear();
       robot.path.push_back(last_location);
       new_msg.robots.clear();
       new_msg.robots.push_back(robot);
+
+      std::cout<<"Delta: "<<std::to_string(
+            new_msg.robots[0].path[0].t.sec
+            -_fleet_state_msg.robots[0].path[1].t.sec)<<std::endl;
 
       //publishing new FleetState msg
       _fleet_state_pub->publish(new_msg);
