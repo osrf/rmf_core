@@ -115,17 +115,20 @@ public:
 
   const schedule::Viewer* viewer;
   Duration min_hold_time;
+  const bool* interrupt_flag;
 
 };
 
 //==============================================================================
 Planner::Options::Options(
     const schedule::Viewer& viewer,
-    const Duration min_hold_time)
+    const Duration min_hold_time,
+    const bool* interrupt_flag)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                &viewer,
-               min_hold_time
+               min_hold_time,
+               interrupt_flag
              }))
 {
   // Do nothing
@@ -157,6 +160,19 @@ auto Planner::Options::minimum_holding_time(const Duration holding_time)
 Duration Planner::Options::minimum_holding_time() const
 {
   return _pimpl->min_hold_time;
+}
+
+//==============================================================================
+auto Planner::Options::interrupt_flag(const bool* flag) -> Options&
+{
+  _pimpl->interrupt_flag = flag;
+  return *this;
+}
+
+//==============================================================================
+const bool* Planner::Options::interrupt_flag() const
+{
+  return _pimpl->interrupt_flag;
 }
 
 //==============================================================================

@@ -127,7 +127,8 @@ template<
     class NodePtr = typename Expander::NodePtr>
 NodePtr search(
     Context&& context,
-    InitialNodeArgs&& initial_node_args)
+    InitialNodeArgs&& initial_node_args,
+    const bool* interrupt_flag)
 {
   using SearchQueue = typename Expander::SearchQueue;
 
@@ -136,7 +137,7 @@ NodePtr search(
   SearchQueue queue;
   queue.push(expander.make_initial_node(initial_node_args));
 
-  while(!queue.empty())
+  while(!queue.empty() && !(interrupt_flag && *interrupt_flag))
   {
     NodePtr top = queue.top();
     queue.pop();
@@ -531,7 +532,8 @@ struct DifferentialDriveExpander
         // waypoint has never been found before, and we should compute it now.
         const EuclideanExpander::NodePtr solution = search<EuclideanExpander>(
               EuclideanExpander::Context{context.graph, context.final_waypoint},
-              EuclideanExpander::InitialNodeArgs{waypoint});
+              EuclideanExpander::InitialNodeArgs{waypoint},
+              context.interrupt_flag);
 
         // TODO(MXG): Instead of asserting that the goal exists, we should
         // probably take this opportunity to shortcircuit the planner and return
@@ -589,6 +591,7 @@ struct DifferentialDriveExpander
     const std::size_t final_waypoint;
     const double* const final_orientation;
     const rmf_traffic::Time initial_time;
+    const bool* const interrupt_flag;
     Heuristic& heuristic;
   };
 
@@ -1146,6 +1149,7 @@ public:
     const std::size_t goal_waypoint = goal.waypoint();
     Heuristic& h = _heuristics.insert(
           std::make_pair(goal_waypoint, Heuristic{})).first->second;
+    const bool* const interrupt_flag = options.interrupt_flag();
 
     const NodePtr solution = search<DifferentialDriveExpander>(
           DifferentialDriveExpander::Context{
@@ -1158,12 +1162,14 @@ public:
             goal_waypoint,
             goal.orientation(),
             start.time(),
+            interrupt_flag,
             h
           },
           DifferentialDriveExpander::InitialNodeArgs{
             start.waypoint(),
             start.orientation()
-          });
+          },
+          interrupt_flag);
 
     if(!solution)
       return result;

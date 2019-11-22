@@ -1550,3 +1550,6 @@ SCENARIO("Graph with door", "[door]")
   CHECK(has_event(ExpectEvent::DoorClose, *plan_with_door_open_close));
 }
 
+
+// TODO(MXG): Make a test for the interrupt_flag in Planner::Options
+

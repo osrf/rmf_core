@@ -40,6 +40,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <queue>
 
 namespace rmf_fleet_adapter {
 namespace full_control {
@@ -53,13 +54,62 @@ public:
       const std::string& fleet_name,
       const std::string& graph_file,
       rmf_traffic::agv::VehicleTraits traits,
+      rmf_traffic::Duration get_plan_time,
       rmf_traffic::Duration wait_time = std::chrono::seconds(10));
 
-private:
+  using Delivery = rmf_task_msgs::msg::Delivery;
+  using Location = rmf_fleet_msgs::msg::Location;
 
-  FleetAdapterNode(const std::string& fleet_name);
+  class Task;
+  struct RobotState
+  {
+    Location location;
+    rmf_traffic::schedule::Version schedule_id;
+    rmf_traffic::Trajectory trajectory;
+    std::unique_ptr<Task> task;
+  };
 
-  std::string _fleet_name;
+  class Action
+  {
+  public:
+
+    virtual bool execute() = 0;
+
+    virtual const std::string& error() = 0;
+
+    virtual void interrupt() = 0;
+
+    virtual bool resume() = 0;
+
+  };
+
+
+  class Task
+  {
+  public:
+
+    Task(RobotState* state_ptr, const Delivery& request);
+
+    void next();
+
+    void interrupt();
+
+    void resume();
+
+  private:
+
+    std::queue<std::unique_ptr<Action>> _action_queue;
+
+  };
+
+  rmf_traffic::Duration get_plan_time() const;
+
+  const rmf_traffic::agv::Planner& get_planner() const;
+
+  const rmf_traffic::agv::Planner& get_graph() const;
+
+  std::size_t compute_closest_wp(const Location& location) const;
+
 
   using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
   using SubmitTrajectoriesClient = rclcpp::Client<SubmitTrajectories>;
@@ -107,22 +157,30 @@ private:
     }
   };
 
+  const Fields& get_fields() const;
+
+private:
+
+  FleetAdapterNode(
+      const std::string& fleet_name,
+      rmf_traffic::Duration get_plan_time);
+
+  std::string _fleet_name;
+
+  rmf_traffic::Duration _plan_time;
+
   void start(Fields fields);
 
   rmf_utils::optional<Fields> _field;
 
-  using Delivery = rmf_task_msgs::msg::Delivery;
   using DeliverySub = rclcpp::Subscription<Delivery>;
   using DeliveryPtr = DeliverySub::SharedPtr;
   DeliveryPtr _delivery_sub;
   void delivery_request(Delivery::UniquePtr msg);
 
 
-  struct ExpectedState
-  {
-    std::string task;
-    rmf_traffic::Trajectory trajectory;
-  };
+  using States =
+      std::unordered_map<std::string, std::unique_ptr<RobotState>>;
 
 };
 

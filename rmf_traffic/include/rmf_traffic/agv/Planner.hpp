@@ -116,9 +116,16 @@ public:
     ///   Larger values will add some latency to the execution of the plan as
     ///   the robot may wait at a holding point longer than necessary, but the
     ///   plan will usually be generated more quickly.
+    ///
+    /// \param[in] interrupt_flag
+    ///   A pointer to a flag that should be used to interrupt the planner if it
+    ///   has been running for too long. If the planner should run indefinitely,
+    ///   then pass in a nullptr. It is the user's responsibility to make sure
+    ///   that this flag remains valid.
     Options(
         const schedule::Viewer& viewer,
-        Duration min_hold_time = std::chrono::seconds(5));
+        Duration min_hold_time = std::chrono::seconds(5),
+        const bool* interrupt_flag = nullptr);
 
     /// Change the schedule viewer to use for planning.
     ///
@@ -137,6 +144,13 @@ public:
 
     /// Get the minimal amount of time to spend waiting at holding points
     Duration minimum_holding_time() const;
+
+    /// Set an interrupt flag to stop this planner if it has run for too long.
+    Options& interrupt_flag(const bool* flag);
+
+    /// Get the interrupt flag that will stop this planner if it has run for too
+    /// long.
+    const bool* interrupt_flag() const;
 
     class Implementation;
   private:
