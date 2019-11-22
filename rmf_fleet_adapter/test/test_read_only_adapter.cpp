@@ -92,24 +92,77 @@ public:
     });
 
     RobotState robot;
+    robot.name = "TestBot";
+    robot.model = "1.0";
+    RobotMode mode;
+    mode.mode = mode.MODE_MOVING;
+    robot.mode = mode;
+    robot.battery_percent = 90.0;
+    robot.location = get_location(
+        rmf_traffic_ros2::convert(
+            std::chrono::steady_clock::now()),
+        0.0,
+        0.0,
+        0.0,
+        "level1");
+
+
+    // Robot moving to locations {1.0, 0} and {2.0, 0} 
+
+    robot.path.push_back(
+        get_location(
+        modify_time(robot.location.t, 5),
+        1.0,
+        0.0,
+        0.0,
+        "level1"));
+
+    robot.path.push_back(
+        get_location(
+        modify_time(robot.location.t, 10),
+        2.0,
+        0.0,
+        0.0,
+        "level1"));
+
+    _fleet_state_msg.name = _fleet_name;
+    _fleet_state_msg.robots.push_back(robot);
 
   }
 
 
 
 private:
-  std::string _fleet_name;
-  std::string _viz_name;
-  FleetState _fleet_state_msg;
-  rclcpp::Publisher<FleetState>::SharedPtr _fleet_state_pub;
-  rclcpp::Subscription<String>::SharedPtr _cmd_sub;
-  rclcpp::Publisher<String>::SharedPtr _viz_pub;
-  bool _test_insert;
-
+  Location get_location(
+      builtin_interfaces::msg::Time t,
+      double x,
+      double y,
+      double yaw,
+      std::string level)
+      {
+        Location location;
+        location.t = t;
+        location.x = x;
+        location.y = y;
+        location.yaw = yaw;
+        location.level_name = level;
+        return location;
+      }
+  
+  builtin_interfaces::msg::Time modify_time (
+      builtin_interfaces::msg::Time t_, double delta)
+      {
+        t_.sec += delta;
+        return t_; 
+      }
 
   void test_insert()
   {
+    if(!_inserted)
+    {
+      _fleet_state_pub->publish(_fleet_state_msg);
 
+    }
   }
   void test_advance()
   {
@@ -123,6 +176,14 @@ private:
   {
 
   }
+
+  std::string _fleet_name;
+  std::string _viz_name;
+  FleetState _fleet_state_msg;
+  rclcpp::Publisher<FleetState>::SharedPtr _fleet_state_pub;
+  rclcpp::Subscription<String>::SharedPtr _cmd_sub;
+  rclcpp::Publisher<String>::SharedPtr _viz_pub;
+  bool _inserted = false;
 
 };
 
