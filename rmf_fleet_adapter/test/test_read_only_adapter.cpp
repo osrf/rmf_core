@@ -100,14 +100,18 @@ public:
     mode.mode = mode.MODE_MOVING;
     robot.mode = mode;
     robot.battery_percent = 90.0;
+    _start_time = std::chrono::steady_clock::now();
+
     robot.location = get_location(
         rmf_traffic_ros2::convert(
-            std::chrono::steady_clock::now()),
+        _start_time),
         0.0,
         0.0,
         0.0,
         "level1");
 
+    RCLCPP_INFO(this->get_logger(),
+        "start_time: " + std::to_string(_start_time.duration.count()));
 
     // Robot path: {1.0, 0} -> {2.0, 0} 
 
@@ -191,6 +195,7 @@ private:
   rclcpp::Subscription<String>::SharedPtr _cmd_sub;
   rclcpp::Publisher<String>::SharedPtr _viz_pub;
   bool _inserted = false;
+  rmf_traffic::Time _start_time;
 
 };
 
