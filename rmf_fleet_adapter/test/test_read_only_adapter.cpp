@@ -52,19 +52,16 @@ public:
     _viz_info_msg.data = "info";
 
     // publisher to send FleetState messages to fleet adapter
-
     _fleet_state_pub = create_publisher<FleetState>(
         rmf_fleet_adapter::FleetStateTopicName,
         rclcpp::SystemDefaultsQoS());
     
     // publisher to send String messages to rmf_schedule_visualizer node
-
     _viz_pub = create_publisher<String>(
         _viz_name + "/debug", rclcpp::SystemDefaultsQoS());
 
     // subscription to receive String messages which control execution of
     // this node
-
     _cmd_sub= create_subscription<String>(
         "test_adapter_" + _fleet_name+"/cmd",rclcpp::SystemDefaultsQoS(),
         [&](String::UniquePtr msg)
@@ -84,7 +81,6 @@ public:
       }
       else if (msg->data == "test_replace")
       {
-        std::cout<<"Testing replace"<<std::endl;
         test_replace();
       }
       else
@@ -167,6 +163,7 @@ private:
 
   void test_insert()
   {
+    // send first FirstState msg to fleet adapter
     if(!_inserted)
     {
       RCLCPP_INFO(this->get_logger(), "Testing Insert");
@@ -182,22 +179,33 @@ private:
   }
   void test_advance()
   {
+
+    // Update the robot path to make robot ahead of schedule 
     if (_inserted)
     {
+      RCLCPP_INFO(this->get_logger(), "Testing Advance");
+
+      // Expected output from fleet adapter:
+      // [ERROR] [fleet1__read_only_fleet_adapter]: BUG: Robot [TestBot] is
+      // unexpectedly XX seconds ahead of schedule. This should not happen;
+      // the real robots should only ever be behind the predicted schedule.
+
 
       // modify location.t of last location in path to smaller value 
-
       FleetState new_msg = _fleet_state_msg;
 
       RobotState robot = new_msg.robots[0];
 
       // advance robot location to first location in current path
       robot.location = robot.path[0];
+      
+      // robot arrived at the next location 10 seconds earlier
+      robot.location.t = modify_time(robot.location.t, -10);
 
       // make a copy of the final location
       // clear robot path and append copy with modified time
       Location last_location = robot.path[robot.path.size()-1];
-      auto modified_t = modify_time(last_location.t , -6);
+      auto modified_t = modify_time(last_location.t , -10);
       last_location = get_location(
           modified_t,
           last_location.x,
@@ -205,14 +213,14 @@ private:
           last_location.yaw,
           last_location.level_name);
 
-      // updating new FleetState msg
+      //updating new FleetState msg 
       robot.path.clear();
       robot.path.push_back(last_location);
       new_msg.robots.clear();
       new_msg.robots.push_back(robot);
 
       std::cout<<"Delta: "<<std::to_string(
-        new_msg.robots[0].path[0].t.sec
+        new_msg.robots[0].path[new_msg.robots[0].path.size()-1].t.sec
         -_fleet_state_msg.robots[0].path[1].t.sec)<<std::endl;
 
       //publishing new FleetState msg
@@ -228,39 +236,41 @@ private:
   {
     if (_inserted)
     {
+      RCLCPP_INFO(this->get_logger(), "Testing Delay");
 
       // modify location.t of last location in path to larger value 
-
-      FleetState new_msg = _fleet_state_msg;
+      FleetState new_msg;
+      new_msg.name = _fleet_state_msg.name;
 
       RobotState robot = _fleet_state_msg.robots[0];
-
       // for debugging
-      std::cout<<"Original Path Size: "<< robot.path.size()<<std::endl;
-
+      
       // advance robot location to first location in current path
       robot.location = robot.path[0];
 
-      // make a copy of the final location
-      // clear robot path and append copy with modified time
+      // make a copy of the final location and extend finish time by 20s
       Location last_location = robot.path[robot.path.size()-1];
-      auto modified_t = modify_time(last_location.t , 20);
-      last_location = get_location(
-          modified_t,
-          last_location.x,
-          last_location.y,
-          last_location.yaw,
-          last_location.level_name);
-
-      // updating new FleetState msg
+      last_location.t = modify_time(last_location.t , 20);
+      
       robot.path.clear();
       robot.path.push_back(last_location);
+
+      // updating new FleetState msg
       new_msg.robots.clear();
       new_msg.robots.push_back(robot);
 
+      //debugging 
+      std::cout<< "New msg name: "<<new_msg.name<<std::endl;
+      std::cout<<"Original Path Count: "<<
+          _fleet_state_msg.robots[0].path.size()<<std::endl;
+      std::cout<<"New Path Count: "<<
+          std::to_string(new_msg.robots[0].path.size())<<std::endl;
+      std::cout<<"New path has "<<std::to_string(new_msg.robots[0].path.size() -
+          _fleet_state_msg.robots[0].path.size())<< " more locations"<<std::endl;
+
       std::cout<<"Delta: "<<std::to_string(
-            new_msg.robots[0].path[0].t.sec
-            -_fleet_state_msg.robots[0].path[1].t.sec)<<std::endl;
+          new_msg.robots[0].path[new_msg.robots[0].path.size() -1].t.sec -
+          _fleet_state_msg.robots[0].path[1].t.sec)<<std::endl;
 
       //publishing new FleetState msg
       _fleet_state_pub->publish(new_msg);
@@ -273,7 +283,55 @@ private:
 
   void test_replace()
   {
+    if (_inserted)
+    {
+      RCLCPP_INFO(this->get_logger(), "Testing Replace");
 
+      // modify location.t of last location in path to larger value 
+      FleetState new_msg = _fleet_state_msg;
+
+      RobotState robot = _fleet_state_msg.robots[0];
+
+      // advance robot location to first location in current path
+      robot.location = robot.path[0];
+
+      // make a copy of the final location
+      // clear robot path and append copy with modified time
+      Location last_location = robot.path[robot.path.size()-1];
+      robot.path.clear();
+      robot.path.push_back(last_location);
+
+      // adding two additional locations to path
+      for(int i = 0; i < 2; i++)
+      {
+        auto modified_t = modify_time(last_location.t , 100*(i+1));
+        auto l = get_location(
+            modified_t,
+            last_location.x + 70*(i+1),
+            last_location.y,
+            last_location.yaw,
+            last_location.level_name);
+        robot.path.push_back(l);
+      }
+
+      // updating new FleetState msg
+      new_msg.robots.clear();
+      new_msg.robots.push_back(robot);
+
+      // debugging
+      std::cout<<"New path has "<<new_msg.robots[0].path.size() -
+          _fleet_state_msg.robots[0].path.size()<< " more locations"<<std::endl;
+
+      std::cout<<"Delta: "<<std::to_string(
+          new_msg.robots[0].path[new_msg.robots[0].path.size() -1].t.sec
+            -_fleet_state_msg.robots[0].path[1].t.sec)<<std::endl;
+
+      //publishing new FleetState msg
+      _fleet_state_pub->publish(new_msg);
+      std::this_thread::sleep_for(std::chrono::seconds(2));
+      _viz_pub->publish(_viz_info_msg);
+
+    }
   }
 
   std::string _fleet_name;
