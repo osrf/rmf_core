@@ -452,11 +452,21 @@ Trajectory add_delay(
     const Time time,
     const Duration delay)
 {
-  Trajectory::iterator delayed_segment = new_trajectory.find(time);
-  assert(delayed_segment != new_trajectory.end());
-  if(delayed_segment != new_trajectory.end())
-    delayed_segment->adjust_finish_times(delay);
+  assert(new_trajectory.start_time());
+  if (time <= *new_trajectory.start_time())
+  {
+    new_trajectory.begin()->adjust_finish_times(delay);
+    return new_trajectory;
+  }
+  else if(*new_trajectory.finish_time() < time)
+  {
+    // No need for an adjustment
+    return new_trajectory;
+  }
 
+  const Trajectory::iterator delayed_segment = new_trajectory.find(time);
+  assert(delayed_segment != new_trajectory.end());
+  delayed_segment->adjust_finish_times(delay);
   return new_trajectory;
 }
 
