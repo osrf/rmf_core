@@ -80,7 +80,6 @@ public:
       }
       else if (msg->data == "test_delay")
       {
-        std::cout<<"Testing delay"<<std::endl;
         test_delay();
       }
       else if (msg->data == "test_replace")
@@ -220,10 +219,47 @@ private:
     }
 
   }
+
   void test_delay()
   {
+    if (_inserted)
+    {
+
+      // modify location.t of last location in path to larger value 
+
+      FleetState new_msg = _fleet_state_msg;
+
+      RobotState robot = _fleet_state_msg.robots[0];
+
+      // advance robot location to first location in current path
+      robot.location = robot.path[0];
+
+      // make a copy of the final location
+      // clear robot path and append copy with modified time
+      Location last_location = robot.path[robot.path.size()-1];
+      auto modified_t = modify_time(last_location.t , 10);
+      last_location = get_location(
+          modified_t,
+          last_location.x,
+          last_location.y,
+          last_location.yaw,
+          last_location.level_name);
+
+      // updating new FleetState msg
+      //robot.path.clear();
+      robot.path.push_back(last_location);
+      new_msg.robots.clear();
+      new_msg.robots.push_back(robot);
+
+      //publishing new FleetState msg
+      _fleet_state_pub->publish(new_msg);
+      std::this_thread::sleep_for(std::chrono::seconds(2));
+      _viz_pub->publish(_viz_info_msg);
+
+    }
 
   }
+
   void test_replace()
   {
 
