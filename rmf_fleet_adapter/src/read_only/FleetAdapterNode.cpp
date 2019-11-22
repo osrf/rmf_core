@@ -89,7 +89,7 @@ FleetAdapterNode::FleetAdapterNode(
 
   _fleet_state_subscription =
       create_subscription<FleetState>(
-        FleetStateTopicName, rclcpp::SystemDefaultsQoS(),
+        fleet_name+"/"+FleetStateTopicName, rclcpp::SystemDefaultsQoS(),
         [&](FleetState::UniquePtr msg)
   {
     this->fleet_state_update(std::move(msg));

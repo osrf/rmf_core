@@ -27,6 +27,8 @@
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_traffic_ros2/Trajectory.hpp>
 
+#include <rmf_fleet_adapter/StandardNames.hpp>
+
 
 class TestReadOnly : public rclcpp::Node
 {
@@ -48,7 +50,8 @@ public:
     // publisher to send FleetState messages to fleet adapter
 
     _fleet_state_pub = create_publisher<FleetState>(
-        _fleet_name + "/fleet_state", rclcpp::SystemDefaultsQoS());
+        _fleet_name + "/" + rmf_fleet_adapter::FleetStateTopicName,
+        rclcpp::SystemDefaultsQoS());
     
     // publisher to send String messages to rmf_schedule_visualizer node
 
@@ -65,7 +68,6 @@ public:
       // receive commands through ros2 msg
       if (msg->data == "test_insert")
       {
-        std::cout<<"Testing insert"<<std::endl;
         test_insert();
       }
       else if (msg->data == "test_advance")
@@ -107,7 +109,7 @@ public:
         "level1");
 
 
-    // Robot moving to locations {1.0, 0} and {2.0, 0} 
+    // Robot path: {1.0, 0} -> {2.0, 0} 
 
     robot.path.push_back(
         get_location(
@@ -160,9 +162,14 @@ private:
   {
     if(!_inserted)
     {
+      RCLCPP_INFO(this->get_logger(), "Testing Insert");
       _fleet_state_pub->publish(_fleet_state_msg);
 
     }
+    else
+      RCLCPP_ERROR(this->get_logger(),
+          "Default FleetState already inserted...");
+
   }
   void test_advance()
   {
