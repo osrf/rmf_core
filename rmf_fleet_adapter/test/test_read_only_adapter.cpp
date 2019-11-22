@@ -47,6 +47,10 @@ public:
     _fleet_name(fleet_name),
     _viz_name(viz_name)
   {
+    // msg to publish to rmf_schedule_visualizer node to print 
+    // information of trajectoies in the mirror 
+    _viz_info_msg.data = "info";
+
     // publisher to send FleetState messages to fleet adapter
 
     _fleet_state_pub = create_publisher<FleetState>(
@@ -72,7 +76,6 @@ public:
       }
       else if (msg->data == "test_advance")
       {
-        std::cout<<"Testing advance"<<std::endl;
         test_advance();
       }
       else if (msg->data == "test_delay")
@@ -111,14 +114,15 @@ public:
         "level1");
 
     RCLCPP_INFO(this->get_logger(),
-        "start_time: " + std::to_string(_start_time.duration.count()));
+        "start_time: " + std::to_string(
+              _start_time.time_since_epoch().count()));
 
-    // Robot path: {1.0, 0} -> {2.0, 0} 
+    // Robot path: {0, 0} -> {1.0, 0} -> {2.0, 0} in 10s
 
     robot.path.push_back(
         get_location(
         modify_time(robot.location.t, 5),
-        1.0,
+        3.5,
         0.0,
         0.0,
         "level1"));
@@ -126,7 +130,7 @@ public:
     robot.path.push_back(
         get_location(
         modify_time(robot.location.t, 10),
-        2.0,
+        7.0,
         0.0,
         0.0,
         "level1"));
@@ -168,7 +172,9 @@ private:
     {
       RCLCPP_INFO(this->get_logger(), "Testing Insert");
       _fleet_state_pub->publish(_fleet_state_msg);
-
+      std::this_thread::sleep_for(std::chrono::seconds(2));
+      _viz_pub->publish(_viz_info_msg);
+      _inserted = true;
     }
     else
       RCLCPP_ERROR(this->get_logger(),
@@ -177,6 +183,41 @@ private:
   }
   void test_advance()
   {
+    if (_inserted)
+    {
+
+      // modify location.t of last location in path to smaller value 
+
+      FleetState new_msg = _fleet_state_msg;
+
+      RobotState robot = new_msg.robots[0];
+
+      // advance robot location to first location in current path
+      robot.location = robot.path[0];
+
+      // make a copy of the final location
+      // clear robot path and append copy with modified time
+      Location last_location = robot.path[robot.path.size()-1];
+      auto modified_t = modify_time(last_location.t , -2);
+      last_location = get_location(
+          modified_t,
+          last_location.x,
+          last_location.y,
+          last_location.yaw,
+          last_location.level_name);
+
+      // updating new FleetState msg
+      robot.path.clear();
+      robot.path.push_back(last_location);
+      new_msg.robots.clear();
+      new_msg.robots.push_back(robot);
+
+      //publishing new FleetState msg
+      _fleet_state_pub->publish(new_msg);
+      std::this_thread::sleep_for(std::chrono::seconds(2));
+      _viz_pub->publish(_viz_info_msg);
+
+    }
 
   }
   void test_delay()
@@ -196,6 +237,7 @@ private:
   rclcpp::Publisher<String>::SharedPtr _viz_pub;
   bool _inserted = false;
   rmf_traffic::Time _start_time;
+  String _viz_info_msg;
 
 };
 
