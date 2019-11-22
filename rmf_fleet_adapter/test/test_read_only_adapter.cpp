@@ -112,8 +112,6 @@ public:
         "start_time: " + std::to_string(
               _start_time.time_since_epoch().count()));
 
-    // Robot path: {0, 0} -> {1.0, 0} -> {2.0, 0} in 10s
-
     robot.path.push_back(
         get_location(
         modify_time(robot.location.t, 100),
