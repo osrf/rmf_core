@@ -68,15 +68,14 @@ ament_target_dependencies(fake_fleet rclcpp rmf_fleet_msgs)
 
 # -----------------------------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-
 add_executable(test_read_only_adapter
   test/test_read_only_adapter.cpp
 )
-ament_target_dependencies(test_read_only_adapter 
-  rclcpp
-  rmf_fleet_msgs
-  std_msgs)
+
+target_link_libraries(test_read_only_adapter
+  PRIVATE
+    rmf_fleet_adapter
+)
 
 # -----------------------------------------------------------------------------
 

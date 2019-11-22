@@ -24,6 +24,9 @@
 #include <rmf_fleet_msgs/msg/location.hpp>
 #include <std_msgs/msg/string.hpp>
 
+#include <rmf_traffic_ros2/Time.hpp>
+#include <rmf_traffic_ros2/Trajectory.hpp>
+
 
 class TestReadOnly : public rclcpp::Node
 {
@@ -87,6 +90,8 @@ public:
       }
 
     });
+
+    RobotState robot;
 
   }
 
