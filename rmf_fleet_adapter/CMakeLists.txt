@@ -15,6 +15,7 @@ find_package(ament_cmake REQUIRED)
 set(dep_pkgs
   rclcpp
   rmf_utils
+  rmf_dispenser_msgs
   rmf_fleet_msgs
   rmf_task_msgs
   rmf_traffic
@@ -64,6 +65,7 @@ target_link_libraries(read_only
 
 add_executable(full_control
   src/full_control/main.cpp
+  src/full_control/Failure.cpp
   src/full_control/FleetAdapterNode.cpp
   src/full_control/MoveAction.cpp
 )
@@ -72,11 +74,13 @@ target_link_libraries(full_control
   PRIVATE
     rmf_fleet_adapter
     ${rmf_task_msgs_LIBRARIES}
+    ${rmf_dispenser_msgs_LIBRARIES}
 )
 
 target_include_directories(full_control
   PRIVATE
     ${rmf_task_msgs_INCLUDE_DIRS}
+    ${rmf_dispenser_msgs_INCLUDE_DIRS}
 )
 
 # -----------------------------------------------------------------------------

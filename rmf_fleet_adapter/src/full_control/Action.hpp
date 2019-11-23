@@ -32,6 +32,9 @@ public:
 
   virtual void resume() = 0;
 
+  virtual void report_status() = 0;
+
+  virtual ~Action() = default;
 };
 
 } // namespace full_control

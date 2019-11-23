@@ -27,6 +27,10 @@
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
 #include <rmf_fleet_msgs/msg/path_request.hpp>
 
+#include <rmf_dispenser_msgs/msg/dispenser_request.hpp>
+#include <rmf_dispenser_msgs/msg/dispenser_state.hpp>
+#include <rmf_dispenser_msgs/msg/dispenser_result.hpp>
+
 #include <rmf_task_msgs/msg/delivery.hpp>
 
 #include <rmf_traffic/Time.hpp>
@@ -48,6 +52,17 @@ namespace rmf_fleet_adapter {
 namespace full_control {
 
 //==============================================================================
+template<typename T>
+class Listener
+{
+public:
+
+  virtual void receive(const T& msg) = 0;
+
+  virtual ~Listener() = default;
+};
+
+//==============================================================================
 class FleetAdapterNode : public rclcpp::Node
 {
 public:
@@ -64,12 +79,17 @@ public:
   using Delivery = rmf_task_msgs::msg::Delivery;
   using Location = rmf_fleet_msgs::msg::Location;
 
+  using RobotState = rmf_fleet_msgs::msg::RobotState;
+  using RobotStateListeners = std::unordered_set<Listener<RobotState>*>;
+
   class Task;
-  struct RobotState
+  struct RobotContext
   {
     Location location;
     std::unique_ptr<Task> task;
-    std::queue<Delivery> request_queue;
+    std::queue<Task> task_queue;
+
+    RobotStateListeners listeners;
 
     void next_task();
   };
@@ -78,9 +98,11 @@ public:
   {
   public:
 
-    Task(const FleetAdapterNode* node,
-         RobotState* state_ptr,
-         const Delivery& request);
+    Task(FleetAdapterNode* node,
+         RobotContext* state_ptr,
+         const Delivery& request,
+         std::size_t pickup_wp,
+         std::size_t dropoff_wp);
 
     void next();
 
@@ -92,10 +114,12 @@ public:
 
     void critical_failure(const std::string& error);
 
+    const std::string& id() const;
+
   private:
 
     const Delivery _delivery;
-    RobotState* const _state_ptr;
+    RobotContext* const _state_ptr;
     std::unique_ptr<Action> _action;
     std::queue<std::unique_ptr<Action>> _action_queue;
 
@@ -166,6 +190,22 @@ public:
 
   const Fields& get_fields() const;
 
+  using DispenserRequest = rmf_dispenser_msgs::msg::DispenserRequest;
+  using DispenserResult = rmf_dispenser_msgs::msg::DispenserResult;
+  using DispenserState = rmf_dispenser_msgs::msg::DispenserState;
+
+  using DispenserResultListeners =
+      std::unordered_set<Listener<DispenserResult>*>;
+  DispenserResultListeners dispenser_result_listeners;
+
+  using DispenserStateListeners =
+      std::unordered_set<Listener<DispenserState>*>;
+  DispenserStateListeners dispenser_state_listeners;
+
+  using PathRequest = rmf_fleet_msgs::msg::PathRequest;
+  using PathRequestPub = rclcpp::Publisher<PathRequest>;
+  PathRequestPub::SharedPtr path_request_publisher;
+
 private:
 
   FleetAdapterNode(
@@ -185,9 +225,22 @@ private:
   DeliveryPtr _delivery_sub;
   void delivery_request(Delivery::UniquePtr msg);
 
+  using DispenserResultSub = rclcpp::Subscription<DispenserResult>;
+  DispenserResultSub::SharedPtr _dispenser_result_sub;
+  void dispenser_result_update(DispenserResult::UniquePtr msg);
 
-  using States =
-      std::unordered_map<std::string, std::unique_ptr<RobotState>>;
+  using DispenserStateSub = rclcpp::Subscription<DispenserState>;
+  DispenserStateSub::SharedPtr _dispenser_state_sub;
+  void dispenser_state_update(DispenserState::UniquePtr msg);
+
+  using FleetState = rmf_fleet_msgs::msg::FleetState;
+  using FleetStateSub = rclcpp::Subscription<FleetState>;
+  FleetStateSub::SharedPtr _fleet_state_sub;
+  void fleet_state_update(FleetState::UniquePtr msg);
+
+  using Context =
+      std::unordered_map<std::string, std::unique_ptr<RobotContext>>;
+  Context _contexts;
 
 };
 

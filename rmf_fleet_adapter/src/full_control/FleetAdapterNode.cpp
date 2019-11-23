@@ -101,32 +101,16 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
 //==============================================================================
 FleetAdapterNode::Task::Task(
     FleetAdapterNode* node,
-    FleetAdapterNode::RobotState* state,
-    const Delivery& request)
+    FleetAdapterNode::RobotContext* state,
+    const Delivery& request,
+    const std::size_t pickup_wp,
+    const std::size_t dropoff_wp)
 : _delivery(request),
   _state_ptr(state)
 {
-  const auto& waypoint_keys = node->get_waypoint_keys();
-  const auto pickup = waypoint_keys.find(_delivery.pickup_place_name);
-  if (pickup == waypoint_keys.end())
-  {
-    _action_queue.push(
-          make_failure(
-            "Unknown pickup location [" + _delivery.pickup_place_name + "]"));
-    return;
-  }
+  _action_queue.push(
+        make_move(node, state, pickup_wp, node->get_fallback_wps()));
 
-  const auto dropoff = waypoint_keys.find(_delivery.dropoff_place_name);
-  if (dropoff == waypoint_keys.end())
-  {
-    _action_queue.push(
-          make_failure(
-            "Uknown dropoff location [" + _delivery.dropoff_place_name + "]"));
-    return;
-  }
-
-  _action_queue.push(make_move(
-        node, state, pickup->second, node->get_fallback_wps()));
 
 }
 
@@ -202,10 +186,127 @@ void FleetAdapterNode::start(Fields fields)
   {
     this->delivery_request(std::move(msg));
   });
+
+  _dispenser_result_sub = create_subscription<DispenserResult>(
+        DispenserResultTopicName, rclcpp::SystemDefaultsQoS(),
+        [&](DispenserResult::UniquePtr msg)
+  {
+    this->dispenser_result_update(std::move(msg));
+  });
+
+  _dispenser_state_sub = create_subscription<DispenserState>(
+        DispenserStateTopicName, rclcpp::SystemDefaultsQoS(),
+        [&](DispenserState::UniquePtr msg)
+  {
+    this->dispenser_state_update(std::move(msg));
+  });
+
+  _fleet_state_sub = create_subscription<FleetState>(
+        FleetStateTopicName, rclcpp::SystemDefaultsQoS(),
+        [&](FleetState::UniquePtr msg)
+  {
+    this->fleet_state_update(std::move(msg));
+  });
+
+  path_request_publisher = create_publisher<PathRequest>(
+        PathRequestTopicName, rclcpp::SystemDefaultsQoS());
 }
 
 //==============================================================================
+void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
+{
+  const auto& waypoint_keys = _field->waypoint_keys;
+  const auto& delivery = *msg;
+  const auto pickup = waypoint_keys.find(delivery.pickup_place_name);
+  if (pickup == waypoint_keys.end())
+  {
+    RCLCPP_ERROR(
+          get_logger(),
+          "Unknown pickup location [" + delivery.pickup_place_name + "] in "
+          + "delivery request [" + delivery.task_id + "]");
+    return;
+  }
 
+  const auto dropoff = waypoint_keys.find(delivery.dropoff_place_name);
+  if (dropoff == waypoint_keys.end())
+  {
+    RCLCPP_ERROR(
+          get_logger(),
+          "Uknown dropoff location [" + delivery.dropoff_place_name + "] in "
+          + "delivery request [" + delivery.task_id + "]");
+    return;
+  }
+
+  if (_contexts.empty())
+  {
+    RCLCPP_ERROR(
+          get_logger(),
+          "No robots appear to be online!");
+    return;
+  }
+
+  auto context = _contexts.begin()->second.get();
+
+  auto task = std::make_unique<Task>(
+        this, context, delivery, pickup->second, dropoff->second);
+
+  if (!context->task)
+  {
+    // No task is currently active, so set this new task as the active one and
+    // begin executing it.
+    context->task = std::move(task);
+    context->task->next();
+  }
+  else
+  {
+    // A task is currently active, so add this task to the queue. We're going to
+    // do first-come first-serve for task requests for now.
+    context->task_queue.emplace(std::move(task));
+  }
+}
+
+//==============================================================================
+void FleetAdapterNode::dispenser_result_update(DispenserResult::UniquePtr msg)
+{
+  for (auto* listener : dispenser_result_listeners)
+    listener->receive(*msg);
+}
+
+//==============================================================================
+void FleetAdapterNode::dispenser_state_update(DispenserState::UniquePtr msg)
+{
+  for (auto* listener : dispenser_state_listeners)
+    listener->receive(*msg);
+}
+
+//==============================================================================
+void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr msg)
+{
+  const auto& fleet_state = *msg;
+  if (fleet_state.name != _fleet_name)
+    return;
+
+  for (const auto& robot : fleet_state.robots)
+  {
+    const auto insertion = _contexts.insert(
+          std::make_pair(robot.name, nullptr));
+    const bool inserted = insertion.second;
+    const auto it = insertion.first;
+
+    if (inserted)
+    {
+      it->second = std::make_unique<RobotContext>(
+            RobotContext{robot.location, nullptr, {}, {}});
+    }
+    else
+    {
+      it->second->location = robot.location;
+    }
+
+    for (auto* listener : it->second->listeners)
+      listener->receive(robot);
+  }
+}
 
 } // namespace full_control
 } // namespace rmf_fleet_adapter
