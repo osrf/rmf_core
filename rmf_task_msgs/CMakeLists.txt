@@ -21,6 +21,8 @@ set(msg_files
   "msg/Behavior.msg"
   "msg/BehaviorParameter.msg"
   "msg/Station.msg"
+  "msg/TaskSummary.msg"
+  "msg/Tasks.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
