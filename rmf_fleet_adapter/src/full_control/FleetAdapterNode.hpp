@@ -42,6 +42,8 @@
 #include <vector>
 #include <queue>
 
+#include "Action.hpp"
+
 namespace rmf_fleet_adapter {
 namespace full_control {
 
@@ -57,6 +59,8 @@ public:
       rmf_traffic::Duration get_plan_time,
       rmf_traffic::Duration wait_time = std::chrono::seconds(10));
 
+  using WaypointKeys = std::unordered_map<std::string, std::size_t>;
+
   using Delivery = rmf_task_msgs::msg::Delivery;
   using Location = rmf_fleet_msgs::msg::Location;
 
@@ -64,31 +68,19 @@ public:
   struct RobotState
   {
     Location location;
-    rmf_traffic::schedule::Version schedule_id;
-    rmf_traffic::Trajectory trajectory;
     std::unique_ptr<Task> task;
+    std::queue<Delivery> request_queue;
+
+    void next_task();
   };
-
-  class Action
-  {
-  public:
-
-    virtual bool execute() = 0;
-
-    virtual const std::string& error() = 0;
-
-    virtual void interrupt() = 0;
-
-    virtual bool resume() = 0;
-
-  };
-
 
   class Task
   {
   public:
 
-    Task(RobotState* state_ptr, const Delivery& request);
+    Task(const FleetAdapterNode* node,
+         RobotState* state_ptr,
+         const Delivery& request);
 
     void next();
 
@@ -96,19 +88,33 @@ public:
 
     void resume();
 
+    void report_status();
+
+    void critical_failure(const std::string& error);
+
   private:
 
+    const Delivery _delivery;
+    RobotState* const _state_ptr;
+    std::unique_ptr<Action> _action;
     std::queue<std::unique_ptr<Action>> _action_queue;
 
+
   };
+
+  const std::string& get_fleet_name() const;
 
   rmf_traffic::Duration get_plan_time() const;
 
   const rmf_traffic::agv::Planner& get_planner() const;
 
-  const rmf_traffic::agv::Planner& get_graph() const;
+  const rmf_traffic::agv::Graph& get_graph() const;
 
   std::size_t compute_closest_wp(const Location& location) const;
+
+  const WaypointKeys& get_waypoint_keys() const;
+
+  const std::vector<std::size_t>& get_fallback_wps() const;
 
 
   using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
@@ -134,7 +140,8 @@ public:
     rmf_traffic::agv::Graph graph;
     rmf_traffic::agv::VehicleTraits traits;
     rmf_traffic::agv::Planner planner;
-    std::unordered_map<std::string, std::size_t> waypoint_keys;
+    WaypointKeys waypoint_keys;
+    std::vector<std::size_t> fallback_waypoints;
 
     Fields(
         rmf_traffic::agv::Graph graph_,
