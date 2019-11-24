@@ -164,10 +164,91 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
   const auto now = rmf_traffic_ros2::convert(get_clock()->now())
       + std::chrono::seconds(3);
 
-  const auto start_wp_index = compute_closest_wp(location);
+  const Eigen::Vector2d p_location = {location.x, location.y};
   const double start_yaw = static_cast<double>(location.yaw);
 
-  return rmf_traffic::agv::Plan::Start(now, start_wp_index, start_yaw);
+  const auto& graph = _field->graph;
+
+  for (std::size_t i=0; i < graph.num_waypoints(); ++i)
+  {
+    const auto& wp = graph.get_waypoint(i);
+    const Eigen::Vector2d wp_location = wp.get_location();
+
+    if ( (p_location - wp_location).norm() < 0.05 )
+    {
+      // This waypoint is very close to the real location, so we will assume
+      // that the robot is located here.
+      return {rmf_traffic::agv::Plan::Start(now, wp.index(), start_yaw)};
+    }
+  }
+
+  std::vector<rmf_traffic::agv::Plan::Start> starts;
+
+  double closest_lane_dist = std::numeric_limits<double>::infinity();
+  std::size_t closest_lane = std::numeric_limits<std::size_t>::max();
+  for (std::size_t i=0; i < graph.num_lanes(); ++i)
+  {
+    const auto& lane = graph.get_lane(i);
+    const Eigen::Vector2d p0 = graph.get_waypoint(
+          lane.entry().waypoint_index()).get_location();
+    const Eigen::Vector2d p1 = graph.get_waypoint(
+          lane.exit().waypoint_index()).get_location();
+
+    const double lane_length = (p1 - p0).norm();
+    const Eigen::Vector2d pn = (p1 - p0)/lane_length;
+
+    const Eigen::Vector2d p_l = p_location - p0;
+    const double p_l_projection = p_l.dot(pn);
+
+    double lane_dist = std::numeric_limits<double>::infinity();
+    if (p_l_projection < 0.0)
+    {
+      // If it's negative then its closest point on the lane is the entry point
+      lane_dist = p_l.norm();
+    }
+    else if (p_l_projection > lane_length)
+    {
+      // If it's larger than the lane length, then its closest point on the lane
+      // is the exit point.
+      lane_dist = (p_location - p1).norm();
+    }
+    else
+    {
+      // If it's between the entry and the exit points, then we should compute
+      // its distance away from the lane line.
+      lane_dist = (p_l - p_l_projection*pn).norm();
+    }
+
+    if (lane_dist < 0.25)
+    {
+      // If the robot is within 25cm of the lane, go ahead and add it as one of
+      // the options to consider.
+      starts.emplace_back(
+            rmf_traffic::agv::Plan::Start(
+              now, lane.exit().waypoint_index(), start_yaw, p_location, i));
+    }
+  }
+
+  if (starts.empty())
+  {
+    // None of the lanes were very close, so we'll go ahead and use the one that
+    // seems closest.
+    if (closest_lane_dist > 1.0)
+    {
+      RCLCPP_WARN(
+            get_logger(),
+            "The robot appears to be [" + std::to_string(closest_lane_dist)
+            + "] meters away from its closest lane on the graph ["
+            + std::to_string(closest_lane) + "]!");
+    }
+
+    starts.emplace_back(
+          rmf_traffic::agv::Plan::Start(
+            now, graph.get_lane(closest_lane).exit().waypoint_index(),
+            start_yaw, p_location, closest_lane));
+  }
+
+  return starts;
 }
 
 //==============================================================================

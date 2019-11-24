@@ -82,7 +82,7 @@ public:
     _plans.clear();
 
     const auto& planner = _node->get_planner();
-    const auto plan_start = _node->compute_plan_start(_context->location);
+    const auto plan_starts = _node->compute_plan_starts(_context->location);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -95,7 +95,7 @@ public:
           [&]()
     {
       main_plan = planner.plan(
-            plan_start, rmf_traffic::agv::Plan::Goal(_goal_wp_index), options);
+            plan_starts, rmf_traffic::agv::Plan::Goal(_goal_wp_index), options);
       main_plan_finished = true;
       main_plan_cv.notify_all();
     });
@@ -108,7 +108,7 @@ public:
       fallback_plan_threads.emplace_back(std::thread([&]()
       {
         auto fallback_plan = planner.plan(
-              plan_start, rmf_traffic::agv::Plan::Goal(goal_wp), options);
+              plan_starts, rmf_traffic::agv::Plan::Goal(goal_wp), options);
 
         std::unique_lock<std::mutex> lock(fallback_plan_mutex);
         fallback_plans.emplace_back(std::move(fallback_plan));
@@ -769,7 +769,7 @@ public:
 
     const auto& planner = _node->get_planner();
 
-    const auto plan_start = _node->compute_plan_start(_context->location);
+    const auto plan_starts = _node->compute_plan_starts(_context->location);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -785,7 +785,7 @@ public:
       plan_threads.emplace_back(std::thread([&]()
       {
         auto emergency_plan = planner.plan(
-              plan_start, rmf_traffic::agv::Plan::Goal(goal_wp), options);
+              plan_starts, rmf_traffic::agv::Plan::Goal(goal_wp), options);
 
         std::unique_lock<std::mutex> lock(plans_mutex);
         if (emergency_plan)
