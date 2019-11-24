@@ -106,6 +106,7 @@ FleetAdapterNode::Task::Task(
     const std::size_t pickup_wp,
     const std::size_t dropoff_wp)
 : _delivery(request),
+  _node(node),
   _state_ptr(state)
 {
   _action_queue.push(
@@ -117,6 +118,9 @@ FleetAdapterNode::Task::Task(
 //==============================================================================
 void FleetAdapterNode::Task::next()
 {
+  if (!_start_time)
+    _start_time = _node->get_clock()->now();
+
   if (_action_queue.empty())
   {
     return _state_ptr->next_task();
@@ -149,6 +153,21 @@ const rmf_traffic::agv::Planner& FleetAdapterNode::get_planner() const
 const rmf_traffic::agv::Graph& FleetAdapterNode::get_graph() const
 {
   return _field->graph;
+}
+
+//==============================================================================
+rmf_traffic::agv::Plan::Start FleetAdapterNode::compute_plan_start(
+    const Location& location)
+{
+  // Add 3 seconds to the current time to give us some buffer
+  // TODO(MXG): Make this configurable
+  const auto now = rmf_traffic_ros2::convert(get_clock()->now())
+      + std::chrono::seconds(3);
+
+  const auto start_wp_index = compute_closest_wp(location);
+  const double start_yaw = static_cast<double>(location.yaw);
+
+  return rmf_traffic::agv::Plan::Start(now, start_wp_index, start_yaw);
 }
 
 //==============================================================================
@@ -220,6 +239,9 @@ void FleetAdapterNode::start(Fields fields)
 
   door_request_publisher = create_publisher<DoorRequest>(
         DoorRequestTopicName, rclcpp::SystemDefaultsQoS());
+
+  task_summary_publisher = create_publisher<TaskSummary>(
+        TaskSummaryTopicName, rclcpp::SystemDefaultsQoS());
 }
 
 //==============================================================================

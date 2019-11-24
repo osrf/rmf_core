@@ -70,23 +70,19 @@ public:
     _state_listener(this),
     _event_executor(this),
     _event_listener(this),
-    _waiting_for_schedule(true)
+    _waiting_for_schedule(true),
+    _emergency_active(false)
   {
     // Do nothing
   }
 
   void find_plan()
   {
+    _emergency_active = false;
     _plans.clear();
 
     const auto& planner = _node->get_planner();
-
-    // Add 3 seconds to the current time to give us some buffer
-    const auto now = rmf_traffic_ros2::convert(_node->get_clock()->now())
-        + std::chrono::seconds(3);
-
-    const auto start_wp_index = _node->compute_closest_wp(_context->location);
-    const double start_yaw = static_cast<double>(_context->location.yaw);
+    const auto plan_start = _node->compute_plan_start(_context->location);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -99,10 +95,7 @@ public:
           [&]()
     {
       main_plan = planner.plan(
-            rmf_traffic::agv::Plan::Start(
-              now, start_wp_index, start_yaw),
-            rmf_traffic::agv::Plan::Goal(_goal_wp_index),
-            options);
+            plan_start, rmf_traffic::agv::Plan::Goal(_goal_wp_index), options);
       main_plan_finished = true;
       main_plan_cv.notify_all();
     });
@@ -115,10 +108,7 @@ public:
       fallback_plan_threads.emplace_back(std::thread([&]()
       {
         auto fallback_plan = planner.plan(
-              rmf_traffic::agv::Plan::Start(
-                now, start_wp_index, start_yaw),
-              rmf_traffic::agv::Plan::Goal(goal_wp),
-              options);
+              plan_start, rmf_traffic::agv::Plan::Goal(goal_wp), options);
 
         std::unique_lock<std::mutex> lock(fallback_plan_mutex);
         fallback_plans.emplace_back(std::move(fallback_plan));
@@ -773,9 +763,60 @@ public:
     find_plan();
   }
 
-  void plan_emergency()
+  void find_emergency_plan()
   {
+    _emergency_active = true;
 
+    const auto& planner = _node->get_planner();
+
+    const auto plan_start = _node->compute_plan_start(_context->location);
+
+    bool interrupt_flag = false;
+    auto options = planner.get_default_options();
+    options.interrupt_flag(&interrupt_flag);
+
+    std::vector<std::thread> plan_threads;
+    std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> plans;
+    std::mutex plans_mutex;
+    std::condition_variable plans_cv;
+    bool have_plan = false;
+    for (const std::size_t goal_wp : _fallback_wps)
+    {
+      plan_threads.emplace_back(std::thread([&]()
+      {
+        auto emergency_plan = planner.plan(
+              plan_start, rmf_traffic::agv::Plan::Goal(goal_wp), options);
+
+        std::unique_lock<std::mutex> lock(plans_mutex);
+        if (emergency_plan)
+          have_plan = true;
+
+        plans.emplace_back(std::move(emergency_plan));
+        plans_cv.notify_all();
+      }));
+    }
+
+    const auto giveup_time =
+        std::chrono::steady_clock::now() + 5*_node->get_plan_time();
+
+    while (std::chrono::steady_clock::now() < giveup_time && !have_plan)
+    {
+      std::unique_lock<std::mutex> lock(plans_mutex);
+      plans_cv.wait_for(lock, std::chrono::milliseconds(100),
+                        [&](){ return have_plan; });
+    }
+
+    const auto quickest_finish_opt = get_fastest_plan_index(plans);
+    if (!quickest_finish_opt)
+    {
+      return _context->task->critical_failure(
+            "The robot failed to find a viable emergency plan! "
+            "Human intervention may be needed!");
+    }
+
+    _plans.emplace_back(*plans[*quickest_finish_opt]);
+
+    return execute_plan();
   }
 
   void cancel()
@@ -787,7 +828,7 @@ public:
   void interrupt() final
   {
     cancel();
-    plan_emergency();
+    find_emergency_plan();
   }
 
   void resume() final
@@ -798,7 +839,38 @@ public:
 
   void report_status() final
   {
+    rmf_task_msgs::msg::TaskSummary summary;
+    summary.task_id = _context->task->id();
+    summary.start_time = _context->task->start_time();
 
+    if (_emergency_active)
+      summary.status = "Emergency Delay - ";
+    else
+      summary.status = "In progress - ";
+
+    if (_waypoints.empty())
+    {
+      summary.status += "Empty Plan - May require human intervention";
+      _node->task_summary_publisher->publish(summary);
+      return;
+    }
+
+    const auto& final_wp = _waypoints.back();
+    summary.end_time = rmf_traffic_ros2::convert(final_wp.time());
+    const auto final_wp_index = final_wp.graph_index();
+    const auto& waypoint_names = _node->get_waypoint_names();
+    const auto it_name = waypoint_names.find(final_wp_index);
+    if (it_name == waypoint_names.end())
+    {
+      summary.status += "Moving to [" + it_name->second + "]";
+    }
+    else
+    {
+      summary.status += "Moving to waypoint ["
+          + std::to_string(final_wp_index) + "]";
+    }
+
+    _node->task_summary_publisher->publish(summary);
   }
 
 
@@ -818,6 +890,8 @@ private:
   rmf_fleet_msgs::msg::PathRequest _command;
   std::size_t _command_segment;
   std::vector<rmf_traffic::schedule::Version> _schedule_ids;
+
+  bool _emergency_active;
 
 };
 

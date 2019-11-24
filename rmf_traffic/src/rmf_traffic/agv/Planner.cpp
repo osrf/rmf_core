@@ -370,6 +370,31 @@ Planner::Planner(
 }
 
 //==============================================================================
+auto Planner::get_configuration() const -> const Configuration&
+{
+  return _pimpl->configuration;
+}
+
+//==============================================================================
+Planner& Planner::set_default_options(Options default_options)
+{
+  _pimpl->default_options = std::move(default_options);
+  return *this;
+}
+
+//==============================================================================
+auto Planner::get_default_options() -> Options&
+{
+  return _pimpl->default_options;
+}
+
+//==============================================================================
+auto Planner::get_default_options() const -> const Options&
+{
+  return _pimpl->default_options;
+}
+
+//==============================================================================
 rmf_utils::optional<Plan> Planner::plan(Start start, Goal goal) const
 {
   return Plan::Implementation::generate(

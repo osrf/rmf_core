@@ -38,6 +38,7 @@
 #include <rmf_lift_msgs/msg/lift_state.hpp>
 
 #include <rmf_task_msgs/msg/delivery.hpp>
+#include <rmf_task_msgs/msg/task_summary.hpp>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Graph.hpp>
@@ -81,6 +82,7 @@ public:
       rmf_traffic::Duration wait_time = std::chrono::seconds(10));
 
   using WaypointKeys = std::unordered_map<std::string, std::size_t>;
+  using WaypointNames = std::unordered_map<std::size_t, std::string>;
 
   using Delivery = rmf_task_msgs::msg::Delivery;
   using Location = rmf_fleet_msgs::msg::Location;
@@ -122,13 +124,16 @@ public:
 
     const std::string& id() const;
 
+    const rclcpp::Time& start_time() const;
+
   private:
 
     const Delivery _delivery;
+    FleetAdapterNode* const _node;
     RobotContext* const _state_ptr;
     std::unique_ptr<Action> _action;
     std::queue<std::unique_ptr<Action>> _action_queue;
-
+    rmf_utils::optional<rclcpp::Time> _start_time;
 
   };
 
@@ -140,9 +145,12 @@ public:
 
   const rmf_traffic::agv::Graph& get_graph() const;
 
-  std::size_t compute_closest_wp(const Location& location) const;
+  rmf_traffic::agv::Plan::Start compute_plan_start(
+      const Location& location);
 
   const WaypointKeys& get_waypoint_keys() const;
+
+  const WaypointNames& get_waypoint_names() const;
 
   const std::vector<std::size_t>& get_fallback_wps() const;
 
@@ -227,6 +235,10 @@ public:
   using LiftRequest = rmf_lift_msgs::msg::LiftRequest;
   using LiftRequestPub = rclcpp::Publisher<LiftRequest>;
   LiftRequestPub::SharedPtr lift_request_publisher;
+
+  using TaskSummary = rmf_task_msgs::msg::TaskSummary;
+  using TaskSummaryPub = rclcpp::Publisher<TaskSummary>;
+  TaskSummaryPub::SharedPtr task_summary_publisher;
 
 private:
 
