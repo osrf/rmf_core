@@ -156,8 +156,8 @@ const rmf_traffic::agv::Graph& FleetAdapterNode::get_graph() const
 }
 
 //==============================================================================
-rmf_traffic::agv::Plan::Start FleetAdapterNode::compute_plan_start(
-    const Location& location)
+std::vector<rmf_traffic::agv::Plan::Start>
+FleetAdapterNode::compute_plan_starts(const Location& location)
 {
   // Add 3 seconds to the current time to give us some buffer
   // TODO(MXG): Make this configurable

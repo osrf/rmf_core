@@ -171,7 +171,7 @@ rmf_traffic::Trajectory test_with_obstacle(
     bool used_holding_point = false;
     for (const auto& wp : plan->get_waypoints())
     {
-      if (wp.graph_index() == hold_index)
+      if (*wp.graph_index() == hold_index)
       {
         used_holding_point = true;
         break;
