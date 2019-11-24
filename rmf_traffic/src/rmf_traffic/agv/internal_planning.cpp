@@ -679,12 +679,24 @@ struct DifferentialDriveExpander
 
         for (const double orientation : orientations)
         {
-          if (initial_lane &&
-              !is_orientation_okay(
-                *initial_location, orientation, course,
-                _context.graph.lanes[*initial_lane]))
+          if (initial_lane)
           {
-            continue;
+            const auto& lane = _context.graph.lanes[*initial_lane];
+            const auto lane_exit = lane.exit().waypoint_index();
+            if (lane_exit != initial_waypoint)
+            {
+              throw std::invalid_argument(
+                    "[rmf_traffic::agv::Planner] Disagreement between initial "
+                    "waypoint index [" + std::to_string(initial_waypoint)
+                    + "] and the initial lane exit ["
+                    + std::to_string(lane_exit) + "]");
+            }
+
+            if (!is_orientation_okay(
+                  *initial_location, orientation, course, lane))
+            {
+              continue;
+            }
           }
 
           auto rotated_initial_node = initial_node;
