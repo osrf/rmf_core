@@ -68,6 +68,8 @@ public:
     _goal_wp_index(goal_wp_index),
     _fallback_wps(fallback_wps),
     _state_listener(this),
+    _event_executor(this),
+    _event_listener(this),
     _waiting_for_schedule(true)
   {
     // Do nothing
@@ -358,6 +360,12 @@ public:
 
   void send_next_command()
   {
+    if (_waypoints.empty())
+    {
+      _context->task->next();
+      return;
+    }
+
     _command.fleet_name = _node->get_fleet_name();
     _command.task_id =
         _context->task->id() + std::to_string(_command_segment++);
@@ -371,11 +379,6 @@ public:
     {
       const auto& wp = _waypoints[i];
 
-      // Break off the command wherever an event occurs, because those are
-      // points where the fleet adapter will need to issue door/lift requests.
-      if (wp.event())
-        break;
-
       const auto& p = wp.position();
 
       rmf_fleet_msgs::msg::Location location;
@@ -388,15 +391,20 @@ public:
           graph.get_waypoint(wp.graph_index()).get_map_name();
 
       _command.path.emplace_back(std::move(location));
+
+      // Break off the command wherever an event occurs, because those are
+      // points where the fleet adapter will need to issue door/lift requests.
+      if (wp.event())
+        break;
     }
 
     _waypoints.erase(_waypoints.begin(), _waypoints.begin()+i);
 
-    resend_last_command();
+    publish_command();
     _command_time = _node->get_clock()->now();
   }
 
-  void resend_last_command()
+  void publish_command()
   {
     _node->path_request_publisher->publish(_command);
   }
@@ -437,7 +445,7 @@ public:
 
         // Attempt to resend the command if the robot has not received it yet.
         if (now - _parent->_command_time > std::chrono::milliseconds(100))
-          _parent->resend_last_command();
+          _parent->publish_command();
 
         return;
       }
@@ -475,9 +483,55 @@ public:
 
   }
 
+  using DoorState = rmf_door_msgs::msg::DoorState;
+  using LiftState = rmf_lift_msgs::msg::LiftState;
+  class EventListener
+      : public Listener<DoorState>,
+        public Listener<LiftState>
+  {
+  public:
+
+    EventListener(MoveAction* parent)
+    : _parent(parent)
+    {
+      _parent->_node->door_state_listeners.insert(this);
+      _parent->_node->lift_state_listeners.insert(this);
+    }
+
+    std::function<void(const DoorState&)> door;
+    std::function<void(const LiftState&)> lift;
+
+    void receive(const DoorState& msg) final
+    {
+      if (door)
+        door(msg);
+    }
+
+    void receive(const LiftState& msg) final
+    {
+      if (lift)
+        lift(msg);
+    }
+
+    ~EventListener()
+    {
+      _parent->_node->door_state_listeners.erase(this);
+      _parent->_node->lift_state_listeners.erase(this);
+    }
+
+  private:
+    MoveAction* const _parent;
+  };
+
+  using DoorRequest = rmf_door_msgs::msg::DoorRequest;
+  using LiftRequest = rmf_lift_msgs::msg::LiftRequest;
+
   class EventExecutor : public rmf_traffic::agv::Graph::Lane::Executor
   {
   public:
+
+    using Lane = rmf_traffic::agv::Graph::Lane;
+    using DoorMode = rmf_door_msgs::msg::DoorMode;
 
     EventExecutor(MoveAction* parent)
     : _parent(parent),
@@ -491,10 +545,262 @@ public:
       return _is_active;
     }
 
+    void request_door_mode(
+        const std::string& door_name,
+        const uint32_t mode)
+    {
+      _command_time = _parent->_node->get_clock()->now();
+
+      DoorRequest request;
+      request.door_name = door_name;
+      request.request_time = _command_time;
+      request.requested_mode.value = mode;
+      request.requester_id = _parent->_node->get_fleet_name();
+
+      _parent->_node->door_request_publisher->publish(request);
+    }
+
+    void wait_for_door_mode(
+        const DoorState& msg,
+        const uint32_t mode,
+        const std::string& door_name,
+        const rclcpp::Time& initial_time)
+    {
+      const auto time = rclcpp::Time(msg.door_time);
+      if (time < initial_time)
+        return;
+
+      if (msg.door_name != door_name)
+        return;
+
+      if (mode == msg.current_mode.value)
+      {
+        _parent->_waypoints.erase(_parent->_waypoints.begin());
+        _parent->_event_listener.door = nullptr;
+        _is_active = false;
+        _parent->send_next_command();
+        return;
+      }
+
+      if ((time - _command_time).seconds() > 0.2)
+      {
+        // Send the command periodically as a precaution
+        request_door_mode(door_name, mode);
+      }
+    }
+
+    void execute(const Lane::DoorOpen& open) final
+    {
+      if (_is_active)
+        return;
+
+      _is_active = true;
+
+      const std::string door_name = open.name();
+      const auto initial_time = _parent->_node->get_clock()->now();
+
+      _parent->_event_listener.door =
+          [=](const DoorState& msg)
+      {
+        this->wait_for_door_mode(
+              msg, DoorMode::MODE_OPEN, door_name, initial_time);
+      };
+
+      request_door_mode(door_name, DoorMode::MODE_OPEN);
+    }
+
+    void execute(const Lane::DoorClose& close) final
+    {
+      if (_is_active)
+        return;
+
+      _is_active = true;
+
+      const std::string door_name = close.name();
+      const auto initial_time = _parent->_node->get_clock()->now();
+      _command_time = initial_time;
+
+      _parent->_event_listener.door =
+          [=](const DoorState& msg)
+      {
+        this->wait_for_door_mode(
+              msg, DoorMode::MODE_CLOSED, door_name, initial_time);
+      };
+
+      request_door_mode(door_name, DoorMode::MODE_CLOSED);
+    }
+
+    void request_lift_mode(
+        const std::string& lift_name,
+        const std::string& floor_name,
+        uint8_t lift_mode,
+        uint8_t door_state)
+    {
+      _command_time = _parent->_node->get_clock()->now();
+
+      LiftRequest request;
+      request.lift_name = lift_name;
+      request.session_id = _parent->_node->get_fleet_name();
+      request.request_type = lift_mode;
+      request.destination_floor = floor_name;
+      request.door_state = door_state;
+
+      _parent->_node->lift_request_publisher->publish(request);
+    }
+
+    void wait_for_lift_mode(
+        const LiftState& msg,
+        const std::string& lift_name,
+        const std::string& floor_name,
+        const uint8_t lift_mode,
+        const uint8_t door_state,
+        const rclcpp::Time& initial_time)
+    {
+      const auto time = rclcpp::Time(msg.lift_time);
+      if (time < initial_time)
+        return;
+
+      if (msg.lift_name != lift_name)
+        return;
+
+      if ((time - _command_time).seconds() > 0.2)
+      {
+        // Send the command periodically as a precaution
+        request_lift_mode(
+              lift_name, floor_name, lift_mode, door_state);
+      }
+
+      if (msg.current_floor != floor_name)
+        return;
+
+      if (msg.door_state == door_state)
+      {
+        _parent->_waypoints.erase(_parent->_waypoints.begin());
+        _parent->_event_listener.lift = nullptr;
+        _is_active = false;
+        _parent->send_next_command();
+        return;
+      }
+    }
+
+    void execute(const Lane::LiftDoorOpen& open) final
+    {
+      if (_is_active)
+        return;
+
+      _is_active = true;
+
+      const std::string lift_name = open.lift_name();
+      const std::string floor_name = open.floor_name();
+      const auto initial_time = _parent->_node->get_clock()->now();
+
+      _parent->_event_listener.lift =
+          [=](const LiftState& msg)
+      {
+        this->wait_for_lift_mode(
+              msg, lift_name, floor_name,
+              LiftRequest::REQUEST_AGV_MODE,
+              LiftRequest::DOOR_OPEN,
+              initial_time);
+      };
+
+      request_lift_mode(
+            lift_name, floor_name,
+            LiftRequest::REQUEST_AGV_MODE,
+            LiftRequest::DOOR_OPEN);
+    }
+
+    void execute(const Lane::LiftDoorClose& close) final
+    {
+      if (_is_active)
+        return;
+
+      _is_active = true;
+
+      const std::string lift_name = close.lift_name();
+      const std::string floor_name = close.floor_name();
+      const auto initial_time = _parent->_node->get_clock()->now();
+
+      // We don't actually need to wait for the lift door to close, so we'll
+      // just shoot off the END_SESSION message and carry on with the next
+      // step of the plan.
+      request_lift_mode(
+            lift_name, floor_name,
+            LiftRequest::REQUEST_END_SESSION,
+            LiftRequest::DOOR_CLOSED);
+
+      _parent->_waypoints.erase(_parent->_waypoints.begin());
+      _parent->send_next_command();
+    }
+
+    void execute(const Lane::LiftMove& move) final
+    {
+      if (_is_active)
+        return;
+
+      _is_active = true;
+
+      const std::string lift_name = move.lift_name();
+      const std::string floor_name = move.destination_floor();
+      const auto initial_time = _parent->_node->get_clock()->now();
+
+      _parent->_event_listener.lift =
+          [=](const LiftState& msg)
+      {
+        this->wait_for_lift_mode(
+              msg, lift_name, floor_name,
+              LiftRequest::REQUEST_AGV_MODE,
+              LiftRequest::DOOR_OPEN,
+              initial_time);
+      };
+    }
+
+    void cancel()
+    {
+      _parent->_event_listener.door = nullptr;
+      _parent->_event_listener.lift = nullptr;
+      _is_active = false;
+    }
+
   private:
+    rclcpp::Time _command_time;
     MoveAction* const _parent;
     bool _is_active;
   };
+
+  void execute() final
+  {
+    find_plan();
+  }
+
+  void plan_emergency()
+  {
+
+  }
+
+  void cancel()
+  {
+    _waypoints.clear();
+    _event_executor.cancel();
+  }
+
+  void interrupt() final
+  {
+    cancel();
+    plan_emergency();
+  }
+
+  void resume() final
+  {
+    cancel();
+    find_plan();
+  }
+
+  void report_status() final
+  {
+
+  }
+
 
 private:
   FleetAdapterNode* const _node;
@@ -503,6 +809,7 @@ private:
   const std::vector<std::size_t>& _fallback_wps;
   StateListener _state_listener;
   EventExecutor _event_executor;
+  EventListener _event_listener;
 
   bool _waiting_for_schedule;
   rclcpp::Time _command_time;
@@ -524,7 +831,7 @@ MoveAction::~MoveAction()
 //==============================================================================
 std::unique_ptr<Action> make_move(
     FleetAdapterNode* node,
-    const FleetAdapterNode::RobotContext* state,
+    FleetAdapterNode::RobotContext* state,
     const std::size_t goal_wp_index,
     const std::vector<std::size_t>& fallback_wps)
 {

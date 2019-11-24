@@ -208,8 +208,18 @@ void FleetAdapterNode::start(Fields fields)
     this->fleet_state_update(std::move(msg));
   });
 
+  _door_state_sub = create_subscription<DoorState>(
+        DoorStateTopicName, rclcpp::SystemDefaultsQoS(),
+        [&](DoorState::UniquePtr msg)
+  {
+    this->door_state_update(std::move(msg));
+  });
+
   path_request_publisher = create_publisher<PathRequest>(
         PathRequestTopicName, rclcpp::SystemDefaultsQoS());
+
+  door_request_publisher = create_publisher<DoorRequest>(
+        DoorRequestTopicName, rclcpp::SystemDefaultsQoS());
 }
 
 //==============================================================================
@@ -306,6 +316,20 @@ void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr msg)
     for (auto* listener : it->second->listeners)
       listener->receive(robot);
   }
+}
+
+//==============================================================================
+void FleetAdapterNode::door_state_update(DoorState::UniquePtr msg)
+{
+  for (const auto& listener : door_state_listeners)
+    listener->receive(*msg);
+}
+
+//==============================================================================
+void FleetAdapterNode::lift_state_update(LiftState::UniquePtr msg)
+{
+  for (const auto& listener : lift_state_listeners)
+    listener->receive(*msg);
 }
 
 } // namespace full_control

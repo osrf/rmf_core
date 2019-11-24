@@ -31,6 +31,12 @@
 #include <rmf_dispenser_msgs/msg/dispenser_state.hpp>
 #include <rmf_dispenser_msgs/msg/dispenser_result.hpp>
 
+#include <rmf_door_msgs/msg/door_request.hpp>
+#include <rmf_door_msgs/msg/door_state.hpp>
+
+#include <rmf_lift_msgs/msg/lift_request.hpp>
+#include <rmf_lift_msgs/msg/lift_state.hpp>
+
 #include <rmf_task_msgs/msg/delivery.hpp>
 
 #include <rmf_traffic/Time.hpp>
@@ -87,7 +93,7 @@ public:
   {
     Location location;
     std::unique_ptr<Task> task;
-    std::queue<Task> task_queue;
+    std::queue<std::unique_ptr<Task>> task_queue;
 
     RobotStateListeners listeners;
 
@@ -190,6 +196,14 @@ public:
 
   const Fields& get_fields() const;
 
+  using DoorState = rmf_door_msgs::msg::DoorState;
+  using DoorStateListeners = std::unordered_set<Listener<DoorState>*>;
+  DoorStateListeners door_state_listeners;
+
+  using LiftState = rmf_lift_msgs::msg::LiftState;
+  using LiftStateListeners = std::unordered_set<Listener<LiftState>*>;
+  LiftStateListeners lift_state_listeners;
+
   using DispenserRequest = rmf_dispenser_msgs::msg::DispenserRequest;
   using DispenserResult = rmf_dispenser_msgs::msg::DispenserResult;
   using DispenserState = rmf_dispenser_msgs::msg::DispenserState;
@@ -205,6 +219,14 @@ public:
   using PathRequest = rmf_fleet_msgs::msg::PathRequest;
   using PathRequestPub = rclcpp::Publisher<PathRequest>;
   PathRequestPub::SharedPtr path_request_publisher;
+
+  using DoorRequest = rmf_door_msgs::msg::DoorRequest;
+  using DoorRequestPub = rclcpp::Publisher<DoorRequest>;
+  DoorRequestPub::SharedPtr door_request_publisher;
+
+  using LiftRequest = rmf_lift_msgs::msg::LiftRequest;
+  using LiftRequestPub = rclcpp::Publisher<LiftRequest>;
+  LiftRequestPub::SharedPtr lift_request_publisher;
 
 private:
 
@@ -237,6 +259,14 @@ private:
   using FleetStateSub = rclcpp::Subscription<FleetState>;
   FleetStateSub::SharedPtr _fleet_state_sub;
   void fleet_state_update(FleetState::UniquePtr msg);
+
+  using DoorStateSub = rclcpp::Subscription<DoorState>;
+  DoorStateSub::SharedPtr _door_state_sub;
+  void door_state_update(DoorState::UniquePtr msg);
+
+  using LiftStateSub = rclcpp::Subscription<LiftState>;
+  LiftStateSub::SharedPtr _lift_state_sub;
+  void lift_state_update(LiftState::UniquePtr msg);
 
   using Context =
       std::unordered_map<std::string, std::unique_ptr<RobotContext>>;

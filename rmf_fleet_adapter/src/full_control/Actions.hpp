@@ -25,7 +25,7 @@ namespace full_control {
 
 std::unique_ptr<Action> make_move(
     FleetAdapterNode* node,
-    const FleetAdapterNode::RobotContext* state,
+    FleetAdapterNode::RobotContext* state,
     const std::size_t goal_wp_index,
     const std::vector<std::size_t>& fallback_wps);
 
