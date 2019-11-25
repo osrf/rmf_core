@@ -33,7 +33,6 @@ using CachePtr = std::shared_ptr<Cache>;
 //==============================================================================
 struct Result
 {
-  bool solved = false;
   std::vector<Trajectory> trajectories;
   std::vector<agv::Plan::Waypoint> waypoints;
 
@@ -62,8 +61,8 @@ public:
 
   virtual void update(const Cache& other) = 0;
 
-  virtual Result plan(
-      agv::Planner::Start start,
+  virtual rmf_utils::optional<Result> plan(
+      const std::vector<agv::Planner::Start>& starts,
       agv::Planner::Goal goal,
       agv::Planner::Options options) = 0;
 
@@ -85,8 +84,8 @@ public:
   // Moving it is okay
   CacheHandle(CacheHandle&&) = default;
 
-  Result plan(
-      agv::Planner::Start start,
+  rmf_utils::optional<Result> plan(
+      const std::vector<agv::Planner::Start>& starts,
       agv::Planner::Goal goal,
       agv::Planner::Options options);
 

@@ -116,9 +116,16 @@ public:
     ///   Larger values will add some latency to the execution of the plan as
     ///   the robot may wait at a holding point longer than necessary, but the
     ///   plan will usually be generated more quickly.
+    ///
+    /// \param[in] interrupt_flag
+    ///   A pointer to a flag that should be used to interrupt the planner if it
+    ///   has been running for too long. If the planner should run indefinitely,
+    ///   then pass in a nullptr. It is the user's responsibility to make sure
+    ///   that this flag remains valid.
     Options(
         const schedule::Viewer& viewer,
-        Duration min_hold_time = std::chrono::seconds(5));
+        Duration min_hold_time = std::chrono::seconds(5),
+        const bool* interrupt_flag = nullptr);
 
     /// Change the schedule viewer to use for planning.
     ///
@@ -137,6 +144,18 @@ public:
 
     /// Get the minimal amount of time to spend waiting at holding points
     Duration minimum_holding_time() const;
+
+    /// Set an interrupt flag to stop this planner if it has run for too long.
+    Options& interrupt_flag(const bool* flag);
+
+    /// Get the interrupt flag that will stop this planner if it has run for too
+    /// long.
+    const bool* interrupt_flag() const;
+
+    // TODO(MXG): Add a field to specify whether multi-start planning problems
+    // should choose the plan that takes the least amount of time (according to
+    // plan duration) or the plan that finishes the earliest (according to the
+    // wall clock).
 
     class Implementation;
   private:
@@ -158,10 +177,22 @@ public:
     ///
     /// \param[in] initial_orientation
     ///   The orientation that the AGV will start with.
+    ///
+    /// \param[in] initial_location
+    ///   Optional field to specify if the robot is not starting directly on the
+    ///   initial_waypoint location. When planning from this initial_location to
+    ///   the initial_waypoint the planner will assume it has an unconstrained
+    ///   lane.
+    ///
+    /// \param[in] initial_lane
+    ///   Optional field to specify if the robot is starting in a certain lane.
+    ///   This will only be used if an initial_location is specified.
     Start(
         Time initial_time,
         std::size_t initial_waypoint,
-        double initial_orientation);
+        double initial_orientation,
+        rmf_utils::optional<Eigen::Vector2d> location = rmf_utils::nullopt,
+        rmf_utils::optional<std::size_t> initial_lane = rmf_utils::nullopt);
 
     /// Set the starting time of a plan
     Start& time(Time initial_time);
@@ -180,6 +211,18 @@ public:
 
     /// Get the starting orientation
     double orientation() const;
+
+    /// Get the starting location, if one was specified
+    rmf_utils::optional<Eigen::Vector2d> location() const;
+
+    /// Set the starting location, or remove it by using rmf_utils::nullopt
+    Start& location(rmf_utils::optional<Eigen::Vector2d> initial_location);
+
+    /// Get the starting lane, if one was specified
+    rmf_utils::optional<std::size_t> lane() const;
+
+    /// Set the starting lane, or remove it by using rmf_utils::nullopt
+    Start& lane(rmf_utils::optional<std::size_t> initial_lane);
 
     class Implementation;
   private:
@@ -282,7 +325,7 @@ public:
   ///
   /// \param[in] goal
   ///   The goal conditions
-  rmf_utils::optional<Plan> plan(Start start, Goal goal) const;
+  rmf_utils::optional<Plan> plan(const Start& start, Goal goal) const;
 
   /// Product a plan for the given start and goal conditions. Override the
   /// default options.
@@ -296,8 +339,51 @@ public:
   /// \param[in] options
   ///   The Options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
-  rmf_utils::optional<Plan> plan(Start start, Goal goal, Options options) const;
+  rmf_utils::optional<Plan> plan(
+      const Start& start,
+      Goal goal,
+      Options options) const;
 
+  using StartSet = std::vector<Start>;
+
+  /// Produces a plan for the given set of starting conditions and goal. The
+  /// default Options of this Planner instance will be used.
+  ///
+  /// The planner will choose the start condition that allows for the shortest
+  /// plan (not the one that finishes the soonest according to wall time).
+  ///
+  /// At least one start must be specified or else this is guaranteed to return
+  /// a nullopt.
+  ///
+  /// \param[in] starts
+  ///   The set of available starting conditions
+  ///
+  /// \param[in] goal
+  ///   The goal conditions
+  rmf_utils::optional<Plan> plan(const StartSet& starts, Goal goal) const;
+
+  /// Produces a plan for the given set of starting conditions and goal.
+  /// Override the default options.
+  ///
+  /// The planner will choose the start condition that allows for the shortest
+  /// plan (not the one that finishes the soonest according to wall time).
+  ///
+  /// At least one start must be specified or else this is guaranteed to return
+  /// a nullopt.
+  ///
+  /// \param[in] starts
+  ///   The starting conditions
+  ///
+  /// \param[in] goal
+  ///   The goal conditions
+  ///
+  /// \param[in] options
+  ///   The options to use for this plan. This overrides the default Options of
+  ///   the Planner instance.
+  rmf_utils::optional<Plan> plan(
+      const StartSet& starts,
+      Goal goal,
+      Options options) const;
 
   class Implementation;
 private:
@@ -311,6 +397,7 @@ class Plan
 public:
 
   using Start = Planner::Start;
+  using StartSet = Planner::StartSet;
   using Goal = Planner::Goal;
   using Options = Planner::Options;
   using Configuration = Planner::Configuration;
@@ -342,7 +429,7 @@ public:
     rmf_traffic::Time time() const;
 
     /// Get the graph index of this Waypoint
-    std::size_t graph_index() const;
+    rmf_utils::optional<std::size_t> graph_index() const;
 
     /// An event that should occur when this waypoint is reached.
     const Graph::Lane::Event* event() const;
@@ -369,31 +456,43 @@ public:
   /// (default-constructed).
   const std::vector<Waypoint>& get_waypoints() const;
 
-  /// If this Plan was valid, this will ask for a new plan to the same goal
-  /// using the same options but with new starting conditions. This can be used
-  /// to replan after the schedule has changed or if the robot is not tracking
-  /// the original plan well.
-  ///
-  /// \warning If this Plan instance is not valid, this will have undefined
-  /// behavior, and will cause a segmentation fault if this Plan is
-  /// uninitialized.
+  /// Replan to the same goal from a new start location using the same options
+  /// as before.
   ///
   /// \param[in] new_start
   ///   The starting conditions that should be used for replanning.
-  rmf_utils::optional<Plan> replan(Start new_start) const;
+  rmf_utils::optional<Plan> replan(const Start& new_start) const;
 
-  /// If this Plan was valid, this will ask for a new plan to the same goal.
-  ///
-  /// \warning If this Plan instance is not valid, this will have undefined
-  /// behavior, and will cause a segmentation fault if this Plan is
-  /// uninitialized.
+  /// Replan to the same goal from a new start location using a new set of
+  /// options.
   ///
   /// \param[in] new_start
   ///   The starting conditions that should be used for replanning.
   ///
   /// \param[in] new_options
   ///   The options that should be used for replanning.
-  rmf_utils::optional<Plan> replan(Start new_start, Options new_options) const;
+  rmf_utils::optional<Plan> replan(
+      const Planner::Start& new_start,
+      Options new_options) const;
+
+  /// Replan to the same goal from a new set of start locations using the same
+  /// options.
+  ///
+  /// \param[in] new_starts
+  ///   The set of starting conditions that should be used for replanning.
+  rmf_utils::optional<Plan> replan(const StartSet& new_starts) const;
+
+  /// Replan to the same goal from a new set of start locations using a new set
+  /// of options.
+  ///
+  /// \param[in] new_starts
+  ///   The set of starting conditions that should be used for replanning.
+  ///
+  /// \param[in] new_options
+  ///   The options that should be used for replanning.
+  rmf_utils::optional<Plan> replan(
+      const StartSet& new_starts,
+      Options new_options) const;
 
   /// If this Plan is valid, this will return the Planner::Start that was used
   /// to produce it.

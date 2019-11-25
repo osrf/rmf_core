@@ -115,17 +115,20 @@ public:
 
   const schedule::Viewer* viewer;
   Duration min_hold_time;
+  const bool* interrupt_flag;
 
 };
 
 //==============================================================================
 Planner::Options::Options(
     const schedule::Viewer& viewer,
-    const Duration min_hold_time)
+    const Duration min_hold_time,
+    const bool* interrupt_flag)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                &viewer,
-               min_hold_time
+               min_hold_time,
+               interrupt_flag
              }))
 {
   // Do nothing
@@ -160,6 +163,19 @@ Duration Planner::Options::minimum_holding_time() const
 }
 
 //==============================================================================
+auto Planner::Options::interrupt_flag(const bool* flag) -> Options&
+{
+  _pimpl->interrupt_flag = flag;
+  return *this;
+}
+
+//==============================================================================
+const bool* Planner::Options::interrupt_flag() const
+{
+  return _pimpl->interrupt_flag;
+}
+
+//==============================================================================
 class Planner::Start::Implementation
 {
 public:
@@ -167,6 +183,8 @@ public:
   Time time;
   std::size_t waypoint;
   double orientation;
+  rmf_utils::optional<Eigen::Vector2d> location;
+  rmf_utils::optional<std::size_t> lane;
 
 };
 
@@ -174,12 +192,16 @@ public:
 Planner::Start::Start(
     const Time initial_time,
     const std::size_t initial_waypoint,
-    const double initial_orientation)
+    const double initial_orientation,
+    rmf_utils::optional<Eigen::Vector2d> initial_location,
+    rmf_utils::optional<std::size_t> initial_lane)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                initial_time,
                initial_waypoint,
-               initial_orientation
+               initial_orientation,
+               std::move(initial_location),
+               initial_lane
              }))
 {
   // Do nothing
@@ -222,6 +244,34 @@ auto Planner::Start::orientation(const double initial_orientation) -> Start&
 double Planner::Start::orientation() const
 {
   return _pimpl->orientation;
+}
+
+//==============================================================================
+rmf_utils::optional<Eigen::Vector2d> Planner::Start::location() const
+{
+  return _pimpl->location;
+}
+
+//==============================================================================
+auto Planner::Start::location(
+    rmf_utils::optional<Eigen::Vector2d> initial_location) -> Start&
+{
+  _pimpl->location = std::move(initial_location);
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<std::size_t> Planner::Start::lane() const
+{
+  return _pimpl->lane;
+}
+
+//==============================================================================
+auto Planner::Start::lane(
+    rmf_utils::optional<std::size_t> initial_lane) -> Start&
+{
+  _pimpl->lane = initial_lane;
+  return *this;
 }
 
 //==============================================================================
@@ -320,19 +370,19 @@ public:
 
   static rmf_utils::optional<Plan> generate(
       internal::planning::CacheManager cache_mgr,
-      Planner::Start start,
+      const std::vector<Planner::Start>& starts,
       Planner::Goal goal,
       Planner::Options options)
   {
     auto result = cache_mgr.get().plan(
-          std::move(start), std::move(goal), std::move(options));
+        {starts}, std::move(goal), std::move(options));
 
-    if (!result.solved)
+    if (!result)
       return rmf_utils::nullopt;
 
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(result), std::move(cache_mgr)});
+          Implementation{std::move(*result), std::move(cache_mgr)});
 
     return std::move(plan);
   }
@@ -354,24 +404,72 @@ Planner::Planner(
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(Start start, Goal goal) const
+auto Planner::get_configuration() const -> const Configuration&
+{
+  return _pimpl->configuration;
+}
+
+//==============================================================================
+Planner& Planner::set_default_options(Options default_options)
+{
+  _pimpl->default_options = std::move(default_options);
+  return *this;
+}
+
+//==============================================================================
+auto Planner::get_default_options() -> Options&
+{
+  return _pimpl->default_options;
+}
+
+//==============================================================================
+auto Planner::get_default_options() const -> const Options&
+{
+  return _pimpl->default_options;
+}
+
+//==============================================================================
+rmf_utils::optional<Plan> Planner::plan(const Start& start, Goal goal) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
-        std::move(start),
+        {start},
         std::move(goal),
         _pimpl->default_options);
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Planner::plan(
-    Start start,
+    const Start& start,
     Goal goal,
     Options options) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
-        std::move(start),
+        {start},
+        std::move(goal),
+        std::move(options));
+}
+
+//==============================================================================
+rmf_utils::optional<Plan> Planner::plan(const StartSet& starts, Goal goal) const
+{
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        starts,
+        std::move(goal),
+        _pimpl->default_options);
+}
+
+//==============================================================================
+rmf_utils::optional<Plan> Planner::plan(
+    const StartSet& starts,
+    Goal goal,
+    Options options) const
+{
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        starts,
         std::move(goal),
         std::move(options));
 }
@@ -389,7 +487,7 @@ rmf_traffic::Time Plan::Waypoint::time() const
 }
 
 //==============================================================================
-std::size_t Plan::Waypoint::graph_index() const
+rmf_utils::optional<std::size_t> Plan::Waypoint::graph_index() const
 {
   return _pimpl->graph_index;
 }
@@ -419,23 +517,23 @@ const std::vector<Plan::Waypoint>& Plan::get_waypoints() const
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Plan::replan(Planner::Start new_start) const
+rmf_utils::optional<Plan> Plan::replan(const Start& new_start) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
-        std::move(new_start),
+        {new_start},
         _pimpl->result.goal,
         _pimpl->result.options);
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Plan::replan(
-    Planner::Start new_start,
+    const Planner::Start& new_start,
     Planner::Options new_options) const
 {
   return Plan::Implementation::generate(
         _pimpl->cache_mgr,
-        std::move(new_start),
+        {new_start},
         _pimpl->result.goal,
         std::move(new_options));
 }

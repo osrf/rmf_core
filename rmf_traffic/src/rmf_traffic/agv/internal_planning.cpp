@@ -83,12 +83,12 @@ CacheHandle::CacheHandle(CachePtr original)
 }
 
 //==============================================================================
-Result CacheHandle::plan(
-    agv::Planner::Start start,
+rmf_utils::optional<Result> CacheHandle::plan(
+    const std::vector<agv::Planner::Start>& starts,
     agv::Planner::Goal goal,
     agv::Planner::Options options)
 {
-  return _copy->plan(std::move(start), std::move(goal), std::move(options));
+  return _copy->plan(starts, std::move(goal), std::move(options));
 }
 
 //==============================================================================
@@ -127,16 +127,17 @@ template<
     class NodePtr = typename Expander::NodePtr>
 NodePtr search(
     Context&& context,
-    InitialNodeArgs&& initial_node_args)
+    InitialNodeArgs&& initial_node_args,
+    const bool* interrupt_flag)
 {
   using SearchQueue = typename Expander::SearchQueue;
 
   Expander expander(context);
 
   SearchQueue queue;
-  queue.push(expander.make_initial_node(initial_node_args));
+  expander.make_initial_nodes(initial_node_args, queue);
 
-  while(!queue.empty())
+  while(!queue.empty() && !(interrupt_flag && *interrupt_flag))
   {
     NodePtr top = queue.top();
     queue.pop();
@@ -207,15 +208,26 @@ std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
   for (auto it = node_sequence.rbegin(); it != node_sequence.rend(); ++it)
   {
     const auto& n = *it;
-    const Eigen::Vector2d p = graph.waypoints[n->waypoint].get_location();
+    const Eigen::Vector2d p = graph.waypoints[*n->waypoint].get_location();
     const Time time{*n->trajectory_from_parent.finish_time()};
     waypoints.emplace_back(
           agv::Plan::Waypoint::Implementation::make(
             Eigen::Vector3d{p[0], p[1], n->orientation}, time,
-            n->waypoint, n->event));
+            *n->waypoint, n->event));
   }
 
   return waypoints;
+}
+
+//==============================================================================
+template<typename NodePtr>
+std::size_t find_start_index(const NodePtr& finish_node)
+{
+  NodePtr node = finish_node;
+  while (node->parent)
+    node = node->parent;
+
+  return *node->start_set_index;
 }
 
 //==============================================================================
@@ -266,19 +278,19 @@ struct EuclideanExpander
     // Do nothing
   }
 
-  NodePtr make_initial_node(const InitialNodeArgs& args)
+  void make_initial_nodes(const InitialNodeArgs& args, SearchQueue& queue)
   {
     const Eigen::Vector2d location =
         context.graph.waypoints[args.waypoint].get_location();
 
-    return std::make_shared<Node>(
+    queue.emplace(std::make_shared<Node>(
           Node{
             args.waypoint,
             estimate_remaining_cost(location),
             0.0,
             location,
             nullptr
-          });
+          }));
   }
 
   bool is_finished(const NodePtr& node)
@@ -425,11 +437,12 @@ struct DifferentialDriveExpander
   {
     double remaining_cost_estimate;
     double current_cost;
-    std::size_t waypoint;
+    rmf_utils::optional<std::size_t> waypoint;
     double orientation;
     Trajectory trajectory_from_parent;
     agv::Graph::Lane::EventPtr event;
     NodePtr parent;
+    rmf_utils::optional<std::size_t> start_set_index = rmf_utils::nullopt;
   };
 
   using SearchQueue =
@@ -480,7 +493,9 @@ struct DifferentialDriveExpander
       assert(_event);
       const auto duration = _event->duration();
       return expander->make_delay(
-            _parent->waypoint,
+            // TODO(MXG): Somehow this was compiling without the dereference
+            // operator. That should not be possible; please investigate.
+            *_parent->waypoint,
             _parent,
             duration,
             std::move(_event));
@@ -493,7 +508,7 @@ struct DifferentialDriveExpander
       assert(_event);
       const auto duration = _event->duration();
       expander->expand_delay(
-            _parent->waypoint,
+            *_parent->waypoint,
             _parent,
             duration,
             queue,
@@ -510,8 +525,7 @@ struct DifferentialDriveExpander
 
   struct InitialNodeArgs
   {
-    std::size_t waypoint;
-    double orientation;
+    const agv::Planner::StartSet& starts;
   };
 
   class Heuristic
@@ -531,7 +545,8 @@ struct DifferentialDriveExpander
         // waypoint has never been found before, and we should compute it now.
         const EuclideanExpander::NodePtr solution = search<EuclideanExpander>(
               EuclideanExpander::Context{context.graph, context.final_waypoint},
-              EuclideanExpander::InitialNodeArgs{waypoint});
+              EuclideanExpander::InitialNodeArgs{waypoint},
+              context.interrupt_flag);
 
         // TODO(MXG): Instead of asserting that the goal exists, we should
         // probably take this opportunity to shortcircuit the planner and return
@@ -589,6 +604,7 @@ struct DifferentialDriveExpander
     const std::size_t final_waypoint;
     const double* const final_orientation;
     const rmf_traffic::Time initial_time;
+    const bool* const interrupt_flag;
     Heuristic& heuristic;
   };
 
@@ -602,39 +618,182 @@ struct DifferentialDriveExpander
     // Do nothing
   }
 
-  NodePtr make_initial_node(const InitialNodeArgs& args)
+  void make_initial_nodes(const InitialNodeArgs& args, SearchQueue& queue)
   {
-    const std::size_t waypoint = args.waypoint;
+    const std::size_t N_starts = args.starts.size();
+    for (std::size_t start_index=0; start_index < N_starts; ++start_index)
+    {
+      const auto& start = args.starts[start_index];
 
-    const std::string& map_name =
-        _context.graph.waypoints[args.waypoint].get_map_name();
+      const std::size_t initial_waypoint = start.waypoint();
 
-    // TODO(MXG): We should be able to make this query more efficient, e.g.
-    // add a lower bound on time.
-    _query.spacetime().timespan()->add_map(map_name);
+      const double cost_estimate =
+          _context.heuristic.estimate_remaining_cost(
+            _context, initial_waypoint);
 
-    Trajectory initial(map_name);
-    initial.insert(
-          _context.initial_time, _context.profile,
-          to_3d(_context.graph.waypoints[args.waypoint].get_location(),
-                args.orientation),
-          Eigen::Vector3d::Zero());
+      const double initial_orientation = start.orientation();
+      const std::string& map_name =
+          _context.graph.waypoints[initial_waypoint].get_map_name();
 
-    return std::make_shared<Node>(
-          Node{
-            _context.heuristic.estimate_remaining_cost(_context, waypoint),
-            0.0,
-            waypoint,
-            args.orientation,
-            initial,
-            nullptr,
-            nullptr
-          });
+      // TODO(MXG): We should be able to make this query more efficient, e.g.
+      // add a lower bound on time.
+      _query.spacetime().timespan()->add_map(map_name);
+
+      const auto initial_time = start.time();
+
+      const Eigen::Vector2d wp_location =
+          _context.graph.waypoints[initial_waypoint].get_location();
+
+      const auto& initial_location = start.location();
+      if (initial_location)
+      {
+        const Eigen::Vector3d initial_position =
+            to_3d(*initial_location, initial_orientation);
+
+        Trajectory initial_trajectory{map_name};
+        initial_trajectory.insert(
+              initial_time,
+              _context.profile,
+              initial_position,
+              Eigen::Vector3d::Zero());
+
+        const auto initial_node = std::make_shared<Node>(
+              Node{
+                std::numeric_limits<double>::infinity(),
+                0.0,
+                rmf_utils::nullopt,
+                initial_orientation,
+                initial_trajectory,
+                nullptr,
+                nullptr,
+                start_index
+              });
+
+        const Eigen::Vector2d course =
+            (wp_location - *initial_location).normalized();
+
+        const std::vector<double> orientations =
+            _differential_constraint.get_orientations(course);
+
+        const auto initial_lane = start.lane();
+
+        for (const double orientation : orientations)
+        {
+          if (initial_lane)
+          {
+            const auto& lane = _context.graph.lanes[*initial_lane];
+            const auto lane_exit = lane.exit().waypoint_index();
+            if (lane_exit != initial_waypoint)
+            {
+              throw std::invalid_argument(
+                    "[rmf_traffic::agv::Planner] Disagreement between initial "
+                    "waypoint index [" + std::to_string(initial_waypoint)
+                    + "] and the initial lane exit ["
+                    + std::to_string(lane_exit) + "]");
+            }
+
+            if (!is_orientation_okay(
+                  *initial_location, orientation, course, lane))
+            {
+              continue;
+            }
+          }
+
+          auto rotated_initial_node = initial_node;
+          if (std::abs(wrap_to_pi(orientation - initial_orientation))
+              >= _context.interpolate.rotation_thresh)
+          {
+            const Eigen::Vector3d rotated_position =
+                to_3d(*initial_location, orientation);
+
+            Trajectory rotation_trajectory = initial_trajectory;
+
+            const auto& rotational = _context.traits.rotational();
+            // TODO(MXG): Consider refactoring this with the other spots where
+            // we use interpolate_rotation
+            agv::internal::interpolate_rotation(
+                  rotation_trajectory,
+                  rotational.get_nominal_velocity(),
+                  rotational.get_nominal_acceleration(),
+                  initial_time,
+                  initial_position,
+                  rotated_position,
+                  _context.profile,
+                  _context.interpolate.rotation_thresh);
+
+            const double rotation_cost =
+                rmf_traffic::time::to_seconds(rotation_trajectory.duration());
+
+            auto rotated_initial_node = std::make_shared<Node>(
+                  Node{
+                    std::numeric_limits<double>::infinity(),
+                    rotation_cost,
+                    rmf_utils::nullopt,
+                    orientation,
+                    std::move(rotation_trajectory),
+                    nullptr,
+                    initial_node
+                  });
+          }
+
+          Trajectory approach_trajectory{map_name};
+          approach_trajectory.insert(
+                rotated_initial_node->trajectory_from_parent.back());
+
+          agv::internal::interpolate_translation(
+                approach_trajectory,
+                _context.traits.linear().get_nominal_velocity(),
+                _context.traits.linear().get_nominal_acceleration(),
+                *approach_trajectory.start_time(),
+                to_3d(*initial_location, orientation),
+                to_3d(wp_location, orientation),
+                _context.profile,
+                _context.interpolate.translation_thresh);
+
+          const double current_cost =
+              rmf_traffic::time::to_seconds(approach_trajectory.duration())
+              + rotated_initial_node->current_cost;
+
+          queue.push(std::make_shared<Node>(
+                       Node{
+                         cost_estimate,
+                         current_cost,
+                         initial_waypoint,
+                         orientation,
+                         std::move(approach_trajectory),
+                         nullptr,
+                         rotated_initial_node
+                       }));
+        }
+      }
+      else
+      {
+
+        Trajectory initial_trajectory{map_name};
+        initial_trajectory.insert(
+              initial_time,
+              _context.profile,
+              to_3d(wp_location, initial_orientation),
+              Eigen::Vector3d::Zero());
+
+        queue.push(std::make_shared<Node>(
+                     Node{
+                       cost_estimate,
+                       0.0,
+                       initial_waypoint,
+                       initial_orientation,
+                       std::move(initial_trajectory),
+                       nullptr,
+                       nullptr,
+                       start_index
+                     }));
+      }
+    }
   }
 
   bool is_finished(const NodePtr& node) const
   {
-    if(node->waypoint != _context.final_waypoint)
+    if(*node->waypoint != _context.final_waypoint)
       return false;
 
     if(_context.final_orientation)
@@ -674,7 +833,7 @@ struct DifferentialDriveExpander
       const NodePtr& parent_node,
       const double target_orientation)
   {
-    const std::size_t waypoint = parent_node->waypoint;
+    const std::size_t waypoint = *parent_node->waypoint;
     Trajectory trajectory{_context.graph.waypoints[waypoint].get_map_name()};
     const Trajectory::Segment& last =
         parent_node->trajectory_from_parent.back();
@@ -842,7 +1001,7 @@ struct DifferentialDriveExpander
       const std::size_t initial_lane_index,
       SearchQueue& queue)
   {
-    const std::size_t initial_waypoint = initial_parent->waypoint;
+    const std::size_t initial_waypoint = *initial_parent->waypoint;
     assert(_context.graph.lanes[initial_lane_index].entry().waypoint_index()
            == initial_waypoint);
     const Eigen::Vector2d initial_p =
@@ -1043,7 +1202,7 @@ struct DifferentialDriveExpander
 
   void expand(const NodePtr& parent_node, SearchQueue& queue)
   {
-    const std::size_t parent_waypoint = parent_node->waypoint;
+    const std::size_t parent_waypoint = *parent_node->waypoint;
     if(parent_waypoint == _context.final_waypoint)
     {
       if(!_context.final_orientation)
@@ -1134,18 +1293,18 @@ public:
     }
   }
 
-  Result plan(
-      agv::Planner::Start start,
+  rmf_utils::optional<Result> plan(
+      const std::vector<agv::Planner::Start>& starts,
       agv::Planner::Goal goal,
       agv::Planner::Options options) final
   {
-    const std::string& map_name =
-        _graph.waypoints[start.waypoint()].get_map_name();
+    if (starts.empty())
+      return rmf_utils::nullopt;
 
-    Result result{false, {map_name}, {}, start, goal, options};
     const std::size_t goal_waypoint = goal.waypoint();
     Heuristic& h = _heuristics.insert(
           std::make_pair(goal_waypoint, Heuristic{})).first->second;
+    const bool* const interrupt_flag = options.interrupt_flag();
 
     const NodePtr solution = search<DifferentialDriveExpander>(
           DifferentialDriveExpander::Context{
@@ -1157,22 +1316,27 @@ public:
             options.schedule_viewer(),
             goal_waypoint,
             goal.orientation(),
-            start.time(),
+            starts.front().time(),
+            interrupt_flag,
             h
           },
-          DifferentialDriveExpander::InitialNodeArgs{
-            start.waypoint(),
-            start.orientation()
-          });
+          DifferentialDriveExpander::InitialNodeArgs{starts},
+          interrupt_flag);
 
-    if(!solution)
-      return result;
+    if (!solution)
+      return rmf_utils::nullopt;
 
-    result.solved = true;
-    result.trajectories = reconstruct_trajectories(solution);
-    result.waypoints = reconstruct_waypoints(solution, _graph);
+    auto trajectories = reconstruct_trajectories(solution);
+    auto waypoints = reconstruct_waypoints(solution, _graph);
+    auto start_index = find_start_index(solution);
 
-    return result;
+    return Result{
+        std::move(trajectories),
+        std::move(waypoints),
+        starts[start_index],
+        std::move(goal),
+        std::move(options)
+    };
   }
 
   const agv::Planner::Configuration& get_configuration() const final

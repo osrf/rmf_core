@@ -171,7 +171,7 @@ rmf_traffic::Trajectory test_with_obstacle(
     bool used_holding_point = false;
     for (const auto& wp : plan->get_waypoints())
     {
-      if (wp.graph_index() == hold_index)
+      if (*wp.graph_index() == hold_index)
       {
         used_holding_point = true;
         break;
@@ -1549,4 +1549,7 @@ SCENARIO("Graph with door", "[door]")
   CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open_close));
   CHECK(has_event(ExpectEvent::DoorClose, *plan_with_door_open_close));
 }
+
+
+// TODO(MXG): Make a test for the interrupt_flag in Planner::Options
 
