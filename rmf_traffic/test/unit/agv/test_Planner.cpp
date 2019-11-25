@@ -21,9 +21,9 @@
 #include <rmf_traffic/Conflict.hpp>
 
 #include <rmf_utils/catch.hpp>
+#include <rmf_utils/math.hpp>
 
 #include "../utils_Trajectory.hpp"
-#include <src/rmf_traffic/utils.hpp>
 
 #include <iostream>
 #include <iomanip>
@@ -622,7 +622,7 @@ SCENARIO("Test planning")
       const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
       CHECK( (p_final - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
-      const double err = rmf_traffic::internal::wrap_to_pi(
+      const double err = rmf_utils::wrap_to_pi(
             t.back().get_finish_position()[2] - M_PI);
       CHECK(err  == Approx(0.0) );
 

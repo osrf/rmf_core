@@ -15,14 +15,14 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__UTILS_HPP
-#define SRC__RMF_TRAFFIC__AGV__UTILS_HPP
+#ifndef RMF_UTILS__MATH_HPP
+#define RMF_UTILS__MATH_HPP
 
 #include <cmath>
 
-namespace rmf_traffic {
-namespace internal {
+namespace rmf_utils {
 
+//==============================================================================
 inline double wrap_to_pi(double value)
 {
   while(value < -M_PI)
@@ -34,7 +34,6 @@ inline double wrap_to_pi(double value)
   return value;
 }
 
-} // namespace internal
-} // namespace rmf_traffic
+} // namespace rmf_utils
 
-#endif // SRC__RMF_TRAFFIC__AGV__UTILS_HPP
+#endif // RMF_UTILS__MATH_HPP

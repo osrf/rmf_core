@@ -19,7 +19,7 @@
 
 #include "InterpolateInternal.hpp"
 
-#include "../utils.hpp"
+#include <rmf_utils/math.hpp>
 
 namespace rmf_traffic {
 namespace agv {
@@ -137,7 +137,7 @@ void interpolate_rotation(
   const double start_heading = start[2];
   const double finish_heading = finish[2];
   const double diff_heading =
-      rmf_traffic::internal::wrap_to_pi(finish_heading - start_heading);
+      rmf_utils::wrap_to_pi(finish_heading - start_heading);
 
   const double diff_heading_abs = std::abs(diff_heading);
   if(diff_heading_abs < threshold)
@@ -150,9 +150,7 @@ void interpolate_rotation(
 
   for(const State& state : states)
   {
-    const double s =
-        rmf_traffic::internal::wrap_to_pi(start_heading + dir*state.s);
-
+    const double s = rmf_utils::wrap_to_pi(start_heading + dir*state.s);
     const double w = dir*state.v;
 
     const Eigen::Vector3d p{finish[0], finish[1], s};

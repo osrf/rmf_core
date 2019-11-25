@@ -20,6 +20,8 @@
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_traffic_ros2/Trajectory.hpp>
 
+#include <rmf_utils/math.hpp>
+
 namespace rmf_fleet_adapter {
 namespace full_control {
 
@@ -258,7 +260,9 @@ public:
     submit_plan(std::move(trajectories));
   }
 
-  void replace_plan(std::vector<rmf_traffic_msgs::msg::Trajectory> trajectories)
+  void replace_plan(
+      std::vector<rmf_traffic_msgs::msg::Trajectory> trajectories,
+      const bool send_command = true)
   {
     using ReplaceTrajectories = rmf_traffic_msgs::srv::ReplaceTrajectories;
 
@@ -269,6 +273,7 @@ public:
     request.trajectories = std::move(trajectories);
 
     _schedule_ids.clear();
+    _waiting_for_schedule = true;
 
     replace->async_send_request(
           std::make_shared<ReplaceTrajectories::Request>(
@@ -281,15 +286,16 @@ public:
       // there is a serious bug in our MoveAction or the schedule service.
       assert(response->error.empty());
 
-      this->_waiting_for_schedule = false;
-
       for (auto i = response->original_version+1;
            i <= response->latest_trajectory_version; ++i)
       {
         _schedule_ids.push_back(i);
       }
 
-      command_plan();
+      this->_waiting_for_schedule = false;
+
+      if (send_command)
+        command_plan();
     });
   }
 
@@ -304,6 +310,9 @@ public:
     request.fleet.type =
         rmf_traffic_msgs::msg::FleetProperties::TYPE_RESPONSIVE;
     request.trajectories = std::move(trajectories);
+
+    _schedule_ids.clear();
+    _waiting_for_schedule = true;
 
     submit->async_send_request(
           std::make_shared<SubmitTrajectories::Request>(
@@ -472,14 +481,111 @@ public:
       event_wp.event()->execute(_event_executor);
   }
 
+  void report_delay(
+      const rmf_traffic::Duration delay,
+      const rmf_traffic::Time from_time)
+  {
+    using DelayTrajectories = rmf_traffic_msgs::srv::DelayTrajectories;
+
+    const auto& delay_client = _node->get_fields().delay_trajectories;
+    DelayTrajectories::Request request;
+
+    request.delay_ids = _schedule_ids;
+    request.delay = delay.count();
+    request.from_time = from_time.time_since_epoch().count();
+
+    _schedule_ids.clear();
+    _waiting_for_schedule = true;
+
+    delay_client->async_send_request(
+          std::make_shared<DelayTrajectories::Request>(
+            std::move(request)),
+          [&](rclcpp::Client<DelayTrajectories>::SharedFuture future)
+    {
+      const auto response = future.get();
+
+      // We should never get an exceptional error message here. If we do, then
+      // there is a serious bug in our MoveAction or the schedule service.
+      assert(response->error.empty());
+
+      for (auto i = response->original_version+1;
+           i <= response->current_version; ++i)
+      {
+        _schedule_ids.push_back(i);
+      }
+
+      this->_waiting_for_schedule = false;
+    });
+  }
+
+  bool check_delay(
+      const RobotState& current,
+      const std::size_t path_index)
+  {
+    const rmf_fleet_msgs::msg::Location& target = _command.path[path_index];
+    const Eigen::Vector2d current_p = {current.location.x, current.location.y};
+    const Eigen::Vector2d target_p = {target.x, target.y};
+    if ( (current_p - target_p).norm() < 0.1 )
+    {
+      const double angle_diff =
+          rmf_utils::wrap_to_pi(target.yaw - current.location.yaw);
+
+      if (std::abs(angle_diff) < 10.0*M_PI/180.0)
+      {
+        // We are close to the target point, so let's see if we are far behind
+        // the target time for this point.
+        const auto target_t = rmf_traffic_ros2::convert(target.t);
+        const auto current_t = rmf_traffic_ros2::convert(current.location.t);
+
+        const auto delay = current_t - target_t;
+        if (delay > std::chrono::seconds(5))
+        {
+          report_delay(delay, target_t);
+          for (std::size_t i=path_index; i < _command.path.size(); ++i)
+          {
+            _command.path[i].t = rmf_traffic_ros2::convert(
+                  rmf_traffic_ros2::convert(_command.path[i].t) + delay);
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
   void handle_delay(const RobotState& msg)
   {
+    // TODO(MXG): Come up with a more robust way to determine delays
+    const std::size_t next_waypoint_index =
+        _command.path.size() - msg.path.size();
 
+    const Eigen::Vector2d current_p = {msg.location.x, msg.location.y};
+
+    if (check_delay(msg, next_waypoint_index))
+      return;
+
+    // We can also check if we're close to the last waypoint and estimate the
+    // delay based on that.
+    if (next_waypoint_index > 0)
+      check_delay(msg, next_waypoint_index-1);
   }
 
   void report_waiting()
   {
+    const auto now = rmf_traffic_ros2::convert(_node->get_clock()->now());
+    const auto& profile = _node->get_fields().traits.get_profile();
+    const auto& p = _context->location;
+    const Eigen::Vector3d position{p.x, p.y, p.yaw};
 
+    rmf_traffic::Trajectory wait_trajectory{p.level_name};
+
+    wait_trajectory.insert(now, profile, position, Eigen::Vector3d::Zero());
+
+    wait_trajectory.insert(
+          now + std::chrono::hours(1),
+          profile, position, Eigen::Vector3d::Zero());
+
+    replace_plan({rmf_traffic_ros2::convert(wait_trajectory)}, false);
   }
 
   using DoorState = rmf_door_msgs::msg::DoorState;

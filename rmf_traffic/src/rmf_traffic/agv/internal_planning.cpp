@@ -20,7 +20,7 @@
 #include "internal_planning.hpp"
 #include "GraphInternal.hpp"
 
-#include "../utils.hpp"
+#include <rmf_utils/math.hpp>
 
 #include <rmf_traffic/Conflict.hpp>
 
@@ -410,10 +410,10 @@ public:
           std::atan2(course_vector[1], course_vector[0]));
     const Eigen::Rotation2Dd R_h = R_c * R_f_inv;
 
-    orientations.push_back(wrap_to_pi(R_h.angle()));
+    orientations.push_back(rmf_utils::wrap_to_pi(R_h.angle()));
 
     if(reversible)
-      orientations.push_back(wrap_to_pi((R_pi * R_h).angle()));
+      orientations.push_back(rmf_utils::wrap_to_pi((R_pi * R_h).angle()));
 
     return orientations;
   }
@@ -700,7 +700,7 @@ struct DifferentialDriveExpander
           }
 
           auto rotated_initial_node = initial_node;
-          if (std::abs(wrap_to_pi(orientation - initial_orientation))
+          if (std::abs(rmf_utils::wrap_to_pi(orientation - initial_orientation))
               >= _context.interpolate.rotation_thresh)
           {
             const Eigen::Vector3d rotated_position =
@@ -901,7 +901,7 @@ struct DifferentialDriveExpander
       if(!constraint->apply(position, course))
         return false;
 
-      if(std::abs(wrap_to_pi(orientation - position[2]))
+      if(std::abs(rmf_utils::wrap_to_pi(orientation - position[2]))
          > _context.interpolate.rotation_thresh)
         return false;
     }
@@ -935,7 +935,7 @@ struct DifferentialDriveExpander
       if(!is_orientation_okay(initial_p, orientation, course, lane))
         continue;
 
-      if(std::abs(wrap_to_pi(orientation - parent_node->orientation))
+      if(std::abs(rmf_utils::wrap_to_pi(orientation - parent_node->orientation))
          < _context.interpolate.rotation_thresh)
       {
         // No rotation is needed to reach this orientation
@@ -1231,7 +1231,8 @@ struct DifferentialDriveExpander
         assert(false);
       }
 
-      const double final_orientation = wrap_to_pi(*_context.final_orientation);
+      const double final_orientation =
+          rmf_utils::wrap_to_pi(*_context.final_orientation);
       const auto final_node =
           expand_rotation(parent_node, final_orientation);
       if(final_node)
