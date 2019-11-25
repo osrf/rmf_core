@@ -197,19 +197,13 @@ private:
       // advance robot location to first location in current path
       robot.location = robot.path[0];
       
-      // robot arrived at the next location 10 seconds earlier
-      robot.location.t = modify_time(robot.location.t, -10);
+      // robot arrived at the next location 20 seconds earlier
+      robot.location.t = modify_time(robot.location.t, -20);
 
       // make a copy of the final location
       // clear robot path and append copy with modified time
       Location last_location = robot.path[robot.path.size()-1];
-      auto modified_t = modify_time(last_location.t , -10);
-      last_location = get_location(
-          modified_t,
-          last_location.x,
-          last_location.y,
-          last_location.yaw,
-          last_location.level_name);
+      last_location.t = modify_time(last_location.t , -20);
 
       //updating new FleetState msg 
       robot.path.clear();
@@ -245,6 +239,9 @@ private:
       
       // advance robot location to first location in current path
       robot.location = robot.path[0];
+
+      // robot arrived at the next location 20 seconds later
+      robot.location.t = modify_time(robot.location.t, 20);
 
       // make a copy of the final location and extend finish time by 20s
       Location last_location = robot.path[robot.path.size()-1];
