@@ -55,9 +55,9 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
   auto replace_trajectories = node->create_client<ReplaceTrajectories>(
         rmf_traffic_ros2::ReplaceTrajectoriesSrvName);
 
-  rmf_traffic::agv::Graph graph;
-  std::unordered_map<std::string, std::size_t> waypoint_keys;
-  if (!parse_graph(graph_file, traits, *node, graph, waypoint_keys))
+  rmf_utils::optional<GraphInfo> graph_info =
+      parse_graph(graph_file, traits, *node);
+  if (!graph_info)
     return nullptr;
 
   using namespace std::chrono_literals;
@@ -77,7 +77,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
     {
       node->start(
             Fields{
-              std::move(graph),
+              std::move(*graph_info),
               std::move(traits),
               mirror_future.get(),
               std::move(submit_trajectories),
@@ -125,7 +125,7 @@ FleetAdapterNode::Task::Task(
   _context(state)
 {
   _action_queue.push(
-        make_move(node, state, pickup_wp, node->get_fallback_wps()));
+        make_move(node, state, pickup_wp, node->get_parking_spots()));
 
 
 }
@@ -239,7 +239,7 @@ const rmf_traffic::agv::Planner& FleetAdapterNode::get_planner() const
 //==============================================================================
 const rmf_traffic::agv::Graph& FleetAdapterNode::get_graph() const
 {
-  return _field->graph;
+  return _field->graph_info.graph;
 }
 
 //==============================================================================
@@ -254,7 +254,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
   const Eigen::Vector2d p_location = {location.x, location.y};
   const double start_yaw = static_cast<double>(location.yaw);
 
-  const auto& graph = _field->graph;
+  const auto& graph = _field->graph_info.graph;
 
   for (std::size_t i=0; i < graph.num_waypoints(); ++i)
   {
@@ -341,19 +341,19 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
 //==============================================================================
 auto FleetAdapterNode::get_waypoint_keys() const -> const WaypointKeys&
 {
-  return _field->waypoint_keys;
+  return _field->graph_info.keys;
 }
 
 //==============================================================================
 auto FleetAdapterNode::get_waypoint_names() const -> const WaypointNames&
 {
-  return _field->waypoint_names;
+  return _field->graph_info.waypoint_names;
 }
 
 //==============================================================================
-const std::vector<std::size_t>& FleetAdapterNode::get_fallback_wps() const
+const std::vector<std::size_t>& FleetAdapterNode::get_parking_spots() const
 {
-  return _field->fallback_waypoints;
+  return _field->graph_info.parking_spots;
 }
 
 //==============================================================================
@@ -427,7 +427,7 @@ void FleetAdapterNode::start(Fields fields)
 //==============================================================================
 void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
 {
-  const auto& waypoint_keys = _field->waypoint_keys;
+  const auto& waypoint_keys = _field->graph_info.keys;
   const auto& delivery = *msg;
   const auto pickup = waypoint_keys.find(delivery.pickup_place_name);
   if (pickup == waypoint_keys.end())

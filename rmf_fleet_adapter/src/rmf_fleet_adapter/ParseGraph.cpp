@@ -94,6 +94,12 @@ rmf_utils::optional<GraphInfo> parse_graph(
             info.workcell_names.insert(
                 {wp.index(), workcell_name.as<std::string>()});
           }
+
+          if (const YAML::Node& is_parking_spot = properties["is_parking_spot"])
+          {
+            if (is_parking_spot.as<bool>())
+              info.parking_spots.push_back(wp.index());
+          }
         }
       }
     }
@@ -129,17 +135,17 @@ rmf_utils::optional<GraphInfo> parse_graph(
                 + std::to_string(lane[1].as<std::size_t>()) + "]: ["
                 + lane[2].as<std::string>() + "] in graph ["
                 + graph_file + "]");
-          return false;
+          return rmf_utils::nullopt;
         }
       }
 
-      graph.add_lane(
+      info.graph.add_lane(
           lane[0].as<std::size_t>(),
           {lane[1].as<std::size_t>(), std::move(constraint)});
     }
   }
 
-  return true;
+  return std::move(info);
 }
 
 } // namespace rmf_fleet_adapter

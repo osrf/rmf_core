@@ -54,6 +54,7 @@
 #include <queue>
 
 #include "Action.hpp"
+#include "../rmf_fleet_adapter/ParseGraph.hpp"
 
 namespace rmf_fleet_adapter {
 namespace full_control {
@@ -152,7 +153,7 @@ public:
 
   const WaypointNames& get_waypoint_names() const;
 
-  const std::vector<std::size_t>& get_fallback_wps() const;
+  const std::vector<std::size_t>& get_parking_spots() const;
 
 
   using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
@@ -175,15 +176,12 @@ public:
     DelayTrajectoriesPtr delay_trajectories;
     ReplaceTrajectoriesPtr replace_trajectories;
 
-    rmf_traffic::agv::Graph graph;
+    GraphInfo graph_info;
     rmf_traffic::agv::VehicleTraits traits;
     rmf_traffic::agv::Planner planner;
-    WaypointKeys waypoint_keys;
-    WaypointNames waypoint_names;
-    std::vector<std::size_t> fallback_waypoints;
 
     Fields(
-        rmf_traffic::agv::Graph graph_,
+        GraphInfo graph_info_,
         rmf_traffic::agv::VehicleTraits traits_,
         rmf_traffic_ros2::schedule::MirrorManager mirror_,
         SubmitTrajectoriesPtr submit_trajectories_,
@@ -193,10 +191,10 @@ public:
       submit_trajectories(std::move(submit_trajectories_)),
       delay_trajectories(std::move(delay_trajectories_)),
       replace_trajectories(std::move(replace_trajectories_)),
-      graph(std::move(graph_)),
+      graph_info(std::move(graph_info_)),
       traits(std::move(traits_)),
       planner(
-        rmf_traffic::agv::Planner::Configuration(graph, traits),
+        rmf_traffic::agv::Planner::Configuration(graph_info.graph, traits),
         rmf_traffic::agv::Planner::Options(mirror.viewer()))
     {
       // Do nothing

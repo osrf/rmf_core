@@ -892,13 +892,14 @@ private:
   EventExecutor _event_executor;
   EventListener _event_listener;
 
-  bool _waiting_for_schedule;
   rclcpp::Time _command_time;
   std::vector<rmf_traffic::agv::Plan> _plans;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _waypoints;
   rmf_fleet_msgs::msg::PathRequest _command;
   std::size_t _command_segment;
   std::vector<rmf_traffic::schedule::Version> _schedule_ids;
+  bool _waiting_for_schedule;
+  std::function<void()> _queued_schedule_update;
 
   bool _emergency_active;
   bool _waiting_on_emergency;
