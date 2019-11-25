@@ -46,56 +46,64 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
 
 void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
 {
-  //this is a very bad algorithm but will be improved
+  // this is a very bad algorithm but will be improved
   const auto start_time = std::chrono::steady_clock::now();
-
   std::vector<Eigen::Vector2d> graph_locations;
   std::vector<int> path;
-  for(std::size_t i=0;i<graph.num_waypoints();i++)
+
+  for (std::size_t i=0; i<graph.num_waypoints(); i++)
     graph_locations.push_back(graph.get_waypoint(i).get_location());
 
-  for(auto it=t.begin();it!=t.end();it++)
+  for (auto it = t.begin(); it != t.end(); it++)
   {
-   auto it2 = std::find(graph_locations.begin(), graph_locations.end(),it->get_finish_position().block<2,1>(0,0));
-   if(it2!=graph_locations.end())
-     {
-       int waypoint_index=std::distance(graph_locations.begin(),it2);
-       if(path.empty())
-        path.push_back(waypoint_index);
-       else if(path.back()!=waypoint_index)
+    auto it2 = std::find(
+        graph_locations.begin(),
+        graph_locations.end(),
+        it->get_finish_position().block<2,1>(0,0));
+    if (it2! = graph_locations.end())
+      {
+        int waypoint_index=std::distance(graph_locations.begin(), it2);
+        if (path.empty())
           path.push_back(waypoint_index);
-
-     }
-
+        else if (path.back() != waypoint_index)
+          path.push_back(waypoint_index);
+      }
   }
-
-    
   const auto end_time = std::chrono::steady_clock::now();
-  std::cout<<"Display Path computed in: "<<std::setprecision(4)<<rmf_traffic::time::to_seconds(end_time-start_time)<<"s\n";
-
-  for(auto it=path.begin();it!=path.end();it++)
+  std::cout<<"Display Path computed in: "
+      <<std::setprecision(4)
+      <<rmf_traffic::time::to_seconds(end_time - start_time)
+      <<"s\n";
+  for (auto it = path.begin(); it != path.end(); it++)
   {
     std::cout<<*it;
     if(it!=--path.end())
       std::cout<<"->";
   }
   std::cout<<std::endl;
-
 }
 
-void print_trajectory_info(const rmf_traffic::Trajectory t,rmf_traffic::Time time,rmf_traffic::agv::Graph graph)
+void print_trajectory_info(
+    const rmf_traffic::Trajectory t,
+    rmf_traffic::Time time,
+    rmf_traffic::agv::Graph graph)
 {
-  int count =1;
-  std::cout<<"Trajectory in: "<<t.get_map_name()<<" with "<<t.size()<<" segments\n";
-  display_path(t,graph);
-  for(auto it=t.begin();it!=t.end();it++)
+  int count = 1;
+  std::cout<<"Trajectory in: "
+      <<t.get_map_name()
+      <<" with "<<t.size()
+      <<" segments\n";
+  display_path(t, graph);
+  for (auto it = t.begin(); it != t.end(); it++)
     {
       auto position=it->get_finish_position();
-      std::cout<<"Segment "<<count<<": {"<<position[0]<<","<<position[1]<<","<<position[2]<<"} "<<rmf_traffic::time::to_seconds(it->get_finish_time()-time)<<"s"<<std::endl;
+      std::cout<<"Segment "<<count<<": {"<<position[0]<<","<<position[1]
+          <<","<<position[2]<<"} "
+          <<rmf_traffic::time::to_seconds(it->get_finish_time() - time)<<"s"
+          <<std::endl;
       count++;
     }
   std::cout<<"__________________\n";
-
 }
 
 rmf_traffic::Trajectory test_with_obstacle(
@@ -111,19 +119,19 @@ rmf_traffic::Trajectory test_with_obstacle(
 {
   rmf_traffic::Trajectory t_obs{""};
 
-  for(const auto& obstacle : obstacles)
+  for (const auto& obstacle : obstacles)
     database.insert(obstacle);
 
   rmf_utils::optional<rmf_traffic::agv::Plan> plan;
   const auto start_time = std::chrono::steady_clock::now();
-  for(std::size_t i=0; i < N; ++i)
+  for (std::size_t i = 0; i < N; ++i)
   {
     plan = original_plan.replan(original_plan.get_start());
     REQUIRE(plan);
   }
 
   const auto end_time = std::chrono::steady_clock::now();
-  if(test_performance)
+  if (test_performance)
   {
     const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
     std::cout << "\n" << parent << " w/ obstacle" << std::endl;
@@ -188,9 +196,6 @@ rmf_traffic::Trajectory test_with_obstacle(
   }
   return t_obs;
 }
-
-
-
 
 SCENARIO("Test planning")
 {
