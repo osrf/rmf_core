@@ -141,10 +141,10 @@ rmf_traffic::Trajectory test_with_obstacle(
   const std::size_t goal_index = original_plan.get_goal().waypoint();
   const auto goal_position = graph.get_waypoint(goal_index).get_location();
 
-  const auto p_initial = t_obs.front().get_finish_position().block<2,1>(0,0);
+  const Eigen::Vector2d p_initial = t_obs.front().get_finish_position().block<2,1>(0,0);
   CHECK( (p_initial - initial_position).norm() == Approx(0.0) );
 
-  const auto p_final = t_obs.back().get_finish_position().block<2,1>(0,0);
+  const Eigen::Vector2d p_final = t_obs.back().get_finish_position().block<2,1>(0,0);
   CHECK( (p_final - goal_position).norm() == Approx(0.0) );
   
   const auto& original_trajectory = original_plan.get_trajectories().front();
@@ -339,10 +339,10 @@ SCENARIO("Test planning")
     const rmf_traffic::Trajectory t = plan->get_trajectories().front();
     REQUIRE(t.size() == expected_t.size());
 
-    const auto initial_p = t.front().get_finish_position().block<2,1>(0, 0);
+    const Eigen::Vector2d initial_p = t.front().get_finish_position().block<2,1>(0, 0);
     CHECK((initial_p - Eigen::Vector2d(10, -5)).norm() == Approx(0.0) );
 
-    const auto final_p = t.back().get_finish_position().block<2,1>(0, 0);
+    const Eigen::Vector2d final_p = t.back().get_finish_position().block<2,1>(0, 0);
     CHECK((final_p - Eigen::Vector2d(5, -5)).norm() == Approx(0.0));
 
     CHECK(t.back().get_finish_position()[2] - goal_orientation==Approx(0));
@@ -408,10 +408,10 @@ SCENARIO("Test planning")
       REQUIRE(plan->get_trajectories().size() == 1);
       const auto t = plan->get_trajectories().front();
 
-      const auto initial_p = t.front().get_finish_position().block<2,1>(0, 0);
+      const Eigen::Vector2d initial_p = t.front().get_finish_position().block<2,1>(0, 0);
       CHECK( (initial_p - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
-      const auto final_p = t.back().get_finish_position().block<2,1>(0, 0);
+      const Eigen::Vector2d final_p = t.back().get_finish_position().block<2,1>(0, 0);
       CHECK( (final_p - Eigen::Vector2d(0, 0)).norm() == Approx(0.0) );
 
       WHEN("An obstacle is introduced")
@@ -453,10 +453,10 @@ SCENARIO("Test planning")
       REQUIRE(plan->get_trajectories().size() == 1);
       const auto& t = plan->get_trajectories().front();
 
-      const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
-      const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
       CHECK( (p_final - Eigen::Vector2d(0, 0)).norm() == Approx(0.0) );
       CHECK( t.back().get_finish_position()[2] == Approx(M_PI/2.0) );
 
@@ -526,10 +526,10 @@ SCENARIO("Test planning")
       REQUIRE(plan->get_trajectories().size() == 1);
       const auto t = plan->get_trajectories().front();
 
-      const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
 
-      const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
       CHECK( (p_final - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
       WHEN("An obstacle is introduced")
@@ -571,10 +571,10 @@ SCENARIO("Test planning")
       REQUIRE(plan->get_trajectories().size() == 1);
       const auto& t = plan->get_trajectories().front();
 
-      const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
 
-      const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
       CHECK( (p_final - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
       CHECK( t.back().get_finish_position()[2] == Approx(0.0) );
 
@@ -616,10 +616,10 @@ SCENARIO("Test planning")
       REQUIRE(plan->get_trajectories().size() == 1);
       const auto& t = plan->get_trajectories().front();
 
-      const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
 
-      const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
       CHECK( (p_final - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
       const double err = rmf_traffic::internal::wrap_to_pi(
@@ -696,12 +696,12 @@ SCENARIO("Test planning")
       REQUIRE(plan->get_trajectories().size() == 1);
       const auto t = plan->get_trajectories().front();
 
-      const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
-      const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+      const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
       CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
 
-      const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
-      const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+      const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
+      const Eigen::Vector2d p_final_g = graph.get_waypoint(goal_index).get_location();
       CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
 
       WHEN("First obstacle is introduced")
@@ -898,12 +898,12 @@ SCENARIO("DP1 Graph")
     CHECK(plan->get_trajectories().size() == 1);
     const auto t= plan->get_trajectories().front();
 
-    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
-    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
     CHECK( (p_initial - p_initial_g).norm()==Approx(0.0));
 
-    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
-    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_final_g = graph.get_waypoint(goal_index).get_location();
     CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
 
     WHEN("Obstacle 28->3 that partially overlaps in time")
@@ -1071,12 +1071,12 @@ SCENARIO("DP1 Graph")
     CHECK(plan->get_trajectories().size()==1);
     auto t = plan->get_trajectories().front();
 
-    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
-    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
     CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
 
-    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
-    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_final_g = graph.get_waypoint(goal_index).get_location();
     CHECK( (p_final - p_final_g).norm()==Approx(0.0) );
 
     WHEN("Obstacle 28->3 that partially overlaps in time")
@@ -1243,12 +1243,12 @@ SCENARIO("DP1 Graph")
     CHECK(plan->get_trajectories().size() == 1);
     const auto t = plan->get_trajectories().front();
 
-    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
-    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
     CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
 
-    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
-    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_final_g = graph.get_waypoint(goal_index).get_location();
     CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
 
     rmf_traffic::Trajectory obstacle(test_map_name);
@@ -1293,12 +1293,12 @@ SCENARIO("DP1 Graph")
     CHECK(plan->get_trajectories().size()==1);
     auto t = plan->get_trajectories().front();
 
-    const auto p_initial = t.front().get_finish_position().block<2,1>(0,0);
-    const auto p_initial_g = graph.get_waypoint(start_index).get_location();
+    const Eigen::Vector2d p_initial = t.front().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
     CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
 
-    const auto p_final = t.back().get_finish_position().block<2,1>(0,0);
-    const auto p_final_g = graph.get_waypoint(goal_index).get_location();
+    const Eigen::Vector2d p_final = t.back().get_finish_position().block<2,1>(0,0);
+    const Eigen::Vector2d p_final_g = graph.get_waypoint(goal_index).get_location();
     CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
 
     rmf_traffic::Trajectory obstacle_1(test_map_name);
