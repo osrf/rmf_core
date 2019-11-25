@@ -79,7 +79,6 @@ target_link_libraries(test_read_only_adapter
 
 # -----------------------------------------------------------------------------
 
-
 install(
   TARGETS 
     rmf_fleet_adapter
