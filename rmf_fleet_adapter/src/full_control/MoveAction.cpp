@@ -71,7 +71,8 @@ public:
     _event_executor(this),
     _event_listener(this),
     _waiting_for_schedule(true),
-    _emergency_active(false)
+    _emergency_active(false),
+    _waiting_on_emergency(false)
   {
     // Do nothing
   }
@@ -79,6 +80,7 @@ public:
   void find_plan()
   {
     _emergency_active = false;
+    _waiting_on_emergency = false;
     _plans.clear();
 
     const auto& planner = _node->get_planner();
@@ -352,7 +354,10 @@ public:
   {
     if (_waypoints.empty())
     {
-      _context->task->next();
+      if (_emergency_active)
+        report_waiting();
+      else
+        _context->task->next();
       return;
     }
 
@@ -429,8 +434,7 @@ public:
                 "The fleet driver is being unresponsive to task plan ["
                 + _parent->_context->task->id() + "]. Recomputing plan!");
 
-          _parent->find_plan();
-          return;
+          return _parent->find_plan();
         }
 
         // Attempt to resend the command if the robot has not received it yet.
@@ -469,6 +473,11 @@ public:
   }
 
   void handle_delay(const RobotState& msg)
+  {
+
+  }
+
+  void report_waiting()
   {
 
   }
@@ -892,6 +901,7 @@ private:
   std::vector<rmf_traffic::schedule::Version> _schedule_ids;
 
   bool _emergency_active;
+  bool _waiting_on_emergency;
 
 };
 

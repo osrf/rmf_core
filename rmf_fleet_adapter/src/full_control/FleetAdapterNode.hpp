@@ -130,7 +130,7 @@ public:
 
     const Delivery _delivery;
     FleetAdapterNode* const _node;
-    RobotContext* const _state_ptr;
+    RobotContext* const _context;
     std::unique_ptr<Action> _action;
     std::queue<std::unique_ptr<Action>> _action_queue;
     rmf_utils::optional<rclcpp::Time> _start_time;
@@ -179,6 +179,7 @@ public:
     rmf_traffic::agv::VehicleTraits traits;
     rmf_traffic::agv::Planner planner;
     WaypointKeys waypoint_keys;
+    WaypointNames waypoint_names;
     std::vector<std::size_t> fallback_waypoints;
 
     Fields(

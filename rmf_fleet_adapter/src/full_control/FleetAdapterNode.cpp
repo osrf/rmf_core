@@ -99,6 +99,21 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
 }
 
 //==============================================================================
+void FleetAdapterNode::RobotContext::next_task()
+{
+  if (!task_queue.empty())
+  {
+    task = std::move(task_queue.front());
+    task_queue.pop();
+    task->next();
+    return;
+  }
+
+  // TODO(MXG): If the task queue is empty, have the robot move back to its
+  // home.
+}
+
+//==============================================================================
 FleetAdapterNode::Task::Task(
     FleetAdapterNode* node,
     FleetAdapterNode::RobotContext* state,
@@ -107,7 +122,7 @@ FleetAdapterNode::Task::Task(
     const std::size_t dropoff_wp)
 : _delivery(request),
   _node(node),
-  _state_ptr(state)
+  _context(state)
 {
   _action_queue.push(
         make_move(node, state, pickup_wp, node->get_fallback_wps()));
@@ -123,12 +138,84 @@ void FleetAdapterNode::Task::next()
 
   if (_action_queue.empty())
   {
-    return _state_ptr->next_task();
+    return _context->next_task();
   }
 
   _action = std::move(_action_queue.front());
   _action_queue.pop();
   _action->execute();
+}
+
+//==============================================================================
+void FleetAdapterNode::Task::interrupt()
+{
+  if (!_action)
+  {
+    RCLCPP_WARN(
+          _node->get_logger(),
+          "No action for this task [" + id() + "] to interrupt. This might "
+          "indicate a bug!");
+    return;
+  }
+
+  _action->interrupt();
+}
+
+//==============================================================================
+void FleetAdapterNode::Task::resume()
+{
+  if (!_action)
+  {
+    RCLCPP_WARN(
+          _node->get_logger(),
+          "No action for this task [" + id() + "] to resume. This might "
+          "indicate a bug!");
+    return;
+  }
+
+  _action->resume();
+}
+
+//==============================================================================
+void FleetAdapterNode::Task::report_status()
+{
+  if (!_action)
+  {
+    RCLCPP_WARN(
+          _node->get_logger(),
+          "No action for this task [" + id() + "] to report a status for. "
+          "This might indicate a bug!");
+    return;
+  }
+
+  _action->report_status();
+}
+
+//==============================================================================
+void FleetAdapterNode::Task::critical_failure(const std::string& error)
+{
+  rmf_task_msgs::msg::TaskSummary summary;
+  summary.task_id = id();
+  summary.start_time = start_time();
+
+  summary.status = "CRITICAL FAILURE: " + error;
+
+  _node->task_summary_publisher->publish(summary);
+
+  _context->next_task();
+}
+
+//==============================================================================
+const std::string& FleetAdapterNode::Task::id() const
+{
+  return _delivery.task_id;
+}
+
+
+//==============================================================================
+const rclcpp::Time& FleetAdapterNode::Task::start_time() const
+{
+  return *_start_time;
 }
 
 //==============================================================================
@@ -258,9 +345,21 @@ auto FleetAdapterNode::get_waypoint_keys() const -> const WaypointKeys&
 }
 
 //==============================================================================
+auto FleetAdapterNode::get_waypoint_names() const -> const WaypointNames&
+{
+  return _field->waypoint_names;
+}
+
+//==============================================================================
 const std::vector<std::size_t>& FleetAdapterNode::get_fallback_wps() const
 {
   return _field->fallback_waypoints;
+}
+
+//==============================================================================
+auto FleetAdapterNode::get_fields() const -> const Fields&
+{
+  return *_field;
 }
 
 //==============================================================================
