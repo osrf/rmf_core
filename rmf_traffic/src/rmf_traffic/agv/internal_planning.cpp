@@ -635,8 +635,6 @@ struct DifferentialDriveExpander
       const std::string& map_name =
           _context.graph.waypoints[initial_waypoint].get_map_name();
 
-      // TODO(MXG): We should be able to make this query more efficient, e.g.
-      // add a lower bound on time.
       _query.spacetime().timespan()->add_map(map_name);
 
       const auto initial_time = start.time();
@@ -695,6 +693,8 @@ struct DifferentialDriveExpander
             if (!is_orientation_okay(
                   *initial_location, orientation, course, lane))
             {
+              // We cannot approach the initial_waypoint with this orientation,
+              // so we cannot use this orientation to start.
               continue;
             }
           }
@@ -720,6 +720,13 @@ struct DifferentialDriveExpander
                   rotated_position,
                   _context.profile,
                   _context.interpolate.rotation_thresh);
+
+            if (!is_valid(rotation_trajectory))
+            {
+              // The rotation trajectory is not feasible, so we cannot use this
+              // orientation to start.
+              continue;
+            }
 
             const double rotation_cost =
                 rmf_traffic::time::to_seconds(rotation_trajectory.duration());
@@ -750,6 +757,13 @@ struct DifferentialDriveExpander
                 _context.profile,
                 _context.interpolate.translation_thresh);
 
+          if (!is_valid(approach_trajectory))
+          {
+            // The approach trajectory is not feasible, so we cannot use this
+            // orientation to start.
+            continue;
+          }
+
           const double current_cost =
               rmf_traffic::time::to_seconds(approach_trajectory.duration())
               + rotated_initial_node->current_cost;
@@ -768,7 +782,6 @@ struct DifferentialDriveExpander
       }
       else
       {
-
         Trajectory initial_trajectory{map_name};
         initial_trajectory.insert(
               initial_time,
