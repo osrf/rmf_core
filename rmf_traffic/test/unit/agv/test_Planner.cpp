@@ -29,8 +29,8 @@
 #include <iomanip>
 
 // TODO(MXG): Move performance testing content into a performance test folder
-//const bool test_performance = false;
-const bool test_performance = true;
+const bool test_performance = false;
+// const bool test_performance = true;
 const std::size_t N = test_performance? 10 : 1;
 
 void print_timing(const std::chrono::steady_clock::time_point& start_time)
@@ -60,7 +60,7 @@ void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
         graph_locations.begin(),
         graph_locations.end(),
         it->get_finish_position().block<2,1>(0,0));
-    if (it2! = graph_locations.end())
+    if (it2 != graph_locations.end())
       {
         int waypoint_index=std::distance(graph_locations.begin(), it2);
         if (path.empty())
@@ -248,21 +248,13 @@ SCENARIO("Test planning")
 
   //TODO abort planning that is impossible as lane does not exit in the graph
 
-  /*WHEN("goal waypoint does not have a lane in the graph")
-  {
-
-    const rmf_traffic::Time time = std::chrono::steady_clock::now();
-    const rmf_traffic::agv::VehicleTraits traits(
-        {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
-    rmf_traffic::schedule::Database database;
-    rmf_traffic::agv::Planner::Options options(traits, graph, database);
-    std::vector<rmf_traffic::Trajectory> solution;
-    
-    bool solved=rmf_traffic::agv::Planner::solve(time,3,0.0,9,nullptr,options,solution);
-    CHECK_FALSE(solved);
-    CHECK(solution.size()==0);
-
-  } */
+  // WHEN("goal waypoint does not have a lane in the graph")
+  // {
+  //   const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+  //   auto plan = planner.plan(
+  //       rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
+  //       rmf_traffic::agv::Planner::Goal(9));
+  // } 
 
   WHEN("initial conditions satisfy the goals")
   {
