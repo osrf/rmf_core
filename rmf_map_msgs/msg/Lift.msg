@@ -1,2 +1,4 @@
 string name
-string[] available_floors
+string[] levels
+Door[] doors
+Graph wall_graph

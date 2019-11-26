@@ -1,6 +1,6 @@
-uint32 v1
-uint32 v2
-string[] flags
+uint32 v1_idx
+uint32 v2_idx
+Param[] params
 
 # when edge_type is UNIDIRECTIONAL, it means v1 -> v2
 # when edge_type is BIDIRECTIONAL, it means v1 <-> v2

@@ -21,11 +21,12 @@ set(msg_files
   "msg/AffineImage.msg"
   "msg/BuildingMap.msg"
   "msg/Door.msg"
+  "msg/Graph.msg"
   "msg/GraphEdge.msg"
+  "msg/GraphNode.msg"
   "msg/Level.msg"
   "msg/Lift.msg"
-  "msg/NavGraph.msg"
-  "msg/NavGraphNode.msg"
+  "msg/Param.msg"
   "msg/Place.msg"
 )
 
