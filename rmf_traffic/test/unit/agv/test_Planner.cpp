@@ -234,7 +234,7 @@ SCENARIO("Test Configuration", "[config]")
               == Approx(0).margin(1e-6));
   }
 
-  WHEN("Set the graph in config")
+  WHEN("Set the graph")
   {
     Graph& graph_ = config.graph();
     graph_.add_waypoint(test_map_name, {5, 5});
@@ -244,13 +244,13 @@ SCENARIO("Test Configuration", "[config]")
         - Eigen::Vector2d{5, 5}).norm() == Approx(0).margin(1e-6));
   }
 
-  WHEN("Get the vechile_traits in config")
+  WHEN("Get the vechile_traits")
   {
     VehicleTraits& traits_ = config.vehicle_traits();
     CHECK_TRAITS(traits_, traits);
   }
 
-  WHEN("Set the vechile_traits in config")
+  WHEN("Set the vechile_traits")
   {
     VehicleTraits& traits_ = config.vehicle_traits();
     VehicleTraits traits_new(
@@ -259,13 +259,13 @@ SCENARIO("Test Configuration", "[config]")
     CHECK_TRAITS(config.vehicle_traits(), traits_);
   }
 
-  WHEN("Get the interpolation in config")
+  WHEN("Get the interpolation")
   {
     Interpolate::Options& options_ = config.interpolation();
     CHECK_INTERPOLATION(options_, options);
   }
 
-  WHEN("Set the interpolation in config")
+  WHEN("Set the interpolation")
   {
     Interpolate::Options& options_ = config.interpolation();
     options_ = Interpolate::Options(
@@ -273,6 +273,49 @@ SCENARIO("Test Configuration", "[config]")
     CHECK_INTERPOLATION(config.interpolation(), options_);
   }
 }
+
+SCENARIO("Test Options", "[options]")
+{
+  using namespace std::chrono_literals;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  using Database = rmf_traffic::schedule::Database;
+
+  Database database; 
+  bool interrupt_flag = false;
+  Duration hold_time = std::chrono::seconds(6);
+
+  Planner::Options default_options(database, hold_time, &interrupt_flag);
+  WHEN("Get the minimum_holding_time")
+  {
+    CHECK(rmf_traffic::time::to_seconds(
+        default_options.minimum_holding_time()- hold_time)
+            == Approx(0).margin(1e-6));
+  }
+
+  WHEN("Set the minimum_holding_time")
+  {
+    Duration hold_time_ = std::chrono::seconds(5);  
+    default_options.minimum_holding_time(hold_time_);
+    CHECK(rmf_traffic::time::to_seconds(
+        default_options.minimum_holding_time()- hold_time_)
+            == Approx(0).margin(1e-6));   
+  }
+
+  WHEN("Get the interrupt_flag")
+  {
+    CHECK_FALSE(*default_options.interrupt_flag());
+  }
+
+  WHEN("Set the interrupt_flag")
+  {
+    interrupt_flag = true;
+    CHECK(*default_options.interrupt_flag());
+  }
+
+}
+
+
 
 /*
 graph.add_waypoint(test_map_name, {-5, 0}); // 1
