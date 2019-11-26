@@ -1016,6 +1016,7 @@ MoveAction::~MoveAction()
 {
   if (!_schedule_ids.empty())
   {
+    // Erase the latest trajectories on the schedule
     using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
 
     const auto& erase = _node->get_fields().erase_trajectories;
