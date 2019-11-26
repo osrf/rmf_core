@@ -117,10 +117,12 @@ rmf_traffic::Trajectory test_with_obstacle(
   const std::size_t goal_index = original_plan.get_goal().waypoint();
   const auto goal_position = graph.get_waypoint(goal_index).get_location();
 
-  const Eigen::Vector2d p_initial = t_obs.front().get_finish_position().block<2,1>(0,0);
+  const Eigen::Vector2d p_initial =
+      t_obs.front().get_finish_position().block<2,1>(0,0);
   CHECK( (p_initial - initial_position).norm() == Approx(0.0) );
 
-  const Eigen::Vector2d p_final = t_obs.back().get_finish_position().block<2,1>(0,0);
+  const Eigen::Vector2d p_final =
+      t_obs.back().get_finish_position().block<2,1>(0,0);
   CHECK( (p_final - goal_position).norm() == Approx(0.0) );
   
   const auto& original_trajectory = original_plan.get_trajectories().front();
@@ -136,7 +138,8 @@ rmf_traffic::Trajectory test_with_obstacle(
 
   // Confirm that the trajectory does not conflict with anything in the
   // schedule
-  const auto query = database.query(rmf_traffic::schedule::query_everything());
+  const auto query =
+      database.query(rmf_traffic::schedule::query_everything());
   for (const auto& entry : query)
     CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
 
@@ -165,30 +168,118 @@ rmf_traffic::Trajectory test_with_obstacle(
   return t_obs;
 }
 
-SCENARIO("Test config, options and planner", "[setup]")
+inline void CHECK_TRAITS(
+      const rmf_traffic::agv::VehicleTraits& t1,
+      const rmf_traffic::agv::VehicleTraits& t2)
+{
+  CHECK((t1.get_differential()->get_forward()
+      - t2.get_differential()->get_forward()).norm()
+      == Approx(0).margin(1e-6));
+  CHECK(t1.get_differential()->is_reversible()
+      == t2.get_differential()->is_reversible());
+  CHECK(t1.linear().get_nominal_acceleration()
+      == t2.linear().get_nominal_acceleration());
+  CHECK(t1.linear().get_nominal_velocity()
+      == t2.linear().get_nominal_velocity());
+  CHECK(t1.rotational().get_nominal_acceleration()
+      == t2.rotational().get_nominal_acceleration());
+  CHECK(t1.rotational().get_nominal_velocity()
+      == t2.rotational().get_nominal_velocity());
+  CHECK(t1.get_profile() == t2.get_profile());
+}
+
+inline void CHECK_INTERPOLATION(
+      const rmf_traffic::agv::Interpolate::Options& o1,
+      const rmf_traffic::agv::Interpolate::Options& o2)
+{
+  CHECK(o1.always_stop() == o2.always_stop());
+  CHECK((o1.get_translation_threshold()-
+      o2.get_translation_threshold())
+          == Approx(0).margin(1e-6));
+  CHECK((o1.get_rotation_threshold()-
+      o2.get_rotation_threshold())
+          == Approx(0).margin(1e-6));
+  CHECK((o1.get_corner_angle_threshold()-
+      o2.get_corner_angle_threshold())
+          == Approx(0).margin(1e-6));
+}
+// ____________________________________________________________________________
+
+SCENARIO("Test Configuration", "[config]")
 {
   using namespace std::chrono_literals;
   using Graph = rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Interpolate = rmf_traffic::agv::Interpolate;
   using Planner = rmf_traffic::agv::Planner;
 
   const std::string test_map_name = "test_map";
   Graph graph;
   graph.add_waypoint(test_map_name, {0, -5}); // 0
-  graph.add_waypoint(test_map_name, {-5, 0}); // 1
-  graph.add_waypoint(test_map_name, {0, 0}); // 2
-  graph.add_waypoint(test_map_name, {5, 0}); // 3
-  graph.add_waypoint(test_map_name, {0, 5}); // 4
-  REQUIRE(graph.num_waypoints()==5);
+  REQUIRE(graph.num_waypoints()==1);
 
-  const rmf_traffic::agv::VehicleTraits traits(
+  const VehicleTraits traits(
       {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
-  
-  Planner::Configuration config(graph, traits);
-  
 
-  Planner planner(config, options);
+  const Interpolate::Options options = Interpolate::Options();
+  Planner::Configuration config(graph, traits, options);
 
+  WHEN("Get the graph in config")
+  {
+    Graph& graph_ = config.graph();
+    REQUIRE(graph_.num_waypoints()==graph.num_waypoints());
+    for (std::size_t i = 0; i < graph.num_waypoints(); i++)
+      CHECK((graph.get_waypoint(i).get_location() -
+          graph_.get_waypoint(i).get_location()).norm()
+              == Approx(0).margin(1e-6));
+  }
+
+  WHEN("Set the graph in config")
+  {
+    Graph& graph_ = config.graph();
+    graph_.add_waypoint(test_map_name, {5, 5});
+    REQUIRE(graph_.num_waypoints() == graph.num_waypoints() + 1);
+    REQUIRE(config.graph().num_waypoints() == graph.num_waypoints() + 1);
+    CHECK((config.graph().get_waypoint(graph.num_waypoints()).get_location()
+        - Eigen::Vector2d{5, 5}).norm() == Approx(0).margin(1e-6));
+  }
+
+  WHEN("Get the vechile_traits in config")
+  {
+    VehicleTraits& traits_ = config.vehicle_traits();
+    CHECK_TRAITS(traits_, traits);
+  }
+
+  WHEN("Set the vechile_traits in config")
+  {
+    VehicleTraits& traits_ = config.vehicle_traits();
+    VehicleTraits traits_new(
+        {1.0, 0.5}, {1.0, 0.6}, make_test_profile(UnitCircle));
+    traits_ = traits_new;
+    CHECK_TRAITS(config.vehicle_traits(), traits_);
+  }
+
+  WHEN("Get the interpolation in config")
+  {
+    Interpolate::Options& options_ = config.interpolation();
+    CHECK_INTERPOLATION(options_, options);
+  }
+
+  WHEN("Set the interpolation in config")
+  {
+    Interpolate::Options& options_ = config.interpolation();
+    options_ = Interpolate::Options(
+        true, 1e-2, 5.0 * M_PI/180.0, 5.0 * M_PI/180.0);
+    CHECK_INTERPOLATION(config.interpolation(), options_);
+  }
 }
+
+/*
+graph.add_waypoint(test_map_name, {-5, 0}); // 1
+graph.add_waypoint(test_map_name, {0, 0}); // 2
+graph.add_waypoint(test_map_name, {5, 0}); // 3
+graph.add_waypoint(test_map_name, {0, 5}); // 4
+  */
 
 SCENARIO("Test planning")
 {
