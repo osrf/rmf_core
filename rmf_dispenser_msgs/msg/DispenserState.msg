@@ -13,3 +13,4 @@ int32 OFFLINE=2
 string[] request_guid_queue
 
 # below are custom workcell message fields
+float32 seconds_remaining
