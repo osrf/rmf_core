@@ -1859,6 +1859,31 @@ SCENARIO("Test planner with various start conditions")
         == Approx(0.0).margin(1e-6));
     CHECK((t.front().get_finish_position()[2] - 0.0) == Approx(0.0));
 
+    WHEN("Obstace 4->0 overlaps")
+    {
+      std::vector<rmf_traffic::Trajectory> obstacles;
+      rmf_traffic::Trajectory obstacle(test_map_name);
+      obstacle.insert(
+        initial_time,
+        make_test_profile(UnitCircle),
+        Eigen::Vector3d{0, 0, 0},
+        Eigen::Vector3d{0, 0, 0});
+
+      obstacle.insert(
+        initial_time + 60s,
+        make_test_profile(UnitCircle),
+        Eigen::Vector3d{0, 0, 0},
+        Eigen::Vector3d{0, 0, 0});
+
+      REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
+      obstacles.push_back(obstacle);
+
+      // TODO change to replan with startset
+      test_with_obstacle(
+          "Obstace 4->0 overlaps",
+          *plan, database, obstacles, 1, initial_time, true);
+    }
+
   }
   
 
