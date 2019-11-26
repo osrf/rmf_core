@@ -315,14 +315,35 @@ SCENARIO("Test Options", "[options]")
 
 }
 
+SCENARIO("Test Start")
+{
+  using namespace std::chrono_literals;
+  using Planner = rmf_traffic::agv::Planner;
 
+  auto start_time = std::chrono::steady_clock::now();
+  
+  Planner::Start start(
+    start_time,
+    1,
+    0.0);
 
-/*
-graph.add_waypoint(test_map_name, {-5, 0}); // 1
-graph.add_waypoint(test_map_name, {0, 0}); // 2
-graph.add_waypoint(test_map_name, {5, 0}); // 3
-graph.add_waypoint(test_map_name, {0, 5}); // 4
-  */
+  CHECK_FALSE(start.lane());
+  CHECK_FALSE(start.location());
+
+  CHECK(rmf_traffic::time::to_seconds(start.time()-start_time)
+      == Approx(0.0).margin(1e-12));
+  CHECK(start.waypoint() == 1);
+  CHECK((start.orientation() - 0.0) == Approx(0.0).margin(1e-6));
+
+  rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{0, 0};
+  rmf_utils::optional<std::size_t> initial_lane = std::size_t(0);
+
+  start.location(initial_location);
+  CHECK(start.location());
+
+  start.lane(initial_lane);
+  CHECK(start.lane());
+}
 
 SCENARIO("Test planning")
 {
@@ -1673,6 +1694,83 @@ SCENARIO("Graph with door", "[door]")
   CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open_close));
   CHECK(has_event(ExpectEvent::DoorClose, *plan_with_door_open_close));
 }
+
+SCENARIO("Test planner with start")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  //using nullopt = rmf_utils::nullopt_t;
+
+  const std::string test_map_name = "test_map";
+  Graph graph;
+  graph.add_waypoint(test_map_name, {0, -5}); // 0
+  graph.add_waypoint(test_map_name, {-5, 0}); // 1
+  graph.add_waypoint(test_map_name, {0, 0}); // 2
+  graph.add_waypoint(test_map_name, {5, 0}); // 3
+  graph.add_waypoint(test_map_name, {0, 5}); // 4
+  //REQUIRE(graph.num_waypoints() == 5);
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+  {
+    graph.add_lane(w0, w1);
+    graph.add_lane(w1, w0);
+  };
+
+  add_bidir_lane(0 ,2); // 0
+  add_bidir_lane(1, 2); // 1
+  add_bidir_lane(3, 2); // 2
+  add_bidir_lane(4, 2); // 3
+
+  const VehicleTraits traits{
+      {1.0, 0.4},
+      {1.0, 0.5},
+      make_test_profile(UnitCircle)
+  };
+
+
+  rmf_traffic::schedule::Database database;
+  bool interrupt_flag = false;
+  Duration hold_time = std::chrono::seconds(6);
+  const rmf_traffic::agv::Planner::Options default_options{
+      database,
+      hold_time,
+      &interrupt_flag};
+
+  Planner planner{
+    Planner::Configuration{graph, traits},
+    default_options
+  };
+
+  const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
+
+  WHEN("Start planning with robot not at waypoint")
+  {
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-5, 0};
+    rmf_utils::optional<std::size_t> initial_lane = std::size_t(0);
+  
+    Planner::Start start(
+        initial_time,
+        1,
+        0.0,
+        initial_location,
+        initial_lane);
+
+    REQUIRE(start.location());
+    REQUIRE(start.lane());
+
+    Planner::Goal goal(2);
+
+    //const auto plan = planner.plan(start, goal);
+    //CHECK(plan);
+
+  }
+
+ 
+}
+
 
 
 // TODO(MXG): Make a test for the interrupt_flag in Planner::Options
