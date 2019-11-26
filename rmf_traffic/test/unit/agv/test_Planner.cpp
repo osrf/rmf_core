@@ -165,6 +165,31 @@ rmf_traffic::Trajectory test_with_obstacle(
   return t_obs;
 }
 
+SCENARIO("Test config, options and planner", "[setup]")
+{
+  using namespace std::chrono_literals;
+  using Graph = rmf_traffic::agv::Graph;
+  using Planner = rmf_traffic::agv::Planner;
+
+  const std::string test_map_name = "test_map";
+  Graph graph;
+  graph.add_waypoint(test_map_name, {0, -5}); // 0
+  graph.add_waypoint(test_map_name, {-5, 0}); // 1
+  graph.add_waypoint(test_map_name, {0, 0}); // 2
+  graph.add_waypoint(test_map_name, {5, 0}); // 3
+  graph.add_waypoint(test_map_name, {0, 5}); // 4
+  REQUIRE(graph.num_waypoints()==5);
+
+  const rmf_traffic::agv::VehicleTraits traits(
+      {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
+  
+  Planner::Configuration config(graph, traits);
+  
+
+  Planner planner(config, options);
+
+}
+
 SCENARIO("Test planning")
 {
   using namespace std::chrono_literals;
