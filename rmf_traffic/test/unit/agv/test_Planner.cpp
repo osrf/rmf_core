@@ -47,7 +47,7 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
 void display_path(const rmf_traffic::agv::Plan& plan)
 {
   for (const auto& wp : plan.get_waypoints())
-    std::cout<<wp.graph_index();
+    std::cout<<std::to_string(*wp.graph_index())<<"->";
   std::cout<<std::endl;
 }
 
@@ -1529,7 +1529,7 @@ SCENARIO("DP1 Graph")
 
           test_with_obstacle(
                 "Obstacle 28->2 , 29->4, 23->26",
-                *plan, database, obstacles, 27, time);
+                *plan, database, obstacles, 27, time, true, true, true);
         }
       }
     }
@@ -1702,22 +1702,17 @@ SCENARIO("Test planner with start")
   using VehicleTraits = rmf_traffic::agv::VehicleTraits;
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
+  using DetectConflict = rmf_traffic::DetectConflict;
   //using nullopt = rmf_utils::nullopt_t;
 
   const std::string test_map_name = "test_map";
   Graph graph;
-  graph.add_waypoint(test_map_name, {0, -5}); // 0
-  graph.add_waypoint(test_map_name, {-5, 0}); // 1
+  graph.add_waypoint(test_map_name, {0, -5}, true); // 0
+  graph.add_waypoint(test_map_name, {-5, 0}, true); // 1
   graph.add_waypoint(test_map_name, {0, 0}); // 2
-  graph.add_waypoint(test_map_name, {5, 0}); // 3
-  graph.add_waypoint(test_map_name, {0, 5}); // 4
-  //REQUIRE(graph.num_waypoints() == 5);
-
-  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
-  {
-    graph.add_lane(w0, w1);
-    graph.add_lane(w1, w0);
-  };
+  graph.add_waypoint(test_map_name, {5, 0}, true); // 3
+  graph.add_waypoint(test_map_name, {0, 5}, true); // 4
+  REQUIRE(graph.num_waypoints() == 5);
 
   graph.add_lane(0 ,2); // 0
   graph.add_lane(2, 0); // 1
@@ -1754,20 +1749,34 @@ SCENARIO("Test planner with start")
   { 
     rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
 
-    Planner::Start start(
+    Planner::Start start = Planner::Start{
         initial_time,
         1,
         0.0,
-        initial_location);
+        initial_location};
+    CHECK(start.location());
+    CHECK_FALSE(start.lane());
 
-    REQUIRE(start.location());
-    REQUIRE(start.lane());
-
-    Planner::Goal goal(3);
+    Planner::Goal goal = Planner::Goal{3};
 
     const auto plan = planner.plan(start, goal);
     CHECK(plan);
+    REQUIRE(plan->get_trajectories().size() == 1);
+    auto t = plan->get_trajectories().front();
 
+    WHEN("Obstace 4->0 overlaps")
+    {
+      std::vector<rmf_traffic::Trajectory> obstacles;
+      auto obstacle = rmf_traffic::agv::Interpolate::positions(
+          test_map_name,
+          traits,
+          initial_time + 10s,
+          {{0, 5, -M_PI_2}, {0, -5, -M_PI_2}});
+
+      REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
+      obstacles.push_back(obstacle);
+
+    }
   }
 
   WHEN("Start contains initial_location and initial_lane")
@@ -1787,10 +1796,11 @@ SCENARIO("Test planner with start")
 
     Planner::Goal goal(3);
 
-    const auto plan = planner.plan(start, goal);
+    //const auto plan = planner.plan(start, goal);
     //CHECK(plan);
 
   }
+  
 
  
 }
