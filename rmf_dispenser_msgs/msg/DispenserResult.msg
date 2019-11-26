@@ -1,5 +1,9 @@
 builtin_interfaces/Time time
+
+# A unique ID for the request, this result is for
 string request_guid
+
+# The unique ID of the dispenser that this result was sent from
 string source_guid
 
 uint8 status
