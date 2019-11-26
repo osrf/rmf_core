@@ -29,6 +29,7 @@
 #include <rmf_traffic_msgs/srv/replace_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/delay_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/erase_trajectories.hpp>
+#include <rmf_traffic_msgs/srv/resolve_trajectories.hpp>
 
 #include <rmf_traffic_msgs/srv/mirror_update.hpp>
 #include <rmf_traffic_msgs/srv/register_query.hpp>
@@ -96,6 +97,17 @@ private:
   EraseTrajectoriesService::SharedPtr erase_trajectories_service;
 
 
+  using ResolveTrajectories = rmf_traffic_msgs::srv::ResolveTrajectories;
+  using ResolveTrajectoriesService = rclcpp::Service<ResolveTrajectories>;
+
+  ResolveTrajectoriesService::SharedPtr resolve_trajectories_service;
+
+  void resolve_trajectories(
+      const std::shared_ptr<rmw_request_id_t>& request_header,
+      const ResolveTrajectories::Request::SharedPtr& request,
+      const ResolveTrajectories::Response::SharedPtr& response);
+
+
   using RegisterQuery = rmf_traffic_msgs::srv::RegisterQuery;
   using RegisterQueryService = rclcpp::Service<RegisterQuery>;
 
@@ -141,6 +153,7 @@ private:
 
   void wakeup_mirrors() const;
 
+  // TODO(MXG): Consider using libguarded instead of a database_mutex
   std::mutex database_mutex;
   rmf_traffic::schedule::Database database;
 

@@ -90,6 +90,14 @@ ScheduleNode::ScheduleNode()
             const EraseTrajectories::Response::SharedPtr response)
         { this->erase_trajectories(request_header, request, response); });
 
+  resolve_trajectories_service =
+      create_service<ResolveTrajectories>(
+        rmf_traffic_ros2::ResolveTrajectoriesSrvName,
+        [=](const std::shared_ptr<rmw_request_id_t> request_header,
+            const ResolveTrajectories::Request::SharedPtr request,
+            const ResolveTrajectories::Response::SharedPtr response)
+        { this->resolve_trajectories(request_header, request, response); });
+
   register_query_service =
       create_service<RegisterQuery>(
         rmf_traffic_ros2::RegisterQueryServiceName,
@@ -323,8 +331,11 @@ void ScheduleNode::submit_trajectories(
   if(!response->accepted)
     return;
 
-  for(auto&& request : requested_trajectories)
-    database.insert(std::move(request));
+  {
+    std::unique_lock<std::mutex> lock(database_mutex);
+    for(auto&& request : requested_trajectories)
+      database.insert(std::move(request));
+  }
 
   response->current_version = database.latest_version();
   wakeup_mirrors();
@@ -370,21 +381,25 @@ void ScheduleNode::replace_trajectories(
   }
 
   std::size_t index=0;
-  while (index < request->replace_ids.size() &&
-         index < request->trajectories.size())
+
   {
-    database.replace(request->replace_ids[index],
-                     std::move(trajectories[index]));
-    ++index;
+    std::unique_lock<std::mutex> lock(database_mutex);
+    while (index < request->replace_ids.size() &&
+           index < request->trajectories.size())
+    {
+      database.replace(request->replace_ids[index],
+                       std::move(trajectories[index]));
+      ++index;
+    }
+
+    for (; index < request->trajectories.size(); ++index)
+      database.insert(std::move(trajectories[index]));
+
+    response->latest_trajectory_version = database.latest_version();
+
+    for (; index < request->replace_ids.size(); ++index)
+      database.erase(request->replace_ids[index]);
   }
-
-  for (; index < request->trajectories.size(); ++index)
-    database.insert(std::move(trajectories[index]));
-
-  response->latest_trajectory_version = database.latest_version();
-
-  for (; index < request->replace_ids.size(); ++index)
-    database.erase(request->replace_ids[index]);
 
   response->current_version = database.latest_version();
   wakeup_mirrors();
@@ -413,8 +428,12 @@ void ScheduleNode::delay_trajectories(
 
   const auto delay = std::chrono::nanoseconds(request->delay);
 
-  for (const rmf_traffic::schedule::Version id : request->delay_ids)
-    database.delay(id, from_time, delay);
+  {
+    std::unique_lock<std::mutex> lock(database_mutex);
+    for (const rmf_traffic::schedule::Version id : request->delay_ids)
+      database.delay(id, from_time, delay);
+  }
+
   wakeup_mirrors();
 }
 
@@ -424,13 +443,23 @@ void ScheduleNode::erase_trajectories(
     const EraseTrajectories::Request::SharedPtr& request,
     const EraseTrajectories::Response::SharedPtr& response)
 {
-  for(const uint64_t id : request->erase_ids)
   {
-    database.erase(id);
+    std::unique_lock<std::mutex> lock(database_mutex);
+    for(const uint64_t id : request->erase_ids)
+      database.erase(id);
   }
 
   response->version = database.latest_version();
   wakeup_mirrors();
+}
+
+//==============================================================================
+void ScheduleNode::resolve_trajectories(
+    const std::shared_ptr<rmw_request_id_t>& request_header,
+    const ResolveTrajectories::Request::SharedPtr& request,
+    const ResolveTrajectories::Response::SharedPtr& response)
+{
+  TODO(MXG): Implement this function;
 }
 
 //==============================================================================
