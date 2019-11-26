@@ -1,0 +1,11 @@
+string name
+uint8 door_type
+uint8 DOOR_TYPE_UNDEFINED=0
+uint8 DOOR_TYPE_SINGLE_SLIDING=1
+uint8 DOOR_TYPE_DOUBLE_SLIDING=2
+uint8 DOOR_TYPE_SINGLE_TELESCOPE=3
+uint8 DOOR_TYPE_DOUBLE_TELESCOPE=4
+uint8 DOOR_TYPE_SINGLE_SWING=5
+uint8 DOOR_TYPE_DOUBLE_SWING=6
+geometry_msgs/Pose closed_edge_pose
+float32 motion_range
