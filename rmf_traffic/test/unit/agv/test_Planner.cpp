@@ -1719,10 +1719,14 @@ SCENARIO("Test planner with start")
     graph.add_lane(w1, w0);
   };
 
-  add_bidir_lane(0 ,2); // 0
-  add_bidir_lane(1, 2); // 1
-  add_bidir_lane(3, 2); // 2
-  add_bidir_lane(4, 2); // 3
+  graph.add_lane(0 ,2); // 0
+  graph.add_lane(2, 0); // 1
+  graph.add_lane(1, 2); // 2
+  graph.add_lane(2, 1); // 3
+  graph.add_lane(3, 2); // 4
+  graph.add_lane(2, 3); // 5
+  graph.add_lane(4, 2); // 6
+  graph.add_lane(2, 4); // 7
 
   const VehicleTraits traits{
       {1.0, 0.4},
@@ -1746,10 +1750,30 @@ SCENARIO("Test planner with start")
 
   const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
 
-  WHEN("Start planning with robot not at waypoint")
-  {
-    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-5, 0};
-    rmf_utils::optional<std::size_t> initial_lane = std::size_t(0);
+  WHEN("Start contains initial_location")
+  { 
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
+
+    Planner::Start start(
+        initial_time,
+        1,
+        0.0,
+        initial_location);
+
+    REQUIRE(start.location());
+    REQUIRE(start.lane());
+
+    Planner::Goal goal(3);
+
+    const auto plan = planner.plan(start, goal);
+    CHECK(plan);
+
+  }
+
+  WHEN("Start contains initial_location and initial_lane")
+  { 
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
+    rmf_utils::optional<std::size_t> initial_lane = std::size_t(3);
   
     Planner::Start start(
         initial_time,
@@ -1761,17 +1785,15 @@ SCENARIO("Test planner with start")
     REQUIRE(start.location());
     REQUIRE(start.lane());
 
-    Planner::Goal goal(2);
+    Planner::Goal goal(3);
 
-    //const auto plan = planner.plan(start, goal);
+    const auto plan = planner.plan(start, goal);
     //CHECK(plan);
 
   }
 
  
 }
-
-
 
 // TODO(MXG): Make a test for the interrupt_flag in Planner::Options
 
