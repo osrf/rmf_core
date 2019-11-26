@@ -1753,13 +1753,14 @@ SCENARIO("Test planner with various start conditions")
         initial_time,
         1,
         0.0,
-        initial_location};
+        std::move(initial_location)};
 
     CHECK(start.location());
     CHECK_FALSE(start.lane());
 
     Planner::Goal goal = Planner::Goal{3};
 
+    // throws bad optional access error
     const auto plan = planner.plan(start, goal);
     CHECK(plan);
     REQUIRE(plan->get_trajectories().size() == 1);
@@ -1768,11 +1769,18 @@ SCENARIO("Test planner with various start conditions")
     WHEN("Obstace 4->0 overlaps")
     {
       std::vector<rmf_traffic::Trajectory> obstacles;
-      auto obstacle = rmf_traffic::agv::Interpolate::positions(
-          test_map_name,
-          traits,
-          initial_time + 10s,
-          {{0, 5, -M_PI_2}, {0, -5, -M_PI_2}});
+      rmf_traffic::Trajectory obstacle(test_map_name);
+      obstacle.insert(
+        initial_time,
+        make_test_profile(UnitCircle),
+        Eigen::Vector3d{0, 0, 0},
+        Eigen::Vector3d{0, 0, 0});
+
+      obstacle.insert(
+        initial_time + 60s,
+        make_test_profile(UnitCircle),
+        Eigen::Vector3d{0, 0, 0},
+        Eigen::Vector3d{0, 0, 0});
 
       REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
       obstacles.push_back(obstacle);
@@ -1801,12 +1809,38 @@ SCENARIO("Test planner with various start conditions")
 
     Planner::Goal goal{3};
 
+    // throws bad optional access error
     const auto plan = planner.plan(start, goal);
     CHECK(plan);
   }
 
   WHEN("Planning with startset of waypoint index and orientations")
   {
+
+    std::vector<Planner::Start> starts;
+    Planner::Start start1{initial_time, 1, 0.0};
+    Planner::Start start2{initial_time, 1, M_PI_2};
+    starts.push_back(start1);
+    starts.push_back(start2);
+
+    Planner::Goal goal{3, 0.0};
+
+    auto start_time = std::chrono::steady_clock::now();
+    auto plan = planner.plan(starts, goal);
+    auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Finished Planning multiple starts in: "
+        << rmf_traffic::time::to_seconds(finish_time - start_time)
+        << std::endl;
+
+    CHECK(plan);
+    REQUIRE(plan->get_trajectories().size() > 0);
+    const auto t = plan->get_trajectories().front();
+
+    //we expect the starting condition with orientation = 0 to be optimal
+    CHECK((graph.get_waypoint(3).get_location()
+        - t.back().get_finish_position().block<2,1>(0, 0)).norm()
+        == Approx(0.0).margin(1e-6));
+    CHECK((t.front().get_finish_position()[2] - 0.0) == Approx(0.0));
 
   }
   
