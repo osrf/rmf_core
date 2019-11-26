@@ -933,9 +933,6 @@ SCENARIO("Test planning")
   }
 }
 
-
-
-
 SCENARIO("DP1 Graph")
 {
   using namespace std::chrono_literals;
@@ -1803,25 +1800,31 @@ SCENARIO("Test planner with various start conditions")
 
     // throws bad optional access error
     const auto plan = planner.plan(start, goal);
-    CHECK(plan);
+    REQUIRE(plan);
     REQUIRE(plan->get_trajectories().size() == 1);
     auto t = plan->get_trajectories().front();
+
+    CHECK((t.front().get_finish_position().block<2,1>(0,0)
+        - Eigen::Vector2d{-2.5, 0}).norm() == Approx(0.0).margin(1e-6));
+    CHECK((graph.get_waypoint(3).get_location()
+        - t.back().get_finish_position().block<2,1>(0, 0)).norm()
+        == Approx(0.0).margin(1e-6));
 
     WHEN("Obstace 4->0 overlaps")
     {
       std::vector<rmf_traffic::Trajectory> obstacles;
       rmf_traffic::Trajectory obstacle(test_map_name);
       obstacle.insert(
-        initial_time,
-        make_test_profile(UnitCircle),
-        Eigen::Vector3d{0, 0, 0},
-        Eigen::Vector3d{0, 0, 0});
+          initial_time,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
 
       obstacle.insert(
-        initial_time + 60s,
-        make_test_profile(UnitCircle),
-        Eigen::Vector3d{0, 0, 0},
-        Eigen::Vector3d{0, 0, 0});
+          initial_time + 60s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
 
       REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
       obstacles.push_back(obstacle);
@@ -1830,6 +1833,12 @@ SCENARIO("Test planner with various start conditions")
           "Obstace 4->0 overlaps",
           *plan, database, obstacles, 1, initial_time, true);
 
+      t = plan->get_trajectories().front();    
+      CHECK((t.front().get_finish_position().block<2,1>(0,0)
+          - Eigen::Vector2d{-2.5, 0}).norm() == Approx(0.0).margin(1e-6));
+      CHECK((graph.get_waypoint(3).get_location()
+          - t.back().get_finish_position().block<2,1>(0, 0)).norm()
+          == Approx(0.0).margin(1e-6));
     }
   }
 
@@ -1852,12 +1861,11 @@ SCENARIO("Test planner with various start conditions")
 
     // throws bad optional access error
     const auto plan = planner.plan(start, goal);
-    CHECK(plan);
+    REQUIRE(plan);
   }
 
   WHEN("Planning with startset of waypoint index and orientations")
   {
-
     std::vector<Planner::Start> starts;
     Planner::Start start1{initial_time, 1, 0.0};
     Planner::Start start2{initial_time, 1, M_PI_2};
@@ -1867,7 +1875,7 @@ SCENARIO("Test planner with various start conditions")
     Planner::Goal goal{3, 0.0};
 
     auto plan = planner.plan(starts, goal);
-    CHECK(plan);
+    REQUIRE(plan);
     REQUIRE(plan->get_trajectories().size() > 0);
     const auto t = plan->get_trajectories().front();
 
@@ -1882,16 +1890,16 @@ SCENARIO("Test planner with various start conditions")
       std::vector<rmf_traffic::Trajectory> obstacles;
       rmf_traffic::Trajectory obstacle(test_map_name);
       obstacle.insert(
-        initial_time,
-        make_test_profile(UnitCircle),
-        Eigen::Vector3d{0, 0, 0},
-        Eigen::Vector3d{0, 0, 0});
+          initial_time,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
 
       obstacle.insert(
-        initial_time + 60s,
-        make_test_profile(UnitCircle),
-        Eigen::Vector3d{0, 0, 0},
-        Eigen::Vector3d{0, 0, 0});
+          initial_time + 60s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
 
       REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
       obstacles.push_back(obstacle);
@@ -1901,12 +1909,7 @@ SCENARIO("Test planner with various start conditions")
           "Obstace 4->0 overlaps",
           *plan, database, obstacles, 1, initial_time, true);
     }
-
   }
-  
-
- 
 }
 
 // TODO(MXG): Make a test for the interrupt_flag in Planner::Options
-
