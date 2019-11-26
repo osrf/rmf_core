@@ -27,6 +27,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <thread>
 
 // TODO(MXG): Move performance testing content into a performance test folder
 const bool test_performance = false;
@@ -1033,7 +1034,11 @@ SCENARIO("DP1 Graph")
       make_test_profile(UnitCircle)
   };
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
-  const rmf_traffic::agv::Planner::Options default_options{database};
+  bool interrupt_flag = false;
+  const rmf_traffic::agv::Planner::Options default_options{
+      database,
+      std::chrono::seconds(5),
+      &interrupt_flag};
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -1483,6 +1488,25 @@ SCENARIO("DP1 Graph")
     REQUIRE(obstacle_1.size() == 3);
     REQUIRE(DetectConflict::between(t,obstacle_1).size() > 0);
 
+    WHEN("Planning is interrupted")
+    {
+      const std::size_t start_index = 27;
+      const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+
+      const std::size_t goal_index = 32;
+      const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      auto plan_thread = std::thread(
+          [&]()
+      {
+        plan = planner.plan(start, goal);
+      });
+      interrupt_flag = true;
+      plan_thread.join();
+      CHECK_FALSE(plan);
+    }
+    
     WHEN("Obstacle 28->2")
     {
       obstacles.push_back(obstacle_1);
@@ -1842,13 +1866,7 @@ SCENARIO("Test planner with various start conditions")
 
     Planner::Goal goal{3, 0.0};
 
-    auto start_time = std::chrono::steady_clock::now();
     auto plan = planner.plan(starts, goal);
-    auto finish_time = std::chrono::steady_clock::now();
-    std::cout << "Finished Planning multiple starts in: "
-        << rmf_traffic::time::to_seconds(finish_time - start_time)
-        << std::endl;
-
     CHECK(plan);
     REQUIRE(plan->get_trajectories().size() > 0);
     const auto t = plan->get_trajectories().front();
