@@ -1861,7 +1861,15 @@ SCENARIO("Test planner with various start conditions")
 
     // throws bad optional access error
     const auto plan = planner.plan(start, goal);
-    REQUIRE(plan);
+    CHECK(plan);
+    CHECK(plan->get_trajectories().size() > 0);
+    auto t = plan->get_trajectories().front();    
+    CHECK((t.front().get_finish_position().block<2,1>(0,0)
+        - Eigen::Vector2d{-2.5, 0}).norm() == Approx(0.0).margin(1e-6));
+    CHECK((graph.get_waypoint(3).get_location()
+        - t.back().get_finish_position().block<2,1>(0, 0)).norm()
+        == Approx(0.0).margin(1e-6));
+    
   }
 
   WHEN("Planning with startset of waypoint index and orientations")
@@ -1884,6 +1892,7 @@ SCENARIO("Test planner with various start conditions")
         - t.back().get_finish_position().block<2,1>(0, 0)).norm()
         == Approx(0.0).margin(1e-6));
     CHECK((t.front().get_finish_position()[2] - 0.0) == Approx(0.0));
+    CHECK((t.back().get_finish_position()[2] - 0.0) == Approx(0.0));
 
     WHEN("Obstace 4->0 overlaps")
     {
@@ -1904,10 +1913,33 @@ SCENARIO("Test planner with various start conditions")
       REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
       obstacles.push_back(obstacle);
 
-      // TODO change to replan with startset
-      test_with_obstacle(
-          "Obstace 4->0 overlaps",
-          *plan, database, obstacles, 1, initial_time, true);
+      for(auto& obstacle : obstacles)
+        database.insert(obstacle);
+
+      /*
+      CMAKE ERROR when invoking plan.replan(starts)
+  
+      MakeFiles/test_rmf_traffic.dir/test/unit/agv/test_Planner.cpp.o:
+      In function `____C_A_T_C_H____T_E_S_T____61()': test_Planner
+      undefined reference to `rmf_traffic::agv::Plan::replan(
+      std::vector<rmf_traffic::agv::Planner::Start, 
+      std::allocator<rmf_traffic::agv::Planner::Start> > const&) const'
+      collect2: error: ld returned 1 exit status
+      */ 
+
+      plan = planner.plan(starts, goal);
+      REQUIRE(plan);
+      REQUIRE(plan->get_trajectories().size() > 0);
+      auto t2 = plan->get_trajectories().front();
+      REQUIRE(t2.duration() > t.duration());
+      CHECK(DetectConflict::between(t2, obstacle).empty());
+
+      CHECK((graph.get_waypoint(3).get_location()
+        - t2.back().get_finish_position().block<2,1>(0, 0)).norm()
+        == Approx(0.0).margin(1e-6));
+      // failing 
+      CHECK((t2.front().get_finish_position()[2] - 0.0) == Approx(0.0));
+      CHECK((t2.back().get_finish_position()[2] - 0.0) == Approx(0.0));
     }
   }
 }
