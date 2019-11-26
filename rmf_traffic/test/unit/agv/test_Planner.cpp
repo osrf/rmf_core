@@ -345,6 +345,23 @@ SCENARIO("Test Start")
   CHECK(start.lane());
 }
 
+SCENARIO("Test Goal")
+{
+  using Planner = rmf_traffic::agv::Planner;
+  Planner::Goal goal{1};
+  CHECK(goal.orientation() == nullptr);
+  CHECK(goal.waypoint() == 1);
+  goal.waypoint(2);
+  CHECK(goal.waypoint() == 2);
+
+  goal.orientation(M_PI_2);
+  CHECK((*goal.orientation() - M_PI_2) == Approx(0.0));
+
+  goal = Planner::Goal{3, 0.0};
+  CHECK(goal.waypoint() ==3);
+  CHECK((*goal.orientation() - 0.0) == Approx(0.0));
+}
+
 SCENARIO("Test planning")
 {
   using namespace std::chrono_literals;
