@@ -44,56 +44,24 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
   }
 }
 
-void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
+void display_path(const rmf_traffic::agv::Plan& plan)
 {
-  // this is a very bad algorithm but will be improved
-  const auto start_time = std::chrono::steady_clock::now();
-  std::vector<Eigen::Vector2d> graph_locations;
-  std::vector<int> path;
-
-  for (std::size_t i=0; i<graph.num_waypoints(); i++)
-    graph_locations.push_back(graph.get_waypoint(i).get_location());
-
-  for (auto it = t.begin(); it != t.end(); it++)
-  {
-    auto it2 = std::find(
-        graph_locations.begin(),
-        graph_locations.end(),
-        it->get_finish_position().block<2,1>(0,0));
-    if (it2 != graph_locations.end())
-      {
-        int waypoint_index=std::distance(graph_locations.begin(), it2);
-        if (path.empty())
-          path.push_back(waypoint_index);
-        else if (path.back() != waypoint_index)
-          path.push_back(waypoint_index);
-      }
-  }
-  const auto end_time = std::chrono::steady_clock::now();
-  std::cout<<"Display Path computed in: "
-      <<std::setprecision(4)
-      <<rmf_traffic::time::to_seconds(end_time - start_time)
-      <<"s\n";
-  for (auto it = path.begin(); it != path.end(); it++)
-  {
-    std::cout<<*it;
-    if(it!=--path.end())
-      std::cout<<"->";
-  }
+  for (const auto& wp : plan.get_waypoints())
+    std::cout<<wp.graph_index();
   std::cout<<std::endl;
 }
 
 void print_trajectory_info(
-    const rmf_traffic::Trajectory t,
-    rmf_traffic::Time time,
-    rmf_traffic::agv::Graph graph)
+    const rmf_traffic::agv::Plan& plan,
+    rmf_traffic::Time time)
 {
   int count = 1;
+  const auto& t = plan.get_trajectories().front();
   std::cout<<"Trajectory in: "
       <<t.get_map_name()
       <<" with "<<t.size()
       <<" segments\n";
-  display_path(t, graph);
+  display_path(plan);
   for (auto it = t.begin(); it != t.end(); it++)
     {
       auto position=it->get_finish_position();
@@ -192,7 +160,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   if (print_info)
   {
     std::cout << "Parent: " << parent << std::endl;
-    print_trajectory_info(t_obs, time, graph);
+    print_trajectory_info(*plan, time);
   }
   return t_obs;
 }
