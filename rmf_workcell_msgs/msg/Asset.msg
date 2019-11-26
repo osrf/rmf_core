@@ -1,0 +1,2 @@
+string guid
+string type

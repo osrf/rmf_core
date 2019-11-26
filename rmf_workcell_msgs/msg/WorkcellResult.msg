@@ -1,3 +1,7 @@
+# This is a template message for all types of workcells to build off from,
+# which allows generic workcell libraries to have access to common message
+# fields.
+
 builtin_interfaces/Time time
 
 # A unique ID for the request which this result is for
