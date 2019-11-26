@@ -1529,7 +1529,7 @@ SCENARIO("DP1 Graph")
 
           test_with_obstacle(
                 "Obstacle 28->2 , 29->4, 23->26",
-                *plan, database, obstacles, 27, time, true, true, true);
+                *plan, database, obstacles, 27, time);
         }
       }
     }
@@ -1695,7 +1695,7 @@ SCENARIO("Graph with door", "[door]")
   CHECK(has_event(ExpectEvent::DoorClose, *plan_with_door_open_close));
 }
 
-SCENARIO("Test planner with start")
+SCENARIO("Test planner with various start conditions")
 {
   using namespace std::chrono_literals;
   using rmf_traffic::agv::Graph;
@@ -1754,6 +1754,7 @@ SCENARIO("Test planner with start")
         1,
         0.0,
         initial_location};
+
     CHECK(start.location());
     CHECK_FALSE(start.lane());
 
@@ -1776,28 +1777,36 @@ SCENARIO("Test planner with start")
       REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
       obstacles.push_back(obstacle);
 
+      test_with_obstacle(
+          "Obstace 4->0 overlaps",
+          *plan, database, obstacles, 1, initial_time, true);
+
     }
   }
 
   WHEN("Start contains initial_location and initial_lane")
   { 
     rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
-    rmf_utils::optional<std::size_t> initial_lane = std::size_t(3);
+    rmf_utils::optional<std::size_t> initial_lane = std::size_t{3};
   
-    Planner::Start start(
+    Planner::Start start{
         initial_time,
         1,
         0.0,
         initial_location,
-        initial_lane);
+        initial_lane};
 
-    REQUIRE(start.location());
-    REQUIRE(start.lane());
+    CHECK(start.location());
+    CHECK(start.lane());
 
-    Planner::Goal goal(3);
+    Planner::Goal goal{3};
 
-    //const auto plan = planner.plan(start, goal);
-    //CHECK(plan);
+    const auto plan = planner.plan(start, goal);
+    CHECK(plan);
+  }
+
+  WHEN("Planning with startset of waypoint index and orientations")
+  {
 
   }
   
