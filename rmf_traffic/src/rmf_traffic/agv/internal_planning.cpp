@@ -835,7 +835,7 @@ struct DifferentialDriveExpander
     {
       assert(trajectory.size() > 1);
       assert(check.size() > 1);
-      if(!DetectConflict::between(trajectory, check).empty())
+      if(!DetectConflict::between(trajectory, check.trajectory, true).empty())
         return false;
     }
 

@@ -162,7 +162,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   // schedule
   const auto query = database.query(rmf_traffic::schedule::query_everything());
   for (const auto& entry : query)
-    CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
+    CHECK(rmf_traffic::DetectConflict::between(t_obs, entry.trajectory).empty());
 
   // Confirm that the vehicle pulled into holding point in order to avoid
   // the conflict
@@ -953,7 +953,7 @@ SCENARIO("DP1 Graph")
         const auto view =
             database.query(rmf_traffic::schedule::query_everything());
         for(const auto& _t : view)
-          REQUIRE(DetectConflict::between(obstacle_2, _t).empty());
+          REQUIRE(DetectConflict::between(obstacle_2, _t.trajectory).empty());
 
         REQUIRE(DetectConflict::between(obstacle_2, t).empty());
         obstacles.push_back(obstacle_2);
@@ -978,7 +978,7 @@ SCENARIO("DP1 Graph")
           const auto view =
               database.query(rmf_traffic::schedule::query_everything());
           for(const auto& _t : view)
-            REQUIRE(DetectConflict::between(obstacle_3, _t).empty());
+            REQUIRE(DetectConflict::between(obstacle_3, _t.trajectory).empty());
 
           REQUIRE(DetectConflict::between(obstacle_3, t).empty());
           obstacles.push_back(obstacle_3);
@@ -1004,7 +1004,7 @@ SCENARIO("DP1 Graph")
             const auto view =
                 database.query(rmf_traffic::schedule::query_everything());
             for(const auto& _t : view)
-              REQUIRE(DetectConflict::between(obstacle_4,_t).empty());
+              REQUIRE(DetectConflict::between(obstacle_4,_t.trajectory).empty());
 
             REQUIRE(DetectConflict::between(obstacle_4, t).empty());
             obstacles.push_back(obstacle_4);
@@ -1023,7 +1023,7 @@ SCENARIO("DP1 Graph")
                   Eigen::Vector3d{0, 0, 0});
 
             for(const auto& _t : view)
-              REQUIRE(DetectConflict::between(obstacle_5, _t).empty());
+              REQUIRE(DetectConflict::between(obstacle_5, _t.trajectory).empty());
 
             REQUIRE(DetectConflict::between(obstacle_5, t).empty());
             obstacles.push_back(obstacle_5);
@@ -1041,7 +1041,7 @@ SCENARIO("DP1 Graph")
                   Eigen::Vector3d{0, 0, 0});
 
             for(const auto& _t : view)
-              REQUIRE(DetectConflict::between(obstacle_6, _t).empty());
+              REQUIRE(DetectConflict::between(obstacle_6, _t.trajectory).empty());
             REQUIRE(DetectConflict::between(obstacle_6,t).empty());
             obstacles.push_back(obstacle_6);
 
@@ -1125,7 +1125,7 @@ SCENARIO("DP1 Graph")
         const auto view =
             database.query(rmf_traffic::schedule::query_everything());
         for(const auto& _t : view)
-          REQUIRE(DetectConflict::between(obstacle_2,_t).empty());
+          REQUIRE(DetectConflict::between(obstacle_2,_t.trajectory).empty());
 
         REQUIRE(DetectConflict::between(obstacle_2,t).empty());
         obstacles.push_back(obstacle_2);
@@ -1149,7 +1149,7 @@ SCENARIO("DP1 Graph")
           const auto view =
               database.query(rmf_traffic::schedule::query_everything());
           for(const auto& _t : view)
-            REQUIRE(DetectConflict::between(obstacle_3,_t).empty());
+            REQUIRE(DetectConflict::between(obstacle_3,_t.trajectory).empty());
 
           REQUIRE(DetectConflict::between(obstacle_3,t).empty());
           obstacles.push_back(obstacle_3);
@@ -1175,7 +1175,7 @@ SCENARIO("DP1 Graph")
             const auto view =
                 database.query(rmf_traffic::schedule::query_everything());
             for(const auto& _t : view)
-              REQUIRE(DetectConflict::between(obstacle_4,_t).empty());
+              REQUIRE(DetectConflict::between(obstacle_4,_t.trajectory).empty());
 
             REQUIRE(DetectConflict::between(obstacle_4,t).empty());
             obstacles.push_back(obstacle_4);
@@ -1193,7 +1193,7 @@ SCENARIO("DP1 Graph")
                   Eigen::Vector3d{0,0,0});
 
             for(const auto& _t : view)
-              REQUIRE(DetectConflict::between(obstacle_5, _t).empty());
+              REQUIRE(DetectConflict::between(obstacle_5, _t.trajectory).empty());
 
             REQUIRE(DetectConflict::between(obstacle_5, t).empty());
             obstacles.push_back(obstacle_5);
@@ -1211,7 +1211,7 @@ SCENARIO("DP1 Graph")
                Eigen::Vector3d{0,0,0});
 
             for(const auto& _t : view)
-              REQUIRE(DetectConflict::between(obstacle_6, _t).empty());
+              REQUIRE(DetectConflict::between(obstacle_6, _t.trajectory).empty());
 
             REQUIRE(DetectConflict::between(obstacle_6, t).empty());
             obstacles.push_back(obstacle_6);

@@ -23,6 +23,7 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_traffic_msgs/msg/mirror_wakeup.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict.hpp>
 
 #include <rmf_traffic_msgs/srv/submit_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/replace_trajectories.hpp>
@@ -45,6 +46,7 @@ public:
 
   ScheduleNode();
 
+  ~ScheduleNode();
 
 private:
 
@@ -131,8 +133,15 @@ private:
   using MirrorWakeupPublisher = rclcpp::Publisher<MirrorWakeup>;
   MirrorWakeupPublisher::SharedPtr mirror_wakeup_publisher;
 
+
+  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
+  using ScheduleConflictPublisher = rclcpp::Publisher<ScheduleConflict>;
+  ScheduleConflictPublisher::SharedPtr conflict_publisher;
+
+
   void wakeup_mirrors() const;
 
+  std::mutex database_mutex;
   rmf_traffic::schedule::Database database;
 
   using QueryMap =
@@ -142,6 +151,14 @@ private:
   std::size_t last_query_id = 0;
   QueryMap registered_queries;
 
+  // TODO(MXG): Make this a separate node
+  std::thread conflict_check_thread;
+  std::condition_variable conflict_check_cv;
+  std::atomic_bool conflict_check_quit;
+
+  using Version = rmf_traffic::schedule::Version;
+  std::map<Version, std::unordered_set<Version>> active_conflicts;
+  std::mutex active_conflicts_mutex;
 };
 
 } // namespace rmf_traffic_schedule

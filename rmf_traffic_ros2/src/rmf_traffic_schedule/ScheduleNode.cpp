@@ -23,8 +23,33 @@
 #include <rmf_traffic_ros2/schedule/Patch.hpp>
 
 #include <rmf_traffic/Conflict.hpp>
+#include <rmf_traffic/schedule/Mirror.hpp>
+
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_traffic_schedule {
+
+//==============================================================================
+std::unordered_set<rmf_traffic::schedule::Version> get_conflicts(
+    const rmf_traffic::schedule::Viewer::View& view)
+{
+  std::unordered_set<rmf_traffic::schedule::Version> conflicts;
+  for (auto v0 = view.begin(); v0 != view.end(); ++v0)
+  {
+    auto v1 = ++rmf_traffic::schedule::Viewer::View::const_iterator{v0};
+    for (; v1 != view.end(); ++v1)
+    {
+      if (!rmf_traffic::DetectConflict::between(
+            v0->trajectory, v1->trajectory, true).empty())
+      {
+        conflicts.insert(v0->id);
+        conflicts.insert(v1->id);
+      }
+    }
+  }
+
+  return conflicts;
+}
 
 //==============================================================================
 ScheduleNode::ScheduleNode()
@@ -93,25 +118,109 @@ ScheduleNode::ScheduleNode()
       create_publisher<MirrorWakeup>(
         rmf_traffic_ros2::MirrorWakeupTopicName,
         rclcpp::SystemDefaultsQoS());
+
+  conflict_publisher =
+      create_publisher<ScheduleConflict>(
+        rmf_traffic_ros2::ScheduleConflictTopicName,
+        rclcpp::SystemDefaultsQoS());
+
+  conflict_check_quit = false;
+  conflict_check_thread = std::thread(
+        [&]()
+  {
+    rmf_traffic::schedule::Mirror mirror;
+
+    Version last_checked_version = 0;
+
+    while (rclcpp::ok() && !conflict_check_quit)
+    {
+      const auto next_query =
+          rmf_traffic::schedule::make_query(last_checked_version);
+      rmf_utils::optional<rmf_traffic::schedule::Database::Patch> next_patch;
+
+      // Use this scope to minimize how long we lock the database for
+      {
+        std::unique_lock<std::mutex> lock(database_mutex);
+        conflict_check_cv.wait_for(lock, std::chrono::milliseconds(100), [&]()
+        {
+          return (database.latest_version() > last_checked_version)
+              && !conflict_check_quit;
+        });
+
+        if (database.latest_version() == last_checked_version
+            || conflict_check_quit)
+        {
+          // This is a casual wakeup to check if we're supposed to quit yet
+          continue;
+        }
+
+        next_patch = database.changes(next_query);
+
+        // TODO(MXG): Check whether the database really needs to remain locked
+        // during this update.
+        mirror.update(*next_patch);
+      }
+
+      last_checked_version = mirror.latest_version();
+
+      const auto view = mirror.query(
+            rmf_traffic::schedule::query_everything());
+
+      const auto conflicts = get_conflicts(view);
+      if (!conflicts.empty())
+      {
+        {
+          std::unique_lock<std::mutex> lock(active_conflicts_mutex);
+          active_conflicts.insert(
+                std::make_pair(mirror.latest_version(), conflicts));
+        }
+
+        ScheduleConflict msg;
+        for (const auto c : conflicts)
+          msg.indices.push_back(c);
+
+        msg.version = last_checked_version;
+
+        conflict_publisher->publish(std::move(msg));
+      }
+      else
+      {
+        bool had_conflicts = false;
+
+        {
+          std::unique_lock<std::mutex> lock(active_conflicts_mutex);
+          had_conflicts = !active_conflicts.empty();
+          active_conflicts.clear();
+        }
+
+        if (had_conflicts)
+        {
+          ScheduleConflict msg;
+          msg.version = last_checked_version;
+          conflict_publisher->publish(std::move(msg));
+        }
+      }
+    }
+  });
+}
+
+//==============================================================================
+ScheduleNode::~ScheduleNode()
+{
+  conflict_check_quit = true;
+  if (conflict_check_thread.joinable())
+    conflict_check_thread.join();
 }
 
 //==============================================================================
 void insert_conflicts(
-    const std::size_t i,
-    const std::vector<rmf_traffic::ConflictData>& conflicts,
+    const std::vector<uint64_t>& conflicts,
     rmf_traffic_msgs::srv::SubmitTrajectories::Response& response)
 {
   if(!conflicts.empty())
   {
     response.accepted = false;
-    response.error = "Conflicts detected";
-    for(const auto& c : conflicts)
-    {
-      rmf_traffic_msgs::msg::ScheduleConflict conflict_msg;
-      conflict_msg.index = i;
-      conflict_msg.time = c.get_time().time_since_epoch().count();
-      response.conflicts.emplace_back(std::move(conflict_msg));
-    }
+    response.conflicts = conflicts;
   }
 }
 
@@ -124,9 +233,12 @@ void ScheduleNode::submit_trajectories(
   response->accepted = true;
   response->current_version = database.latest_version();
   response->original_version = response->current_version;
+  response->error.clear();
 
   std::vector<rmf_traffic::Trajectory> requested_trajectories;
   requested_trajectories.reserve(request->trajectories.size());
+  std::vector<uint64_t> conflicting_indices;
+  conflicting_indices.reserve(request->trajectories.size());
   for(std::size_t i=0; i < request->trajectories.size(); ++i)
   {
     const auto& msg = request->trajectories[i];
@@ -168,23 +280,26 @@ void ScheduleNode::submit_trajectories(
                      requested_trajectory.start_time(),
                      requested_trajectory.finish_time()));
 
-    for(const auto& scheduled_trajectory : view)
+    for(const auto& v : view)
     {
-      if(*requested_trajectory.finish_time() < *scheduled_trajectory.start_time())
+      // TODO(MXG) Since we already put these time limits in the query, do we
+      // really need to check them again here?
+      if(*requested_trajectory.finish_time() < *v.trajectory.start_time())
         continue;
 
-      if(*scheduled_trajectory.finish_time() < *requested_trajectory.start_time())
+      if(*v.trajectory.finish_time() < *requested_trajectory.start_time())
         continue;
 
       const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(
-            requested_trajectory, scheduled_trajectory);
-
-      insert_conflicts(i, conflicts, *response);
+            requested_trajectory, v.trajectory, true);
+      if (!conflicts.empty())
+        conflicting_indices.push_back(i);
     }
 
     requested_trajectories.emplace_back(std::move(requested_trajectory));
   }
 
+  insert_conflicts(conflicting_indices, *response);
   if(!response->accepted)
     return;
 
@@ -198,11 +313,13 @@ void ScheduleNode::submit_trajectories(
     {
       const auto conflicts = rmf_traffic::DetectConflict::between(
             requested_trajectories[i],
-            requested_trajectories[j]);
-      insert_conflicts(i, conflicts, *response);
+            requested_trajectories[j], true);
+      if (!conflicts.empty())
+        conflicting_indices.push_back(i);
     }
   }
 
+  insert_conflicts(conflicting_indices, *response);
   if(!response->accepted)
     return;
 

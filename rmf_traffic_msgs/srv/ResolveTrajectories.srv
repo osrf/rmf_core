@@ -1,0 +1,18 @@
+uint64[] resolve_ids
+
+Trajectory[] trajectories
+
+# The version of the schedule that this resolution is trying to fix.
+# Multiple fleet adapters may simultaneously submit schedule resolutions for the
+# same version, but only one will be accepted.
+uint64 schedule_version
+
+---
+
+# True if this resolution was accepted. False if a different resolution was
+# accepted instead and there is no longer a conflict.
+bool accepted
+
+uint64 current_version
+
+uint64 original_version

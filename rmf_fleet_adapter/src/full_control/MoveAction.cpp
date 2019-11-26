@@ -1014,6 +1014,21 @@ private:
 
 MoveAction::~MoveAction()
 {
+  if (!_schedule_ids.empty())
+  {
+    using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
+
+    const auto& erase = _node->get_fields().erase_trajectories;
+    EraseTrajectories::Request request;
+    request.erase_ids = _schedule_ids;
+
+    _schedule_ids.clear();
+    _waiting_for_schedule = true;
+
+    erase->async_send_request(
+          std::make_shared<EraseTrajectories::Request>(std::move(request)));
+  }
+
   _context->listeners.erase(&_state_listener);
 }
 

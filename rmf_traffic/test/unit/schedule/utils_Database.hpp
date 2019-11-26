@@ -58,10 +58,10 @@ inline std::vector<rmf_traffic::Trajectory> get_collision_trajectories(const rmf
 {
 
   std::vector<rmf_traffic::Trajectory> collision_trajectories;
-  for(auto trajectory: view)
+  for(auto v : view)
   {
-    if(rmf_traffic::DetectConflict::between(trajectory,t).size()>0)
-        collision_trajectories.push_back(trajectory);
+    if(rmf_traffic::DetectConflict::between(v.trajectory, t).size()>0)
+        collision_trajectories.push_back(v.trajectory);
 
   }
   return collision_trajectories;

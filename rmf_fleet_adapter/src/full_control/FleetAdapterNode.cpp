@@ -55,6 +55,9 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
   auto replace_trajectories = node->create_client<ReplaceTrajectories>(
         rmf_traffic_ros2::ReplaceTrajectoriesSrvName);
 
+  auto erase_trajectories = node->create_client<EraseTrajectories>(
+        rmf_traffic_ros2::EraseTrajectoriesSrvName);
+
   rmf_utils::optional<GraphInfo> graph_info =
       parse_graph(graph_file, traits, *node);
   if (!graph_info)
@@ -71,6 +74,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
     ready &= submit_trajectories->service_is_ready();
     ready &= delay_trajectories->service_is_ready();
     ready &= replace_trajectories->service_is_ready();
+    ready &= erase_trajectories->service_is_ready();
     ready &= (mirror_future.wait_for(0s) == std::future_status::ready);
 
     if (ready)
@@ -82,7 +86,8 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
               mirror_future.get(),
               std::move(submit_trajectories),
               std::move(delay_trajectories),
-              std::move(replace_trajectories)
+              std::move(replace_trajectories),
+              std::move(erase_trajectories)
             });
 
       return node;

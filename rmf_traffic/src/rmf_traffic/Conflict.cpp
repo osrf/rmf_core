@@ -111,12 +111,13 @@ invalid_trajectory_error::invalid_trajectory_error()
 //==============================================================================
 std::vector<ConflictData> DetectConflict::between(
     const Trajectory& trajectory_a,
-    const Trajectory& trajectory_b)
+    const Trajectory& trajectory_b,
+    const bool quit_after_one)
 {
   if(!broad_phase(trajectory_a, trajectory_b))
     return {};
 
-  return narrow_phase(trajectory_a, trajectory_b);
+  return narrow_phase(trajectory_a, trajectory_b, quit_after_one);
 }
 
 //==============================================================================
@@ -257,7 +258,8 @@ public:
 //==============================================================================
 std::vector<ConflictData> DetectConflict::narrow_phase(
     const Trajectory& trajectory_a,
-    const Trajectory& trajectory_b)
+    const Trajectory& trajectory_b,
+    const bool quit_after_one)
 {
   Trajectory::const_iterator a_it;
   Trajectory::const_iterator b_it;
@@ -333,6 +335,8 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
         Duration::rep(scaled_time * (finish_time - start_time).count())};
       const Time time = start_time + delta_t;
       conflicts.emplace_back(Implementation::make_conflict(time, {a_it, b_it}));
+      if (quit_after_one)
+        return conflicts;
     }
 
     if(spline_a.finish_time() < spline_b.finish_time())

@@ -199,7 +199,7 @@ public:
 
   const Version* after_version;
 
-  std::vector<const Trajectory*> trajectories;
+  std::vector<Viewer::View::Element> elements;
 
 };
 

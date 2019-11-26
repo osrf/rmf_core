@@ -23,6 +23,7 @@
 #include <rmf_traffic_msgs/srv/submit_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/delay_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/replace_trajectories.hpp>
+#include <rmf_traffic_msgs/srv/erase_trajectories.hpp>
 
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
 #include <rmf_fleet_msgs/msg/path_request.hpp>
@@ -168,6 +169,10 @@ public:
   using ReplaceTrajectoriesClient = rclcpp::Client<ReplaceTrajectories>;
   using ReplaceTrajectoriesPtr = ReplaceTrajectoriesClient::SharedPtr;
 
+  using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
+  using EraseTrajectoriesClient = rclcpp::Client<EraseTrajectories>;
+  using EraseTrajectoriesPtr = EraseTrajectoriesClient::SharedPtr;
+
   struct Fields
   {
     rmf_traffic_ros2::schedule::MirrorManager mirror;
@@ -175,6 +180,7 @@ public:
     SubmitTrajectoriesPtr submit_trajectories;
     DelayTrajectoriesPtr delay_trajectories;
     ReplaceTrajectoriesPtr replace_trajectories;
+    EraseTrajectoriesPtr erase_trajectories;
 
     GraphInfo graph_info;
     rmf_traffic::agv::VehicleTraits traits;
@@ -186,11 +192,13 @@ public:
         rmf_traffic_ros2::schedule::MirrorManager mirror_,
         SubmitTrajectoriesPtr submit_trajectories_,
         DelayTrajectoriesPtr delay_trajectories_,
-        ReplaceTrajectoriesPtr replace_trajectories_)
+        ReplaceTrajectoriesPtr replace_trajectories_,
+        EraseTrajectoriesPtr erase_trajectories_)
     : mirror(std::move(mirror_)),
       submit_trajectories(std::move(submit_trajectories_)),
       delay_trajectories(std::move(delay_trajectories_)),
       replace_trajectories(std::move(replace_trajectories_)),
+      erase_trajectories(std::move(erase_trajectories_)),
       graph_info(std::move(graph_info_)),
       traits(std::move(traits_)),
       planner(

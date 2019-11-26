@@ -31,6 +31,7 @@ const std::string RegisterQueryServiceName = Prefix + "register_query";
 const std::string UnregisterQueryServiceName = Prefix + "unregister_query";
 const std::string MirrorUpdateServiceName = Prefix + "mirror_update";
 const std::string MirrorWakeupTopicName = Prefix + "mirror_wakeup";
+const std::string ScheduleConflictTopicName = Prefix + "schedule_conflict";
 
 } // namespace rmf_traffic_ros2
 

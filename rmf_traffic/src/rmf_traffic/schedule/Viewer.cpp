@@ -94,7 +94,7 @@ void ViewRelevanceInspector::after(const Version* _after)
 //==============================================================================
 void ViewRelevanceInspector::reserve(const std::size_t size)
 {
-  trajectories.reserve(size);
+  elements.reserve(size);
 }
 
 //==============================================================================
@@ -110,7 +110,8 @@ void ViewRelevanceInspector::inspect(
 
   if(rmf_traffic::internal::detect_conflicts(
        entry->trajectory, spacetime_region, nullptr))
-    trajectories.push_back(&entry->trajectory);
+    elements.emplace_back(Viewer::View::Element{
+                            entry->version, entry->trajectory});
 }
 
 //==============================================================================
@@ -134,7 +135,8 @@ void ViewRelevanceInspector::inspect(
   if(upper_time_bound && *upper_time_bound < *trajectory.start_time())
     return;
 
-  trajectories.push_back(&entry->trajectory);
+  elements.emplace_back(Viewer::View::Element{
+                          entry->version, entry->trajectory});
 }
 
 } // namespace internal
@@ -475,13 +477,13 @@ class Viewer::View::Implementation
 {
 public:
 
-  std::vector<const Trajectory*> entries;
+  std::vector<Element> elements;
 
-  static View make_view(std::vector<const Trajectory*> entries)
+  static View make_view(std::vector<Element> elements)
   {
     View view;
     view._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(entries)});
+          Implementation{std::move(elements)});
     return view;
   }
 };
@@ -491,28 +493,26 @@ class Viewer::View::IterImpl
 {
 public:
 
-  internal::DeepIterator iter;
+  std::vector<Element>::const_iterator iter;
 
 };
 
 //==============================================================================
 auto Viewer::View::begin() const -> const_iterator
 {
-  return const_iterator{IterImpl{
-      internal::DeepIterator{_pimpl->entries.begin()}}};
+  return const_iterator{IterImpl{_pimpl->elements.begin()}};
 }
 
 //==============================================================================
 auto Viewer::View::end() const -> const_iterator
 {
-  return const_iterator{IterImpl{
-      internal::DeepIterator{_pimpl->entries.end()}}};
+  return const_iterator{IterImpl{_pimpl->elements.end()}};
 }
 
 //==============================================================================
 std::size_t Viewer::View::size() const
 {
-  return _pimpl->entries.size();
+  return _pimpl->elements.size();
 }
 
 //==============================================================================
@@ -520,7 +520,7 @@ Viewer::View Viewer::query(const Query& parameters) const
 {
   return View::Implementation::make_view(
         std::move(_pimpl->inspect<internal::ViewRelevanceInspector>(
-                    parameters).trajectories));
+                    parameters).elements));
 }
 
 //==============================================================================
@@ -545,7 +545,6 @@ Viewer::Viewer()
 std::size_t Viewer::Debug::get_num_entries(const Viewer& viewer)
 {
   return viewer._pimpl->all_entries.size();
-
 }
 
 } // namespace schedule
@@ -554,7 +553,7 @@ std::size_t Viewer::Debug::get_num_entries(const Viewer& viewer)
 namespace detail {
 
 template class bidirectional_iterator<
-    const Trajectory,
+    const schedule::Viewer::View::Element,
     schedule::Viewer::View::IterImpl,
     schedule::Viewer::View
 >;
