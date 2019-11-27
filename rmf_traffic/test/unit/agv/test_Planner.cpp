@@ -1851,8 +1851,8 @@ SCENARIO("Test planner with various start conditions")
         initial_time,
         1,
         0.0,
-        initial_location,
-        initial_lane};
+        std::move(initial_location),
+        std::move(initial_lane)};
 
     CHECK(start.location());
     CHECK(start.lane());
