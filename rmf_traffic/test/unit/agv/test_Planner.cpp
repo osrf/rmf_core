@@ -149,7 +149,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   const auto query =
       database.query(rmf_traffic::schedule::query_everything());
   for (const auto& entry : query)
-    CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
+    CHECK(rmf_traffic::DetectConflict::between(t_obs, entry.trajectory).empty());
 
   // Confirm that the vehicle pulled into holding point in order to avoid
   // the conflict

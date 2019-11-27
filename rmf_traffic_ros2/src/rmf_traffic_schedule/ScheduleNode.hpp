@@ -56,6 +56,13 @@ private:
   using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
   using SubmitTrajectoriesService = rclcpp::Service<SubmitTrajectories>;
 
+  std::unordered_set<uint64_t> process_trajectories(
+      std::vector<rmf_traffic::Trajectory>& output_trajectories,
+      std::vector<uint64_t>& output_conflicts,
+      const std::vector<rmf_traffic_msgs::msg::Trajectory>& requests,
+      const std::unordered_set<uint64_t>& initial_conflicts = {},
+      const std::unordered_set<uint64_t>& replace_ids = {});
+
   void submit_trajectories(
       const request_id_ptr& request_header,
       const SubmitTrajectories::Request::SharedPtr& request,
@@ -66,6 +73,12 @@ private:
 
   using ReplaceTrajectories = rmf_traffic_msgs::srv::ReplaceTrajectories;
   using ReplaceTrajectoriesService = rclcpp::Service<ReplaceTrajectories>;
+
+  void perform_replacement(
+      const std::vector<uint64_t>& replace_ids,
+      std::vector<rmf_traffic::Trajectory> trajectories,
+      uint64_t& latest_trajectory_version,
+      uint64_t& current_version);
 
   void replace_trajectories(
       const request_id_ptr& request_header,
@@ -151,7 +164,7 @@ private:
   ScheduleConflictPublisher::SharedPtr conflict_publisher;
 
 
-  void wakeup_mirrors() const;
+  void wakeup_mirrors();
 
   // TODO(MXG): Consider using libguarded instead of a database_mutex
   std::mutex database_mutex;
@@ -170,8 +183,18 @@ private:
   std::atomic_bool conflict_check_quit;
 
   using Version = rmf_traffic::schedule::Version;
-  std::map<Version, std::unordered_set<Version>> active_conflicts;
+  using ConflictMap = std::map<Version, std::unordered_set<Version>>;
+  ConflictMap active_conflicts;
   std::mutex active_conflicts_mutex;
+  // TODO(MXG): As replace, delay, and erase events occur, some of the entries
+  // that are logged in the active conflicts may actually become obsolete. It
+  // may be a good idea to consider tracking and erasing those entries as they
+  // get modified.
+  //
+  // In the long-term the schedule should periodically become completely
+  // resolved, so those entries should still get erased eventually anyhow, but
+  // it may be good to erase them as they become outdated for the sake of
+  // maximum sanitation.
 };
 
 } // namespace rmf_traffic_schedule
