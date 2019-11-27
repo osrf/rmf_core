@@ -1809,6 +1809,15 @@ SCENARIO("Test planner with various start conditions")
     CHECK((graph.get_waypoint(3).get_location()
         - t.back().get_finish_position().block<2,1>(0, 0)).norm()
         == Approx(0.0).margin(1e-6));
+    const auto& waypoints = plan->get_waypoints();
+      REQUIRE(waypoints.size() == 3);
+
+    auto it = std::find(waypoints.begin(), waypoints.end(), 1);
+    CHECK(it != waypoints.end());
+    auto it = std::find(waypoints.begin(), waypoints.end(), 2);
+    CHECK(it != waypoints.end());
+    auto it = std::find(waypoints.begin(), waypoints.end(), 3);
+    CHECK(it != waypoints.end());
 
     WHEN("Obstace 4->0 overlaps")
     {
@@ -1839,6 +1848,14 @@ SCENARIO("Test planner with various start conditions")
       CHECK((graph.get_waypoint(3).get_location()
           - t.back().get_finish_position().block<2,1>(0, 0)).norm()
           == Approx(0.0).margin(1e-6));
+      const auto& waypoints = plan->get_waypoints();
+      REQUIRE(waypoints.size() == 3);
+      auto it = std::find(waypoints.begin(), waypoints.end(), 1);
+      CHECK(it != waypoints.end());
+      auto it = std::find(waypoints.begin(), waypoints.end(), 2);
+      CHECK(it != waypoints.end());
+      auto it = std::find(waypoints.begin(), waypoints.end(), 3);
+      CHECK(it != waypoints.end());
     }
   }
 
@@ -1869,7 +1886,14 @@ SCENARIO("Test planner with various start conditions")
     CHECK((graph.get_waypoint(3).get_location()
         - t.back().get_finish_position().block<2,1>(0, 0)).norm()
         == Approx(0.0).margin(1e-6));
-    
+    const auto& waypoints = plan->get_waypoints();
+    REQUIRE(waypoints.size() == 3);
+    auto it = std::find(waypoints.begin(), waypoints.end(), 1);
+    CHECK(it != waypoints.end());
+    auto it = std::find(waypoints.begin(), waypoints.end(), 2);
+    CHECK(it != waypoints.end());
+    auto it = std::find(waypoints.begin(), waypoints.end(), 3);
+    CHECK(it != waypoints.end());
   }
 
   WHEN("Planning with startset of waypoint index and orientations")
@@ -1887,13 +1911,19 @@ SCENARIO("Test planner with various start conditions")
     REQUIRE(plan->get_trajectories().size() > 0);
     const auto t = plan->get_trajectories().front();
 
-    //we expect the starting condition with orientation = 0 to be optimal
+    //we expect the starting condition with orientation = 0 to be shortest
     CHECK((graph.get_waypoint(3).get_location()
         - t.back().get_finish_position().block<2,1>(0, 0)).norm()
         == Approx(0.0).margin(1e-6));
     CHECK((t.front().get_finish_position()[2] - 0.0) == Approx(0.0));
     CHECK((t.back().get_finish_position()[2] - 0.0) == Approx(0.0));
 
+    WHEN("Testing replan with startsets")
+    {
+      plan = plan->replan(starts);
+
+
+    }
     WHEN("Obstace 4->0 overlaps")
     {
       std::vector<rmf_traffic::Trajectory> obstacles;
