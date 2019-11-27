@@ -1843,6 +1843,11 @@ SCENARIO("Test planner with various start conditions")
     const auto plan = planner.plan(start, goal);
     CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 2, 3});
 
+    WHEN("Testign replan")
+    {
+      auto plan2 = plan->replan(start);
+    }
+
     WHEN("Obstace 4->0 overlaps")
     {
       std::vector<rmf_traffic::Trajectory> obstacles;
