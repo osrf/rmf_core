@@ -1754,19 +1754,19 @@ SCENARIO("Test planner with various start conditions")
 
   graph.add_lane(0 ,2); // 0
   graph.add_lane(2, 0); // 1
-  graph.add_lane(1, 2); // 2
-  graph.add_lane(2, 1); // 3
-  graph.add_lane(3, 2); // 4
-  graph.add_lane(2, 3); // 5
-  graph.add_lane(4, 2); // 6
-  graph.add_lane(2, 4); // 7
+  // added within tests for testing with orientation constraints
+  // graph.add_lane(1, 2); 
+  // graph.add_lane(2, 1); 
+  graph.add_lane(3, 2); // 2
+  graph.add_lane(2, 3); // 3
+  graph.add_lane(4, 2); // 4
+  graph.add_lane(2, 4); // 5
 
   const VehicleTraits traits{
       {1.0, 0.4},
       {1.0, 0.5},
       make_test_profile(UnitCircle)
   };
-
 
   rmf_traffic::schedule::Database database;
   bool interrupt_flag = false;
@@ -1785,6 +1785,9 @@ SCENARIO("Test planner with various start conditions")
 
   WHEN("Start contains initial_location")
   { 
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+
     rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
 
     Planner::Start start = Planner::Start{
@@ -1862,10 +1865,13 @@ SCENARIO("Test planner with various start conditions")
     }
   }
 
-  WHEN("Start contains initial_location and initial_lane")
+  WHEN("Start contains initial_location and initial_lane without constraints")
   { 
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+
     rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
-    rmf_utils::optional<std::size_t> initial_lane = std::size_t{3};
+    rmf_utils::optional<std::size_t> initial_lane = std::size_t{7};
   
     Planner::Start start{
         initial_time,
@@ -1903,6 +1909,9 @@ SCENARIO("Test planner with various start conditions")
 
   WHEN("Planning with startset of waypoint index and orientations")
   {
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+    
     std::vector<Planner::Start> starts;
     Planner::Start start1{initial_time, 1, 0.0};
     Planner::Start start2{initial_time, 1, M_PI_2};
@@ -1925,7 +1934,6 @@ SCENARIO("Test planner with various start conditions")
 
     WHEN("Testing replan with startsets")
     {
-
       /*
       CMAKE ERROR when invoking plan.replan(starts)
   
