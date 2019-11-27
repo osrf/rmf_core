@@ -204,6 +204,44 @@ inline void CHECK_INTERPOLATION(
       o2.get_corner_angle_threshold())
           == Approx(0).margin(1e-6));
 }
+
+inline void CHECK_PLAN(
+    rmf_utils::optional<rmf_traffic::agv::Plan> plan,
+    const Eigen::Vector2d first_location,
+    const double first_orientation,
+    const Eigen::Vector2d last_location,
+    const std::vector<std::size_t> wp_indices,
+    const double* last_orientation = nullptr)
+{
+  REQUIRE(plan);
+  REQUIRE(plan->get_trajectories().size() > 0);
+  auto t = plan->get_trajectories().front();
+  // check locations    
+  CHECK((t.front().get_finish_position().block<2,1>(0,0)
+      - first_location).norm() == Approx(0.0).margin(1e-6));
+  CHECK((t.back().get_finish_position().block<2,1>(0, 0)
+      - last_location).norm()  == Approx(0.0).margin(1e-6));
+  // check orientations 
+  CHECK((t.front().get_finish_position()[2] - first_orientation)
+      == Approx(0.0).margin(1e-6));
+  if (last_orientation != nullptr)
+    CHECK((t.back().get_finish_position()[2] - *last_orientation)
+        == Approx(0.0).margin(1e-6));
+  // check waypoints
+  const auto& wps = plan->get_waypoints();
+  // removing consecutive duplicates of waypoints
+  // when robot is waiting at holdign point
+  std::vector<std::size_t> plan_indices;
+  for( const auto &wp : wps)
+    plan_indices.push_back(*wp.graph_index());
+  auto ip = std::unique(plan_indices.begin(), plan_indices.end());
+  plan_indices.resize(std::distance(plan_indices.begin(), ip));
+  REQUIRE(plan_indices.size() == wp_indices.size());
+  for( const auto &i : plan_indices)
+    CHECK(std::find(
+        wp_indices.begin(), wp_indices.end(), i)
+        != wp_indices.end());
+}
 // ____________________________________________________________________________
 
 SCENARIO("Test Configuration", "[config]")
@@ -1741,7 +1779,6 @@ SCENARIO("Test planner with various start conditions")
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
   using DetectConflict = rmf_traffic::DetectConflict;
-  //using nullopt = rmf_utils::nullopt_t;
 
   const std::string test_map_name = "test_map";
   Graph graph;
@@ -1787,6 +1824,7 @@ SCENARIO("Test planner with various start conditions")
   { 
     graph.add_lane(1, 2); // 6
     graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
 
@@ -1803,25 +1841,7 @@ SCENARIO("Test planner with various start conditions")
 
     // throws bad optional access error
     const auto plan = planner.plan(start, goal);
-    REQUIRE(plan);
-    REQUIRE(plan->get_trajectories().size() == 1);
-    auto t = plan->get_trajectories().front();
-
-    CHECK((t.front().get_finish_position().block<2,1>(0,0)
-        - Eigen::Vector2d{-2.5, 0}).norm() == Approx(0.0).margin(1e-6));
-    CHECK((graph.get_waypoint(3).get_location()
-        - t.back().get_finish_position().block<2,1>(0, 0)).norm()
-        == Approx(0.0).margin(1e-6));
-    const auto& waypoints = plan->get_waypoints();
-      REQUIRE(waypoints.size() == 3);
-    int wp_count = 0;
-    for (const auto& wp : waypoints)
-        if (
-            *wp.graph_index() == 1
-            || *wp.graph_index() == 2
-            || *wp.graph_index() == 3)
-          ++wp_count;
-    REQUIRE(wp_count == 3);
+    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 2, 3});
 
     WHEN("Obstace 4->0 overlaps")
     {
@@ -1839,79 +1859,54 @@ SCENARIO("Test planner with various start conditions")
           Eigen::Vector3d{0, 0, 0},
           Eigen::Vector3d{0, 0, 0});
 
-      REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
+      REQUIRE(DetectConflict::between(obstacle, plan->get_trajectories().front()).size() != 0);
       obstacles.push_back(obstacle);
 
       test_with_obstacle(
           "Obstace 4->0 overlaps",
           *plan, database, obstacles, 1, initial_time, true);
 
-      t = plan->get_trajectories().front();    
-      CHECK((t.front().get_finish_position().block<2,1>(0,0)
-          - Eigen::Vector2d{-2.5, 0}).norm() == Approx(0.0).margin(1e-6));
-      CHECK((graph.get_waypoint(3).get_location()
-          - t.back().get_finish_position().block<2,1>(0, 0)).norm()
-          == Approx(0.0).margin(1e-6));
-      const auto& waypoints = plan->get_waypoints();
-      REQUIRE(waypoints.size() == 3);
-      wp_count = 0;
-      for (const auto& wp : waypoints)
-          if (
-              *wp.graph_index() == 1
-              || *wp.graph_index() == 2
-              || *wp.graph_index() == 3)
-            ++wp_count;
-      REQUIRE(wp_count == 3);
+      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 2, 3});
     }
   }
 
-  WHEN("Start contains initial_location and initial_lane without constraints")
+  WHEN("Start contains initial_location and initial_lane")
   { 
-    graph.add_lane(1, 2); // 6
-    graph.add_lane(2, 1); // 7
-
-    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
-    rmf_utils::optional<std::size_t> initial_lane = std::size_t{7};
-  
-    Planner::Start start{
-        initial_time,
-        1,
-        0.0,
-        std::move(initial_location),
-        std::move(initial_lane)};
-
-    CHECK(start.location());
-    CHECK(start.lane());
 
     Planner::Goal goal{3};
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
 
-    // throws bad optional access error
-    const auto plan = planner.plan(start, goal);
-    CHECK(plan);
-    CHECK(plan->get_trajectories().size() > 0);
-    auto t = plan->get_trajectories().front();    
-    CHECK((t.front().get_finish_position().block<2,1>(0,0)
-        - Eigen::Vector2d{-2.5, 0}).norm() == Approx(0.0).margin(1e-6));
-    CHECK((graph.get_waypoint(3).get_location()
-        - t.back().get_finish_position().block<2,1>(0, 0)).norm()
-        == Approx(0.0).margin(1e-6));
-    const auto& waypoints = plan->get_waypoints();
-    REQUIRE(waypoints.size() == 3);
-    int wp_count = 0;
-    for (const auto& wp : waypoints)
-        if (
-            *wp.graph_index() == 1
-            || *wp.graph_index() == 2
-            || *wp.graph_index() == 3)
-          ++wp_count;
-    REQUIRE(wp_count == 3);
+    WHEN("initial_lane is not constrained")
+    {
+      graph.add_lane(1, 2); // 6
+      graph.add_lane(2, 1); // 7
+      planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+      rmf_utils::optional<std::size_t> initial_lane = std::size_t{7};
+    
+      Planner::Start start{
+          initial_time,
+          1,
+          0.0,
+          std::move(initial_location),
+          std::move(initial_lane)};
+
+      CHECK(start.location());
+      CHECK(start.lane());
+
+      // throws bad optional access error
+      const auto plan = planner.plan(start, goal);
+      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 2, 3});
+    }
+
   }
 
   WHEN("Planning with startset of waypoint index and orientations")
   {
     graph.add_lane(1, 2); // 6
     graph.add_lane(2, 1); // 7
-    
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
     std::vector<Planner::Start> starts;
     Planner::Start start1{initial_time, 1, 0.0};
     Planner::Start start2{initial_time, 1, M_PI_2};
@@ -1921,16 +1916,8 @@ SCENARIO("Test planner with various start conditions")
     Planner::Goal goal{3, 0.0};
 
     auto plan = planner.plan(starts, goal);
-    REQUIRE(plan);
-    REQUIRE(plan->get_trajectories().size() > 0);
-    const auto t = plan->get_trajectories().front();
-
     //we expect the starting condition with orientation = 0 to be shortest
-    CHECK((graph.get_waypoint(3).get_location()
-        - t.back().get_finish_position().block<2,1>(0, 0)).norm()
-        == Approx(0.0).margin(1e-6));
-    CHECK((t.front().get_finish_position()[2] - 0.0) == Approx(0.0));
-    CHECK((t.back().get_finish_position()[2] - 0.0) == Approx(0.0));
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {5.0, 0}, {1, 3});
 
     WHEN("Testing replan with startsets")
     {
@@ -1962,7 +1949,7 @@ SCENARIO("Test planner with various start conditions")
           make_test_profile(UnitCircle),
           Eigen::Vector3d{0, 0, 0},
           Eigen::Vector3d{0, 0, 0});
-
+      auto t = plan->get_trajectories().front();
       REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
       obstacles.push_back(obstacle);
 
@@ -1970,18 +1957,7 @@ SCENARIO("Test planner with various start conditions")
         database.insert(obstacle);
 
       plan = planner.plan(starts, goal);
-      REQUIRE(plan);
-      REQUIRE(plan->get_trajectories().size() > 0);
-      auto t2 = plan->get_trajectories().front();
-      REQUIRE(t2.duration() > t.duration());
-      CHECK(DetectConflict::between(t2, obstacle).empty());
-
-      CHECK((graph.get_waypoint(3).get_location()
-        - t2.back().get_finish_position().block<2,1>(0, 0)).norm()
-        == Approx(0.0).margin(1e-6));
-      // failing 
-      CHECK((t2.front().get_finish_position()[2] - 0.0) == Approx(0.0));
-      CHECK((t2.back().get_finish_position()[2] - 0.0) == Approx(0.0));
+      CHECK_PLAN(plan, {-5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
   }
-}
+} 
