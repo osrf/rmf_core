@@ -1811,13 +1811,14 @@ SCENARIO("Test planner with various start conditions")
         == Approx(0.0).margin(1e-6));
     const auto& waypoints = plan->get_waypoints();
       REQUIRE(waypoints.size() == 3);
-
-    auto it = std::find(waypoints.begin(), waypoints.end(), 1);
-    CHECK(it != waypoints.end());
-    auto it = std::find(waypoints.begin(), waypoints.end(), 2);
-    CHECK(it != waypoints.end());
-    auto it = std::find(waypoints.begin(), waypoints.end(), 3);
-    CHECK(it != waypoints.end());
+    int wp_count = 0;
+    for (const auto& wp : waypoints)
+        if (
+            *wp.graph_index() == 1
+            || *wp.graph_index() == 2
+            || *wp.graph_index() == 3)
+          ++wp_count;
+    REQUIRE(wp_count == 3);
 
     WHEN("Obstace 4->0 overlaps")
     {
@@ -1850,12 +1851,14 @@ SCENARIO("Test planner with various start conditions")
           == Approx(0.0).margin(1e-6));
       const auto& waypoints = plan->get_waypoints();
       REQUIRE(waypoints.size() == 3);
-      auto it = std::find(waypoints.begin(), waypoints.end(), 1);
-      CHECK(it != waypoints.end());
-      auto it = std::find(waypoints.begin(), waypoints.end(), 2);
-      CHECK(it != waypoints.end());
-      auto it = std::find(waypoints.begin(), waypoints.end(), 3);
-      CHECK(it != waypoints.end());
+      wp_count = 0;
+      for (const auto& wp : waypoints)
+          if (
+              *wp.graph_index() == 1
+              || *wp.graph_index() == 2
+              || *wp.graph_index() == 3)
+            ++wp_count;
+      REQUIRE(wp_count == 3);
     }
   }
 
@@ -1888,12 +1891,14 @@ SCENARIO("Test planner with various start conditions")
         == Approx(0.0).margin(1e-6));
     const auto& waypoints = plan->get_waypoints();
     REQUIRE(waypoints.size() == 3);
-    auto it = std::find(waypoints.begin(), waypoints.end(), 1);
-    CHECK(it != waypoints.end());
-    auto it = std::find(waypoints.begin(), waypoints.end(), 2);
-    CHECK(it != waypoints.end());
-    auto it = std::find(waypoints.begin(), waypoints.end(), 3);
-    CHECK(it != waypoints.end());
+    int wp_count = 0;
+    for (const auto& wp : waypoints)
+        if (
+            *wp.graph_index() == 1
+            || *wp.graph_index() == 2
+            || *wp.graph_index() == 3)
+          ++wp_count;
+    REQUIRE(wp_count == 3);
   }
 
   WHEN("Planning with startset of waypoint index and orientations")
@@ -1920,9 +1925,19 @@ SCENARIO("Test planner with various start conditions")
 
     WHEN("Testing replan with startsets")
     {
-      plan = plan->replan(starts);
 
+      /*
+      CMAKE ERROR when invoking plan.replan(starts)
+  
+      MakeFiles/test_rmf_traffic.dir/test/unit/agv/test_Planner.cpp.o:
+      In function `____C_A_T_C_H____T_E_S_T____61()': test_Planner
+      undefined reference to `rmf_traffic::agv::Plan::replan(
+      std::vector<rmf_traffic::agv::Planner::Start, 
+      std::allocator<rmf_traffic::agv::Planner::Start> > const&) const'
+      collect2: error: ld returned 1 exit status
+      */ 
 
+      //auto plan2 = plan->replan(starts);
     }
     WHEN("Obstace 4->0 overlaps")
     {
@@ -1946,17 +1961,6 @@ SCENARIO("Test planner with various start conditions")
       for(auto& obstacle : obstacles)
         database.insert(obstacle);
 
-      /*
-      CMAKE ERROR when invoking plan.replan(starts)
-  
-      MakeFiles/test_rmf_traffic.dir/test/unit/agv/test_Planner.cpp.o:
-      In function `____C_A_T_C_H____T_E_S_T____61()': test_Planner
-      undefined reference to `rmf_traffic::agv::Plan::replan(
-      std::vector<rmf_traffic::agv::Planner::Start, 
-      std::allocator<rmf_traffic::agv::Planner::Start> > const&) const'
-      collect2: error: ld returned 1 exit status
-      */ 
-
       plan = planner.plan(starts, goal);
       REQUIRE(plan);
       REQUIRE(plan->get_trajectories().size() > 0);
@@ -1973,5 +1977,3 @@ SCENARIO("Test planner with various start conditions")
     }
   }
 }
-
-// TODO(MXG): Make a test for the interrupt_flag in Planner::Options
