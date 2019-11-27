@@ -27,10 +27,11 @@
 
 #include <iostream>
 #include <iomanip>
+#include <thread>
 
 // TODO(MXG): Move performance testing content into a performance test folder
-//const bool test_performance = false;
-const bool test_performance = true;
+const bool test_performance = false;
+// const bool test_performance = true;
 const std::size_t N = test_performance? 10 : 1;
 
 void print_timing(const std::chrono::steady_clock::time_point& start_time)
@@ -44,58 +45,34 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
   }
 }
 
-void display_path(rmf_traffic::Trajectory t, rmf_traffic::agv::Graph graph)
+void display_path(const rmf_traffic::agv::Plan& plan)
 {
-  //this is a very bad algorithm but will be improved
-  const auto start_time = std::chrono::steady_clock::now();
-
-  std::vector<Eigen::Vector2d> graph_locations;
-  std::vector<int> path;
-  for(std::size_t i=0;i<graph.num_waypoints();i++)
-    graph_locations.push_back(graph.get_waypoint(i).get_location());
-
-  for(auto it=t.begin();it!=t.end();it++)
-  {
-   auto it2 = std::find(graph_locations.begin(), graph_locations.end(),it->get_finish_position().block<2,1>(0,0));
-   if(it2!=graph_locations.end())
-     {
-       int waypoint_index=std::distance(graph_locations.begin(),it2);
-       if(path.empty())
-        path.push_back(waypoint_index);
-       else if(path.back()!=waypoint_index)
-          path.push_back(waypoint_index);
-
-     }
-
-  }
-
-    
-  const auto end_time = std::chrono::steady_clock::now();
-  std::cout<<"Display Path computed in: "<<std::setprecision(4)<<rmf_traffic::time::to_seconds(end_time-start_time)<<"s\n";
-
-  for(auto it=path.begin();it!=path.end();it++)
-  {
-    std::cout<<*it;
-    if(it!=--path.end())
-      std::cout<<"->";
-  }
+  for (const auto& wp : plan.get_waypoints())
+    std::cout<<std::to_string(*wp.graph_index())<<"->";
   std::cout<<std::endl;
-
 }
 
-void print_trajectory_info(const rmf_traffic::Trajectory t,rmf_traffic::Time time,rmf_traffic::agv::Graph graph)
+void print_trajectory_info(
+    const rmf_traffic::agv::Plan& plan,
+    rmf_traffic::Time time)
 {
-  int count =1;
-  std::cout<<"Trajectory in: "<<t.get_map_name()<<" with "<<t.size()<<" segments\n";
-  display_path(t,graph);
-  for(auto it=t.begin();it!=t.end();it++)
+  int count = 1;
+  const auto& t = plan.get_trajectories().front();
+  std::cout<<"Trajectory in: "
+      <<t.get_map_name()
+      <<" with "<<t.size()
+      <<" segments\n";
+  display_path(plan);
+  for (auto it = t.begin(); it != t.end(); it++)
     {
       auto position=it->get_finish_position();
-      std::cout<<"Segment "<<count<<": {"<<position[0]<<","<<position[1]<<","<<position[2]<<"} "<<rmf_traffic::time::to_seconds(it->get_finish_time()-time)<<"s"<<std::endl;
+      std::cout<<"Segment "<<count<<": {"<<position[0]<<","<<position[1]
+          <<","<<position[2]<<"} "
+          <<rmf_traffic::time::to_seconds(it->get_finish_time() - time)<<"s"
+          <<std::endl;
       count++;
     }
   std::cout<<"__________________\n";
-
 }
 
 rmf_traffic::Trajectory test_with_obstacle(
@@ -111,19 +88,19 @@ rmf_traffic::Trajectory test_with_obstacle(
 {
   rmf_traffic::Trajectory t_obs{""};
 
-  for(const auto& obstacle : obstacles)
+  for (const auto& obstacle : obstacles)
     database.insert(obstacle);
 
   rmf_utils::optional<rmf_traffic::agv::Plan> plan;
   const auto start_time = std::chrono::steady_clock::now();
-  for(std::size_t i=0; i < N; ++i)
+  for (std::size_t i = 0; i < N; ++i)
   {
     plan = original_plan.replan(original_plan.get_start());
     REQUIRE(plan);
   }
 
   const auto end_time = std::chrono::steady_clock::now();
-  if(test_performance)
+  if (test_performance)
   {
     const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
     std::cout << "\n" << parent << " w/ obstacle" << std::endl;
@@ -135,16 +112,25 @@ rmf_traffic::Trajectory test_with_obstacle(
 
   REQUIRE(plan->get_trajectories().size() == 1);
   t_obs = plan->get_trajectories().front();
-  const std::size_t start_index = original_plan.get_start().waypoint();
-  const auto initial_position = graph.get_waypoint(start_index).get_location();
+  const Eigen::Vector2d initial_position = [&]() -> Eigen::Vector2d
+  {
+    if (original_plan.get_start().location())
+      return *original_plan.get_start().location();
+
+    const std::size_t start_index = original_plan.get_start().waypoint();
+    return graph.get_waypoint(start_index).get_location();
+  }();
+
 
   const std::size_t goal_index = original_plan.get_goal().waypoint();
   const auto goal_position = graph.get_waypoint(goal_index).get_location();
 
-  const Eigen::Vector2d p_initial = t_obs.front().get_finish_position().block<2,1>(0,0);
+  const Eigen::Vector2d p_initial =
+      t_obs.front().get_finish_position().block<2,1>(0,0);
   CHECK( (p_initial - initial_position).norm() == Approx(0.0) );
 
-  const Eigen::Vector2d p_final = t_obs.back().get_finish_position().block<2,1>(0,0);
+  const Eigen::Vector2d p_final =
+      t_obs.back().get_finish_position().block<2,1>(0,0);
   CHECK( (p_final - goal_position).norm() == Approx(0.0) );
   
   const auto& original_trajectory = original_plan.get_trajectories().front();
@@ -160,9 +146,10 @@ rmf_traffic::Trajectory test_with_obstacle(
 
   // Confirm that the trajectory does not conflict with anything in the
   // schedule
-  const auto query = database.query(rmf_traffic::schedule::query_everything());
+  const auto query =
+      database.query(rmf_traffic::schedule::query_everything());
   for (const auto& entry : query)
-    CHECK(rmf_traffic::DetectConflict::between(t_obs, entry.trajectory).empty());
+    CHECK(rmf_traffic::DetectConflict::between(t_obs, entry).empty());
 
   // Confirm that the vehicle pulled into holding point in order to avoid
   // the conflict
@@ -171,6 +158,9 @@ rmf_traffic::Trajectory test_with_obstacle(
     bool used_holding_point = false;
     for (const auto& wp : plan->get_waypoints())
     {
+      if (!wp.graph_index())
+        continue;
+
       if (*wp.graph_index() == hold_index)
       {
         used_holding_point = true;
@@ -184,13 +174,246 @@ rmf_traffic::Trajectory test_with_obstacle(
   if (print_info)
   {
     std::cout << "Parent: " << parent << std::endl;
-    print_trajectory_info(t_obs, time, graph);
+    print_trajectory_info(*plan, time);
   }
   return t_obs;
 }
 
+inline void CHECK_TRAITS(
+      const rmf_traffic::agv::VehicleTraits& t1,
+      const rmf_traffic::agv::VehicleTraits& t2)
+{
+  CHECK((t1.get_differential()->get_forward()
+      - t2.get_differential()->get_forward()).norm()
+      == Approx(0).margin(1e-6));
+  CHECK(t1.get_differential()->is_reversible()
+      == t2.get_differential()->is_reversible());
+  CHECK(t1.linear().get_nominal_acceleration()
+      == t2.linear().get_nominal_acceleration());
+  CHECK(t1.linear().get_nominal_velocity()
+      == t2.linear().get_nominal_velocity());
+  CHECK(t1.rotational().get_nominal_acceleration()
+      == t2.rotational().get_nominal_acceleration());
+  CHECK(t1.rotational().get_nominal_velocity()
+      == t2.rotational().get_nominal_velocity());
+  CHECK(t1.get_profile() == t2.get_profile());
+}
 
+inline void CHECK_INTERPOLATION(
+      const rmf_traffic::agv::Interpolate::Options& o1,
+      const rmf_traffic::agv::Interpolate::Options& o2)
+{
+  CHECK(o1.always_stop() == o2.always_stop());
+  CHECK((o1.get_translation_threshold()-
+      o2.get_translation_threshold())
+          == Approx(0).margin(1e-6));
+  CHECK((o1.get_rotation_threshold()-
+      o2.get_rotation_threshold())
+          == Approx(0).margin(1e-6));
+  CHECK((o1.get_corner_angle_threshold()-
+      o2.get_corner_angle_threshold())
+          == Approx(0).margin(1e-6));
+}
 
+inline void CHECK_PLAN(
+    rmf_utils::optional<rmf_traffic::agv::Plan> plan,
+    const Eigen::Vector2d first_location,
+    const double first_orientation,
+    const Eigen::Vector2d last_location,
+    const std::vector<std::size_t> wp_indices,
+    const double* last_orientation = nullptr)
+{
+  REQUIRE(plan);
+  REQUIRE(plan->get_trajectories().size() > 0);
+  auto t = plan->get_trajectories().front();
+  // check locations    
+  CHECK((t.front().get_finish_position().block<2,1>(0,0)
+      - first_location).norm() == Approx(0.0).margin(1e-6));
+  CHECK((t.back().get_finish_position().block<2,1>(0, 0)
+      - last_location).norm()  == Approx(0.0).margin(1e-6));
+  // check orientations
+  CHECK((t.front().get_finish_position()[2] - first_orientation)
+      == Approx(0.0).margin(1e-6));
+  if (last_orientation != nullptr)
+    CHECK((t.back().get_finish_position()[2] - *last_orientation)
+        == Approx(0.0).margin(1e-6));
+  // check waypoints
+  const auto& wps = plan->get_waypoints();
+  // removing consecutive duplicates of waypoints
+  // when robot is waiting at holdign point
+  std::vector<std::size_t> plan_indices;
+  for( const auto &wp : wps)
+  {
+    if (wp.graph_index())
+      plan_indices.push_back(*wp.graph_index());
+  }
+
+  auto ip = std::unique(plan_indices.begin(), plan_indices.end());
+  plan_indices.resize(std::distance(plan_indices.begin(), ip));
+  REQUIRE(plan_indices.size() == wp_indices.size());
+  for( const auto &i : plan_indices)
+    CHECK(std::find(
+        wp_indices.begin(), wp_indices.end(), i)
+        != wp_indices.end());
+}
+// ____________________________________________________________________________
+
+SCENARIO("Test Configuration", "[config]")
+{
+  using namespace std::chrono_literals;
+  using Graph = rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Interpolate = rmf_traffic::agv::Interpolate;
+  using Planner = rmf_traffic::agv::Planner;
+
+  const std::string test_map_name = "test_map";
+  Graph graph;
+  graph.add_waypoint(test_map_name, {0, -5}); // 0
+  REQUIRE(graph.num_waypoints()==1);
+
+  const VehicleTraits traits(
+      {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
+
+  const Interpolate::Options options = Interpolate::Options();
+  Planner::Configuration config(graph, traits, options);
+
+  WHEN("Get the graph in config")
+  {
+    Graph& graph_ = config.graph();
+    REQUIRE(graph_.num_waypoints()==graph.num_waypoints());
+    for (std::size_t i = 0; i < graph.num_waypoints(); i++)
+      CHECK((graph.get_waypoint(i).get_location() -
+          graph_.get_waypoint(i).get_location()).norm()
+              == Approx(0).margin(1e-6));
+  }
+
+  WHEN("Set the graph")
+  {
+    Graph& graph_ = config.graph();
+    graph_.add_waypoint(test_map_name, {5, 5});
+    REQUIRE(graph_.num_waypoints() == graph.num_waypoints() + 1);
+    REQUIRE(config.graph().num_waypoints() == graph.num_waypoints() + 1);
+    CHECK((config.graph().get_waypoint(graph.num_waypoints()).get_location()
+        - Eigen::Vector2d{5, 5}).norm() == Approx(0).margin(1e-6));
+  }
+
+  WHEN("Get the vechile_traits")
+  {
+    VehicleTraits& traits_ = config.vehicle_traits();
+    CHECK_TRAITS(traits_, traits);
+  }
+
+  WHEN("Set the vechile_traits")
+  {
+    VehicleTraits& traits_ = config.vehicle_traits();
+    VehicleTraits traits_new(
+        {1.0, 0.5}, {1.0, 0.6}, make_test_profile(UnitCircle));
+    traits_ = traits_new;
+    CHECK_TRAITS(config.vehicle_traits(), traits_);
+  }
+
+  WHEN("Get the interpolation")
+  {
+    Interpolate::Options& options_ = config.interpolation();
+    CHECK_INTERPOLATION(options_, options);
+  }
+
+  WHEN("Set the interpolation")
+  {
+    Interpolate::Options& options_ = config.interpolation();
+    options_ = Interpolate::Options(
+        true, 1e-2, 5.0 * M_PI/180.0, 5.0 * M_PI/180.0);
+    CHECK_INTERPOLATION(config.interpolation(), options_);
+  }
+}
+
+SCENARIO("Test Options", "[options]")
+{
+  using namespace std::chrono_literals;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  using Database = rmf_traffic::schedule::Database;
+
+  Database database; 
+  bool interrupt_flag = false;
+  Duration hold_time = std::chrono::seconds(6);
+
+  Planner::Options default_options(database, hold_time, &interrupt_flag);
+  WHEN("Get the minimum_holding_time")
+  {
+    CHECK(rmf_traffic::time::to_seconds(
+        default_options.minimum_holding_time()- hold_time)
+            == Approx(0).margin(1e-6));
+  }
+
+  WHEN("Set the minimum_holding_time")
+  {
+    Duration hold_time_ = std::chrono::seconds(5);  
+    default_options.minimum_holding_time(hold_time_);
+    CHECK(rmf_traffic::time::to_seconds(
+        default_options.minimum_holding_time()- hold_time_)
+            == Approx(0).margin(1e-6));   
+  }
+
+  WHEN("Get the interrupt_flag")
+  {
+    CHECK_FALSE(*default_options.interrupt_flag());
+  }
+
+  WHEN("Set the interrupt_flag")
+  {
+    interrupt_flag = true;
+    CHECK(*default_options.interrupt_flag());
+  }
+
+}
+
+SCENARIO("Test Start")
+{
+  using namespace std::chrono_literals;
+  using Planner = rmf_traffic::agv::Planner;
+
+  auto start_time = std::chrono::steady_clock::now();
+  
+  Planner::Start start(
+    start_time,
+    1,
+    0.0);
+
+  CHECK_FALSE(start.lane());
+  CHECK_FALSE(start.location());
+
+  CHECK(rmf_traffic::time::to_seconds(start.time()-start_time)
+      == Approx(0.0).margin(1e-12));
+  CHECK(start.waypoint() == 1);
+  CHECK((start.orientation() - 0.0) == Approx(0.0).margin(1e-6));
+
+  rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{0, 0};
+  rmf_utils::optional<std::size_t> initial_lane = std::size_t(0);
+
+  start.location(initial_location);
+  CHECK(start.location());
+
+  start.lane(initial_lane);
+  CHECK(start.lane());
+}
+
+SCENARIO("Test Goal")
+{
+  using Planner = rmf_traffic::agv::Planner;
+  Planner::Goal goal{1};
+  CHECK(goal.orientation() == nullptr);
+  CHECK(goal.waypoint() == 1);
+  goal.waypoint(2);
+  CHECK(goal.waypoint() == 2);
+
+  goal.orientation(M_PI_2);
+  CHECK((*goal.orientation() - M_PI_2) == Approx(0.0));
+
+  goal = Planner::Goal{3, 0.0};
+  CHECK(goal.waypoint() ==3);
+  CHECK((*goal.orientation() - 0.0) == Approx(0.0));
+}
 
 SCENARIO("Test planning")
 {
@@ -243,21 +466,13 @@ SCENARIO("Test planning")
 
   //TODO abort planning that is impossible as lane does not exit in the graph
 
-  /*WHEN("goal waypoint does not have a lane in the graph")
-  {
-
-    const rmf_traffic::Time time = std::chrono::steady_clock::now();
-    const rmf_traffic::agv::VehicleTraits traits(
-        {0.7, 0.3}, {1.0, 0.45}, make_test_profile(UnitCircle));
-    rmf_traffic::schedule::Database database;
-    rmf_traffic::agv::Planner::Options options(traits, graph, database);
-    std::vector<rmf_traffic::Trajectory> solution;
-    
-    bool solved=rmf_traffic::agv::Planner::solve(time,3,0.0,9,nullptr,options,solution);
-    CHECK_FALSE(solved);
-    CHECK(solution.size()==0);
-
-  } */
+  // WHEN("goal waypoint does not have a lane in the graph")
+  // {
+  //   const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+  //   auto plan = planner.plan(
+  //       rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
+  //       rmf_traffic::agv::Planner::Goal(9));
+  // } 
 
   WHEN("initial conditions satisfy the goals")
   {
@@ -770,9 +985,6 @@ SCENARIO("Test planning")
   }
 }
 
-
-
-
 SCENARIO("DP1 Graph")
 {
   using namespace std::chrono_literals;
@@ -871,7 +1083,11 @@ SCENARIO("DP1 Graph")
       make_test_profile(UnitCircle)
   };
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
-  const rmf_traffic::agv::Planner::Options default_options{database};
+  bool interrupt_flag = false;
+  const rmf_traffic::agv::Planner::Options default_options{
+      database,
+      std::chrono::seconds(5),
+      &interrupt_flag};
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -1321,6 +1537,25 @@ SCENARIO("DP1 Graph")
     REQUIRE(obstacle_1.size() == 3);
     REQUIRE(DetectConflict::between(t,obstacle_1).size() > 0);
 
+    WHEN("Planning is interrupted")
+    {
+      const std::size_t start_index = 27;
+      const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+
+      const std::size_t goal_index = 32;
+      const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      auto plan_thread = std::thread(
+          [&]()
+      {
+        plan = planner.plan(start, goal);
+      });
+      interrupt_flag = true;
+      plan_thread.join();
+      CHECK_FALSE(plan);
+    }
+    
     WHEN("Obstacle 28->2")
     {
       obstacles.push_back(obstacle_1);
@@ -1550,6 +1785,201 @@ SCENARIO("Graph with door", "[door]")
   CHECK(has_event(ExpectEvent::DoorClose, *plan_with_door_open_close));
 }
 
+SCENARIO("Test planner with various start conditions")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  using DetectConflict = rmf_traffic::DetectConflict;
 
-// TODO(MXG): Make a test for the interrupt_flag in Planner::Options
+  const std::string test_map_name = "test_map";
+  Graph graph;
+  graph.add_waypoint(test_map_name, {0, -5}, true); // 0
+  graph.add_waypoint(test_map_name, {-5, 0}, true); // 1
+  graph.add_waypoint(test_map_name, {0, 0}); // 2
+  graph.add_waypoint(test_map_name, {5, 0}, true); // 3
+  graph.add_waypoint(test_map_name, {0, 5}, true); // 4
+  REQUIRE(graph.num_waypoints() == 5);
 
+  graph.add_lane(0 ,2); // 0
+  graph.add_lane(2, 0); // 1
+  // added within tests for testing with orientation constraints
+  // graph.add_lane(1, 2); 
+  // graph.add_lane(2, 1); 
+  graph.add_lane(3, 2); // 2
+  graph.add_lane(2, 3); // 3
+  graph.add_lane(4, 2); // 4
+  graph.add_lane(2, 4); // 5
+
+  const VehicleTraits traits{
+      {1.0, 0.4},
+      {1.0, 0.5},
+      make_test_profile(UnitCircle)
+  };
+
+  rmf_traffic::schedule::Database database;
+  bool interrupt_flag = false;
+  Duration hold_time = std::chrono::seconds(6);
+  const rmf_traffic::agv::Planner::Options default_options{
+      database,
+      hold_time,
+      &interrupt_flag};
+
+  Planner planner{
+    Planner::Configuration{graph, traits},
+    default_options
+  };
+
+  const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
+
+  WHEN("Start contains initial_location")
+  { 
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
+
+    Planner::Start start = Planner::Start{
+        initial_time,
+        1,
+        0.0,
+        std::move(initial_location)};
+
+    CHECK(start.location());
+    CHECK_FALSE(start.lane());
+
+    Planner::Goal goal = Planner::Goal{3};
+
+    const auto plan = planner.plan(start, goal);
+
+    // Note: Waypoint 2 will be skipped because the robot does not need to
+    // stop or turn there. It moves directly from waypoint 1 to waypoint 3.
+    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
+
+    WHEN("Testing replan")
+    {
+      auto plan2 = plan->replan(start);
+    }
+
+    WHEN("Obstace 4->0 overlaps")
+    {
+      std::vector<rmf_traffic::Trajectory> obstacles;
+      rmf_traffic::Trajectory obstacle(test_map_name);
+      obstacle.insert(
+          initial_time,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
+
+      obstacle.insert(
+          initial_time + 60s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
+
+      REQUIRE(DetectConflict::between(obstacle, plan->get_trajectories().front()).size() != 0);
+      obstacles.push_back(obstacle);
+
+      test_with_obstacle(
+          "Obstace 4->0 overlaps",
+          *plan, database, obstacles, 1, initial_time, true);
+
+      // Note: Waypoint 2 will be skipped because the robot does not need to
+      // stop or turn there. It moves directly from waypoint 1 to waypoint 3.
+      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
+    }
+  }
+
+  WHEN("Start contains initial_location and initial_lane")
+  { 
+
+    Planner::Goal goal{3};
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-2.5, 0};
+
+    WHEN("initial_lane is not constrained")
+    {
+      graph.add_lane(1, 2); // 6
+      graph.add_lane(2, 1); // 7
+      planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+      rmf_utils::optional<std::size_t> initial_lane = std::size_t{7};
+
+      Planner::Start start{
+          initial_time,
+          1,
+          0.0,
+          std::move(initial_location),
+          std::move(initial_lane)};
+
+      CHECK(start.location());
+      CHECK(start.lane());
+
+      const auto plan = planner.plan(start, goal);
+
+      // Note: Waypoint 2 will be skipped because the robot does not need to
+      // stop or turn there. It moves directly from waypoint 1 to waypoint 3.
+      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
+    }
+
+  }
+
+  WHEN("Planning with startset of waypoint index and orientations")
+  {
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    std::vector<Planner::Start> starts;
+    Planner::Start start1{initial_time, 1, 0.0};
+    Planner::Start start2{initial_time, 1, M_PI_2};
+    starts.push_back(start1);
+    starts.push_back(start2);
+
+    Planner::Goal goal{3, 0.0};
+
+    auto plan = planner.plan(starts, goal);
+    //we expect the starting condition with orientation = 0 to be shortest
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {5.0, 0}, {1, 3});
+
+    WHEN("Testing replan with startsets")
+    {
+      auto plan2 = plan->replan(starts);
+    }
+    WHEN("Obstace 4->0 overlaps")
+    {
+      std::vector<rmf_traffic::Trajectory> obstacles;
+      rmf_traffic::Trajectory obstacle(test_map_name);
+      obstacle.insert(
+          initial_time,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
+
+      obstacle.insert(
+          initial_time + 60s,
+          make_test_profile(UnitCircle),
+          Eigen::Vector3d{0, 0, 0},
+          Eigen::Vector3d{0, 0, 0});
+      auto t = plan->get_trajectories().front();
+      REQUIRE(DetectConflict::between(obstacle, t).size() != 0);
+      obstacles.push_back(obstacle);
+
+      for(auto& obstacle : obstacles)
+        database.insert(obstacle);
+
+      const auto result1 = plan->replan(start1);
+      const auto duration1 = result1->get_trajectories().front().duration();
+      const auto result2 = plan->replan(start2);
+      const auto duration2 = result2->get_trajectories().front().duration();
+
+      const auto best_start = duration1 < duration2?
+            result1->get_start() : result2->get_start();
+
+      plan = planner.plan(starts, goal);
+      CHECK_PLAN(plan, {-5, 0}, best_start.orientation(), {5.0, 0}, {1, 3});
+    }
+  }
+} 

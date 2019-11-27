@@ -208,12 +208,15 @@ std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
   for (auto it = node_sequence.rbegin(); it != node_sequence.rend(); ++it)
   {
     const auto& n = *it;
-    const Eigen::Vector2d p = graph.waypoints[*n->waypoint].get_location();
+    const Eigen::Vector2d p = n->waypoint?
+          graph.waypoints[*n->waypoint].get_location() :
+          n->trajectory_from_parent.back().get_finish_position()
+            .template block<2,1>(0,0);
     const Time time{*n->trajectory_from_parent.finish_time()};
     waypoints.emplace_back(
           agv::Plan::Waypoint::Implementation::make(
             Eigen::Vector3d{p[0], p[1], n->orientation}, time,
-            *n->waypoint, n->event));
+            n->waypoint, n->event));
   }
 
   return waypoints;

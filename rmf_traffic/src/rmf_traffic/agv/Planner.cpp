@@ -539,6 +539,28 @@ rmf_utils::optional<Plan> Plan::replan(
 }
 
 //==============================================================================
+rmf_utils::optional<Plan> Plan::replan(const StartSet& new_starts) const
+{
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        new_starts,
+        _pimpl->result.goal,
+        _pimpl->result.options);
+}
+
+//==============================================================================
+rmf_utils::optional<Plan> Plan::replan(
+    const StartSet& new_starts,
+    Options new_options) const
+{
+  return Plan::Implementation::generate(
+        _pimpl->cache_mgr,
+        new_starts,
+        _pimpl->result.goal,
+        std::move(new_options));
+}
+
+//==============================================================================
 const Planner::Start& Plan::get_start() const
 {
   return _pimpl->result.start;
