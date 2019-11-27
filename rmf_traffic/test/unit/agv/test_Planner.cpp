@@ -112,8 +112,15 @@ rmf_traffic::Trajectory test_with_obstacle(
 
   REQUIRE(plan->get_trajectories().size() == 1);
   t_obs = plan->get_trajectories().front();
-  const std::size_t start_index = original_plan.get_start().waypoint();
-  const auto initial_position = graph.get_waypoint(start_index).get_location();
+  const Eigen::Vector2d initial_position = [&]() -> Eigen::Vector2d
+  {
+    if (original_plan.get_start().location())
+      return *original_plan.get_start().location();
+
+    const std::size_t start_index = original_plan.get_start().waypoint();
+    return graph.get_waypoint(start_index).get_location();
+  }();
+
 
   const std::size_t goal_index = original_plan.get_goal().waypoint();
   const auto goal_position = graph.get_waypoint(goal_index).get_location();
@@ -151,6 +158,9 @@ rmf_traffic::Trajectory test_with_obstacle(
     bool used_holding_point = false;
     for (const auto& wp : plan->get_waypoints())
     {
+      if (!wp.graph_index())
+        continue;
+
       if (*wp.graph_index() == hold_index)
       {
         used_holding_point = true;
@@ -221,7 +231,7 @@ inline void CHECK_PLAN(
       - first_location).norm() == Approx(0.0).margin(1e-6));
   CHECK((t.back().get_finish_position().block<2,1>(0, 0)
       - last_location).norm()  == Approx(0.0).margin(1e-6));
-  // check orientations 
+  // check orientations
   CHECK((t.front().get_finish_position()[2] - first_orientation)
       == Approx(0.0).margin(1e-6));
   if (last_orientation != nullptr)
@@ -233,7 +243,11 @@ inline void CHECK_PLAN(
   // when robot is waiting at holdign point
   std::vector<std::size_t> plan_indices;
   for( const auto &wp : wps)
-    plan_indices.push_back(*wp.graph_index());
+  {
+    if (wp.graph_index())
+      plan_indices.push_back(*wp.graph_index());
+  }
+
   auto ip = std::unique(plan_indices.begin(), plan_indices.end());
   plan_indices.resize(std::distance(plan_indices.begin(), ip));
   REQUIRE(plan_indices.size() == wp_indices.size());
@@ -1839,11 +1853,13 @@ SCENARIO("Test planner with various start conditions")
 
     Planner::Goal goal = Planner::Goal{3};
 
-    // throws bad optional access error
     const auto plan = planner.plan(start, goal);
-    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 2, 3});
 
-    WHEN("Testign replan")
+    // Note: Waypoint 2 will be skipped because the robot does not need to
+    // stop or turn there. It moves directly from waypoint 1 to waypoint 3.
+    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
+
+    WHEN("Testing replan")
     {
       auto plan2 = plan->replan(start);
     }
@@ -1871,7 +1887,9 @@ SCENARIO("Test planner with various start conditions")
           "Obstace 4->0 overlaps",
           *plan, database, obstacles, 1, initial_time, true);
 
-      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 2, 3});
+      // Note: Waypoint 2 will be skipped because the robot does not need to
+      // stop or turn there. It moves directly from waypoint 1 to waypoint 3.
+      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
   }
 
@@ -1888,7 +1906,7 @@ SCENARIO("Test planner with various start conditions")
       planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
       rmf_utils::optional<std::size_t> initial_lane = std::size_t{7};
-    
+
       Planner::Start start{
           initial_time,
           1,
@@ -1899,9 +1917,11 @@ SCENARIO("Test planner with various start conditions")
       CHECK(start.location());
       CHECK(start.lane());
 
-      // throws bad optional access error
       const auto plan = planner.plan(start, goal);
-      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 2, 3});
+
+      // Note: Waypoint 2 will be skipped because the robot does not need to
+      // stop or turn there. It moves directly from waypoint 1 to waypoint 3.
+      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
 
   }
@@ -1926,18 +1946,7 @@ SCENARIO("Test planner with various start conditions")
 
     WHEN("Testing replan with startsets")
     {
-      /*
-      CMAKE ERROR when invoking plan.replan(starts)
-  
-      MakeFiles/test_rmf_traffic.dir/test/unit/agv/test_Planner.cpp.o:
-      In function `____C_A_T_C_H____T_E_S_T____61()': test_Planner
-      undefined reference to `rmf_traffic::agv::Plan::replan(
-      std::vector<rmf_traffic::agv::Planner::Start, 
-      std::allocator<rmf_traffic::agv::Planner::Start> > const&) const'
-      collect2: error: ld returned 1 exit status
-      */ 
-
-      //auto plan2 = plan->replan(starts);
+      auto plan2 = plan->replan(starts);
     }
     WHEN("Obstace 4->0 overlaps")
     {
@@ -1961,8 +1970,16 @@ SCENARIO("Test planner with various start conditions")
       for(auto& obstacle : obstacles)
         database.insert(obstacle);
 
+      const auto result1 = plan->replan(start1);
+      const auto duration1 = result1->get_trajectories().front().duration();
+      const auto result2 = plan->replan(start2);
+      const auto duration2 = result2->get_trajectories().front().duration();
+
+      const auto best_start = duration1 < duration2?
+            result1->get_start() : result2->get_start();
+
       plan = planner.plan(starts, goal);
-      CHECK_PLAN(plan, {-5, 0}, 0.0, {5.0, 0}, {1, 3});
+      CHECK_PLAN(plan, {-5, 0}, best_start.orientation(), {5.0, 0}, {1, 3});
     }
   }
 } 
