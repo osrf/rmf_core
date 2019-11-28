@@ -378,7 +378,7 @@ void ScheduleNode::submit_trajectories(
   response->current_version = database.latest_version();
   wakeup_mirrors();
 
-  RCLCPP_DEBUG(
+  RCLCPP_INFO(
         get_logger(),
         "Received trajectory [" + std::to_string(response->current_version)
         + "]");
