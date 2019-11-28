@@ -320,7 +320,7 @@ std::vector<uint64_t> check_self_conflicts(
   // a time, and therefore we should never need to test these trajectories for
   // conflicts with each other?
   std::vector<uint64_t> conflicting_indices;
-  conflicting_indices.resize(requested_trajectories.size());
+  conflicting_indices.reserve(requested_trajectories.size());
   for(std::size_t i=0; i < requested_trajectories.size()-1; ++i)
   {
     for(std::size_t j=i+1; j < requested_trajectories.size(); ++j)

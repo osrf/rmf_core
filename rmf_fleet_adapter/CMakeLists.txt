@@ -78,7 +78,6 @@ target_link_libraries(full_control
     ${rmf_task_msgs_LIBRARIES}
     ${rmf_dispenser_msgs_LIBRARIES}
     ${rmf_door_msgs_LIBRARIES}
-    ${rmf_door_msgs_INCLUDE_DIRS}
 )
 
 target_include_directories(full_control

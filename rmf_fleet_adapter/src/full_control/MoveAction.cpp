@@ -292,6 +292,8 @@ public:
               rmf_traffic_ros2::convert(trajectory));
       }
     }
+
+    return trajectories;
   }
 
   void execute_plan()
@@ -641,8 +643,6 @@ public:
     // TODO(MXG): Come up with a more robust way to determine delays
     const std::size_t next_waypoint_index =
         _command.path.size() - msg.path.size();
-
-    const Eigen::Vector2d current_p = {msg.location.x, msg.location.y};
 
     if (check_delay(msg, next_waypoint_index))
       return;
