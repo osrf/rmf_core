@@ -179,6 +179,51 @@ rmf_traffic::Trajectory test_with_obstacle(
   return t_obs;
 }
 
+void test_ignore_obstacle(
+    const rmf_traffic::agv::Plan& original_plan,
+    const rmf_traffic::schedule::Version database_version)
+{
+  REQUIRE(database_version > 0);
+  const auto& start = original_plan.get_start();
+  rmf_traffic::agv::Plan::Options options = original_plan.get_options();
+  std::unordered_set<rmf_traffic::schedule::Version> ignore_ids;
+  for (rmf_traffic::schedule::Version v=0; v <= database_version; ++v)
+    ignore_ids.insert(v);
+
+  options.ignore_schedule_ids(std::move(ignore_ids));
+
+  const auto new_plan = original_plan.replan(start, std::move(options));
+
+  // The new plan which ignores the conflicts should be the same as the original
+  REQUIRE(new_plan->get_trajectories().size() == 1);
+  CHECK(new_plan->get_trajectories().front().duration()
+        == original_plan.get_trajectories().front().duration());
+
+  REQUIRE(new_plan->get_waypoints().size()
+          == original_plan.get_waypoints().size());
+
+  for (std::size_t i=0; i < new_plan->get_waypoints().size(); ++i)
+  {
+    const auto& new_wp = new_plan->get_waypoints()[i];
+    const auto& old_wp = original_plan.get_waypoints()[i];
+
+    if (new_wp.graph_index())
+    {
+      CHECK(*new_wp.graph_index() == *old_wp.graph_index());
+    }
+    else
+    {
+      CHECK(!old_wp.graph_index());
+    }
+
+    const Eigen::Vector3d new_p = new_wp.position();
+    const Eigen::Vector3d old_p = old_wp.position();
+    CHECK( (new_p.block<2,1>(0,0) - old_p.block<2,1>(0,0)).norm()
+           == Approx(0.0) );
+    CHECK(rmf_utils::wrap_to_pi(new_p[2] - old_p[2]) == Approx(0.0) );
+  }
+}
+
 inline void CHECK_TRAITS(
       const rmf_traffic::agv::VehicleTraits& t1,
       const rmf_traffic::agv::VehicleTraits& t2)
@@ -633,6 +678,8 @@ SCENARIO("Test planning")
       {
         test_with_obstacle(
               "Unconstrained 12->5", *plan, database, obstacles, 6, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
     }
 
@@ -679,6 +726,8 @@ SCENARIO("Test planning")
       {
         test_with_obstacle(
               "Constrained to 0.0  12->5", *plan, database, obstacles, 6, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
     }
   }
@@ -751,6 +800,8 @@ SCENARIO("Test planning")
       {
         test_with_obstacle(
               "Unconstrained  2->12", *plan, database, obstacles, 4, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
     }
 
@@ -797,6 +848,8 @@ SCENARIO("Test planning")
       {
         test_with_obstacle(
               "Constrained to 0.0  2->12", *plan, database, obstacles, 4, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
     }
 
@@ -846,6 +899,8 @@ SCENARIO("Test planning")
         test_with_obstacle(
               "Constrained to 180.0  2->12",
               *plan, database, obstacles, 4, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
     }
   } //end of GIVEN
@@ -924,8 +979,10 @@ SCENARIO("Test planning")
         CHECK(rmf_traffic::DetectConflict::between(t,obstacle_1).size() > 0);
         obstacles.push_back(obstacle_1);
 
-        auto t_obs=test_with_obstacle(
+        test_with_obstacle(
               "Unconstrained (1)  12->0", *plan, database, obstacles, 6, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
 
       WHEN("Second obstacle is introduced")
@@ -952,8 +1009,10 @@ SCENARIO("Test planning")
         CHECK(rmf_traffic::DetectConflict::between(t,obstacle_2).size()>0);
 
         obstacles.push_back(obstacle_2);
-        auto t_obs = test_with_obstacle(
+        test_with_obstacle(
               "Unconstrained (2)  12->0", *plan, database, obstacles, 4, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
 
       WHEN("Both obstacles are introduced")
@@ -978,8 +1037,10 @@ SCENARIO("Test planning")
         obstacles.push_back(obstacle_1);
         obstacles.push_back(obstacle_2);
 
-        auto t_obs=test_with_obstacle(
+        test_with_obstacle(
               "Unconstrained (3)  12->0", *plan, database, obstacles, 6, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
       }
     }
   }
@@ -1152,6 +1213,8 @@ SCENARIO("DP1 Graph")
       test_with_obstacle(
             "Partial 28->3", *plan, database, obstacles, 0, time, false);
 
+      test_ignore_obstacle(*plan, database.latest_version());
+
       WHEN("Obstacle 28->3, 16-29 added")
       {
         rmf_traffic::Trajectory obstacle_2(test_map_name);
@@ -1176,6 +1239,8 @@ SCENARIO("DP1 Graph")
         test_with_obstacle(
               "Partial 28->3, 16-29",
               *plan, database, obstacles, 0, time, false);
+
+        test_ignore_obstacle(*plan, database.latest_version());
 
         WHEN("Obstacle 28->3, 16-29, 24->26 added")
         {
@@ -1202,6 +1267,8 @@ SCENARIO("DP1 Graph")
           test_with_obstacle(
                 "Partial 28->3, 16-29, 24->26", *plan, database,
                 obstacles, 0, time, false);
+
+          test_ignore_obstacle(*plan, database.latest_version());
 
           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
           {
@@ -1264,6 +1331,8 @@ SCENARIO("DP1 Graph")
             test_with_obstacle(
                   "Partial 28->3, 16-29, 24->26, 21->22, 13->14, 5->6",
                   *plan, database, obstacles, 0, time, false);
+
+            test_ignore_obstacle(*plan, database.latest_version());
           }
         }
       }
@@ -1324,6 +1393,8 @@ SCENARIO("DP1 Graph")
       test_with_obstacle(
             "Full 28->3", *plan, database, obstacles, 0, time, false);
 
+      test_ignore_obstacle(*plan, database.latest_version());
+
       WHEN("Obstacle 28->3, 16-29 added")
       {
         rmf_traffic::Trajectory obstacle_2(test_map_name);
@@ -1347,6 +1418,8 @@ SCENARIO("DP1 Graph")
         obstacles.push_back(obstacle_2);
         test_with_obstacle(
               "Full 28->3, 16-29", *plan, database, obstacles, 0, time, false);
+
+        test_ignore_obstacle(*plan, database.latest_version());
 
         WHEN("Obstacle 28->3, 16-29, 24->26 added")
         {
@@ -1373,6 +1446,8 @@ SCENARIO("DP1 Graph")
           test_with_obstacle(
                 "Full 28->3, 16-29, 24->26",
                 *plan, database, obstacles, 0, time, false);
+
+          test_ignore_obstacle(*plan, database.latest_version());
 
           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
           {
@@ -1435,6 +1510,8 @@ SCENARIO("DP1 Graph")
             test_with_obstacle(
                   "Full 28->3, 16-29, 24->26, 2->3, 13->14, 5->6",
                   *plan, database, obstacles, 0, time, false);
+
+            test_ignore_obstacle(*plan, database.latest_version());
           }
         }
       }
@@ -1489,6 +1566,8 @@ SCENARIO("DP1 Graph")
        REQUIRE(!rmf_traffic::DetectConflict::between(obstacle, t).empty());
        obstacles.push_back(obstacle);
        test_with_obstacle("Unconstrained", *plan, database, obstacles, 32, time);
+
+       test_ignore_obstacle(*plan, database.latest_version());
     }
   }
 
@@ -1563,6 +1642,8 @@ SCENARIO("DP1 Graph")
       const auto t_obs1 = test_with_obstacle(
             "Obstacle 28->2", *plan, database, obstacles, 27, time);
 
+      test_ignore_obstacle(*plan, database.latest_version());
+
       WHEN("Obstacle 28->2 , 29->4")
       {
         //robot waits 10s at 27 and then rotates on the spot at 13 for another 5s
@@ -1590,6 +1671,8 @@ SCENARIO("DP1 Graph")
 
         const auto t_obs2=test_with_obstacle(
                "Obstacle 28->2 , 29->4", *plan, database, obstacles, 27, time);
+
+        test_ignore_obstacle(*plan, database.latest_version());
 
         WHEN("Obstacle 28->2 , 29->4, 23->26")
         {
@@ -1620,6 +1703,8 @@ SCENARIO("DP1 Graph")
           test_with_obstacle(
                 "Obstacle 28->2 , 29->4, 23->26",
                 *plan, database, obstacles, 27, time);
+
+          test_ignore_obstacle(*plan, database.latest_version());
         }
       }
     }

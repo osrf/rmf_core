@@ -608,6 +608,7 @@ struct DifferentialDriveExpander
     const double* const final_orientation;
     const rmf_traffic::Time initial_time;
     const bool* const interrupt_flag;
+    const std::unordered_set<schedule::Version> ignore_schedule_ids;
     Heuristic& heuristic;
   };
 
@@ -834,12 +835,29 @@ struct DifferentialDriveExpander
     // account for the trajectory's map name(s) here.
     const auto view = _context.viewer.query(_query);
 
-    for(const auto& check : view)
+    const auto& ignore_schedule_ids = _context.ignore_schedule_ids;
+    if (ignore_schedule_ids.empty())
     {
-      assert(trajectory.size() > 1);
-      assert(check.size() > 1);
-      if(!DetectConflict::between(trajectory, check.trajectory, true).empty())
-        return false;
+      for (const auto& check : view)
+      {
+        assert(trajectory.size() > 1);
+        assert(check.trajectory.size() > 1);
+        if(!DetectConflict::between(trajectory, check.trajectory, true).empty())
+          return false;
+      }
+    }
+    else
+    {
+      for (const auto& check : view)
+      {
+        assert(trajectory.size() > 1);
+        assert(check.trajectory.size() > 1);
+        if (ignore_schedule_ids.count(check.id) > 0)
+          continue;
+
+        if(!DetectConflict::between(trajectory, check.trajectory, true).empty())
+          return false;
+      }
     }
 
     return true;
@@ -1335,6 +1353,7 @@ public:
             goal.orientation(),
             starts.front().time(),
             interrupt_flag,
+            options.ignore_schedule_ids(),
             h
           },
           DifferentialDriveExpander::InitialNodeArgs{starts},
