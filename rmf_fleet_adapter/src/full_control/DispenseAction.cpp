@@ -26,7 +26,46 @@ class DispenseAction : public Action
 {
 public:
 
+  DispenseAction(
+      FleetAdapterNode* node,
+      Task* task,
+      std::string dispenser_name)
+  : _node(node),
+    _task(task)
+  {
+    _request.target_guid = std::move(std::move(dispenser_name));
+    _request.request_guid = task->id();
+    _request.transporter_type = _node->get_fleet_name();
 
+  }
+
+  void execute() final
+  {
+
+  }
+
+  void interrupt() final
+  {
+
+  }
+
+  void resume() final
+  {
+
+  }
+
+  void report_status() final
+  {
+
+  }
+
+private:
+
+  FleetAdapterNode* const _node;
+  Task* const _task;
+
+  using DispenserRequest = rmf_dispenser_msgs::msg::DispenserRequest;
+  DispenserRequest _request;
 
 };
 
@@ -35,10 +74,12 @@ public:
 //==============================================================================
 std::unique_ptr<Action> make_dispense(
     FleetAdapterNode* node,
-    const rmf_task_msgs::msg::Behavior& behavior,
-    const std::string& dispenser_name)
+    Task* parent,
+    std::string dispenser_name,
+    const rmf_task_msgs::msg::Behavior& /*behavior*/)
 {
-
+  return std::make_unique<DispenseAction>(
+        node, parent, std::move(dispenser_name));
 }
 
 } // namespace full_control

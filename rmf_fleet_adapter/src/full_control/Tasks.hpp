@@ -15,49 +15,20 @@
  *
 */
 
-#include "Actions.hpp"
+#ifndef SRC__FULL_CONTROL__TASKS_HPP
+#define SRC__FULL_CONTROL__TASKS_HPP
+
+#include "FleetAdapterNode.hpp"
 
 namespace rmf_fleet_adapter {
 namespace full_control {
 
-namespace {
-
-//==============================================================================
-class Failure : public Action
-{
-public:
-
-  Failure(FleetAdapterNode::Task* task, std::string error)
-  : _task(task),
-    _error(std::move(error))
-  {
-    // Do nothing
-  }
-
-  void execute() final
-  {
-    _task->critical_failure(_error);
-  }
-
-  void interrupt() final
-  {
-    _task->critical_failure(_error);
-  }
-
-  void resume() final
-  {
-    _task->critical_failure(_error);
-  }
-
-private:
-
-  std::string _error;
-  FleetAdapterNode::Task* _task;
-
-};
-
-} // anonymous namespace
-
+std::unique_ptr<Task> make_delivery(
+    FleetAdapterNode* node,
+    FleetAdapterNode::RobotContext* context,
+    rmf_task_msgs::msg::Delivery delivery);
 
 } // namespace full_control
 } // namespace rmf_fleet_adapter
+
+#endif // SRC__FULL_CONTROL__TASKS_HPP

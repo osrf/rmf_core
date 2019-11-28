@@ -62,10 +62,12 @@ public:
 
   MoveAction(
       FleetAdapterNode* node,
+      Task* parent,
       FleetAdapterNode::RobotContext* state,
       const std::size_t goal_wp_index,
       const std::vector<std::size_t>& fallback_wps)
   : _node(node),
+    _task(parent),
     _context(state),
     _goal_wp_index(goal_wp_index),
     _fallback_wps(fallback_wps),
@@ -205,7 +207,7 @@ public:
     const auto i_nearest_opt = get_fastest_plan_index(fallback_plans);
     if (!i_nearest_opt)
     {
-      return _context->task->critical_failure(
+      return _task->critical_failure(
             "The robot is trapped! Human intervention may be needed!");
     }
     const auto i_nearest = *i_nearest_opt;
@@ -264,7 +266,7 @@ public:
     const auto quickest_finish_opt = get_fastest_plan_index(resume_plans);
     if (!quickest_finish_opt)
     {
-      return _context->task->critical_failure(
+      return _task->critical_failure(
             "The robot will be trapped at its fallback point! "
             "Human intervention may be needed!");
     }
@@ -391,7 +393,7 @@ public:
       // The plan was rejected, so we will have to try to replan
       RCLCPP_WARN(
             _node->get_logger(),
-            "The traffic plan for [" + _context->task->id() + "] was rejected. "
+            "The traffic plan for [" + _task->id() + "] was rejected. "
             + "We will retry.");
 
       find_and_execute_plan();
@@ -416,13 +418,13 @@ public:
       if (_emergency_active)
         report_waiting();
       else
-        _context->task->next();
+        _task->next();
       return;
     }
 
     _command.fleet_name = _node->get_fleet_name();
     _command.task_id =
-        _context->task->id() + std::to_string(_command_segment++);
+        _task->id() + std::to_string(_command_segment++);
 
     _command.path.clear();
 
@@ -491,7 +493,7 @@ public:
           RCLCPP_ERROR(
                 _parent->_node->get_logger(),
                 "The fleet driver is being unresponsive to task plan ["
-                + _parent->_context->task->id() + "]. Recomputing plan!");
+                + _parent->_task->id() + "]. Recomputing plan!");
 
           return _parent->find_and_execute_plan();
         }
@@ -958,7 +960,7 @@ public:
 
   void execute() final
   {
-    _context->listeners.insert(&_state_listener);
+    _context->state_listeners.insert(&_state_listener);
     _node->schedule_conflict_listeners.insert(&_conflict_listener);
     find_and_execute_plan();
   }
@@ -1009,7 +1011,7 @@ public:
     const auto quickest_finish_opt = get_fastest_plan_index(plans);
     if (!quickest_finish_opt)
     {
-      return _context->task->critical_failure(
+      return _task->critical_failure(
             "The robot failed to find a viable emergency plan! "
             "Human intervention may be needed!");
     }
@@ -1040,8 +1042,8 @@ public:
   void report_status() final
   {
     rmf_task_msgs::msg::TaskSummary summary;
-    summary.task_id = _context->task->id();
-    summary.start_time = _context->task->start_time();
+    summary.task_id = _task->id();
+    summary.start_time = _task->start_time();
 
     if (_emergency_active)
       summary.status = "Emergency Delay - ";
@@ -1076,6 +1078,7 @@ public:
 
 private:
   FleetAdapterNode* const _node;
+  Task* const _task;
   FleetAdapterNode::RobotContext* const _context;
   const std::size_t _goal_wp_index;
   const std::vector<std::size_t>& _fallback_wps;
@@ -1116,7 +1119,7 @@ MoveAction::~MoveAction()
           std::make_shared<EraseTrajectories::Request>(std::move(request)));
   }
 
-  _context->listeners.erase(&_state_listener);
+  _context->state_listeners.erase(&_state_listener);
 }
 
 } // anonymous namespace
@@ -1124,12 +1127,13 @@ MoveAction::~MoveAction()
 //==============================================================================
 std::unique_ptr<Action> make_move(
     FleetAdapterNode* node,
+    Task* parent,
     FleetAdapterNode::RobotContext* state,
     const std::size_t goal_wp_index,
     const std::vector<std::size_t>& fallback_wps)
 {
   return std::make_unique<MoveAction>(
-        node, state, goal_wp_index, fallback_wps);
+        node, parent, state, goal_wp_index, fallback_wps);
 }
 
 } // namespace full_control

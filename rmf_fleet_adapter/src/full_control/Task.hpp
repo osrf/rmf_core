@@ -15,30 +15,38 @@
  *
 */
 
-#ifndef SRC__FULL_CONTROL__ACTIONS_HPP
-#define SRC__FULL_CONTROL__ACTIONS_HPP
+#ifndef SRC__FULL_CONTROL__TASK_HPP
+#define SRC__FULL_CONTROL__TASK_HPP
 
-#include "FleetAdapterNode.hpp"
+#include <rclcpp/time.hpp>
 
 namespace rmf_fleet_adapter {
 namespace full_control {
 
-std::unique_ptr<Action> make_move(
-    FleetAdapterNode* node,
-    Task* parent,
-    FleetAdapterNode::RobotContext* state,
-    const std::size_t goal_wp_index,
-    const std::vector<std::size_t>& fallback_wps);
+//==============================================================================
+class Task
+{
+public:
 
-std::unique_ptr<Action> make_dispense(
-    FleetAdapterNode* node,
-    Task* parent,
-    std::string dispenser_name,
-    const rmf_task_msgs::msg::Behavior& behavior);
+  virtual void next() = 0;
 
-std::unique_ptr<Action> make_failure(std::string error);
+  virtual void interrupt() = 0;
+
+  virtual void resume() = 0;
+
+  virtual void report_status() = 0;
+
+  virtual void critical_failure(const std::string& error) = 0;
+
+  virtual const std::string& id() const = 0;
+
+  virtual const rclcpp::Time& start_time() const = 0;
+
+  virtual ~Task() = default;
+
+};
 
 } // namespace full_control
 } // namespace rmf_fleet_adapter
 
-#endif // SRC__FULL_CONTROL__ACTIONS_HPP
+#endif // SRC__FULL_CONTROL__TASK_HPP

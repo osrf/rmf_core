@@ -28,6 +28,7 @@
 #include <rclcpp/executors.hpp>
 
 #include "Actions.hpp"
+#include "Tasks.hpp"
 
 namespace rmf_fleet_adapter {
 namespace full_control {
@@ -108,13 +109,20 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
 }
 
 //==============================================================================
+FleetAdapterNode::RobotContext::RobotContext(Location location_)
+  : location(std::move(location_))
+{
+  // Do nothing
+}
+
+//==============================================================================
 void FleetAdapterNode::RobotContext::next_task()
 {
-  if (!task_queue.empty())
+  if (!_task_queue.empty())
   {
-    task = std::move(task_queue.front());
-    task_queue.pop();
-    task->next();
+    _task = std::move(_task_queue.front());
+    _task_queue.erase(_task_queue.begin());
+    _task->next();
     return;
   }
 
@@ -123,107 +131,39 @@ void FleetAdapterNode::RobotContext::next_task()
 }
 
 //==============================================================================
-FleetAdapterNode::Task::Task(
-    FleetAdapterNode* node,
-    FleetAdapterNode::RobotContext* state,
-    const Delivery& request,
-    const std::size_t pickup_wp,
-    const std::size_t dropoff_wp)
-: _delivery(request),
-  _node(node),
-  _context(state)
+void FleetAdapterNode::RobotContext::add_task(std::unique_ptr<Task> new_task)
 {
-  _action_queue.push(
-        make_move(node, state, pickup_wp, node->get_parking_spots()));
-
+  if (!_task)
+  {
+    // No task is currently active, so set this new task as the active one and
+    // begin executing it.
+    _task = std::move(new_task);
+    _task->next();
+  }
+  else
+  {
+    // A task is currently active, so add this task to the queue. We're going to
+    // do first-come first-serve for task requests for now.
+    _task_queue.emplace_back(std::move(_task));
+  }
 }
 
 //==============================================================================
-void FleetAdapterNode::Task::next()
+void FleetAdapterNode::RobotContext::discard_task(Task* discarded_task)
 {
-  if (!_start_time)
-    _start_time = _node->get_clock()->now();
-
-  if (_action_queue.empty())
+  if (_task.get() == discarded_task)
   {
-    return _context->next_task();
+    return next_task();
   }
 
-  _action = std::move(_action_queue.front());
-  _action_queue.pop();
-  _action->execute();
-}
-
-//==============================================================================
-void FleetAdapterNode::Task::interrupt()
-{
-  if (!_action)
+  const auto it = std::find_if(_task_queue.begin(), _task_queue.end(),
+               [&](const std::unique_ptr<Task>& task)
   {
-    RCLCPP_WARN(
-          _node->get_logger(),
-          "No action for this task [" + id() + "] to interrupt. This might "
-          "indicate a bug!");
-    return;
-  }
+    return task.get() == discarded_task;
+  });
 
-  _action->interrupt();
-}
-
-//==============================================================================
-void FleetAdapterNode::Task::resume()
-{
-  if (!_action)
-  {
-    RCLCPP_WARN(
-          _node->get_logger(),
-          "No action for this task [" + id() + "] to resume. This might "
-          "indicate a bug!");
-    return;
-  }
-
-  _action->resume();
-}
-
-//==============================================================================
-void FleetAdapterNode::Task::report_status()
-{
-  if (!_action)
-  {
-    RCLCPP_WARN(
-          _node->get_logger(),
-          "No action for this task [" + id() + "] to report a status for. "
-          "This might indicate a bug!");
-    return;
-  }
-
-  _action->report_status();
-}
-
-//==============================================================================
-void FleetAdapterNode::Task::critical_failure(const std::string& error)
-{
-  rmf_task_msgs::msg::TaskSummary summary;
-  summary.task_id = id();
-  summary.start_time = start_time();
-
-  summary.status = "CRITICAL FAILURE: " + error;
-
-  _node->task_summary_publisher->publish(summary);
-
-  _context->next_task();
-}
-
-//==============================================================================
-const std::string& FleetAdapterNode::Task::id() const
-{
-  return _delivery.task_id;
-}
-
-
-//==============================================================================
-const rclcpp::Time& FleetAdapterNode::Task::start_time() const
-{
-  return *_start_time;
+  if (it != _task_queue.end())
+    _task_queue.erase(it);
 }
 
 //==============================================================================
@@ -428,6 +368,12 @@ void FleetAdapterNode::start(Fields fields)
   door_request_publisher = create_publisher<DoorRequest>(
         DoorRequestTopicName, rclcpp::SystemDefaultsQoS());
 
+  lift_request_publisher = create_publisher<LiftRequest>(
+        LiftRequestTopicName, rclcpp::SystemDefaultsQoS());
+
+  dispenser_request_publisher = create_publisher<DispenserRequest>(
+        DispenserRequestTopicName, rclcpp::SystemDefaultsQoS());
+
   task_summary_publisher = create_publisher<TaskSummary>(
         TaskSummaryTopicName, rclcpp::SystemDefaultsQoS());
 }
@@ -435,28 +381,6 @@ void FleetAdapterNode::start(Fields fields)
 //==============================================================================
 void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
 {
-  const auto& waypoint_keys = _field->graph_info.keys;
-  const auto& delivery = *msg;
-  const auto pickup = waypoint_keys.find(delivery.pickup_place_name);
-  if (pickup == waypoint_keys.end())
-  {
-    RCLCPP_ERROR(
-          get_logger(),
-          "Unknown pickup location [" + delivery.pickup_place_name + "] in "
-          + "delivery request [" + delivery.task_id + "]");
-    return;
-  }
-
-  const auto dropoff = waypoint_keys.find(delivery.dropoff_place_name);
-  if (dropoff == waypoint_keys.end())
-  {
-    RCLCPP_ERROR(
-          get_logger(),
-          "Uknown dropoff location [" + delivery.dropoff_place_name + "] in "
-          + "delivery request [" + delivery.task_id + "]");
-    return;
-  }
-
   if (_contexts.empty())
   {
     RCLCPP_ERROR(
@@ -467,22 +391,9 @@ void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
 
   auto context = _contexts.begin()->second.get();
 
-  auto task = std::make_unique<Task>(
-        this, context, delivery, pickup->second, dropoff->second);
-
-  if (!context->task)
-  {
-    // No task is currently active, so set this new task as the active one and
-    // begin executing it.
-    context->task = std::move(task);
-    context->task->next();
-  }
-  else
-  {
-    // A task is currently active, so add this task to the queue. We're going to
-    // do first-come first-serve for task requests for now.
-    context->task_queue.emplace(std::move(task));
-  }
+  auto task = make_delivery(this, context, *msg);
+  if (task)
+    context->add_task(std::move(task));
 }
 
 //==============================================================================
@@ -515,15 +426,14 @@ void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr msg)
 
     if (inserted)
     {
-      it->second = std::make_unique<RobotContext>(
-            RobotContext{robot.location, nullptr, {}, {}});
+      it->second = std::make_unique<RobotContext>(RobotContext{robot.location});
     }
     else
     {
       it->second->location = robot.location;
     }
 
-    for (auto* listener : it->second->listeners)
+    for (auto* listener : it->second->state_listeners)
       listener->receive(robot);
   }
 }

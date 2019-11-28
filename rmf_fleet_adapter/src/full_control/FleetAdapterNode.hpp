@@ -57,6 +57,7 @@
 #include <queue>
 
 #include "Action.hpp"
+#include "Task.hpp"
 #include "../rmf_fleet_adapter/ParseGraph.hpp"
 
 namespace rmf_fleet_adapter {
@@ -94,51 +95,22 @@ public:
   using RobotState = rmf_fleet_msgs::msg::RobotState;
   using RobotStateListeners = std::unordered_set<Listener<RobotState>*>;
 
-  class Task;
   struct RobotContext
   {
-    Location location;
-    std::unique_ptr<Task> task;
-    std::queue<std::unique_ptr<Task>> task_queue;
+    RobotContext(Location location);
 
-    RobotStateListeners listeners;
+    Location location;
+    RobotStateListeners state_listeners;
 
     void next_task();
-  };
 
-  class Task
-  {
-  public:
+    void add_task(std::unique_ptr<Task> new_task);
 
-    Task(FleetAdapterNode* node,
-         RobotContext* state_ptr,
-         const Delivery& request,
-         std::size_t pickup_wp,
-         std::size_t dropoff_wp);
-
-    void next();
-
-    void interrupt();
-
-    void resume();
-
-    void report_status();
-
-    void critical_failure(const std::string& error);
-
-    const std::string& id() const;
-
-    const rclcpp::Time& start_time() const;
+    void discard_task(Task* discarded_task);
 
   private:
-
-    const Delivery _delivery;
-    FleetAdapterNode* const _node;
-    RobotContext* const _context;
-    std::unique_ptr<Action> _action;
-    std::queue<std::unique_ptr<Action>> _action_queue;
-    rmf_utils::optional<rclcpp::Time> _start_time;
-
+    std::unique_ptr<Task> _task;
+    std::vector<std::unique_ptr<Task>> _task_queue;
   };
 
   const std::string& get_fleet_name() const;
@@ -228,7 +200,6 @@ public:
   using LiftStateListeners = std::unordered_set<Listener<LiftState>*>;
   LiftStateListeners lift_state_listeners;
 
-  using DispenserRequest = rmf_dispenser_msgs::msg::DispenserRequest;
   using DispenserResult = rmf_dispenser_msgs::msg::DispenserResult;
   using DispenserState = rmf_dispenser_msgs::msg::DispenserState;
 
@@ -256,6 +227,10 @@ public:
   using LiftRequest = rmf_lift_msgs::msg::LiftRequest;
   using LiftRequestPub = rclcpp::Publisher<LiftRequest>;
   LiftRequestPub::SharedPtr lift_request_publisher;
+
+  using DispenserRequest = rmf_dispenser_msgs::msg::DispenserRequest;
+  using DispenserRequestPub = rclcpp::Publisher<DispenserRequest>;
+  DispenserRequestPub::SharedPtr dispenser_request_publisher;
 
   using TaskSummary = rmf_task_msgs::msg::TaskSummary;
   using TaskSummaryPub = rclcpp::Publisher<TaskSummary>;
