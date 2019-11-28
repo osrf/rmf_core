@@ -58,6 +58,9 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
   auto erase_trajectories = node->create_client<EraseTrajectories>(
         rmf_traffic_ros2::EraseTrajectoriesSrvName);
 
+  auto resolve_conflicts = node->create_client<ResolveConflicts>(
+        rmf_traffic_ros2::ResolveConflictsSrvName);
+
   rmf_utils::optional<GraphInfo> graph_info =
       parse_graph(graph_file, traits, *node);
   if (!graph_info)
@@ -87,7 +90,8 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
               std::move(submit_trajectories),
               std::move(delay_trajectories),
               std::move(replace_trajectories),
-              std::move(erase_trajectories)
+              std::move(erase_trajectories),
+              std::move(resolve_conflicts)
             });
 
       return node;
@@ -536,6 +540,13 @@ void FleetAdapterNode::door_state_update(DoorState::UniquePtr msg)
 void FleetAdapterNode::lift_state_update(LiftState::UniquePtr msg)
 {
   for (const auto& listener : lift_state_listeners)
+    listener->receive(*msg);
+}
+
+//==============================================================================
+void FleetAdapterNode::schedule_conflict_update(ScheduleConflict::UniquePtr msg)
+{
+  for (const auto& listener : schedule_conflict_listeners)
     listener->receive(*msg);
 }
 

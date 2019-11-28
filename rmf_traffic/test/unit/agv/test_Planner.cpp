@@ -892,7 +892,7 @@ SCENARIO("Test planning")
 
       const double err = rmf_utils::wrap_to_pi(
             t.back().get_finish_position()[2] - M_PI);
-      CHECK(err  == Approx(0.0) );
+      CHECK(err == Approx(0.0) );
 
       WHEN("An obstacle is introduced")
       {

@@ -20,10 +20,12 @@
 
 #include <rmf_traffic_ros2/schedule/MirrorManager.hpp>
 
+#include <rmf_traffic_msgs/msg/schedule_conflict.hpp>
 #include <rmf_traffic_msgs/srv/submit_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/delay_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/replace_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/erase_trajectories.hpp>
+#include <rmf_traffic_msgs/srv/resolve_conflicts.hpp>
 
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
 #include <rmf_fleet_msgs/msg/path_request.hpp>
@@ -173,6 +175,10 @@ public:
   using EraseTrajectoriesClient = rclcpp::Client<EraseTrajectories>;
   using EraseTrajectoriesPtr = EraseTrajectoriesClient::SharedPtr;
 
+  using ResolveConflicts = rmf_traffic_msgs::srv::ResolveConflicts;
+  using ResolveConflictsClient = rclcpp::Client<ResolveConflicts>;
+  using ResolveConflictsPtr = ResolveConflictsClient::SharedPtr;
+
   struct Fields
   {
     rmf_traffic_ros2::schedule::MirrorManager mirror;
@@ -181,6 +187,7 @@ public:
     DelayTrajectoriesPtr delay_trajectories;
     ReplaceTrajectoriesPtr replace_trajectories;
     EraseTrajectoriesPtr erase_trajectories;
+    ResolveConflictsPtr resolve_conflicts;
 
     GraphInfo graph_info;
     rmf_traffic::agv::VehicleTraits traits;
@@ -193,12 +200,14 @@ public:
         SubmitTrajectoriesPtr submit_trajectories_,
         DelayTrajectoriesPtr delay_trajectories_,
         ReplaceTrajectoriesPtr replace_trajectories_,
-        EraseTrajectoriesPtr erase_trajectories_)
+        EraseTrajectoriesPtr erase_trajectories_,
+        ResolveConflictsPtr resolve_conflicts_)
     : mirror(std::move(mirror_)),
       submit_trajectories(std::move(submit_trajectories_)),
       delay_trajectories(std::move(delay_trajectories_)),
       replace_trajectories(std::move(replace_trajectories_)),
       erase_trajectories(std::move(erase_trajectories_)),
+      resolve_conflicts(std::move(resolve_conflicts_)),
       graph_info(std::move(graph_info_)),
       traits(std::move(traits_)),
       planner(
@@ -230,6 +239,11 @@ public:
   using DispenserStateListeners =
       std::unordered_set<Listener<DispenserState>*>;
   DispenserStateListeners dispenser_state_listeners;
+
+  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
+  using ScheduleConflictListeners =
+      std::unordered_set<Listener<ScheduleConflict>*>;
+  ScheduleConflictListeners schedule_conflict_listeners;
 
   using PathRequest = rmf_fleet_msgs::msg::PathRequest;
   using PathRequestPub = rclcpp::Publisher<PathRequest>;
@@ -286,6 +300,10 @@ private:
   using LiftStateSub = rclcpp::Subscription<LiftState>;
   LiftStateSub::SharedPtr _lift_state_sub;
   void lift_state_update(LiftState::UniquePtr msg);
+
+  using ScheduleConflictSub = rclcpp::Subscription<ScheduleConflict>;
+  ScheduleConflictSub::SharedPtr _schedule_conflict_sub;
+  void schedule_conflict_update(ScheduleConflict::UniquePtr msg);
 
   using Context =
       std::unordered_map<std::string, std::unique_ptr<RobotContext>>;

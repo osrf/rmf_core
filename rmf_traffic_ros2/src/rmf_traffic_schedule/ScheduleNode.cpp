@@ -94,13 +94,13 @@ ScheduleNode::ScheduleNode()
             const EraseTrajectories::Response::SharedPtr response)
         { this->erase_trajectories(request_header, request, response); });
 
-  resolve_trajectories_service =
-      create_service<ResolveTrajectories>(
-        rmf_traffic_ros2::ResolveTrajectoriesSrvName,
+  resolve_conflicts_service =
+      create_service<ResolveConflicts>(
+        rmf_traffic_ros2::ResolveConflictsSrvName,
         [=](const std::shared_ptr<rmw_request_id_t> request_header,
-            const ResolveTrajectories::Request::SharedPtr request,
-            const ResolveTrajectories::Response::SharedPtr response)
-        { this->resolve_trajectories(request_header, request, response); });
+            const ResolveConflicts::Request::SharedPtr request,
+            const ResolveConflicts::Response::SharedPtr response)
+        { this->resolve_conflicts(request_header, request, response); });
 
   register_query_service =
       create_service<RegisterQuery>(
@@ -279,7 +279,7 @@ std::unordered_set<uint64_t> ScheduleNode::process_trajectories(
     {
       if (initial_conflicts.count(v.id) != 0)
       {
-        // Check if this is schedule entry is one that is being replaced. If it
+        // Check if this schedule entry is one that is being replaced. If it
         // is, then don't bother testing it for conflicts.
         if (replace_ids.count(v.id) != 0)
           continue;
@@ -287,6 +287,8 @@ std::unordered_set<uint64_t> ScheduleNode::process_trajectories(
         if (!rmf_traffic::DetectConflict::between(
               requested_trajectory, v.trajectory, true).empty())
           unresolved_conflicts.insert(v.id);
+
+        continue;
       }
 
       // TODO(MXG) Since we already put these time limits in the query, do we
@@ -499,10 +501,10 @@ void ScheduleNode::erase_trajectories(
 }
 
 //==============================================================================
-void ScheduleNode::resolve_trajectories(
+void ScheduleNode::resolve_conflicts(
     const std::shared_ptr<rmw_request_id_t>& /*request_header*/,
-    const ResolveTrajectories::Request::SharedPtr& request,
-    const ResolveTrajectories::Response::SharedPtr& response)
+    const ResolveConflicts::Request::SharedPtr& request,
+    const ResolveConflicts::Response::SharedPtr& response)
 {
   response->current_version = database.latest_version();
   response->original_version = response->current_version;

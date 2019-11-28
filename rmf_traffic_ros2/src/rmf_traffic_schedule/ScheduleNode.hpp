@@ -29,7 +29,7 @@
 #include <rmf_traffic_msgs/srv/replace_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/delay_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/erase_trajectories.hpp>
-#include <rmf_traffic_msgs/srv/resolve_trajectories.hpp>
+#include <rmf_traffic_msgs/srv/resolve_conflicts.hpp>
 
 #include <rmf_traffic_msgs/srv/mirror_update.hpp>
 #include <rmf_traffic_msgs/srv/register_query.hpp>
@@ -110,15 +110,15 @@ private:
   EraseTrajectoriesService::SharedPtr erase_trajectories_service;
 
 
-  using ResolveTrajectories = rmf_traffic_msgs::srv::ResolveTrajectories;
-  using ResolveTrajectoriesService = rclcpp::Service<ResolveTrajectories>;
+  using ResolveConflicts = rmf_traffic_msgs::srv::ResolveConflicts;
+  using ResolveConflictsService = rclcpp::Service<ResolveConflicts>;
 
-  ResolveTrajectoriesService::SharedPtr resolve_trajectories_service;
+  ResolveConflictsService::SharedPtr resolve_conflicts_service;
 
-  void resolve_trajectories(
+  void resolve_conflicts(
       const std::shared_ptr<rmw_request_id_t>& request_header,
-      const ResolveTrajectories::Request::SharedPtr& request,
-      const ResolveTrajectories::Response::SharedPtr& response);
+      const ResolveConflicts::Request::SharedPtr& request,
+      const ResolveConflicts::Response::SharedPtr& response);
 
 
   using RegisterQuery = rmf_traffic_msgs::srv::RegisterQuery;

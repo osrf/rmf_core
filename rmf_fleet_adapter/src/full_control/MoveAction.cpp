@@ -70,9 +70,11 @@ public:
     _goal_wp_index(goal_wp_index),
     _fallback_wps(fallback_wps),
     _state_listener(this),
+    _conflict_listener(this),
     _event_executor(this),
     _event_listener(this),
     _waiting_for_schedule(true),
+    _last_revised_version(0),
     _emergency_active(false),
     _waiting_on_emergency(false)
   {
@@ -140,18 +142,64 @@ public:
       fallback_thread.join();
 
     if (main_plan)
-      return execute_main(std::move(*std::move(main_plan)));
+    {
+      _plans.emplace_back(std::move(*std::move(main_plan)));
+      return;
+    }
 
-    return execute_fallback(std::move(fallback_plans));
+    return use_fallback(std::move(fallback_plans));
   }
 
-  void execute_main(rmf_traffic::agv::Plan plan)
+  void find_and_execute_plan()
   {
-    _plans.emplace_back(std::move(plan));
-    return execute_plan();
+    find_plan();
+    execute_plan();
   }
 
-  void execute_fallback(
+  void revise_plan(rmf_traffic::schedule::Version revision_id)
+  {
+    find_plan();
+
+    _last_revised_version = revision_id;
+
+    _waiting_for_schedule = true;
+
+    using ResolveConflicts = rmf_traffic_msgs::srv::ResolveConflicts;
+    ResolveConflicts::Request request;
+    request.resolve_ids = _schedule_ids;
+    request.trajectories = convert_trajectories();
+    request.schedule_version = revision_id;
+
+    const auto& resolve = _node->get_fields().resolve_conflicts;
+
+    resolve->async_send_request(
+          std::make_shared<ResolveConflicts::Request>(std::move(request)),
+          [&](rclcpp::Client<ResolveConflicts>::SharedFuture future)
+    {
+      const auto response = future.get();
+
+      // We should never get an exceptional error message here. If we do, then
+      // there is a serious bug in our MoveAction or the schedule service.
+      assert(response->error.empty());
+
+      if (!response->accepted)
+      {
+        // The conflict was resolved by someone else, so we will quit
+        return;
+      }
+
+      _schedule_ids.clear();
+      for (auto i = response->original_version+1;
+           i <= response->latest_trajectory_version; ++i)
+      {
+        _schedule_ids.push_back(i);
+      }
+
+      command_plan();
+    });
+  }
+
+  void use_fallback(
       std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans)
   {
     const auto i_nearest_opt = get_fastest_plan_index(fallback_plans);
@@ -224,14 +272,11 @@ public:
     {
       _plans.emplace_back(*resume_plans[*quickest_finish_opt]);
     }
-
-    return execute_plan();
   }
 
-  void execute_plan()
+  std::vector<rmf_traffic_msgs::msg::Trajectory> convert_trajectories() const
   {
     std::vector<rmf_traffic_msgs::msg::Trajectory> trajectories;
-
     for (const auto& plan : _plans)
     {
       for (const auto& trajectory : plan.get_trajectories())
@@ -247,9 +292,12 @@ public:
               rmf_traffic_ros2::convert(trajectory));
       }
     }
+  }
 
+  void execute_plan()
+  {
+    auto trajectories = convert_trajectories();
     _waiting_for_schedule = true;
-    _context->listeners.insert(&_state_listener);
 
     if (!_schedule_ids.empty())
     {
@@ -344,7 +392,7 @@ public:
             "The traffic plan for [" + _context->task->id() + "] was rejected. "
             + "We will retry.");
 
-      find_plan();
+      find_and_execute_plan();
     });
   }
 
@@ -443,7 +491,7 @@ public:
                 "The fleet driver is being unresponsive to task plan ["
                 + _parent->_context->task->id() + "]. Recomputing plan!");
 
-          return _parent->find_plan();
+          return _parent->find_and_execute_plan();
         }
 
         // Attempt to resend the command if the robot has not received it yet.
@@ -460,6 +508,41 @@ public:
     }
 
     MoveAction* _parent;
+  };
+
+  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
+  class ConflictListener : public Listener<ScheduleConflict>
+  {
+  public:
+
+    ConflictListener(MoveAction* parent)
+    : _parent(parent)
+    {
+      // Do nothing
+    }
+
+    void receive(const ScheduleConflict& msg) final
+    {
+      if (_parent->_waiting_for_schedule)
+        return;
+
+      if (msg.version <= _parent->_last_revised_version)
+        return;
+
+      const auto& schedule_ids = _parent->_schedule_ids;
+
+      for (const auto id : msg.indices)
+      {
+        if (std::find(schedule_ids.begin(), schedule_ids.end(), id)
+            == schedule_ids.end())
+          continue;
+
+        return _parent->revise_plan(msg.version);
+      }
+    }
+
+    MoveAction* _parent;
+
   };
 
   void handle_event(const RobotState& msg)
@@ -875,10 +958,12 @@ public:
 
   void execute() final
   {
-    find_plan();
+    _context->listeners.insert(&_state_listener);
+    _node->schedule_conflict_listeners.insert(&_conflict_listener);
+    find_and_execute_plan();
   }
 
-  void find_emergency_plan()
+  void find_and_execute_emergency_plan()
   {
     _emergency_active = true;
 
@@ -943,13 +1028,13 @@ public:
   void interrupt() final
   {
     cancel();
-    find_emergency_plan();
+    find_and_execute_emergency_plan();
   }
 
   void resume() final
   {
     cancel();
-    find_plan();
+    find_and_execute_plan();
   }
 
   void report_status() final
@@ -995,6 +1080,7 @@ private:
   const std::size_t _goal_wp_index;
   const std::vector<std::size_t>& _fallback_wps;
   StateListener _state_listener;
+  ConflictListener _conflict_listener;
   EventExecutor _event_executor;
   EventListener _event_listener;
 
@@ -1005,7 +1091,7 @@ private:
   std::size_t _command_segment;
   std::vector<rmf_traffic::schedule::Version> _schedule_ids;
   bool _waiting_for_schedule;
-  std::function<void()> _queued_schedule_update;
+  rmf_traffic::schedule::Version _last_revised_version;
 
   bool _emergency_active;
   bool _waiting_on_emergency;
