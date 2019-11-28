@@ -136,7 +136,6 @@ FleetAdapterNode::Task::Task(
   _action_queue.push(
         make_move(node, state, pickup_wp, node->get_parking_spots()));
 
-
 }
 
 //==============================================================================

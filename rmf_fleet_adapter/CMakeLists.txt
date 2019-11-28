@@ -70,6 +70,7 @@ add_executable(full_control
   src/full_control/Failure.cpp
   src/full_control/FleetAdapterNode.cpp
   src/full_control/MoveAction.cpp
+  src/full_control/DispenseAction.cpp
 )
 
 target_link_libraries(full_control

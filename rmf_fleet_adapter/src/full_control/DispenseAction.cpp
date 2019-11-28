@@ -15,28 +15,31 @@
  *
 */
 
-#ifndef SRC__FULL_CONTROL__ACTIONS_HPP
-#define SRC__FULL_CONTROL__ACTIONS_HPP
-
 #include "FleetAdapterNode.hpp"
 
 namespace rmf_fleet_adapter {
 namespace full_control {
 
-std::unique_ptr<Action> make_move(
-    FleetAdapterNode* node,
-    FleetAdapterNode::RobotContext* state,
-    const std::size_t goal_wp_index,
-    const std::vector<std::size_t>& fallback_wps);
+namespace {
+//==============================================================================
+class DispenseAction : public Action
+{
+public:
 
+
+
+};
+
+} // anonymous namespace
+
+//==============================================================================
 std::unique_ptr<Action> make_dispense(
     FleetAdapterNode* node,
     const rmf_task_msgs::msg::Behavior& behavior,
-    const std::string& dispenser_name);
+    const std::string& dispenser_name)
+{
 
-std::unique_ptr<Action> make_failure(std::string error);
+}
 
 } // namespace full_control
 } // namespace rmf_fleet_adapter
-
-#endif // SRC__FULL_CONTROL__ACTIONS_HPP
