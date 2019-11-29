@@ -3,8 +3,10 @@
 # moves between the queues to completion (or failure).
 string task_id
 
-string object_name
+rmf_dispenser_msgs/DispenserRequestItem[] items
+
 string pickup_place_name
 Behavior pickup_behavior
+
 string dropoff_place_name
 Behavior dropoff_behavior
