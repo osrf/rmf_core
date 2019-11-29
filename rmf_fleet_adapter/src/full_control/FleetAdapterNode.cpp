@@ -167,6 +167,20 @@ void FleetAdapterNode::RobotContext::discard_task(Task* discarded_task)
 }
 
 //==============================================================================
+void FleetAdapterNode::RobotContext::interrupt()
+{
+  if (_task)
+    _task->interrupt();
+}
+
+//==============================================================================
+void FleetAdapterNode::RobotContext::resume()
+{
+  if (_task)
+    _task->resume();
+}
+
+//==============================================================================
 const std::string& FleetAdapterNode::get_fleet_name() const
 {
   return _fleet_name;
@@ -327,55 +341,78 @@ void FleetAdapterNode::start(Fields fields)
   _field = std::move(fields);
   _field->mirror.update();
 
+  const auto default_qos = rclcpp::SystemDefaultsQoS();
+
   _delivery_sub = create_subscription<Delivery>(
-        DeliveryTopicName, rclcpp::SystemDefaultsQoS(),
+        DeliveryTopicName, default_qos,
         [&](Delivery::UniquePtr msg)
   {
     this->delivery_request(std::move(msg));
   });
 
   _dispenser_result_sub = create_subscription<DispenserResult>(
-        DispenserResultTopicName, rclcpp::SystemDefaultsQoS(),
+        DispenserResultTopicName, default_qos,
         [&](DispenserResult::UniquePtr msg)
   {
     this->dispenser_result_update(std::move(msg));
   });
 
   _dispenser_state_sub = create_subscription<DispenserState>(
-        DispenserStateTopicName, rclcpp::SystemDefaultsQoS(),
+        DispenserStateTopicName, default_qos,
         [&](DispenserState::UniquePtr msg)
   {
     this->dispenser_state_update(std::move(msg));
   });
 
   _fleet_state_sub = create_subscription<FleetState>(
-        FleetStateTopicName, rclcpp::SystemDefaultsQoS(),
+        FleetStateTopicName, default_qos,
         [&](FleetState::UniquePtr msg)
   {
     this->fleet_state_update(std::move(msg));
   });
 
   _door_state_sub = create_subscription<DoorState>(
-        DoorStateTopicName, rclcpp::SystemDefaultsQoS(),
+        DoorStateTopicName, default_qos,
         [&](DoorState::UniquePtr msg)
   {
     this->door_state_update(std::move(msg));
   });
 
+  _lift_state_sub = create_subscription<LiftState>(
+        LiftStateTopicName, default_qos,
+        [&](LiftState::UniquePtr msg)
+  {
+    this->lift_state_update(std::move(msg));
+  });
+
+  _schedule_conflict_sub = create_subscription<ScheduleConflict>(
+        rmf_traffic_ros2::ScheduleConflictTopicName, default_qos,
+        [&](ScheduleConflict::UniquePtr msg)
+  {
+    this->schedule_conflict_update(std::move(msg));
+  });
+
+  _emergency_notice_sub = create_subscription<EmergencyNotice>(
+        rmf_traffic_ros2::EmergencyTopicName, default_qos,
+        [&](EmergencyNotice::UniquePtr msg)
+  {
+    this->emergency_notice_update(std::move(msg));
+  });
+
   path_request_publisher = create_publisher<PathRequest>(
-        PathRequestTopicName, rclcpp::SystemDefaultsQoS());
+        PathRequestTopicName, default_qos);
 
   door_request_publisher = create_publisher<DoorRequest>(
-        DoorRequestTopicName, rclcpp::SystemDefaultsQoS());
+        DoorRequestTopicName, default_qos);
 
   lift_request_publisher = create_publisher<LiftRequest>(
-        LiftRequestTopicName, rclcpp::SystemDefaultsQoS());
+        LiftRequestTopicName, default_qos);
 
   dispenser_request_publisher = create_publisher<DispenserRequest>(
-        DispenserRequestTopicName, rclcpp::SystemDefaultsQoS());
+        DispenserRequestTopicName, default_qos);
 
   task_summary_publisher = create_publisher<TaskSummary>(
-        TaskSummaryTopicName, rclcpp::SystemDefaultsQoS());
+        TaskSummaryTopicName, default_qos);
 }
 
 //==============================================================================
@@ -457,6 +494,28 @@ void FleetAdapterNode::schedule_conflict_update(ScheduleConflict::UniquePtr msg)
 {
   for (const auto& listener : schedule_conflict_listeners)
     listener->receive(*msg);
+}
+
+//==============================================================================
+void FleetAdapterNode::emergency_notice_update(EmergencyNotice::UniquePtr msg)
+{
+  const bool active_emergency = msg->data;
+  if (active_emergency == _in_emergency_mode)
+    return;
+
+  _in_emergency_mode = active_emergency;
+
+  if (active_emergency)
+  {
+    for (const auto& c : _contexts)
+      c.second->interrupt();
+  }
+
+  if (!active_emergency)
+  {
+    for (const auto& c : _contexts)
+      c.second->resume();
+  }
 }
 
 } // namespace full_control

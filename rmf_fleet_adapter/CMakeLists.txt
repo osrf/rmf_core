@@ -23,6 +23,7 @@ set(dep_pkgs
   rmf_traffic
   rmf_traffic_ros2
   rmf_traffic_msgs
+  std_msgs
 )
 foreach(pkg ${dep_pkgs})
   find_package(${pkg} REQUIRED)
@@ -81,6 +82,7 @@ target_link_libraries(full_control
     ${rmf_dispenser_msgs_LIBRARIES}
     ${rmf_door_msgs_LIBRARIES}
     ${rmf_lift_msgs_LIBRARIES}
+    ${std_msgs_LIBRARIES}
 )
 
 target_include_directories(full_control
@@ -89,6 +91,7 @@ target_include_directories(full_control
     ${rmf_dispenser_msgs_INCLUDE_DIRS}
     ${rmf_door_msgs_INCLUDE_DIRS}
     ${rmf_lift_msgs_INCLUDE_DIRS}
+    ${std_msgs_INCLUDE_DIRS}
 )
 
 # -----------------------------------------------------------------------------

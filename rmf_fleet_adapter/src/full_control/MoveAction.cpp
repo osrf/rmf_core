@@ -817,16 +817,23 @@ public:
   {
     _waypoints.clear();
     _event_executor.cancel();
+    // TODO(MXG): Should we issue a command to the robot to stop?
   }
 
   void interrupt() final
   {
+    if (_emergency_active)
+      return;
+
     cancel();
     find_and_execute_emergency_plan();
   }
 
   void resume() final
   {
+    if (!_emergency_active)
+      return;
+
     cancel();
     find_and_execute_plan();
   }

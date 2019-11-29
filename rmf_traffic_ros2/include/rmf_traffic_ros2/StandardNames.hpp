@@ -34,6 +34,8 @@ const std::string MirrorUpdateServiceName = Prefix + "mirror_update";
 const std::string MirrorWakeupTopicName = Prefix + "mirror_wakeup";
 const std::string ScheduleConflictTopicName = Prefix + "schedule_conflict";
 
+const std::string EmergencyTopicName = "fire_alarm_trigger";
+
 } // namespace rmf_traffic_ros2
 
 #endif // RMF_TRAFFIC_ROS2__STANDARDNAMES_HPP

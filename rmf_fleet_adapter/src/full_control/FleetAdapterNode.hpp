@@ -48,6 +48,8 @@
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include <std_msgs/msg/bool.hpp>
+
 #include <rclcpp/node.hpp>
 
 #include <rmf_utils/optional.hpp>
@@ -107,6 +109,10 @@ public:
     void add_task(std::unique_ptr<Task> new_task);
 
     void discard_task(Task* discarded_task);
+
+    void interrupt();
+
+    void resume();
 
   private:
     std::unique_ptr<Task> _task;
@@ -279,6 +285,13 @@ private:
   using ScheduleConflictSub = rclcpp::Subscription<ScheduleConflict>;
   ScheduleConflictSub::SharedPtr _schedule_conflict_sub;
   void schedule_conflict_update(ScheduleConflict::UniquePtr msg);
+
+  using EmergencyNotice = std_msgs::msg::Bool;
+  using EmergencyNoticeSub = rclcpp::Subscription<EmergencyNotice>;
+  EmergencyNoticeSub::SharedPtr _emergency_notice_sub;
+  void emergency_notice_update(EmergencyNotice::UniquePtr msg);
+
+  bool _in_emergency_mode = false;
 
   using Context =
       std::unordered_map<std::string, std::unique_ptr<RobotContext>>;
