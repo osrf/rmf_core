@@ -261,6 +261,10 @@ private:
   DeliveryPtr _delivery_sub;
   void delivery_request(Delivery::UniquePtr msg);
 
+  // FIXME(MXG): To avoid memory leaks, this set should be periodically purged
+  // of tasks that are long past completed.
+  std::unordered_set<std::string> _received_tasks;
+
   using DispenserResultSub = rclcpp::Subscription<DispenserResult>;
   DispenserResultSub::SharedPtr _dispenser_result_sub;
   void dispenser_result_update(DispenserResult::UniquePtr msg);
@@ -296,7 +300,6 @@ private:
   using Context =
       std::unordered_map<std::string, std::unique_ptr<RobotContext>>;
   Context _contexts;
-
 };
 
 } // namespace full_control

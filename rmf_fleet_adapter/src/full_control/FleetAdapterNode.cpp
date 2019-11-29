@@ -426,6 +426,14 @@ void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
     return;
   }
 
+  auto task_insertion = _received_tasks.insert(msg->task_id);
+  if (!task_insertion.second)
+  {
+    // We've already received and processed this task in the past, so we can
+    // ignore it.
+    return;
+  }
+
   auto context = _contexts.begin()->second.get();
 
   auto task = make_delivery(this, context, *msg);
