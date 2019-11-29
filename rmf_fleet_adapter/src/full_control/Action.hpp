@@ -18,6 +18,12 @@
 #ifndef SRC__FULL_CONTROL__ACTION_HPP
 #define SRC__FULL_CONTROL__ACTION_HPP
 
+#include <rclcpp/time.hpp>
+
+#include <string>
+
+#include <rmf_utils/optional.hpp>
+
 namespace rmf_fleet_adapter {
 namespace full_control {
 
@@ -34,7 +40,13 @@ public:
 
   virtual void resolve() = 0;
 
-  virtual void report_status() = 0;
+  struct Status
+  {
+    std::string text;
+    rmf_utils::optional<rclcpp::Time> finish_estimate = rmf_utils::nullopt;
+  };
+
+  virtual Status get_status() const = 0;
 
   virtual ~Action() = default;
 };

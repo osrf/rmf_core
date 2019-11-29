@@ -42,7 +42,8 @@ public:
     _items(std::move(items)),
     _robot_state_listener(this),
     _dispenser_state_listener(this),
-    _dispenser_result_listener(this)
+    _dispenser_result_listener(this),
+    _duration_estimate(std::chrono::minutes(2))
   {
     // Do nothing
   }
@@ -54,10 +55,7 @@ public:
       _update_timer = _node->create_wall_timer(
             std::chrono::seconds(30), [&]()
       {
-        update_schedule();
-
-        if (_request_finished)
-          finish();
+        update();
       });
     }
 
@@ -82,56 +80,91 @@ public:
     _node->dispenser_request_publisher->publish(*_request);
   }
 
+  void update()
+  {
+    update_schedule();
+
+    if (_request_finished)
+      finish();
+  }
+
   void update_schedule()
   {
-    if (_waiting_for_schedule)
+    if (_task->schedule.waiting())
       return;
+
+    const auto now = _node->get_clock()->now();
+
+    if (_last_reported_wait_time)
+    {
+      const auto half_duration = _duration_estimate * 0.5;
+      if (*_last_reported_wait_time - now < half_duration)
+      {
+        const auto next_wait_time = now + _duration_estimate;
+        const auto delay = next_wait_time - *_last_reported_wait_time;
+        _last_reported_wait_time = next_wait_time;
+
+        _task->schedule.push_delay(
+              rmf_traffic_ros2::convert(delay),
+              rmf_traffic_ros2::convert(now));
+        return;
+      }
+    }
 
     const auto l = _context->location;
     const Eigen::Vector3d position{l.x, l.y, l.yaw};
 
-    if (_schedule_ids.empty())
-    {
-      using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
+    const auto& profile = _node->get_fields().traits.get_profile();
+    const Eigen::Vector3d zero = Eigen::Vector3d::Zero();
 
-      const auto& profile = _node->get_fields().traits.get_profile();
-      const auto now = rmf_traffic_ros2::convert(_node->get_clock()->now());
-      const Eigen::Vector3d zero = Eigen::Vector3d::Zero();
+    _last_reported_wait_time = now + _duration_estimate;
 
-      rmf_traffic::Trajectory trajectory{l.level_name};
-      trajectory.insert(now, profile, position, zero);
-      trajectory.insert(now + std::chrono::minutes(1), profile, position, zero);
+    const auto start = rmf_traffic_ros2::convert(now);
+    const auto finish = rmf_traffic_ros2::convert(*_last_reported_wait_time);
 
+    rmf_traffic::Trajectory trajectory{l.level_name};
+    trajectory.insert(start, profile, position, zero);
+    trajectory.insert(finish, profile, position, zero);
 
-    }
+    _task->schedule.push_trajectories({trajectory}, [](){});
   }
 
   void finish()
   {
-
+    assert(_request_finished);
+    _task->next();
   }
 
   void interrupt() final
   {
-
+    _emergency_active = true;
+    update();
   }
 
   void resume() final
   {
-
+    _emergency_active = false;
+    update();
   }
 
   void resolve() final
   {
     // We can't do anything about fixing conflicts while we're waiting for a
     // dispenser, so we'll just ignore requests to resolve our trajectory.
+
+    // But we'll call update() anyway, because why not
+    update();
   }
 
-  void report_status() final
+  Status get_status() const final
   {
+    std::string status = "Waiting for dispenser [" + _dispenser_name + "]";
 
+    if (_emergency_active)
+      status += " - Emergency Interruption";
+
+    return {status, _last_reported_wait_time};
   }
-
 
   using RobotState = rmf_fleet_msgs::msg::RobotState;
   class RobotStateListener : public Listener<RobotState>
@@ -155,8 +188,7 @@ public:
       // to be in, rather than a specific (x, y, yaw) location, so that should
       // be expressed somehow before enforcing the constraint.
 
-      if (_parent->_request_finished)
-        _parent->finish();
+      _parent->update();
     }
 
     DispenseAction* _parent;
@@ -192,8 +224,7 @@ public:
       if (!_parent->_request_received)
         _parent->send_request();
 
-      if (_parent->_request_finished)
-        _parent->finish();
+      _parent->update();
     }
 
     DispenseAction* _parent;
@@ -227,8 +258,7 @@ public:
               "Dispenser [" + _parent->_dispenser_name
               + "] failed to complete the dispense request");
 
-      if (_parent->_request_finished)
-        _parent->finish();
+      _parent->update();
     }
 
     DispenseAction* _parent;
@@ -239,21 +269,6 @@ public:
     _context->state_listeners.erase(&_robot_state_listener);
     _node->dispenser_state_listeners.erase(&_dispenser_state_listener);
     _node->dispenser_result_listeners.erase(&_dispenser_result_listener);
-
-    if (!_schedule_ids.empty())
-    {
-      using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
-
-      const auto& erase = _node->get_fields().erase_trajectories;
-      EraseTrajectories::Request erase_request;
-      erase_request.erase_ids = _schedule_ids;
-
-      _schedule_ids.clear();
-
-      erase->async_send_request(
-            std::make_shared<EraseTrajectories::Request>(
-              std::move(erase_request)));
-    }
   }
 
 private:
@@ -270,13 +285,13 @@ private:
   DispenserStateListener _dispenser_state_listener;
   DispenserResultListener _dispenser_result_listener;
 
+  rmf_utils::optional<rclcpp::Time> _last_reported_wait_time;
+  const rclcpp::Duration _duration_estimate;
+
   using DispenserRequest = rmf_dispenser_msgs::msg::DispenserRequest;
   rmf_utils::optional<DispenserRequest> _request;
   bool _request_received = false;
   bool _request_finished = false;
-
-  bool _waiting_for_schedule = false;
-  std::vector<rmf_traffic::schedule::Version> _schedule_ids;
 
   bool _emergency_active = false;
 };

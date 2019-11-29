@@ -128,7 +128,17 @@ public:
       return;
     }
 
-    _action->report_status();
+    rmf_task_msgs::msg::TaskSummary summary;
+    summary.task_id = id();
+    summary.start_time = start_time();
+    auto status = _action->get_status();
+    summary.status = std::move(status.text);
+    if (status.finish_estimate)
+      summary.end_time = *status.finish_estimate;
+    else
+      summary.end_time = _node->now() + rclcpp::Duration(600);
+
+    _node->task_summary_publisher->publish(summary);
   }
 
   void critical_failure(const std::string& error)

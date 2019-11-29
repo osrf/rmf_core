@@ -831,45 +831,49 @@ public:
     find_and_execute_plan();
   }
 
-  void report_status() final
+  Status get_status() const final
   {
-    rmf_task_msgs::msg::TaskSummary summary;
-    summary.task_id = _task->id();
-    summary.start_time = _task->start_time();
+    std::string status;
+
+    const auto& waypoint_names = _node->get_waypoint_names();
+
+    auto name_of = [&](std::size_t wp_index) -> std::string
+    {
+      const auto wp_it = waypoint_names.find(wp_index);
+      return wp_it == waypoint_names.end()?
+            "waypoint #" + std::to_string(_goal_wp_index) : wp_it->second;
+    };
+
+    status = "Moving to dispenser at [" + name_of(_goal_wp_index) + "] - ";
 
     if (_emergency_active)
-      summary.status = "Emergency Delay - ";
+      status += "Emergency Interruption - ";
     else
-      summary.status = "In progress - ";
+      status = "In progress - ";
 
     if (_waiting_on_emergency)
     {
-      summary.status += "Waiting for emergency to end";
-      return;
+      status += "Waiting for emergency to end";
+      return {status};
     }
     else if (_waypoints.empty())
     {
-      summary.status += "Empty Plan - May require human intervention";
-      _node->task_summary_publisher->publish(summary);
-      return;
+      status += "Empty Plan - May require human intervention";
+      return {status};
+    }
+
+    for (const auto& wp : _waypoints)
+    {
+      if (wp.graph_index())
+      {
+        status += "next waypoint: [" + name_of(*wp.graph_index()) + "]";
+        break;
+      }
     }
 
     const auto& final_wp = _waypoints.back();
-    summary.end_time = rmf_traffic_ros2::convert(final_wp.time());
-    const auto final_wp_index = final_wp.graph_index();
-    const auto& waypoint_names = _node->get_waypoint_names();
-    const auto it_name = waypoint_names.find(final_wp_index);
-    if (it_name == waypoint_names.end())
-    {
-      summary.status += "Moving to [" + it_name->second + "]";
-    }
-    else
-    {
-      summary.status += "Moving to waypoint ["
-          + std::to_string(final_wp_index) + "]";
-    }
-
-    _node->task_summary_publisher->publish(summary);
+    const auto end_time = rmf_traffic_ros2::to_ros2(final_wp.time());
+    return {status, end_time};
   }
 
 
