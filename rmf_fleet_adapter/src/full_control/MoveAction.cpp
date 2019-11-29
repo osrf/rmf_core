@@ -72,11 +72,8 @@ public:
     _goal_wp_index(goal_wp_index),
     _fallback_wps(fallback_wps),
     _state_listener(this),
-    _conflict_listener(this),
     _event_executor(this),
     _event_listener(this),
-    _waiting_for_schedule(true),
-    _last_revised_version(0),
     _emergency_active(false),
     _waiting_on_emergency(false)
   {
@@ -158,47 +155,9 @@ public:
     execute_plan();
   }
 
-  void revise_plan(rmf_traffic::schedule::Version revision_id)
+  void resolve() final
   {
-    find_plan();
-
-    _last_revised_version = revision_id;
-
-    _waiting_for_schedule = true;
-
-    using ResolveConflicts = rmf_traffic_msgs::srv::ResolveConflicts;
-    ResolveConflicts::Request request;
-    request.resolve_ids = _schedule_ids;
-    request.trajectories = convert_trajectories();
-    request.schedule_version = revision_id;
-
-    const auto& resolve = _node->get_fields().resolve_conflicts;
-
-    resolve->async_send_request(
-          std::make_shared<ResolveConflicts::Request>(std::move(request)),
-          [&](rclcpp::Client<ResolveConflicts>::SharedFuture future)
-    {
-      const auto response = future.get();
-
-      // We should never get an exceptional error message here. If we do, then
-      // there is a serious bug in our MoveAction or the schedule service.
-      assert(response->error.empty());
-
-      if (!response->accepted)
-      {
-        // The conflict was resolved by someone else, so we will quit
-        return;
-      }
-
-      _schedule_ids.clear();
-      for (auto i = response->original_version+1;
-           i <= response->latest_trajectory_version; ++i)
-      {
-        _schedule_ids.push_back(i);
-      }
-
-      command_plan();
-    });
+    find_and_execute_plan();
   }
 
   void use_fallback(
@@ -276,9 +235,9 @@ public:
     }
   }
 
-  std::vector<rmf_traffic_msgs::msg::Trajectory> convert_trajectories() const
+  std::vector<rmf_traffic::Trajectory> collect_trajectories() const
   {
-    std::vector<rmf_traffic_msgs::msg::Trajectory> trajectories;
+    std::vector<rmf_traffic::Trajectory> trajectories;
     for (const auto& plan : _plans)
     {
       for (const auto& trajectory : plan.get_trajectories())
@@ -290,114 +249,19 @@ public:
         if (trajectory.size() < 2)
           continue;
 
-        trajectories.emplace_back(
-              rmf_traffic_ros2::convert(trajectory));
+        trajectories.emplace_back(trajectory);
       }
     }
 
     return trajectories;
   }
 
+
   void execute_plan()
   {
-    auto trajectories = convert_trajectories();
-    _waiting_for_schedule = true;
-
-    if (!_schedule_ids.empty())
-    {
-      replace_plan(std::move(trajectories));
-      return;
-    }
-
-    submit_plan(std::move(trajectories));
-  }
-
-  void replace_plan(
-      std::vector<rmf_traffic_msgs::msg::Trajectory> trajectories,
-      const bool send_command = true)
-  {
-    using ReplaceTrajectories = rmf_traffic_msgs::srv::ReplaceTrajectories;
-
-    const auto& replace = _node->get_fields().replace_trajectories;
-    ReplaceTrajectories::Request request;
-
-    request.replace_ids = _schedule_ids;
-    request.trajectories = std::move(trajectories);
-
-    _schedule_ids.clear();
-    _waiting_for_schedule = true;
-
-    replace->async_send_request(
-          std::make_shared<ReplaceTrajectories::Request>(
-            std::move(request)),
-          [&](rclcpp::Client<ReplaceTrajectories>::SharedFuture future)
-    {
-      const auto response = future.get();
-
-      // We should never get an exceptional error message here. If we do, then
-      // there is a serious bug in our MoveAction or the schedule service.
-      assert(response->error.empty());
-
-      for (auto i = response->original_version+1;
-           i <= response->latest_trajectory_version; ++i)
-      {
-        _schedule_ids.push_back(i);
-      }
-
-      this->_waiting_for_schedule = false;
-
-      if (send_command)
-        command_plan();
-    });
-  }
-
-  void submit_plan(std::vector<rmf_traffic_msgs::msg::Trajectory> trajectories)
-  {
-    using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
-
-    const auto& submit = _node->get_fields().submit_trajectories;
-    SubmitTrajectories::Request request;
-
-    request.fleet.fleet_id = _node->get_fleet_name();
-    request.fleet.type =
-        rmf_traffic_msgs::msg::FleetProperties::TYPE_RESPONSIVE;
-    request.trajectories = std::move(trajectories);
-
-    _schedule_ids.clear();
-    _waiting_for_schedule = true;
-
-    submit->async_send_request(
-          std::make_shared<SubmitTrajectories::Request>(
-            std::move(request)),
-          [&](rclcpp::Client<SubmitTrajectories>::SharedFuture future)
-    {
-      const auto response = future.get();
-
-      // We should never get an exceptional error message here. If we do, then
-      // there is a serious bug in our MoveAction or the schedule service.
-      assert(response->error.empty());
-
-      if (response->accepted)
-      {
-        this->_waiting_for_schedule = false;
-        for (auto i = response->original_version+1;
-             i <= response->current_version; ++ i)
-        {
-          _schedule_ids.push_back(i);
-        }
-
-        command_plan();
-        return;
-      }
-
-      // The plan was rejected, so we will have to try to replan
-      RCLCPP_WARN(
-            _node->get_logger(),
-            "The traffic plan for [" + _task->id() + "] was rejected. "
-            + "We will retry.");
-
-      find_and_execute_plan();
-    });
+    _task->schedule.push_trajectories(
+          collect_trajectories(),
+          [&](){ command_plan(); });
   }
 
   void command_plan()
@@ -480,7 +344,7 @@ public:
 
     void receive(const RobotState& msg) final
     {
-      if (_parent->_waiting_for_schedule)
+      if (_parent->_task->schedule.waiting())
         return;
 
       if (msg.task_id != _parent->_command.task_id)
@@ -514,41 +378,6 @@ public:
     MoveAction* _parent;
   };
 
-  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
-  class ConflictListener : public Listener<ScheduleConflict>
-  {
-  public:
-
-    ConflictListener(MoveAction* parent)
-    : _parent(parent)
-    {
-      // Do nothing
-    }
-
-    void receive(const ScheduleConflict& msg) final
-    {
-      if (_parent->_waiting_for_schedule)
-        return;
-
-      if (msg.version <= _parent->_last_revised_version)
-        return;
-
-      const auto& schedule_ids = _parent->_schedule_ids;
-
-      for (const auto id : msg.indices)
-      {
-        if (std::find(schedule_ids.begin(), schedule_ids.end(), id)
-            == schedule_ids.end())
-          continue;
-
-        return _parent->revise_plan(msg.version);
-      }
-    }
-
-    MoveAction* _parent;
-
-  };
-
   void handle_event(const RobotState& msg)
   {
     const auto& event_wp = _waypoints.front();
@@ -566,43 +395,6 @@ public:
     // TODO(MXG): Consider making this threshold configurable
     if ((p - target).norm() < 0.1)
       event_wp.event()->execute(_event_executor);
-  }
-
-  void report_delay(
-      const rmf_traffic::Duration delay,
-      const rmf_traffic::Time from_time)
-  {
-    using DelayTrajectories = rmf_traffic_msgs::srv::DelayTrajectories;
-
-    const auto& delay_client = _node->get_fields().delay_trajectories;
-    DelayTrajectories::Request request;
-
-    request.delay_ids = _schedule_ids;
-    request.delay = delay.count();
-    request.from_time = from_time.time_since_epoch().count();
-
-    _schedule_ids.clear();
-    _waiting_for_schedule = true;
-
-    delay_client->async_send_request(
-          std::make_shared<DelayTrajectories::Request>(
-            std::move(request)),
-          [&](rclcpp::Client<DelayTrajectories>::SharedFuture future)
-    {
-      const auto response = future.get();
-
-      // We should never get an exceptional error message here. If we do, then
-      // there is a serious bug in our MoveAction or the schedule service.
-      assert(response->error.empty());
-
-      for (auto i = response->original_version+1;
-           i <= response->current_version; ++i)
-      {
-        _schedule_ids.push_back(i);
-      }
-
-      this->_waiting_for_schedule = false;
-    });
   }
 
   bool check_delay(
@@ -627,7 +419,7 @@ public:
         const auto delay = current_t - target_t;
         if (delay > std::chrono::seconds(5))
         {
-          report_delay(delay, target_t);
+          _task->schedule.push_delay(delay, target_t);
           for (std::size_t i=path_index; i < _command.path.size(); ++i)
           {
             _command.path[i].t = rmf_traffic_ros2::convert(
@@ -657,6 +449,7 @@ public:
 
   void report_waiting()
   {
+    _waiting_on_emergency = true;
     const auto now = rmf_traffic_ros2::convert(_node->get_clock()->now());
     const auto& profile = _node->get_fields().traits.get_profile();
     const auto& p = _context->location;
@@ -667,10 +460,10 @@ public:
     wait_trajectory.insert(now, profile, position, Eigen::Vector3d::Zero());
 
     wait_trajectory.insert(
-          now + std::chrono::hours(1),
+          now + std::chrono::minutes(5),
           profile, position, Eigen::Vector3d::Zero());
 
-    replace_plan({rmf_traffic_ros2::convert(wait_trajectory)}, false);
+    _task->schedule.push_trajectories({wait_trajectory}, [](){});
   }
 
   using DoorState = rmf_door_msgs::msg::DoorState;
@@ -961,7 +754,6 @@ public:
   void execute() final
   {
     _context->state_listeners.insert(&_state_listener);
-    _node->schedule_conflict_listeners.insert(&_conflict_listener);
     find_and_execute_plan();
   }
 
@@ -1050,7 +842,12 @@ public:
     else
       summary.status = "In progress - ";
 
-    if (_waypoints.empty())
+    if (_waiting_on_emergency)
+    {
+      summary.status += "Waiting for emergency to end";
+      return;
+    }
+    else if (_waypoints.empty())
     {
       summary.status += "Empty Plan - May require human intervention";
       _node->task_summary_publisher->publish(summary);
@@ -1083,7 +880,6 @@ private:
   const std::size_t _goal_wp_index;
   const std::vector<std::size_t>& _fallback_wps;
   StateListener _state_listener;
-  ConflictListener _conflict_listener;
   EventExecutor _event_executor;
   EventListener _event_listener;
 
@@ -1092,9 +888,6 @@ private:
   std::vector<rmf_traffic::agv::Plan::Waypoint> _waypoints;
   rmf_fleet_msgs::msg::PathRequest _command;
   std::size_t _command_segment;
-  std::vector<rmf_traffic::schedule::Version> _schedule_ids;
-  bool _waiting_for_schedule;
-  rmf_traffic::schedule::Version _last_revised_version;
 
   bool _emergency_active;
   bool _waiting_on_emergency;
@@ -1103,22 +896,6 @@ private:
 
 MoveAction::~MoveAction()
 {
-  if (!_schedule_ids.empty())
-  {
-    // Erase the latest trajectories on the schedule
-    using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
-
-    const auto& erase = _node->get_fields().erase_trajectories;
-    EraseTrajectories::Request request;
-    request.erase_ids = _schedule_ids;
-
-    _schedule_ids.clear();
-    _waiting_for_schedule = true;
-
-    erase->async_send_request(
-          std::make_shared<EraseTrajectories::Request>(std::move(request)));
-  }
-
   _context->state_listeners.erase(&_state_listener);
 }
 
@@ -1127,8 +904,8 @@ MoveAction::~MoveAction()
 //==============================================================================
 std::unique_ptr<Action> make_move(
     FleetAdapterNode* node,
-    Task* parent,
     FleetAdapterNode::RobotContext* state,
+    Task* parent,
     const std::size_t goal_wp_index,
     const std::vector<std::size_t>& fallback_wps)
 {

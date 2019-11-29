@@ -2,10 +2,11 @@ uint64[] resolve_ids
 
 Trajectory[] trajectories
 
-# The version of the schedule that this resolution is trying to fix.
+# The version number of the conflict that this resolution is trying to fix.
 # Multiple fleet adapters may simultaneously submit schedule resolutions for the
-# same version, but only one will be accepted.
-uint64 schedule_version
+# same version, but they will be rejected if the conflict has already been
+# resolved.
+uint64 conflict_version
 
 ---
 

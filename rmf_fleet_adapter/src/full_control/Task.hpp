@@ -18,6 +18,8 @@
 #ifndef SRC__FULL_CONTROL__TASK_HPP
 #define SRC__FULL_CONTROL__TASK_HPP
 
+#include "ScheduleManager.hpp"
+
 #include <rclcpp/time.hpp>
 
 namespace rmf_fleet_adapter {
@@ -28,11 +30,15 @@ class Task
 {
 public:
 
+  Task(FleetAdapterNode* node) : schedule(node, [&](){ this->resolve(); }) { }
+
   virtual void next() = 0;
 
   virtual void interrupt() = 0;
 
   virtual void resume() = 0;
+
+  virtual void resolve() = 0;
 
   virtual void report_status() = 0;
 
@@ -44,6 +50,7 @@ public:
 
   virtual ~Task() = default;
 
+  ScheduleManager schedule;
 };
 
 } // namespace full_control

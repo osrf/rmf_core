@@ -35,29 +35,33 @@ public:
       std::string pickup_dispenser,
       std::size_t dropoff_wp,
       std::string dropoff_dispenser)
-  : _delivery(request),
+  : Task(node),
+    _delivery(request),
     _node(node),
     _context(context)
   {
     _action_queue.push(
-          make_move(node, this, context,
+          make_move(node, context, this,
                     pickup_wp, node->get_parking_spots()));
 
     _action_queue.push(
-          make_dispense(node, this, pickup_dispenser,
-                        _delivery.pickup_behavior));
+          make_dispense(node, context, this, pickup_dispenser,
+                        _delivery.items, _delivery.pickup_behavior));
 
     _action_queue.push(
-          make_move(node, this, context,
+          make_move(node, context, this,
                     dropoff_wp, node->get_parking_spots()));
 
     _action_queue.push(
-          make_dispense(node, this, dropoff_dispenser,
-                        _delivery.dropoff_behavior));
+          make_dispense(node, context, this, dropoff_dispenser,
+                        _delivery.items, _delivery.dropoff_behavior));
   }
 
   void next()
   {
+    if (!schedule.active())
+      schedule.activate();
+
     if (!_start_time)
       _start_time = _node->get_clock()->now();
 
@@ -97,6 +101,20 @@ public:
     }
 
     _action->resume();
+  }
+
+  void resolve() final
+  {
+    if (!_action)
+    {
+      RCLCPP_WARN(
+            _node->get_logger(),
+            "No action for this task [" + id() + "] to resume. This might "
+            "indicate a bug!");
+      return;
+    }
+
+    _action->resolve();
   }
 
   void report_status()

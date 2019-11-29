@@ -514,7 +514,7 @@ void ScheduleNode::resolve_conflicts(
 
   {
     std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-    const auto conflict_it = active_conflicts.find(request->schedule_version);
+    const auto conflict_it = active_conflicts.find(request->conflict_version);
     const auto conflict_end = active_conflicts.end();
     if (conflict_it == conflict_end)
       conflict_resolved = true;
@@ -583,12 +583,12 @@ void ScheduleNode::resolve_conflicts(
   if (unresolved_conflicts.empty())
   {
     std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-    active_conflicts.erase(request->schedule_version);
+    active_conflicts.erase(request->conflict_version);
   }
   else
   {
     std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-    active_conflicts.at(request->schedule_version) = unresolved_conflicts;
+    active_conflicts.at(request->conflict_version) = unresolved_conflicts;
   }
 
   perform_replacement(request->resolve_ids, std::move(resolution_trajectories),
