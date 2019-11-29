@@ -31,17 +31,27 @@ public:
       Task* task,
       std::string dispenser_name)
   : _node(node),
-    _task(task)
+    _task(task),
+    _dispenser_name(dispenser_name)
   {
-    _request.target_guid = std::move(std::move(dispenser_name));
-    _request.request_guid = task->id();
-    _request.transporter_type = _node->get_fleet_name();
-
   }
 
   void execute() final
   {
 
+
+  }
+
+  void send_request()
+  {
+    if (!_request)
+    {
+      _request->target_guid = std::move(std::move(_dispenser_name));
+      _request->request_guid = _task->id();
+      _request->transporter_type = _node->get_fleet_name();
+      _request->time = _node->get_clock()->now();
+
+    }
   }
 
   void interrupt() final
@@ -63,9 +73,10 @@ private:
 
   FleetAdapterNode* const _node;
   Task* const _task;
+  const std::string _dispenser_name;
 
   using DispenserRequest = rmf_dispenser_msgs::msg::DispenserRequest;
-  DispenserRequest _request;
+  rmf_utils::optional<DispenserRequest> _request;
 
 };
 
