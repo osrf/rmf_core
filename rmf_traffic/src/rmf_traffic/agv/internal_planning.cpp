@@ -20,7 +20,7 @@
 #include "internal_planning.hpp"
 #include "GraphInternal.hpp"
 
-#include "../utils.hpp"
+#include <rmf_utils/math.hpp>
 
 #include <rmf_traffic/Conflict.hpp>
 
@@ -413,10 +413,10 @@ public:
           std::atan2(course_vector[1], course_vector[0]));
     const Eigen::Rotation2Dd R_h = R_c * R_f_inv;
 
-    orientations.push_back(wrap_to_pi(R_h.angle()));
+    orientations.push_back(rmf_utils::wrap_to_pi(R_h.angle()));
 
     if(reversible)
-      orientations.push_back(wrap_to_pi((R_pi * R_h).angle()));
+      orientations.push_back(rmf_utils::wrap_to_pi((R_pi * R_h).angle()));
 
     return orientations;
   }
@@ -608,6 +608,7 @@ struct DifferentialDriveExpander
     const double* const final_orientation;
     const rmf_traffic::Time initial_time;
     const bool* const interrupt_flag;
+    const std::unordered_set<schedule::Version> ignore_schedule_ids;
     Heuristic& heuristic;
   };
 
@@ -703,7 +704,7 @@ struct DifferentialDriveExpander
           }
 
           auto rotated_initial_node = initial_node;
-          if (std::abs(wrap_to_pi(orientation - initial_orientation))
+          if (std::abs(rmf_utils::wrap_to_pi(orientation - initial_orientation))
               >= _context.interpolate.rotation_thresh)
           {
             const Eigen::Vector3d rotated_position =
@@ -834,12 +835,29 @@ struct DifferentialDriveExpander
     // account for the trajectory's map name(s) here.
     const auto view = _context.viewer.query(_query);
 
-    for(const auto& check : view)
+    const auto& ignore_schedule_ids = _context.ignore_schedule_ids;
+    if (ignore_schedule_ids.empty())
     {
-      assert(trajectory.size() > 1);
-      assert(check.size() > 1);
-      if(!DetectConflict::between(trajectory, check).empty())
-        return false;
+      for (const auto& check : view)
+      {
+        assert(trajectory.size() > 1);
+        assert(check.trajectory.size() > 1);
+        if(!DetectConflict::between(trajectory, check.trajectory, true).empty())
+          return false;
+      }
+    }
+    else
+    {
+      for (const auto& check : view)
+      {
+        assert(trajectory.size() > 1);
+        assert(check.trajectory.size() > 1);
+        if (ignore_schedule_ids.count(check.id) > 0)
+          continue;
+
+        if(!DetectConflict::between(trajectory, check.trajectory, true).empty())
+          return false;
+      }
     }
 
     return true;
@@ -904,7 +922,7 @@ struct DifferentialDriveExpander
       if(!constraint->apply(position, course))
         return false;
 
-      if(std::abs(wrap_to_pi(orientation - position[2]))
+      if(std::abs(rmf_utils::wrap_to_pi(orientation - position[2]))
          > _context.interpolate.rotation_thresh)
         return false;
     }
@@ -938,7 +956,7 @@ struct DifferentialDriveExpander
       if(!is_orientation_okay(initial_p, orientation, course, lane))
         continue;
 
-      if(std::abs(wrap_to_pi(orientation - parent_node->orientation))
+      if(std::abs(rmf_utils::wrap_to_pi(orientation - parent_node->orientation))
          < _context.interpolate.rotation_thresh)
       {
         // No rotation is needed to reach this orientation
@@ -1234,7 +1252,8 @@ struct DifferentialDriveExpander
         assert(false);
       }
 
-      const double final_orientation = wrap_to_pi(*_context.final_orientation);
+      const double final_orientation =
+          rmf_utils::wrap_to_pi(*_context.final_orientation);
       const auto final_node =
           expand_rotation(parent_node, final_orientation);
       if(final_node)
@@ -1334,6 +1353,7 @@ public:
             goal.orientation(),
             starts.front().time(),
             interrupt_flag,
+            options.ignore_schedule_ids(),
             h
           },
           DifferentialDriveExpander::InitialNodeArgs{starts},

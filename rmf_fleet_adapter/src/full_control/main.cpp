@@ -15,26 +15,7 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__UTILS_HPP
-#define SRC__RMF_TRAFFIC__AGV__UTILS_HPP
-
-#include <cmath>
-
-namespace rmf_traffic {
-namespace internal {
-
-inline double wrap_to_pi(double value)
+int main()
 {
-  while(value < -M_PI)
-    value += 2.0*M_PI;
 
-  while(M_PI < value)
-    value -= 2.0*M_PI;
-
-  return value;
 }
-
-} // namespace internal
-} // namespace rmf_traffic
-
-#endif // SRC__RMF_TRAFFIC__AGV__UTILS_HPP

@@ -116,6 +116,7 @@ public:
   const schedule::Viewer* viewer;
   Duration min_hold_time;
   const bool* interrupt_flag;
+  std::unordered_set<schedule::Version> ignore_schedule_ids;
 
 };
 
@@ -123,12 +124,14 @@ public:
 Planner::Options::Options(
     const schedule::Viewer& viewer,
     const Duration min_hold_time,
-    const bool* interrupt_flag)
+    const bool* interrupt_flag,
+    std::unordered_set<schedule::Version> ignore_ids)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                &viewer,
                min_hold_time,
-               interrupt_flag
+               interrupt_flag,
+               std::move(ignore_ids)
              }))
 {
   // Do nothing
@@ -173,6 +176,21 @@ auto Planner::Options::interrupt_flag(const bool* flag) -> Options&
 const bool* Planner::Options::interrupt_flag() const
 {
   return _pimpl->interrupt_flag;
+}
+
+//==============================================================================
+auto Planner::Options::ignore_schedule_ids(
+    std::unordered_set<schedule::Version> ignore_ids) -> Options&
+{
+  _pimpl->ignore_schedule_ids = std::move(ignore_ids);
+  return *this;
+}
+
+//==============================================================================
+std::unordered_set<schedule::Version> Planner::Options
+::ignore_schedule_ids() const
+{
+  return _pimpl->ignore_schedule_ids;
 }
 
 //==============================================================================

@@ -1,0 +1,34 @@
+uint64[] resolve_ids
+
+Trajectory[] trajectories
+
+# The version number of the conflict that this resolution is trying to fix.
+# Multiple fleet adapters may simultaneously submit schedule resolutions for the
+# same version, but they will be rejected if the conflict has already been
+# resolved.
+uint64 conflict_version
+
+---
+
+# True if this resolution was accepted. False if a different resolution was
+# accepted instead and there is no longer a conflict.
+bool accepted
+
+uint64 current_version
+
+uint64 original_version
+
+# All the IDs greater than original_version and less than or equal to this
+# latest_trajectory_version will represent active trajectory IDs. Everything
+# greater than latest_trajectory_version and less than or equal to
+# current_version will represent erasure IDs.
+uint64 latest_trajectory_version
+
+# If the submission was rejected due to a conflict, this will contain the
+# indices of the submitted trajectories that are in conflict with the schedule.
+uint64[] conflicts
+
+# If an exceptional error occurs, this will be filled with a description of that
+# error. For example, if a trajectory message was malformed, or if a trajectory
+# had fewer than 2 segments.
+string error

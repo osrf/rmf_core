@@ -52,8 +52,15 @@ public:
     template<typename E, typename I, typename F>
     using base_iterator = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
 
+    // TODO(MXG): Replace this with a PIMPL class
+    struct Element
+    {
+      Version id;
+      const Trajectory& trajectory;
+    };
+
     class IterImpl;
-    using const_iterator = base_iterator<const Trajectory, IterImpl, View>;
+    using const_iterator = base_iterator<const Element, IterImpl, View>;
     using iterator = const_iterator;
 
     /// Returns an iterator to the first element of the View
@@ -99,7 +106,7 @@ protected:
 namespace detail {
 
 extern template class bidirectional_iterator<
-    const Trajectory,
+    const schedule::Viewer::View::Element,
     schedule::Viewer::View::IterImpl,
     schedule::Viewer::View
 >;

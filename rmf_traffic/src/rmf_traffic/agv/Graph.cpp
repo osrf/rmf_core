@@ -19,7 +19,7 @@
 
 #include <rmf_traffic/agv/Graph.hpp>
 
-#include "../utils.hpp"
+#include <rmf_utils/math.hpp>
 
 namespace rmf_traffic {
 namespace agv {
@@ -127,7 +127,7 @@ public:
     double best_diff = std::numeric_limits<double>::infinity();
     for(const double theta : orientations)
     {
-      const double diff = std::abs(internal::wrap_to_pi(theta - p));
+      const double diff = std::abs(rmf_utils::wrap_to_pi(theta - p));
       if(diff < best_diff)
       {
         closest = theta;
@@ -193,7 +193,7 @@ public:
       Eigen::Vector3d& position,
       const Eigen::Vector2d& course_vector) const final
   {
-    position[2] = internal::wrap_to_pi(compute_R_final(course_vector).angle());
+    position[2] = rmf_utils::wrap_to_pi(compute_R_final(course_vector).angle());
     return true;
   }
 

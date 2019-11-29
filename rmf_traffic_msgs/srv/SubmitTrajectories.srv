@@ -18,9 +18,9 @@ uint64 current_version
 # checked against.
 uint64 original_version
 
-# If the submission was rejected, this will contain the known conflicts against
-# the specified version of the schedule.
-ScheduleConflict[] conflicts
+# If the submission was rejected, this will contain the indices of the submitted
+# trajectories that are in conflict with the schedule.
+uint64[] conflicts
 
 # If an exceptional error occurs, this will be filled with a description of that
 # error. For example, if a trajectory message was malformed, or if a trajectory

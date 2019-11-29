@@ -53,6 +53,7 @@ set(srv_files
   "srv/MirrorUpdate.srv"
   "srv/RegisterQuery.srv"
   "srv/ReplaceTrajectories.srv"
+  "srv/ResolveConflicts.srv"
   "srv/UnregisterQuery.srv"
 )
 

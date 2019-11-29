@@ -79,7 +79,8 @@ public:
   /// broad_phase, then the result of narrow_phase will be returned.
   static std::vector<ConflictData> between(
       const Trajectory& trajectory_a,
-      const Trajectory& trajectory_b);
+      const Trajectory& trajectory_b,
+      const bool quit_after_one = false);
 
   /// Checks if there is any overlap in the map name and time of the two
   /// trajectories.
@@ -101,7 +102,9 @@ public:
   /// Trajectories that do not pass the broad_phase test.
   static std::vector<ConflictData> narrow_phase(
       const Trajectory& trajectory_a,
-      const Trajectory& trajectory_b);
+      const Trajectory& trajectory_b,
+      const bool quit_after_one = false);
+  // TODO(MXG): Replace quit_after_one with a DetectConflict::Options class
 
   class Implementation;
 };

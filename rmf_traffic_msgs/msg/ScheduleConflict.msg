@@ -1,6 +1,7 @@
 
-# The index of the trajectory that has a conflict
-uint64 index
+# The schedule IDs of the trajectories that are in conflict.
+uint64[] indices
 
-# The time of the conflict
-int64 time
+# The version number assigned to this conflict (this is related to the schedule
+# version, but does not perfectly correspond to it)
+uint64 version
