@@ -36,7 +36,7 @@ const std::string AdapterLiftRequestTopicName = "adapter_lift_requests";
 const std::string LiftStateTopicName = "lift_states";
 
 const std::string DispenserRequestTopicName = "dispenser_requests";
-const std::string DispenserResultTopicName = "dispenser_requests";
+const std::string DispenserResultTopicName = "dispenser_results";
 const std::string DispenserStateTopicName = "dispenser_states";
 
 const std::string DeliveryTopicName = "delivery_requests";

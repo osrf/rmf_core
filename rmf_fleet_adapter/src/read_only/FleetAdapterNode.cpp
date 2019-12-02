@@ -41,6 +41,9 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
   const auto wait_time =
       get_parameter_or_default_time(*node, "discovery_timeout", 10.0);
 
+  node->_delay_threshold =
+      get_parameter_or_default_time(*node, "delay_threshold", 5.0);
+
   const auto stop_time = std::chrono::steady_clock::now() + wait_time;
 
   while(rclcpp::ok() && std::chrono::steady_clock::now() < stop_time)
@@ -73,8 +76,8 @@ bool FleetAdapterNode::ignore_fleet(const std::string& fleet_name) const
 
 //==============================================================================
 FleetAdapterNode::FleetAdapterNode()
-: rclcpp::Node("fleet_adapter__read_only"),
-  _fleet_name(get_namespace()),
+: rclcpp::Node("fleet_adapter"),
+  _fleet_name(get_fleet_name_parameter(*this)),
   _traits(get_traits_or_default(*this, 0.7, 0.3, 0.5, 1.5, 0.6))
 {
   _client_submit_trajectories =

@@ -35,6 +35,21 @@ std::chrono::nanoseconds get_parameter_or_default_time(
 }
 
 //==============================================================================
+std::string get_fleet_name_parameter(rclcpp::Node& node)
+{
+  std::string fleet_name = node.declare_parameter("fleet_name", std::string());
+  if (fleet_name.empty())
+  {
+    RCLCPP_ERROR(
+          node.get_logger(),
+          "The fleet_name parameter must be specified!");
+    throw std::runtime_error("fleet_name parameter is missing");
+  }
+
+  return fleet_name;
+}
+
+//==============================================================================
 rmf_traffic::agv::VehicleTraits get_traits_or_default(
     rclcpp::Node& node,
     const double default_v_nom, const double default_w_nom,

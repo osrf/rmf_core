@@ -386,8 +386,8 @@ auto FleetAdapterNode::get_fields() const -> const Fields&
 
 //==============================================================================
 FleetAdapterNode::FleetAdapterNode()
-: rclcpp::Node("fleet_adapter__full_control"),
-  _fleet_name(get_namespace())
+: rclcpp::Node("fleet_adapter"),
+  _fleet_name(get_fleet_name_parameter(*this))
 {
   // Do nothing
 }

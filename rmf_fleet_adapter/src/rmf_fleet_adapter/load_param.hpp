@@ -45,6 +45,9 @@ T get_parameter_or_default(
 }
 
 //==============================================================================
+std::string get_fleet_name_parameter(rclcpp::Node& node);
+
+//==============================================================================
 std::chrono::nanoseconds get_parameter_or_default_time(
     rclcpp::Node& node,
     const std::string& param_name,
