@@ -34,6 +34,9 @@ T get_parameter_or_default(
     const std::string& param_name,
     const T& default_value)
 {
+  // TODO(MXG): Consider a way to automatically make a callback that will update
+  // a target variable when the parameter value gets changed.
+
   const T value = node.declare_parameter(param_name, default_value);
   RCLCPP_INFO(
         node.get_logger(),

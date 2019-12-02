@@ -27,10 +27,8 @@ std::chrono::nanoseconds get_parameter_or_default_time(
     const std::string& param_name,
     const double default_value)
 {
-  const double value = node.declare_parameter(param_name, default_value);
-  RCLCPP_INFO(
-        node.get_logger(),
-        "Parameter [" + param_name + "] set to: " + std::to_string(value));
+  const double value =
+      get_parameter_or_default(node, param_name, default_value);
 
   return std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::duration<double, std::ratio<1>>(value));
