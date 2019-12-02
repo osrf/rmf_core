@@ -28,23 +28,20 @@
 #include <rclcpp/macros.hpp>
 #include <rclcpp/executors.hpp>
 
+#include "../rmf_fleet_adapter/load_param.hpp"
+
 namespace rmf_fleet_adapter {
 namespace read_only {
 
 //==============================================================================
-std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
-    const std::string& fleet_name,
-    rmf_traffic::agv::VehicleTraits traits,
-    rmf_traffic::Duration delay_threshold,
-    rmf_traffic::Duration wait_time)
+std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
 {
-  const auto stop_time = std::chrono::steady_clock::now() + wait_time;
+  auto node = std::shared_ptr<FleetAdapterNode>(new FleetAdapterNode);
 
-  auto node = std::shared_ptr<FleetAdapterNode>(
-        new FleetAdapterNode(
-          fleet_name,
-          std::move(traits),
-          delay_threshold));
+  const auto wait_time =
+      get_parameter_or_default_time(*node, "discovery_timeout", 10.0);
+
+  const auto stop_time = std::chrono::steady_clock::now() + wait_time;
 
   while(rclcpp::ok() && std::chrono::steady_clock::now() < stop_time)
   {
@@ -66,14 +63,19 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make(
 }
 
 //==============================================================================
-FleetAdapterNode::FleetAdapterNode(
-    const std::string& fleet_name,
-    rmf_traffic::agv::VehicleTraits traits,
-    rmf_traffic::Duration delay_threshold)
-: rclcpp::Node(fleet_name + "__read_only_fleet_adapter"),
-  _fleet_name(fleet_name),
-  _traits(std::move(traits)),
-  _delay_threshold(delay_threshold)
+bool FleetAdapterNode::ignore_fleet(const std::string& fleet_name) const
+{
+  if (!_fleet_name.empty() && fleet_name != _fleet_name)
+    return true;
+
+  return false;
+}
+
+//==============================================================================
+FleetAdapterNode::FleetAdapterNode()
+: rclcpp::Node("fleet_adapter__read_only"),
+  _fleet_name(get_namespace()),
+  _traits(get_traits_or_default(*this, 0.7, 0.3, 0.5, 1.5, 0.6))
 {
   _client_submit_trajectories =
       create_client<SubmitTrajectories>(
@@ -99,7 +101,7 @@ FleetAdapterNode::FleetAdapterNode(
 //==============================================================================
 void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr state)
 {
-  if (state->name != _fleet_name)
+  if (ignore_fleet(state->name))
     return;
 
   for(const auto& robot : state->robots)

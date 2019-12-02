@@ -82,13 +82,7 @@ class FleetAdapterNode : public rclcpp::Node
 {
 public:
 
-  static std::shared_ptr<FleetAdapterNode> make(
-      const std::string& fleet_name,
-      const std::string& graph_file,
-      rmf_traffic::agv::VehicleTraits traits,
-      rmf_traffic::Duration delay_threshold,
-      rmf_traffic::Duration get_plan_time,
-      rmf_traffic::Duration wait_time = std::chrono::seconds(10));
+  static std::shared_ptr<FleetAdapterNode> make();
 
   using WaypointKeys = std::unordered_map<std::string, std::size_t>;
   using WaypointNames = std::unordered_map<std::size_t, std::string>;
@@ -125,6 +119,8 @@ public:
     std::vector<std::unique_ptr<Task>> _task_queue;
     const std::string _name;
   };
+
+  bool ignore_fleet(const std::string& fleet_name) const;
 
   const std::string& get_fleet_name() const;
 
@@ -253,10 +249,7 @@ public:
 
 private:
 
-  FleetAdapterNode(
-      const std::string& fleet_name,
-      rmf_traffic::Duration delay_threshold,
-      rmf_traffic::Duration get_plan_time);
+  FleetAdapterNode();
 
   std::string _fleet_name;
 

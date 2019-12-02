@@ -27,40 +27,8 @@ using namespace rmf_fleet_adapter;
 
 int main(int argc, char* argv[])
 {
-  const std::vector<std::string> args =
-      rclcpp::init_and_remove_ros_arguments(argc, argv);
-
-  std::string fleet_name;
-  if (!get_arg(args, "-f", fleet_name, "fleet name"))
-    return 1;
-
-  const double v_nom = get_double_arg(args, "-v", "linear velocity", 0.7);
-  const double w_nom = get_double_arg(args, "-w", "angular velocity", 0.3);
-  const double a_nom = get_double_arg(args, "-a", "linear acceleration", 0.5);
-  const double b_nom = get_double_arg(args, "-b", "angular acceleration", 1.5);
-  const double r = get_double_arg(args, "-r", "profile radius", 0.6);
-
-  const auto delay =
-      get_time_arg(args, "-d", "delay threshold", 5.0);
-
-  const auto quit_time =
-      get_time_arg(args, "-q", "discovery timeout", 10.0);
-
-  auto profile = rmf_traffic::Trajectory::Profile::make_guided(
-        rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Circle>(r));
-
-  rmf_traffic::agv::VehicleTraits traits{
-    {v_nom, a_nom},
-    {w_nom, b_nom},
-    profile
-  };
-
-  const auto fleet_adapter_node =
-      read_only::FleetAdapterNode::make(
-        fleet_name, std::move(traits),
-        delay, quit_time);
-
+  rclcpp::init(argc, argv);
+  const auto fleet_adapter_node = read_only::FleetAdapterNode::make();
   if (!fleet_adapter_node)
     return 1;
 

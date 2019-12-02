@@ -33,6 +33,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <rmf_utils/optional.hpp>
+
 namespace rmf_fleet_adapter {
 namespace read_only {
 
@@ -41,18 +43,13 @@ class FleetAdapterNode : public rclcpp::Node
 {
 public:
 
-  static std::shared_ptr<FleetAdapterNode> make(
-      const std::string& fleet_name,
-      rmf_traffic::agv::VehicleTraits traits,
-      rmf_traffic::Duration delay_threshold,
-      rmf_traffic::Duration wait_time = std::chrono::seconds(10));
+  static std::shared_ptr<FleetAdapterNode> make();
+
+  bool ignore_fleet(const std::string& fleet_name) const;
 
 private:
 
-  FleetAdapterNode(
-      const std::string& fleet_name,
-      rmf_traffic::agv::VehicleTraits traits,
-      rmf_traffic::Duration delay_threshold);
+  FleetAdapterNode();
 
   std::string _fleet_name;
 

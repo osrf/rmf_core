@@ -34,6 +34,7 @@ endforeach()
 add_library(rmf_fleet_adapter
   src/rmf_fleet_adapter/ParseGraph.cpp
   src/rmf_fleet_adapter/ParseArgs.cpp
+  src/rmf_fleet_adapter/load_param.cpp
 )
 
 target_link_libraries(rmf_fleet_adapter
@@ -162,7 +163,10 @@ install(
   TARGETS 
     rmf_fleet_adapter
     read_only
+    full_control
     fake_fleet
+    lift_supervisor
+    door_supervisor
     test_read_only_adapter
   RUNTIME DESTINATION lib/rmf_fleet_adapter
   LIBRARY DESTINATION lib
