@@ -19,6 +19,8 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <unordered_set>
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -147,6 +149,28 @@ rmf_utils::optional<GraphInfo> parse_graph(
           {lane[1].as<std::size_t>(), std::move(constraint)});
     }
   }
+
+  std::unordered_set<std::size_t> generic_waypoint;
+  for (std::size_t i=0; i < info.graph.num_waypoints(); ++i)
+    generic_waypoint.insert(i);
+
+  for (std::size_t i=0; i < info.graph.num_lanes(); ++i)
+  {
+    const auto& lane = info.graph.get_lane(i);
+    if (lane.entry().event())
+      generic_waypoint.erase(lane.entry().waypoint_index());
+
+    if (lane.exit().event())
+      generic_waypoint.erase(lane.exit().waypoint_index());
+  }
+
+  for (const auto& workcell_wp : info.workcell_names)
+    generic_waypoint.erase(workcell_wp.first);
+
+  // All of the waypoints that don't serve any particular purpose can be used
+  // as holding points during planning.
+  for (const std::size_t wp : generic_waypoint)
+    info.graph.get_waypoint(wp).set_holding_point(true);
 
   return std::move(info);
 }
