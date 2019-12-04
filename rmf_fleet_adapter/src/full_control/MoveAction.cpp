@@ -850,10 +850,10 @@ public:
     {
       const auto wp_it = waypoint_names.find(wp_index);
       return wp_it == waypoint_names.end()?
-            "waypoint #" + std::to_string(_goal_wp_index) : wp_it->second;
+            "#" + std::to_string(_goal_wp_index) : wp_it->second;
     };
 
-    status = "Moving to dispenser at [" + name_of(_goal_wp_index) + "] - ";
+    status = "Moving to waypoint [" + name_of(_goal_wp_index) + "] - ";
 
     if (_emergency_active)
       status += "Emergency Interruption - ";
