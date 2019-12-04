@@ -48,6 +48,8 @@ public:
 
   bool waiting() const;
 
+  const std::vector<rmf_traffic::schedule::Version>& ids() const;
+
   ~ScheduleManager();
 
 private:

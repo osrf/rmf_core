@@ -141,6 +141,25 @@ target_include_directories(door_supervisor
 
 # -----------------------------------------------------------------------------
 
+add_executable(robot_state_aggregator
+  src/robot_state_aggregator/main.cpp
+)
+
+target_link_libraries(robot_state_aggregator
+  PRIVATE
+    rmf_fleet_adapter
+    ${rclcpp_LIBRARIES}
+    ${rmf_fleet_msgs_LIBRARIES}
+)
+
+target_include_directories(robot_state_aggregator
+  PRIVATE
+    ${rclcpp_INCLUDE_DIRS}
+    ${rmf_fleet_msgs_INCLUDE_DIRS}
+)
+
+# -----------------------------------------------------------------------------
+
 add_executable(fake_fleet
   test/FakeFleet.cpp
 )
@@ -167,6 +186,7 @@ install(
     fake_fleet
     lift_supervisor
     door_supervisor
+    robot_state_aggregator
     test_read_only_adapter
   RUNTIME DESTINATION lib/rmf_fleet_adapter
   LIBRARY DESTINATION lib

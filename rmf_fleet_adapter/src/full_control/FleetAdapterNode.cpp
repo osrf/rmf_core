@@ -226,6 +226,31 @@ const std::string& FleetAdapterNode::RobotContext::robot_name() const
 }
 
 //==============================================================================
+void FleetAdapterNode::RobotContext::insert_listener(
+    Listener<RobotState>* listener)
+{
+  state_listeners.insert(listener);
+}
+
+//==============================================================================
+void FleetAdapterNode::RobotContext::remove_listener(
+    Listener<RobotState>* listener)
+{
+  state_listeners.erase(listener);
+}
+
+//==============================================================================
+void FleetAdapterNode::RobotContext::update_listeners(const RobotState& state)
+{
+  // We need to copy this container before iterating over it, because it's
+  // very possible for the container to get modified by Actions while we iterate
+  // over it.
+  const auto current_listeners = state_listeners;
+  for (auto* listener : current_listeners)
+    listener->receive(state);
+}
+
+//==============================================================================
 bool FleetAdapterNode::ignore_fleet(const std::string& fleet_name) const
 {
   if (!_fleet_name.empty() && fleet_name != _fleet_name)
@@ -578,16 +603,14 @@ void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr msg)
 
     if (inserted)
     {
-      it->second = std::make_unique<RobotContext>(
-            RobotContext{robot.name, robot.location});
+      it->second = std::make_unique<RobotContext>(robot.name, robot.location);
     }
     else
     {
       it->second->location = robot.location;
     }
 
-    for (auto* listener : it->second->state_listeners)
-      listener->receive(robot);
+    it->second->update_listeners(robot);
   }
 }
 

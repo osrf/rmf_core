@@ -51,6 +51,7 @@ public:
 
     if (_action_queue.empty())
     {
+      std::cout << "no more actions - requesting next task" << std::endl;
       _action = nullptr;
       report_status();
       return _context->next_task();
@@ -109,6 +110,7 @@ public:
     rmf_task_msgs::msg::TaskSummary summary;
     summary.task_id = id();
     summary.start_time = start_time();
+
 
     if (_action)
     {

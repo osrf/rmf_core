@@ -89,6 +89,11 @@ void ScheduleManager::push_trajectories(
     const std::vector<rmf_traffic::Trajectory>& trajectories,
     std::function<void()> approval_callback)
 {
+  // TODO(MXG): Be smarter here. If there are no trajectories then erase the
+  // current schedule? Or have the robot stand in place?
+  if (trajectories.empty())
+    approval_callback();
+
   if (_waiting_for_schedule)
   {
     // If any delays were queued on a previous trajectory, we should throw them
@@ -111,6 +116,8 @@ void ScheduleManager::push_trajectories(
 
   if (_schedule_ids.empty())
     return submit_trajectories(trajectories, std::move(approval_callback));
+
+  return replace_trajectories(trajectories, std::move(approval_callback));
 }
 
 //==============================================================================
@@ -162,6 +169,12 @@ void ScheduleManager::push_delay(
 bool ScheduleManager::waiting() const
 {
   return _waiting_for_schedule;
+}
+
+//==============================================================================
+const std::vector<rmf_traffic::schedule::Version>& ScheduleManager::ids() const
+{
+  return _schedule_ids;
 }
 
 //==============================================================================
@@ -249,6 +262,8 @@ void ScheduleManager::replace_trajectories(
 
   request.replace_ids = _schedule_ids;
   request.trajectories = convert(trajectories);
+
+  _waiting_for_schedule = true;
 
   _schedule_ids.clear();
   replace->async_send_request(

@@ -98,7 +98,6 @@ public:
     RobotContext(std::string name, Location location);
 
     Location location;
-    RobotStateListeners state_listeners;
 
     void next_task();
 
@@ -114,10 +113,17 @@ public:
 
     const std::string& robot_name() const;
 
+    void insert_listener(Listener<RobotState>* listener);
+
+    void remove_listener(Listener<RobotState>* listener);
+
+    void update_listeners(const RobotState& state);
+
   private:
     std::unique_ptr<Task> _task;
     std::vector<std::unique_ptr<Task>> _task_queue;
     const std::string _name;
+    RobotStateListeners state_listeners;
   };
 
   bool ignore_fleet(const std::string& fleet_name) const;
