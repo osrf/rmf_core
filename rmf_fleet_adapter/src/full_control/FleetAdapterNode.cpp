@@ -150,6 +150,7 @@ FleetAdapterNode::RobotContext::RobotContext(
 //==============================================================================
 void FleetAdapterNode::RobotContext::next_task()
 {
+  // TODO(MXG): Report the current task complete before clearing it
   if (!_task_queue.empty())
   {
     _task = std::move(_task_queue.front());
@@ -157,6 +158,8 @@ void FleetAdapterNode::RobotContext::next_task()
     _task->next();
     return;
   }
+
+  _task = nullptr;
 
   // TODO(MXG): If the task queue is empty, have the robot move back to its
   // home.
@@ -570,7 +573,6 @@ void FleetAdapterNode::loop_request(LoopRequest::UniquePtr msg)
   summary.submission_time = summary.start_time;
 
   task_summary_publisher->publish(summary);
-
 }
 
 //==============================================================================
