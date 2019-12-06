@@ -75,6 +75,7 @@ private:
     ScheduleManager schedule;
     std::vector<Location> path;
     rmf_traffic::Trajectory trajectory;
+    bool sitting = false;
 
     ScheduleEntry(FleetAdapterNode* node);
   };
@@ -103,7 +104,9 @@ private:
       const RobotState& state,
       const ScheduleEntries::iterator& it);
 
-  rmf_traffic::Trajectory make_trajectory(const RobotState& state) const;
+  rmf_traffic::Trajectory make_trajectory(
+      const RobotState& state,
+      bool& is_sitting) const;
 };
 
 } // namespace read_only

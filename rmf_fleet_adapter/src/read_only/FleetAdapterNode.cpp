@@ -123,7 +123,7 @@ void FleetAdapterNode::push_trajectory(
   for (const auto& location : state.path)
     it->second->path.push_back(location);
 
-  it->second->trajectory = make_trajectory(state);
+  it->second->trajectory = make_trajectory(state, it->second->sitting);
   it->second->schedule.push_trajectories({it->second->trajectory}, [](){});
 }
 
@@ -178,15 +178,20 @@ bool FleetAdapterNode::handle_delay(
       return false;
   }
 
-  if (entry.path.empty())
+  entry.path.clear();
+  for (const auto& location : state.path)
+    entry.path.push_back(location);
+
+  bool sitting = false;
+  auto new_trajectory = make_trajectory(state, sitting);
+
+  if (entry.sitting && sitting)
   {
-    assert(state.path.empty());
-    // The previous path and current path are empty, which implies that the
-    // robot is sitting in place. We should check if the robot is standing in
-    // the same location as before. If it is, we may send a delay. If it is not,
-    // we should send a new trajectory.
+    // Check if the robot is still sitting in the same location.
     const Eigen::Vector3d p_entry =
         entry.trajectory.back().get_finish_position();
+    assert((entry.trajectory.front().get_finish_position() - p_entry).norm() < 1e-12);
+
     const auto& l_state = state.location;
     const Eigen::Vector3d p_state{l_state.x, l_state.y, l_state.yaw};
 
@@ -204,16 +209,20 @@ bool FleetAdapterNode::handle_delay(
     const auto next_finish_time = current_time + std::chrono::seconds(10);
     const auto delay = next_finish_time - *entry.trajectory.finish_time();
     if (delay > std::chrono::seconds(3))
+    {
+      entry.trajectory.back().adjust_finish_times(delay);
       entry.schedule.push_delay(delay, current_time);
+    }
 
     return true;
   }
-
-  entry.path.clear();
-  for (const auto& location : state.path)
-    entry.path.push_back(location);
-
-  const auto new_trajectory = make_trajectory(state);
+  else if (sitting)
+  {
+    // The new robot state indicates the robot should be sitting, but it is not
+    // already considered to be sitting. Therefore we will kick it back to
+    // push_trajectory() to put a new sitting trajectory on the schedule.
+    return false;
+  }
 
   const auto time_difference =
       *new_trajectory.finish_time() - *entry.trajectory.finish_time();
@@ -278,7 +287,7 @@ bool FleetAdapterNode::handle_delay(
 
 //==============================================================================
 rmf_traffic::Trajectory FleetAdapterNode::make_trajectory(
-    const RobotState& state) const
+    const RobotState& state, bool& is_sitting) const
 {
   // TODO(MXG): Account for the multi-floor use case
   const std::string& map_name = state.location.level_name;
@@ -295,15 +304,9 @@ rmf_traffic::Trajectory FleetAdapterNode::make_trajectory(
 
   if (trajectory.size() < 2)
   {
-    const auto& segment = trajectory.front();
+    // If a robot state results in a single-point trajectory, then we should
+    // make a temporary sitting trajectory.
     const Eigen::Vector3d p = positions.front();
-    RCLCPP_WARN(
-          get_logger(),
-          "The path given for [" + state.name + "] resulted in a single-point "
-          "trajectory. Specifying a 10-second waiting trajectory at ("
-          + std::to_string(p[0]) + ", " + std::to_string(p[1]) + ", "
-          + std::to_string(p[2]) + ")");
-
     rmf_traffic::Trajectory sitting{map_name};
     sitting.insert(
           start_time, _traits.get_profile(), p, Eigen::Vector3d::Zero());
@@ -312,8 +315,11 @@ rmf_traffic::Trajectory FleetAdapterNode::make_trajectory(
     sitting.insert(
           finish_time, _traits.get_profile(), p, Eigen::Vector3d::Zero());
 
+    is_sitting = true;
     return sitting;
   }
+
+  is_sitting = false;
 
   return trajectory;
 }

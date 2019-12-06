@@ -131,7 +131,7 @@ private:
   }
 
   const double distance = 10.0;
-  const double velocity = 0.2;
+  const double velocity = 0.4;
   const int64_t period_ms = 200;
   const double timestep = static_cast<double>(period_ms)/1000.0;
 
