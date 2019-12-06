@@ -423,7 +423,6 @@ public:
     const Query::Versions& versions = parameters.versions();
     const Query::Versions::Mode versions_mode = versions.get_mode();
 
-
     Version after_version;
     const Version* after_version_ptr = nullptr;
     switch(versions_mode)
