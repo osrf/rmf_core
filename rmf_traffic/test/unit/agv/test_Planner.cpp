@@ -36,7 +36,7 @@ const std::size_t N = test_performance? 10 : 1;
 
 void print_timing(const std::chrono::steady_clock::time_point& start_time)
 {
-  if(test_performance)
+  if (test_performance)
   {
     const auto finish_time = std::chrono::steady_clock::now();
     std::cout << Catch::getResultCapture().getCurrentTestName()
@@ -47,8 +47,21 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
 
 void display_path(const rmf_traffic::agv::Plan& plan)
 {
-  for (const auto& wp : plan.get_waypoints())
-    std::cout<<std::to_string(*wp.graph_index())<<"->";
+  std::vector<std::size_t> plan_indices;
+  for (const auto &wp : plan.get_waypoints())
+  {
+    if (wp.graph_index())
+      plan_indices.push_back(*wp.graph_index());
+  }
+  auto ip = std::unique(plan_indices.begin(), plan_indices.end());
+  plan_indices.resize(std::distance(plan_indices.begin(), ip));
+  std::cout<<"Path: ";
+  for (auto it = plan_indices.begin(); it != plan_indices.end(); it++)
+  {
+    std::cout<<*it;
+    if(it != --plan_indices.end())
+      std::cout<<"-> ";
+  }
   std::cout<<std::endl;
 }
 
@@ -2070,15 +2083,13 @@ SCENARIO("Test planner with various start conditions")
     }
   }
 
-  WHEN("Startset with same location but different initial waypoints")
+  WHEN("Startset with same initial_location but different initial waypoints")
   {
     graph.add_lane(1, 2); // 6
     graph.add_lane(2, 1); // 7
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
-    // rmf_utils::optional<std::size_t> initial_lane = 6;
-
     std::vector<Planner::Start> starts;
     Planner::Start start1{initial_time, 1, 0.0, location};
     Planner::Start start2{initial_time, 2, 0.0, location};
@@ -2099,20 +2110,38 @@ SCENARIO("Test planner with various start conditions")
     CHECK(duration2 < duration1);
     CHECK(duration < duration1);
     CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
-
-    WHEN("Start has best initial_waypoint but different initial_orientation")
-    {
-      Planner::Start start3{initial_time, 2, -M_PI_2, location};
-      const auto result3 = plan->replan(start3);
-      const auto duration3 = result3->get_trajectories().front().duration();
-      std::cout<<"Duration3: "<<duration3.count()<<std::endl;
-      std::cout<<"Duration 2: "<<duration2.count()<<std::endl;
-      CHECK(duration3 > duration2);
-      starts.push_back(start3);
-      plan = plan->replan(starts);
-      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
-      CHECK(duration < duration3);
-    }
   }
+
+  WHEN("Startset with same initial_location and initial_waypoints but different initial_orientations")
+  {
+    graph.add_lane(1, {2, Graph::OrientationConstraint::make({0})}); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
+    rmf_utils::optional<std::size_t> initial_lane = 6;
+
+    std::vector<Planner::Start> starts;
+    Planner::Start start1{initial_time, 2, 0.0, location, initial_lane};
+    Planner::Start start2{initial_time, 2, M_PI, location, initial_lane};
+    starts.push_back(start1);
+    starts.push_back(start2);
+
+    Planner::Goal goal{4, M_PI_2};
+
+    auto plan = planner.plan(starts, goal);
+    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
+    const auto duration = plan->get_trajectories().front().duration();
+    const auto result1 = plan->replan(start1);
+    const auto duration1 = result1->get_trajectories().front().duration();
+    const auto result2 = plan->replan(start2);
+    const auto duration2 = result2->get_trajectories().front().duration();
+
+    print_trajectory_info(*result1, initial_time);
+    CHECK(duration1 < duration2);
+    CHECK(duration < duration2);
+    CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
+  }
+
 
 } 
