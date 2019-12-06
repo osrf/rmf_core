@@ -2114,6 +2114,7 @@ SCENARIO("Test planner with various start conditions")
 
   WHEN("Startset with same initial_location and initial_waypoints but different initial_orientations")
   {
+    // lane with exit orientation constraint
     graph.add_lane(1, {2, Graph::OrientationConstraint::make({0})}); // 6
     graph.add_lane(2, 1); // 7
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
@@ -2138,6 +2139,7 @@ SCENARIO("Test planner with various start conditions")
     const auto duration2 = result2->get_trajectories().front().duration();
 
     print_trajectory_info(*result1, initial_time);
+    print_trajectory_info(*result2, initial_time);
     CHECK(duration1 < duration2);
     CHECK(duration < duration2);
     CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
