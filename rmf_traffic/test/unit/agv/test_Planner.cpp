@@ -2012,7 +2012,7 @@ SCENARIO("Test planner with various start conditions")
 
   }
 
-  WHEN("Planning with startset of waypoint index and orientations")
+  WHEN("Planning with startset with varying orientations")
   {
     graph.add_lane(1, 2); // 6
     graph.add_lane(2, 1); // 7
@@ -2033,6 +2033,7 @@ SCENARIO("Test planner with various start conditions")
     WHEN("Testing replan with startsets")
     {
       auto plan2 = plan->replan(starts);
+      CHECK_PLAN(plan, {-5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
     WHEN("Obstace 4->0 overlaps")
     {
@@ -2068,4 +2069,50 @@ SCENARIO("Test planner with various start conditions")
       CHECK_PLAN(plan, {-5, 0}, best_start.orientation(), {5.0, 0}, {1, 3});
     }
   }
+
+  WHEN("Startset with same location but different initial waypoints")
+  {
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
+    // rmf_utils::optional<std::size_t> initial_lane = 6;
+
+    std::vector<Planner::Start> starts;
+    Planner::Start start1{initial_time, 1, 0.0, location};
+    Planner::Start start2{initial_time, 2, 0.0, location};
+    starts.push_back(start1);
+    starts.push_back(start2);
+
+    Planner::Goal goal{4, M_PI_2};
+
+    auto plan = planner.plan(starts, goal);
+    //we expect the starting condition with initial_waypoint = 2 to be shortest
+    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
+    const auto duration = plan->get_trajectories().front().duration();
+
+    const auto result1 = plan->replan(start1);
+    const auto duration1 = result1->get_trajectories().front().duration();
+    const auto result2 = plan->replan(start2);
+    const auto duration2 = result2->get_trajectories().front().duration();
+    CHECK(duration2 < duration1);
+    CHECK(duration < duration1);
+    CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
+
+    WHEN("Start has best initial_waypoint but different initial_orientation")
+    {
+      Planner::Start start3{initial_time, 2, -M_PI_2, location};
+      const auto result3 = plan->replan(start3);
+      const auto duration3 = result3->get_trajectories().front().duration();
+      std::cout<<"Duration3: "<<duration3.count()<<std::endl;
+      std::cout<<"Duration 2: "<<duration2.count()<<std::endl;
+      CHECK(duration3 > duration2);
+      starts.push_back(start3);
+      plan = plan->replan(starts);
+      CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
+      CHECK(duration < duration3);
+    }
+  }
+
 } 
