@@ -29,6 +29,7 @@
 
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
 #include <rmf_fleet_msgs/msg/path_request.hpp>
+#include <rmf_fleet_msgs/msg/mode_request.hpp>
 
 #include <rmf_dispenser_msgs/msg/dispenser_request.hpp>
 #include <rmf_dispenser_msgs/msg/dispenser_state.hpp>
@@ -236,6 +237,10 @@ public:
   using PathRequest = rmf_fleet_msgs::msg::PathRequest;
   using PathRequestPub = rclcpp::Publisher<PathRequest>;
   PathRequestPub::SharedPtr path_request_publisher;
+
+  using ModeRequest = rmf_fleet_msgs::msg::ModeRequest;
+  using ModeRequestPub = rclcpp::Publisher<ModeRequest>;
+  ModeRequestPub::SharedPtr mode_request_publisher;
 
   using DoorRequest = rmf_door_msgs::msg::DoorRequest;
   using DoorRequestPub = rclcpp::Publisher<DoorRequest>;

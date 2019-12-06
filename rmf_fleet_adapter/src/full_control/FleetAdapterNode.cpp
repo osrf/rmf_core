@@ -494,6 +494,9 @@ void FleetAdapterNode::start(Fields fields)
   path_request_publisher = create_publisher<PathRequest>(
         PathRequestTopicName, default_qos);
 
+  mode_request_publisher = create_publisher<ModeRequest>(
+        ModeRequestTopicName, default_qos);
+
   door_request_publisher = create_publisher<DoorRequest>(
         AdapterDoorRequestTopicName, default_qos);
 

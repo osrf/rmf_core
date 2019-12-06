@@ -271,10 +271,10 @@ public:
 
   void command_plan()
   {
-    _waypoints.clear();
+    _remaining_waypoints.clear();
     for (const auto& plan : _plans)
       for (const auto& wp : plan.get_waypoints())
-        _waypoints.emplace_back(wp);
+        _remaining_waypoints.emplace_back(wp);
 
     _command_segment = 0;
     return send_next_command();
@@ -282,7 +282,7 @@ public:
 
   void send_next_command()
   {
-    if (_waypoints.empty())
+    if (_remaining_waypoints.empty())
     {
       if (_emergency_active)
         report_waiting();
@@ -301,9 +301,9 @@ public:
     const auto& graph = _node->get_graph();
 
     std::size_t i=0;
-    for (; i < _waypoints.size(); ++i)
+    for (; i < _remaining_waypoints.size(); ++i)
     {
-      const auto& wp = _waypoints[i];
+      const auto& wp = _remaining_waypoints[i];
 
       const auto& p = wp.position();
 
@@ -324,9 +324,16 @@ public:
         break;
     }
 
-    _next_stop = (i == _waypoints.size()) ?
-          _waypoints.back().position() : _waypoints[i].position();
-    _waypoints.erase(_waypoints.begin(), _waypoints.begin()+i);
+    _next_stop = (i == _remaining_waypoints.size()) ?
+          _remaining_waypoints.back().position() : _remaining_waypoints[i].position();
+    _issued_waypoints.clear();
+    _issued_waypoints.insert(
+                _issued_waypoints.end(),
+                _remaining_waypoints.begin(),
+                _remaining_waypoints.begin()+i);
+    _remaining_waypoints.erase(
+                _remaining_waypoints.begin(),
+                _remaining_waypoints.begin()+i);
 
     publish_command();
     _command_time = _node->get_clock()->now();
@@ -397,10 +404,10 @@ public:
 
   void handle_event(const RobotState& msg)
   {
-    if (_waypoints.empty())
+    if (_remaining_waypoints.empty())
       return;
 
-    const auto& event_wp = _waypoints.front();
+    const auto& event_wp = _remaining_waypoints.front();
     if (!event_wp.event())
       return;
 
@@ -580,7 +587,8 @@ public:
 
       if (mode == msg.current_mode.value)
       {
-        _parent->_waypoints.erase(_parent->_waypoints.begin());
+        _parent->_remaining_waypoints.erase(
+                    _parent->_remaining_waypoints.begin());
         _parent->_event_listener.door = nullptr;
         _is_active = false;
         _parent->send_next_command();
@@ -681,7 +689,8 @@ public:
 
       if (msg.door_state == door_state)
       {
-        _parent->_waypoints.erase(_parent->_waypoints.begin());
+        _parent->_remaining_waypoints.erase(
+                    _parent->_remaining_waypoints.begin());
         _parent->_event_listener.lift = nullptr;
         _is_active = false;
         _parent->send_next_command();
@@ -735,7 +744,7 @@ public:
             LiftRequest::REQUEST_END_SESSION,
             LiftRequest::DOOR_CLOSED);
 
-      _parent->_waypoints.erase(_parent->_waypoints.begin());
+      _parent->_remaining_waypoints.erase(_parent->_remaining_waypoints.begin());
       return _parent->send_next_command();
     }
 
@@ -839,9 +848,20 @@ public:
 
   void cancel()
   {
-    _waypoints.clear();
+    _issued_waypoints.clear();
+    _remaining_waypoints.clear();
     _event_executor.cancel();
-    // TODO(MXG): Should we issue a command to the robot to stop?
+
+    using ModeRequest = rmf_fleet_msgs::msg::ModeRequest;
+    using RobotMode = rmf_fleet_msgs::msg::RobotMode;
+    ModeRequest request;
+    request.mode.mode = RobotMode::MODE_PAUSED;
+    request.task_id =
+        _task->id() + std::to_string(_command_segment) + " - pause";
+    request.fleet_name = _node->get_fleet_name();
+    request.robot_name = _context->robot_name();
+
+    _node->mode_request_publisher->publish(std::move(request));
   }
 
   void interrupt() final
@@ -887,13 +907,13 @@ public:
       status += "Waiting for emergency to end";
       return {status};
     }
-    else if (_waypoints.empty())
+    else if (_remaining_waypoints.empty())
     {
       status += "Empty Plan - May require human intervention";
       return {status};
     }
 
-    for (const auto& wp : _waypoints)
+    for (const auto& wp : _remaining_waypoints)
     {
       if (wp.graph_index())
       {
@@ -902,7 +922,7 @@ public:
       }
     }
 
-    const auto& final_wp = _waypoints.back();
+    const auto& final_wp = _remaining_waypoints.back();
     const auto end_time = rmf_traffic_ros2::to_ros2(final_wp.time());
     return {status, end_time};
   }
@@ -920,7 +940,8 @@ private:
 
   rclcpp::Time _command_time;
   std::vector<rmf_traffic::agv::Plan> _plans;
-  std::vector<rmf_traffic::agv::Plan::Waypoint> _waypoints;
+  std::vector<rmf_traffic::agv::Plan::Waypoint> _remaining_waypoints;
+  std::vector<rmf_traffic::agv::Plan::Waypoint> _issued_waypoints;
   rmf_utils::optional<Eigen::Vector3d> _next_stop;
   rmf_fleet_msgs::msg::PathRequest _command;
   std::size_t _command_segment;
