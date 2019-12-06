@@ -182,7 +182,9 @@ void Viewer::Implementation::modify_entry(
     Trajectory new_trajectory,
     const Version new_id)
 {
+  all_entries.erase(entry->version);
   entry->version = new_id;
+  all_entries.insert(std::make_pair(new_id, entry));
 
   // TODO(MXG): It should be posssible to improve performance for entry
   // modifications by applying the change directly to the original Trajectory

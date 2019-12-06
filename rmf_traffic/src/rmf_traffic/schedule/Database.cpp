@@ -852,6 +852,7 @@ Version Database::insert(Trajectory trajectory)
           &new_entry->trajectory, new_entry->version));
 
   _pimpl->add_entry(new_entry);
+
   return new_entry->version;
 }
 
@@ -861,7 +862,7 @@ Version Database::interrupt(
     Trajectory interruption_trajectory,
     Duration delay)
 {
-  const internal::EntryPtr& old_entry =
+  const internal::EntryPtr old_entry =
       _pimpl->get_entry_iterator(id, "interruption")->second;
 
   Trajectory new_trajectory = add_interruption(
@@ -887,7 +888,7 @@ Version Database::delay(
     const Time from,
     const Duration delay)
 {
-  const internal::EntryPtr& old_entry =
+  const internal::EntryPtr old_entry =
       _pimpl->get_entry_iterator(id, "delay")->second;
 
   Trajectory new_trajectory = add_delay(
@@ -911,7 +912,7 @@ Version Database::replace(
     Version previous_id,
     Trajectory trajectory)
 {
-  const internal::EntryPtr& old_entry =
+  const internal::EntryPtr old_entry =
       _pimpl->get_entry_iterator(previous_id, "replacement")->second;
 
   const Version new_version = ++_pimpl->latest_version;
@@ -933,7 +934,7 @@ Version Database::replace(
 //==============================================================================
 Version Database::erase(Version id)
 {
-  const internal::EntryPtr& old_entry =
+  const internal::EntryPtr old_entry =
       _pimpl->get_entry_iterator(id, "erasure")->second;
 
   const Version new_version = ++_pimpl->latest_version;
