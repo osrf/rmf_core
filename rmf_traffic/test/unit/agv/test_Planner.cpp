@@ -1947,6 +1947,7 @@ SCENARIO("Test planner with various start conditions")
     WHEN("Testing replan")
     {
       auto plan2 = plan->replan(start);
+      CHECK_PLAN(plan2, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
 
     WHEN("Obstace 4->0 overlaps")
