@@ -71,29 +71,15 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
   auto mirror_future = rmf_traffic_ros2::schedule::make_mirror(
         *node, rmf_traffic::schedule::query_everything().spacetime());
 
-  auto submit_trajectories = node->create_client<SubmitTrajectories>(
-        rmf_traffic_ros2::SubmitTrajectoriesSrvName);
-
-  auto delay_trajectories = node->create_client<DelayTrajectories>(
-        rmf_traffic_ros2::DelayTrajectoriesSrvName);
-
-  auto replace_trajectories = node->create_client<ReplaceTrajectories>(
-        rmf_traffic_ros2::ReplaceTrajectoriesSrvName);
-
-  auto erase_trajectories = node->create_client<EraseTrajectories>(
-        rmf_traffic_ros2::EraseTrajectoriesSrvName);
-
-  auto resolve_conflicts = node->create_client<ResolveConflicts>(
-        rmf_traffic_ros2::ResolveConflictsSrvName);
-
   rmf_utils::optional<GraphInfo> graph_info =
       parse_graph(graph_file, traits, *node);
 
   if (!graph_info)
     return nullptr;
 
-
   using namespace std::chrono_literals;
+
+  auto connections = ScheduleConnections::make(*node);
 
   const auto wait_time =
       get_parameter_or_default_time(*node, "discovery_timeout", 10.0);
@@ -104,10 +90,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
     rclcpp::spin_some(node);
 
     bool ready = true;
-    ready &= submit_trajectories->service_is_ready();
-    ready &= delay_trajectories->service_is_ready();
-    ready &= replace_trajectories->service_is_ready();
-    ready &= erase_trajectories->service_is_ready();
+    ready &= connections.ready();
     ready &= (mirror_future.wait_for(0s) == std::future_status::ready);
 
     if (ready)
@@ -117,11 +100,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
               std::move(*graph_info),
               std::move(traits),
               mirror_future.get(),
-              std::move(submit_trajectories),
-              std::move(delay_trajectories),
-              std::move(replace_trajectories),
-              std::move(erase_trajectories),
-              std::move(resolve_conflicts)
+              std::move(connections),
             });
 
       return node;
@@ -404,6 +383,12 @@ auto FleetAdapterNode::get_waypoint_names() const -> const WaypointNames&
 const std::vector<std::size_t>& FleetAdapterNode::get_parking_spots() const
 {
   return _field->graph_info.parking_spots;
+}
+
+//==============================================================================
+auto FleetAdapterNode::get_fields() -> Fields&
+{
+  return *_field;
 }
 
 //==============================================================================

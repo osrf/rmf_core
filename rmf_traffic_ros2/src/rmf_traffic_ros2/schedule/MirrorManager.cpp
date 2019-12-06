@@ -96,14 +96,18 @@ public:
     {
       const auto response = response_future.get();
 
-      RCLCPP_INFO(
-            node.get_logger(),
-            "Updating mirror [" + std::to_string(response->patch.latest_version)
-            + "]");
-
       try
       {
-        mirror.update(convert(response->patch));
+        const rmf_traffic::schedule::Database::Patch patch =
+            convert(response->patch);
+
+        RCLCPP_INFO(
+              node.get_logger(),
+              "Updating mirror ["
+              + std::to_string(response->patch.latest_version)
+              + "]: " + std::to_string(patch.size()) + " changes");
+
+        mirror.update(patch);
       }
       catch(const std::exception& e)
       {

@@ -35,6 +35,8 @@
 
 #include <rmf_utils/optional.hpp>
 
+#include "../rmf_fleet_adapter/ScheduleManager.hpp"
+
 namespace rmf_fleet_adapter {
 namespace read_only {
 
@@ -57,14 +59,9 @@ private:
 
   rmf_traffic::Duration _delay_threshold;
 
-  using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
-  rclcpp::Client<SubmitTrajectories>::SharedPtr _client_submit_trajectories;
+  ScheduleConnections _connections;
 
-  using DelayTrajectories = rmf_traffic_msgs::srv::DelayTrajectories;
-  rclcpp::Client<DelayTrajectories>::SharedPtr _client_delay_trajectories;
-
-  using ReplaceTrajectories = rmf_traffic_msgs::srv::ReplaceTrajectories;
-  rclcpp::Client<ReplaceTrajectories>::SharedPtr _client_replace_trajectories;
+  rmf_traffic_msgs::msg::FleetProperties _properties;
 
   using FleetState = rmf_fleet_msgs::msg::FleetState;
   rclcpp::Subscription<FleetState>::SharedPtr _fleet_state_subscription;
@@ -75,27 +72,28 @@ private:
   using Location = rmf_fleet_msgs::msg::Location;
   struct ScheduleEntry
   {
-    uint64_t schedule_id;
-    bool dirty_id;
+    ScheduleManager schedule;
     std::vector<Location> path;
     rmf_traffic::Trajectory trajectory;
 
-    ScheduleEntry()
-    : dirty_id(true),
-      trajectory("")
-    {
-      // Do nothing
-    }
+    ScheduleEntry(FleetAdapterNode* node);
   };
 
   // TODO(MXG): We could add threads to make this adapter more efficient, but
   // then we'll need to protect this map with a mutex.
-  using ScheduleEntries = std::unordered_map<std::string, ScheduleEntry>;
+  using ScheduleEntries =
+      std::unordered_map<std::string, std::unique_ptr<ScheduleEntry>>;
   ScheduleEntries _schedule_entries;
 
   using RobotState = rmf_fleet_msgs::msg::RobotState;
 
-  void submit_robot(const RobotState& state);
+  void push_trajectory(
+      const RobotState& state,
+      const ScheduleEntries::iterator& it);
+
+  void submit_robot(
+      const RobotState& state,
+      const ScheduleEntries::iterator& it);
 
   void update_robot(
       const RobotState& state,
@@ -106,8 +104,6 @@ private:
       const ScheduleEntries::iterator& it);
 
   rmf_traffic::Trajectory make_trajectory(const RobotState& state) const;
-
-  void update_id(const std::string& name, uint64_t id);
 };
 
 } // namespace read_only
