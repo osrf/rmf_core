@@ -80,7 +80,7 @@ public:
 
   void trigger_wakeup(uint64_t minimum_version)
   {
-    if(options.get_update_on_wakeup())
+    if(options.update_on_wakeup())
       update(minimum_version);
   }
 
@@ -107,7 +107,16 @@ public:
               + std::to_string(response->patch.latest_version)
               + "]: " + std::to_string(patch.size()) + " changes");
 
-        mirror.update(patch);
+        std::mutex* update_mutex = options.update_mutex();
+        if (update_mutex)
+        {
+          std::lock_guard<std::mutex> lock(*update_mutex);
+          mirror.update(patch);
+        }
+        else
+        {
+          mirror.update(patch);
+        }
       }
       catch(const std::exception& e)
       {
@@ -146,26 +155,46 @@ class MirrorManager::Options::Implementation
 {
 public:
 
+  std::mutex* update_mutex;
+
   bool update_on_wakeup;
 
 };
 
 //==============================================================================
-MirrorManager::Options::Options(bool update_on_wakeup)
+MirrorManager::Options::Options(
+    std::mutex* update_mutex,
+    bool update_on_wakeup)
   : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{update_on_wakeup}))
+             Implementation{
+               update_mutex,
+               update_on_wakeup
+             }))
 {
   // Do nothing
 }
 
 //==============================================================================
-bool MirrorManager::Options::get_update_on_wakeup() const
+std::mutex* MirrorManager::Options::update_mutex() const
+{
+  return _pimpl->update_mutex;
+}
+
+//==============================================================================
+auto MirrorManager::Options::update_mutex(std::mutex* mutex) -> Options&
+{
+  _pimpl->update_mutex = mutex;
+  return *this;
+}
+
+//==============================================================================
+bool MirrorManager::Options::update_on_wakeup() const
 {
   return _pimpl->update_on_wakeup;
 }
 
 //==============================================================================
-auto MirrorManager::Options::set_update_on_wakeup(bool choice) -> Options&
+auto MirrorManager::Options::update_on_wakeup(bool choice) -> Options&
 {
   _pimpl->update_on_wakeup = choice;
   return *this;

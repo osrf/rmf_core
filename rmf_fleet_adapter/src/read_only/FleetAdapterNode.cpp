@@ -123,7 +123,6 @@ void FleetAdapterNode::push_trajectory(
   for (const auto& location : state.path)
     it->second->path.push_back(location);
 
-  std::cout << "Pushing initial trajectory" << std::endl;
   it->second->trajectory = make_trajectory(state);
   it->second->schedule.push_trajectories({it->second->trajectory}, [](){});
 }
@@ -148,7 +147,6 @@ void FleetAdapterNode::update_robot(
   if (handle_delay(state, it))
     return;
 
-  std::cout << "Pushing trajectory replacement" << std::endl;
   push_trajectory(state, it);
 }
 
@@ -175,8 +173,40 @@ bool FleetAdapterNode::handle_delay(
     const Eigen::Vector3d p_state{l_state.x, l_state.y, l_state.yaw};
     const Eigen::Vector3d p_entry{l_entry.x, l_entry.y, l_entry.yaw};
 
+    // TODO(MXG): Make this threshold configurable
     if ((p_state - p_entry).norm() > 1e-8)
       return false;
+  }
+
+  if (entry.path.empty())
+  {
+    assert(state.path.empty());
+    // The previous path and current path are empty, which implies that the
+    // robot is sitting in place. We should check if the robot is standing in
+    // the same location as before. If it is, we may send a delay. If it is not,
+    // we should send a new trajectory.
+    const Eigen::Vector3d p_entry =
+        entry.trajectory.back().get_finish_position();
+    const auto& l_state = state.location;
+    const Eigen::Vector3d p_state{l_state.x, l_state.y, l_state.yaw};
+
+    // TODO(MXG): Make this threshold configurable
+    if ((p_state.block<2,1>(0,0) - p_entry.block<2,1>(0,0)).norm() > 0.05)
+      return false;
+
+    // TODO(MXG): Make this threshold configurable
+    if (std::abs(p_state[2] - p_entry[2]) > 10.0*M_PI/180.0)
+      return false;
+
+    // Every 3 seconds we'll extend the finish time for the trajectory
+    // TODO(MXG): Make these parameters configurable
+    const auto current_time = rmf_traffic_ros2::convert(state.location.t);
+    const auto next_finish_time = current_time + std::chrono::seconds(10);
+    const auto delay = next_finish_time - *entry.trajectory.finish_time();
+    if (delay > std::chrono::seconds(3))
+      entry.schedule.push_delay(delay, current_time);
+
+    return true;
   }
 
   entry.path.clear();
@@ -184,6 +214,7 @@ bool FleetAdapterNode::handle_delay(
     entry.path.push_back(location);
 
   const auto new_trajectory = make_trajectory(state);
+
   const auto time_difference =
       *new_trajectory.finish_time() - *entry.trajectory.finish_time();
   if (std::abs(time_difference.count()) < _delay_threshold.count())
@@ -239,7 +270,6 @@ bool FleetAdapterNode::handle_delay(
 
   t_it->adjust_finish_times(time_difference);
 
-  std::cout << "Pushing delay" << std::endl;
   entry.schedule.push_delay(time_difference, from_time);
 
   // Return true to indicate that the delay has been handled.
@@ -258,14 +288,15 @@ rmf_traffic::Trajectory FleetAdapterNode::make_trajectory(
   for (const auto& location : state.path)
     positions.push_back({location.x, location.y, location.yaw});
 
+  const auto start_time = rmf_traffic_ros2::convert(state.location.t);
+
   auto trajectory = rmf_traffic::agv::Interpolate::positions(
-        map_name, _traits, rmf_traffic_ros2::convert(state.location.t),
-        positions);
+        map_name, _traits, start_time, positions);
 
   if (trajectory.size() < 2)
   {
     const auto& segment = trajectory.front();
-    const Eigen::Vector3d p = segment.get_finish_position();
+    const Eigen::Vector3d p = positions.front();
     RCLCPP_WARN(
           get_logger(),
           "The path given for [" + state.name + "] resulted in a single-point "
@@ -273,9 +304,15 @@ rmf_traffic::Trajectory FleetAdapterNode::make_trajectory(
           + std::to_string(p[0]) + ", " + std::to_string(p[1]) + ", "
           + std::to_string(p[2]) + ")");
 
-    trajectory.insert(
-          segment.get_finish_time() + std::chrono::seconds(10),
-          _traits.get_profile(), p, Eigen::Vector3d::Zero());
+    rmf_traffic::Trajectory sitting{map_name};
+    sitting.insert(
+          start_time, _traits.get_profile(), p, Eigen::Vector3d::Zero());
+
+    const auto finish_time = start_time + std::chrono::seconds(10);
+    sitting.insert(
+          finish_time, _traits.get_profile(), p, Eigen::Vector3d::Zero());
+
+    return sitting;
   }
 
   return trajectory;

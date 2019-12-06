@@ -78,8 +78,10 @@ private:
 
   void update()
   {
+    std::cout << "Current location: " << current_location.transpose() << std::endl;
+
     if (path.empty())
-      return;
+      return publish();
 
     const Eigen::Vector3d next_location = to_eigen(path.front());
 
@@ -129,9 +131,9 @@ private:
   }
 
   const double distance = 10.0;
-  const double velocity = 0.1;
+  const double velocity = 0.2;
   const int64_t period_ms = 200;
-  const double timestep = 1.0/static_cast<double>(period_ms);
+  const double timestep = static_cast<double>(period_ms)/1000.0;
 
   Eigen::Vector3d current_location;
 
