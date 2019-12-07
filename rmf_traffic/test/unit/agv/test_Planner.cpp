@@ -2025,6 +2025,37 @@ SCENARIO("Test planner with various start conditions")
 
   }
 
+  WHEN("Start contains initial location and lane constraint")
+  {
+    graph.add_lane(1, {2, Graph::OrientationConstraint::make({M_PI})}); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-4.99, 0};
+    rmf_utils::optional<std::size_t> initial_lane = 6;
+
+    Planner::Start start = Planner::Start{
+        initial_time,
+        2,
+        0.0,
+        std::move(initial_location),
+        std::move(initial_lane)};
+
+    CHECK(start.location());
+    CHECK(start.lane());
+
+    double goal_orientation = M_PI_2;
+    Planner::Goal goal{3, goal_orientation};
+
+    const auto plan = planner.plan(start, goal);
+    CHECK_PLAN(plan, {-4.99, 0}, 0.0, {5.0, 0}, {2, 3}, &goal_orientation);
+    // Check if lane exit constraint was satisfied
+    auto waypoints = plan->get_waypoints();
+    REQUIRE(waypoints.size() != 0);
+    auto second_wp = ++waypoints.begin();
+    CHECK((second_wp->position()[2] - M_PI) == Approx(0.0));
+  }
+
   WHEN("Planning with startset with varying orientations")
   {
     graph.add_lane(1, 2); // 6
