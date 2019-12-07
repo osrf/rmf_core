@@ -22,6 +22,8 @@
 
 #include <rmf_utils/math.hpp>
 
+#include "../rmf_fleet_adapter/make_trajectory.hpp"
+
 namespace rmf_fleet_adapter {
 namespace full_control {
 
@@ -37,6 +39,9 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
     const auto& plan = plans[i];
     if (plan)
     {
+      std::cout << "Num trajectories: " << plan->get_trajectories().size() << std::endl;
+      std::cout << "segments: " << plan->get_trajectories().back().size() << std::endl;
+      std::cout << "fallback plan duration: " << rmf_traffic::time::to_seconds(plan->get_trajectories().back().duration()) << std::endl;
       assert(plan->get_trajectories().back().finish_time());
       const auto finish_time = *plan->get_trajectories().back().finish_time();
       if (finish_time < nearest)
@@ -64,11 +69,13 @@ public:
       FleetAdapterNode* node,
       Task* parent,
       FleetAdapterNode::RobotContext* state,
-      const std::size_t goal_wp_index)
+      const std::size_t goal_wp_index,
+      const std::size_t move_id)
   : _node(node),
     _task(parent),
     _context(state),
     _goal_wp_index(goal_wp_index),
+    _base_task_id(parent->id() + ":move#" + std::to_string(move_id) + ":"),
     _fallback_wps(node->get_parking_spots()),
     _state_listener(this),
     _event_executor(this),
@@ -280,6 +287,11 @@ public:
     return send_next_command();
   }
 
+  std::string task_id() const
+  {
+    return _base_task_id + std::to_string(_command_segment);
+  }
+
   void send_next_command()
   {
     if (_remaining_waypoints.empty())
@@ -293,8 +305,8 @@ public:
 
     _command.fleet_name = _node->get_fleet_name();
     _command.robot_name = _context->robot_name();
-    _command.task_id =
-        _task->id() + std::to_string(_command_segment++);
+    _command.task_id = task_id();
+    ++_command_segment;
 
     _command.path.clear();
 
@@ -321,11 +333,12 @@ public:
       // Break off the command wherever an event occurs, because those are
       // points where the fleet adapter will need to issue door/lift requests.
       if (wp.event())
+      {
+        ++i;
         break;
+      }
     }
 
-    _next_stop = (i == _remaining_waypoints.size()) ?
-          _remaining_waypoints.back().position() : _remaining_waypoints[i].position();
     _issued_waypoints.clear();
     _issued_waypoints.insert(
                 _issued_waypoints.end(),
@@ -334,6 +347,8 @@ public:
     _remaining_waypoints.erase(
                 _remaining_waypoints.begin(),
                 _remaining_waypoints.begin()+i);
+
+    _finish_estimate = _issued_waypoints.back().time();
 
     publish_command();
     _command_time = _node->get_clock()->now();
@@ -362,39 +377,11 @@ public:
       if (_parent->_task->schedule.waiting())
         return;
 
-      if (msg.task_id != _parent->_command.task_id)
-      {
-        const auto now = _parent->_node->get_clock()->now();
-
-        // Recompute a plan if the fleet driver has a huge delay.
-        if (now - _parent->_command_time
-            > _parent->_node->get_delay_threshold())
-        {
-          RCLCPP_ERROR(
-                _parent->_node->get_logger(),
-                "The fleet driver is being unresponsive to task plan ["
-                + _parent->_task->id() + "]. Recomputing plan!");
-
-          return _parent->find_and_execute_plan();
-        }
-
-        // Attempt to resend the command if the robot has not received it yet.
-        if (now - _parent->_command_time > std::chrono::milliseconds(100))
-          _parent->publish_command();
-
+      if (!_parent->verify_task_id(msg))
         return;
-      }
 
-      if (msg.path.size() <= 1)
-        _parent->handle_event(msg);
-
-      if (_parent->_next_stop)
-      {
-        const auto& l = msg.location;
-        const Eigen::Vector3d p{l.x, l.y, l.yaw};
-        if ( (p - *_parent->_next_stop).norm() < 0.1 )
-          return _parent->send_next_command();
-      }
+      if (msg.path.empty())
+        return _parent->handle_event(msg);
 
       _parent->handle_delay(msg);
     }
@@ -402,14 +389,72 @@ public:
     MoveAction* _parent;
   };
 
+  bool verify_task_id(const RobotState& msg)
+  {
+    if (msg.task_id != _command.task_id)
+    {
+      const auto now = _node->get_clock()->now();
+
+      // Recompute a plan if the fleet driver has a huge delay.
+      if (now - _command_time > _node->get_delay_threshold())
+      {
+        RCLCPP_ERROR(
+              _node->get_logger(),
+              "The fleet driver is being unresponsive to task plan ["
+              + task_id() + "]. Recomputing plan!");
+
+        find_and_execute_plan();
+        return false;
+      }
+
+      // Attempt to resend the command if the robot has not received it yet.
+      if (now - _command_time > std::chrono::milliseconds(100))
+        publish_command();
+
+      return false;
+    }
+
+    return true;
+  }
+
   void handle_event(const RobotState& msg)
   {
-    if (_remaining_waypoints.empty())
+    if (_issued_waypoints.empty())
       return;
 
-    const auto& event_wp = _remaining_waypoints.front();
+    const auto& event_wp = _issued_waypoints.back();
     if (!event_wp.event())
+    {
+      const Eigen::Vector3d next_stop =
+          _issued_waypoints.back().position();
+
+      const auto& l = msg.location;
+      const Eigen::Vector3d p{l.x, l.y, l.yaw};
+      const double dist =
+          (p.block<2,1>(0,0) - next_stop.block<2,1>(0,0)).norm();
+
+      // TODO(MXG) Make this threshold configurable
+      if (dist > 2.0)
+      {
+        RCLCPP_ERROR(
+              _node->get_logger(),
+              "The robot is very far [" + std::to_string(dist) + "m] from "
+              "where it is supposed to be, but its path is empty");
+        return;
+      }
+
+      // TODO(MXG) Make this threshold configurable
+      if ( dist > 0.1 )
+      {
+        RCLCPP_WARN(
+              _node->get_logger(),
+              "The robot is somewhat far [" + std::to_string(dist) + "m] from "
+              "where it is supposed to be, but we will proceed anyway.");
+      }
+
+      send_next_command();
       return;
+    }
 
     // Check if we're already handling the event
     if (_event_executor.is_active())
@@ -462,17 +507,20 @@ public:
 
   void handle_delay(const RobotState& msg)
   {
-    // TODO(MXG): Come up with a more robust way to determine delays
-    const std::size_t next_waypoint_index =
-        _command.path.size() - msg.path.size();
+    bool s;
+    const auto trajectory_estimate =
+        make_trajectory(msg, _node->get_fields().traits, s);
 
-    if (check_delay(msg, next_waypoint_index))
+    const auto new_finish_estimate = *trajectory_estimate.finish_time();
+
+    const auto delay = new_finish_estimate - _finish_estimate;
+    // TODO(MXG): Make this threshold configurable
+    if (delay < std::chrono::seconds(3))
       return;
 
-    // We can also check if we're close to the last waypoint and estimate the
-    // delay based on that.
-    if (next_waypoint_index > 0)
-      check_delay(msg, next_waypoint_index-1);
+    _finish_estimate = new_finish_estimate;
+    const auto from_now = rmf_traffic_ros2::convert(_node->now());
+    _task->schedule.push_delay(delay, from_now);
   }
 
   void report_waiting()
@@ -587,8 +635,6 @@ public:
 
       if (mode == msg.current_mode.value)
       {
-        _parent->_remaining_waypoints.erase(
-                    _parent->_remaining_waypoints.begin());
         _parent->_event_listener.door = nullptr;
         _is_active = false;
         _parent->send_next_command();
@@ -689,8 +735,6 @@ public:
 
       if (msg.door_state == door_state)
       {
-        _parent->_remaining_waypoints.erase(
-                    _parent->_remaining_waypoints.begin());
         _parent->_event_listener.lift = nullptr;
         _is_active = false;
         _parent->send_next_command();
@@ -744,7 +788,6 @@ public:
             LiftRequest::REQUEST_END_SESSION,
             LiftRequest::DOOR_CLOSED);
 
-      _parent->_remaining_waypoints.erase(_parent->_remaining_waypoints.begin());
       return _parent->send_next_command();
     }
 
@@ -856,8 +899,9 @@ public:
     using RobotMode = rmf_fleet_msgs::msg::RobotMode;
     ModeRequest request;
     request.mode.mode = RobotMode::MODE_PAUSED;
+    // TODO(MXG): Make this part of the task_id() function?
     request.task_id =
-        _task->id() + std::to_string(_command_segment) + " - pause";
+        task_id() + " - pause";
     request.fleet_name = _node->get_fleet_name();
     request.robot_name = _context->robot_name();
 
@@ -927,12 +971,12 @@ public:
     return {status, end_time};
   }
 
-
 private:
   FleetAdapterNode* const _node;
   Task* const _task;
   FleetAdapterNode::RobotContext* const _context;
   const std::size_t _goal_wp_index;
+  const std::string _base_task_id;
   const std::vector<std::size_t>& _fallback_wps;
   StateListener _state_listener;
   EventExecutor _event_executor;
@@ -942,6 +986,7 @@ private:
   std::vector<rmf_traffic::agv::Plan> _plans;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _remaining_waypoints;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _issued_waypoints;
+  rmf_traffic::Time _finish_estimate;
   rmf_utils::optional<Eigen::Vector3d> _next_stop;
   rmf_fleet_msgs::msg::PathRequest _command;
   std::size_t _command_segment;
@@ -963,9 +1008,11 @@ std::unique_ptr<Action> make_move(
     FleetAdapterNode* node,
     FleetAdapterNode::RobotContext* state,
     Task* parent,
-    const std::size_t goal_wp_index)
+    const std::size_t goal_wp_index,
+    const std::size_t move_id)
 {
-  return std::make_unique<MoveAction>(node, parent, state, goal_wp_index);
+  return std::make_unique<MoveAction>(
+        node, parent, state, goal_wp_index, move_id);
 }
 
 } // namespace full_control

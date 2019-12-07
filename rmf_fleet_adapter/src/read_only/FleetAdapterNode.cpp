@@ -30,6 +30,8 @@
 
 #include "../rmf_fleet_adapter/load_param.hpp"
 
+#include "../rmf_fleet_adapter/make_trajectory.hpp"
+
 namespace rmf_fleet_adapter {
 namespace read_only {
 
@@ -123,7 +125,7 @@ void FleetAdapterNode::push_trajectory(
   for (const auto& location : state.path)
     it->second->path.push_back(location);
 
-  it->second->trajectory = make_trajectory(state, it->second->sitting);
+  it->second->trajectory = make_trajectory(state, _traits, it->second->sitting);
   it->second->schedule.push_trajectories({it->second->trajectory}, [](){});
 }
 
@@ -183,7 +185,7 @@ bool FleetAdapterNode::handle_delay(
     entry.path.push_back(location);
 
   bool sitting = false;
-  auto new_trajectory = make_trajectory(state, sitting);
+  auto new_trajectory = make_trajectory(state, _traits, sitting);
 
   if (entry.sitting && sitting)
   {
@@ -283,45 +285,6 @@ bool FleetAdapterNode::handle_delay(
 
   // Return true to indicate that the delay has been handled.
   return true;
-}
-
-//==============================================================================
-rmf_traffic::Trajectory FleetAdapterNode::make_trajectory(
-    const RobotState& state, bool& is_sitting) const
-{
-  // TODO(MXG): Account for the multi-floor use case
-  const std::string& map_name = state.location.level_name;
-
-  std::vector<Eigen::Vector3d> positions;
-  positions.push_back({state.location.x, state.location.y, state.location.yaw});
-  for (const auto& location : state.path)
-    positions.push_back({location.x, location.y, location.yaw});
-
-  const auto start_time = rmf_traffic_ros2::convert(state.location.t);
-
-  auto trajectory = rmf_traffic::agv::Interpolate::positions(
-        map_name, _traits, start_time, positions);
-
-  if (trajectory.size() < 2)
-  {
-    // If a robot state results in a single-point trajectory, then we should
-    // make a temporary sitting trajectory.
-    const Eigen::Vector3d p = positions.front();
-    rmf_traffic::Trajectory sitting{map_name};
-    sitting.insert(
-          start_time, _traits.get_profile(), p, Eigen::Vector3d::Zero());
-
-    const auto finish_time = start_time + std::chrono::seconds(10);
-    sitting.insert(
-          finish_time, _traits.get_profile(), p, Eigen::Vector3d::Zero());
-
-    is_sitting = true;
-    return sitting;
-  }
-
-  is_sitting = false;
-
-  return trajectory;
 }
 
 } // namespace read_only

@@ -259,13 +259,16 @@ std::unique_ptr<Task> make_delivery(
 
   std::queue<std::unique_ptr<Action>> action_queue;
 
-  action_queue.push(make_move(node, context, task.get(), pickup_wp->second));
+  std::size_t move_id = 0;
+  action_queue.push(
+        make_move(node, context, task.get(), pickup_wp->second, move_id++));
 
   action_queue.push(
         make_dispense(node, context, task.get(), pickup_dispenser->second,
                       delivery.items, delivery.pickup_behavior));
 
-  action_queue.push(make_move(node, context, task.get(), dropoff_wp->second));
+  action_queue.push(
+        make_move(node, context, task.get(), dropoff_wp->second, move_id++));
 
   action_queue.push(
         make_dispense(node, context, task.get(), dropoff_dispenser->second,
@@ -312,11 +315,15 @@ std::unique_ptr<Task> make_loop(
 
   auto task = std::make_unique<GenericTask>(node, context, task_id);
 
+  std::size_t move_id = 0;
   std::queue<std::unique_ptr<Action>> action_queue;
   for (std::size_t i=0; i < loop.num_loops; ++i)
   {
-    action_queue.push(make_move(node, context, task.get(), start_wp->second));
-    action_queue.push(make_move(node, context, task.get(), finish_wp->second));
+    action_queue.push(
+          make_move(node, context, task.get(), start_wp->second, move_id++));
+
+    action_queue.push(
+          make_move(node, context, task.get(), finish_wp->second, move_id++));
   }
 
   task->fill_queue(std::move(action_queue));

@@ -103,10 +103,6 @@ private:
   bool handle_delay(
       const RobotState& state,
       const ScheduleEntries::iterator& it);
-
-  rmf_traffic::Trajectory make_trajectory(
-      const RobotState& state,
-      bool& is_sitting) const;
 };
 
 } // namespace read_only

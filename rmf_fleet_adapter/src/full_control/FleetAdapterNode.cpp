@@ -343,7 +343,15 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
             rmf_traffic::agv::Plan::Start(
               now, lane.exit().waypoint_index(), start_yaw, p_location, i));
     }
+
+    if (lane_dist < closest_lane_dist)
+    {
+      closest_lane = i;
+      closest_lane_dist = lane_dist;
+    }
   }
+
+  assert(closest_lane != std::numeric_limits<std::size_t>::max());
 
   if (starts.empty())
   {
