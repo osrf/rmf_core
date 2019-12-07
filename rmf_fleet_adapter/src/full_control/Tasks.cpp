@@ -71,7 +71,6 @@ public:
     _action = std::move(_action_queue.front());
     _action_queue.pop();
     _action->execute();
-    report_status();
   }
 
   void interrupt()

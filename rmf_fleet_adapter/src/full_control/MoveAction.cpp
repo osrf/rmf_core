@@ -42,11 +42,18 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
       std::cout << "Num trajectories: " << plan->get_trajectories().size() << std::endl;
       std::cout << "segments: " << plan->get_trajectories().back().size() << std::endl;
       std::cout << "fallback plan duration: " << rmf_traffic::time::to_seconds(plan->get_trajectories().back().duration()) << std::endl;
-      assert(plan->get_trajectories().back().finish_time());
-      const auto finish_time = *plan->get_trajectories().back().finish_time();
-      if (finish_time < nearest)
+      const auto finish_time = plan->get_trajectories().back().finish_time();
+      if (!finish_time)
       {
-        nearest = finish_time;
+        // If this is an empty trajectory, then the robot is already sitting on
+        // its destination, making this undoubtedly the fastest plan.
+        i_nearest = i;
+        break;
+      }
+
+      if (*finish_time < nearest)
+      {
+        nearest = *finish_time;
         i_nearest = i;
       }
     }
@@ -92,7 +99,7 @@ public:
     return std::unordered_set<uint64_t>{ids.begin(), ids.end()};
   }
 
-  void find_plan()
+  bool find_plan()
   {
     _emergency_active = false;
     _waiting_on_emergency = false;
@@ -156,7 +163,7 @@ public:
     if (main_plan)
     {
       _plans.emplace_back(std::move(*std::move(main_plan)));
-      return;
+      return true;
     }
 
     return use_fallback(std::move(fallback_plans));
@@ -164,8 +171,8 @@ public:
 
   void find_and_execute_plan()
   {
-    find_plan();
-    execute_plan();
+    if (find_plan())
+      execute_plan();
   }
 
   void resolve() final
@@ -173,14 +180,15 @@ public:
     find_and_execute_plan();
   }
 
-  void use_fallback(
+  bool use_fallback(
       std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans)
   {
     const auto i_nearest_opt = get_fastest_plan_index(fallback_plans);
     if (!i_nearest_opt)
     {
-      return _task->critical_failure(
+      _task->critical_failure(
             "The robot is trapped! Human intervention may be needed!");
+      return false;
     }
     const auto i_nearest = *i_nearest_opt;
 
@@ -190,7 +198,7 @@ public:
     const double fallback_orientation =
         fallback_plan.get_waypoints().back().position()[2];
     const auto fallback_end_time =
-        *fallback_plan.get_trajectories().back().finish_time();
+        fallback_plan.get_waypoints().back().time();
 
     const auto& planner = _node->get_planner();
 
@@ -236,17 +244,24 @@ public:
                               [&](){ return have_resume_plan; });
     }
 
+    interrupt_flag = true;
+    for (auto& resume_plan_thread : resume_plan_threads)
+      resume_plan_thread.join();
+
     const auto quickest_finish_opt = get_fastest_plan_index(resume_plans);
     if (!quickest_finish_opt)
     {
-      return _task->critical_failure(
+      _task->critical_failure(
             "The robot will be trapped at its fallback point! "
             "Human intervention may be needed!");
+      return false;
     }
     else
     {
       _plans.emplace_back(*resume_plans[*quickest_finish_opt]);
     }
+
+    return true;
   }
 
   std::vector<rmf_traffic::Trajectory> collect_trajectories() const
@@ -875,6 +890,10 @@ public:
       plans_cv.wait_for(lock, std::chrono::milliseconds(100),
                         [&](){ return have_plan; });
     }
+
+    interrupt_flag =  true;
+    for (auto& plan_thread : plan_threads)
+      plan_thread.join();
 
     const auto quickest_finish_opt = get_fastest_plan_index(plans);
     if (!quickest_finish_opt)

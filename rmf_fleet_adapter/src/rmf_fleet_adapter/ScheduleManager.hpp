@@ -81,6 +81,7 @@ public:
       std::function<void()> revision_callback);
 
   using TrajectorySet = std::vector<rmf_traffic::Trajectory>;
+  using ValidTrajectorySet = std::vector<const rmf_traffic::Trajectory*>;
 
   void push_trajectories(
       const TrajectorySet& trajectories,
@@ -99,16 +100,18 @@ public:
 private:
 
   void submit_trajectories(
-      const TrajectorySet& trajectories,
+      const ValidTrajectorySet& trajectories,
       std::function<void()> approval_callback);
 
   void replace_trajectories(
-      const TrajectorySet& trajectories,
+      const ValidTrajectorySet& trajectories,
       std::function<void()> approval_callback);
 
   void resolve_trajectories(
-      const TrajectorySet& trajectories,
+      const ValidTrajectorySet& trajectories,
       std::function<void()> approval_callback);
+
+  void erase_trajectories();
 
   bool process_queues();
 

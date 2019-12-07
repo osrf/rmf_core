@@ -109,12 +109,12 @@ ScheduleManager::ScheduleManager(
 namespace {
 //==============================================================================
 std::vector<rmf_traffic_msgs::msg::Trajectory> convert(
-    const std::vector<rmf_traffic::Trajectory>& trajectories)
+    const std::vector<const rmf_traffic::Trajectory*>& trajectories)
 {
   std::vector<rmf_traffic_msgs::msg::Trajectory> output;
   output.reserve(trajectories.size());
   for (const auto& trajectory : trajectories)
-    output.emplace_back(rmf_traffic_ros2::convert(trajectory));
+    output.emplace_back(rmf_traffic_ros2::convert(*trajectory));
 
   return output;
 }
@@ -128,8 +128,25 @@ void ScheduleManager::push_trajectories(
 {
   // TODO(MXG): Be smarter here. If there are no trajectories then erase the
   // current schedule? Or have the robot stand in place?
-  if (trajectories.empty())
+  ValidTrajectorySet valid_trajectories;
+  valid_trajectories.reserve(trajectories.size());
+  for (const auto& trajectory : trajectories)
+  {
+    if (trajectory.size() < 2)
+      continue;
+
+    valid_trajectories.push_back(&trajectory);
+  }
+
+  // If there are no valid trajectories to push to the schedule, then erase the
+  // current trajectories from the schedule and approve.
+  // TODO(MXG): Consider putting some debug output here.
+  if (valid_trajectories.empty())
+  {
+    erase_trajectories();
     approval_callback();
+    return;
+  }
 
   if (_waiting_for_schedule)
   {
@@ -149,12 +166,18 @@ void ScheduleManager::push_trajectories(
   _waiting_for_schedule = true;
 
   if (_have_conflict)
-    return resolve_trajectories(trajectories, std::move(approval_callback));
+  {
+    return resolve_trajectories(
+          valid_trajectories, std::move(approval_callback));
+  }
 
   if (_schedule_ids.empty())
-    return submit_trajectories(trajectories, std::move(approval_callback));
+  {
+    return submit_trajectories(
+          valid_trajectories, std::move(approval_callback));
+  }
 
-  return replace_trajectories(trajectories, std::move(approval_callback));
+  return replace_trajectories(valid_trajectories, std::move(approval_callback));
 }
 
 //==============================================================================
@@ -217,24 +240,12 @@ const std::vector<rmf_traffic::schedule::Version>& ScheduleManager::ids() const
 //==============================================================================
 ScheduleManager::~ScheduleManager()
 {
-  if (!_schedule_ids.empty())
-  {
-    using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
-
-    const auto& erase = _connections->erase_trajectories;
-    EraseTrajectories::Request request;
-    request.erase_ids = _schedule_ids;
-
-    _schedule_ids.clear();
-
-    erase->async_send_request(
-          std::make_shared<EraseTrajectories::Request>(std::move(request)));
-  }
+  erase_trajectories();
 }
 
 //==============================================================================
 void ScheduleManager::submit_trajectories(
-    const TrajectorySet& trajectories,
+    const ValidTrajectorySet& trajectories,
     std::function<void()> approval_callback)
 {
   using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
@@ -284,7 +295,7 @@ void ScheduleManager::submit_trajectories(
 
 //==============================================================================
 void ScheduleManager::replace_trajectories(
-    const TrajectorySet& trajectories,
+    const ValidTrajectorySet& trajectories,
     std::function<void()> approval_callback)
 {
   using ReplaceTrajectories = rmf_traffic_msgs::srv::ReplaceTrajectories;
@@ -324,7 +335,7 @@ void ScheduleManager::replace_trajectories(
 
 //==============================================================================
 void ScheduleManager::resolve_trajectories(
-    const TrajectorySet& trajectories,
+    const ValidTrajectorySet& trajectories,
     std::function<void()> approval_callback)
 {
   _last_revised_version = _last_conflict_version;
@@ -367,6 +378,24 @@ void ScheduleManager::resolve_trajectories(
 
     approval_cb();
   });
+}
+
+//==============================================================================
+void ScheduleManager::erase_trajectories()
+{
+  if (!_schedule_ids.empty())
+  {
+    using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
+
+    const auto& erase = _connections->erase_trajectories;
+    EraseTrajectories::Request request;
+    request.erase_ids = _schedule_ids;
+
+    _schedule_ids.clear();
+
+    erase->async_send_request(
+          std::make_shared<EraseTrajectories::Request>(std::move(request)));
+  }
 }
 
 //==============================================================================

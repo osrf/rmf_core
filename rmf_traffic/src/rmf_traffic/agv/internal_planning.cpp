@@ -148,6 +148,18 @@ NodePtr search(
     expander.expand(top, queue);
   }
 
+  if (queue.empty())
+  {
+    std::cout << "Giving up because queue is empty" << std::endl;
+  }
+  else if(interrupt_flag && *interrupt_flag)
+  {
+    std::cout << "Planning interrupted!" << std::endl;
+  }
+  else
+  {
+    std::cout << " ===== WHY DID WE QUIT??? " << std::endl;
+  }
   return nullptr;
 }
 
@@ -1360,11 +1372,33 @@ public:
           interrupt_flag);
 
     if (!solution)
+    {
+      std::cout << " >>>>> Failing to find a solution" << std::endl;
       return rmf_utils::nullopt;
+    }
 
     auto trajectories = reconstruct_trajectories(solution);
     auto waypoints = reconstruct_waypoints(solution, _graph);
     auto start_index = find_start_index(solution);
+
+    auto print_vec = [](const Eigen::Vector3d v) -> std::string
+    {
+      return std::to_string(v[0]) + ", " + std::to_string(v[1])
+          + ", " + std::to_string(v[2]);
+    };
+
+    std::string print = " +++++ Found a solution!";
+    print += "\nnum waypoints: " + std::to_string(waypoints.size());
+    print += "\nnum trajectories: " + std::to_string(trajectories.size());
+    print += "\nback: size " + std::to_string(trajectories.back().size());
+    print += " | duration " + std::to_string(rmf_traffic::time::to_seconds(trajectories.back().duration()));
+    for (const auto& s : trajectories.back())
+    {
+      print += "\n -- [" + std::to_string(rmf_traffic::time::to_seconds(s.get_finish_time() - *trajectories.back().start_time()))
+          + "] " + print_vec(s.get_finish_position());
+    }
+
+    std::cout << print << "\n" << std::endl;
 
     return Result{
         std::move(trajectories),
