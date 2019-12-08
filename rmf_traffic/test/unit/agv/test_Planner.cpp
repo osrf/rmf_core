@@ -2175,6 +2175,65 @@ SCENARIO("Test planner with various start conditions")
     CHECK(duration < duration2);
     CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
   }
-
-
 } 
+
+SCENARIO("Test starts using graph with non-colinear waypoints")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  using DetectConflict = rmf_traffic::DetectConflict;
+
+  const std::string test_map_name = "test_map";
+  Graph graph;
+  graph.add_waypoint(test_map_name, {0, 0}, true); // 0
+  graph.add_waypoint(test_map_name, {-4, 3}, true); // 1
+  graph.add_waypoint(test_map_name, {4, 3}); // 2
+  graph.add_waypoint(test_map_name, {-2, 15}, true); // 3
+  graph.add_waypoint(test_map_name, {4, 15}, true); // 4
+  REQUIRE(graph.num_waypoints() == 5);
+
+  graph.add_lane(0 ,1); // 0
+  graph.add_lane(1, 0); // 1
+  // added within tests for testing with orientation constraints
+  graph.add_lane(0, 2); // 2
+  graph.add_lane(2, 0); // 3
+  graph.add_lane(1, 3); // 4
+  graph.add_lane(3, 1); // 5
+  graph.add_lane(2, 4); // 6
+  graph.add_lane(5, 2); // 7
+  REQUIRE(graph.num_lanes() == 8);
+
+  const VehicleTraits traits{
+      {1.0, 0.4},
+      {1.0, 0.5},
+      make_test_profile(UnitCircle)
+  };
+
+  rmf_traffic::schedule::Database database;
+  bool interrupt_flag = false;
+  Duration hold_time = std::chrono::seconds(6);
+  const rmf_traffic::agv::Planner::Options default_options{
+      database,
+      hold_time,
+      &interrupt_flag};
+
+  Planner planner{
+    Planner::Configuration{graph, traits},
+    default_options
+  };
+
+  const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
+
+  WHEN("Robot moves from waypoint 3->4")
+  {
+    Planner::Start start{initial_time, 3, -M_PI_2};
+    double goal_orientation = 0.0;
+    Planner::Goal goal{4, goal_orientation};
+
+    const auto plan = planner.plan(start, goal);
+    CHECK_PLAN(plan, {-2, 15}, -M_PI_2, {4, 15}, {3, 1, 0 , 2, 4}, &goal_orientation);
+  }
+}
