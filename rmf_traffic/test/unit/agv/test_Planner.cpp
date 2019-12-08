@@ -1940,18 +1940,34 @@ SCENARIO("Test planner with various start conditions")
 
     rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-5.0, 0};
 
-    Planner::Start start = Planner::Start{
+    Planner::Start start1 = Planner::Start{
+        initial_time,
+        1,
+        0.0};
+    CHECK_FALSE(start1.location());
+
+    Planner::Start start2 = Planner::Start{
         initial_time,
         1,
         0.0,
         std::move(initial_location)};
-    
-    CHECK(start.location());
+    CHECK(start2.location());
+
     Planner::Goal goal{3};
 
-    const auto plan = planner.plan(start, goal);
-    CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    const auto plan1 = planner.plan(start1, goal);
+    const auto duration1 = plan1->get_trajectories().front().duration();
+    CHECK_PLAN(plan1, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    const auto plan2 = plan1->replan(start2);
+    const auto duration2 = plan2->get_trajectories().front().duration();
+    CHECK_PLAN(plan2, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    CHECK((duration1 - duration2).count() == Approx(0.0));
 
+    // Test with startset
+    std::vector<Planner::Start> starts{start1, start2};
+    const auto plan = plan1->replan(starts);
+    CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    CHECK((plan->get_trajectories().front().duration() - duration1).count() == Approx(0.));
   }
 
   WHEN("Start initial_location is not on an initial_waypoint")
