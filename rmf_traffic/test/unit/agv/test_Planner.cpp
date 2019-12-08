@@ -1932,7 +1932,29 @@ SCENARIO("Test planner with various start conditions")
 
   const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
 
-  WHEN("Start contains initial_location")
+  WHEN("Start initial_location coincident with initial_waypoint")
+  {
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-5.0, 0};
+
+    Planner::Start start = Planner::Start{
+        initial_time,
+        1,
+        0.0,
+        std::move(initial_location)};
+    
+    CHECK(start.location());
+    Planner::Goal goal{3};
+
+    const auto plan = planner.plan(start, goal);
+    CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+
+  }
+
+  WHEN("Start initial_location is not on an initial_waypoint")
   { 
     graph.add_lane(1, 2); // 6
     graph.add_lane(2, 1); // 7
@@ -2191,7 +2213,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   graph.add_waypoint(test_map_name, {0, 0}, true); // 0
   graph.add_waypoint(test_map_name, {-4, 3}, true); // 1
   graph.add_waypoint(test_map_name, {4, 3}); // 2
-  graph.add_waypoint(test_map_name, {-2, 15}, true); // 3
+  graph.add_waypoint(test_map_name, {-4, 15}, true); // 3
   graph.add_waypoint(test_map_name, {4, 15}, true); // 4
   REQUIRE(graph.num_waypoints() == 5);
 
@@ -2234,6 +2256,19 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     Planner::Goal goal{4, goal_orientation};
 
     const auto plan = planner.plan(start, goal);
-    CHECK_PLAN(plan, {-2, 15}, -M_PI_2, {4, 15}, {3, 1, 0 , 2, 4}, &goal_orientation);
+    CHECK_PLAN(plan, {-4, 15}, -M_PI_2, {4, 15}, {3, 1, 0 , 2, 4}, &goal_orientation);
   }
+
+  // WHEN("Multiple starts on and off waypoints")
+  // {
+  //   std::vector<Planner::Start> starts;
+  //   rmf_utils::optional<Eigen::Vector2d> start1_location = Eigen::Vector2d{0,0};
+  //   // Planner::Start start1{
+  //   //       initial_time,
+  //   //       1,
+  //   //       -0.64,
+  //   //       start1_location};
+
+
+  // }
 }
