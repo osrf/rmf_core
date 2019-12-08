@@ -52,8 +52,11 @@ public:
 
       _parent->_have_conflict = true;
       _parent->_last_conflict_version = msg.version;
+      std::cout << "Requesting revision !!" << std::endl;
       return _parent->_revision_callback();
     }
+
+    std::cout << "Ignoring conflict" << std::endl;
   }
 
   ScheduleManager* const _parent;
@@ -363,8 +366,11 @@ void ScheduleManager::resolve_trajectories(
     if (!response->accepted)
     {
       // The conflict was resolved by someone else, so we will quit
+      std::cout << " ........ RESOLUTION REJECTED" << std::endl;
       return;
     }
+
+    std::cout << " ::::::::::: Resolution ACCEPTED!!" << std::endl;
 
     _schedule_ids.clear();
     for (auto i = response->original_version+1;

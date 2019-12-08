@@ -177,6 +177,8 @@ public:
 
   void resolve() final
   {
+    std::cout << " ====== Attempting to resolve conflict for ["
+              << _context->robot_name() << "]" << std::endl;
     find_and_execute_plan();
   }
 
@@ -528,14 +530,19 @@ public:
 
     const auto new_finish_estimate = *trajectory_estimate.finish_time();
 
-    const auto delay = new_finish_estimate - _finish_estimate;
+    const auto total_delay =
+        new_finish_estimate - _issued_waypoints.back().time();
+
+//    if (total_delay)
+
+    const auto new_delay = new_finish_estimate - _finish_estimate;
     // TODO(MXG): Make this threshold configurable
-    if (delay < std::chrono::seconds(3))
+    if (new_delay < std::chrono::seconds(3))
       return;
 
     _finish_estimate = new_finish_estimate;
     const auto from_now = rmf_traffic_ros2::convert(_node->now());
-    _task->schedule.push_delay(delay, from_now);
+    _task->schedule.push_delay(new_delay, from_now);
   }
 
   void report_waiting()
