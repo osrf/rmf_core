@@ -29,4 +29,10 @@ rmf_traffic::Trajectory make_trajectory(
     const rmf_traffic::agv::VehicleTraits& traits,
     bool& is_sitting);
 
+//==============================================================================
+rmf_traffic::Trajectory make_hold(
+    const rmf_fleet_msgs::msg::Location& location,
+    rmf_traffic::Duration duration,
+    const rmf_traffic::agv::VehicleTraits& traits);
+
 #endif // SRC__RMF_FLEET_ADAPTER__MAKE_TRAJECTORY_HPP

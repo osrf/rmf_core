@@ -90,7 +90,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
     rclcpp::spin_some(node);
 
     bool ready = true;
-    ready &= connections.ready();
+    ready &= connections->ready();
     ready &= (mirror_future.wait_for(0s) == std::future_status::ready);
 
     if (ready)
@@ -292,6 +292,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
 
     if ( (p_location - wp_location).norm() < 0.05 )
     {
+      std::cout << " $$$$$$$$$$ Using waypoint " << wp.index() << std::endl;
       // This waypoint is very close to the real location, so we will assume
       // that the robot is located here.
       return {rmf_traffic::agv::Plan::Start(now, wp.index(), start_yaw)};
@@ -337,6 +338,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
 
     if (lane_dist < 0.25)
     {
+      std::cout << " @@@@@@@@@ Using lane " << i << std::endl;
       // If the robot is within 25cm of the lane, go ahead and add it as one of
       // the options to consider.
       starts.emplace_back(
@@ -366,6 +368,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
             + std::to_string(closest_lane) + "]!");
     }
 
+    std::cout << " ########### Resorting to closest lane: " << closest_lane << std::endl;
     starts.emplace_back(
           rmf_traffic::agv::Plan::Start(
             now, graph.get_lane(closest_lane).exit().waypoint_index(),
@@ -468,13 +471,6 @@ void FleetAdapterNode::start(Fields fields)
         [&](LiftState::UniquePtr msg)
   {
     this->lift_state_update(std::move(msg));
-  });
-
-  _schedule_conflict_sub = create_subscription<ScheduleConflict>(
-        rmf_traffic_ros2::ScheduleConflictTopicName, default_qos,
-        [&](ScheduleConflict::UniquePtr msg)
-  {
-    this->schedule_conflict_update(std::move(msg));
   });
 
   _emergency_notice_sub = create_subscription<EmergencyNotice>(
@@ -623,13 +619,6 @@ void FleetAdapterNode::door_state_update(DoorState::UniquePtr msg)
 void FleetAdapterNode::lift_state_update(LiftState::UniquePtr msg)
 {
   for (const auto& listener : lift_state_listeners)
-    listener->receive(*msg);
-}
-
-//==============================================================================
-void FleetAdapterNode::schedule_conflict_update(ScheduleConflict::UniquePtr msg)
-{
-  for (const auto& listener : schedule_conflict_listeners)
     listener->receive(*msg);
 }
 

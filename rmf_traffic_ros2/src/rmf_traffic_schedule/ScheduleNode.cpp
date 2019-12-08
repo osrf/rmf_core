@@ -173,6 +173,8 @@ ScheduleNode::ScheduleNode()
         mirror.update(*next_patch);
       }
 
+      last_checked_version = mirror.latest_version();
+
       const auto view = mirror.query(
             rmf_traffic::schedule::query_everything());
 
@@ -182,7 +184,7 @@ ScheduleNode::ScheduleNode()
         {
           std::unique_lock<std::mutex> lock(active_conflicts_mutex);
           active_conflicts.insert(
-                std::make_pair(mirror.latest_version(), conflicts));
+                std::make_pair(last_checked_version, conflicts));
         }
 
         ScheduleConflict msg;
@@ -210,8 +212,6 @@ ScheduleNode::ScheduleNode()
           conflict_publisher->publish(std::move(msg));
         }
       }
-
-      last_checked_version = mirror.latest_version();
     }
   });
 }
@@ -517,6 +517,12 @@ void ScheduleNode::resolve_conflicts(
 {
   response->current_version = database.latest_version();
   response->original_version = response->current_version;
+  response->accepted = false;
+
+  std::cout << "Evaluting resolution:";
+  for (const auto r : request->resolve_ids)
+    std::cout << " " << r;
+  std::cout << std::endl;
 
   std::unordered_set<Version> conflict_set;
   bool conflict_resolved = false;
@@ -533,7 +539,7 @@ void ScheduleNode::resolve_conflicts(
 
   if (conflict_resolved)
   {
-    response->accepted = false;
+    std::cout << " -- conflict already resolved" << std::endl;
     return;
   }
 
@@ -548,7 +554,8 @@ void ScheduleNode::resolve_conflicts(
           + "] which is not in the conflict set:";
       for (const auto c : conflict_set)
         response->error += " " + std::to_string(c);
-      response->error += "]";
+
+      std::cout << " -- " << response->error << std::endl;
 
       response->accepted = false;
       return;
@@ -570,31 +577,36 @@ void ScheduleNode::resolve_conflicts(
   }
   catch (const std::exception& e)
   {
-    response->accepted = false;
     response->error = e.what();
+    std::cout << " -- " << response->error << std::endl;
+    return;
   }
 
   if (unresolved_conflicts.size() == replace_ids.size())
   {
-    response->accepted = false;
-    response->error = "The request did not resolve any conflicts";
+    std::cout << " -- The request did not resolve any conflicts" << std::endl;
     return;
   }
 
   if (has_conflicts(conflict_indices, *response))
+  {
+    std::cout << " -- The proposed trajectory has conflicts with the schedule"
+              << std::endl;
     return;
+  }
 
   conflict_indices = check_self_conflicts(resolution_trajectories);
 
   if (has_conflicts(conflict_indices, *response))
-    return;
-
-  if (unresolved_conflicts.empty())
   {
-    std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-    active_conflicts.erase(request->conflict_version);
+    std::cout << " -- The proposed trajectory has conflicts with itself"
+              << std::endl;
+    return;
   }
-  else
+
+  std::cout << " -- resolution accepted" << std::endl;
+  response->accepted = true;
+
   {
     std::unique_lock<std::mutex> lock(active_conflicts_mutex);
     active_conflicts.at(request->conflict_version) = unresolved_conflicts;

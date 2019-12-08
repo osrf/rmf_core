@@ -20,6 +20,8 @@
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_traffic/agv/Interpolate.hpp>
 
+#include <iostream>
+
 //==============================================================================
 rmf_traffic::Trajectory make_trajectory(
     const rmf_fleet_msgs::msg::RobotState& state,
@@ -59,4 +61,24 @@ rmf_traffic::Trajectory make_trajectory(
   is_sitting = false;
 
   return trajectory;
+}
+
+//==============================================================================
+rmf_traffic::Trajectory make_hold(
+    const rmf_fleet_msgs::msg::Location& l,
+    rmf_traffic::Duration duration,
+    const rmf_traffic::agv::VehicleTraits& traits)
+{
+  rmf_traffic::Trajectory hold{l.level_name};
+  std::cout << "HOLD LEVEL NAME [" << l.level_name << "]" << std::endl;
+  const Eigen::Vector3d p{l.x, l.y, l.yaw};
+  const Eigen::Vector3d v = Eigen::Vector3d::Zero();
+
+  const auto start = rmf_traffic_ros2::convert(l.t);
+  const auto finish = start + duration;
+
+  hold.insert(start, traits.get_profile(), p, v);
+  hold.insert(finish, traits.get_profile(), p, v);
+
+  return hold;
 }

@@ -59,7 +59,7 @@ private:
 
   rmf_traffic::Duration _delay_threshold;
 
-  ScheduleConnections _connections;
+  std::unique_ptr<ScheduleConnections> _connections;
 
   rmf_traffic_msgs::msg::FleetProperties _properties;
 

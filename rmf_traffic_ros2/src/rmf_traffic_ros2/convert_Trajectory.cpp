@@ -178,6 +178,11 @@ rmf_traffic_msgs::msg::TrajectorySegment convert(
 //==============================================================================
 rmf_traffic_msgs::msg::Trajectory convert(const rmf_traffic::Trajectory& from)
 {
+  if (from.get_map_name().empty())
+  {
+    throw std::runtime_error("BLANK MAP, YOU FOOL");
+  }
+
   ProfileContext profile_context;
   rmf_traffic_msgs::msg::Trajectory output;
   output.maps.push_back(from.get_map_name());

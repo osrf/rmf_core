@@ -75,17 +75,20 @@ rmf_utils::optional<GraphInfo> parse_graph(
       if (name_option)
       {
         const std::string& name = name_option.as<std::string>();
-        const auto ins = info.keys.insert(std::make_pair(name, wp.index()));
-        if (!ins.second)
+        if (!name.empty())
         {
-          RCLCPP_ERROR(
-                node.get_logger(),
-                "Duplicated waypoint name [" + name + "] in graph ["
-                + graph_file + "]");
-          return rmf_utils::nullopt;
-        }
+          const auto ins = info.keys.insert(std::make_pair(name, wp.index()));
+          if (!ins.second)
+          {
+            RCLCPP_ERROR(
+                  node.get_logger(),
+                  "Duplicated waypoint name [" + name + "] in graph ["
+                  + graph_file + "]");
+            return rmf_utils::nullopt;
+          }
 
-        info.waypoint_names.insert(std::make_pair(wp.index(), name));
+          info.waypoint_names.insert(std::make_pair(wp.index(), name));
+        }
       }
 
       const YAML::Node& workcell_name_option = options["workcell_name"];

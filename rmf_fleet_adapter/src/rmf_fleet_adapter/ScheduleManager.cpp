@@ -51,36 +51,65 @@ public:
         continue;
 
       _parent->_have_conflict = true;
+      _parent->_conflict_ids = schedule_ids;
       _parent->_last_conflict_version = msg.version;
       std::cout << "Requesting revision !!" << std::endl;
       return _parent->_revision_callback();
     }
 
-    std::cout << "Ignoring conflict" << std::endl;
+    _parent->_have_conflict = false;
+    std::cout << "FREE OF CONFLICTS" << std::endl;
   }
 
   ScheduleManager* const _parent;
 };
 
 //==============================================================================
-ScheduleConnections ScheduleConnections::make(rclcpp::Node& node)
+void ScheduleConnections::insert_conflict_listener(
+    ScheduleConflictListener* listener)
 {
-  ScheduleConnections connections;
+  _schedule_conflict_listeners.insert(listener);
+}
 
-  connections.submit_trajectories = node.create_client<SubmitTrajectories>(
+//==============================================================================
+void ScheduleConnections::remove_conflict_listener(
+    ScheduleConflictListener* listener)
+{
+  _schedule_conflict_listeners.erase(listener);
+}
+
+//==============================================================================
+std::unique_ptr<ScheduleConnections> ScheduleConnections::make(
+    rclcpp::Node& node)
+{
+  auto connections = std::make_unique<ScheduleConnections>();
+
+  connections->submit_trajectories = node.create_client<SubmitTrajectories>(
         rmf_traffic_ros2::SubmitTrajectoriesSrvName);
 
-  connections.delay_trajectories = node.create_client<DelayTrajectories>(
+  connections->delay_trajectories = node.create_client<DelayTrajectories>(
         rmf_traffic_ros2::DelayTrajectoriesSrvName);
 
-  connections.replace_trajectories = node.create_client<ReplaceTrajectories>(
+  connections->replace_trajectories = node.create_client<ReplaceTrajectories>(
         rmf_traffic_ros2::ReplaceTrajectoriesSrvName);
 
-  connections.erase_trajectories = node.create_client<EraseTrajectories>(
+  connections->erase_trajectories = node.create_client<EraseTrajectories>(
         rmf_traffic_ros2::EraseTrajectoriesSrvName);
 
-  connections.resolve_conflicts = node.create_client<ResolveConflicts>(
+  connections->resolve_conflicts = node.create_client<ResolveConflicts>(
         rmf_traffic_ros2::ResolveConflictsSrvName);
+
+  auto* c_ptr = connections.get();
+  connections->_schedule_conflict_sub =
+      node.create_subscription<ScheduleConflict>(
+        rmf_traffic_ros2::ScheduleConflictTopicName,
+        rclcpp::SystemDefaultsQoS(),
+        [c_ptr](ScheduleConflict::UniquePtr msg)
+  {
+    const auto listeners = c_ptr->_schedule_conflict_listeners;
+    for (auto& listener : listeners)
+      listener->receive(*msg);
+  });
 
   return connections;
 }
@@ -104,9 +133,10 @@ ScheduleManager::ScheduleManager(
     std::function<void()> revision_callback)
 : _connections(connections),
   _properties(std::move(properties)),
-  _revision_callback(std::move(revision_callback))
+  _revision_callback(std::move(revision_callback)),
+  _conflict_listener(std::make_unique<ConflictListener>(this))
 {
-  // Do nothing
+  _connections->insert_conflict_listener(_conflict_listener.get());
 }
 
 namespace {
@@ -157,6 +187,7 @@ void ScheduleManager::push_trajectories(
     // all out
     _queued_delays.clear();
 
+    std::cout << " |||||||||||| Queuing up trajectory push" << std::endl;
     _queued_change =
         [this, approval_cb{std::move(approval_callback)}, trajectories]()
     {
@@ -188,6 +219,9 @@ void ScheduleManager::push_delay(
     const rmf_traffic::Duration duration,
     const rmf_traffic::Time from_time)
 {
+  if (_have_conflict)
+    return;
+
   if (_waiting_for_schedule)
   {
     _queued_delays.push_back([=](){ push_delay(duration, from_time); });
@@ -243,6 +277,7 @@ const std::vector<rmf_traffic::schedule::Version>& ScheduleManager::ids() const
 //==============================================================================
 ScheduleManager::~ScheduleManager()
 {
+  _connections->remove_conflict_listener(_conflict_listener.get());
   erase_trajectories();
 }
 
@@ -289,9 +324,11 @@ void ScheduleManager::submit_trajectories(
       return;
     }
 
+    std::cout << "INITIAL TRAJECTORY SUBMISSION FAILED" << std::endl;
     if (process_queues())
       return;
 
+    std::cout << " ---- CALLING _revision_callback()" << std::endl;
     _revision_callback();
   });
 }
@@ -345,11 +382,18 @@ void ScheduleManager::resolve_trajectories(
 
   using ResolveConflicts = rmf_traffic_msgs::srv::ResolveConflicts;
   ResolveConflicts::Request request;
-  request.resolve_ids = _schedule_ids;
+  request.resolve_ids = _conflict_ids;
   request.trajectories = convert(trajectories);
   request.conflict_version = _last_revised_version;
 
   const auto& resolve = _connections->resolve_conflicts;
+
+  _waiting_for_schedule = true;
+
+  // We'll just clear this flag so we don't get stuck failing to resolve
+  // conflicts forever
+  // TODO(MXG): Come up with a better scheme for this
+  _have_conflict = false;
 
   resolve->async_send_request(
         std::make_shared<ResolveConflicts::Request>(std::move(request)),
@@ -361,10 +405,17 @@ void ScheduleManager::resolve_trajectories(
     _waiting_for_schedule = false;
 
     if (!response->error.empty())
+    {
+      std::cout << "RESOLUTION ERROR: " << response->error << std::endl;
       throw std::runtime_error(response->error);
+    }
 
     if (!response->accepted)
     {
+      // TODO(MXG): We should be given an indication of whether this was
+      // rejected because it's a bad plan or because the conflict was already
+      // resolved.
+
       // The conflict was resolved by someone else, so we will quit
       std::cout << " ........ RESOLUTION REJECTED" << std::endl;
       return;
