@@ -1962,12 +1962,14 @@ SCENARIO("Test planner with various start conditions")
     const auto duration2 = plan2->get_trajectories().front().duration();
     CHECK_PLAN(plan2, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
     CHECK((duration1 - duration2).count() == Approx(0.0));
+    CHECK(plan1->get_trajectories().size() == plan2->get_trajectories().size());
 
     // Test with startset
     std::vector<Planner::Start> starts{start1, start2};
     const auto plan = plan1->replan(starts);
     CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
     CHECK((plan->get_trajectories().front().duration() - duration1).count() == Approx(0.));
+    CHECK(plan->get_trajectories().size() == plan1->get_trajectories().size());
   }
 
   WHEN("Start initial_location is not on an initial_waypoint")
