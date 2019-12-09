@@ -85,15 +85,34 @@ Mirror::Mirror()
   {
     const Database::Change::Replace& replace = *change.replace();
 
-    const internal::EntryPtr& entry =
-        _pimpl->get_entry_iterator(
-          replace.original_id(), "replacement")->second;
+    try
+    {
+      const internal::EntryPtr& entry =
+          _pimpl->get_entry_iterator(
+            replace.original_id(), "replacement")->second;
 
-    std::cout << "Getting replacement [" << entry->trajectory.get_map_name()
-              << "] --> [" << replace.trajectory()->get_map_name()
-              << "]" << std::endl;
+      std::cout << "Getting replacement [" << entry->trajectory.get_map_name()
+                << "] --> [" << replace.trajectory()->get_map_name()
+                << "]" << std::endl;
 
-    _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
+      _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
+    }
+    catch(const std::runtime_error& e)
+    {
+      // Sometimes replacements have been failing because the previous entry
+      // somehow doesn't exist anymore, so we'll just treat this replacement
+      // like an insertion
+      // TODO(MXG): This shouldn't really be happening, so debug this when time
+      // permits.
+      _pimpl->add_entry(
+            std::make_shared<internal::Entry>(
+              *replace.trajectory(),
+              change.id()));
+
+      // We'll continue with throwing the exception so that noise keeps getting
+      // made about this issue.
+      throw e;
+    }
   };
 
   _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Erase)]

@@ -70,7 +70,6 @@ rmf_traffic::Trajectory make_hold(
     const rmf_traffic::agv::VehicleTraits& traits)
 {
   rmf_traffic::Trajectory hold{l.level_name};
-  std::cout << "HOLD LEVEL NAME [" << l.level_name << "]" << std::endl;
   const Eigen::Vector3d p{l.x, l.y, l.yaw};
   const Eigen::Vector3d v = Eigen::Vector3d::Zero();
 

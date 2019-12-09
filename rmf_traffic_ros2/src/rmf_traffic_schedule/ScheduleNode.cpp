@@ -170,7 +170,15 @@ ScheduleNode::ScheduleNode()
 
         // TODO(MXG): Check whether the database really needs to remain locked
         // during this update.
-        mirror.update(*next_patch);
+        try
+        {
+          mirror.update(*next_patch);
+        }
+        catch(const std::exception& e)
+        {
+          RCLCPP_ERROR(get_logger(), e.what());
+          continue;
+        }
       }
 
       last_checked_version = mirror.latest_version();
@@ -603,11 +611,12 @@ void ScheduleNode::resolve_conflicts(
     return;
   }
 
-  if (unresolved_conflicts.size() == replace_ids.size())
-  {
-    std::cout << " -- The request did not resolve any conflicts" << std::endl;
-    return;
-  }
+  // TODO(MXG): Consider if we should bring this back, and if so: how?
+//  if (unresolved_conflicts.size() == remaining_conflict_set.size())
+//  {
+//    std::cout << " -- The request did not resolve any conflicts" << std::endl;
+//    return;
+//  }
 
   if (has_conflicts(conflict_indices, *response))
   {

@@ -114,7 +114,7 @@ public:
     _plans.clear();
 
     const auto& planner = _node->get_planner();
-    const auto plan_starts = _node->compute_plan_starts(_context->location);
+    const auto plan_starts = _node->compute_plan_starts(_context->location, _context->robot_name());
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -583,6 +583,7 @@ public:
     // TODO(MXG): Make this threshold configurable
     if (total_delay > std::chrono::seconds(30))
     {
+      std::cout << " ***** Retrying because the delay has been too long" << std::endl;
       // If the dealys have piled up, then consider just restarting altogether.
       return retry();
     }
@@ -591,6 +592,10 @@ public:
     // TODO(MXG): Make this threshold configurable
     if (new_delay < std::chrono::seconds(3))
       return;
+    if (new_delay < std::chrono::seconds(1))
+      return;
+//    if (new_delay < std::chrono::milliseconds(500))
+//      return;
 
     const auto from_time =
         rmf_traffic_ros2::convert(msg.location.t) - new_delay;
@@ -915,7 +920,7 @@ public:
 
     const auto& planner = _node->get_planner();
 
-    const auto plan_starts = _node->compute_plan_starts(_context->location);
+    const auto plan_starts = _node->compute_plan_starts(_context->location, _context->robot_name());
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -989,6 +994,7 @@ public:
     _command = rmf_utils::nullopt;
     _retry_time = rclcpp::Time(_context->location.t) + duration;
 
+    std::cout << " ~~~~~ canceled and holding" << std::endl;
     using ModeRequest = rmf_fleet_msgs::msg::ModeRequest;
     using RobotMode = rmf_fleet_msgs::msg::RobotMode;
     ModeRequest request;
