@@ -342,6 +342,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
       {
         closest_start_wp = s;
         closest_lane = rmf_utils::nullopt;
+        closest_lane_dist = lane_dist;
       }
     }
     else if (lane_length < p_l_projection)
@@ -363,6 +364,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
       {
         closest_start_wp = s;
         closest_lane = rmf_utils::nullopt;
+        closest_lane_dist = lane_dist;
       }
     }
     else
@@ -381,6 +383,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
       {
         closest_start_wp = s;
         closest_lane = i;
+        closest_lane_dist = lane_dist;
       }
     }
   }

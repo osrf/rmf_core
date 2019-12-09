@@ -159,6 +159,10 @@ void ScheduleManager::push_trajectories(
     const std::vector<rmf_traffic::Trajectory>& trajectories,
     std::function<void()> approval_callback)
 {
+  // If any operations have been queued up, we should throw them all out
+  _queued_change = nullptr;
+  _queued_delays.clear();
+
   // TODO(MXG): Be smarter here. If there are no trajectories then erase the
   // current schedule? Or have the robot stand in place?
   ValidTrajectorySet valid_trajectories;
@@ -180,13 +184,8 @@ void ScheduleManager::push_trajectories(
     approval_callback();
     return;
   }
-
   if (_waiting_for_schedule)
   {
-    // If any delays were queued on a previous trajectory, we should throw them
-    // all out
-    _queued_delays.clear();
-
     std::cout << " |||||||||||| Queuing up trajectory push" << std::endl;
     _queued_change =
         [this, approval_cb{std::move(approval_callback)}, trajectories]()
@@ -227,6 +226,12 @@ void ScheduleManager::push_delay(
     _queued_delays.push_back([=](){ push_delay(duration, from_time); });
     return;
   }
+
+  // TODO(MXG): Pushing a delay when _schedule_ids is empty would be very
+  // suspicious. We should probably be noising and do some debuggin when this
+  // happens.
+  if (_schedule_ids.empty())
+    return;
 
   using DelayTrajectories = rmf_traffic_msgs::srv::DelayTrajectories;
 
@@ -440,6 +445,8 @@ void ScheduleManager::resolve_trajectories(
 //==============================================================================
 void ScheduleManager::erase_trajectories()
 {
+  _queued_change = nullptr;
+  _queued_delays.clear();
   if (!_schedule_ids.empty())
   {
     using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;

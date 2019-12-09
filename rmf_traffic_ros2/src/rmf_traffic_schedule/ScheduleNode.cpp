@@ -524,7 +524,8 @@ void ScheduleNode::resolve_conflicts(
     std::cout << " " << r;
   std::cout << std::endl;
 
-  std::unordered_set<Version> conflict_set;
+  std::unordered_set<Version> original_conflict_set;
+  std::unordered_set<Version> remaining_conflict_set;
   bool conflict_resolved = false;
 
   {
@@ -534,7 +535,10 @@ void ScheduleNode::resolve_conflicts(
     if (conflict_it == conflict_end)
       conflict_resolved = true;
     else
-      conflict_set = conflict_it->second;
+    {
+      original_conflict_set = conflict_it->second.original_ids;
+      remaining_conflict_set = conflict_it->second.unresolved_ids;
+    }
   }
 
   if (conflict_resolved)
@@ -547,12 +551,12 @@ void ScheduleNode::resolve_conflicts(
 
   for (const auto r : replace_ids)
   {
-    if (conflict_set.count(r) == 0)
+    if (original_conflict_set.count(r) == 0)
     {
       response->error = std::string()
           + "Asking to replace a trajectory [" + std::to_string(r)
-          + "] which is not in the conflict set:";
-      for (const auto c : conflict_set)
+          + "] which is not in the original conflict set:";
+      for (const auto c : original_conflict_set)
         response->error += " " + std::to_string(c);
 
       std::cout << " -- " << response->error << std::endl;
@@ -560,6 +564,23 @@ void ScheduleNode::resolve_conflicts(
       response->accepted = false;
       return;
     }
+  }
+
+  bool still_in_conflict = false;
+  for (const auto r : replace_ids)
+  {
+    if (remaining_conflict_set.count(r) != 0)
+    {
+      still_in_conflict = true;
+      break;
+    }
+  }
+
+  if (!still_in_conflict)
+  {
+    std::cout << " -- none of the requested trajectories are still in conflict" << std::endl;
+    response->accepted = false;
+    return;
   }
 
   std::vector<rmf_traffic::Trajectory> resolution_trajectories;
@@ -572,7 +593,7 @@ void ScheduleNode::resolve_conflicts(
           resolution_trajectories,
           conflict_indices,
           request->trajectories,
-          conflict_set,
+          remaining_conflict_set,
           {replace_ids.begin(), replace_ids.end()});
   }
   catch (const std::exception& e)
@@ -609,7 +630,8 @@ void ScheduleNode::resolve_conflicts(
 
   {
     std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-    active_conflicts.at(request->conflict_version) = unresolved_conflicts;
+    active_conflicts.at(request->conflict_version)
+        .unresolved_ids = unresolved_conflicts;
   }
 
   perform_replacement(request->resolve_ids, std::move(resolution_trajectories),

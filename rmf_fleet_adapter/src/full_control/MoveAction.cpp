@@ -402,6 +402,7 @@ public:
                 _remaining_waypoints.begin()+i);
 
     _finish_estimate = _issued_waypoints.back().time();
+    _original_finish_estimate = _finish_estimate;
 
     publish_command();
     _command_time = _node->get_clock()->now();
@@ -533,6 +534,17 @@ public:
       event_wp.event()->execute(_event_executor);
   }
 
+  void retry()
+  {
+    if (_emergency_active)
+    {
+      find_and_execute_emergency_plan();
+      return;
+    }
+
+    find_and_execute_plan();
+  }
+
   bool handle_retry()
   {
     if (!_retry_time)
@@ -547,13 +559,7 @@ public:
 
     _retry_time = rmf_utils::nullopt;
 
-    if (_emergency_active)
-    {
-      find_and_execute_emergency_plan();
-      return true;
-    }
-
-    find_and_execute_plan();
+    retry();
     return true;
   }
 
@@ -567,6 +573,14 @@ public:
         make_trajectory(msg, _node->get_fields().traits, s);
 
     const auto new_finish_estimate = *trajectory_estimate.finish_time();
+
+    const auto total_delay = new_finish_estimate - _original_finish_estimate;
+    // TODO(MXG): Make this threshold configurable
+    if (total_delay > std::chrono::seconds(30))
+    {
+      // If the dealys have piled up, then consider just restarting altogether.
+      return retry();
+    }
 
     const auto new_delay = new_finish_estimate - _finish_estimate;
     // TODO(MXG): Make this threshold configurable
@@ -1067,6 +1081,7 @@ private:
   std::vector<rmf_traffic::agv::Plan::Waypoint> _remaining_waypoints;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _issued_waypoints;
   rmf_traffic::Time _finish_estimate;
+  rmf_traffic::Time _original_finish_estimate;
   rmf_utils::optional<Eigen::Vector3d> _next_stop;
   rmf_utils::optional<rmf_fleet_msgs::msg::PathRequest> _command;
   std::size_t _command_segment;

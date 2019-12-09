@@ -1392,10 +1392,15 @@ public:
     print += "\nnum trajectories: " + std::to_string(trajectories.size());
     print += "\nback: size " + std::to_string(trajectories.back().size());
     print += " | duration " + std::to_string(rmf_traffic::time::to_seconds(trajectories.back().duration()));
-    for (const auto& s : trajectories.back())
+//    for (const auto& s : trajectories.back())
+//    {
+//      print += "\n -- [" + std::to_string(rmf_traffic::time::to_seconds(s.get_finish_time() - *trajectories.back().start_time()))
+//          + "] " + print_vec(s.get_finish_position());
+//    }
+    for (const auto& wp : waypoints)
     {
-      print += "\n -- [" + std::to_string(rmf_traffic::time::to_seconds(s.get_finish_time() - *trajectories.back().start_time()))
-          + "] " + print_vec(s.get_finish_position());
+      print += "\n -- [" + std::to_string(rmf_traffic::time::to_seconds(wp.time().time_since_epoch()))
+          + "] " + print_vec(wp.position());
     }
 
     std::cout << print << "\n" << std::endl;
