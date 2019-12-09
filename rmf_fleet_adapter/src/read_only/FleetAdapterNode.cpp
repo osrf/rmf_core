@@ -266,20 +266,39 @@ bool FleetAdapterNode::handle_delay(
   const auto t_it = entry.trajectory.find(from_time);
   if (t_it == entry.trajectory.end())
   {
-    // I can't think of a situation where this could happen, so let's report it
-    // as an error and debug it later.
-    RCLCPP_ERROR(
-          get_logger(),
-          "BUG: Robot [" + state.name + "] has a delay, but we cannot identify "
-          "where its schedule should be pushed back. This should not happen; "
-          "please report this.");
+    const auto t_start = *entry.trajectory.start_time();
+    if (from_time <= t_start)
+    {
+      // This is okay. It just means we will push back the entire trajectory
+      // in the schedule.
+      entry.trajectory.front().adjust_finish_times(time_difference);
+    }
+    else
+    {
+      // I can't think of a situation where this could happen, so let's report
+      // it as an error and debug it later.
+      const auto t_start =
+          entry.trajectory.start_time()->time_since_epoch().count();
+      const auto t_finish =
+          entry.trajectory.finish_time()->time_since_epoch().count();
 
-    // We'll return false so that the old trajectory can be replaced with the
-    // new one, and hopefully everything keeps working okay.
-    return false;
+      RCLCPP_ERROR(
+            get_logger(),
+            "BUG: Robot [" + state.name + "] has a delay which starts from ["
+            + std::to_string(from_time.time_since_epoch().count()) + "], but "
+            "we cannot identify where its schedule should be pushed back ["
+            + std::to_string(t_start) + " --> " + std::to_string(t_finish)
+            + "]. This should not happen; please report this.");
+
+      // We'll return false so that the old trajectory can be replaced with the
+      // new one, and hopefully everything keeps working okay.
+      return false;
+    }
   }
-
-  t_it->adjust_finish_times(time_difference);
+  else
+  {
+    t_it->adjust_finish_times(time_difference);
+  }
 
   entry.schedule.push_delay(time_difference, from_time);
 

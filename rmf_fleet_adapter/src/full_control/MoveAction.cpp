@@ -573,9 +573,10 @@ public:
     if (new_delay < std::chrono::seconds(3))
       return;
 
+    const auto from_time =
+        rmf_traffic_ros2::convert(msg.location.t) - new_delay;
     _finish_estimate = new_finish_estimate;
-    const auto from_now = rmf_traffic_ros2::convert(_node->now());
-    _task->schedule.push_delay(new_delay, from_now);
+    _task->schedule.push_delay(new_delay, from_time);
   }
 
   void report_waiting()
