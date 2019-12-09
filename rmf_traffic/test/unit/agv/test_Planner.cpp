@@ -1914,8 +1914,7 @@ SCENARIO("Test planner with various start conditions")
   const VehicleTraits traits{
       {1.0, 0.4},
       {1.0, 0.5},
-      make_test_profile(UnitCircle)
-  };
+      make_test_profile(UnitCircle)};
 
   rmf_traffic::schedule::Database database;
   bool interrupt_flag = false;
@@ -1927,8 +1926,7 @@ SCENARIO("Test planner with various start conditions")
 
   Planner planner{
     Planner::Configuration{graph, traits},
-    default_options
-  };
+    default_options};
 
   const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
 
@@ -2237,7 +2235,6 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
 
   graph.add_lane(0 ,1); // 0
   graph.add_lane(1, 0); // 1
-  // added within tests for testing with orientation constraints
   graph.add_lane(0, 2); // 2
   graph.add_lane(2, 0); // 3
   graph.add_lane(1, 3); // 4
@@ -2262,8 +2259,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
 
   Planner planner{
     Planner::Configuration{graph, traits},
-    default_options
-  };
+    default_options};
 
   const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
 
@@ -2277,16 +2273,16 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     CHECK_PLAN(plan, {-4, 15}, -M_PI_2, {4, 15}, {3, 1, 0 , 2, 4}, &goal_orientation);
   }
 
-  // WHEN("Multiple starts on and off waypoints")
-  // {
-  //   std::vector<Planner::Start> starts;
-  //   rmf_utils::optional<Eigen::Vector2d> start1_location = Eigen::Vector2d{0,0};
-  //   // Planner::Start start1{
-  //   //       initial_time,
-  //   //       1,
-  //   //       -0.64,
-  //   //       start1_location};
+  WHEN("Multiple starts on and off waypoints")
+  {
+    std::vector<Planner::Start> starts;
+    rmf_utils::optional<Eigen::Vector2d> start1_location = Eigen::Vector2d{0,0};
+    Planner::Start start1{
+          initial_time,
+          1,
+          -0.64,
+          start1_location};
 
 
-  // }
+  }
 }
