@@ -47,8 +47,12 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
       {
         // If this is an empty trajectory, then the robot is already sitting on
         // its destination, making this undoubtedly the fastest plan.
-        i_nearest = i;
-        break;
+        assert(!plan->get_waypoints().empty());
+        assert(plan->get_waypoints().front().graph_index());
+        std::cout << "Already there: " << *plan->get_waypoints().front().graph_index()
+                  << " | " << plan->get_waypoints().front().position().transpose()
+                  << std::endl;
+        return i;
       }
 
       if (*finish_time < nearest)
@@ -247,7 +251,8 @@ public:
     std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> resume_plans;
     std::mutex resume_plan_mutex;
     std::condition_variable resume_plan_cv;
-    std::cout << "Searching for resume plans" << std::endl;
+    std::cout << "Searching for resume plans starting from waypoint "
+              << fallback_waypoint << std::endl;
     for (std::size_t i=1; i < 9; ++i)
     {
       resume_plan_threads.emplace_back(std::thread([&]()
