@@ -24,6 +24,7 @@ set(msg_files
   "msg/ModeRequest.msg"
   "msg/DestinationRequest.msg"
   "msg/PathRequest.msg"
+  "msg/ModeParameter.msg"
 )
 
 # set(srv_files
