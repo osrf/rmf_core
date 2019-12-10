@@ -175,15 +175,6 @@ void ScheduleManager::push_trajectories(
     valid_trajectories.push_back(&trajectory);
   }
 
-  // If there are no valid trajectories to push to the schedule, then erase the
-  // current trajectories from the schedule and approve.
-  // TODO(MXG): Consider putting some debug output here.
-  if (valid_trajectories.empty())
-  {
-    erase_trajectories();
-    approval_callback();
-    return;
-  }
   if (_waiting_for_schedule)
   {
     std::cout << " |||||||||||| Queuing up trajectory push" << std::endl;
@@ -193,6 +184,16 @@ void ScheduleManager::push_trajectories(
       push_trajectories(trajectories, std::move(approval_cb));
     };
 
+    return;
+  }
+
+  // If there are no valid trajectories to push to the schedule, then erase the
+  // current trajectories from the schedule and approve.
+  // TODO(MXG): Consider putting some debug output here.
+  if (valid_trajectories.empty())
+  {
+    erase_trajectories();
+    approval_callback();
     return;
   }
 
@@ -447,6 +448,8 @@ void ScheduleManager::erase_trajectories()
 {
   _queued_change = nullptr;
   _queued_delays.clear();
+  _waiting_for_schedule = false;
+
   if (!_schedule_ids.empty())
   {
     using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
@@ -467,8 +470,9 @@ bool ScheduleManager::process_queues()
 {
   if (_queued_change)
   {
-    _queued_change();
+    const auto perform_change = _queued_change;
     _queued_change = nullptr;
+    perform_change();
     return true;
   }
 

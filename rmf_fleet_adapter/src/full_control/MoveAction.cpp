@@ -30,7 +30,8 @@ namespace full_control {
 namespace {
 //==============================================================================
 rmf_utils::optional<std::size_t> get_fastest_plan_index(
-    const std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>>& plans)
+    const std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>>& plans,
+    std::size_t& test_fallback_waypoint)
 {
   auto nearest = std::chrono::steady_clock::time_point::max();
   std::size_t i_nearest = std::numeric_limits<std::size_t>::max();
@@ -49,14 +50,18 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
         // its destination, making this undoubtedly the fastest plan.
         assert(!plan->get_waypoints().empty());
         assert(plan->get_waypoints().front().graph_index());
+        assert(plan->get_waypoints().size() == 1);
+        assert(*plan->get_waypoints().front().graph_index() == *plan->get_waypoints().back().graph_index());
         std::cout << "Already there: " << *plan->get_waypoints().front().graph_index()
                   << " | " << plan->get_waypoints().front().position().transpose()
-                  << std::endl;
+                   << " | using fallback_plans index " << i << std::endl;
+        test_fallback_waypoint = *plan->get_waypoints().front().graph_index();
         return i;
       }
 
       if (*finish_time < nearest)
       {
+        test_fallback_waypoint = *plan->get_waypoints().back().graph_index();
         nearest = *finish_time;
         i_nearest = i;
       }
@@ -67,7 +72,6 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
   {
     return rmf_utils::nullopt;
   }
-
   return i_nearest;
 }
 
@@ -218,7 +222,9 @@ public:
   bool use_fallback(
       std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans)
   {
-    const auto i_nearest_opt = get_fastest_plan_index(fallback_plans);
+    std::cout << "checking fallback plans" << std::endl;
+    std::size_t test_fallback_waypoint = std::numeric_limits<std::size_t>::max();
+    const auto i_nearest_opt = get_fastest_plan_index(fallback_plans, test_fallback_waypoint);
     if (!i_nearest_opt)
     {
       RCLCPP_WARN(
@@ -229,10 +235,15 @@ public:
       return false;
     }
     const auto i_nearest = *i_nearest_opt;
+    const std::size_t test_i = *i_nearest_opt;
+
+    std::cout << "We will use fallback_plans index " << i_nearest << std::endl;
+    std::cout << "    > test value: " << test_i << std::endl;
 
     const auto& fallback_plan = *fallback_plans[i_nearest];
     const std::size_t fallback_waypoint =
-        fallback_plan.get_waypoints().back().graph_index();
+        *fallback_plan.get_waypoints().back().graph_index();
+    assert(fallback_waypoint == test_fallback_waypoint);
     const double fallback_orientation =
         fallback_plan.get_waypoints().back().position()[2];
     const auto fallback_end_time =
@@ -288,7 +299,9 @@ public:
     for (auto& resume_plan_thread : resume_plan_threads)
       resume_plan_thread.join();
 
-    const auto quickest_finish_opt = get_fastest_plan_index(resume_plans);
+    std::cout << "checking resuming plans" << std::endl;
+    std::size_t test_resume_waypoint;
+    const auto quickest_finish_opt = get_fastest_plan_index(resume_plans, test_resume_waypoint);
     if (!quickest_finish_opt)
     {
       RCLCPP_WARN(
@@ -300,6 +313,7 @@ public:
     }
     else
     {
+      _plans.emplace_back(fallback_plan);
       _plans.emplace_back(*resume_plans[*quickest_finish_opt]);
     }
 
@@ -383,8 +397,8 @@ public:
       location.y = p[1];
       location.yaw = p[2];
 
-      location.level_name =
-          graph.get_waypoint(wp.graph_index()).get_map_name();
+      // TODO(MXG): Fix this assumption that every waypoint is on one map
+      location.level_name = graph.get_waypoint(0).get_map_name();
 
       _command->path.emplace_back(std::move(location));
 
@@ -470,7 +484,7 @@ public:
               "The fleet driver is being unresponsive to task plan ["
               + task_id() + "]. Recomputing plan!");
 
-        find_and_execute_plan();
+        retry();
         return false;
       }
 
@@ -543,10 +557,12 @@ public:
   {
     if (_emergency_active)
     {
+      std::cout << "Retrying to find an emergency plan" << std::endl;
       find_and_execute_emergency_plan();
       return;
     }
 
+    std::cout << "Retrying to find a plan" << std::endl;
     find_and_execute_plan();
   }
 
@@ -605,21 +621,44 @@ public:
 
   void report_waiting()
   {
-    _waiting_on_emergency = true;
     const auto now = rmf_traffic_ros2::convert(_node->get_clock()->now());
-    const auto& profile = _node->get_fields().traits.get_profile();
-    const auto& p = _context->location;
-    const Eigen::Vector3d position{p.x, p.y, p.yaw};
+    if (!_waiting_on_emergency)
+    {
+      std::cout << "Reporting [" << _context->robot_name() << "] waiting" << std::endl;
+      _waiting_on_emergency = true;
+      const auto& profile = _node->get_fields().traits.get_profile();
+      const auto& p = _context->location;
+      const Eigen::Vector3d position{p.x, p.y, p.yaw};
 
-    rmf_traffic::Trajectory wait_trajectory{p.level_name};
+      rmf_traffic::Trajectory wait_trajectory{
+        _node->get_graph().get_waypoint(0).get_map_name()
+      };
 
-    wait_trajectory.insert(now, profile, position, Eigen::Vector3d::Zero());
+      wait_trajectory.insert(now, profile, position, Eigen::Vector3d::Zero());
 
-    wait_trajectory.insert(
-          now + std::chrono::minutes(5),
-          profile, position, Eigen::Vector3d::Zero());
+      _finish_estimate = now + std::chrono::minutes(5);
 
-    _task->schedule.push_trajectories({wait_trajectory}, [](){});
+      wait_trajectory.insert(
+            _finish_estimate,
+            profile, position, Eigen::Vector3d::Zero());
+
+      _task->schedule.push_trajectories({wait_trajectory}, [](){});
+    }
+    else
+    {
+      const auto remaining_scheduled_time =
+          _finish_estimate - rmf_traffic_ros2::convert(_node->now());
+
+      if (remaining_scheduled_time < std::chrono::minutes(3))
+      {
+        std::cout << "Reporting [" << _context->robot_name()
+                  << "] continuation of waiting" << std::endl;
+        const auto new_finish_estimate = now + std::chrono::minutes(5);
+        const auto schedule_delay = new_finish_estimate - _finish_estimate;
+        _finish_estimate = new_finish_estimate;
+        _task->schedule.push_delay(schedule_delay, now);
+      }
+    }
   }
 
   using DoorState = rmf_door_msgs::msg::DoorState;
@@ -962,7 +1001,8 @@ public:
     for (auto& plan_thread : plan_threads)
       plan_thread.join();
 
-    const auto quickest_finish_opt = get_fastest_plan_index(plans);
+    std::size_t test_emergency_waypoint;
+    const auto quickest_finish_opt = get_fastest_plan_index(plans, test_emergency_waypoint);
     if (!quickest_finish_opt)
     {
       RCLCPP_WARN(
@@ -972,6 +1012,14 @@ public:
 
       return false;
     }
+
+    const std::size_t emergency_wp_index =
+        *plans[*quickest_finish_opt]->get_waypoints().back().graph_index();
+    const auto it =_node->get_waypoint_names().find(emergency_wp_index);
+    const auto emergency_wp_name = it==_node->get_waypoint_names().end()? "" : it->second;
+    std::cout << "Choosing emergency waypoint ["
+              << emergency_wp_index << ":" << emergency_wp_name
+              << "] for [" << _context->robot_name() << "]" << std::endl;
 
     _plans.emplace_back(*plans[*quickest_finish_opt]);
     return true;
@@ -1005,7 +1053,7 @@ public:
     request.fleet_name = _node->get_fleet_name();
     request.robot_name = _context->robot_name();
 
-    auto hold = make_hold(_context->location, std::chrono::seconds(5),
+    auto hold = make_hold(_context->location, std::chrono::seconds(10),
               _node->get_fields().traits);
     // TODO(MXG): This is fragile. Robots ought to correctly report their level
     // name, but we can't rely on that for right now.
@@ -1020,6 +1068,7 @@ public:
     if (_emergency_active)
       return;
 
+    std::cout << "Interrupting move task for " << _context->robot_name() << std::endl;
     find_and_execute_emergency_plan();
   }
 
@@ -1028,6 +1077,8 @@ public:
     if (!_emergency_active)
       return;
 
+    std::cout << "Resuming normal operations for [" << _context->robot_name()
+              << "]" << std::endl;
     find_and_execute_plan();
   }
 

@@ -294,7 +294,8 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
 
     if ( (p_location - wp_location).norm() < 0.1 )
     {
-      std::cout << " $$$$$$$$$$ Using waypoint " << wp.index() << std::endl;
+      std::cout << " $$$$$$$$$$ Using waypoint " << wp.index()
+                << ": " << wp.get_location().transpose() << std::endl;
       // This waypoint is very close to the real location, so we will assume
       // that the robot is located here.
       return {rmf_traffic::agv::Plan::Start(now, wp.index(), start_yaw)};
@@ -399,6 +400,7 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
     return {};
   }
 
+  std::string print_starts;
   if (starts.empty())
   {
     // None of the lanes were very close, so we'll go ahead and use the one that
@@ -412,10 +414,14 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
             + std::to_string(closest_lane) + "]!");
     }
 
-    std::cout << " ########### Resorting to closest" << std::endl;
+    print_starts += " ########### Resorting to closest (" + std::to_string(closest_lane_dist) + ")";
     starts.emplace_back(
           rmf_traffic::agv::Plan::Start(
             now, *closest_start_wp, start_yaw, p_location, closest_lane));
+  }
+  else
+  {
+    print_starts = " &&&&& using start set:";
   }
 
   auto print_v = [](const Eigen::Vector2d& v) -> std::string
@@ -423,7 +429,6 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
     return std::to_string(v[0]) + ", " + std::to_string(v[1]);
   };
 
-  std::string print_starts = " &&&&& using start set:";
   for (const auto& s : starts)
   {
     print_starts += "\n -- " + std::to_string(s.waypoint());
@@ -606,6 +611,8 @@ void FleetAdapterNode::loop_request(LoopRequest::UniquePtr msg)
 
   if (fewest_context)
   {
+    std::cout << "Assigning new loop request [" << msg->task_id << "] to ["
+              << fewest_context->robot_name() << "]" << std::endl;
     auto task = make_loop(this, fewest_context, std::move(*msg));
     if (task)
       fewest_context->add_task(std::move(task));
@@ -695,13 +702,21 @@ void FleetAdapterNode::emergency_notice_update(EmergencyNotice::UniquePtr msg)
   if (active_emergency)
   {
     for (const auto& c : _contexts)
+    {
+      std::cout << "sending interrupt to [" << c.second->robot_name()
+                << "]" << std::endl;
       c.second->interrupt();
+    }
   }
 
   if (!active_emergency)
   {
     for (const auto& c : _contexts)
+    {
+      std::cout << "sending resume to [" << c.second->robot_name()
+                << "]" << std::endl;
       c.second->resume();
+    }
   }
 }
 

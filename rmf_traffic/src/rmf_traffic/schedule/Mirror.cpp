@@ -69,8 +69,8 @@ Mirror::Mirror()
     const internal::EntryPtr& entry =
         _pimpl->get_entry_iterator(delay.original_id(), "delay")->second;
 
-    std::cout << "Getting delay [" << entry->trajectory.get_map_name()
-              << "]" << std::endl;
+    std::cout << "Getting delay [" << entry->version
+              << "] --> [" << change.id() << "]" << std::endl;
 
     Trajectory new_trajectory = add_delay(
           entry->trajectory,
@@ -91,9 +91,8 @@ Mirror::Mirror()
           _pimpl->get_entry_iterator(
             replace.original_id(), "replacement")->second;
 
-      std::cout << "Getting replacement [" << entry->trajectory.get_map_name()
-                << "] --> [" << replace.trajectory()->get_map_name()
-                << "]" << std::endl;
+      std::cout << "Getting replacement [" << entry->version
+                << "] --> [" << change.id() << "]" << std::endl;
 
       _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
     }

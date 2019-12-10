@@ -103,7 +103,10 @@ rmf_utils::optional<GraphInfo> parse_graph(
       {
         const bool is_parking_spot = parking_spot_option.as<bool>();
         if (is_parking_spot)
+        {
+          std::cout << "Adding waypoint [" << wp.index() << "] as a parking spot" << std::endl;
           info.parking_spots.push_back(wp.index());
+        }
       }
     }
 
