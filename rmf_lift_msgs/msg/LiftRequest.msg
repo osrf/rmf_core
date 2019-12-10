@@ -1,4 +1,5 @@
 string lift_name
+builtin_interfaces/Time request_time
 
 # session_id should be unique at least between different requesters.
 # For example, session_id could be the requester's node name.
