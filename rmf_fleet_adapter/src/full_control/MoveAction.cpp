@@ -207,7 +207,6 @@ public:
   bool use_fallback(
       std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans)
   {
-    std::size_t test_fallback_waypoint = std::numeric_limits<std::size_t>::max();
     const auto i_nearest_opt = get_fastest_plan_index(fallback_plans);
     if (!i_nearest_opt)
     {
@@ -223,7 +222,6 @@ public:
     const auto& fallback_plan = *fallback_plans[i_nearest];
     const std::size_t fallback_waypoint =
         *fallback_plan.get_waypoints().back().graph_index();
-    assert(fallback_waypoint == test_fallback_waypoint);
     const double fallback_orientation =
         fallback_plan.get_waypoints().back().position()[2];
     const auto fallback_end_time =
@@ -331,13 +329,12 @@ public:
       for (const auto& wp : plan.get_waypoints())
         _remaining_waypoints.emplace_back(wp);
 
-    _command_segment = 0;
     return send_next_command();
   }
 
   std::string task_id() const
   {
-    return _base_task_id + std::to_string(_command_segment);
+    return _base_task_id + std::to_string(_command_id);
   }
 
   void send_next_command()
@@ -355,7 +352,7 @@ public:
     _command->fleet_name = _node->get_fleet_name();
     _command->robot_name = _context->robot_name();
     _command->task_id = task_id();
-    ++_command_segment;
+    ++_command_id;
 
     _command->path.clear();
 
@@ -1137,7 +1134,7 @@ private:
   rmf_traffic::Time _original_finish_estimate;
   rmf_utils::optional<Eigen::Vector3d> _next_stop;
   rmf_utils::optional<rmf_fleet_msgs::msg::PathRequest> _command;
-  std::size_t _command_segment;
+  std::size_t _command_id = 0;
 
   rmf_utils::optional<rclcpp::Time> _retry_time = rmf_utils::nullopt;
 
