@@ -30,8 +30,7 @@ namespace full_control {
 namespace {
 //==============================================================================
 rmf_utils::optional<std::size_t> get_fastest_plan_index(
-    const std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>>& plans,
-    std::size_t& test_fallback_waypoint)
+    const std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>>& plans)
 {
   auto nearest = std::chrono::steady_clock::time_point::max();
   std::size_t i_nearest = std::numeric_limits<std::size_t>::max();
@@ -40,9 +39,6 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
     const auto& plan = plans[i];
     if (plan)
     {
-      std::cout << "Num trajectories: " << plan->get_trajectories().size() << std::endl;
-      std::cout << "segments: " << plan->get_trajectories().back().size() << std::endl;
-      std::cout << "fallback plan duration: " << rmf_traffic::time::to_seconds(plan->get_trajectories().back().duration()) << std::endl;
       const auto finish_time = plan->get_trajectories().back().finish_time();
       if (!finish_time)
       {
@@ -51,17 +47,13 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
         assert(!plan->get_waypoints().empty());
         assert(plan->get_waypoints().front().graph_index());
         assert(plan->get_waypoints().size() == 1);
-        assert(*plan->get_waypoints().front().graph_index() == *plan->get_waypoints().back().graph_index());
-        std::cout << "Already there: " << *plan->get_waypoints().front().graph_index()
-                  << " | " << plan->get_waypoints().front().position().transpose()
-                   << " | using fallback_plans index " << i << std::endl;
-        test_fallback_waypoint = *plan->get_waypoints().front().graph_index();
+        assert(*plan->get_waypoints().front().graph_index()
+               == *plan->get_waypoints().back().graph_index());
         return i;
       }
 
       if (*finish_time < nearest)
       {
-        test_fallback_waypoint = *plan->get_waypoints().back().graph_index();
         nearest = *finish_time;
         i_nearest = i;
       }
@@ -104,10 +96,6 @@ public:
   std::unordered_set<uint64_t> schedule_ids() const
   {
     const auto& ids = _task->schedule.ids();
-    std::cout << "schedule ids:";
-    for (const auto id : ids)
-      std::cout << " " << id;
-    std::cout << std::endl;
     return std::unordered_set<uint64_t>{ids.begin(), ids.end()};
   }
 
@@ -118,7 +106,7 @@ public:
     _plans.clear();
 
     const auto& planner = _node->get_planner();
-    const auto plan_starts = _node->compute_plan_starts(_context->location, _context->robot_name());
+    const auto plan_starts = _node->compute_plan_starts(_context->location);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -138,12 +126,10 @@ public:
       if (main_plan)
       {
         main_plan_solved = true;
-        std::cout << " ++++++ Main plan solved" << std::endl;
         plan_solved_cv.notify_all();
       }
       else
       {
-        std::cout << " ------ Main plan FAILED" << std::endl;
         main_plan_failed = true;
       }
     });
@@ -171,20 +157,21 @@ public:
     const auto giveup_time =
         std::chrono::steady_clock::now() + _node->get_plan_time();
 
+    const auto done_searching = [&]() -> bool
+    {
+      return main_plan_solved || (main_plan_failed && fallback_plan_solved);
+    };
+
     // Waiting for the main planning thread is a bit complicated, because we
     // want to avoid the possibility that the plan finishes and triggers the
     // condition variable before we check it.
-    while (std::chrono::steady_clock::now() < giveup_time
-           && !main_plan_solved)
+    while (std::chrono::steady_clock::now() < giveup_time && !done_searching())
     {
       std::mutex placeholder;
       std::unique_lock<std::mutex> lock(placeholder);
       plan_solved_cv.wait_for(
             lock, std::chrono::milliseconds(100),
-            [&]()
-      {
-        return main_plan_solved || (main_plan_failed && fallback_plan_solved);
-      });
+            [&](){ return done_searching(); });
     }
 
     interrupt_flag = true;
@@ -211,8 +198,6 @@ public:
 
   void resolve() final
   {
-    std::cout << " ====== Attempting to resolve conflict for ["
-              << _context->robot_name() << "]" << std::endl;
     if (_emergency_active)
       return find_and_execute_emergency_plan();
 
@@ -222,9 +207,8 @@ public:
   bool use_fallback(
       std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans)
   {
-    std::cout << "checking fallback plans" << std::endl;
     std::size_t test_fallback_waypoint = std::numeric_limits<std::size_t>::max();
-    const auto i_nearest_opt = get_fastest_plan_index(fallback_plans, test_fallback_waypoint);
+    const auto i_nearest_opt = get_fastest_plan_index(fallback_plans);
     if (!i_nearest_opt)
     {
       RCLCPP_WARN(
@@ -235,10 +219,6 @@ public:
       return false;
     }
     const auto i_nearest = *i_nearest_opt;
-    const std::size_t test_i = *i_nearest_opt;
-
-    std::cout << "We will use fallback_plans index " << i_nearest << std::endl;
-    std::cout << "    > test value: " << test_i << std::endl;
 
     const auto& fallback_plan = *fallback_plans[i_nearest];
     const std::size_t fallback_waypoint =
@@ -262,8 +242,7 @@ public:
     std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> resume_plans;
     std::mutex resume_plan_mutex;
     std::condition_variable resume_plan_cv;
-    std::cout << "Searching for resume plans starting from waypoint "
-              << fallback_waypoint << std::endl;
+
     for (std::size_t i=1; i < 9; ++i)
     {
       resume_plan_threads.emplace_back(std::thread([&]()
@@ -299,9 +278,7 @@ public:
     for (auto& resume_plan_thread : resume_plan_threads)
       resume_plan_thread.join();
 
-    std::cout << "checking resuming plans" << std::endl;
-    std::size_t test_resume_waypoint;
-    const auto quickest_finish_opt = get_fastest_plan_index(resume_plans, test_resume_waypoint);
+    const auto quickest_finish_opt = get_fastest_plan_index(resume_plans);
     if (!quickest_finish_opt)
     {
       RCLCPP_WARN(
@@ -557,12 +534,10 @@ public:
   {
     if (_emergency_active)
     {
-      std::cout << "Retrying to find an emergency plan" << std::endl;
       find_and_execute_emergency_plan();
       return;
     }
 
-    std::cout << "Retrying to find a plan" << std::endl;
     find_and_execute_plan();
   }
 
@@ -599,7 +574,10 @@ public:
     // TODO(MXG): Make this threshold configurable
     if (total_delay > std::chrono::seconds(30))
     {
-      std::cout << " ***** Retrying because the delay has been too long" << std::endl;
+      RCLCPP_WARN(
+            _node->get_logger(),
+            "Attempting to replan the movement for [" + _context->robot_name()
+            + "] because the delay has been too long.");
       // If the dealys have piled up, then consider just restarting altogether.
       return retry();
     }
@@ -624,7 +602,10 @@ public:
     const auto now = rmf_traffic_ros2::convert(_node->get_clock()->now());
     if (!_waiting_on_emergency)
     {
-      std::cout << "Reporting [" << _context->robot_name() << "] waiting" << std::endl;
+      RCLCPP_INFO(
+            _node->get_logger(),
+            "Robot [" + _context->robot_name() + "] has arrived at its "
+            "emergency parking spot and is waiting.");
       _waiting_on_emergency = true;
       const auto& profile = _node->get_fields().traits.get_profile();
       const auto& p = _context->location;
@@ -651,8 +632,10 @@ public:
 
       if (remaining_scheduled_time < std::chrono::minutes(3))
       {
-        std::cout << "Reporting [" << _context->robot_name()
-                  << "] continuation of waiting" << std::endl;
+        RCLCPP_INFO(
+              _node->get_logger(),
+              "Robot [" + _context->robot_name() +"] is continuing to wait "
+              "at its emergency parking spot.");
         const auto new_finish_estimate = now + std::chrono::minutes(5);
         const auto schedule_delay = new_finish_estimate - _finish_estimate;
         _finish_estimate = new_finish_estimate;
@@ -959,7 +942,7 @@ public:
 
     const auto& planner = _node->get_planner();
 
-    const auto plan_starts = _node->compute_plan_starts(_context->location, _context->robot_name());
+    const auto plan_starts = _node->compute_plan_starts(_context->location);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -1001,8 +984,7 @@ public:
     for (auto& plan_thread : plan_threads)
       plan_thread.join();
 
-    std::size_t test_emergency_waypoint;
-    const auto quickest_finish_opt = get_fastest_plan_index(plans, test_emergency_waypoint);
+    const auto quickest_finish_opt = get_fastest_plan_index(plans);
     if (!quickest_finish_opt)
     {
       RCLCPP_WARN(
@@ -1016,10 +998,13 @@ public:
     const std::size_t emergency_wp_index =
         *plans[*quickest_finish_opt]->get_waypoints().back().graph_index();
     const auto it =_node->get_waypoint_names().find(emergency_wp_index);
-    const auto emergency_wp_name = it==_node->get_waypoint_names().end()? "" : it->second;
-    std::cout << "Choosing emergency waypoint ["
-              << emergency_wp_index << ":" << emergency_wp_name
-              << "] for [" << _context->robot_name() << "]" << std::endl;
+    const auto emergency_wp_name =
+        (it == _node->get_waypoint_names().end()) ? "" : (":" + it->second);
+
+    RCLCPP_INFO(
+          _node->get_logger(),
+          "Choosing emergency waypoint [" + std::to_string(emergency_wp_index)
+          + emergency_wp_name + "] for [" + _context->robot_name() + "]");
 
     _plans.emplace_back(*plans[*quickest_finish_opt]);
     return true;
@@ -1042,7 +1027,10 @@ public:
     _command = rmf_utils::nullopt;
     _retry_time = rclcpp::Time(_context->location.t) + duration;
 
-    std::cout << " ~~~~~ canceled and holding" << std::endl;
+    RCLCPP_WARN(
+          _node->get_logger(),
+          "Putting movement for [" + _context->robot_name()
+          + "] on hold because we are encountering difficulties.");
     using ModeRequest = rmf_fleet_msgs::msg::ModeRequest;
     using RobotMode = rmf_fleet_msgs::msg::RobotMode;
     ModeRequest request;
@@ -1068,7 +1056,9 @@ public:
     if (_emergency_active)
       return;
 
-    std::cout << "Interrupting move task for " << _context->robot_name() << std::endl;
+    RCLCPP_INFO(
+          _node->get_logger(),
+          "Interrupting move task for [" + _context->robot_name() + "]");
     find_and_execute_emergency_plan();
   }
 
@@ -1077,8 +1067,9 @@ public:
     if (!_emergency_active)
       return;
 
-    std::cout << "Resuming normal operations for [" << _context->robot_name()
-              << "]" << std::endl;
+    RCLCPP_INFO(
+          _node->get_logger(),
+          "Resuming normal operations for [" + _context->robot_name() + "]");
     find_and_execute_plan();
   }
 

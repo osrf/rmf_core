@@ -38,7 +38,7 @@ rmf_traffic::Time convert(builtin_interfaces::msg::Time time)
 //==============================================================================
 rclcpp::Time to_ros2(rmf_traffic::Time from)
 {
-  return rclcpp::Time(from.time_since_epoch().count());
+  return rclcpp::Time(from.time_since_epoch().count(), RCL_ROS_TIME);
 }
 
 //==============================================================================

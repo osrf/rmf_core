@@ -273,7 +273,7 @@ const rmf_traffic::agv::Graph& FleetAdapterNode::get_graph() const
 
 //==============================================================================
 std::vector<rmf_traffic::agv::Plan::Start>
-FleetAdapterNode::compute_plan_starts(const Location& location, const std::string& robot)
+FleetAdapterNode::compute_plan_starts(const Location& location)
 {
   // Add 3 seconds to the current time to give us some buffer
   // TODO(MXG): Make this configurable
@@ -282,8 +282,6 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
 
   const Eigen::Vector2d p_location = {location.x, location.y};
   const double start_yaw = static_cast<double>(location.yaw);
-  std::cout << " '''' Computing start for [" << robot << "] from "
-            << p_location.transpose() << " " << start_yaw << std::endl;
 
   const auto& graph = _field->graph_info.graph;
 
@@ -294,8 +292,6 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
 
     if ( (p_location - wp_location).norm() < 0.1 )
     {
-      std::cout << " $$$$$$$$$$ Using waypoint " << wp.index()
-                << ": " << wp.get_location().transpose() << std::endl;
       // This waypoint is very close to the real location, so we will assume
       // that the robot is located here.
       return {rmf_traffic::agv::Plan::Start(now, wp.index(), start_yaw)};
@@ -400,7 +396,6 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
     return {};
   }
 
-  std::string print_starts;
   if (starts.empty())
   {
     // None of the lanes were very close, so we'll go ahead and use the one that
@@ -414,32 +409,10 @@ FleetAdapterNode::compute_plan_starts(const Location& location, const std::strin
             + std::to_string(closest_lane) + "]!");
     }
 
-    print_starts += " ########### Resorting to closest (" + std::to_string(closest_lane_dist) + ")";
     starts.emplace_back(
           rmf_traffic::agv::Plan::Start(
             now, *closest_start_wp, start_yaw, p_location, closest_lane));
   }
-  else
-  {
-    print_starts = " &&&&& using start set:";
-  }
-
-  auto print_v = [](const Eigen::Vector2d& v) -> std::string
-  {
-    return std::to_string(v[0]) + ", " + std::to_string(v[1]);
-  };
-
-  for (const auto& s : starts)
-  {
-    print_starts += "\n -- " + std::to_string(s.waypoint());
-    if (s.lane())
-      print_starts += " [" + std::to_string(*s.lane()) + "]";
-
-    if (s.location())
-      print_starts += " (" + print_v(*s.location()) + ")" ;
-  }
-
-  std::cout << print_starts << std::endl;
 
   return starts;
 }
@@ -576,6 +549,14 @@ void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
     return;
   }
 
+  if (_in_emergency_mode)
+  {
+    RCLCPP_ERROR(
+          get_logger(),
+          "We do not currently support receiving tasks during emergencies!");
+    return;
+  }
+
   auto task_insertion = _received_tasks.insert(msg->task_id);
   if (!task_insertion.second)
   {
@@ -597,6 +578,14 @@ void FleetAdapterNode::loop_request(LoopRequest::UniquePtr msg)
   if (ignore_fleet(msg->robot_type))
     return;
 
+  if (_in_emergency_mode)
+  {
+    RCLCPP_ERROR(
+          get_logger(),
+          "We do not currently support receiving tasks during emergencies!");
+    return;
+  }
+
   std::size_t fewest = std::numeric_limits<std::size_t>::max();
   RobotContext* fewest_context = nullptr;
   for (const auto& c : _contexts)
@@ -611,8 +600,6 @@ void FleetAdapterNode::loop_request(LoopRequest::UniquePtr msg)
 
   if (fewest_context)
   {
-    std::cout << "Assigning new loop request [" << msg->task_id << "] to ["
-              << fewest_context->robot_name() << "]" << std::endl;
     auto task = make_loop(this, fewest_context, std::move(*msg));
     if (task)
       fewest_context->add_task(std::move(task));
@@ -702,21 +689,13 @@ void FleetAdapterNode::emergency_notice_update(EmergencyNotice::UniquePtr msg)
   if (active_emergency)
   {
     for (const auto& c : _contexts)
-    {
-      std::cout << "sending interrupt to [" << c.second->robot_name()
-                << "]" << std::endl;
       c.second->interrupt();
-    }
   }
 
   if (!active_emergency)
   {
     for (const auto& c : _contexts)
-    {
-      std::cout << "sending resume to [" << c.second->robot_name()
-                << "]" << std::endl;
       c.second->resume();
-    }
   }
 }
 

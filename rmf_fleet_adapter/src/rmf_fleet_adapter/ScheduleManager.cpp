@@ -53,12 +53,10 @@ public:
       _parent->_have_conflict = true;
       _parent->_conflict_ids = schedule_ids;
       _parent->_last_conflict_version = msg.version;
-      std::cout << "Requesting revision !!" << std::endl;
       return _parent->_revision_callback();
     }
 
     _parent->_have_conflict = false;
-    std::cout << "FREE OF CONFLICTS" << std::endl;
   }
 
   ScheduleManager* const _parent;
@@ -229,7 +227,7 @@ void ScheduleManager::push_delay(
   }
 
   // TODO(MXG): Pushing a delay when _schedule_ids is empty would be very
-  // suspicious. We should probably be noising and do some debuggin when this
+  // suspicious. We should probably be noisy and do some debugging when this
   // happens.
   if (_schedule_ids.empty())
     return;
@@ -330,11 +328,9 @@ void ScheduleManager::submit_trajectories(
       return;
     }
 
-    std::cout << "INITIAL TRAJECTORY SUBMISSION FAILED" << std::endl;
     if (process_queues())
       return;
 
-    std::cout << " ---- CALLING _revision_callback()" << std::endl;
     _revision_callback();
   });
 }
@@ -411,10 +407,7 @@ void ScheduleManager::resolve_trajectories(
     _waiting_for_schedule = false;
 
     if (!response->error.empty())
-    {
-      std::cout << "RESOLUTION ERROR: " << response->error << std::endl;
       throw std::runtime_error(response->error);
-    }
 
     if (!response->accepted)
     {
@@ -423,11 +416,8 @@ void ScheduleManager::resolve_trajectories(
       // resolved.
 
       // The conflict was resolved by someone else, so we will quit
-      std::cout << " ........ RESOLUTION REJECTED" << std::endl;
       return;
     }
-
-    std::cout << " ::::::::::: Resolution ACCEPTED!!" << std::endl;
 
     _schedule_ids.clear();
     for (auto i = response->original_version+1;

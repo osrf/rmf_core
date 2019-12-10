@@ -527,11 +527,6 @@ void ScheduleNode::resolve_conflicts(
   response->original_version = response->current_version;
   response->accepted = false;
 
-  std::cout << "Evaluting resolution:";
-  for (const auto r : request->resolve_ids)
-    std::cout << " " << r;
-  std::cout << std::endl;
-
   std::unordered_set<Version> original_conflict_set;
   std::unordered_set<Version> remaining_conflict_set;
   bool conflict_resolved = false;
@@ -551,7 +546,6 @@ void ScheduleNode::resolve_conflicts(
 
   if (conflict_resolved)
   {
-    std::cout << " -- conflict already resolved" << std::endl;
     return;
   }
 
@@ -561,14 +555,6 @@ void ScheduleNode::resolve_conflicts(
   {
     if (original_conflict_set.count(r) == 0)
     {
-      response->error = std::string()
-          + "Asking to replace a trajectory [" + std::to_string(r)
-          + "] which is not in the original conflict set:";
-      for (const auto c : original_conflict_set)
-        response->error += " " + std::to_string(c);
-
-      std::cout << " -- " << response->error << std::endl;
-
       response->accepted = false;
       return;
     }
@@ -586,7 +572,6 @@ void ScheduleNode::resolve_conflicts(
 
   if (!still_in_conflict)
   {
-    std::cout << " -- none of the requested trajectories are still in conflict" << std::endl;
     response->accepted = false;
     return;
   }
@@ -607,7 +592,10 @@ void ScheduleNode::resolve_conflicts(
   catch (const std::exception& e)
   {
     response->error = e.what();
-    std::cout << " -- " << response->error << std::endl;
+    RCLCPP_WARN(
+          get_logger(),
+          std::string("Error while evaluating resolution request: ")
+          + e.what());
     return;
   }
 
@@ -620,8 +608,6 @@ void ScheduleNode::resolve_conflicts(
 
   if (has_conflicts(conflict_indices, *response))
   {
-    std::cout << " -- The proposed trajectory has conflicts with the schedule"
-              << std::endl;
     return;
   }
 
@@ -629,12 +615,9 @@ void ScheduleNode::resolve_conflicts(
 
   if (has_conflicts(conflict_indices, *response))
   {
-    std::cout << " -- The proposed trajectory has conflicts with itself"
-              << std::endl;
     return;
   }
 
-  std::cout << " -- resolution accepted" << std::endl;
   response->accepted = true;
 
   {

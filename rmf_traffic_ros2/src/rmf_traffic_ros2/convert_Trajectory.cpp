@@ -180,7 +180,9 @@ rmf_traffic_msgs::msg::Trajectory convert(const rmf_traffic::Trajectory& from)
 {
   if (from.get_map_name().empty())
   {
-    throw std::runtime_error("BLANK MAP, YOU FOOL");
+    throw std::runtime_error(
+          "Attempting to convert a trajectory with a blank map, which is "
+          "almost certainly an unintended error.");
   }
 
   ProfileContext profile_context;

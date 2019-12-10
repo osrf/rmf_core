@@ -192,41 +192,6 @@ void Viewer::Implementation::modify_entry(
   // TODO(MXG): It should be posssible to improve performance for entry
   // modifications by applying the change directly to the original Trajectory
   // object instead of making a copy.
-
-  const auto timeline_it = timelines.find(entry->trajectory.get_map_name());
-  if (timeline_it == timelines.end())
-  {
-    std::string error = "[modify_entry] BUG: Map missing for schedule "
-        "entry [" + std::to_string(old_version) + "]. Old map name ["
-        + entry->trajectory.get_map_name() + "]. New map name ["
-        + new_trajectory.get_map_name() + "]. Available map names:";
-
-    std::vector<std::string> located_on;
-    for (const auto& t : timelines)
-    {
-      error += "\n -- [" + t.first + "]";
-      for (const auto& b : t.second)
-      {
-        for (const auto& e : b.second)
-        {
-          if (e == entry)
-          {
-            located_on.push_back(t.first);
-          }
-        }
-      }
-    }
-
-    error += "\nLocated on:";
-    for (const auto& l : located_on)
-      error += " [" + l + "]";
-
-    std::cerr << error << std::endl;
-
-    assert(false);
-    return;
-  }
-
   Timeline& timeline = timelines.at(entry->trajectory.get_map_name());
 
   const Time old_start = *entry->trajectory.start_time();

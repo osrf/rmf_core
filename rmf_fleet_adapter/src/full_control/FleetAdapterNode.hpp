@@ -122,8 +122,7 @@ public:
   const rmf_traffic::agv::Graph& get_graph() const;
 
   std::vector<rmf_traffic::agv::Plan::Start> compute_plan_starts(
-      const Location& location,
-      const std::string& robot);
+      const Location& location);
 
   const WaypointKeys& get_waypoint_keys() const;
 
