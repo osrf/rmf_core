@@ -31,8 +31,8 @@ Mirror::Mirror()
   {
     const Database::Change::Insert& insertion = *change.insert();
 
-    std::cout << "Getting insertion [" << insertion.trajectory()->get_map_name()
-              << "]" << std::endl;
+//    std::cout << "Getting insertion [" << insertion.trajectory()->get_map_name()
+//              << "]" << std::endl;
 
     _pimpl->add_entry(
           std::make_shared<internal::Entry>(
@@ -49,9 +49,9 @@ Mirror::Mirror()
         _pimpl->get_entry_iterator(
           interruption.original_id(), "interruption")->second;
 
-    std::cout << "Getting interruption [" << entry->trajectory.get_map_name()
-              << "] <<< [" << interruption.interruption()->get_map_name()
-              << "]" << std::endl;
+//    std::cout << "Getting interruption [" << entry->trajectory.get_map_name()
+//              << "] <<< [" << interruption.interruption()->get_map_name()
+//              << "]" << std::endl;
 
     Trajectory new_trajectory = add_interruption(
           entry->trajectory,
@@ -69,8 +69,8 @@ Mirror::Mirror()
     const internal::EntryPtr& entry =
         _pimpl->get_entry_iterator(delay.original_id(), "delay")->second;
 
-    std::cout << "Getting delay [" << entry->version
-              << "] --> [" << change.id() << "]" << std::endl;
+//    std::cout << "Getting delay [" << entry->version
+//              << "] --> [" << change.id() << "]" << std::endl;
 
     Trajectory new_trajectory = add_delay(
           entry->trajectory,
@@ -91,8 +91,8 @@ Mirror::Mirror()
           _pimpl->get_entry_iterator(
             replace.original_id(), "replacement")->second;
 
-      std::cout << "Getting replacement [" << entry->version
-                << "] --> [" << change.id() << "]" << std::endl;
+//      std::cout << "Getting replacement [" << entry->version
+//                << "] --> [" << change.id() << "]" << std::endl;
 
       _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
     }
@@ -125,8 +125,8 @@ Mirror::Mirror()
     {
       const internal::EntryPtr& entry =
           _pimpl->get_entry_iterator(erase.original_id(), "erase")->second;
-      std::cout << "Getting erase [" << entry->trajectory.get_map_name()
-                << "]" << std::endl;
+//      std::cout << "Getting erase [" << entry->trajectory.get_map_name()
+//                << "]" << std::endl;
     }
 
     _pimpl->erase_entry(erase.original_id());
