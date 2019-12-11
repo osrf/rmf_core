@@ -122,12 +122,12 @@ Mirror::Mirror()
   {
     const Database::Change::Erase& erase = *change.erase();
 
-    {
-      const internal::EntryPtr& entry =
-          _pimpl->get_entry_iterator(erase.original_id(), "erase")->second;
+//    {
+//      const internal::EntryPtr& entry =
+//          _pimpl->get_entry_iterator(erase.original_id(), "erase")->second;
 //      std::cout << "Getting erase [" << entry->trajectory.get_map_name()
 //                << "]" << std::endl;
-    }
+//    }
 
     _pimpl->erase_entry(erase.original_id());
   };

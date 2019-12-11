@@ -118,7 +118,7 @@ public:
         const rmf_traffic::schedule::Database::Patch patch =
             convert(response->patch);
 
-        RCLCPP_INFO(
+        RCLCPP_DEBUG(
               node.get_logger(),
               "Updating mirror ["
               + std::to_string(response->patch.latest_version)

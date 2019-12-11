@@ -278,7 +278,8 @@ FleetAdapterNode::compute_plan_starts(const Location& location)
   // Add 3 seconds to the current time to give us some buffer
   // TODO(MXG): Make this configurable
   const auto now = rmf_traffic_ros2::convert(get_clock()->now())
-      + std::chrono::seconds(3);
+//      + std::chrono::seconds(3)
+      ;
 
   const Eigen::Vector2d p_location = {location.x, location.y};
   const double start_yaw = static_cast<double>(location.yaw);

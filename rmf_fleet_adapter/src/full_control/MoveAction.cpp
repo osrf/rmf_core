@@ -463,7 +463,7 @@ public:
       }
 
       // Attempt to resend the command if the robot has not received it yet.
-      if (now - _command_time > std::chrono::milliseconds(100))
+      if (now - _command_time > std::chrono::milliseconds(200))
         publish_command();
 
       return false;
@@ -581,12 +581,12 @@ public:
 
     const auto new_delay = new_finish_estimate - _finish_estimate;
     // TODO(MXG): Make this threshold configurable
-    if (new_delay < std::chrono::seconds(3))
-      return;
-    if (new_delay < std::chrono::seconds(1))
-      return;
-//    if (new_delay < std::chrono::milliseconds(500))
+//    if (new_delay < std::chrono::seconds(3))
 //      return;
+//    if (new_delay < std::chrono::seconds(1))
+//      return;
+    if (new_delay < std::chrono::milliseconds(500))
+      return;
 
     const auto from_time =
         rmf_traffic_ros2::convert(msg.location.t) - new_delay;
