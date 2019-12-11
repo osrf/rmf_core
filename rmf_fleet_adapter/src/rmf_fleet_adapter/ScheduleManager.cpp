@@ -351,6 +351,7 @@ void ScheduleManager::replace_trajectories(
   _waiting_for_schedule = true;
 
   _schedule_ids.clear();
+
   replace->async_send_request(
         std::make_shared<ReplaceTrajectories::Request>(std::move(request)),
         [this](rclcpp::Client<ReplaceTrajectories>::SharedFuture future)

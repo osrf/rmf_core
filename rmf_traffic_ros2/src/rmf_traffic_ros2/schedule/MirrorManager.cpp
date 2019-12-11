@@ -107,6 +107,7 @@ public:
     // This is also relevant to the next_minimum_version value.
     request_msg->latest_mirror_version = mirror.latest_version();
     request_msg->minimum_patch_version = minimum_version;
+
     const auto future = mirror_update_client->async_send_request(
           request_msg,
           [&](const MirrorUpdateFuture response_future)

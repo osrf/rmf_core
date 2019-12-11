@@ -173,6 +173,7 @@ ScheduleNode::ScheduleNode()
         try
         {
           mirror.update(*next_patch);
+          last_checked_version = next_patch->latest_version();
         }
         catch(const std::exception& e)
         {
@@ -180,8 +181,6 @@ ScheduleNode::ScheduleNode()
           continue;
         }
       }
-
-      last_checked_version = mirror.latest_version();
 
       const auto view = mirror.query(
             rmf_traffic::schedule::query_everything());

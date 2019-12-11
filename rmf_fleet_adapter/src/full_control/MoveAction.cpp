@@ -583,10 +583,10 @@ public:
     // TODO(MXG): Make this threshold configurable
 //    if (new_delay < std::chrono::seconds(3))
 //      return;
-//    if (new_delay < std::chrono::seconds(1))
-//      return;
-    if (new_delay < std::chrono::milliseconds(500))
+    if (new_delay < std::chrono::seconds(1))
       return;
+//    if (new_delay < std::chrono::milliseconds(500))
+//      return;
 
     const auto from_time =
         rmf_traffic_ros2::convert(msg.location.t) - new_delay;
