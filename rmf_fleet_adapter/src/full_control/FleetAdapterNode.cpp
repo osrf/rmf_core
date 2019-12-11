@@ -273,13 +273,10 @@ const rmf_traffic::agv::Graph& FleetAdapterNode::get_graph() const
 
 //==============================================================================
 std::vector<rmf_traffic::agv::Plan::Start>
-FleetAdapterNode::compute_plan_starts(const Location& location)
+FleetAdapterNode::compute_plan_starts(const Location& location,
+    const std::chrono::nanoseconds start_delay)
 {
-  // Add 3 seconds to the current time to give us some buffer
-  // TODO(MXG): Make this configurable
-  const auto now = rmf_traffic_ros2::convert(get_clock()->now())
-//      + std::chrono::seconds(3)
-      ;
+  const auto now = rmf_traffic_ros2::convert(get_clock()->now()) + start_delay;
 
   const Eigen::Vector2d p_location = {location.x, location.y};
   const double start_yaw = static_cast<double>(location.yaw);

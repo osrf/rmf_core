@@ -32,6 +32,7 @@ rmf_traffic::Trajectory make_trajectory(
 //==============================================================================
 rmf_traffic::Trajectory make_hold(
     const rmf_fleet_msgs::msg::Location& location,
+    const rmf_traffic::Time time,
     rmf_traffic::Duration duration,
     const rmf_traffic::agv::VehicleTraits& traits);
 

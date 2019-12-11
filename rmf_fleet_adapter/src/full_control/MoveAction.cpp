@@ -99,14 +99,15 @@ public:
     return std::unordered_set<uint64_t>{ids.begin(), ids.end()};
   }
 
-  bool find_plan()
+  bool find_plan(const std::chrono::nanoseconds start_delay)
   {
     _emergency_active = false;
     _waiting_on_emergency = false;
     _plans.clear();
 
     const auto& planner = _node->get_planner();
-    const auto plan_starts = _node->compute_plan_starts(_context->location);
+    const auto plan_starts =
+        _node->compute_plan_starts(_context->location, start_delay);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -188,20 +189,22 @@ public:
     return use_fallback(std::move(fallback_plans));
   }
 
-  void find_and_execute_plan()
+  void find_and_execute_plan(const std::chrono::nanoseconds start_delay)
   {
-    if (find_plan())
+    if (find_plan(start_delay))
       return execute_plan();
 
-    cancel(std::chrono::seconds(5));
+    cancel(std::chrono::seconds(1));
   }
 
   void resolve() final
   {
+    std::cout << "Attempting to resolve plan for [" << _context->robot_name()
+              << "]" << std::endl;
     if (_emergency_active)
       return find_and_execute_emergency_plan();
 
-    find_and_execute_plan();
+    find_and_execute_plan(std::chrono::seconds(0));
   }
 
   bool use_fallback(
@@ -298,16 +301,32 @@ public:
   std::vector<rmf_traffic::Trajectory> collect_trajectories() const
   {
     std::vector<rmf_traffic::Trajectory> trajectories;
+    bool first_trajectory = true;
     for (const auto& plan : _plans)
     {
-      for (const auto& trajectory : plan.get_trajectories())
+      for (auto trajectory : plan.get_trajectories())
       {
+        if (first_trajectory && trajectory.size() > 0)
+        {
+          first_trajectory = false;
+          const auto now = rmf_traffic_ros2::convert(_node->now());
+          assert(trajectory.start_time());
+          if (now < *trajectory.start_time())
+          {
+            const auto& s = trajectory.front();
+            trajectory.insert(
+                  now, s.get_profile(),
+                  s.get_finish_position(),
+                  Eigen::Vector3d::Zero());
+          }
+        }
+
         // If the trajectory has only one point then the robot doesn't need to
         // go anywhere.
         if (trajectory.size() < 2)
           continue;
 
-        trajectories.emplace_back(trajectory);
+        trajectories.emplace_back(std::move(trajectory));
       }
     }
 
@@ -535,7 +554,7 @@ public:
       return;
     }
 
-    find_and_execute_plan();
+    find_and_execute_plan(std::chrono::seconds(8));
   }
 
   bool handle_retry()
@@ -928,7 +947,7 @@ public:
   void execute() final
   {
     _context->insert_listener(&_state_listener);
-    find_and_execute_plan();
+    find_and_execute_plan(std::chrono::seconds(0));
   }
 
   bool find_emergency_plan()
@@ -939,7 +958,8 @@ public:
 
     const auto& planner = _node->get_planner();
 
-    const auto plan_starts = _node->compute_plan_starts(_context->location);
+    const auto plan_starts = _node->compute_plan_starts(
+          _context->location, std::chrono::seconds(0));
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -1012,7 +1032,7 @@ public:
     if (find_emergency_plan())
       return execute_plan();
 
-    cancel(std::chrono::seconds(5));
+    cancel(std::chrono::seconds(1));
   }
 
   void cancel(std::chrono::nanoseconds duration)
@@ -1022,7 +1042,8 @@ public:
     _event_executor.cancel();
 
     _command = rmf_utils::nullopt;
-    _retry_time = rclcpp::Time(_context->location.t) + duration;
+    const auto now = _node->now();
+    _retry_time = now + duration;
 
     RCLCPP_WARN(
           _node->get_logger(),
@@ -1038,8 +1059,11 @@ public:
     request.fleet_name = _node->get_fleet_name();
     request.robot_name = _context->robot_name();
 
-    auto hold = make_hold(_context->location, std::chrono::seconds(10),
-              _node->get_fields().traits);
+    auto hold = make_hold(
+          _context->location,
+          rmf_traffic_ros2::convert(now),
+          std::chrono::seconds(2),
+          _node->get_fields().traits);
     // TODO(MXG): This is fragile. Robots ought to correctly report their level
     // name, but we can't rely on that for right now.
     hold.set_map_name(_node->get_graph().get_waypoint(0).get_map_name());
@@ -1067,7 +1091,7 @@ public:
     RCLCPP_INFO(
           _node->get_logger(),
           "Resuming normal operations for [" + _context->robot_name() + "]");
-    find_and_execute_plan();
+    find_and_execute_plan(std::chrono::seconds(0));
   }
 
   Status get_status() const final

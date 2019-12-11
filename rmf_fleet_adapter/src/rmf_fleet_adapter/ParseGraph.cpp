@@ -178,6 +178,11 @@ rmf_utils::optional<GraphInfo> parse_graph(
   for (const std::size_t wp : generic_waypoint)
     info.graph.get_waypoint(wp).set_holding_point(true);
 
+  std::cout << "Named waypoints:";
+  for (const auto& key : info.keys)
+    std::cout << "\n -- [" << key.first << "]";
+  std::cout << std::endl;
+
   return std::move(info);
 }
 

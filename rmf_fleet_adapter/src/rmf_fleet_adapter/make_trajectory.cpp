@@ -66,6 +66,7 @@ rmf_traffic::Trajectory make_trajectory(
 //==============================================================================
 rmf_traffic::Trajectory make_hold(
     const rmf_fleet_msgs::msg::Location& l,
+    const rmf_traffic::Time t,
     rmf_traffic::Duration duration,
     const rmf_traffic::agv::VehicleTraits& traits)
 {
@@ -73,7 +74,7 @@ rmf_traffic::Trajectory make_hold(
   const Eigen::Vector3d p{l.x, l.y, l.yaw};
   const Eigen::Vector3d v = Eigen::Vector3d::Zero();
 
-  const auto start = rmf_traffic_ros2::convert(l.t);
+  const auto start = t;
   const auto finish = start + duration;
 
   hold.insert(start, traits.get_profile(), p, v);
