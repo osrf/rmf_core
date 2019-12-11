@@ -953,7 +953,7 @@ public:
     bool have_plan = false;
     for (const std::size_t goal_wp : _fallback_wps)
     {
-      plan_threads.emplace_back(std::thread([&]()
+      plan_threads.emplace_back(std::thread([&, goal_wp]()
       {
         auto emergency_plan = planner.plan(
               plan_starts, rmf_traffic::agv::Plan::Goal(goal_wp), options);
