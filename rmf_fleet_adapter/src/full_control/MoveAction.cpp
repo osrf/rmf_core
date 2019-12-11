@@ -139,7 +139,7 @@ public:
     std::mutex fallback_plan_mutex;
     for (const std::size_t goal_wp : _fallback_wps)
     {
-      fallback_plan_threads.emplace_back(std::thread([&]()
+      fallback_plan_threads.emplace_back(std::thread([&, goal_wp]()
       {
         auto fallback_plan = planner.plan(
               plan_starts, rmf_traffic::agv::Plan::Goal(goal_wp), options);
@@ -243,7 +243,7 @@ public:
 
     for (std::size_t i=1; i < 9; ++i)
     {
-      resume_plan_threads.emplace_back(std::thread([&]()
+      resume_plan_threads.emplace_back(std::thread([&, i]()
       {
         const auto resume_time = fallback_end_time + i*t_spread;
         auto resume_plan = planner.plan(
