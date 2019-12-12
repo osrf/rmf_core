@@ -31,6 +31,8 @@ Mirror::Mirror()
   {
     const Database::Change::Insert& insertion = *change.insert();
 
+//    std::cout << "Getting insertion [" << change.id() << "]" << std::endl;
+
     _pimpl->add_entry(
           std::make_shared<internal::Entry>(
             *insertion.trajectory(),
@@ -41,6 +43,10 @@ Mirror::Mirror()
       = [&](const Database::Change& change)
   {
     const Database::Change::Interrupt& interruption = *change.interrupt();
+
+//    std::cout << "Getting interruption [" << interruption.original_id()
+//              << "] --> [" << change.id()
+//              << "]" << std::endl;
 
     const internal::EntryPtr& entry =
         _pimpl->get_entry_iterator(
@@ -59,6 +65,9 @@ Mirror::Mirror()
   {
     const Database::Change::Delay& delay = *change.delay();
 
+//    std::cout << "Getting delay [" << delay.original_id()
+//              << "] --> [" << change.id() << "]" << std::endl;
+
     const internal::EntryPtr& entry =
         _pimpl->get_entry_iterator(delay.original_id(), "delay")->second;
 
@@ -75,17 +84,46 @@ Mirror::Mirror()
   {
     const Database::Change::Replace& replace = *change.replace();
 
-    const internal::EntryPtr& entry =
-        _pimpl->get_entry_iterator(
-          replace.original_id(), "replacement")->second;
+//    std::cout << "Getting replacement [" << replace.original_id()
+//              << "] --> [" << change.id() << "]" << std::endl;
 
-    _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
+    try
+    {
+      const internal::EntryPtr& entry =
+          _pimpl->get_entry_iterator(
+            replace.original_id(), "replacement")->second;
+
+      _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
+    }
+    catch(const std::runtime_error& e)
+    {
+//      std::cout << "Failed replacement [" << replace.original_id()
+//                << "] --> [" << change.id() << "]" << std::endl;
+
+      // Sometimes replacements have been failing because the previous entry
+      // somehow doesn't exist anymore, so we'll just treat this replacement
+      // like an insertion
+      // TODO(MXG): This shouldn't really be happening, so debug this when time
+      // permits.
+      _pimpl->add_entry(
+            std::make_shared<internal::Entry>(
+              *replace.trajectory(),
+              change.id()));
+
+      // We'll continue with throwing the exception so that noise keeps getting
+      // made about this issue.
+      throw e;
+    }
   };
 
   _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Erase)]
       = [&](const Database::Change& change)
   {
     const Database::Change::Erase& erase = *change.erase();
+
+//    std::cout << "Getting erase [" << erase.original_id() << "] --> ["
+//              << change.id() << "]" << std::endl;
+
     _pimpl->erase_entry(erase.original_id());
   };
 

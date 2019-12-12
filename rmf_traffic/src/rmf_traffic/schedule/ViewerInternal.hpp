@@ -148,7 +148,7 @@ public:
 
 private:
 
-  Version _oldest;
+  Version _oldest = 0;
 
 };
 

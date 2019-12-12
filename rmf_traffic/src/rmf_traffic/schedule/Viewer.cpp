@@ -182,14 +182,16 @@ void Viewer::Implementation::modify_entry(
     Trajectory new_trajectory,
     const Version new_id)
 {
-  all_entries.erase(entry->version);
+  const Version old_version = entry->version;
+  all_entries.erase(old_version);
   entry->version = new_id;
   all_entries.insert(std::make_pair(new_id, entry));
+
+  // TODO(MXG): Handle the case where a replacement changes the map name
 
   // TODO(MXG): It should be posssible to improve performance for entry
   // modifications by applying the change directly to the original Trajectory
   // object instead of making a copy.
-
   Timeline& timeline = timelines.at(entry->trajectory.get_map_name());
 
   const Time old_start = *entry->trajectory.start_time();
@@ -468,8 +470,20 @@ Trajectory add_delay(
     return new_trajectory;
   }
 
-  const Trajectory::iterator delayed_segment = new_trajectory.find(time);
+  Trajectory::iterator delayed_segment = new_trajectory.find(time);
   assert(delayed_segment != new_trajectory.end());
+
+  // The delay is generally meant to apply to the current moment in time.
+  // Therefore the previous waypoint on the trajectory is still relevant to
+  // the timing of the current trajectory. If we don't also shift the previous
+  // waypoint by the delay, then the current trajectory will get warped, and
+  // the schedule will predict a warped motion for the robot.
+  if (delayed_segment != new_trajectory.begin())
+    --delayed_segment;
+
+  // TODO(MXG): Consider inserting a new segment(s) in the trajectory when
+  // adding the delay. That may help to smooth things out further.
+
   delayed_segment->adjust_finish_times(delay);
   return new_trajectory;
 }

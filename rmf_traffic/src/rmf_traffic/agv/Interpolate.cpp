@@ -351,6 +351,7 @@ Trajectory Interpolate::positions(
         traits.get_profile(),
         input_positions.front(),
         Eigen::Vector3d::Zero());
+  assert(trajectory.size() > 0);
 
   const double v = traits.linear().get_nominal_velocity();
   const double a = traits.linear().get_nominal_acceleration();
@@ -376,6 +377,7 @@ Trajectory Interpolate::positions(
       }
     }
 
+    assert(trajectory.finish_time());
     internal::interpolate_translation(
           trajectory, v, a, *trajectory.finish_time(), last_position,
           next_position, profile, options.translation_thresh);
