@@ -50,12 +50,27 @@ public:
           == schedule_ids.end())
         continue;
 
+      std::cout << "[ ";
+      for (const auto s : schedule_ids)
+         std::cout << s << " ";
+      std::cout << "]: " << msg.version << std::endl;
+
       _parent->_have_conflict = true;
       _parent->_conflict_ids = schedule_ids;
       _parent->_last_conflict_version = msg.version;
       return _parent->_revision_callback();
     }
 
+//    if (!msg.indices.empty())
+//    {
+//      std::cout << "Ignoring conflict for [ ";
+//      for (const auto c : msg.indices)
+//        std::cout << c << " ";
+//      std::cout << "] | Our ids are [ ";
+//      for (const auto s : schedule_ids)
+//        std::cout << s << " ";
+//      std::cout << "]" << std::endl;
+//    }
     _parent->_have_conflict = false;
   }
 
@@ -410,6 +425,11 @@ void ScheduleManager::resolve_trajectories(
     if (!response->error.empty())
       throw std::runtime_error(response->error);
 
+    std::string str = "[ ";
+    for (const auto s : _schedule_ids)
+      str += std::to_string(s) + " ";
+    str += "]";
+
     if (!response->accepted)
     {
       // TODO(MXG): We should be given an indication of whether this was
@@ -417,6 +437,10 @@ void ScheduleManager::resolve_trajectories(
       // resolved.
 
       // The conflict was resolved by someone else, so we will quit
+
+      std::cout << "Resolution rejected " << str << ": "
+                << static_cast<int>(response->reason)
+                << std::endl;
       return;
     }
 
@@ -427,8 +451,15 @@ void ScheduleManager::resolve_trajectories(
       _schedule_ids.push_back(i);
     }
 
-    if (process_queues())
+    if (_queued_change)
+    {
+      process_queues();
+      std::cout << "Resolution accepted, but it has been pushed off"
+                << std::endl;
       return;
+    }
+
+    std::cout << "Resolution accepted " << str << std::endl;
 
     approval_cb();
   });

@@ -204,7 +204,8 @@ public:
     if (_emergency_active)
       return find_and_execute_emergency_plan();
 
-    find_and_execute_plan(std::chrono::seconds(0));
+    if (find_plan(std::chrono::seconds(0)))
+      return execute_plan();
   }
 
   bool use_fallback(
@@ -1043,7 +1044,8 @@ public:
 
     _command = rmf_utils::nullopt;
     const auto now = _node->now();
-    _retry_time = now + duration;
+//    _retry_time = now + duration;
+    _retry_time = now;
 
     RCLCPP_WARN(
           _node->get_logger(),

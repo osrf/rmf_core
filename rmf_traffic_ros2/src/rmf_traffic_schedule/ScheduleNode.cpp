@@ -540,11 +540,16 @@ void ScheduleNode::resolve_conflicts(
     {
       original_conflict_set = conflict_it->second.original_ids;
       remaining_conflict_set = conflict_it->second.unresolved_ids;
+
+      if (remaining_conflict_set.empty())
+        conflict_resolved = true;
     }
   }
 
   if (conflict_resolved)
   {
+    response->reason =
+        ResolveConflicts::Response::REASON_ALREADY_RESOLVED;
     return;
   }
 
@@ -555,6 +560,8 @@ void ScheduleNode::resolve_conflicts(
     if (original_conflict_set.count(r) == 0)
     {
       response->accepted = false;
+      response->reason =
+          ResolveConflicts::Response::REASON_WRONG_CONFLICT_SET;
       return;
     }
   }
@@ -571,6 +578,8 @@ void ScheduleNode::resolve_conflicts(
 
   if (!still_in_conflict)
   {
+    response->reason =
+        ResolveConflicts::Response::REASON_ALREADY_PARTIALLY_RESOLVED;
     response->accepted = false;
     return;
   }
@@ -605,15 +614,19 @@ void ScheduleNode::resolve_conflicts(
 //    return;
 //  }
 
-  if (has_conflicts(conflict_indices, *response))
-  {
-    return;
-  }
+//  if (has_conflicts(conflict_indices, *response))
+//  {
+//    response->reason =
+//        ResolveConflicts::Response::REASON_CONFLICTS_WITH_SCHEDULE;
+//    return;
+//  }
 
   conflict_indices = check_self_conflicts(resolution_trajectories);
 
   if (has_conflicts(conflict_indices, *response))
   {
+    response->reason =
+        ResolveConflicts::Response::REASON_CONFLICTS_WITH_SELF;
     return;
   }
 

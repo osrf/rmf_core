@@ -14,6 +14,30 @@ uint64 conflict_version
 # accepted instead and there is no longer a conflict.
 bool accepted
 
+# The reason for a rejection, if the plan is rejected
+uint8 reason
+
+uint8 REASON_UNINITIALIZED = 0
+
+# Rejected because the conflict has already been completely resolved
+uint8 REASON_ALREADY_RESOLVED = 1
+
+# Rejected because you are asking to fix a trajectory in the wrong conflict set.
+# This indicates a bug.
+uint8 REASON_WRONG_CONFLICT_SET = 2
+
+# Rejected because the specified trajectories are no longer in conflict
+uint8 REASON_ALREADY_PARTIALLY_RESOLVED = 3
+
+# An exception occurred, check the error field
+uint8 REASON_EXCEPTION = 4
+
+# The resolution conflicts with other parts of the schedule
+uint8 REASON_CONFLICTS_WITH_SCHEDULE = 5
+
+# The resolution conflicts with itself
+uint8 REASON_CONFLICTS_WITH_SELF = 6
+
 uint64 current_version
 
 uint64 original_version
