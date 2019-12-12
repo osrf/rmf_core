@@ -99,11 +99,12 @@ public:
     return std::unordered_set<uint64_t>{ids.begin(), ids.end()};
   }
 
-  bool find_plan(const std::chrono::nanoseconds start_delay)
+  std::vector<rmf_traffic::agv::Plan> find_plan(
+      const std::chrono::nanoseconds start_delay)
   {
     _emergency_active = false;
     _waiting_on_emergency = false;
-    _plans.clear();
+    std::vector<rmf_traffic::agv::Plan> plans;
 
     const auto& planner = _node->get_planner();
     const auto plan_starts =
@@ -182,8 +183,8 @@ public:
 
     if (main_plan)
     {
-      _plans.emplace_back(std::move(*std::move(main_plan)));
-      return true;
+      plans.emplace_back(std::move(*std::move(main_plan)));
+      return plans;
     }
 
     return use_fallback(std::move(fallback_plans));
@@ -191,8 +192,9 @@ public:
 
   void find_and_execute_plan(const std::chrono::nanoseconds start_delay)
   {
-    if (find_plan(start_delay))
-      return execute_plan();
+    auto plans = find_plan(start_delay);
+    if (!plans.empty())
+      return execute_plan(std::move(plans));
 
     cancel(std::chrono::seconds(1));
   }
@@ -204,13 +206,16 @@ public:
     if (_emergency_active)
       return find_and_execute_emergency_plan();
 
-    if (find_plan(std::chrono::seconds(0)))
-      return execute_plan();
+    auto plans = find_plan(std::chrono::seconds(0));
+    if (!plans.empty())
+      return execute_plan(std::move(plans));
   }
 
-  bool use_fallback(
+  std::vector<rmf_traffic::agv::Plan> use_fallback(
       std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans)
   {
+    std::vector<rmf_traffic::agv::Plan> plans;
+
     const auto i_nearest_opt = get_fastest_plan_index(fallback_plans);
     if (!i_nearest_opt)
     {
@@ -219,7 +224,7 @@ public:
             "Robot [" + _context->robot_name() + "] is stuck! We will try to "
             "find a path again soon.");
 
-      return false;
+      return plans;
     }
     const auto i_nearest = *i_nearest_opt;
 
@@ -288,22 +293,23 @@ public:
             "Robot [" + _context->robot_name() + "] is stuck! We will try to "
             "find a path again soon.");
 
-      return false;
+      return plans;
     }
     else
     {
-      _plans.emplace_back(fallback_plan);
-      _plans.emplace_back(*resume_plans[*quickest_finish_opt]);
+      plans.emplace_back(fallback_plan);
+      plans.emplace_back(*resume_plans[*quickest_finish_opt]);
     }
 
-    return true;
+    return plans;
   }
 
-  std::vector<rmf_traffic::Trajectory> collect_trajectories() const
+  std::vector<rmf_traffic::Trajectory> collect_trajectories(
+      std::vector<rmf_traffic::agv::Plan> plans) const
   {
     std::vector<rmf_traffic::Trajectory> trajectories;
     bool first_trajectory = true;
-    for (const auto& plan : _plans)
+    for (const auto& plan : plans)
     {
       for (auto trajectory : plan.get_trajectories())
       {
@@ -335,17 +341,18 @@ public:
   }
 
 
-  void execute_plan()
+  void execute_plan(std::vector<rmf_traffic::agv::Plan> plans)
   {
+    assert(!plans.empty());
     _task->schedule.push_trajectories(
-          collect_trajectories(),
-          [&](){ command_plan(); });
+          collect_trajectories(plans),
+          [&, plans](){ command_plans(plans); });
   }
 
-  void command_plan()
+  void command_plans(std::vector<rmf_traffic::agv::Plan> plans)
   {
     _remaining_waypoints.clear();
-    for (const auto& plan : _plans)
+    for (const auto& plan : plans)
       for (const auto& wp : plan.get_waypoints())
         _remaining_waypoints.emplace_back(wp);
 
@@ -951,10 +958,8 @@ public:
     find_and_execute_plan(std::chrono::seconds(0));
   }
 
-  bool find_emergency_plan()
+  std::vector<rmf_traffic::agv::Plan> find_emergency_plan()
   {
-    _plans.clear();
-
     _emergency_active = true;
 
     const auto& planner = _node->get_planner();
@@ -968,7 +973,7 @@ public:
     options.ignore_schedule_ids(schedule_ids());
 
     std::vector<std::thread> plan_threads;
-    std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> plans;
+    std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> candidate_plans;
     std::mutex plans_mutex;
     std::condition_variable plans_cv;
     bool have_plan = false;
@@ -983,7 +988,7 @@ public:
         if (emergency_plan)
           have_plan = true;
 
-        plans.emplace_back(std::move(emergency_plan));
+        candidate_plans.emplace_back(std::move(emergency_plan));
         plans_cv.notify_all();
       }));
     }
@@ -1002,7 +1007,7 @@ public:
     for (auto& plan_thread : plan_threads)
       plan_thread.join();
 
-    const auto quickest_finish_opt = get_fastest_plan_index(plans);
+    const auto quickest_finish_opt = get_fastest_plan_index(candidate_plans);
     if (!quickest_finish_opt)
     {
       RCLCPP_WARN(
@@ -1010,11 +1015,11 @@ public:
             "Robot [" + _context->robot_name() + "] is stuck while searching "
             "for an emergency plan! We will try to find a path again soon.");
 
-      return false;
+      return {};
     }
 
     const std::size_t emergency_wp_index =
-        *plans[*quickest_finish_opt]->get_waypoints().back().graph_index();
+        *candidate_plans[*quickest_finish_opt]->get_waypoints().back().graph_index();
     const auto it =_node->get_waypoint_names().find(emergency_wp_index);
     const auto emergency_wp_name =
         (it == _node->get_waypoint_names().end()) ? "" : (":" + it->second);
@@ -1024,14 +1029,14 @@ public:
           "Choosing emergency waypoint [" + std::to_string(emergency_wp_index)
           + emergency_wp_name + "] for [" + _context->robot_name() + "]");
 
-    _plans.emplace_back(*plans[*quickest_finish_opt]);
-    return true;
+    return {*candidate_plans[*quickest_finish_opt]};
   }
 
   void find_and_execute_emergency_plan()
   {
-    if (find_emergency_plan())
-      return execute_plan();
+    auto plans = find_emergency_plan();
+    if (!plans.empty())
+      return execute_plan(std::move(plans));
 
     cancel(std::chrono::seconds(1));
   }
@@ -1153,7 +1158,6 @@ private:
   EventListener _event_listener;
 
   rclcpp::Time _command_time;
-  std::vector<rmf_traffic::agv::Plan> _plans;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _remaining_waypoints;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _issued_waypoints;
   rmf_traffic::Time _finish_estimate;
