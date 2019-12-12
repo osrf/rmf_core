@@ -1733,7 +1733,8 @@ public:
     DoorClose,
     LiftDoorOpen,
     LiftDoorClose,
-    LiftMove
+    LiftMove,
+    Dock
   };
 
   using Lane = rmf_traffic::agv::Graph::Lane;
@@ -1768,6 +1769,11 @@ public:
   void execute(const Lane::LiftMove&) final
   {
     _result = _expectation == LiftDoorClose;
+  }
+
+  void execute(const Lane::Dock&) final
+  {
+    _result = _expectation == Dock;
   }
 
   bool result() const
