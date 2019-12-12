@@ -18,8 +18,6 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <rmf_traffic_ros2/Time.hpp>
-
 #include <rmf_fleet_adapter/StandardNames.hpp>
 
 #include <rmf_task_msgs/msg/tasks.hpp>
@@ -75,7 +73,12 @@ private:
 
   void timer_callback()
   {
+    Tasks tasks;
 
+    for (const auto& t : _db)
+      tasks.tasks.push_back(t.second);
+
+    _tasks_pub->publish(tasks);
   }
 
   void task_summary_cb(const TaskSummary::SharedPtr msg)
