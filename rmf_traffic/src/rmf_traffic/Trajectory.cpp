@@ -160,11 +160,12 @@ public:
   InsertionResult insert(internal::SegmentElement::Data data)
   {
     const internal::OrderMap::iterator hint = ordering.lower_bound(data.finish_time);
-    if(hint->first == data.finish_time)
+    if(hint != ordering.end() && hint->first == data.finish_time)
     {
       // We already have a Segment in the Trajectory that ends at this same
       // exact moment in time, so we will return the existing iterator along
       // with inserted==false.
+      assert(segments.size() > 0);
       return InsertionResult{make_iterator<Segment>(hint->second), false};
     }
 
@@ -174,8 +175,10 @@ public:
     const internal::SegmentList::iterator result =
         segments.emplace(list_destination, std::move(data));
     result->myself = make_segment(result);
+    assert(segments.size() > 0);
 
     ordering.emplace_hint(hint, data.finish_time, result);
+    assert(ordering.size() > 0);
 
     return InsertionResult{make_iterator<Segment>(result), true};
   }
