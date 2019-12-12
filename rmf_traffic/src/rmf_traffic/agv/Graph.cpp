@@ -406,6 +406,55 @@ auto Graph::Lane::LiftMove::duration(Duration duration) -> LiftMove&
   return *this;
 }
 
+//==============================================================================
+class Graph::Lane::Dock::Implementation
+{
+public:
+
+  std::string dock_name;
+  Duration duration;
+
+};
+
+//==============================================================================
+Graph::Lane::Dock::Dock(
+    std::string dock_name,
+    Duration duration)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             std::move(dock_name),
+             duration
+           }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::string& Graph::Lane::Dock::dock_name() const
+{
+  return _pimpl->dock_name;
+}
+
+//==============================================================================
+auto Graph::Lane::Dock::dock_name(std::string name) -> Dock&
+{
+  _pimpl->dock_name = name;
+  return *this;
+}
+
+//==============================================================================
+Duration Graph::Lane::Dock::duration() const
+{
+  return _pimpl->duration;
+}
+
+//==============================================================================
+auto Graph::Lane::Dock::duration(Duration d) -> Dock&
+{
+  _pimpl->duration = d;
+  return *this;
+}
+
 namespace {
 //==============================================================================
 template<typename EventT>
@@ -477,6 +526,12 @@ auto Graph::Lane::Event::make(LiftDoorClose close) -> EventPtr
 auto Graph::Lane::Event::make(LiftMove move) -> EventPtr
 {
   return TemplateEvent<LiftMove>::make(std::move(move));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(Dock dock) -> EventPtr
+{
+  return TemplateEvent<Dock>::make(std::move(dock));
 }
 
 //==============================================================================
