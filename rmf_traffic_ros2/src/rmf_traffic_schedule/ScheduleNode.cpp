@@ -368,13 +368,13 @@ void ScheduleNode::submit_trajectories(
     return;
   }
 
-  if (has_conflicts(conflicting_indices, *response))
-    return;
+//  if (has_conflicts(conflicting_indices, *response))
+//    return;
 
   conflicting_indices = check_self_conflicts(requested_trajectories);
 
-  if(has_conflicts(conflicting_indices, *response))
-    return;
+//  if(has_conflicts(conflicting_indices, *response))
+//    return;
 
   {
     std::unique_lock<std::mutex> lock(database_mutex);

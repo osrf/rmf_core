@@ -562,7 +562,7 @@ public:
       return;
     }
 
-    find_and_execute_plan(std::chrono::seconds(8));
+    find_and_execute_plan(std::chrono::seconds(15));
   }
 
   bool handle_retry()
