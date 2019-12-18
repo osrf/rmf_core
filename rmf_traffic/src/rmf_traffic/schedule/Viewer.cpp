@@ -470,6 +470,16 @@ Trajectory add_delay(
     return new_trajectory;
   }
 
+  if (delay.count() < 0)
+  {
+    // For now we'll accept "negative delays" to convey a jump ahead in time,
+    // but we apply it to the entire trajectory without being concerned about
+    // the from_time parameter.
+    // TODO(MXG): Consider if there is a more "correct" way to support this.
+    new_trajectory.begin()->adjust_finish_times(delay);
+    return new_trajectory;
+  }
+
   Trajectory::iterator delayed_segment = new_trajectory.find(time);
   assert(delayed_segment != new_trajectory.end());
 
@@ -485,6 +495,7 @@ Trajectory add_delay(
   // adding the delay. That may help to smooth things out further.
 
   delayed_segment->adjust_finish_times(delay);
+
   return new_trajectory;
 }
 
