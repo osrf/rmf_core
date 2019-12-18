@@ -121,7 +121,6 @@ public:
     summary.task_id = id();
     summary.start_time = start_time();
 
-
     if (_action)
     {
       auto status = _action->get_status();

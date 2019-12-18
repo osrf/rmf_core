@@ -1038,6 +1038,7 @@ public:
   {
     _context->insert_listener(&_state_listener);
     find_and_execute_plan(std::chrono::seconds(0));
+    _task->report_status();
   }
 
   std::vector<rmf_traffic::agv::Plan> find_emergency_plan()
@@ -1208,9 +1209,9 @@ public:
       status += "Waiting for emergency to end";
       return {status};
     }
-    else if (_remaining_waypoints.empty())
+    else if (_issued_waypoints.empty())
     {
-      status += "Empty Plan - May require human intervention";
+      status += "Empty Plan";
       return {status};
     }
 

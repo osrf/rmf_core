@@ -59,6 +59,7 @@ public:
       {
         update();
       });
+      _task->report_status();
     }
 
     _context->insert_listener(&_robot_state_listener);
