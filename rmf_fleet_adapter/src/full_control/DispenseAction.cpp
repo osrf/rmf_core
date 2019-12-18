@@ -52,16 +52,6 @@ public:
 
   void execute() final
   {
-    if (!_update_timer)
-    {
-      _update_timer = _node->create_wall_timer(
-            std::chrono::seconds(30), [&]()
-      {
-        update();
-      });
-      _task->report_status();
-    }
-
     _context->insert_listener(&_robot_state_listener);
     _node->dispenser_state_listeners.insert(&_dispenser_state_listener);
     _node->dispenser_result_listeners.insert(&_dispenser_result_listener);
@@ -139,6 +129,7 @@ public:
   void finish()
   {
     assert(_request_finished);
+    _task->report_status();
     _task->next();
   }
 
@@ -158,14 +149,16 @@ public:
   {
     // We can't do anything about fixing conflicts while we're waiting for a
     // dispenser, so we'll just ignore requests to resolve our trajectory.
-
-    // But we'll call update() anyway, because why not
-    update();
   }
 
   Status get_status() const final
   {
     std::string status = "Waiting for dispenser [" + _dispenser_name + "]";
+
+    if (_request_finished)
+      status += " - Request finished";
+    else if (_request_received)
+      status += " - Request received";
 
     if (_emergency_active)
       status += " - Emergency Interruption";
@@ -229,7 +222,20 @@ public:
       }
 
       if (!_parent->_request_received)
+      {
         _parent->send_request();
+      }
+      else
+      {
+        // The request has been received, so if it's no longer in the queue,
+        // then we'll assume it's finished.
+        _parent->_request_finished =
+            std::find(
+              msg.request_guid_queue.begin(),
+              msg.request_guid_queue.end(),
+              _parent->_request->request_guid)
+            == msg.request_guid_queue.end();
+      }
 
       _parent->update();
     }
@@ -285,8 +291,6 @@ private:
   Task* const _task;
   const std::string _dispenser_name;
   const std::vector<rmf_dispenser_msgs::msg::DispenserRequestItem> _items;
-
-  rclcpp::TimerBase::SharedPtr _update_timer;
 
   RobotStateListener _robot_state_listener;
   DispenserStateListener _dispenser_state_listener;

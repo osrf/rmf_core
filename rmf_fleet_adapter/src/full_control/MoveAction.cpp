@@ -443,6 +443,7 @@ public:
 
     publish_command();
     _command_time = _node->get_clock()->now();
+    _task->report_status();
   }
 
   void publish_command()
@@ -864,6 +865,8 @@ public:
       const std::string door_name = open.name();
       const auto initial_time = _parent->_node->get_clock()->now();
 
+      status = " - Waiting for door [" + door_name + "] to open";
+
       _parent->_event_listener.door =
           [=](const DoorState& msg)
       {
@@ -871,6 +874,7 @@ public:
               msg, DoorMode::MODE_OPEN, door_name, initial_time);
       };
 
+      _parent->_task->report_status();
       request_door_mode(door_name, DoorMode::MODE_OPEN);
     }
 
@@ -885,6 +889,8 @@ public:
       const auto initial_time = _parent->_node->get_clock()->now();
       _command_time = initial_time;
 
+      status = " - Waiting for door [" + door_name + "] to close";
+
       _parent->_event_listener.door =
           [=](const DoorState& msg)
       {
@@ -892,6 +898,7 @@ public:
               msg, DoorMode::MODE_CLOSED, door_name, initial_time);
       };
 
+      _parent->_task->report_status();
       request_door_mode(door_name, DoorMode::MODE_CLOSED);
     }
 
@@ -956,6 +963,9 @@ public:
       const std::string floor_name = open.floor_name();
       const auto initial_time = _parent->_node->get_clock()->now();
 
+      status = " - Waiting for lift [" + lift_name + "] to open on floor ["
+          + floor_name + "]";
+
       _parent->_event_listener.lift =
           [=](const LiftState& msg)
       {
@@ -965,6 +975,7 @@ public:
               LiftRequest::DOOR_OPEN);
       };
 
+      _parent->_task->report_status();
       request_lift_mode(
             lift_name, floor_name,
             LiftRequest::REQUEST_AGV_MODE,
@@ -1021,6 +1032,8 @@ public:
       _is_active = false;
     }
 
+    std::string status;
+
   private:
     rclcpp::Time _command_time;
     MoveAction* const _parent;
@@ -1031,7 +1044,6 @@ public:
   {
     _context->insert_listener(&_state_listener);
     find_and_execute_plan(std::chrono::seconds(0));
-    _task->report_status();
   }
 
   std::vector<rmf_traffic::agv::Plan> find_emergency_plan()
@@ -1190,36 +1202,34 @@ public:
             "#" + std::to_string(_goal_wp_index) : wp_it->second;
     };
 
-    status = "Moving to waypoint [" + name_of(_goal_wp_index) + "] - ";
+    status = "Moving to waypoint [" + name_of(_goal_wp_index) + "]";
 
     if (_emergency_active)
-      status += "Emergency Interruption - ";
+      status += " - Emergency Interruption";
     else
-      status = "In progress - ";
+      status += " - In progress";
 
     if (_waiting_on_emergency)
     {
-      status += "Waiting for emergency to end";
-      return {status};
-    }
-    else if (_issued_waypoints.empty())
-    {
-      status += "Empty Plan";
+      status += " - Waiting for emergency to end";
       return {status};
     }
 
-    for (const auto& wp : _remaining_waypoints)
+    if (_event_executor.is_active())
     {
-      if (wp.graph_index())
-      {
-        status += "next waypoint: [" + name_of(*wp.graph_index()) + "]";
-        break;
-      }
+      status += _event_executor.status;
     }
 
-    const auto& final_wp = _remaining_waypoints.back();
-    const auto end_time = rmf_traffic_ros2::to_ros2(final_wp.time());
-    return {status, end_time};
+    rmf_utils::optional<rmf_traffic::agv::Plan::Waypoint> final_wp;
+    if (!_remaining_waypoints.empty())
+      final_wp = _remaining_waypoints.back();
+    else if(!_issued_waypoints.empty())
+      final_wp = _issued_waypoints.back();
+
+    if (final_wp)
+      return {status, rmf_traffic_ros2::to_ros2(final_wp->time())};
+
+    return {status, _node->now()};
   }
 
 private:
