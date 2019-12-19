@@ -806,7 +806,11 @@ public:
       _parent->_waiting_on_docking = true;
       _parent->_current_dock_name = dock.dock_name();
 
+      status = " - Waiting for docking into ["
+          + _parent->_current_dock_name + "]";
+
       ++_parent->_command_id;
+      _parent->_task->report_status();
       request_docking(_parent->_current_dock_name);
     }
 
