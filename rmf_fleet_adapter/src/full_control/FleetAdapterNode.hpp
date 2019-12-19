@@ -125,6 +125,8 @@ public:
 
   rmf_traffic::Duration get_delay_threshold() const;
 
+  rmf_traffic::Duration get_retry_wait() const;
+
   const rmf_traffic::agv::Planner& get_planner() const;
 
   const rmf_traffic::agv::Graph& get_graph() const;
@@ -227,6 +229,8 @@ private:
   std::string _fleet_name;
 
   rmf_traffic::Duration _delay_threshold;
+
+  rmf_traffic::Duration _retry_wait;
 
   rmf_traffic::Duration _plan_time;
 

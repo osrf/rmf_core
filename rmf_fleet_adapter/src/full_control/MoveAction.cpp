@@ -583,7 +583,7 @@ public:
       return;
     }
 
-    find_and_execute_plan(std::chrono::seconds(15));
+    find_and_execute_plan(_node->get_retry_wait());
   }
 
   bool handle_docking(const RobotState& msg)
