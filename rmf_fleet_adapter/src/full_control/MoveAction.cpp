@@ -641,8 +641,7 @@ public:
     const auto new_finish_estimate = *trajectory_estimate.finish_time();
 
     const auto total_delay = new_finish_estimate - _original_finish_estimate;
-    // TODO(MXG): Make this threshold configurable
-    if (total_delay > std::chrono::seconds(30))
+    if (total_delay > _node->get_delay_threshold())
     {
       RCLCPP_WARN(
             _node->get_logger(),
