@@ -84,7 +84,7 @@ public:
 
   void update_schedule()
   {
-    if (_task->schedule.waiting())
+    if (_context->schedule.waiting())
       return;
 
     const auto now = _node->get_clock()->now();
@@ -98,7 +98,7 @@ public:
         const auto delay = next_wait_time - *_last_reported_wait_time;
         _last_reported_wait_time = next_wait_time;
 
-        _task->schedule.push_delay(
+        _context->schedule.push_delay(
               rmf_traffic_ros2::convert(delay),
               rmf_traffic_ros2::convert(now));
         return;
@@ -123,7 +123,7 @@ public:
     trajectory.insert(start, profile, position, zero);
     trajectory.insert(finish, profile, position, zero);
 
-    _task->schedule.push_trajectories({trajectory}, [](){});
+    _context->schedule.push_trajectories({trajectory}, [](){});
   }
 
   void finish()

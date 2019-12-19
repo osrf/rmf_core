@@ -555,7 +555,7 @@ struct DifferentialDriveExpander
         const EuclideanExpander::NodePtr solution = search<EuclideanExpander>(
               EuclideanExpander::Context{context.graph, context.final_waypoint},
               EuclideanExpander::InitialNodeArgs{waypoint},
-              context.interrupt_flag);
+              nullptr);
 
         // TODO(MXG): Instead of asserting that the goal exists, we should
         // probably take this opportunity to shortcircuit the planner and return
