@@ -281,6 +281,8 @@ private:
 
   bool _perform_deliveries = false;
 
+  bool _have_delivery_request = false;
+
   using Context =
       std::unordered_map<std::string, std::unique_ptr<RobotContext>>;
   Context _contexts;

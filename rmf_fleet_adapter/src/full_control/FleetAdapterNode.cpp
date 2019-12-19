@@ -595,6 +595,9 @@ void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
     return;
   }
 
+  if (_have_delivery_request)
+    return;
+
   // TODO(MXG): Support multiple simultaneous deliveries
   auto context = _contexts.begin()->second.get();
 
@@ -607,7 +610,10 @@ void FleetAdapterNode::delivery_request(Delivery::UniquePtr msg)
 
   auto task = make_delivery(this, context, *msg);
   if (task)
+  {
+    _have_delivery_request = true;
     context->add_task(std::move(task));
+  }
 }
 
 //==============================================================================

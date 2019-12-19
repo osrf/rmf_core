@@ -57,6 +57,7 @@ public:
     _node->dispenser_result_listeners.insert(&_dispenser_result_listener);
 
     send_request();
+    _task->report_status();
   }
 
   void send_request()
@@ -219,6 +220,11 @@ public:
               msg.request_guid_queue.end(),
               _parent->_request->request_guid)
             != msg.request_guid_queue.end();
+
+        if (_parent->_request_received)
+        {
+          _parent->_task->report_status();
+        }
       }
 
       if (!_parent->_request_received)
