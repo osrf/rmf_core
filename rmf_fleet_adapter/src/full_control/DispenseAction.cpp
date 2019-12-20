@@ -269,13 +269,26 @@ public:
         return;
 
       if (msg.status == DispenserResult::ACKNOWLEDGED)
+      {
+        const bool already_received = _parent->_request_received;
         _parent->_request_received = true;
+        if (!already_received)
+          _parent->_task->report_status();
+      }
       else if (msg.status == DispenserResult::SUCCESS)
+      {
+        const bool already_finished = _parent->_request_finished;
         _parent->_request_finished = true;
+        if (already_finished)
+          _parent->_task->report_status();
+      }
       else if (msg.status == DispenserResult::FAILED)
-        _parent->_task->critical_failure(
-              "Dispenser [" + _parent->_dispenser_name
-              + "] failed to complete the dispense request");
+      {
+        _parent->_request_received = false;
+        _parent->_request_finished = false;
+        _parent->send_request();
+        _parent->_task->report_status();
+      }
 
       _parent->update();
     }

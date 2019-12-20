@@ -195,7 +195,6 @@ public:
     auto plans = find_plan(start_delay);
     if (!plans.empty())
       return execute_plan(std::move(plans));
-
     cancel(std::chrono::seconds(1));
   }
 
@@ -670,12 +669,12 @@ public:
       return;
     }
 
-    std::cout << "Adding delay: ["
-              << rmf_traffic::time::to_seconds(new_delay)
-              << "] total: "
-              << rmf_traffic::time::to_seconds(
-                   new_finish_estimate - _original_finish_estimate)
-              << std::endl;
+//    std::cout << "Adding delay: ["
+//              << rmf_traffic::time::to_seconds(new_delay)
+//              << "] total: "
+//              << rmf_traffic::time::to_seconds(
+//                   new_finish_estimate - _original_finish_estimate)
+//              << std::endl;
 //    if (new_delay < std::chrono::milliseconds(500))
 //      return;
 

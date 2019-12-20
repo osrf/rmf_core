@@ -69,6 +69,9 @@ rmf_traffic::agv::VehicleTraits get_traits_or_default(
   const bool reversible =
       get_parameter_or_default(node, "reversible", true);
 
+  if (!reversible)
+    std::cout << " ===== We have an irreversible robot" << std::endl;
+
   auto traits = rmf_traffic::agv::VehicleTraits{
     {v_nom, a_nom},
     {w_nom, b_nom},

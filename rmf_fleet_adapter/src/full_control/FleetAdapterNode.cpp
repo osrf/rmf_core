@@ -210,7 +210,12 @@ void FleetAdapterNode::RobotContext::resume()
 void FleetAdapterNode::RobotContext::resolve()
 {
   if (_task)
+  {
+    std::cout << "Asking task to resolve" << std::endl;
     _task->resolve();
+  }
+
+  std::cout << "No task to resolve" << std::endl;
 }
 
 //==============================================================================
