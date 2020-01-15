@@ -36,7 +36,7 @@ const std::size_t N = test_performance? 10 : 1;
 
 void print_timing(const std::chrono::steady_clock::time_point& start_time)
 {
-  if(test_performance)
+  if (test_performance)
   {
     const auto finish_time = std::chrono::steady_clock::now();
     std::cout << Catch::getResultCapture().getCurrentTestName()
@@ -47,8 +47,21 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
 
 void display_path(const rmf_traffic::agv::Plan& plan)
 {
-  for (const auto& wp : plan.get_waypoints())
-    std::cout<<std::to_string(*wp.graph_index())<<"->";
+  std::vector<std::size_t> plan_indices;
+  for (const auto &wp : plan.get_waypoints())
+  {
+    if (wp.graph_index())
+      plan_indices.push_back(*wp.graph_index());
+  }
+  auto ip = std::unique(plan_indices.begin(), plan_indices.end());
+  plan_indices.resize(std::distance(plan_indices.begin(), ip));
+  std::cout<<"Path: ";
+  for (auto it = plan_indices.begin(); it != plan_indices.end(); it++)
+  {
+    std::cout<<*it;
+    if(it != --plan_indices.end())
+      std::cout<<"-> ";
+  }
   std::cout<<std::endl;
 }
 
@@ -1907,8 +1920,7 @@ SCENARIO("Test planner with various start conditions")
   const VehicleTraits traits{
       {1.0, 0.4},
       {1.0, 0.5},
-      make_test_profile(UnitCircle)
-  };
+      make_test_profile(UnitCircle)};
 
   rmf_traffic::schedule::Database database;
   bool interrupt_flag = false;
@@ -1920,12 +1932,51 @@ SCENARIO("Test planner with various start conditions")
 
   Planner planner{
     Planner::Configuration{graph, traits},
-    default_options
-  };
+    default_options};
 
   const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
 
-  WHEN("Start contains initial_location")
+  WHEN("Start initial_location coincident with initial_waypoint")
+  {
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-5.0, 0};
+
+    Planner::Start start1 = Planner::Start{
+        initial_time,
+        1,
+        0.0};
+    CHECK_FALSE(start1.location());
+
+    Planner::Start start2 = Planner::Start{
+        initial_time,
+        1,
+        0.0,
+        std::move(initial_location)};
+    CHECK(start2.location());
+
+    Planner::Goal goal{3};
+
+    const auto plan1 = planner.plan(start1, goal);
+    const auto duration1 = plan1->get_trajectories().front().duration();
+    CHECK_PLAN(plan1, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    const auto plan2 = plan1->replan(start2);
+    const auto duration2 = plan2->get_trajectories().front().duration();
+    CHECK_PLAN(plan2, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    CHECK((duration1 - duration2).count() == Approx(0.0));
+    CHECK(plan1->get_trajectories().size() == plan2->get_trajectories().size());
+
+    // Test with startset
+    std::vector<Planner::Start> starts{start1, start2};
+    const auto plan = plan1->replan(starts);
+    CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    CHECK((plan->get_trajectories().front().duration() - duration1).count() == Approx(0.));
+    CHECK(plan->get_trajectories().size() == plan1->get_trajectories().size());
+  }
+
+  WHEN("Start initial_location is not on an initial_waypoint")
   { 
     graph.add_lane(1, 2); // 6
     graph.add_lane(2, 1); // 7
@@ -1953,6 +2004,7 @@ SCENARIO("Test planner with various start conditions")
     WHEN("Testing replan")
     {
       auto plan2 = plan->replan(start);
+      CHECK_PLAN(plan2, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
 
     WHEN("Obstace 4->0 overlaps")
@@ -2017,7 +2069,38 @@ SCENARIO("Test planner with various start conditions")
 
   }
 
-  WHEN("Planning with startset of waypoint index and orientations")
+  WHEN("Start contains initial location and lane constraint")
+  {
+    graph.add_lane(1, {2, Graph::OrientationConstraint::make({M_PI})}); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> initial_location = Eigen::Vector2d{-4.99, 0};
+    rmf_utils::optional<std::size_t> initial_lane = 6;
+
+    Planner::Start start = Planner::Start{
+        initial_time,
+        2,
+        0.0,
+        std::move(initial_location),
+        std::move(initial_lane)};
+
+    CHECK(start.location());
+    CHECK(start.lane());
+
+    double goal_orientation = M_PI_2;
+    Planner::Goal goal{3, goal_orientation};
+
+    const auto plan = planner.plan(start, goal);
+    CHECK_PLAN(plan, {-4.99, 0}, 0.0, {5.0, 0}, {2, 3}, &goal_orientation);
+    // Check if lane exit constraint was satisfied
+    auto waypoints = plan->get_waypoints();
+    REQUIRE(waypoints.size() != 0);
+    auto second_wp = ++waypoints.begin();
+    CHECK((second_wp->position()[2] - M_PI) == Approx(0.0));
+  }
+
+  WHEN("Planning with startset with varying orientations")
   {
     graph.add_lane(1, 2); // 6
     graph.add_lane(2, 1); // 7
@@ -2038,6 +2121,7 @@ SCENARIO("Test planner with various start conditions")
     WHEN("Testing replan with startsets")
     {
       auto plan2 = plan->replan(starts);
+      CHECK_PLAN(plan, {-5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
     WHEN("Obstace 4->0 overlaps")
     {
@@ -2073,4 +2157,186 @@ SCENARIO("Test planner with various start conditions")
       CHECK_PLAN(plan, {-5, 0}, best_start.orientation(), {5.0, 0}, {1, 3});
     }
   }
+
+  WHEN("Startset with same initial_location but different initial waypoints")
+  {
+    graph.add_lane(1, 2); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
+    std::vector<Planner::Start> starts;
+    Planner::Start start1{initial_time, 1, 0.0, location};
+    Planner::Start start2{initial_time, 2, 0.0, location};
+    starts.push_back(start1);
+    starts.push_back(start2);
+
+    Planner::Goal goal{4, M_PI_2};
+
+    auto plan = planner.plan(starts, goal);
+    //we expect the starting condition with initial_waypoint = 2 to be shortest
+    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
+    const auto duration = plan->get_trajectories().front().duration();
+
+    const auto result1 = plan->replan(start1);
+    const auto duration1 = result1->get_trajectories().front().duration();
+    const auto result2 = plan->replan(start2);
+    const auto duration2 = result2->get_trajectories().front().duration();
+    CHECK(duration2 < duration1);
+    CHECK(duration < duration1);
+    CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
+  }
+
+  WHEN("Startset with same initial_location and initial_waypoints but different initial_orientations")
+  {
+    // lane with exit orientation constraint
+    graph.add_lane(1, {2, Graph::OrientationConstraint::make({0})}); // 6
+    graph.add_lane(2, 1); // 7
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
+    rmf_utils::optional<std::size_t> initial_lane = 6;
+
+    std::vector<Planner::Start> starts;
+    Planner::Start start1{initial_time, 2, 0.0, location, initial_lane};
+    Planner::Start start2{initial_time, 2, M_PI, location, initial_lane};
+    starts.push_back(start1);
+    starts.push_back(start2);
+
+    Planner::Goal goal{4, M_PI_2};
+
+    auto plan = planner.plan(starts, goal);
+    CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
+    const auto duration = plan->get_trajectories().front().duration();
+    const auto result1 = plan->replan(start1);
+    const auto duration1 = result1->get_trajectories().front().duration();
+    const auto result2 = plan->replan(start2);
+    const auto duration2 = result2->get_trajectories().front().duration();
+
+    print_trajectory_info(*result1, initial_time);
+    print_trajectory_info(*result2, initial_time);
+    CHECK(duration1 < duration2);
+    CHECK(duration < duration2);
+    CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
+  }
 } 
+
+SCENARIO("Test starts using graph with non-colinear waypoints")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  using DetectConflict = rmf_traffic::DetectConflict;
+
+  const std::string test_map_name = "test_map";
+  Graph graph;
+  graph.add_waypoint(test_map_name, {0, 0}, true); // 0
+  graph.add_waypoint(test_map_name, {-4, 3}, true); // 1
+  graph.add_waypoint(test_map_name, {4, 3}); // 2
+  graph.add_waypoint(test_map_name, {-4, 15}, true); // 3
+  graph.add_waypoint(test_map_name, {4, 15}, true); // 4
+  REQUIRE(graph.num_waypoints() == 5);
+
+  graph.add_lane(0 ,1); // 0
+  graph.add_lane(1, 0); // 1
+  graph.add_lane(0, 2); // 2
+  graph.add_lane(2, 0); // 3
+  graph.add_lane(1, 3); // 4
+  graph.add_lane(3, 1); // 5
+  graph.add_lane(2, 4); // 6
+  graph.add_lane(5, 2); // 7
+  REQUIRE(graph.num_lanes() == 8);
+
+  const VehicleTraits traits{
+      {1.0, 0.4},
+      {1.0, 0.5},
+      make_test_profile(UnitCircle)};
+
+  rmf_traffic::schedule::Database database;
+  bool interrupt_flag = false;
+  Duration hold_time = std::chrono::seconds(6);
+  const rmf_traffic::agv::Planner::Options default_options{
+      database,
+      hold_time,
+      &interrupt_flag};
+
+  Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+  const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
+
+  // GIVEN("Robot moves from waypoint 3->4")
+  // {
+  //   Planner::Start start{initial_time, 3, -M_PI_2};
+  //   const double goal_orientation = 0.0;
+  //   Planner::Goal goal{4, goal_orientation};
+  //   const auto plan = planner.plan(start, goal);
+  //   CHECK_PLAN(plan, {-4, 15}, -M_PI_2, {4, 15}, {3, 1, 0 , 2, 4});
+  // }
+
+  GIVEN("Multiple starts on and off waypoints")
+  {
+    const double goal_orientaion = M_PI_2;
+    Planner::Goal goal{4, goal_orientaion};
+    // starts where robot is at initial_waypoint 1 but with different orientations
+    Planner::Start start1{initial_time, 1, M_PI_2};
+    Planner::Start start2{initial_time, 1, M_PI};
+
+    // starts where robot has initial_locations displace from waypoint 1
+    // Displaced 0.5m along lane 5
+    rmf_utils::optional<Eigen::Vector2d> start_location1 = Eigen::Vector2d{-4, 3.5};
+
+    Planner::Start start3{initial_time, 1, -M_PI_2, start_location1};
+    // Displaced 0.5m along lane 1
+    rmf_utils::optional<Eigen::Vector2d> start_location2 = Eigen::Vector2d{-3.6, 2.7};
+    Planner::Start start4{initial_time, 1, -0.64, start_location1};
+
+    std::vector<Planner::Start> starts{start1, start2, start3, start4};
+    REQUIRE(starts.size() == 4);
+
+    auto result1 = planner.plan(start1, goal);
+    const auto duration1 = result1->get_trajectories().front().duration();
+    auto result2 = result1->replan(start2);
+    const auto duration2 = result2->get_trajectories().front().duration();
+    auto result3 = result2->replan(start3);
+    const auto duration3 = result3->get_trajectories().front().duration();
+    auto result4 = result3->replan(start4);
+    const auto duration4 = result3->get_trajectories().front().duration();
+
+    std::vector<rmf_traffic::Duration> durations{
+          duration1, duration2, duration3, duration4};
+    
+    auto best_duration_it = durations.begin();;
+
+    for (auto it = durations.begin(); it != durations.end(); it++)
+    {
+      if (*it < *best_duration_it)
+      {
+        best_duration_it = it;
+      }
+    }
+
+    auto best_index = std::distance(durations.begin(), best_duration_it);
+    Planner::Start best_start = starts[best_index];
+
+    const auto plan = planner.plan(starts, goal);
+    const auto plan_duration = plan->get_trajectories().front().duration();
+    const auto start_position = best_start.location() ? best_start.location().value()
+        : graph.get_waypoint(best_start.waypoint()).get_location();
+    CHECK_PLAN(
+        plan,
+        start_position,
+        best_start.orientation(),
+        {4,15},
+        {1, 0, 2, 4},
+        &goal_orientaion);
+    for(const auto duration : durations)
+    {
+      CHECK(plan_duration <= duration);
+    }
+    // start2 has the shortest duration
+  }
+}
