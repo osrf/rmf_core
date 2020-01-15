@@ -721,6 +721,7 @@ struct DifferentialDriveExpander
             const auto& rotational = _context.traits.rotational();
             // TODO(MXG): Consider refactoring this with the other spots where
             // we use interpolate_rotation
+
             agv::internal::interpolate_rotation(
                   rotation_trajectory,
                   rotational.get_nominal_velocity(),
@@ -731,7 +732,8 @@ struct DifferentialDriveExpander
                   _context.profile,
                   _context.interpolate.rotation_thresh);
 
-            if (!is_valid(rotation_trajectory))
+            if (rotation_trajectory.size() != 1
+                && !is_valid(rotation_trajectory))
             {
               // The rotation trajectory is not feasible, so we cannot use this
               // orientation to start.
@@ -741,7 +743,7 @@ struct DifferentialDriveExpander
             const double rotation_cost =
                 rmf_traffic::time::to_seconds(rotation_trajectory.duration());
 
-            auto rotated_initial_node = std::make_shared<Node>(
+            rotated_initial_node = std::make_shared<Node>(
                   Node{
                     std::numeric_limits<double>::infinity(),
                     rotation_cost,
@@ -767,7 +769,7 @@ struct DifferentialDriveExpander
                 _context.profile,
                 _context.interpolate.translation_thresh);
 
-          if (!is_valid(approach_trajectory))
+          if (approach_trajectory.size() != 1 && !is_valid(approach_trajectory))
           {
             // The approach trajectory is not feasible, so we cannot use this
             // orientation to start.
