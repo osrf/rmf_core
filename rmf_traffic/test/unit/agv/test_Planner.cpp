@@ -1960,17 +1960,20 @@ SCENARIO("Test planner with various start conditions")
     Planner::Goal goal{3};
 
     const auto plan1 = planner.plan(start1, goal);
-    const auto duration1 = plan1->get_trajectories().front().duration();
+    REQUIRE(plan1);
     CHECK_PLAN(plan1, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    const auto duration1 = plan1->get_trajectories().front().duration();
     const auto plan2 = plan1->replan(start2);
-    const auto duration2 = plan2->get_trajectories().front().duration();
+    REQUIRE(plan2);
     CHECK_PLAN(plan2, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
+    const auto duration2 = plan2->get_trajectories().front().duration();
     CHECK((duration1 - duration2).count() == Approx(0.0));
     CHECK(plan1->get_trajectories().size() == plan2->get_trajectories().size());
 
     // Test with startset
     std::vector<Planner::Start> starts{start1, start2};
     const auto plan = plan1->replan(starts);
+    REQUIRE(plan);
     CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
     CHECK((plan->get_trajectories().front().duration() - duration1).count() == Approx(0.));
     CHECK(plan->get_trajectories().size() == plan1->get_trajectories().size());
@@ -2213,11 +2216,11 @@ SCENARIO("Test planner with various start conditions")
     const auto result2 = plan->replan(start2);
     const auto duration2 = result2->get_trajectories().front().duration();
 
-    print_trajectory_info(*result1, initial_time);
-    print_trajectory_info(*result2, initial_time);
+//    print_trajectory_info(*result1, initial_time);
+//    print_trajectory_info(*result2, initial_time);
     CHECK(duration1 < duration2);
     CHECK(duration < duration2);
-    CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
+    CHECK((duration - duration1).count() ==Approx(0.0).margin(1e-9));
   }
 } 
 
@@ -2246,8 +2249,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   graph.add_lane(1, 3); // 4
   graph.add_lane(3, 1); // 5
   graph.add_lane(2, 4); // 6
-  graph.add_lane(5, 2); // 7
-  REQUIRE(graph.num_lanes() == 8);
+  REQUIRE(graph.num_lanes() == 7);
 
   const VehicleTraits traits{
       {1.0, 0.4},
@@ -2256,7 +2258,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
 
   rmf_traffic::schedule::Database database;
   bool interrupt_flag = false;
-  Duration hold_time = std::chrono::seconds(6);
+  Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
       database,
       hold_time,
@@ -2309,7 +2311,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     std::vector<rmf_traffic::Duration> durations{
           duration1, duration2, duration3, duration4};
     
-    auto best_duration_it = durations.begin();;
+    auto best_duration_it = durations.begin();
 
     for (auto it = durations.begin(); it != durations.end(); it++)
     {
