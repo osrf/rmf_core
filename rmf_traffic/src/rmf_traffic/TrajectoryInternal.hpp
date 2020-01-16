@@ -36,7 +36,6 @@ struct SegmentElement
   struct Data
   {
     Time finish_time;
-    Trajectory::ConstProfilePtr profile;
     Eigen::Vector3d position;
     Eigen::Vector3d velocity;
   };

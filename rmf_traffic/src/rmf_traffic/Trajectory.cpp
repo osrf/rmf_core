@@ -103,7 +103,6 @@ class Trajectory::Implementation
 {
 public:
 
-  std::string map_name;
   internal::OrderMap ordering;
   internal::SegmentList segments;
 
@@ -127,12 +126,6 @@ public:
     return seg;
   }
 
-  Implementation(std::string map_name)
-    : map_name(std::move(map_name))
-  {
-    // Do nothing
-  }
-
   Implementation(const Implementation& other)
   {
     *this = other;
@@ -141,7 +134,6 @@ public:
   Implementation& operator=(const Implementation& other)
   {
     // Start by making a normal copy
-    map_name = other.map_name;
     ordering = other.ordering;
     segments = other.segments;
 
@@ -228,165 +220,6 @@ public:
   }
 
 };
-
-//==============================================================================
-class Trajectory::Profile::Implementation
-{
-public:
-
-  Implementation(geometry::ConstFinalConvexShapePtr shape)
-    : shape(std::move(shape)),
-      guided_info(this),
-      autonomous_info(this),
-      queue_info(this)
-  {
-    // Do nothing
-  }
-
-  // Basic information
-  geometry::ConstFinalConvexShapePtr shape;
-
-  // Guided mode information (only used when in the Guided autonomy mode)
-  GuidedInfo guided_info;
-
-  // Autonomous mode information (only used when in the Autonomous autonomy mode)
-  AutonomousInfo autonomous_info;
-
-  // Queued mode information (only used when in the Queued autonomy mode)
-  QueueInfo queue_info;
-  std::string queue_id;
-
-  // Autonomy mode
-  Autonomy autonomy_mode;
-};
-
-//==============================================================================
-Trajectory::ProfilePtr Trajectory::Profile::make_guided(
-    geometry::ConstFinalConvexShapePtr shape)
-{
-  ProfilePtr result(new Profile(std::move(shape)));
-  result->set_to_guided();
-  return result;
-}
-
-//==============================================================================
-Trajectory::ProfilePtr Trajectory::Profile::make_autonomous(
-    geometry::ConstFinalConvexShapePtr shape)
-{
-  ProfilePtr result(new Profile(std::move(shape)));
-  result->set_to_autonomous();
-  return result;
-}
-
-//==============================================================================
-Trajectory::ProfilePtr Trajectory::Profile::make_queued(
-    geometry::ConstFinalConvexShapePtr shape,
-    const std::string& queue_id)
-{
-  ProfilePtr result(new Profile(std::move(shape)));
-  result->set_to_queued(queue_id);
-  return result;
-}
-
-//==============================================================================
-geometry::ConstFinalConvexShapePtr Trajectory::Profile::get_shape() const
-{
-  return _pimpl->shape;
-}
-
-//==============================================================================
-Trajectory::Profile& Trajectory::Profile::set_shape(
-    geometry::ConstFinalConvexShapePtr new_shape)
-{
-  _pimpl->shape = std::move(new_shape);
-  return *this;
-}
-
-//==============================================================================
-Trajectory::Profile::Autonomy Trajectory::Profile::get_autonomy() const
-{
-  return _pimpl->autonomy_mode;
-}
-
-//==============================================================================
-Trajectory::Profile::GuidedInfo::GuidedInfo(void* pimpl)
-  : _pimpl(pimpl)
-{
-  // Do nothing
-}
-
-//==============================================================================
-Trajectory::Profile::GuidedInfo& Trajectory::Profile::set_to_guided()
-{
-  _pimpl->autonomy_mode = Autonomy::Guided;
-  return _pimpl->guided_info;
-}
-
-//==============================================================================
-Trajectory::Profile::AutonomousInfo::AutonomousInfo(void* pimpl)
-  : _pimpl(pimpl)
-{
-  // Do nothing
-}
-
-//==============================================================================
-Trajectory::Profile::AutonomousInfo& Trajectory::Profile::set_to_autonomous()
-{
-  _pimpl->autonomy_mode = Autonomy::Autonomous;
-  return _pimpl->autonomous_info;
-}
-
-//==============================================================================
-Trajectory::Profile::QueueInfo& Trajectory::Profile::set_to_queued(
-    const std::string& queue_id)
-{
-  _pimpl->autonomy_mode = Autonomy::Queued;
-  _pimpl->queue_id = queue_id;
-  return _pimpl->queue_info;
-}
-
-//==============================================================================
-std::string Trajectory::Profile::QueueInfo::get_queue_id() const
-{
-  return static_cast<const Profile::Implementation*>(_pimpl)->queue_id;
-}
-
-//==============================================================================
-Trajectory::Profile::QueueInfo::QueueInfo(void* pimpl)
-  : _pimpl(pimpl)
-{
-  // Do nothing
-}
-
-//==============================================================================
-auto Trajectory::Profile::get_queue_info() const -> const QueueInfo*
-{
-  if(Autonomy::Queued == _pimpl->autonomy_mode)
-    return &_pimpl->queue_info;
-
-  return nullptr;
-}
-
-//==============================================================================
-Trajectory::Profile::Profile(geometry::ConstFinalConvexShapePtr shape)
-  : _pimpl(rmf_utils::make_impl<Implementation>(std::move(shape)))
-{
-  // Do nothing
-}
-
-//==============================================================================
-auto Trajectory::Segment::get_profile() const -> ConstProfilePtr
-{
-  return _pimpl->data().profile;
-}
-
-//==============================================================================
-Trajectory::Segment& Trajectory::Segment::set_profile(
-    ConstProfilePtr new_profile)
-{
-  _pimpl->data().profile = std::move(new_profile);
-  return *this;
-}
 
 //==============================================================================
 Eigen::Vector3d Trajectory::Segment::get_finish_position() const
@@ -577,8 +410,8 @@ Trajectory::Segment::Segment()
 }
 
 //==============================================================================
-Trajectory::Trajectory(std::string map_name)
-  : _pimpl(rmf_utils::make_unique_impl<Implementation>(std::move(map_name)))
+Trajectory::Trajectory()
+  : _pimpl(rmf_utils::make_unique_impl<Implementation>())
 {
   // Do nothing
 }
@@ -598,29 +431,13 @@ Trajectory& Trajectory::operator=(const Trajectory& other)
 }
 
 //==============================================================================
-std::string Trajectory::get_map_name() const
-{
-  return _pimpl->map_name;
-}
-
-//==============================================================================
-Trajectory& Trajectory::set_map_name(std::string name)
-{
-  _pimpl->map_name = std::move(name);
-  return *this;
-}
-
-//==============================================================================
-Trajectory::InsertionResult Trajectory::insert(
-    Time finish_time,
-    ConstProfilePtr profile,
+Trajectory::InsertionResult Trajectory::insert(Time finish_time,
     Eigen::Vector3d position,
     Eigen::Vector3d velocity)
 {
   return _pimpl->insert(
         internal::SegmentElement::Data{
           std::move(finish_time),
-          std::move(profile),
           std::move(position),
           std::move(velocity)});
 }

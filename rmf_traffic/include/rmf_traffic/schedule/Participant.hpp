@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Open Source Robotics Foundation
+ * Copyright (C) 2020 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,45 +51,62 @@ public:
 
   /// Constructor
   ///
-  /// \param name
+  /// \param[in] name
   ///   The name of the object participating in the schedule.
   ///
-  /// \param owner
+  /// \param[in] owner
   ///   The name of the "owner" of this participant. This does not currently
   ///   have a formal definition, but for most vehicles it should be the name of
   ///   the fleet that the vehicle belongs to.
   ///
-  /// \param responsiveness
-  /// \param footprint
+  /// \param[in] responsiveness
+  ///   What category of responsiveness this participant has. A Responsive
+  ///   participant might be able to react to a conflict or a request for
+  ///   accommodations.
+  ///
+  /// \param[in] footprint
+  ///   An estimate of the space that this participant occupies.
+  ///
+  /// \param[in] vicinity
+  ///   An estimate of the vicinity around the participant in which the presence
+  ///   of other traffic would disrupt its operations.
   ///
   Participant(
       std::string name,
       std::string owner,
       Rx responsiveness,
-      geometry::ConstFinalShapePtr footprint);
+      geometry::ConstFinalShapePtr footprint,
+      geometry::ConstFinalShapePtr vicinity);
 
-  /// Set the name of the participant
+  /// Set the name of the participant.
   Participant& name(std::string value);
 
-  /// Get the name of the participant
+  /// Get the name of the participant.
   const std::string& name() const;
 
   /// Set the name of the "owner" of the participant.
   Participant& owner(std::string value);
+
+  /// Get the name of the "owner" of the participant.
   const std::string& owner() const;
 
+  /// Set the responsiveness of the participant.
   Participant& responsiveness(Rx value);
+
+  /// Get the responsiveness of the participant.
   Rx responsiveness() const;
 
-  /// An estimate of the physical space that this participant will occupy.
+  /// Set the footprint of the participant.
   Participant& footprint(geometry::ConstFinalConvexShapePtr shape);
+
+  /// Get the footprint of the participant.
   const geometry::ConstFinalConvexShapePtr& footprint() const;
 
-  /// An estimate of the region around the participant in which the presense of
-  /// other traffic would disrupt its operations.
+  /// Set the vicinity of this participant.
   Participant& vicinity(geometry::ConstFinalConvexShapePtr shape);
-  const geometry::ConstFinalConvexShapePtr& vicinity() const;
 
+  /// Get the vicinity of this participant.
+  const geometry::ConstFinalConvexShapePtr& vicinity() const;
 
 private:
   class Implementation;

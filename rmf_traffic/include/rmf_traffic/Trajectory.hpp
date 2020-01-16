@@ -43,161 +43,9 @@ class Trajectory
 {
 public:
 
-  class Profile;
-  using ProfilePtr = std::shared_ptr<Profile>;
-  using ConstProfilePtr = std::shared_ptr<const Profile>;
-
-  /// The Trajectory::Profile class describes how the trajectory will take up
-  /// space at a single instant in time. A profile description is assigned to
-  /// each segment of a trajectory, so that the profile of a trajectory may
-  /// change over time, for example as the robot changes its mode of movement.
-  ///
-  /// There are two factors to describe the profile:
-  ///  * shape - Describes the occupied space
-  ///  * movement - Describes how the robot is moving
-  ///
-  /// For Queued movement, the profile has an additional parameter:
-  ///  * queue_id
-  ///
-  /// The queue_id indicates which queue the robot will be waiting in.
-  class Profile
-  {
-  public:
-
-    /// The Trajectory::Profile::Autonomy enum describes how much freedom the
-    /// robot has during this phase of its Trajectory.
-    enum class Autonomy : uint16_t
-    {
-      /// This autonomy type is illegal and will always be rejected by the
-      /// schedule verifier. Having this movement type implies a major bug in
-      /// the code and should be reported immediately.
-      Unspecified = 0,
-
-      /// The robot will try to follow the specified trajectory exactly, and
-      /// the collision geometry represents all of the clearance space that the
-      /// robot will need while traveling.
-      Guided,
-
-      /// The robot is waiting in a queue, and will wait to traverse the
-      /// trajectory segment until the rmf_traffic_monitor tells it to proceed.
-      /// The collision geometry represents all the clearance space that the
-      /// robot will need while waiting.
-      Queued,
-
-      /// The robot will autonomously navigate within the specified space. The
-      /// robot will only occupy a subset of the space that is specified by the
-      /// collision geometry, but the Fleet Adapter cannot predict ahead of time
-      /// exactly what that occupied space will be.
-      ///
-      /// If this plan is accepted by the Schedule, then any time another plan
-      /// is submitted where a Guided or Queued trajectory segment conflicts
-      /// with this Trajectory's Autonomous space, the Fleet Adapter that
-      /// submitted this Trajectory will be asked to approve or reject the other
-      /// plan based on whether the other plan will interfere with this
-      /// Trajectory.
-      Autonomous,
-    };
-
-    /// Create a profile with Guided movement
-    static ProfilePtr make_guided(geometry::ConstFinalConvexShapePtr shape);
-
-    /// Create a profile with Autonomous movement
-    static ProfilePtr make_autonomous(geometry::ConstFinalConvexShapePtr shape);
-
-    /// Create a profile for a Queued segment
-    static ProfilePtr make_queued(
-        geometry::ConstFinalConvexShapePtr shape,
-        const std::string& queue_id);
-
-    /// Get the shape being used for this profile
-    geometry::ConstFinalConvexShapePtr get_shape() const;
-
-    /// Set the shape that will be used by this profile
-    Profile& set_shape(geometry::ConstFinalConvexShapePtr new_shape);
-
-    /// Get the autonomy type being used for this profile
-    Autonomy get_autonomy() const;
-
-    //==========================================================================
-    /// This class is a placeholder in case we ever want to extend the features
-    /// of the Guided mode. Currently it does not do anything.
-    class GuidedInfo
-    {
-    public:
-
-      // There are no special information features for Guided mode yet.
-
-    private:
-      GuidedInfo(void* pimpl);
-      friend class Profile;
-      const void* const _pimpl;
-    };
-
-    /// Set the movement of this profile to Guided
-    GuidedInfo& set_to_guided();
-
-    //==========================================================================
-    /// This class is a placeholder in case we ever want to extend the features
-    /// of the Autonomous mode. Currently it does not do anything.
-    class AutonomousInfo
-    {
-    public:
-
-      // There are no special information features for Autonomous mode yet.
-
-    private:
-      AutonomousInfo(void* pimpl);
-      friend class Profile;
-      const void* const _pimpl;
-    };
-
-    /// Set the movement of this profile to Autonomous
-    AutonomousInfo& set_to_autonomous();
-
-    //==========================================================================
-    class QueueInfo
-    {
-    public:
-
-      /// Get the id of the queue that this profile is waiting in
-      std::string get_queue_id() const;
-
-    private:
-      QueueInfo(void* pimpl);
-      friend class Profile;
-      const void* const _pimpl;
-    };
-
-    /// Set the movement of this profile to queued
-    QueueInfo& set_to_queued(const std::string& queue_id);
-
-    /// If this Profile is queued, this will return a pointer to its queue
-    /// information. If it is not in a queue, this will return a nullptr.
-    ///
-    /// This pointer is potentially invalidated any time a modification is made
-    /// to the Profile object that provided it.
-    const QueueInfo* get_queue_info() const;
-
-  private:
-
-    Profile(geometry::ConstFinalConvexShapePtr shape);
-
-    class Implementation;
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
   class Segment
   {
   public:
-
-    /// Get the profile of this Trajectory Segment
-    ConstProfilePtr get_profile() const;
-
-    /// Change the profile of this Trajectory Segment
-    ///
-    /// \param[in] new_profile
-    ///   The new profile for this Trajectory Segment.
-    Segment& set_profile(ConstProfilePtr new_profile);
 
     /// Get the intended physical location of the robot at the end of this
     /// Trajectory Segment.
@@ -306,7 +154,7 @@ public:
   using const_iterator = base_iterator<const Segment>;
 
   /// Create a Trajectory that takes place on the specified map
-  Trajectory(std::string map_name);
+  Trajectory();
 
   // Copy construction/assignment
   Trajectory(const Trajectory& other);
@@ -319,12 +167,6 @@ public:
   /// result in a segfault if you do not assign it a new instance.
   Trajectory(Trajectory&&) = default;
   Trajectory& operator=(Trajectory&&) = default;
-
-  /// Get the name of the map that this Trajectory takes place in
-  std::string get_map_name() const;
-
-  /// Set which map this Trajectory takes place in
-  Trajectory& set_map_name(std::string name);
 
   /// Contains two fields:
   /// * iterator it:   contains the iterator for the Segment that ends at the
@@ -339,7 +181,6 @@ public:
   /// finish_time, ensuring correct ordering of all Segments.
   InsertionResult insert(
       Time finish_time,
-      ConstProfilePtr profile,
       Eigen::Vector3d position,
       Eigen::Vector3d velocity);
 
