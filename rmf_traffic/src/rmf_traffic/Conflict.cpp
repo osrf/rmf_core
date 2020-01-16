@@ -240,6 +240,108 @@ fcl::ContinuousCollisionRequest make_fcl_request()
   return request;
 }
 
+using BoundingBox = std::pair<Eigen::Vector2d, Eigen::Vector2d>;
+struct Coeffs
+{
+public:
+  double a;
+  double b;
+  double c;
+  double d;
+
+ Coeffs()
+ {
+   a = 0;
+   b = 0;
+   c = 0;
+   d= 0;
+ }
+  Coeffs(
+      double a_,
+      double b_,
+      double c_,
+      double d_)
+  : a(a_),
+    b(b_),
+    c(c_),
+    d(d_)
+  {}
+};
+
+// Container for storing the coefficients of x and y spline motions
+using SplineCoeffs = std::pair<Coeffs, Coeffs>;
+
+SplineCoeffs get_spline_coefficients(
+    Trajectory::Segment& seg_a,
+    Trajectory::Segment& seg_b)
+{
+  SplineCoeffs spline_coeffs;
+
+  auto get_coeffs = [&](int index) -> Coeffs
+  {
+    assert(index > 0 && index < 2);
+    uint64_t initial_time = seg_a.get_finish_time().time_since_epoch().count();
+    uint64_t final_time = seg_b.get_finish_time().time_since_epoch().count();
+    double initial_position = seg_a.get_finish_position()[index];
+    double final_position = seg_b.get_finish_position()[index];
+    double initial_velocity = seg_a.get_finish_velocity()[index];
+    double final_velocity = seg_b.get_finish_velocity()[index];
+
+    auto td = final_time - initial_time;
+    auto x0 = initial_position;
+    auto x1 = final_position;
+    auto v0 = initial_velocity;
+    auto v1 = final_velocity;
+    auto w0 = v0/td;
+    auto w1 = v1/td;
+    
+    auto a = w1 + w0 -2*x1 + 2*x0;
+    auto b = -w1 - 2*w0 +3*x1 -3*x0;
+    auto c = w0;
+    auto d = x0;
+
+    return Coeffs(a, b, c, d);
+  };
+
+  spline_coeffs.first = get_coeffs(0);
+  spline_coeffs.second = get_coeffs(1);
+  return spline_coeffs;
+}
+
+void get_solutions(
+    rmf_traffic::Trajectory::iterator& begin,
+    rmf_traffic::Trajectory::iterator& end,
+    std::vector<double>& x_sols,
+    std::vector<double>& y_sols,
+    std::mutex* mutex = nullptr)
+{
+  for (auto it = begin; it != end; it++)
+  {
+
+  }
+}
+
+BoundingBox get_bounding_box(const Trajectory& trajectory)
+{
+  BoundingBox bounding_box;
+  std::vector<double> x_sols;
+  std::vector<double> y_sols;
+  auto size = trajectory.size();
+  std::mutex mutex;
+
+  // get x_sols and y_sols
+
+  Eigen::Vector2d min_coord = Eigen::Vector2d{
+      *std::min_element(x_sols.begin(), x_sols.end()),
+      *std::min_element(y_sols.begin(), y_sols.end())};
+  Eigen::Vector2d max_coord = Eigen::Vector2d{
+      *std::max_element(x_sols.begin(), x_sols.end()),
+      *std::max_element(y_sols.begin(), y_sols.end())};
+  bounding_box.first = min_coord;
+  bounding_box.second = max_coord;
+  return bounding_box;
+}
+
 } // anonymous namespace
 
 class DetectConflict::Implementation
