@@ -378,7 +378,7 @@ SCENARIO("DetectConflict unit tests")
 
                   REQUIRE(trajectory_c.size() == 2);
 
-                  CHECK(rmf_traffic::DetectConflict::broad_phase(
+                  CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(
                       trajectory_a, trajectory_c));
 
                   const auto conflicts = rmf_traffic::DetectConflict::narrow_phase(

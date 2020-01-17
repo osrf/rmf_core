@@ -226,20 +226,18 @@ double evaluate_spline(
 
 void get_local_extrema(
     const Coeffs& coeffs,
-    std::vector<double>& sols,
-    std::mutex* mutex = nullptr)
+    std::vector<double>& sols)
 {
-  // Check if coefficients form a quadratic equation
+  // When derivate of spline motion is not quadratic
   if (coeffs.a == 0)
   {
     if (coeffs.b != 0)
       sols.emplace_back(-coeffs.c / coeffs.b);
     else
-      sols.emplace_back(0);
-
+      sols.emplace_back(coeffs.d);
     return;
   }
-  // Calculate the discriminant
+  // Calculate the discriminant otherwise
   double D = (4 * coeffs.b * coeffs.b) - 12 * coeffs.a * coeffs.c;
 
   if (D < 0)
@@ -251,9 +249,6 @@ void get_local_extrema(
     double t = (-2 * coeffs.b) / (6 * coeffs.a);
     double extrema = evaluate_spline(coeffs, t);
     sols.emplace_back(extrema);
-
-    // std::cout << "Roots: " << t << std::endl;
-    // std::cout << "Extrema: " << extrema << std::endl;
   }
   else
   {
@@ -265,10 +260,6 @@ void get_local_extrema(
 
     sols.emplace_back(extrema1);
     sols.emplace_back(extrema2);
-
-    // std::cout<< "Roots: " << t1 << " , " << t2 << std::endl;
-    // std::cout << "Extrema 1: " << extrema1 << std::endl;
-    // std::cout << "Extrema 2: " << extrema2 << std::endl;
   }
 }
 
@@ -276,8 +267,7 @@ void get_solutions(
     rmf_traffic::Trajectory::const_iterator begin,
     rmf_traffic::Trajectory::const_iterator end,
     std::vector<double>& x_sols,
-    std::vector<double>& y_sols,
-    std::mutex* mutex = nullptr)
+    std::vector<double>& y_sols)
 {
   for (auto it = begin; it < end; it++)
   {
@@ -316,7 +306,7 @@ BoundingBox get_bounding_box(const Trajectory& trajectory)
 
   // Applying offsets for profile of trajectory
   // TODO get characteristic length from geometry::FinalShape
-  // Current behavior is undefined.
+  // Current behavior is undefined if profile is Box.
   double char_length = -1;
   try
   {
@@ -342,7 +332,25 @@ BoundingBox get_bounding_box(const Trajectory& trajectory)
 
 bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
 {
-  return false;
+  auto centre = [&](const BoundingBox& box) -> Eigen::Vector2d
+  {
+    return (0.5 * (box.second + box.first));
+  };
+
+  Eigen::Vector2d centre_a = centre(box_a);
+  Eigen::Vector2d centre_b = centre(box_b);
+  double width_a = std::abs(box_a.second[0] - box_a.first[0]);
+  double height_a = std::abs(box_a.second[1] - box_a.first[1]);
+  double width_b = std::abs(box_b.second[0] - box_b.first[0]);
+  double height_b = std::abs(box_b.second[1] - box_b.first[1]);
+
+  // std::cout << "Box A: << Centre [" << centre_a[0] << ", " << centre_a[1] << "] "
+  //     << "Width " << width_a << " Height " << height_a <<std::endl;
+  // std::cout << "Box B: << Centre [" << centre_b[0] << ", " << centre_b[1] << "] "
+  //     << "Width " << width_b << " Height " << height_b <<std::endl;
+
+  return std::abs(centre_b[0] - centre_a[0]) < 0.5 * (width_a + width_b)
+      &&  std::abs(centre_b[1] - centre_a[1]) < 0.5 * (height_a + height_b);
 }
 
 } // anonymous namespace
@@ -395,10 +403,10 @@ bool DetectConflict::broad_phase(
   auto box_a = get_bounding_box(trajectory_a);
   auto box_b = get_bounding_box(trajectory_b);
 
-  std::cout << "Bounding Box A: [" << box_a.first[0] << ", " 
-      << box_a.first[1] << "] , [" << box_a.second[0] << ", " << box_a.second[1] << "]\n";
-  std::cout << "Bounding Box B: [" << box_b.first[0] << ", " 
-      << box_b.first[1] << "] , [" << box_b.second[0] << ", " << box_b.second[1] << "]\n";
+  // std::cout << "Bounding Box A: [" << box_a.first[0] << ", " 
+  //     << box_a.first[1] << "] , [" << box_a.second[0] << ", " << box_a.second[1] << "]\n";
+  // std::cout << "Bounding Box B: [" << box_b.first[0] << ", " 
+  //     << box_b.first[1] << "] , [" << box_b.second[0] << ", " << box_b.second[1] << "]\n";
   return overlap(box_a, box_b);
 }
 

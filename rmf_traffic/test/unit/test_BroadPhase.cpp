@@ -27,43 +27,163 @@ using namespace std::chrono_literals;
 SCENARIO("Test Broad-Phase Collision Detection")
 {
   auto begin_time = std::chrono::steady_clock::now();
+  auto profile = make_test_profile(UnitCircle);
 
-  rmf_traffic::Trajectory trajectory_a("test_map");
-  auto profile = make_test_profile(UnitBox);
+  const bool test_performance = true;
+  const std::size_t N = test_performance? 3000 : 1;
 
-  // profile = rmf_traffic::Trajectory::Profile::make_guided(
-  //       rmf_traffic::geometry::make_final_convex<
-  //         rmf_traffic::geometry::Box>(5.0, 3.0));
+  GIVEN("Two stationary trajectories that do not overlap in space")
+  {
+    rmf_traffic::Trajectory trajectory_a("test_map");
+    trajectory_a.insert(
+        begin_time,
+        profile,
+        Eigen::Vector3d{0.0, 0.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    trajectory_a.insert(
+        begin_time + 10s,
+        profile,
+        Eigen::Vector3d{0.0, 0.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    REQUIRE(trajectory_a.size() == 2);
 
-  trajectory_a.insert(
-      begin_time,
+    rmf_traffic::Trajectory trajectory_b("test_map");
+    trajectory_b.insert(
+        begin_time,
+        profile,
+        Eigen::Vector3d{10.0, 10.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    trajectory_b.insert(
+        begin_time + 10s,
+        profile,
+        Eigen::Vector3d{10.0, 10.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    REQUIRE(trajectory_b.size() == 2);
+
+
+    const auto start_time = std::chrono::steady_clock::now();
+    for (std::size_t i = 0; i < N; ++i)
+    {
+      CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(
+          trajectory_a,
+          trajectory_b));    
+    }
+    const auto end_time = std::chrono::steady_clock::now();
+
+    if (test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "Two stationary trajectories that do not overlap in space\n";
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
+  }
+
+  GIVEN("Two non-overlapping L-shaped trajectories")
+  {
+    rmf_traffic::Trajectory trajectory_a("test_map");
+    trajectory_a.insert(
+        begin_time,
+        profile,
+        Eigen::Vector3d{-10.0, 10.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    trajectory_a.insert(
+        begin_time + 10s,
+        profile,
+        Eigen::Vector3d{-5.0, 10.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    trajectory_a.insert(
+        begin_time + 15s,
+        profile,
+        Eigen::Vector3d{-5.0, 10.0, M_PI_2},
+        Eigen::Vector3d{0.0, 0.0, 0.0});  
+    trajectory_a.insert(
+        begin_time + 25s,
+        profile,
+        Eigen::Vector3d{-5.0, 15.0, M_PI_2},
+        Eigen::Vector3d{0.0, 0.0, 0.0});      
+    REQUIRE(trajectory_a.size() == 4);
+
+    rmf_traffic::Trajectory trajectory_b("test_map");
+    trajectory_b.insert(
+        begin_time,
+        profile,
+        Eigen::Vector3d{10.0, -10.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    trajectory_b.insert(
+        begin_time + 10s,
+        profile,
+        Eigen::Vector3d{10.0, -5.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0});
+    trajectory_b.insert(
+        begin_time + 15s,
+        profile,
+        Eigen::Vector3d{10.0, -5.0, M_PI},
+        Eigen::Vector3d{0.0, 0.0, 0.0});  
+    trajectory_b.insert(
+        begin_time + 25s,
+        profile,
+        Eigen::Vector3d{5.0, -5.0, M_PI},
+        Eigen::Vector3d{0.0, 0.0, 0.0});      
+    REQUIRE(trajectory_b.size() == 4);
+
+    const auto start_time = std::chrono::steady_clock::now();
+    for (std::size_t i = 0; i < N; ++i)
+    {
+      CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(
+          trajectory_a,
+          trajectory_b));    
+    }
+    const auto end_time = std::chrono::steady_clock::now();
+
+    if (test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "Two non-overlapping L-shaped trajectories\n";
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
+  }
+
+  GIVEN("Two overlapping parallel straight-line trajectories with n segments")
+  {
+    int n_seg = 200;
+
+    rmf_traffic::Trajectory trajectory_a("test_map");
+    rmf_traffic::Trajectory trajectory_b("test_map");
+
+    for (auto i = 0; i < n_seg; i++)
+    {
+      trajectory_a.insert(
+      begin_time + std::chrono::seconds(i * 5),
       profile,
-      Eigen::Vector3d{0.0, 0.0, 0.0},
+      Eigen::Vector3d{0.0 + i*10.0, 10.0, 0},
       Eigen::Vector3d{0.0, 0.0, 0.0});
-  trajectory_a.insert(
-      begin_time + 10s,
+
+      trajectory_b.insert(
+      begin_time + std::chrono::seconds(i * 5),
       profile,
-      Eigen::Vector3d{0.0, 0.0, 0.0},
+      Eigen::Vector3d{0.0 + i*10.0, 9.0, 0},
       Eigen::Vector3d{0.0, 0.0, 0.0});
+    }
+    REQUIRE(trajectory_a.size() == n_seg);
+    REQUIRE(trajectory_b.size() == n_seg);
 
-  REQUIRE(trajectory_a.size() == 2);
+    const auto start_time = std::chrono::steady_clock::now();
+    for (std::size_t i = 0; i < N; ++i)
+    {
+      CHECK(rmf_traffic::DetectConflict::broad_phase(
+          trajectory_a,
+          trajectory_b));    
+    }
+    const auto end_time = std::chrono::steady_clock::now();
 
-  rmf_traffic::Trajectory trajectory_b("test_map");
-  trajectory_b.insert(
-      begin_time,
-      profile,
-      Eigen::Vector3d{-5.0, 0, 0.0},
-      Eigen::Vector3d{1.0, 0.0, 0.0});
-  trajectory_b.insert(
-      begin_time + 10s,
-      profile,
-      Eigen::Vector3d{0.0, -5.0, 0.0},
-      Eigen::Vector3d{0.0, -1.0, 0.0});
-
-  REQUIRE(trajectory_b.size() == 2);
-
-  CHECK(rmf_traffic::DetectConflict::broad_phase(
-      trajectory_a,
-      trajectory_b));
-
+    if (test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "Straight-line trajectories with " << n_seg << " segments\n";
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
+  }
 }
