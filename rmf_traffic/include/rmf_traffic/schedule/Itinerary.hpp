@@ -18,62 +18,18 @@
 #ifndef RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
 #define RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
 
-#include <rmf_traffic/Trajectory.hpp>
-#include <rmf_traffic/detail/bidirectional_iterator.hpp>
+#include <rmf_traffic/schedule/Route.hpp>
+
+#include <vector>
 
 namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-class Itinerary
-{
-public:
+using RouteId = uint64_t;
 
-  class Element
-  {
-  public:
-
-    /// Constructor
-    ///
-    /// \param[in] map
-    ///   The map that the trajectory is on
-    ///
-    /// \param[in] trajectory
-    ///   The scheduled trajectory
-    ///
-    Element(
-        std::string map,
-        Trajectory trajectory);
-
-    /// Set the map for this itinerary element
-    Element& map(std::string value);
-
-    /// Get the map for this itinerary element
-    const std::string& map() const;
-
-    /// Set the trajectory for this itinerary element
-    Element& trajectory(Trajectory value);
-
-    /// Get the trajectory for this itinerary element
-    const Trajectory& trajectory() const;
-
-  private:
-    class Implementation;
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
-  template<typename E, typename I, typename F>
-  using base_iterator = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
-
-  class IterImpl;
-  using iterator = base_iterator<Element, IterImpl, Itinerary>;
-  using const_iterator = base_iterator<const Element, IterImpl, Itinerary>;
-
-
-private:
-  class Implementation;
-  rmf_utils::impl_ptr<Implementation> _pimpl;
-};
+//==============================================================================
+using Itinerary = std::vector<Route>;
 
 } // namespace schedule
 } // namespace rmf_traffic

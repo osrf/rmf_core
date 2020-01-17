@@ -21,11 +21,12 @@
 #include <rmf_traffic/detail/bidirectional_iterator.hpp>
 
 #include <rmf_traffic/schedule/Query.hpp>
-
-#include <rmf_traffic/Trajectory.hpp>
+#include <rmf_traffic/schedule/Participant.hpp>
+#include <rmf_traffic/schedule/Itinerary.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/macros.hpp>
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -55,8 +56,8 @@ public:
     // TODO(MXG): Replace this with a PIMPL class
     struct Element
     {
-      Version id;
-      const Trajectory& trajectory;
+      ParticipantId participant;
+      const Route& route;
     };
 
     class IterImpl;
@@ -82,12 +83,26 @@ public:
   /// match the Query parameters.
   View query(const Query& parameters) const;
 
+  /// Get the set of active participant IDs.
+  const std::unordered_set<ParticipantId>& participant_ids() const;
+
+  /// Get the information of the specified participant if it is available.
+  /// If a participant with the specified ID is not registered with the
+  /// schedule, then this will return a nullopt.
+  rmf_utils::optional<const Participant&> get_participant(
+      std::size_t participant_id) const;
+
+  /// Get the itinerary of a specific participant if it is available. If a
+  /// participant with the specified ID is not registered with the schedule or
+  /// has never submitted an itinerary, then this will return a nullopt.
+  rmf_utils::optional<const Itinerary&> get_itinerary(
+      std::size_t participant_id) const;
+
   /// Get the oldest version number inside this Database.
   Version oldest_version() const;
 
   /// Get the latest version number of this Database.
   Version latest_version() const;
-
 
   // The Debug class is for internal testing use only. Its definition is not
   // visible to downstream users.

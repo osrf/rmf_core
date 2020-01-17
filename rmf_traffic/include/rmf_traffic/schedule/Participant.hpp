@@ -25,6 +25,8 @@
 namespace rmf_traffic {
 namespace schedule {
 
+using ParticipantId = uint64_t;
+
 //==============================================================================
 class Participant
 {
@@ -75,8 +77,8 @@ public:
       std::string name,
       std::string owner,
       Rx responsiveness,
-      geometry::ConstFinalShapePtr footprint,
-      geometry::ConstFinalShapePtr vicinity);
+      geometry::ConstFinalConvexShapePtr footprint,
+      geometry::ConstFinalConvexShapePtr vicinity);
 
   /// Set the name of the participant.
   Participant& name(std::string value);
