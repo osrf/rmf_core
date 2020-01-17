@@ -21,11 +21,15 @@
 #include "StaticMotion.hpp"
 
 #include <rmf_traffic/Conflict.hpp>
+#include <rmf_traffic/geometry/Box.hpp>
+#include <rmf_traffic/geometry/Circle.hpp>
 
 #include <fcl/continuous_collision.h>
 #include <fcl/ccd/motion.h>
 
 #include <unordered_map>
+#include <mutex>
+#include <thread>
 
 namespace rmf_traffic {
 
@@ -121,6 +125,228 @@ std::vector<ConflictData> DetectConflict::between(
 }
 
 //==============================================================================
+
+namespace {
+
+using BoundingBox = std::pair<Eigen::Vector2d, Eigen::Vector2d>;
+struct Coeffs
+{
+public:
+  double a;
+  double b;
+  double c;
+  double d;
+  double ti;
+  double tf;
+
+  Coeffs()
+  {
+    a = 0;
+    b = 0;
+    c = 0;
+    d = 0;
+    ti = 0;
+    tf = 0;
+  }
+
+  Coeffs(
+      double a_,
+      double b_,
+      double c_,
+      double d_,
+      double ti_,
+      double tf_)
+  : a(a_),
+    b(b_),
+    c(c_),
+    d(d_),
+    ti(ti_),
+    tf(tf_)
+  {}
+};
+
+// Container for storing the coefficients of x and y spline motions
+using SplineCoeffs = std::pair<Coeffs, Coeffs>;
+
+SplineCoeffs get_spline_coefficients(
+    rmf_traffic::Trajectory::const_iterator seg_a,
+    rmf_traffic::Trajectory::const_iterator seg_b)
+{
+  SplineCoeffs spline_coeffs;
+
+  auto get_coeffs = [&](int index) -> Coeffs
+  {
+    assert(index >= 0 && index < 2);
+    // Time in seconds and positions in meters
+    double ti = seg_a->get_finish_time().time_since_epoch().count() / 1E9;
+    double tf = seg_b->get_finish_time().time_since_epoch().count() / 1E9;
+    double initial_position = seg_a->get_finish_position()[index];
+    double final_position = seg_b->get_finish_position()[index];
+    double initial_velocity = seg_a->get_finish_velocity()[index];
+    double final_velocity = seg_b->get_finish_velocity()[index];
+
+    double td = (tf - ti);
+    double x0 = initial_position;
+    double x1 = final_position;
+    double v0 = initial_velocity;
+    double v1 = final_velocity;
+    double w0 = v0/td;
+    double w1 = v1/td;
+    
+    double a = w1 + w0 -2*x1 + 2*x0;
+    double b = -w1 - 2*w0 +3*x1 -3*x0;
+    double c = w0;
+    double d = x0;
+
+    // For debugging purposes
+    // if (index == 0)
+    //   std::cout << "x(t)= " << a <<"t^3 + " << b << "t^2 + " << c << "t + " << d <<std::endl;
+    // else
+    //   std::cout << "y(t)= " << a <<"y^3 + " << b << "y^2 + " << c << "y + " << d <<std::endl;
+
+    return Coeffs(a, b, c, d, ti, tf);
+  };
+
+  spline_coeffs.first = get_coeffs(0);
+  spline_coeffs.second = get_coeffs(1);
+
+  return spline_coeffs;
+}
+
+double evaluate_spline(
+    const Coeffs coeffs,
+    const double t)
+{
+  // Assume time is parameterized [0,1]
+  return (coeffs.a * t * t * t
+      + coeffs.b * t * t
+      + coeffs.c * t
+      + coeffs.d);
+}
+
+void get_local_extrema(
+    const Coeffs& coeffs,
+    std::vector<double>& sols,
+    std::mutex* mutex = nullptr)
+{
+  // Check if coefficients form a quadratic equation
+  if (coeffs.a == 0)
+  {
+    if (coeffs.b != 0)
+      sols.emplace_back(-coeffs.c / coeffs.b);
+    else
+      sols.emplace_back(0);
+
+    return;
+  }
+  // Calculate the discriminant
+  double D = (4 * coeffs.b * coeffs.b) - 12 * coeffs.a * coeffs.c;
+
+  if (D < 0)
+  {
+    return;
+  }
+  else if (D == 0)
+  {
+    double t = (-2 * coeffs.b) / (6 * coeffs.a);
+    double extrema = evaluate_spline(coeffs, t);
+    sols.emplace_back(extrema);
+
+    // std::cout << "Roots: " << t << std::endl;
+    // std::cout << "Extrema: " << extrema << std::endl;
+  }
+  else
+  {
+    double t1 = ((-2 * coeffs.b) + std::sqrt(D)) / (6 * coeffs.a);
+    double t2 = ((-2 * coeffs.b) - std::sqrt(D)) / (6 * coeffs.a);
+
+    double extrema1 = evaluate_spline(coeffs, t1);
+    double extrema2 = evaluate_spline(coeffs, t2);
+
+    sols.emplace_back(extrema1);
+    sols.emplace_back(extrema2);
+
+    // std::cout<< "Roots: " << t1 << " , " << t2 << std::endl;
+    // std::cout << "Extrema 1: " << extrema1 << std::endl;
+    // std::cout << "Extrema 2: " << extrema2 << std::endl;
+  }
+}
+
+void get_solutions(
+    rmf_traffic::Trajectory::const_iterator begin,
+    rmf_traffic::Trajectory::const_iterator end,
+    std::vector<double>& x_sols,
+    std::vector<double>& y_sols,
+    std::mutex* mutex = nullptr)
+{
+  for (auto it = begin; it < end; it++)
+  {
+    auto it2 = it;
+    auto spline_coeffs = get_spline_coefficients(it, ++it2);
+    get_local_extrema(spline_coeffs.first, x_sols);
+    get_local_extrema(spline_coeffs.second, y_sols);
+  }
+}
+
+BoundingBox get_bounding_box(const Trajectory& trajectory)
+{
+  BoundingBox bounding_box;
+  std::vector<double> x_sols;
+  std::vector<double> y_sols;
+
+  // auto size = trajectory.size();
+  // std::mutex mutex;
+  // int n_threads = 2;
+  // std::vector<std::thread> threads;
+
+  auto begin_it = trajectory.find(*trajectory.start_time());
+  auto end_it = trajectory.find(*trajectory.finish_time());
+  assert(begin_it != trajectory.end());
+  assert(end_it != trajectory.end());
+
+  get_solutions(begin_it, end_it, x_sols, y_sols);
+
+  Eigen::Vector2d min_coord = Eigen::Vector2d{
+      *std::min_element(x_sols.begin(), x_sols.end()),
+      *std::min_element(y_sols.begin(), y_sols.end())};
+
+  Eigen::Vector2d max_coord = Eigen::Vector2d{
+      *std::max_element(x_sols.begin(), x_sols.end()),
+      *std::max_element(y_sols.begin(), y_sols.end())};
+
+  // Applying offsets for profile of trajectory
+  // TODO get characteristic length from geometry::FinalShape
+  // Current behavior is undefined.
+  double char_length = -1;
+  try
+  {
+    char_length = static_cast<const rmf_traffic::geometry::Circle&>(
+    trajectory.begin()->get_profile()->get_shape()->source()).get_radius();
+  }
+  catch(const std::exception& e)
+  {
+    std::cerr << e.what() << '\n';
+  }
+  
+  if (char_length > 0)
+  {
+    min_coord -= Eigen::Vector2d{char_length, char_length};
+    max_coord += Eigen::Vector2d{char_length, char_length};
+  }
+
+  bounding_box.first = min_coord;
+  bounding_box.second = max_coord;
+
+  return bounding_box;
+}
+
+bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
+{
+  return false;
+}
+
+} // anonymous namespace
+
 bool DetectConflict::broad_phase(
     const Trajectory& trajectory_a,
     const Trajectory& trajectory_b)
@@ -165,7 +391,15 @@ bool DetectConflict::broad_phase(
     return false;
   }
 
-  return true;
+  // Check for overap of bounding boxes of the trajectories
+  auto box_a = get_bounding_box(trajectory_a);
+  auto box_b = get_bounding_box(trajectory_b);
+
+  std::cout << "Bounding Box A: [" << box_a.first[0] << ", " 
+      << box_a.first[1] << "] , [" << box_a.second[0] << ", " << box_a.second[1] << "]\n";
+  std::cout << "Bounding Box B: [" << box_b.first[0] << ", " 
+      << box_b.first[1] << "] , [" << box_b.second[0] << ", " << box_b.second[1] << "]\n";
+  return overlap(box_a, box_b);
 }
 
 namespace {
@@ -238,108 +472,6 @@ fcl::ContinuousCollisionRequest make_fcl_request()
   request.gjk_solver_type = fcl::GST_LIBCCD;
 
   return request;
-}
-
-using BoundingBox = std::pair<Eigen::Vector2d, Eigen::Vector2d>;
-struct Coeffs
-{
-public:
-  double a;
-  double b;
-  double c;
-  double d;
-
- Coeffs()
- {
-   a = 0;
-   b = 0;
-   c = 0;
-   d= 0;
- }
-  Coeffs(
-      double a_,
-      double b_,
-      double c_,
-      double d_)
-  : a(a_),
-    b(b_),
-    c(c_),
-    d(d_)
-  {}
-};
-
-// Container for storing the coefficients of x and y spline motions
-using SplineCoeffs = std::pair<Coeffs, Coeffs>;
-
-SplineCoeffs get_spline_coefficients(
-    Trajectory::Segment& seg_a,
-    Trajectory::Segment& seg_b)
-{
-  SplineCoeffs spline_coeffs;
-
-  auto get_coeffs = [&](int index) -> Coeffs
-  {
-    assert(index > 0 && index < 2);
-    uint64_t initial_time = seg_a.get_finish_time().time_since_epoch().count();
-    uint64_t final_time = seg_b.get_finish_time().time_since_epoch().count();
-    double initial_position = seg_a.get_finish_position()[index];
-    double final_position = seg_b.get_finish_position()[index];
-    double initial_velocity = seg_a.get_finish_velocity()[index];
-    double final_velocity = seg_b.get_finish_velocity()[index];
-
-    auto td = final_time - initial_time;
-    auto x0 = initial_position;
-    auto x1 = final_position;
-    auto v0 = initial_velocity;
-    auto v1 = final_velocity;
-    auto w0 = v0/td;
-    auto w1 = v1/td;
-    
-    auto a = w1 + w0 -2*x1 + 2*x0;
-    auto b = -w1 - 2*w0 +3*x1 -3*x0;
-    auto c = w0;
-    auto d = x0;
-
-    return Coeffs(a, b, c, d);
-  };
-
-  spline_coeffs.first = get_coeffs(0);
-  spline_coeffs.second = get_coeffs(1);
-  return spline_coeffs;
-}
-
-void get_solutions(
-    rmf_traffic::Trajectory::iterator& begin,
-    rmf_traffic::Trajectory::iterator& end,
-    std::vector<double>& x_sols,
-    std::vector<double>& y_sols,
-    std::mutex* mutex = nullptr)
-{
-  for (auto it = begin; it != end; it++)
-  {
-
-  }
-}
-
-BoundingBox get_bounding_box(const Trajectory& trajectory)
-{
-  BoundingBox bounding_box;
-  std::vector<double> x_sols;
-  std::vector<double> y_sols;
-  auto size = trajectory.size();
-  std::mutex mutex;
-
-  // get x_sols and y_sols
-
-  Eigen::Vector2d min_coord = Eigen::Vector2d{
-      *std::min_element(x_sols.begin(), x_sols.end()),
-      *std::min_element(y_sols.begin(), y_sols.end())};
-  Eigen::Vector2d max_coord = Eigen::Vector2d{
-      *std::max_element(x_sols.begin(), x_sols.end()),
-      *std::max_element(y_sols.begin(), y_sols.end())};
-  bounding_box.first = min_coord;
-  bounding_box.second = max_coord;
-  return bounding_box;
 }
 
 } // anonymous namespace

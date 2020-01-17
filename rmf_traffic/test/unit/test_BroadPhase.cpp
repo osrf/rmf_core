@@ -29,7 +29,12 @@ SCENARIO("Test Broad-Phase Collision Detection")
   auto begin_time = std::chrono::steady_clock::now();
 
   rmf_traffic::Trajectory trajectory_a("test_map");
-  auto profile = make_test_profile(UnitCircle);
+  auto profile = make_test_profile(UnitBox);
+
+  // profile = rmf_traffic::Trajectory::Profile::make_guided(
+  //       rmf_traffic::geometry::make_final_convex<
+  //         rmf_traffic::geometry::Box>(5.0, 3.0));
+
   trajectory_a.insert(
       begin_time,
       profile,
@@ -47,17 +52,18 @@ SCENARIO("Test Broad-Phase Collision Detection")
   trajectory_b.insert(
       begin_time,
       profile,
-      Eigen::Vector3d{5.0, 0.0, 0.0},
-      Eigen::Vector3d{0.0, 0.0, 0.0});
+      Eigen::Vector3d{-5.0, 0, 0.0},
+      Eigen::Vector3d{1.0, 0.0, 0.0});
   trajectory_b.insert(
       begin_time + 10s,
       profile,
-      Eigen::Vector3d{5.0, 0.0, 0.0},
-      Eigen::Vector3d{0.0, 0.0, 0.0});
+      Eigen::Vector3d{0.0, -5.0, 0.0},
+      Eigen::Vector3d{0.0, -1.0, 0.0});
 
   REQUIRE(trajectory_b.size() == 2);
 
   CHECK(rmf_traffic::DetectConflict::broad_phase(
       trajectory_a,
       trajectory_b));
+
 }
