@@ -40,7 +40,7 @@ public:
   /// Update this mirror.
   ///
   /// \return the last version that this Mirror knows of
-  Version update(const Database::Patch& patch);
+  Version update(const Patch& patch);
 
   // TODO(MXG): Consider a feature to log and report any possible
   // inconsistencies that might show up with the patches, e.g. replacing or

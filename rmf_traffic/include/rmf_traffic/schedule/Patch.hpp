@@ -59,18 +59,18 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-
 } // namespace schedule
-} // namespace rmf_traffic
 
 namespace detail {
 
 extern template class bidirectional_iterator<
-    const schedule::Database::Change,
-    schedule::Database::Patch::IterImpl,
-    schedule::Database::Patch
+    const schedule::Change,
+    schedule::Patch::IterImpl,
+    schedule::Patch
 >;
 
 }
+
+} // namespace rmf_traffic
 
 #endif // RMF_TRAFFIC__SCHEDULE__PATCH_HPP

@@ -124,17 +124,6 @@ public:
       ParticipantId participant,
       std::vector<RouteId> routes);
 
-  /// Make a culling
-  ///
-  /// \param[in] time
-  ///   The cut-off time for the culling. Trajectories that finish before this
-  ///   time-point will be culled from the database, and all memory of them
-  ///   will be destroyed.
-  ///
-  /// \param[in] id
-  ///   The ID of this culling
-  static Change make_cull(Time time);
-
   /// The API for a Put change
   class Put
   {
@@ -146,6 +135,7 @@ public:
     class Implementation;
   private:
     Put();
+    friend class Change;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -160,6 +150,7 @@ public:
     class Implementation;
   private:
     Post();
+    friend class Change;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -177,6 +168,7 @@ public:
     class Implementation;
   private:
     Delay();
+    friend class Change;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -196,20 +188,7 @@ public:
     class Implementation;
   private:
     Erase();
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
-  /// The API for a cull
-  class Cull
-  {
-  public:
-
-    /// The cut-off time for the culling.
-    Time time() const;
-
-    class Implementation;
-  private:
-    Cull();
+    friend class Change;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -217,7 +196,7 @@ public:
   Mode get_mode() const;
 
   /// Get the version ID that this change refers to
-  ParticipantId id() const;
+  ParticipantId participant() const;
 
   /// Get the Put interface if this is a Put type change. Otherwise this returns
   /// a nullptr.
@@ -234,10 +213,6 @@ public:
   /// Get the Erase interface if this is an Erase type change. Otherwise this
   /// returns a nullptr.
   const Erase* erase() const;
-
-  /// Get the Cull interface if this is a Cull type change. Otherwise this
-  /// returns a nullptr.
-  const Cull* cull() const;
 
   class Implementation;
 private:
