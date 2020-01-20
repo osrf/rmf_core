@@ -168,6 +168,7 @@ public:
 // Container for storing the coefficients of x and y spline motions
 using SplineCoeffs = std::pair<Coeffs, Coeffs>;
 
+// TODO Add get_param() function to Spline.hpp and delete below function
 SplineCoeffs get_spline_coefficients(
     rmf_traffic::Trajectory::const_iterator seg_a,
     rmf_traffic::Trajectory::const_iterator seg_b)
@@ -197,12 +198,6 @@ SplineCoeffs get_spline_coefficients(
     double b = -w1 - 2*w0 +3*x1 -3*x0;
     double c = w0;
     double d = x0;
-
-    // For debugging purposes
-    // if (index == 0)
-    //   std::cout << "x(t)= " << a <<"t^3 + " << b << "t^2 + " << c << "t + " << d <<std::endl;
-    // else
-    //   std::cout << "y(t)= " << a <<"y^3 + " << b << "y^2 + " << c << "y + " << d <<std::endl;
 
     return Coeffs(a, b, c, d, ti, tf);
   };
@@ -267,68 +262,6 @@ void get_local_extrema(
   }
 }
 
-void get_solutions(
-    rmf_traffic::Trajectory::const_iterator begin,
-    rmf_traffic::Trajectory::const_iterator end,
-    std::vector<double>& x_sols,
-    std::vector<double>& y_sols)
-{
-  for (auto it = begin; it < end; it++)
-  {
-    auto it2 = it;
-    auto spline_coeffs = get_spline_coefficients(it, ++it2);
-    get_local_extrema(spline_coeffs.first, x_sols);
-    get_local_extrema(spline_coeffs.second, y_sols);
-  }
-}
-
-BoundingBox get_bounding_box(const Trajectory& trajectory)
-{
-  BoundingBox bounding_box;
-  std::vector<double> x_sols;
-  std::vector<double> y_sols;
-
-  auto begin_it = trajectory.find(*trajectory.start_time());
-  auto end_it = trajectory.find(*trajectory.finish_time());
-  assert(begin_it != trajectory.end());
-  assert(end_it != trajectory.end());
-
-  get_solutions(begin_it, end_it, x_sols, y_sols);
-
-  Eigen::Vector2d min_coord = Eigen::Vector2d{
-      *std::min_element(x_sols.begin(), x_sols.end()),
-      *std::min_element(y_sols.begin(), y_sols.end())};
-
-  Eigen::Vector2d max_coord = Eigen::Vector2d{
-      *std::max_element(x_sols.begin(), x_sols.end()),
-      *std::max_element(y_sols.begin(), y_sols.end())};
-
-  // Applying offsets for profile of trajectory
-  // TODO get characteristic length from geometry::FinalShape
-  // Current behavior is undefined if profile is Box.
-  double char_length = -1;
-  try
-  {
-    char_length = static_cast<const rmf_traffic::geometry::Circle&>(
-    trajectory.begin()->get_profile()->get_shape()->source()).get_radius();
-  }
-  catch(const std::exception& e)
-  {
-    std::cerr << e.what() << '\n';
-  }
-  
-  if (char_length > 0)
-  {
-    min_coord -= Eigen::Vector2d{char_length, char_length};
-    max_coord += Eigen::Vector2d{char_length, char_length};
-  }
-
-  bounding_box.first = min_coord;
-  bounding_box.second = max_coord;
-
-  return bounding_box;
-}
-
 BoundingBox get_bounding_box(const rmf_traffic::Trajectory::const_iterator end)
 {
   BoundingBox bounding_box;
@@ -389,11 +322,6 @@ bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
   double height_a = std::abs(box_a.second[1] - box_a.first[1]);
   double width_b = std::abs(box_b.second[0] - box_b.first[0]);
   double height_b = std::abs(box_b.second[1] - box_b.first[1]);
-
-  // std::cout << "Box A: << Centre [" << centre_a[0] << ", " << centre_a[1] << "] "
-  //     << "Width " << width_a << " Height " << height_a <<std::endl;
-  // std::cout << "Box B: << Centre [" << centre_b[0] << ", " << centre_b[1] << "] "
-  //     << "Width " << width_b << " Height " << height_b <<std::endl;
 
   return std::abs(centre_b[0] - centre_a[0]) < 0.5 * (width_a + width_b)
       &&  std::abs(centre_b[1] - centre_a[1]) < 0.5 * (height_a + height_b);
