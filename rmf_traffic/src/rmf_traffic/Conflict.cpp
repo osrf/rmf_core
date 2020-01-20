@@ -228,38 +228,42 @@ void get_local_extrema(
     const Coeffs& coeffs,
     std::vector<double>& sols)
 {
+  // Store boundary values as potentaial extrema
+  sols.emplace_back(evaluate_spline(coeffs, 0));
+  sols.emplace_back(evaluate_spline(coeffs, 1));
+
   // When derivate of spline motion is not quadratic
   if (coeffs.a == 0)
   {
     if (coeffs.b != 0)
       sols.emplace_back(-coeffs.c / coeffs.b);
-    else
-      sols.emplace_back(coeffs.d);
-    return;
-  }
-  // Calculate the discriminant otherwise
-  double D = (4 * coeffs.b * coeffs.b) - 12 * coeffs.a * coeffs.c;
-
-  if (D < 0)
-  {
-    return;
-  }
-  else if (D == 0)
-  {
-    double t = (-2 * coeffs.b) / (6 * coeffs.a);
-    double extrema = evaluate_spline(coeffs, t);
-    sols.emplace_back(extrema);
   }
   else
   {
-    double t1 = ((-2 * coeffs.b) + std::sqrt(D)) / (6 * coeffs.a);
-    double t2 = ((-2 * coeffs.b) - std::sqrt(D)) / (6 * coeffs.a);
+    // Calculate the discriminant otherwise
+    double D = (4 * coeffs.b * coeffs.b) - 12 * coeffs.a * coeffs.c;
 
-    double extrema1 = evaluate_spline(coeffs, t1);
-    double extrema2 = evaluate_spline(coeffs, t2);
+    if (D < 0)
+    {
+      // Do nothing
+    }
+    else if (D == 0)
+    {
+      double t = (-2 * coeffs.b) / (6 * coeffs.a);
+      double extrema = evaluate_spline(coeffs, t);
+      sols.emplace_back(extrema);
+    }
+    else
+    {
+      double t1 = ((-2 * coeffs.b) + std::sqrt(D)) / (6 * coeffs.a);
+      double t2 = ((-2 * coeffs.b) - std::sqrt(D)) / (6 * coeffs.a);
 
-    sols.emplace_back(extrema1);
-    sols.emplace_back(extrema2);
+      double extrema1 = evaluate_spline(coeffs, t1);
+      double extrema2 = evaluate_spline(coeffs, t2);
+
+      sols.emplace_back(extrema1);
+      sols.emplace_back(extrema2);
+    }
   }
 }
 
@@ -283,11 +287,6 @@ BoundingBox get_bounding_box(const Trajectory& trajectory)
   BoundingBox bounding_box;
   std::vector<double> x_sols;
   std::vector<double> y_sols;
-
-  // auto size = trajectory.size();
-  // std::mutex mutex;
-  // int n_threads = 2;
-  // std::vector<std::thread> threads;
 
   auto begin_it = trajectory.find(*trajectory.start_time());
   auto end_it = trajectory.find(*trajectory.finish_time());
@@ -344,11 +343,6 @@ bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
   double width_b = std::abs(box_b.second[0] - box_b.first[0]);
   double height_b = std::abs(box_b.second[1] - box_b.first[1]);
 
-  // std::cout << "Box A: << Centre [" << centre_a[0] << ", " << centre_a[1] << "] "
-  //     << "Width " << width_a << " Height " << height_a <<std::endl;
-  // std::cout << "Box B: << Centre [" << centre_b[0] << ", " << centre_b[1] << "] "
-  //     << "Width " << width_b << " Height " << height_b <<std::endl;
-
   return std::abs(centre_b[0] - centre_a[0]) < 0.5 * (width_a + width_b)
       &&  std::abs(centre_b[1] - centre_a[1]) < 0.5 * (height_a + height_b);
 }
@@ -402,11 +396,7 @@ bool DetectConflict::broad_phase(
   // Check for overap of bounding boxes of the trajectories
   auto box_a = get_bounding_box(trajectory_a);
   auto box_b = get_bounding_box(trajectory_b);
-
-  // std::cout << "Bounding Box A: [" << box_a.first[0] << ", " 
-  //     << box_a.first[1] << "] , [" << box_a.second[0] << ", " << box_a.second[1] << "]\n";
-  // std::cout << "Bounding Box B: [" << box_b.first[0] << ", " 
-  //     << box_b.first[1] << "] , [" << box_b.second[0] << ", " << box_b.second[1] << "]\n";
+  
   return overlap(box_a, box_b);
 }
 
