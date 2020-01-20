@@ -19,6 +19,7 @@
 #define RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
 
 #include <rmf_traffic/schedule/Route.hpp>
+#include <rmf_traffic/schedule/Version.hpp>
 
 #include <vector>
 

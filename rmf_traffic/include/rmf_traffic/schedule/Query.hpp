@@ -192,7 +192,7 @@ public:
 
     /// Timespan mode constructor.
     ///
-    /// This will query all trajectories that have at least one segment active
+    /// This will query all trajectories that have at least one waypoint active
     /// after the lower bound on the specified maps.
     ///
     /// \param[in] maps
@@ -206,7 +206,7 @@ public:
 
     /// Timespan mode constructor.
     ///
-    /// This will query all trajectories that have at least one segment active
+    /// This will query all trajectories that have at least one waypoint active
     /// after the lower bound and before the upper bound on the specified maps.
     ///
     /// \param[in] maps

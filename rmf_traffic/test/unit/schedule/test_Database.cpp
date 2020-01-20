@@ -116,7 +116,7 @@ SCENARIO("Test Database Conflicts")
 
         WHEN("Trajectory is delayed")
         {
-          //introduce a delay after the first segment in t1
+          //introduce a delay after the first waypoint in t1
           rmf_traffic::schedule::Version version2= db.delay(1,time,5s);
           CHECK(version2==2);
           changes=db.changes(rmf_traffic::schedule::make_query(1));

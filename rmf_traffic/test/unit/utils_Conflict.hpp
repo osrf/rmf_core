@@ -74,7 +74,7 @@ inline void CHECK_ConflictData(rmf_traffic::ConflictData data,
                                const double error_margin)
 {
     // t1 and t2 are precisely pointing to the Trajectory segments we are trying to verify,
-    // Not a "mock up" segment created separately
+    // Not a "mock up" waypoint created separately
     // Note that the const_iterators should not be the first in a trajectory: ie trajectory.begin()
     // ConflictData will not return the first iterator as it only represents a point in time and cannot "conflict"
 

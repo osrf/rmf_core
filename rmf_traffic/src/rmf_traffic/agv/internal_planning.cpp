@@ -178,8 +178,8 @@ std::vector<Trajectory> reconstruct_trajectories(const NodePtr& finish_node)
     const Trajectory& next_trajectory = (*it)->trajectory_from_parent;
     if(next_trajectory.get_map_name() == last_trajectory.get_map_name())
     {
-      for(const auto& segment : next_trajectory)
-        last_trajectory.insert(segment);
+      for(const auto& waypoint : next_trajectory)
+        last_trajectory.insert(waypoint);
     }
     else
     {
@@ -877,10 +877,10 @@ struct DifferentialDriveExpander
   {
     const std::size_t waypoint = *parent_node->waypoint;
     Trajectory trajectory{_context.graph.waypoints[waypoint].get_map_name()};
-    const Trajectory::Segment& last =
+    const Trajectory::Waypoint& last =
         parent_node->trajectory_from_parent.back();
 
-    const Eigen::Vector3d& p = last.get_finish_position();
+    const Eigen::Vector3d& p = last.position();
     trajectory.insert(last);
 
     // TODO(MXG): Consider storing these traits as POD member fields of the
@@ -890,7 +890,7 @@ struct DifferentialDriveExpander
           trajectory,
           rotational.get_nominal_velocity(),
           rotational.get_nominal_acceleration(),
-          last.get_finish_time(),
+          last.time(),
           p,
           Eigen::Vector3d(p[0], p[1], target_orientation),
           _context.profile,
@@ -1066,11 +1066,11 @@ struct DifferentialDriveExpander
     const std::string map_name =
         _context.graph.waypoints[initial_waypoint].get_map_name();
 
-    const Trajectory::Segment& initial_seg =
+    const Trajectory::Waypoint& initial_seg =
         initial_parent->trajectory_from_parent.back();
 
-    const Time initial_time = initial_seg.get_finish_time();
-    const Eigen::Vector3d initial_position = initial_seg.get_finish_position();
+    const Time initial_time = initial_seg.time();
+    const Eigen::Vector3d initial_position = initial_seg.position();
 
     std::vector<LaneExpansionNode> lane_expansion_queue;
     lane_expansion_queue.push_back({initial_lane_index});
@@ -1204,8 +1204,8 @@ struct DifferentialDriveExpander
 
     Trajectory trajectory{_context.graph.waypoints[waypoint].get_map_name()};
 
-    const Time initial_time = initial_segment.get_finish_time();
-    const Eigen::Vector3d& initial_pos = initial_segment.get_finish_position();
+    const Time initial_time = initial_segment.time();
+    const Eigen::Vector3d& initial_pos = initial_segment.position();
     trajectory.insert(initial_segment);
 
     trajectory.insert(

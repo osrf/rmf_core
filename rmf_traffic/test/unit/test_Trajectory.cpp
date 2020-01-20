@@ -148,10 +148,10 @@ SCENARIO("Profile unit tests")
   }
 }
 
-SCENARIO("Segment Unit Tests")
+SCENARIO("Waypoint Unit Tests")
 {
-  // Segment Construction and Getters
-  GIVEN("Construction values for Segments")
+  // Waypoint Construction and Getters
+  GIVEN("Construction values for Waypoints")
   {
     rmf_traffic::Trajectory::ProfilePtr guided_unitbox_profile =
         create_test_profile(
@@ -165,21 +165,21 @@ SCENARIO("Segment Unit Tests")
     const Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
     const Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
 
-    WHEN("Attemping to construct Segment using rmf_traffic::Trajectory::insert()")
+    WHEN("Attemping to construct Waypoint using rmf_traffic::Trajectory::insert()")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
 
-      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+      const rmf_traffic::Trajectory::Waypoint &waypoint = *(result.it);
 
-      THEN("Segment is constructed according to specifications.")
+      THEN("Waypoint is constructed according to specifications.")
       {
         // From IteratorResult
         CHECK(result.inserted);
-        CHECK(segment.get_finish_time() == time);
-        CHECK(segment.get_finish_position() == pos);
-        CHECK(segment.get_finish_velocity() == vel);
-        CHECK(segment.get_profile() == guided_unitbox_profile);
+        CHECK(waypoint.time() == time);
+        CHECK(waypoint.position() == pos);
+        CHECK(waypoint.velocity() == vel);
+        CHECK(waypoint.get_profile() == guided_unitbox_profile);
       }
     }
 
@@ -187,13 +187,13 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
-      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+      const rmf_traffic::Trajectory::Waypoint &waypoint = *(result.it);
 
       *guided_unitbox_profile = *queued_unitCircle_profile;
 
-      THEN("Segment profile is updated.")
+      THEN("Waypoint profile is updated.")
       {
-        CHECK(segment.get_profile() == guided_unitbox_profile);
+        CHECK(waypoint.get_profile() == guided_unitbox_profile);
         const auto circle = static_cast<const rmf_traffic::geometry::Circle*>(
               &guided_unitbox_profile->get_shape()->source());
         REQUIRE(circle);
@@ -205,14 +205,14 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
-      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+      const rmf_traffic::Trajectory::Waypoint &waypoint = *(result.it);
 
       const rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(guided_unitbox_profile);
 
-      THEN("Segment profile is updated")
+      THEN("Waypoint profile is updated")
       {
-        CHECK(segment.get_profile() != guided_unitbox_profile);
-        CHECK(segment.get_profile() == new_profile);
+        CHECK(waypoint.get_profile() != guided_unitbox_profile);
+        CHECK(waypoint.get_profile() == new_profile);
       }
     }
 
@@ -220,20 +220,20 @@ SCENARIO("Segment Unit Tests")
     {
       rmf_traffic::Trajectory trajectory{"test_map"};
       auto result = trajectory.insert(time, guided_unitbox_profile, pos, vel);
-      const rmf_traffic::Trajectory::Segment &segment = *(result.it);
+      const rmf_traffic::Trajectory::Waypoint &waypoint = *(result.it);
 
       rmf_traffic::Trajectory::ProfilePtr new_profile = std::move(guided_unitbox_profile);
 
-      THEN("Segment profile is updated")
+      THEN("Waypoint profile is updated")
       {
-        CHECK(segment.get_profile() != guided_unitbox_profile);
-        CHECK(segment.get_profile() == new_profile);
+        CHECK(waypoint.get_profile() != guided_unitbox_profile);
+        CHECK(waypoint.get_profile() == new_profile);
       }
     }
   }
 
-  // Segment Functions
-  GIVEN("Sample Segment")
+  // Waypoint Functions
+  GIVEN("Sample Waypoint")
   {
     std::vector<TrajectoryInsertInput> inputs;
     rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -242,67 +242,67 @@ SCENARIO("Segment Unit Tests")
     inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(0, 0, 0)});
     rmf_traffic::Trajectory trajectory = create_test_trajectory(inputs);
     rmf_traffic::Trajectory::iterator trajectory_it = trajectory.begin();
-    rmf_traffic::Trajectory::Segment &segment = *trajectory_it;
-    rmf_traffic::Trajectory::Segment &segment_10s = *(++trajectory_it);
+    rmf_traffic::Trajectory::Waypoint &waypoint = *trajectory_it;
+    rmf_traffic::Trajectory::Waypoint &segment_10s = *(++trajectory_it);
 
     WHEN("Setting a new profile using set_profile function")
     {
       const rmf_traffic::Trajectory::ProfilePtr new_profile = create_test_profile(UnitCircle, rmf_traffic::Trajectory::Profile::Autonomy::Autonomous);
-      segment.set_profile(new_profile);
+      waypoint.set_profile(new_profile);
 
       THEN("Profile is updated successfully.")
       {
-        CHECK(segment.get_profile() == new_profile);
+        CHECK(waypoint.get_profile() == new_profile);
       }
     }
 
     WHEN("Setting a new finish position using set_finish_position function")
     {
       const Eigen::Vector3d new_position = Eigen::Vector3d(1, 1, 1);
-      segment.set_finish_position(new_position);
+      waypoint.position(new_position);
 
       THEN("Finish position is updated successfully.")
       {
-        CHECK(segment.get_finish_position() == new_position);
+        CHECK(waypoint.position() == new_position);
       }
     }
 
     WHEN("Setting a new finish velocity using set_finish_velocity function")
     {
       const Eigen::Vector3d new_velocity = Eigen::Vector3d(1, 1, 1);
-      segment.set_finish_velocity(new_velocity);
+      waypoint.velocity(new_velocity);
 
       THEN("Finish velocity is updated successfully.")
       {
-        CHECK(segment.get_finish_velocity() == new_velocity);
+        CHECK(waypoint.velocity() == new_velocity);
       }
     }
 
     WHEN("Setting a new finish time using set_finish_time function")
     {
       const rmf_traffic::Time new_time = time + 5s;
-      segment.set_finish_time(new_time);
+      waypoint.change_time(new_time);
 
       THEN("Finish time is updated successfully.")
       {
-        CHECK(segment.get_finish_time() == new_time);
+        CHECK(waypoint.time() == new_time);
       }
     }
 
-    WHEN("Setting a new finish time that conflicts with another segment")
+    WHEN("Setting a new finish time that conflicts with another waypoint")
     {
       const rmf_traffic::Time new_time = time + 10s;
 
       THEN("Error is thrown.")
       {
-        CHECK_THROWS(segment.set_finish_time(new_time));
+        CHECK_THROWS(waypoint.change_time(new_time));
       }
     }
 
     WHEN("Setting a new finish time that causes a rearrangement of adjacent segments")
     {
       const rmf_traffic::Time new_time = time + 12s;
-      segment.set_finish_time(new_time);
+      waypoint.change_time(new_time);
 
       THEN("The appropriate segments are rearranged")
       {
@@ -318,7 +318,7 @@ SCENARIO("Segment Unit Tests")
     WHEN("Setting a new finish time that causes a rearrangement of non-adjacent segments")
     {
       const rmf_traffic::Time new_time = time + 22s;
-      segment.set_finish_time(new_time);
+      waypoint.change_time(new_time);
 
       THEN("The appropriate segments are rearranged")
       {
@@ -333,10 +333,10 @@ SCENARIO("Segment Unit Tests")
       }
     }
 
-    WHEN("Positively adjusting all finish times using adjust_finish_times function, using first segment")
+    WHEN("Positively adjusting all finish times using adjust_finish_times function, using first waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(5);
-      segment.adjust_finish_times(delta_t);
+      waypoint.adjust_times(delta_t);
       int i = 0;
       const rmf_traffic::Time new_order[3] = {time + 5s, time + 15s, time + 25s};
 
@@ -349,10 +349,10 @@ SCENARIO("Segment Unit Tests")
       }
     }
 
-    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using first segment")
+    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using first waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-5);
-      segment.adjust_finish_times(delta_t);
+      waypoint.adjust_times(delta_t);
       int i = 0;
       const rmf_traffic::Time new_order[3] = {time - 5s, time + 5s, time + 15s};
 
@@ -365,14 +365,14 @@ SCENARIO("Segment Unit Tests")
       }
     }
 
-    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using first segment")
+    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using first waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-50);
-      segment.adjust_finish_times(delta_t);
+      waypoint.adjust_times(delta_t);
       int i = 0;
       const rmf_traffic::Time new_order[3] = {time - 50s, time - 40s, time - 30s};
 
-      THEN("All finish times are adjusted correctly, as there is no segment preceding first segment")
+      THEN("All finish times are adjusted correctly, as there is no waypoint preceding first waypoint")
       {
         for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
         {
@@ -381,13 +381,13 @@ SCENARIO("Segment Unit Tests")
       }
     }
 
-    WHEN("Positively adjusting all finish times using adjust_finish_times function, using second segment")
+    WHEN("Positively adjusting all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(5);
-      segment_10s.adjust_finish_times(delta_t);
+      segment_10s.adjust_times(delta_t);
       int i = 0;
 
-      THEN("Finish times from the second segment on are adjusted correctly.")
+      THEN("Finish times from the second waypoint on are adjusted correctly.")
       {
         const rmf_traffic::Time new_order[3] = {time, time + 15s, time + 25s};
         for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
@@ -397,10 +397,10 @@ SCENARIO("Segment Unit Tests")
       }
     }
 
-    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using second segment")
+    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-5);
-      segment_10s.adjust_finish_times(delta_t);
+      segment_10s.adjust_times(delta_t);
       int i = 0;
 
       THEN("All finish times are adjusted correctly.")
@@ -413,13 +413,13 @@ SCENARIO("Segment Unit Tests")
       }
     }
 
-    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using second segment")
+    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-50);
 
-      THEN("std::invalid_argument exception thrown due to violation of previous segment time boundary")
+      THEN("std::invalid_argument exception thrown due to violation of previous waypoint time boundary")
       {
-        CHECK_THROWS(segment_10s.adjust_finish_times(delta_t));
+        CHECK_THROWS(segment_10s.adjust_times(delta_t));
       }
     }
   }
@@ -519,7 +519,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Inserting a segment with a unique finish_time violation")
+    WHEN("Inserting a waypoint with a unique finish_time violation")
     {
       rmf_traffic::Trajectory trajectory("test_map");
       auto result = trajectory.insert(time, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
@@ -644,7 +644,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Appending segment to trajectory")
+    WHEN("Appending waypoint to trajectory")
     {
       rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
       rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
@@ -673,7 +673,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Prepending segment to trajectory")
+    WHEN("Prepending waypoint to trajectory")
     {
       rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
       rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
@@ -702,7 +702,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Interpolating segment to trajectory")
+    WHEN("Interpolating waypoint to trajectory")
     {
       rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
       rmf_traffic::Trajectory::iterator first_it = trajectory.begin();
@@ -752,21 +752,21 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Finding a segment at the precise time specified")
+    WHEN("Finding a waypoint at the precise time specified")
     {
-      THEN("Segment is retreieved successfully")
+      THEN("Waypoint is retreieved successfully")
       {
-        CHECK(trajectory.find(time)->get_finish_position() == Eigen::Vector3d(0, 0, 0));
+        CHECK(trajectory.find(time)->position() == Eigen::Vector3d(0, 0, 0));
         CHECK(trajectory.find(time + 10s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
         CHECK(trajectory.find(time + 20s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
       }
     }
 
-    WHEN("Finding a segment at an offset time")
+    WHEN("Finding a waypoint at an offset time")
     {
-      THEN("Segments currently active are retrieved successfully")
+      THEN("Waypoints currently active are retrieved successfully")
       {
-        CHECK(trajectory.find(time)->get_finish_position() == Eigen::Vector3d(0, 0, 0));
+        CHECK(trajectory.find(time)->position() == Eigen::Vector3d(0, 0, 0));
         CHECK(trajectory.find(time + 2s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
         CHECK(trajectory.find(time + 8s)->get_finish_position() == Eigen::Vector3d(2, 2, 2));
         CHECK(trajectory.find(time + 12s)->get_finish_position() == Eigen::Vector3d(4, 4, 4));
@@ -774,7 +774,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Finding a segment at an out of bounds time")
+    WHEN("Finding a waypoint at an out of bounds time")
     {
       THEN("rmf_traffic::Trajectory::end() is returned")
       {
@@ -783,9 +783,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing a first segment")
+    WHEN("Erasing a first waypoint")
     {
-      THEN("Segment is erased and trajectory is rearranged")
+      THEN("Waypoint is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
         const rmf_traffic::Trajectory::iterator erase_target = trajectory.begin();
@@ -795,9 +795,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing a first segment from a copy")
+    WHEN("Erasing a first waypoint from a copy")
     {
-      THEN("Segment is erased and only copy is updated, source is unaffected")
+      THEN("Waypoint is erased and only copy is updated, source is unaffected")
       {
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
@@ -810,9 +810,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing a second segment")
+    WHEN("Erasing a second waypoint")
     {
-      THEN("Segment is erased and trajectory is rearranged")
+      THEN("Waypoint is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
         const rmf_traffic::Trajectory::iterator erase_target = ++(trajectory.begin());
@@ -822,9 +822,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing a second segment from a copy")
+    WHEN("Erasing a second waypoint from a copy")
     {
-      THEN("Segment is erased and only copy is updated, source is unaffected")
+      THEN("Waypoint is erased and only copy is updated, source is unaffected")
       {
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
@@ -866,9 +866,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing the first segment using range notation")
+    WHEN("Erasing the first waypoint using range notation")
     {
-      THEN("1 Segment is erased and trajectory is rearranged")
+      THEN("1 Waypoint is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
         const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
@@ -879,9 +879,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing the first segment of a copy using range notation")
+    WHEN("Erasing the first waypoint of a copy using range notation")
     {
-      THEN("1 Segment is erased and trajectory is rearranged")
+      THEN("1 Waypoint is erased and trajectory is rearranged")
       {
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
@@ -896,7 +896,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Erasing the first and second segments using range notation")
     {
-      THEN("2 Segments are erased and trajectory is rearranged")
+      THEN("2 Waypoints are erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
         const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
@@ -909,7 +909,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Erasing the first and second segments of a copy using range notation")
     {
-      THEN("2 Segments are erased and trajectory is rearranged")
+      THEN("2 Waypoints are erased and trajectory is rearranged")
       {
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
@@ -924,7 +924,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Erasing all segments using range notation")
     {
-      THEN("All Segments are erased and trajectory is empty")
+      THEN("All Waypoints are erased and trajectory is empty")
       {
         CHECK(trajectory.size() == 3);
         const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
@@ -935,9 +935,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing all but last segment using range notation")
+    WHEN("Erasing all but last waypoint using range notation")
     {
-      THEN("All but one Segment is erased")
+      THEN("All but one Waypoint is erased")
       {
         CHECK(trajectory.size() == 3);
         const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
@@ -951,7 +951,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Erasing all segments of a copy using range notation")
     {
-      THEN("All Segments are erased and trajectory is empty")
+      THEN("All Waypoints are erased and trajectory is empty")
       {
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
@@ -964,9 +964,9 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing all but last segment of a copy using range notation")
+    WHEN("Erasing all but last waypoint of a copy using range notation")
     {
-      THEN("All but one Segment is erased")
+      THEN("All but one Waypoint is erased")
       {
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);

@@ -43,8 +43,8 @@ std::string generate_self_intersection_polygon_message(
 {
   std::string output = "[rmf_traffic::Polygon] Invalid polygon "
       "requested: " + std::to_string(intersections.size())
-      + " pair(s) of edges intersect. See the following pairs where segment A "
-      "intersects segment B:"
+      + " pair(s) of edges intersect. See the following pairs where waypoint A "
+      "intersects waypoint B:"
       + "\n * (index A0) <vertex A0> -> (index A1) <vertex A1>"
       + "\n   (index B0) <vertex B0> -> (index B1) <vertex B1>\n";
 
@@ -105,7 +105,7 @@ bool compute_intersection(
   for(int i=0; i < 2; ++i)
   {
     // If the "time" value is outside the range of [0.0, 1.0] then it is outside
-    // the line segment that it's associated to, so we can disregard the alleged
+    // the line waypoint that it's associated to, so we can disregard the alleged
     // intersection.
     const double t_i = t[i];
     if(t_i < 0.0 || 1.0 < t_i)
@@ -199,7 +199,7 @@ std::size_t find_deepest_reflex_point(
       continue;
 
     // If the point is inside the triangle, then compute its depth (distance
-    // from the nearest point on the diagonal line segment).
+    // from the nearest point on the diagonal line waypoint).
     const Eigen::Vector2d p_rel = p - p_preceding;
     const double depth = (p_rel - diagonal.dot(p_rel) * diagonal).norm();
 

@@ -78,10 +78,10 @@ void print_trajectory_info(
   display_path(plan);
   for (auto it = t.begin(); it != t.end(); it++)
     {
-      auto position=it->get_finish_position();
-      std::cout<<"Segment "<<count<<": {"<<position[0]<<","<<position[1]
+      auto position=it->position();
+      std::cout<<"Waypoint "<<count<<": {"<<position[0]<<","<<position[1]
           <<","<<position[2]<<"} "
-          <<rmf_traffic::time::to_seconds(it->get_finish_time() - time)<<"s"
+          <<rmf_traffic::time::to_seconds(it->time() - time)<<"s"
           <<std::endl;
       count++;
     }
@@ -139,11 +139,11 @@ rmf_traffic::Trajectory test_with_obstacle(
   const auto goal_position = graph.get_waypoint(goal_index).get_location();
 
   const Eigen::Vector2d p_initial =
-      t_obs.front().get_finish_position().block<2,1>(0,0);
+      t_obs.front().position().block<2,1>(0,0);
   CHECK( (p_initial - initial_position).norm() == Approx(0.0) );
 
   const Eigen::Vector2d p_final =
-      t_obs.back().get_finish_position().block<2,1>(0,0);
+      t_obs.back().position().block<2,1>(0,0);
   CHECK( (p_final - goal_position).norm() == Approx(0.0) );
   
   const auto& original_trajectory = original_plan.get_trajectories().front();
@@ -285,15 +285,15 @@ inline void CHECK_PLAN(
   REQUIRE(plan->get_trajectories().size() > 0);
   auto t = plan->get_trajectories().front();
   // check locations    
-  CHECK((t.front().get_finish_position().block<2,1>(0,0)
+  CHECK((t.front().position().block<2,1>(0,0)
       - first_location).norm() == Approx(0.0).margin(1e-6));
-  CHECK((t.back().get_finish_position().block<2,1>(0, 0)
+  CHECK((t.back().position().block<2,1>(0, 0)
       - last_location).norm()  == Approx(0.0).margin(1e-6));
   // check orientations
-  CHECK((t.front().get_finish_position()[2] - first_orientation)
+  CHECK((t.front().position()[2] - first_orientation)
       == Approx(0.0).margin(1e-6));
   if (last_orientation != nullptr)
-    CHECK((t.back().get_finish_position()[2] - *last_orientation)
+    CHECK((t.back().position()[2] - *last_orientation)
         == Approx(0.0).margin(1e-6));
   // check waypoints
   const auto& wps = plan->get_waypoints();

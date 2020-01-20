@@ -1475,7 +1475,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
 }
 
 
-  SCENARIO("Testing multi-segment trajectories with various spacetimes")
+  SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
  {  
 
    using namespace std::chrono_literals; 
@@ -1547,7 +1547,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
           CHECK(output_iterators.size()==3);
         }
 
-      WHEN("Checked with circular spacetime intersecting 1 segment of t1")
+      WHEN("Checked with circular spacetime intersecting 1 waypoint of t1")
         {      
           //Creating Spacetime
 
@@ -1620,7 +1620,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
           CHECK(output_iterators.size()==3);
         }
 
-      WHEN("Checked with box spacetime intersecting 1 segment of t1")
+      WHEN("Checked with box spacetime intersecting 1 waypoint of t1")
         {      
           //Creating Spacetime
 
@@ -1653,7 +1653,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
           auto space_shape = rmf_traffic::geometry::Box(30,30); 
           const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
 
-          THEN("Single conflict when time bounds overlap with first segment only")
+          THEN("Single conflict when time bounds overlap with first waypoint only")
           {
           lower_time_bound=time;
           upper_time_bound=time+19s;
@@ -1673,7 +1673,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
 
           }
 
-        THEN("Single conflict when time bounds overlap with second segment only")
+        THEN("Single conflict when time bounds overlap with second waypoint only")
           {
           lower_time_bound=time+21s;
           upper_time_bound=time+39s;
@@ -1693,7 +1693,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
 
           }
 
-        THEN("Single conflict when time bounds overlap with third segment only")
+        THEN("Single conflict when time bounds overlap with third waypoint only")
           {
           lower_time_bound=time+41s;
           upper_time_bound=time+59s;
@@ -1713,7 +1713,7 @@ SCENARIO("Testing intersection of curved trajectory with various spacetimes")
 
           }
 
-        THEN("Single conflict when time bounds overlap with fourth segment only")
+        THEN("Single conflict when time bounds overlap with fourth waypoint only")
           {
           lower_time_bound=time+61s;
           upper_time_bound=time+79s;

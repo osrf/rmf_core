@@ -19,7 +19,6 @@
 #define RMF_TRAFFIC__TRAJECTORY_HPP
 
 #include <rmf_traffic/geometry/ConvexShape.hpp>
-#include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
@@ -43,115 +42,112 @@ class Trajectory
 {
 public:
 
-  class Segment
+  class Waypoint
   {
   public:
 
     /// Get the intended physical location of the robot at the end of this
-    /// Trajectory Segment.
+    /// Trajectory Waypoint.
     ///
     /// This is a 2D homogeneous position. The first two values in the vector
     /// are x and y coordinates, while the third is rotation about the z-axis.
-    Eigen::Vector3d get_finish_position() const;
+    Eigen::Vector3d position() const;
 
     /// Set the intended physical location of the robot at the end of this
-    /// Trajectory Segment.
+    /// Trajectory Waypoint.
     ///
     /// This is a 2D homogeneous position. The first two values in the vector
     /// are x and y coordinates, while the third is rotation about the z-axis.
     ///
     /// \param[in] new_position
-    ///   The new finishing position for this Trajectory Segment.
-    Segment& set_finish_position(Eigen::Vector3d new_position);
+    ///   The new finishing position for this Trajectory Waypoint.
+    Waypoint& position(Eigen::Vector3d new_position);
 
     /// Get the intended velocity of the robot at the end of this Trajectory
-    /// Segment.
+    /// Waypoint.
     ///
     /// This is a 2D homogeneous position. The first two values in the vector
     /// are x and y velocities, while the third is rotational velocity about the
     /// z-axis.
-    Eigen::Vector3d get_finish_velocity() const;
+    Eigen::Vector3d velocity() const;
 
     /// Set the intended velocity of the robot at the end of this Trajectory
-    /// Segment.
+    /// Waypoint.
     ///
     /// This is a 2D homogeneous position. The first two values in the vector
     /// are x and y coordinates, while the third is rotation about the z-axis.
     ///
     /// \param[in] new_velocity
-    ///   The new finishing velocity for this Trajectory Segment.
-    Segment& set_finish_velocity(Eigen::Vector3d new_velocity);
+    ///   The new finishing velocity for this Trajectory Waypoint.
+    Waypoint& velocity(Eigen::Vector3d new_velocity);
 
-    /// Get the time that this Trajectory Segment is meant to finish.
-    Time get_finish_time() const;
+    /// Get the time that this Trajectory Waypoint is meant to finish.
+    Time time() const;
 
-    /// Change the finish time of this Trajectory Segment. Note that this
-    /// function will only affect this segment, and may cause this Segment to be
+    /// Change the finish time of this Trajectory Waypoint. Note that this
+    /// function will only affect this waypoint, and may cause this waypoint to be
     /// reordered within the Trajectory.
     ///
-    /// To change the finish time for this segment while preserving the relative
+    /// To change the finish time for this waypoint while preserving the relative
     /// times of all subsequent Trajectory segments, use adjust_finish_times()
     /// instead.
     ///
-    /// \warning If you change the finishing time value of this Segment such
-    /// that it falls directly on another Segment's finish time, you will get a
+    /// \warning If you change the finishing time value of this Waypoint such
+    /// that it falls directly on another Waypoint's finish time, you will get a
     /// std::invalid_argument exception, because discontinuous jumps are not
     /// supported, and indicate a significant mishandling of trajectory data,
     /// which is most likely a serious bug that should be remedied.
     ///
-    /// \note If this Segment's finish time crosses over another Segment's
+    /// \note If this Waypoint's finish time crosses over another Waypoint's
     /// finish time, that signficantly changes the topology of the Trajectory,
     /// because it will change the order in which the positions are passed
     /// through.
     ///
     /// \param[in] new_time
-    ///   The new finishing time for this Trajectory Segment.
+    ///   The new finishing time for this Trajectory Waypoint.
     ///
     /// \sa adjust_finish_times(Time new_time)
-    Segment& set_finish_time(Time new_time);
+    Waypoint& change_time(Time new_time);
 
-    /// Adjust the finishing time of this segment and all subsequent segments by
+    /// Adjust the finishing time of this waypoint and all subsequent segments by
     /// the given duration. This is guaranteed to maintain the ordering of the
-    /// Trajectory Segments, and is more efficient than changing all the times
+    /// Trajectory Waypoints, and is more efficient than changing all the times
     /// directly.
     ///
     /// \warning If a negative delta_t is given, it must not cause this
-    /// Segment's finish time to be less than or equal to the finish time of its
-    /// preceding Segment, or else a std::invalid_argument exception will be
+    /// Waypoint's finish time to be less than or equal to the finish time of its
+    /// preceding Waypoint, or else a std::invalid_argument exception will be
     /// thrown.
     ///
     /// \param[in] delta_t
-    ///   How much to change the finishing time of this segment and all later
+    ///   How much to change the finishing time of this waypoint and all later
     ///   segments. If negative, it must not cross over the finish time of the
-    ///   previous segment, or else a std::invalid_argument will be thrown.
+    ///   previous waypoint, or else a std::invalid_argument will be thrown.
     ///
     /// \sa set_finish_time(Time new_time)
-    void adjust_finish_times(Duration delta_t);
-
-    /// Compute the motion across this Trajectory segment
-    std::unique_ptr<Motion> compute_motion() const;
+    void adjust_times(Duration delta_t);
 
     class Implementation;
   private:
 
     /// \internal Private constructor. Use Trajectory::add_segment() to create
-    /// a new Trajectory Segment.
-    Segment();
-    Segment(const Segment&) = delete;
-    Segment(Segment&&) = default;
-    Segment& operator=(const Segment&) = delete;
-    Segment& operator=(Segment&&) = default;
+    /// a new Trajectory Waypoint.
+    Waypoint();
+    Waypoint(const Waypoint&) = delete;
+    Waypoint(Waypoint&&) = default;
+    Waypoint& operator=(const Waypoint&) = delete;
+    Waypoint& operator=(Waypoint&&) = default;
     friend class Trajectory;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
   // These classes allow users to traverse the contents of the Trajectory.
   // The trajectory operates much like a typical C++ container, but only for
-  // Trajectory::Segment information.
+  // Trajectory::Waypoint information.
   template<typename SegT>
   class base_iterator;
-  using iterator = base_iterator<Segment>;
-  using const_iterator = base_iterator<const Segment>;
+  using iterator = base_iterator<Waypoint>;
+  using const_iterator = base_iterator<const Waypoint>;
 
   /// Create a Trajectory that takes place on the specified map
   Trajectory();
@@ -169,25 +165,25 @@ public:
   Trajectory& operator=(Trajectory&&) = default;
 
   /// Contains two fields:
-  /// * iterator it:   contains the iterator for the Segment that ends at the
+  /// * iterator it:   contains the iterator for the Waypoint that ends at the
   ///                  given finish_time
-  /// * bool inserted: true if the Segment was inserted, false if a Segment with
+  /// * bool inserted: true if the Waypoint was inserted, false if a Waypoint with
   ///                  the exact same finish_time already existed
   struct InsertionResult;
 
-  /// Add a Segment to this Trajectory.
+  /// Add a Waypoint to this Trajectory.
   ///
-  /// The Segment will be inserted into the Trajectory according to its
-  /// finish_time, ensuring correct ordering of all Segments.
+  /// The Waypoint will be inserted into the Trajectory according to its
+  /// finish_time, ensuring correct ordering of all Waypoints.
   InsertionResult insert(
       Time finish_time,
       Eigen::Vector3d position,
       Eigen::Vector3d velocity);
 
-  /// Insert a copy of another Trajectory's Segment into this one.
-  InsertionResult insert(const Segment& other);
+  /// Insert a copy of another Trajectory's Waypoint into this one.
+  InsertionResult insert(const Waypoint& other);
 
-  /// Find the Segment of this Trajectory that is active during the given time.
+  /// Find the Waypoint of this Trajectory that is active during the given time.
   ///
   /// \note This will return Trajectory::end() if the time is before the
   /// Trajectory starts or after the Trajectory finishes.
@@ -195,17 +191,17 @@ public:
   /// \param[in] time
   ///   The time of interest.
   ///
-  /// \return the Segment that is active during the given time, or
+  /// \return the Waypoint that is active during the given time, or
   /// Trajectory::end() if the time falls outside the range of the Trajectory.
   iterator find(Time time);
 
   /// const-qualified version of find()
   const_iterator find(Time time) const;
 
-  /// Erase the specified segment.
+  /// Erase the specified waypoint.
   ///
   /// \return an iterator following the last removed element
-  iterator erase(iterator segment);
+  iterator erase(iterator waypoint);
 
   /// Erase the range of elements: [first, last).
   ///
@@ -214,7 +210,7 @@ public:
   /// \return an iterator following the last removed element
   iterator erase(iterator first, iterator last);
 
-  /// Returns an iterator to the fist Segment of the Trajectory.
+  /// Returns an iterator to the fist Waypoint of the Trajectory.
   ///
   /// If the Trajectory is empty, the returned iterator will be equal to end().
   iterator begin();
@@ -225,7 +221,7 @@ public:
   /// Explicitly call the const-qualified version of begin()
   const_iterator cbegin() const;
 
-  /// Returns an iterator to the element following the last Segment of the
+  /// Returns an iterator to the element following the last Waypoint of the
   /// Trajectory. This iterator acts as a placeholder; attempting to dereference
   /// it results in undefined behavior.
   ///
@@ -240,25 +236,25 @@ public:
   /// Explicitly call the const-qualified version of end()
   const_iterator cend() const;
 
-  /// Get a mutable reference to the first Segment in this Trajectory.
+  /// Get a mutable reference to the first Waypoint in this Trajectory.
   ///
   /// \warning Calling this function on an empty trajectory is undefined.
-  Segment& front();
+  Waypoint& front();
 
-  /// Get a const reference to the first Segment in this Trajectory.
+  /// Get a const reference to the first Waypoint in this Trajectory.
   ///
   /// \warning Calling this function on an empty trajectory is undefined.
-  const Segment& front() const;
+  const Waypoint& front() const;
 
-  /// Get a mutable reference to the last Segment in this Trajectory.
+  /// Get a mutable reference to the last Waypoint in this Trajectory.
   ///
   /// \warning Calling this function on an empty trajectory is undefined.
-  Segment& back();
+  Waypoint& back();
 
-  /// Get a const reference to the last Segment in this Trajectory.
+  /// Get a const reference to the last Waypoint in this Trajectory.
   ///
   /// \warning Calling this function on an empty trajectory is undefined.
-  const Segment& back() const;
+  const Waypoint& back() const;
 
   /// Get the start time, if available. This will return a nullptr if the
   /// Trajectory is empty.
@@ -269,12 +265,14 @@ public:
   const Time* finish_time() const;
 
   /// Get the duration of the Trajectory. This will be 0 if the Trajectory is
-  /// empty or if it has only one Segment.
+  /// empty or if it has only one Waypoint.
   Duration duration() const;
 
-  /// Get the number of Segments in the Trajectory. To be used in conflict
+  /// Get the number of Waypoints in the Trajectory. To be used in conflict
   /// detection, the Trajectory must have a size of at least 2.
   std::size_t size() const;
+
+  // TODO(MXG): Add operator[]
 
   /// \internal Used internally by unit and integration tests so we can test
   /// private imeplementation details.
@@ -368,8 +366,8 @@ private:
   rmf_utils::impl_ptr<detail::TrajectoryIteratorImplementation> _pimpl;
 };
 
-extern template class Trajectory::base_iterator<Trajectory::Segment>;
-extern template class Trajectory::base_iterator<const Trajectory::Segment>;
+extern template class Trajectory::base_iterator<Trajectory::Waypoint>;
+extern template class Trajectory::base_iterator<const Trajectory::Waypoint>;
 
 //==============================================================================
 struct Trajectory::InsertionResult

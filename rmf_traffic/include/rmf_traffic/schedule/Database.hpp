@@ -47,89 +47,130 @@ public:
   /// Get the changes in this Database that match the given Query parameters.
   Patch changes(const Query& parameters) const;
 
-  /// Insert a Trajectory into this database.
+  //============================================================================
+  /// The ItineraryVersion number is used to identify the current version of a
+  /// participant's itinerary. This will be used to ensure consistency between
+  /// a schedule database's information and the updates that are sent by remote
+  /// participants.
   ///
-  /// \return The database id for this new Trajectory.
-  Version insert(Trajectory trajectory);
+  /// As updates stream in from the remote participants, the updates will be
+  /// stamped with itinerary version numbers. If a version is missing from the
+  /// sequence of updates for a participant, then the schedule will send out a
+  /// request for a fresh Put for that participant.
+  struct ItineraryVersion
+  {
+    /// The most recent version that the remote participant knows the schedule
+    /// contains.
+    Version base_version;
 
-  /// Interrupt a trajectory by inserting another Trajectory inside of it.
-  ///
-  /// This will add each Segment of the input Trajectory into the targeted
-  /// Trajectory entry in the database. All Segments in the original Trajectory
-  /// that come after the start time of the interruption Trajectory will be
-  /// pushed back in time by the whole duration of the interruption Trajectory.
-  /// They will then be pushed back further by the duration of the `delay`
-  /// argument.
-  ///
-  /// \param[in] id
-  ///   The ID of the Trajectory to add the interruption to.
-  ///
-  /// \param[in] interruption_trajectory
-  ///   The trajectory that should be inserted as an interruption of the
-  ///   original trajectory.
-  ///
-  /// \param[in] delay
-  ///   Additional delay that should follow the interruption. The total time
-  ///   that the remaining Segments will be delayed from their original timing
-  ///   is the duration of the `interruption_trajectory` plus the duration of
-  ///   this `delay` argument.
-  ///
-  /// \return The updated ID for this modified Trajectory.
-  ///
-  /// \sa delay()
-  Version interrupt(
-      Version id,
-      Trajectory interruption_trajectory,
-      Duration delay);
+    /// The version that the remote participant has assigned to this change.
+    Version change_version;
+  };
 
-  /// Add a delay to the Trajectory from the specified Time.
+  //============================================================================
+  /// The ChangeResult is produced by the functions below which modify
+  /// itineraries in the database.
+  struct ChangeResult
+  {
+    /// The new version of the overall schedule.
+    Version version;
+
+    /// True if the result should be consistent with the remote participant's
+    /// intended itinerary. False if the schedule may have gotten out of sync
+    /// with the remote participant and therefore needs a new put or erase.
+    bool consistent;
+  };
+
+  /// Put in a brand new itinerary for a participant. This will replace any
+  /// itinerary that is already in the schedule for the participant.
   ///
-  /// Nothing about the Trajectory will be changed except that Segments which
-  /// come after the specified time will be pushed back by the specified delay.
+  /// \param[in] participant
+  ///   The ID of the participant whose itinerary is being updated.
   ///
-  /// \note This can create distortions in the Trajectory Segment that leads
+  /// \param[in] itinerary
+  ///   The new itinerary of the participant.
+  ///
+  /// \param[in] version
+  ///   The version for the itinerary that is being put into the schedule.
+  ///
+  /// \return the result of making this change. If consistent is false, that
+  /// means the version of this put is lower than the latest itinerary version
+  /// that is in this schedule.
+  ChangeResult put(
+      ParticipantId participant,
+      Itinerary itinerary,
+      ItineraryVersion version);
+
+  /// Add a route to the itinerary of this participant.
+  ///
+  /// \param[in] participant
+  ///   The ID of the participant whose itinerary is being updated.
+  ///
+  /// \param[in] route
+  ///   The route that should be added to the itinerary.
+  ///
+  /// \param[in] version
+  ///   The version of the itinerary that should result from this change.
+  ///
+  /// \return the result of making this change.
+  ChangeResult post(
+      ParticipantId participant,
+      Route route,
+      ItineraryVersion version);
+
+  /// Add a delay to the itinerary from the specified Time.
+  ///
+  /// Nothing about the routes in the itinerary will be changed except that
+  /// waypoints which come after the specified time will be pushed back by the
+  /// specified delay.
+  ///
+  /// \note This can create distortions in the Trajectory movement that leads
   /// up to the `from` Time, so use with caution. This is primarily intended to
   /// make corrections to live Trajectories based on incoming state information.
   ///
-  /// \note Unlike interrupt(), this will not introduce any new Segments to the
-  /// Trajectory.
-  ///
-  /// \param[in] id
-  ///   The ID of the Trajectory to delay.
+  /// \param[in] participant
+  ///   The ID of the participant whose itinerary is being delayed.
   ///
   /// \param[in] from
-  ///   All Trajectory Segments that end after this time point will be pushed
+  ///   All Trajectory Waypoints that end after this time point will be pushed
   ///   back by the delay.
   ///
   /// \param[in] delay
-  ///   This is the duration of time to delay all qualifying Trajectory Segments
+  ///   This is the duration of time to delay all qualifying Trajectory
+  ///   Waypoints.
   ///
-  /// \return The updated ID for this modified Trajectory
-  ///
-  /// \sa interrupt()
-  Version delay(
-      Version id,
+  /// \return the result of making this change.
+  ChangeResult delay(
+      ParticipantId participant,
       Time from,
-      Duration delay);
+      Duration delay,
+      ItineraryVersion version);
 
-  /// Replace an existing Trajectory with a new one. This is used for revising
-  /// plans.
+  /// Erase an itinerary from this database.
   ///
-  /// \param[in] previous_id
-  ///   The id of the previous Trajectory that is being replaced.
+  /// \param[in] participant
+  ///   The ID of the participant whose itinerary is being delayed.
   ///
-  /// \param[in] trajectory
-  ///   The new trajectory to replace the old one with.
-  ///
-  /// \return The updated ID of the revised trajectory.
-  Version replace(Version previous_id, Trajectory trajectory);
+  /// \return the result of making this change. If consistent is false, that
+  /// means the version of this erasure is lower than the latest itinerary
+  /// version that is in this schedule.
+  ChangeResult erase(ParticipantId participant);
 
-  /// Erase a Trajectory from this database.
+  /// Erase a route from an itinerary.
   ///
-  /// \return the new version of this database.
-  Version erase(Version id);
+  /// \param[in] participant
+  ///   The ID of the participant whose itinerary is being delayed.
+  ///
+  /// \param[in] routes
+  ///   The indices of the routes that should be erased.
+  ///
+  /// \return the result of making this change. If consistent is false, that
+  /// means the version of this erasure is lower than the latest itinerary.
+  ChangeResult erase(
+      ParticipantId participant,
+      const std::vector<RouteId>& routes);
 
-  /// Throw away all Trajectories up to the specified time.
+  /// Throw away all itineraries up to the specified time.
   ///
   /// \param[in] time
   ///   All Trajectories that finish before this time will be culled from the
@@ -139,6 +180,32 @@ public:
   /// \return The new version of the schedule database. If nothing was culled,
   /// this version number will remain the same.
   Version cull(Time time);
+
+  /// The return structure from registering a participant.
+  struct RegistrationResult
+  {
+    /// The new version of the schedule after registering the participant.
+    Version version;
+
+    /// The ID of the newly registered participant.
+    ParticipantId id;
+  };
+
+  /// Register a new participant.
+  ///
+  /// \param[in] participant_info
+  ///   Information about the new participant.
+  ///
+  /// \return result of registering the new participant.
+  RegistrationResult register_participant(Participant participant_info);
+
+  /// Unregister an existing participant.
+  ///
+  /// \param[in] participant
+  ///   The ID of the participant to unregister.
+  ///
+  /// \return the new version of the schedule.
+  Version unregister_participant(ParticipantId participant);
 
 };
 

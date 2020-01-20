@@ -67,8 +67,8 @@ SCENARIO("DetectConflict unit tests")
                               expected_conflicts.push_back({
                                   time,            // Start Time
                                   time,            // Expected Conflict Time
-                                  ++t1.begin(),    // Segment from Trajectory 1 that will conflict
-                                  ++t2.begin(),    // Segment from Trajectory 2 that will conflict
+                                  ++t1.begin(),    // Waypoint from Trajectory 1 that will conflict
+                                  ++t2.begin(),    // Waypoint from Trajectory 2 that will conflict
                                   fcl_error_margin // Error Margin for computing collision time
                               });
 
@@ -107,8 +107,8 @@ SCENARIO("DetectConflict unit tests")
                               expected_conflicts.push_back({
                                   time,            // Start Time
                                   time,            // Expected Conflict Time
-                                  ++t1.begin(),    // Segment from Trajectory 1 that will conflict
-                                  ++t2.begin(),    // Segment from Trajectory 2 that will conflict
+                                  ++t1.begin(),    // Waypoint from Trajectory 1 that will conflict
+                                  ++t2.begin(),    // Waypoint from Trajectory 2 that will conflict
                                   fcl_error_margin // Error Margin for computing collision time
                               });
 
@@ -354,7 +354,7 @@ SCENARIO("DetectConflict unit tests")
                   // precision, but it requires many iterations (~1000000 for a precision of
                   // 1e-5s) which is far more expensive than the default (10 iterations for
                   // a precision of ~0.2), and the exact moment in time is not really
-                  // important, as long as it falls within the relevant segment (which it
+                  // important, as long as it falls within the relevant waypoint (which it
                   // always should).
                   CHECK(computed_time == Approx(expected_time).margin(fcl_error_margin));
             }
@@ -461,7 +461,7 @@ SCENARIO("DetectConflict unit tests")
             }
       }
 
-      GIVEN("A multi-segment trajectory with straight segments")
+      GIVEN("A multi-waypoint trajectory with straight segments")
       {
 
             const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -477,7 +477,7 @@ SCENARIO("DetectConflict unit tests")
             t1.insert(time+30s,profile,Eigen::Vector3d{10,-5,M_PI_2},Eigen::Vector3d{0,0,0});
             REQUIRE(t1.size()==4);  
 
-            WHEN("Checked with a trajectory that intersects first segment of t1")
+            WHEN("Checked with a trajectory that intersects first waypoint of t1")
             {
                   rmf_traffic::Trajectory t2("test_map");
                   t2.insert(time,profile,Eigen::Vector3d{-5,0,0},Eigen::Vector3d{0,0,0});
@@ -487,7 +487,7 @@ SCENARIO("DetectConflict unit tests")
                   CHECK(rmf_traffic::DetectConflict::broad_phase(t1,t2));
                   auto conflicts=rmf_traffic::DetectConflict::between(t1,t2);
                   CHECK(conflicts.size()==1);
-                  CHECK(conflicts.front().get_segments().first==++t1.begin()); //segment with the conflict
+                  CHECK(conflicts.front().get_segments().first==++t1.begin()); //waypoint with the conflict
 
                   const double expected_time=4.32931077;
                   const double computed_time = rmf_traffic::time::to_seconds(conflicts.front().get_time() - time);
@@ -495,7 +495,7 @@ SCENARIO("DetectConflict unit tests")
                   
             }
 
-            WHEN("Checked with a trajectory that intersects last segment of t1")
+            WHEN("Checked with a trajectory that intersects last waypoint of t1")
             {
                   rmf_traffic::Trajectory t2("test_map");
                   t2.insert(time+20s,profile,Eigen::Vector3d{5,0,0},Eigen::Vector3d{0,0,0});
@@ -505,7 +505,7 @@ SCENARIO("DetectConflict unit tests")
                   CHECK(rmf_traffic::DetectConflict::broad_phase(t1,t2));
                   auto conflicts=rmf_traffic::DetectConflict::between(t1,t2);
                   CHECK(conflicts.size()==1);
-                  CHECK(conflicts.front().get_segments().first==--t1.end()); //segment with the conflict
+                  CHECK(conflicts.front().get_segments().first==--t1.end()); //waypoint with the conflict
 
 
                   const double expected_time=24.32931077;
@@ -515,7 +515,7 @@ SCENARIO("DetectConflict unit tests")
             }
 
 
-            WHEN("Checked with a multi-segment trajectory that intersects t1 at two-points")
+            WHEN("Checked with a multi-waypoint trajectory that intersects t1 at two-points")
             {
                   rmf_traffic::Trajectory t2("test_map");
                   t2.insert(time,profile,Eigen::Vector3d{-5,-0,-M_PI_4},Eigen::Vector3d{0,0,0});
@@ -529,8 +529,8 @@ SCENARIO("DetectConflict unit tests")
                   CHECK(rmf_traffic::DetectConflict::broad_phase(t1,t2));
                   auto conflicts=rmf_traffic::DetectConflict::between(t1,t2);
                   CHECK(conflicts.size()==2);
-                  CHECK(conflicts.front().get_segments().first==++t1.begin()); //segment with the conflict
-                  CHECK(conflicts.back().get_segments().first==--t1.end()); //segment with the conflict                 
+                  CHECK(conflicts.front().get_segments().first==++t1.begin()); //waypoint with the conflict
+                  CHECK(conflicts.back().get_segments().first==--t1.end()); //waypoint with the conflict                 
 
                   
             }

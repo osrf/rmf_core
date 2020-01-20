@@ -438,15 +438,15 @@ Trajectory add_interruption(
       new_trajectory.find(*interruption_trajectory.start_time());
 
   if(delayed_segment != new_trajectory.end())
-    delayed_segment->adjust_finish_times(total_delay);
+    delayed_segment->adjust_times(total_delay);
 
-  for(const Trajectory::Segment& interrupt_segment : interruption_trajectory)
+  for(const Trajectory::Waypoint& interrupt_segment : interruption_trajectory)
   {
     new_trajectory.insert(
-          interrupt_segment.get_finish_time(),
+          interrupt_segment.time(),
           interrupt_segment.get_profile(),
-          interrupt_segment.get_finish_position(),
-          interrupt_segment.get_finish_velocity());
+          interrupt_segment.position(),
+          interrupt_segment.velocity());
   }
 
   return new_trajectory;
@@ -461,7 +461,7 @@ Trajectory add_delay(
   assert(new_trajectory.start_time());
   if (time <= *new_trajectory.start_time())
   {
-    new_trajectory.begin()->adjust_finish_times(delay);
+    new_trajectory.begin()->adjust_times(delay);
     return new_trajectory;
   }
   else if(*new_trajectory.finish_time() < time)
@@ -476,7 +476,7 @@ Trajectory add_delay(
     // but we apply it to the entire trajectory without being concerned about
     // the from_time parameter.
     // TODO(MXG): Consider if there is a more "correct" way to support this.
-    new_trajectory.begin()->adjust_finish_times(delay);
+    new_trajectory.begin()->adjust_times(delay);
     return new_trajectory;
   }
 
@@ -491,10 +491,10 @@ Trajectory add_delay(
   if (delayed_segment != new_trajectory.begin())
     --delayed_segment;
 
-  // TODO(MXG): Consider inserting a new segment(s) in the trajectory when
+  // TODO(MXG): Consider inserting a new waypoint(s) in the trajectory when
   // adding the delay. That may help to smooth things out further.
 
-  delayed_segment->adjust_finish_times(delay);
+  delayed_segment->adjust_times(delay);
 
   return new_trajectory;
 }

@@ -27,11 +27,11 @@ namespace rmf_traffic {
 namespace internal {
 
 //==============================================================================
-struct SegmentElement;
-using SegmentList = std::list<SegmentElement>;
-using OrderMap = std::map<Time, SegmentList::iterator>;
+struct WaypointElement;
+using WaypointList = std::list<WaypointElement>;
+using OrderMap = std::map<Time, WaypointList::iterator>;
 
-struct SegmentElement
+struct WaypointElement
 {
   struct Data
   {
@@ -42,32 +42,32 @@ struct SegmentElement
 
   Data data;
 
-  // We store a Trajectory::Segment in this struct so that we can always safely
-  // return a reference to a Trajectory::Segment object. As long as this
-  // SegmentData is alive, any Trajectory::Segment reference that refers to it
+  // We store a Trajectory::Waypoint in this struct so that we can always safely
+  // return a reference to a Trajectory::Waypoint object. As long as this
+  // WaypointData is alive, any Trajectory::Waypoint reference that refers to it
   // will remain valid.
-  std::unique_ptr<Trajectory::Segment> myself;
+  std::unique_ptr<Trajectory::Waypoint> myself;
 
-  SegmentElement(Data input_data)
+  WaypointElement(Data input_data)
     : data(std::move(input_data))
   {
     // Do nothing
   }
 
-  SegmentElement(const SegmentElement& other)
+  WaypointElement(const WaypointElement& other)
     : data(other.data)
   {
     // Do nothing
   }
 
-  SegmentElement& operator=(const SegmentElement& other)
+  WaypointElement& operator=(const WaypointElement& other)
   {
     data = other.data;
     return *this;
   }
 
-  SegmentElement(SegmentElement&&) = default;
-  SegmentElement& operator=(SegmentElement&&) = default;
+  WaypointElement(WaypointElement&&) = default;
+  WaypointElement& operator=(WaypointElement&&) = default;
 };
 
 } // namespace internal

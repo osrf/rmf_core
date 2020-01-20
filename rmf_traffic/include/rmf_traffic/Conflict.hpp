@@ -34,11 +34,11 @@ public:
   /// Get the point in time that the conflict occurs.
   Time get_time() const;
 
-  using Segments =
+  using Waypoints =
       std::pair<Trajectory::const_iterator, Trajectory::const_iterator>;
 
-  /// Get iterators to the Segment of each Trajectory that is in conflict.
-  const Segments& get_segments() const;
+  /// Get iterators to the Waypoint of each Trajectory that is in conflict.
+  const Waypoints& get_segments() const;
 
   /// Create uninitialized ConflictData.
   ///
@@ -97,7 +97,7 @@ public:
   ///
   /// If you are unsure about the stated assumptions, then use the between()
   /// function instead. It is undefined behavior to call this function on any
-  /// pair of Trajectories that would fail the broad_phase() test. Segmentation
+  /// pair of Trajectories that would fail the broad_phase() test. Waypointation
   /// faults or false positives may occur when this function is called on
   /// Trajectories that do not pass the broad_phase test.
   static std::vector<ConflictData> narrow_phase(

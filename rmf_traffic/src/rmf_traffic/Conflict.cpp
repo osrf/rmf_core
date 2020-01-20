@@ -35,7 +35,7 @@ class ConflictData::Implementation
 public:
 
   Time time;
-  Segments segments;
+  Waypoints segments;
 
 };
 
@@ -46,7 +46,7 @@ Time ConflictData::get_time() const
 }
 
 //==============================================================================
-const ConflictData::Segments& ConflictData::get_segments() const
+const ConflictData::Waypoints& ConflictData::get_segments() const
 {
   return _pimpl->segments;
 }
@@ -83,7 +83,7 @@ public:
     error._pimpl->what = std::string()
         + "[rmf_traffic::invalid_trajectory_error] Attempting to check a "
         + "conflict with a Trajectory that has no shape specified for the "
-        + "profile of its segment at time ["
+        + "profile of its waypoint at time ["
         + std::to_string(time.time_since_epoch().count())
         + "ns]. This is not supported.";
 
@@ -245,7 +245,7 @@ fcl::ContinuousCollisionRequest make_fcl_request()
 class DetectConflict::Implementation
 {
 public:
-  static ConflictData make_conflict(Time time, ConflictData::Segments segments)
+  static ConflictData make_conflict(Time time, ConflictData::Waypoints segments)
   {
     ConflictData result;
     result._pimpl = rmf_utils::make_impl<ConflictData::Implementation>(
@@ -288,14 +288,14 @@ std::vector<ConflictData> DetectConflict::narrow_phase(
   while(a_it != trajectory_a.end() && b_it != trajectory_b.end())
   {
     // Increment a_it until spline_a will overlap with spline_b
-    if(a_it->get_finish_time() < spline_b.start_time())
+    if(a_it->time() < spline_b.start_time())
     {
       ++a_it;
       continue;
     }
 
     // Increment b_it until spline_b will overlap with spline_a
-    if(b_it->get_finish_time() < spline_a.start_time())
+    if(b_it->time() < spline_a.start_time())
     {
       ++b_it;
       continue;
