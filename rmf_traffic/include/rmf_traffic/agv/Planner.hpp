@@ -337,7 +337,8 @@ public:
 
   /// Produces a set of starting conditions in order to start planning. This
   /// method attempts to find the most suitable starting nodes within the graph
-  /// for merging, planning and execution of plans.
+  /// for merging, planning and execution of plans. If none of the waypoints in
+  /// the graph fulfils the requirements, a nullopt will be returned.
   ///
   /// \param[in] pose
   ///   Current pose in terms of 2D coordinates, x and y, being the first and
@@ -348,10 +349,20 @@ public:
   ///   to compute a new plan. In some occations, users will want to add small
   ///   delays to the current time, in order to account for computation time or
   ///   network delays.
-  StartSet compute_plan_starts(
+  ///
+  /// \param[in] max_merge_waypoint_distance
+  ///   The maximum distance allowed to automatically merge onto a waypoint in 
+  ///   the graph, default value as 0.1 meters.
+  ///
+  /// \param[in] max_merge_lane_distance
+  ///   The maximum distance allowed to automatically merge onto a lane, i.e.
+  ///   adding the lane's entry and exit waypoints as potential starts. default
+  ///   value as 1.0 meters.
+  rmf_utils::optional<StartSet> compute_plan_starts(
       const Eigen::Vector3d pose,
       const rmf_traffic::Time start_time,
-      const double max_auto_merge_distance = 0.1) const;
+      const double max_merge_waypoint_distance = 0.1,
+      const double max_merge_lane_distance = 1.0) const;
 
   /// Produce a plan for the given starting conditions and goal. The default
   /// Options of this Planner instance will be used.

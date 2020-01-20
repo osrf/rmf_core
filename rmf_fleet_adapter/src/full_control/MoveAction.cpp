@@ -113,7 +113,17 @@ public:
     const auto start_time = 
         rmf_traffic_ros2::convert(_node->get_clock()->now()) + start_delay;
 
-    const auto plan_starts = planner.compute_plan_starts(pose, start_time);
+    // TODO: further parameterize waypoint and lane merging distance
+    const auto plan_starts = 
+        planner.compute_plan_starts(pose, start_time, 0.1, 1.0);
+    if (!plan_starts)
+    {
+      RCLCPP_WARNING(
+          _node->get_logger(), 
+          "The robot appears to be in an unrecoverable state, failed to find "
+          "suitable waypoints on the graph to start planning.");
+      return {};
+    }
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -1095,7 +1105,17 @@ public:
         rmf_traffic_ros2::convert(_node->get_clock()->now()) + 
         std::chrono::nanoseconds(0);
 
-    const auto plan_starts = planner.compute_plan_starts(pose, start_time);
+    // TODO: further parameterize waypoint and lane merging distance
+    const auto plan_starts = 
+        planner.compute_plan_starts(pose, start_time, 0.1, 1.0);
+    if (!plan_starts)
+    {
+      RCLCPP_WARNING(
+          _node->get_logger(), 
+          "The robot appears to be in an unrecoverable state, failed to find "
+          "suitable waypoints on the graph to start planning.");
+      return {};
+    }
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();

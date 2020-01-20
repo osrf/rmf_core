@@ -2342,3 +2342,105 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     // start2 has the shortest duration
   }
 }
+
+SCENARIO("Test computing Starts from coordinates")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  using DetectConflict = rmf_traffic::DetectConflict;
+
+  const std::string test_map_name = "test_map";
+  Graph graph;
+
+  const VehicleTraits traits{
+      {1.0, 0.4},
+      {1.0, 0.5},
+      make_test_profile(UnitCircle)};
+
+  rmf_traffic::schedule::Database database;
+  bool interrupt_flag = false;
+  Duration hold_time = std::chrono::seconds(1);
+  const rmf_traffic::agv::Planner::Options default_options{
+      database,
+      hold_time,
+      &interrupt_flag};
+
+  Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+  const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
+
+  WHEN("Two waypoints are very close to each other, below the max merging distance")
+  {
+    graph.add_waypoint(test_map_name, {0, 0}); // 0
+    graph.add_waypoint(test_map_name, {0.05, 0.05}); // 1
+    graph.add_waypoint(test_map_name, {10, 10}); // 2
+    REQUIRE(graph.num_waypoints() == 3);
+
+    graph.add_lane(0, 1); // 0
+    graph.add_lane(1, 2); // 1
+    REQUIRE(graph.num_lanes() == 2);
+
+    planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+    Planner::StartSet start_set = 
+        planner.compute_plan_starts({0.1, 0.1, 0.0}, initial_time, 0.1);
+    
+    CHECK(!start_set.empty());
+    CHECK(start_set.size() == 2);
+  }
+
+  // graph.add_waypoint(test_map_name, {0, 0}, true); // 0
+  // graph.add_waypoint(test_map_name, {-4, 3}, true); // 1
+  // graph.add_waypoint(test_map_name, {4, 3}); // 2
+  // graph.add_waypoint(test_map_name, {-4, 15}, true); // 3
+  // graph.add_waypoint(test_map_name, {4, 15}, true); // 4
+  // REQUIRE(graph.num_waypoints() == 5);
+
+  // graph.add_lane(0 ,1); // 0
+  // graph.add_lane(1, 0); // 1
+  // graph.add_lane(0, 2); // 2
+  // graph.add_lane(2, 0); // 3
+  // graph.add_lane(1, 3); // 4
+  // graph.add_lane(3, 1); // 5
+  // graph.add_lane(2, 4); // 6
+  // REQUIRE(graph.num_lanes() == 7);
+
+//   WHEN("Startset with same initial_location and initial_waypoints but different initial_orientations")
+//   {
+//     // lane with exit orientation constraint
+//     graph.add_lane(1, {2, Graph::OrientationConstraint::make({0})}); // 6
+//     graph.add_lane(2, 1); // 7
+//     planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+//     rmf_utils::optional<Eigen::Vector2d> location = Eigen::Vector2d{-2.5, 0};
+//     rmf_utils::optional<std::size_t> initial_lane = 6;
+
+//     std::vector<Planner::Start> starts;
+//     Planner::Start start1{initial_time, 2, 0.0, location, initial_lane};
+//     Planner::Start start2{initial_time, 2, M_PI, location, initial_lane};
+//     starts.push_back(start1);
+//     starts.push_back(start2);
+
+//     Planner::Goal goal{4, M_PI_2};
+
+//     auto plan = planner.plan(starts, goal);
+//     CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
+//     const auto duration = plan->get_trajectories().front().duration();
+//     const auto result1 = plan->replan(start1);
+//     const auto duration1 = result1->get_trajectories().front().duration();
+//     const auto result2 = plan->replan(start2);
+//     const auto duration2 = result2->get_trajectories().front().duration();
+
+// //    print_trajectory_info(*result1, initial_time);
+// //    print_trajectory_info(*result2, initial_time);
+//     CHECK(duration1 < duration2);
+//     CHECK(duration < duration2);
+//     CHECK((duration - duration1).count() ==Approx(0.0).margin(1e-9));
+//   }
+}
+
