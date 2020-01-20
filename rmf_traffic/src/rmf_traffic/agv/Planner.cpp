@@ -15,6 +15,8 @@
  *
 */
 
+#include <iostream>
+
 #include <rmf_traffic/agv/Planner.hpp>
 
 #include "internal_Planner.hpp"
@@ -374,6 +376,149 @@ public:
 
   Configuration configuration;
 
+  Planner::StartSet compute_plan_starts(
+      const Eigen::Vector3d pose,
+      const rmf_traffic::Time start_time,
+      const double max_auto_merge_distance) const
+  {
+    const Eigen::Vector2d p_location = {pose[0], pose[1]};
+    const double start_yaw = pose[2];
+
+    const auto& graph = configuration.graph();
+
+    for (std::size_t i=0; i < graph.num_waypoints() ; ++i)
+    {
+      const auto& wp = graph.get_waypoint(i);
+      const Eigen::Vector2d wp_location = wp.get_location();
+
+      if ( (p_location - wp_location).norm() < 0.1)
+      {
+        // This waypoint is very close to the real location, so we will assume
+        // that the robot is located here.
+        return 
+            {rmf_traffic::agv::Plan::Start(start_time, wp.index(), start_yaw)};
+      }
+    }
+
+    StartSet starts;
+    std::unordered_set<std::size_t> raw_starts;
+
+    double closest_lane_dist = std::numeric_limits<double>::infinity();
+    rmf_utils::optional<std::size_t> closest_start_wp;
+    rmf_utils::optional<std::size_t> closest_lane;
+
+    for (std::size_t i=0; i < graph.num_lanes(); ++i)
+    {
+      const auto& lane = graph.get_lane(i);
+      const Eigen::Vector2d p0 = 
+          graph.get_waypoint(lane.entry().waypoint_index()).get_location();
+      const Eigen::Vector2d p1 =
+          graph.get_waypoint(lane.exit().waypoint_index()).get_location();
+      
+      const double lane_length = (p1 - p0).norm();
+      // This "lane" is effectively a single point, so we'll skip it
+      if (lane_length < 1e-8)
+        continue;
+
+      const Eigen::Vector2d pn = (p1 - p0) / lane_length;
+
+      const Eigen::Vector2d p_l = p_location - p0;
+      const double p_l_projection = p_l.dot(pn);
+
+      if (p_l_projection < 0.0)
+      {
+        // If it's negative then its closest point on the lane is the entry
+        // point
+        const double lane_dist = p_l.norm();
+        const std::size_t s = lane.entry().waypoint_index();
+        if (lane_dist < max_auto_merge_distance)
+        {
+          if (!raw_starts.insert(s).second)
+            continue;
+          
+          starts.emplace_back(
+              Plan::Start(start_time, s, start_yaw, p_location));
+        }
+
+        if (lane_dist < closest_lane_dist)
+        {
+          closest_start_wp = s;
+          closest_lane = rmf_utils::nullopt;
+          closest_lane_dist = lane_dist;
+        }
+      }
+      else if (lane_length < p_l_projection)
+      {
+        // If it's larger than the lane length, then its closest point on the
+        // lane is the exit point.
+        const double lane_dist = (p_location - p1).norm();
+        const std::size_t s = lane.exit().waypoint_index();
+        if (lane_dist < max_auto_merge_distance)
+        {
+          if (!raw_starts.insert(s).second)
+            continue;
+          
+          starts.emplace_back(
+              Plan::Start(start_time, s, start_yaw, p_location));
+        }
+
+        if (lane_dist < closest_lane_dist)
+        {
+          closest_start_wp = s;
+          closest_lane = rmf_utils::nullopt;
+          closest_lane_dist = lane_dist;
+        }
+      }
+      else
+      {
+        // If it's between the entry and the exit points, then we should
+        // compute it's distance away from the lane line.
+        const double lane_dist = (p_l - p_l_projection*pn).norm();
+        const std::size_t s = lane.exit().waypoint_index();
+        if (lane_dist < max_auto_merge_distance)
+        {
+          starts.emplace_back(
+              Plan::Start(start_time, s, start_yaw, p_location, i));
+        }
+
+        if (lane_dist < closest_lane_dist)
+        {
+          closest_start_wp = s;
+          closest_lane = i;
+          closest_lane_dist = lane_dist;
+        }
+      }
+    }
+
+    if (!closest_start_wp)
+    {
+      std::cout << "Warning from [Planner::compute_plan_starts]: "
+          << "No start points found? This implies either a bug or an empty "
+          << "nav graph!" << std::endl;
+      return {};
+    }
+
+    if (starts.empty())
+    {
+      // None of the lanes were very close, so we'll go ahead and use the one
+      // that seems closest.
+      if (closest_lane_dist > 10 * max_auto_merge_distance)
+      {
+        std::cout << "Warning from [Planner::compute_plan_starts]: "
+            << "The robot appears to be [" << std::to_string(closest_lane_dist)
+            << "] meters away from its closest lane on the graph ["
+            << std::to_string(closest_lane) << "]!" << std::endl;
+      }
+
+      starts.emplace_back(
+          Plan::Start(
+              start_time, *closest_start_wp, start_yaw, p_location, 
+              closest_lane));
+    }
+
+    return starts;
+  }
+
 };
 
 //==============================================================================
@@ -444,6 +589,16 @@ auto Planner::get_default_options() -> Options&
 auto Planner::get_default_options() const -> const Options&
 {
   return _pimpl->default_options;
+}
+
+//==============================================================================
+Planner::StartSet Planner::compute_plan_starts(
+      const Eigen::Vector3d pose,
+      const rmf_traffic::Time start_time,
+      const double max_auto_merge_distance) const
+{
+  return _pimpl->compute_plan_starts(
+      pose, start_time, max_auto_merge_distance);
 }
 
 //==============================================================================

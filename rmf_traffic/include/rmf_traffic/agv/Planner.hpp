@@ -333,6 +333,26 @@ public:
   /// Get a const reference to the default planning options.
   const Options& get_default_options() const;
 
+  using StartSet = std::vector<Start>;
+
+  /// Produces a set of starting conditions in order to start planning. This
+  /// method attempts to find the most suitable starting nodes within the graph
+  /// for merging, planning and execution of plans.
+  ///
+  /// \param[in] pose
+  ///   Current pose in terms of 2D coordinates, x and y, being the first and
+  ///   second element respectively, while the third element being the yaw.
+  ///
+  /// \param[in] start_time
+  ///   The starting time that will be attributed to all the generated starts
+  ///   to compute a new plan. In some occations, users will want to add small
+  ///   delays to the current time, in order to account for computation time or
+  ///   network delays.
+  StartSet compute_plan_starts(
+      const Eigen::Vector3d pose,
+      const rmf_traffic::Time start_time,
+      const double max_auto_merge_distance = 0.1) const;
+
   /// Produce a plan for the given starting conditions and goal. The default
   /// Options of this Planner instance will be used.
   ///
@@ -360,7 +380,6 @@ public:
       Goal goal,
       Options options) const;
 
-  using StartSet = std::vector<Start>;
 
   /// Produces a plan for the given set of starting conditions and goal. The
   /// default Options of this Planner instance will be used.

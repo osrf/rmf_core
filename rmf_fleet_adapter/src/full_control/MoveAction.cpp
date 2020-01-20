@@ -107,8 +107,13 @@ public:
     std::vector<rmf_traffic::agv::Plan> plans;
 
     const auto& planner = _node->get_planner();
-    const auto plan_starts =
-        _node->compute_plan_starts(_context->location, start_delay);
+
+    Eigen::Vector3d pose = 
+        {_context->location.x, _context->location.y, _context->location.yaw};
+    const auto start_time = 
+        rmf_traffic_ros2::convert(_node->get_clock()->now()) + start_delay;
+
+    const auto plan_starts = planner.compute_plan_starts(pose, start_time);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
@@ -1084,8 +1089,13 @@ public:
 
     const auto& planner = _node->get_planner();
 
-    const auto plan_starts = _node->compute_plan_starts(
-          _context->location, std::chrono::seconds(0));
+    Eigen::Vector3d pose = 
+        {_context->location.x, _context->location.y, _context->location.yaw};
+    const auto start_time = 
+        rmf_traffic_ros2::convert(_node->get_clock()->now()) + 
+        std::chrono::nanoseconds(0);
+
+    const auto plan_starts = planner.compute_plan_starts(pose, start_time);
 
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
