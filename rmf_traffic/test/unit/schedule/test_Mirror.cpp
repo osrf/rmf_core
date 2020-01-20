@@ -57,7 +57,7 @@ const auto version_1=db.insert(t1);
 REQUIRE(version_1==1);
 const auto version_2= db.insert(t2);
 REQUIRE(version_2==2);
-REQUIRE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+REQUIRE_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
 REQUIRE(rmf_traffic::DetectConflict::narrow_phase(t1,t2).size()==0);
 
 rmf_traffic::schedule::Mirror m1;
