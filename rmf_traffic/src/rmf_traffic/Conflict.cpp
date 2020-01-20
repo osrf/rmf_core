@@ -21,15 +21,12 @@
 #include "StaticMotion.hpp"
 
 #include <rmf_traffic/Conflict.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 
 #include <fcl/continuous_collision.h>
 #include <fcl/ccd/motion.h>
 
 #include <unordered_map>
-#include <mutex>
-#include <thread>
 
 namespace rmf_traffic {
 
