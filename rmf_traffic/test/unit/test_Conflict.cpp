@@ -529,12 +529,9 @@ SCENARIO("DetectConflict unit tests")
                   CHECK(rmf_traffic::DetectConflict::broad_phase(t1,t2));
                   auto conflicts=rmf_traffic::DetectConflict::between(t1,t2);
                   CHECK(conflicts.size()==2);
-                  CHECK(conflicts.front().get_segments().first==++t1.begin()); //segment with the conflict
-                  CHECK(conflicts.back().get_segments().first==--t1.end()); //segment with the conflict                 
-
-                  
+                  CHECK(conflicts.front().get_segments().first==++t1.begin()); // segment with the conflict
+                  CHECK(conflicts.back().get_segments().first==--t1.end()); // segment with the conflict                      
             }
-
 
             WHEN("Checked with a trajectory that overlaps partially in time")
             {
@@ -543,18 +540,11 @@ SCENARIO("DetectConflict unit tests")
                   t2.insert(time+35s,profile,Eigen::Vector3d{5,5,0},Eigen::Vector3d{0,0,0});
                   REQUIRE(t2.size()==2);
 
-                  CHECK(rmf_traffic::DetectConflict::broad_phase(t1,t2));
+                  CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(t1,t2));
                   CHECK(rmf_traffic::DetectConflict::between(t1,t2).size()==0);
 
             }
-
-
-
-
       }
-
-
-
 
   GIVEN("A trajectory with a curve")
   {

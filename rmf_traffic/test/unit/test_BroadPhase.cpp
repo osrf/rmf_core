@@ -29,7 +29,7 @@ SCENARIO("Test Broad-Phase Collision Detection")
   auto begin_time = std::chrono::steady_clock::now();
   auto profile = make_test_profile(UnitCircle);
 
-  const bool test_performance = true;
+  const bool test_performance = false;
   const std::size_t N = test_performance? 3000 : 1;
 
   GIVEN("Two stationary trajectories that do not overlap in space")
