@@ -228,7 +228,7 @@ void get_local_extrema(
     const Coeffs& coeffs,
     std::vector<double>& sols)
 {
-  // Store boundary values as potentaial extrema
+  // Store boundary values as potential extrema
   sols.emplace_back(evaluate_spline(coeffs, 0));
   sols.emplace_back(evaluate_spline(coeffs, 1));
 
@@ -329,6 +329,53 @@ BoundingBox get_bounding_box(const Trajectory& trajectory)
   return bounding_box;
 }
 
+BoundingBox get_bounding_box(const rmf_traffic::Trajectory::const_iterator end)
+{
+  BoundingBox bounding_box;
+  std::vector<double> x_sols;
+  std::vector<double> y_sols;
+
+  rmf_traffic::Trajectory::const_iterator begin =
+      --rmf_traffic::Trajectory::const_iterator(end);
+  auto spline_coeffs = get_spline_coefficients(begin, end);
+
+  get_local_extrema(spline_coeffs.first, x_sols);
+  get_local_extrema(spline_coeffs.second, y_sols);
+
+  Eigen::Vector2d min_coord = Eigen::Vector2d{
+      *std::min_element(x_sols.begin(), x_sols.end()),
+      *std::min_element(y_sols.begin(), y_sols.end())};
+
+  Eigen::Vector2d max_coord = Eigen::Vector2d{
+      *std::max_element(x_sols.begin(), x_sols.end()),
+      *std::max_element(y_sols.begin(), y_sols.end())};
+
+  // Applying offsets for profile of trajectory
+  // TODO get characteristic length from geometry::FinalShape
+  // Current behavior is undefined if profile is Box.
+  double char_length = -1;
+  try
+  {
+    char_length = static_cast<const rmf_traffic::geometry::Circle&>(
+    end->get_profile()->get_shape()->source()).get_radius();
+  }
+  catch(const std::exception& e)
+  {
+    std::cerr << e.what() << '\n';
+  }
+  
+  if (char_length > 0)
+  {
+    min_coord -= Eigen::Vector2d{char_length, char_length};
+    max_coord += Eigen::Vector2d{char_length, char_length};
+  }
+
+  bounding_box.first = min_coord;
+  bounding_box.second = max_coord;
+
+  return bounding_box;
+}
+
 bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
 {
   auto centre = [&](const BoundingBox& box) -> Eigen::Vector2d
@@ -343,64 +390,14 @@ bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
   double width_b = std::abs(box_b.second[0] - box_b.first[0]);
   double height_b = std::abs(box_b.second[1] - box_b.first[1]);
 
+  // std::cout << "Box A: << Centre [" << centre_a[0] << ", " << centre_a[1] << "] "
+  //     << "Width " << width_a << " Height " << height_a <<std::endl;
+  // std::cout << "Box B: << Centre [" << centre_b[0] << ", " << centre_b[1] << "] "
+  //     << "Width " << width_b << " Height " << height_b <<std::endl;
+
   return std::abs(centre_b[0] - centre_a[0]) < 0.5 * (width_a + width_b)
       &&  std::abs(centre_b[1] - centre_a[1]) < 0.5 * (height_a + height_b);
 }
-
-} // anonymous namespace
-
-bool DetectConflict::broad_phase(
-    const Trajectory& trajectory_a,
-    const Trajectory& trajectory_b)
-{
-  std::size_t min_size = std::min(trajectory_a.size(), trajectory_b.size());
-  if(min_size < 2)
-  {
-    throw invalid_trajectory_error::Implementation
-        ::make_segment_num_error(min_size);
-  }
-
-  if(trajectory_a.get_map_name() != trajectory_b.get_map_name())
-    return false;
-
-  const auto* t_a0 = trajectory_a.start_time();
-  const auto* t_bf = trajectory_b.finish_time();
-
-  // Neither of these can be null, because both trajectories should have at
-  // least two elements.
-  assert(t_a0 != nullptr);
-  assert(t_bf != nullptr);
-
-  if(*t_bf < *t_a0)
-  {
-    // If Trajectory `b` finishes before Trajectory `a` starts, then there
-    // cannot be any conflict.
-    return false;
-  }
-
-  const auto* t_b0 = trajectory_b.start_time();
-  const auto* t_af = trajectory_a.finish_time();
-
-  // Neither of these can be null, because both trajectories should have at
-  // least two elements.
-  assert(t_b0 != nullptr);
-  assert(t_af != nullptr);
-
-  if(*t_af < *t_b0)
-  {
-    // If Trajectory `a` finished before Trajectory `b` starts, then there
-    // cannot be any conflict.
-    return false;
-  }
-
-  // Check for overap of bounding boxes of the trajectories
-  auto box_a = get_bounding_box(trajectory_a);
-  auto box_b = get_bounding_box(trajectory_b);
-  
-  return overlap(box_a, box_b);
-}
-
-namespace {
 
 //==============================================================================
 std::shared_ptr<fcl::SplineMotion> make_uninitialized_fcl_spline_motion()
@@ -473,6 +470,103 @@ fcl::ContinuousCollisionRequest make_fcl_request()
 }
 
 } // anonymous namespace
+
+bool DetectConflict::broad_phase(
+    const Trajectory& trajectory_a,
+    const Trajectory& trajectory_b)
+{
+  std::size_t min_size = std::min(trajectory_a.size(), trajectory_b.size());
+  if(min_size < 2)
+  {
+    throw invalid_trajectory_error::Implementation
+        ::make_segment_num_error(min_size);
+  }
+
+  if(trajectory_a.get_map_name() != trajectory_b.get_map_name())
+    return false;
+
+  const auto* t_a0 = trajectory_a.start_time();
+  const auto* t_bf = trajectory_b.finish_time();
+
+  // Neither of these can be null, because both trajectories should have at
+  // least two elements.
+  assert(t_a0 != nullptr);
+  assert(t_bf != nullptr);
+
+  if(*t_bf < *t_a0)
+  {
+    // If Trajectory `b` finishes before Trajectory `a` starts, then there
+    // cannot be any conflict.
+    return false;
+  }
+
+  const auto* t_b0 = trajectory_b.start_time();
+  const auto* t_af = trajectory_a.finish_time();
+
+  // Neither of these can be null, because both trajectories should have at
+  // least two elements.
+  assert(t_b0 != nullptr);
+  assert(t_af != nullptr);
+
+  if(*t_af < *t_b0)
+  {
+    // If Trajectory `a` finished before Trajectory `b` starts, then there
+    // cannot be any conflict.
+    return false;
+  }
+
+  // Iterate through the segments of both trajectories to check for overlapping
+  // bounding boxes
+  Trajectory::const_iterator a_it;
+  Trajectory::const_iterator b_it;
+  std::tie(a_it, b_it) = get_initial_iterators(trajectory_a, trajectory_b);
+  assert(a_it != trajectory_a.end());
+  assert(b_it != trajectory_b.end());
+
+  Spline spline_a(a_it);
+  Spline spline_b(b_it);
+
+  while(a_it != trajectory_a.end() && b_it != trajectory_b.end())
+  {
+    // Increment a_it until spline_a will overlap with spline_b
+    if(a_it->get_finish_time() < spline_b.start_time())
+    {
+      ++a_it;
+      continue;
+    }
+
+    // Increment b_it until spline_b will overlap with spline_a
+    if(b_it->get_finish_time() < spline_a.start_time())
+    {
+      ++b_it;
+      continue;
+    }
+
+    spline_a = Spline(a_it);
+    spline_b = Spline(b_it);
+
+    auto box_a = get_bounding_box(a_it);
+    auto box_b = get_bounding_box(b_it);
+
+    if (overlap(box_a, box_b))
+      return true;
+
+    if(spline_a.finish_time() < spline_b.finish_time())
+    {
+      ++a_it;
+    }
+    else if(spline_b.finish_time() < spline_a.finish_time())
+    {
+      ++b_it;
+    }
+    else
+    {
+      ++a_it;
+      ++b_it;
+    }
+  }
+  return false;
+}
 
 class DetectConflict::Implementation
 {
