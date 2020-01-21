@@ -78,7 +78,7 @@ public:
 
   /// Look at the source of this FinalShape to inspect its parameters.
   const Shape& source() const;
-
+  
   virtual ~FinalShape() = default;
 
   class Implementation;

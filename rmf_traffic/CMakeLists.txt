@@ -43,8 +43,8 @@ add_library(rmf_traffic SHARED
 if(BUILD_TESTING)
   find_package(ament_cmake_catch2 REQUIRED)
 
-  file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
-
+  #file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
+  file(GLOB_RECURSE unit_test_srcs "test/unit/test_BroadPhase.cpp")
   ament_add_catch2(
     test_rmf_traffic test/main.cpp ${unit_test_srcs}
     TIMEOUT 300)

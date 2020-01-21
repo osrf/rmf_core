@@ -29,7 +29,7 @@ SCENARIO("Test Broad-Phase Collision Detection")
   auto begin_time = std::chrono::steady_clock::now();
   auto profile = make_test_profile(UnitCircle);
 
-  const bool test_performance = false;
+  const bool test_performance = true;
   const std::size_t N = test_performance? 3000 : 1;
 
   GIVEN("Two stationary trajectories that do not overlap in space")
@@ -187,6 +187,48 @@ SCENARIO("Test Broad-Phase Collision Detection")
     }
   }
 
+  GIVEN("Two non-overlapping parallel straight-line trajectories with n segments")
+  {
+    int n_seg = 200;
+
+    rmf_traffic::Trajectory trajectory_a("test_map");
+    rmf_traffic::Trajectory trajectory_b("test_map");
+
+    for (auto i = 0; i < n_seg; i++)
+    {
+      trajectory_a.insert(
+      begin_time + std::chrono::seconds(i * 5),
+      profile,
+      Eigen::Vector3d{0.0 + i*10.0, 10.0, 0},
+      Eigen::Vector3d{0.0, 0.0, 0.0});
+
+      trajectory_b.insert(
+      begin_time + std::chrono::seconds(i * 5),
+      profile,
+      Eigen::Vector3d{0.0 + i*10.0, -10.0, 0},
+      Eigen::Vector3d{0.0, 0.0, 0.0});
+    }
+    REQUIRE(trajectory_a.size() == n_seg);
+    REQUIRE(trajectory_b.size() == n_seg);
+
+    const auto start_time = std::chrono::steady_clock::now();
+    for (std::size_t i = 0; i < N; ++i)
+    {
+      CHECK_FALSE(rmf_traffic::DetectConflict::broad_phase(
+          trajectory_a,
+          trajectory_b));    
+    }
+    const auto end_time = std::chrono::steady_clock::now();
+
+    if (test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "Non-overlapping straight-line trajectories with " << n_seg << " segments\n";
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
+  }
+
   GIVEN("Time ranges and bounding boxes overlap but segments do not intersect")
   {
     rmf_traffic::Trajectory trajectory_a("test_map");
@@ -252,7 +294,7 @@ SCENARIO("Test Broad-Phase Collision Detection")
     if (test_performance)
     {
       const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-      std::cout << "Overlapping trajectory bounding boxes but segments do not intersect\n";
+      std::cout << "Overlapping bounding boxes but segments do not intersect\n";
       std::cout << "Total: " << sec << std::endl;
       std::cout << "Per run: " << sec/N << std::endl;
     }
