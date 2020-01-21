@@ -2387,11 +2387,11 @@ SCENARIO("Test computing Starts from coordinates")
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-    Planner::StartSet start_set = 
-        planner.compute_plan_starts({0.1, 0.1, 0.0}, initial_time, 0.1);
+    // Planner::StartSet start_set = 
+    //     planner.compute_plan_starts({0.1, 0.1, 0.0}, initial_time, 0.1);
     
-    CHECK(!start_set.empty());
-    CHECK(start_set.size() == 2);
+    // CHECK(!start_set.empty());
+    // CHECK(start_set.size() == 2);
   }
 
   // graph.add_waypoint(test_map_name, {0, 0}, true); // 0

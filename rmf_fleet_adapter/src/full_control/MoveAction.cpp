@@ -118,7 +118,7 @@ public:
         planner.compute_plan_starts(pose, start_time, 0.1, 1.0);
     if (!plan_starts)
     {
-      RCLCPP_WARNING(
+      RCLCPP_WARN(
           _node->get_logger(), 
           "The robot appears to be in an unrecoverable state, failed to find "
           "suitable waypoints on the graph to start planning.");
@@ -138,8 +138,10 @@ public:
     std::thread main_plan_thread = std::thread(
           [&]()
     {
-      main_plan = planner.plan(
-            plan_starts, rmf_traffic::agv::Plan::Goal(_goal_wp_index), options);
+      main_plan = 
+          planner.plan(
+              plan_starts.value(), 
+              rmf_traffic::agv::Plan::Goal(_goal_wp_index), options);
       if (main_plan)
       {
         main_plan_solved = true;
@@ -158,8 +160,10 @@ public:
     {
       fallback_plan_threads.emplace_back(std::thread([&, goal_wp]()
       {
-        auto fallback_plan = planner.plan(
-              plan_starts, rmf_traffic::agv::Plan::Goal(goal_wp), options);
+        auto fallback_plan = 
+            planner.plan(
+                plan_starts.value(), 
+                rmf_traffic::agv::Plan::Goal(goal_wp), options);
 
         std::unique_lock<std::mutex> lock(fallback_plan_mutex);
         if (fallback_plan)
@@ -1110,7 +1114,7 @@ public:
         planner.compute_plan_starts(pose, start_time, 0.1, 1.0);
     if (!plan_starts)
     {
-      RCLCPP_WARNING(
+      RCLCPP_WARN(
           _node->get_logger(), 
           "The robot appears to be in an unrecoverable state, failed to find "
           "suitable waypoints on the graph to start planning.");
@@ -1131,8 +1135,10 @@ public:
     {
       plan_threads.emplace_back(std::thread([&, goal_wp]()
       {
-        auto emergency_plan = planner.plan(
-              plan_starts, rmf_traffic::agv::Plan::Goal(goal_wp), options);
+        auto emergency_plan = 
+            planner.plan(
+                plan_starts.value(), 
+                rmf_traffic::agv::Plan::Goal(goal_wp), options);
 
         std::unique_lock<std::mutex> lock(plans_mutex);
         if (emergency_plan)

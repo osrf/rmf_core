@@ -396,7 +396,7 @@ public:
       if ( (p_location - wp_location).norm() < max_merge_waypoint_distance)
       {
         StartSet starts = {Plan::Start(start_time, wp.index(), start_yaw)};
-        return std::move(starts);
+        return starts;
       }
     }
 
