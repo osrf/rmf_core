@@ -469,12 +469,21 @@ public:
 
         if (lane_dist < max_merge_lane_distance)
         {
-          starts.emplace_back(
-              Plan::Start(
-                  start_time, entry_waypoint_index, start_yaw, p_location, i));
-          starts.emplace_back(
-              Plan::Start(
-                  start_time, exit_waypoint_index, start_yaw, p_location, i));
+          if (starts_waypoint_indices.insert(entry_waypoint_index).second)
+          {
+            starts.emplace_back(
+                Plan::Start(
+                    start_time, entry_waypoint_index, start_yaw, 
+                    p_location, i));
+          }
+
+          if (starts_waypoint_indices.insert(exit_waypoint_index).second)
+          {
+            starts.emplace_back(
+                Plan::Start(
+                    start_time, exit_waypoint_index, start_yaw, 
+                    p_location, i));
+          }
         }
       }
     }
