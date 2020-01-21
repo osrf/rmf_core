@@ -43,5 +43,19 @@ public:
 
 };
 
+
 } // namespace schedule
+
+
+namespace detail {
+
+template class bidirectional_iterator<
+    const schedule::Change,
+    schedule::Patch::IterImpl,
+    schedule::Patch
+>;
+
+} // namespace detail
+
+
 } // namespace rmf_traffic

@@ -435,14 +435,4 @@ Version Database::cull(Time time)
 
 } // namespace schedule
 
-namespace detail {
-
-template class bidirectional_iterator<
-    const schedule::Database::Change,
-    schedule::Database::Patch::IterImpl,
-    schedule::Database::Patch
->;
-
-} // namespace detail
-
 } // namespace rmf_traffic
