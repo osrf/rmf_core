@@ -657,7 +657,7 @@ FinalShape SimplePolygon::finalize() const
 {
   return FinalShape::Implementation::make_final_shape(
         rmf_utils::make_derived_impl<const Shape, const SimplePolygon>(*this),
-        _get_internal()->make_fcl());
+        _get_internal()->make_fcl(), 1.0);
 }
 
 } // namespace geometry

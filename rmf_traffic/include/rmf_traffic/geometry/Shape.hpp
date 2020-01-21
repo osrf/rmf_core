@@ -79,6 +79,9 @@ public:
   /// Look at the source of this FinalShape to inspect its parameters.
   const Shape& source() const;
   
+  /// Get the characteristic length of this FinalShape
+  double get_characteristic_length() const;
+
   virtual ~FinalShape() = default;
 
   class Implementation;

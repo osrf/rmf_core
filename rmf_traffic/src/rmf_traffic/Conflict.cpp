@@ -203,16 +203,8 @@ BoundingBox get_bounding_box(const rmf_traffic::Spline& spline)
   // Applying offsets for profile of trajectory
   // TODO get characteristic length from geometry::FinalShape
   // Current behavior is undefined if profile is Box.
-  double char_length = -1;
-  try
-  {
-    char_length = static_cast<const rmf_traffic::geometry::Circle&>(
-    params.profile_ptr->get_shape()->source()).get_radius();
-  }
-  catch(const std::exception& e)
-  {
-    std::cerr << e.what() << '\n';
-  }
+  double char_length = params.profile_ptr->get_shape()
+      ->source().finalize().get_characteristic_length();
   
   if (char_length > 0)
   {
