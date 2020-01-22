@@ -21,7 +21,6 @@
 #include "StaticMotion.hpp"
 
 #include <rmf_traffic/Conflict.hpp>
-#include <rmf_traffic/geometry/Circle.hpp>
 
 #include <fcl/continuous_collision.h>
 #include <fcl/ccd/motion.h>
