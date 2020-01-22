@@ -407,6 +407,12 @@ class Query::Versions::All::Implementation
 };
 
 //==============================================================================
+Query::Versions::All::All()
+{
+  // Do nothing
+}
+
+//==============================================================================
 class Query::Versions::After::Implementation
 {
 public:

@@ -233,7 +233,7 @@ public:
 
   const Version* after_version;
 
-  std::vector<Database::Change> relevant_changes;
+  std::vector<Change> relevant_changes;
 };
 
 } // namespace internal

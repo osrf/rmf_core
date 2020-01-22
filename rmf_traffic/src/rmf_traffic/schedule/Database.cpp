@@ -26,80 +26,6 @@
 namespace rmf_traffic {
 namespace schedule {
 
-//==============================================================================
-class Database::Patch::Implementation
-{
-public:
-
-  std::vector<Change> changes;
-
-  Version latest_version;
-
-  Implementation()
-  {
-    // Do nothing
-  }
-
-  Implementation(std::vector<Change> _changes, Version _latest_version)
-    : changes(std::move(_changes)),
-      latest_version(_latest_version)
-  {
-    // Sort the changes to make sure they get applied in the correct order
-    std::sort(changes.begin(), changes.end(),
-              [](const Change& c1, const Change& c2) {
-      return c1.id() < c2.id();
-    });
-  }
-
-};
-
-//==============================================================================
-class Database::Patch::IterImpl
-{
-public:
-
-  std::vector<Change>::const_iterator iter;
-
-};
-
-//==============================================================================
-Database::Patch::Patch(std::vector<Change> changes, Version latest_version)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             std::move(changes), latest_version))
-{
-  // Do nothing
-}
-
-//==============================================================================
-auto Database::Patch::begin() const -> const_iterator
-{
-  return const_iterator(IterImpl{_pimpl->changes.begin()});
-}
-
-//==============================================================================
-auto Database::Patch::end() const -> const_iterator
-{
-  return const_iterator(IterImpl{_pimpl->changes.end()});
-}
-
-//==============================================================================
-std::size_t Database::Patch::size() const
-{
-  return _pimpl->changes.size();
-}
-
-//==============================================================================
-Version Database::Patch::latest_version() const
-{
-  return _pimpl->latest_version;
-}
-
-//==============================================================================
-Database::Patch::Patch()
-{
-  // Do nothing
-}
-
 namespace internal {
 
 //==============================================================================
@@ -202,7 +128,7 @@ void ChangeRelevanceInspector::inspect(
       // We are not transmitting the chain of changes that led to this entry,
       // so just create an insertion for it and transmit that.
       relevant_changes.emplace_back(
-            Database::Change::Implementation::make_insert_ref(
+            Change::Implementation::make_insert_ref(
               &entry->trajectory, entry->version));
     }
   }

@@ -43,6 +43,52 @@ public:
 
 };
 
+//==============================================================================
+class Patch::IterImpl
+{
+public:
+
+  std::vector<Change>::const_iterator iter;
+
+};
+
+//==============================================================================
+Patch::Patch(std::vector<Change> changes, Version latest_version)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             std::move(changes), latest_version))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Patch::begin() const -> const_iterator
+{
+  return const_iterator(IterImpl{_pimpl->changes.begin()});
+}
+
+//==============================================================================
+auto Patch::end() const -> const_iterator
+{
+  return const_iterator(IterImpl{_pimpl->changes.end()});
+}
+
+//==============================================================================
+std::size_t Patch::size() const
+{
+  return _pimpl->changes.size();
+}
+
+//==============================================================================
+Version Patch::latest_version() const
+{
+  return _pimpl->latest_version;
+}
+
+//==============================================================================
+Patch::Patch()
+{
+  // Do nothing
+}
 
 } // namespace schedule
 

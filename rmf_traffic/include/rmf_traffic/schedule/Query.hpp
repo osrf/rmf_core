@@ -21,6 +21,7 @@
 #include <rmf_traffic/detail/bidirectional_iterator.hpp>
 
 #include <rmf_traffic/schedule/Version.hpp>
+#include <rmf_traffic/schedule/Participant.hpp>
 
 #include <rmf_traffic/Region.hpp>
 #include <rmf_traffic/Time.hpp>
@@ -295,6 +296,8 @@ public:
 
       class Implementation;
     private:
+      All();
+      friend class Participants;
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
@@ -312,7 +315,7 @@ public:
 
       /// Set the version.
       ///
-      /// \param version
+      /// \param[in] version
       ///   The Query will only return Trajectories which were introduced after
       ///   this version of the schedule.
       After& set_version(Version version);
@@ -361,6 +364,94 @@ public:
     class Implementation;
   private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  /// A class to describe a filter on which schedule participants to pay
+  /// attention to.
+  class Participants
+  {
+  public:
+
+    enum class Mode : uint16_t
+    {
+      /// Invalid mode, behavior is undefined
+      Invalid,
+
+      /// Get all participants
+      All,
+
+      /// Get only the participants listed
+      Include,
+
+      /// Get all participants except the ones listed
+      Exclude
+    };
+
+    /// This is a placeholder class in case we ever want to extend the features
+    /// of the `All` mode.
+    class All
+    {
+    public:
+
+      class Implementation;
+    private:
+      All();
+      friend class Participants;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// The interface for the Participants::Include mode
+    class Include
+    {
+    public:
+
+      /// Constructor.
+      Include(std::vector<ParticipantId> ids);
+
+      /// Get the IDs of the participants that should be included.
+      const std::vector<ParticipantId>& get_ids() const;
+
+      /// Set the IDs of the participants that should be included.
+      Include& set_ids(std::vector<ParticipantId> ids);
+
+      class Implementation;
+    private:
+      Include();
+      friend class Participants;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// The interface for the Participants::Exclude mode
+    class Exclude
+    {
+    public:
+
+      /// Constructor
+      Exclude(std::vector<ParticipantId> ids);
+
+      /// Get the IDs of the participants that should be excluded.
+      const std::vector<ParticipantId>& get_ids() const;
+
+      /// Set the IDs of the participants that should be excluded.
+      Exclude& set_ids(std::vector<ParticipantId> ids);
+    };
+
+    /// Default constructor, uses All mode.
+    Participants();
+
+    /// Constructor to use Include mode.
+    ///
+    /// \param[in] ids
+    ///   The IDs of the participants that should be included in the query.
+    static Participants only_include(std::vector<ParticipantId> ids);
+
+    /// Constructor to use Exclude mode.
+    ///
+    /// \param[in] ids
+    ///   The IDs of the participants that should be excluded from the query.
+    static Participants all_except(std::vector<ParticipantId> ids);
+
+
   };
 
   /// Get the Spacetime component of this Query.
