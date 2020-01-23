@@ -516,6 +516,198 @@ auto Query::Versions::after() const -> const After*
 }
 
 //==============================================================================
+class Query::Participants::Implementation
+{
+public:
+
+  Mode mode = Mode::All;
+  All all;
+  Include include;
+  Exclude exclude;
+
+};
+
+//==============================================================================
+class Query::Participants::All::Implementation
+{
+public:
+
+  // This class is just a placeholder until we have any use for an All API
+
+};
+
+//==============================================================================
+Query::Participants::All::All()
+{
+  // Do nothing
+}
+
+namespace {
+//==============================================================================
+std::vector<ParticipantId> uniquify(std::vector<ParticipantId> ids)
+{
+  std::unordered_set<ParticipantId> unique_ids;
+  for (const auto id : ids)
+    unique_ids.insert(id);
+
+  ids.assign(unique_ids.begin(), unique_ids.end());
+  return ids;
+}
+} // anonymous namespace
+
+//==============================================================================
+class Query::Participants::Include::Implementation
+{
+public:
+
+  std::vector<ParticipantId> ids;
+
+};
+
+//==============================================================================
+Query::Participants::Include::Include(std::vector<ParticipantId> ids)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{uniquify(std::move(ids))}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::vector<ParticipantId>& Query::Participants::Include::get_ids() const
+{
+  return _pimpl->ids;
+}
+
+//==============================================================================
+auto Query::Participants::Include::set_ids(std::vector<ParticipantId> ids)
+-> Include&
+{
+  _pimpl->ids = uniquify(std::move(ids));
+  return *this;
+}
+
+//==============================================================================
+Query::Participants::Include::Include()
+{
+  // Do nothing
+}
+
+//==============================================================================
+class Query::Participants::Exclude::Implementation
+{
+public:
+
+  std::vector<ParticipantId> ids;
+
+};
+
+//==============================================================================
+Query::Participants::Exclude::Exclude(std::vector<ParticipantId> ids)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{uniquify(std::move(ids))}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+const std::vector<ParticipantId>& Query::Participants::Exclude::get_ids() const
+{
+  return _pimpl->ids;
+}
+
+//==============================================================================
+auto Query::Participants::Exclude::set_ids(std::vector<ParticipantId> ids)
+-> Exclude&
+{
+  _pimpl->ids = uniquify(std::move(ids));
+  return *this;
+}
+
+//==============================================================================
+Query::Participants::Exclude::Exclude()
+{
+  // Do nothing
+}
+
+//==============================================================================
+Query::Participants::Participants()
+  : _pimpl(rmf_utils::make_impl<Implementation>())
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Query::Participants::make_all() -> Participants
+{
+  return Participants();
+}
+
+//==============================================================================
+auto Query::Participants::make_only(std::vector<ParticipantId> ids)
+-> Participants
+{
+  Participants participants;
+  participants._pimpl->mode = Mode::Include;
+  participants._pimpl->include.set_ids(std::move(ids));
+  return participants;
+}
+
+//==============================================================================
+auto Query::Participants::make_all_except(std::vector<ParticipantId> ids)
+-> Participants
+{
+  Participants participants;
+  participants._pimpl->mode = Mode::Exclude;
+  participants._pimpl->exclude.set_ids(std::move(ids));
+  return participants;
+}
+
+//==============================================================================
+auto Query::Participants::all() -> All*
+{
+  if (Mode::All == _pimpl->mode)
+    return &_pimpl->all;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Participants::all() const -> const All*
+{
+  return const_cast<Participants*>(this)->all();
+}
+
+//==============================================================================
+auto Query::Participants::include() -> Include*
+{
+  if (Mode::Include == _pimpl->mode)
+    return &_pimpl->include;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Participants::include() const -> const Include*
+{
+  return const_cast<Participants*>(this)->include();
+}
+
+//==============================================================================
+auto Query::Participants::exclude() -> Exclude*
+{
+  if (Mode::Exclude == _pimpl->mode)
+    return &_pimpl->exclude;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Query::Participants::exclude() const -> const Exclude*
+{
+  return const_cast<Participants*>(this)->exclude();
+}
+
+//==============================================================================
 class Query::Implementation
 {
 public:

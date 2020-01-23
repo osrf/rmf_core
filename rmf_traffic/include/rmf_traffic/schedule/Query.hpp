@@ -434,24 +434,56 @@ public:
 
       /// Set the IDs of the participants that should be excluded.
       Exclude& set_ids(std::vector<ParticipantId> ids);
+
+      class Implementation;
+    private:
+      Exclude();
+      friend class Participants;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
     /// Default constructor, uses All mode.
     Participants();
 
+    /// Constructor to use All mode.
+    static Participants make_all();
+
     /// Constructor to use Include mode.
     ///
     /// \param[in] ids
     ///   The IDs of the participants that should be included in the query.
-    static Participants only_include(std::vector<ParticipantId> ids);
+    static Participants make_only(std::vector<ParticipantId> ids);
 
     /// Constructor to use Exclude mode.
     ///
     /// \param[in] ids
     ///   The IDs of the participants that should be excluded from the query.
-    static Participants all_except(std::vector<ParticipantId> ids);
+    static Participants make_all_except(std::vector<ParticipantId> ids);
 
+    /// Get the All interface if this Participants filter is in All mode,
+    /// otherwise get a nullptr.
+    All* all();
 
+    /// const-qualified all()
+    const All* all() const;
+
+    /// Get the Include interface if this Participants filter is in Include
+    /// mode, otherwise get a nullptr.
+    Include* include();
+
+    /// const-qualified include()
+    const Include* include() const;
+
+    /// Get the Exclude interface if this Participants filter is in Exclude
+    /// mode, otherwise get a nullptr.
+    Exclude* exclude();
+
+    /// const-qualified exclude()
+    const Exclude* exclude() const;
+
+  private:
+    class Implementation;
+    rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
   /// Get the Spacetime component of this Query.
