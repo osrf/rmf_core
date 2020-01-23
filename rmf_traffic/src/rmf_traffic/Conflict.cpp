@@ -124,7 +124,11 @@ std::vector<ConflictData> DetectConflict::between(
 
 namespace {
 
-using BoundingBox = std::pair<Eigen::Vector2d, Eigen::Vector2d>;
+struct BoundingBox
+{
+  Eigen::Vector2d min;
+  Eigen::Vector2d max;
+};
 
 double evaluate_spline(
     const Eigen::Vector4d& coeffs,
@@ -135,11 +139,14 @@ double evaluate_spline(
       + coeffs[2] * t * t
       + coeffs[1] * t
       + coeffs[0]);
+  // double value = 0.0;
+  // for (int i=0; i <=3; ++i)
+  //   value += coeffs[i] * pow(t, i);
+  // return value;
 }
 
-void get_local_extrema(
-    const Eigen::Vector4d& coeffs,
-    std::array<double, 2>& extrema)
+std::array<double, 2> get_local_extrema(
+    const Eigen::Vector4d& coeffs)
 {
   std::vector<double> t_sols;
   // Store boundary values as potential extrema
@@ -147,25 +154,26 @@ void get_local_extrema(
   t_sols.emplace_back(evaluate_spline(coeffs, 1));
 
   // When derivate of spline motion is not quadratic
-  if (coeffs[3] == 0)
+  if (std::abs(coeffs[3]) < 1e-12)
   {
-    if (coeffs[2] != 0)
+    if (std::abs(coeffs[2]) > 1e-12)
       t_sols.emplace_back(-coeffs[1] / coeffs[2]);
   }
   else
   {
     // Calculate the discriminant otherwise
-    double D = (4 * coeffs[2] * coeffs[2]) - 12 * coeffs[3] * coeffs[1];
+    double D = (4 * pow(coeffs[2], 2) - 12 * coeffs[3] * coeffs[1]);
 
-    if (D < 0)
-    {
-      // Do nothing
-    }
-    else if (D == 0)
+
+    if (std::abs(D) < 1e-12)
     {
       double t = (-2 * coeffs[2]) / (6 * coeffs[3]);
       double extrema = evaluate_spline(coeffs, t);
       t_sols.emplace_back(extrema);
+    }
+    else if (D < 0)
+    {
+      assert(false);
     }
     else
     {
@@ -179,22 +187,21 @@ void get_local_extrema(
       t_sols.emplace_back(extrema2);
     }
   }
-
+  std::array<double, 2> extrema;
+  assert(!t_sols.empty());
   extrema[0] = *std::min_element(t_sols.begin(), t_sols.end());
   extrema[1] = *std::max_element(t_sols.begin(), t_sols.end());
+
+  return extrema;
 }
 
 BoundingBox get_bounding_box(const rmf_traffic::Spline& spline)
 {
   BoundingBox bounding_box;
 
-  std::array<double, 2> extrema_x;
-  std::array<double, 2> extrema_y;
-
   auto params = spline.get_params();
-
-  get_local_extrema(params.coeffs[0], extrema_x);
-  get_local_extrema(params.coeffs[1], extrema_y);
+  std::array<double, 2> extrema_x = get_local_extrema(params.coeffs[0]);
+  std::array<double, 2> extrema_y =  get_local_extrema(params.coeffs[1]);
 
   Eigen::Vector2d min_coord = Eigen::Vector2d{extrema_x[0], extrema_y[0]};
   Eigen::Vector2d max_coord = Eigen::Vector2d{extrema_x[1], extrema_y[1]};
@@ -208,28 +215,24 @@ BoundingBox get_bounding_box(const rmf_traffic::Spline& spline)
     max_coord += Eigen::Vector2d{char_length, char_length};
   }
 
-  bounding_box.first = min_coord;
-  bounding_box.second = max_coord;
+  bounding_box.min = min_coord;
+  bounding_box.max = max_coord;
 
   return bounding_box;
 }
 
 bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
 {
-  auto centre = [&](const BoundingBox& box) -> Eigen::Vector2d
+  for (std::size_t i=0; i < 2; ++i)
   {
-    return (0.5 * (box.second + box.first));
-  };
+    if (box_a.max[i] < box_b.min[i])
+      return false;
 
-  Eigen::Vector2d centre_a = centre(box_a);
-  Eigen::Vector2d centre_b = centre(box_b);
-  double width_a = std::abs(box_a.second[0] - box_a.first[0]);
-  double height_a = std::abs(box_a.second[1] - box_a.first[1]);
-  double width_b = std::abs(box_b.second[0] - box_b.first[0]);
-  double height_b = std::abs(box_b.second[1] - box_b.first[1]);
+    if (box_b.max[i] < box_a.min[i])
+      return false;
+  }
 
-  return std::abs(centre_b[0] - centre_a[0]) < 0.5 * (width_a + width_b)
-      &&  std::abs(centre_b[1] - centre_a[1]) < 0.5 * (height_a + height_b);
+  return true;
 }
 
 //==============================================================================

@@ -655,10 +655,16 @@ void SimplePolygon::insert_point(
 //==============================================================================
 FinalShape SimplePolygon::finalize() const
 {
-  //TODO calculate the characteristic length for SimplePolygon
+  double characteristic_length = 0;
+  for (const Eigen::Vector2d& point : this->get_points())
+  {
+    double distance = (point - Eigen::Vector2d{0, 0}).norm();
+    if (distance > characteristic_length)
+      characteristic_length = distance;
+  }
   return FinalShape::Implementation::make_final_shape(
         rmf_utils::make_derived_impl<const Shape, const SimplePolygon>(*this),
-        _get_internal()->make_fcl(), 0.0);
+        _get_internal()->make_fcl(), characteristic_length);
 }
 
 } // namespace geometry

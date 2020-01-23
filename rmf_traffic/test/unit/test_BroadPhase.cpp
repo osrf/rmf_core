@@ -18,6 +18,8 @@
 #include <rmf_utils/catch.hpp>
 
 #include <rmf_traffic/Conflict.hpp>
+#include <rmf_traffic/geometry/SimplePolygon.hpp>
+
 #include "utils_Trajectory.hpp"
 
 #include <iostream>
@@ -229,7 +231,7 @@ SCENARIO("Test Broad-Phase Collision Detection")
     }
   }
 
-  GIVEN("Time ranges and bounding boxes overlap but segments do not intersect")
+  GIVEN("Time ranges and bounding boxes of entire trajectories overlap but segments do not intersect")
   {
     rmf_traffic::Trajectory trajectory_a("test_map");
     trajectory_a.insert(

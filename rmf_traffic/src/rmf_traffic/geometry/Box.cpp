@@ -98,7 +98,7 @@ double Box::get_y_length() const
 //==============================================================================
 FinalShape Box::finalize() const
 {
-  double characteristic_length = std::sqrt(
+  double characteristic_length = 0.5 * std::sqrt(
       this->get_x_length() * this->get_x_length()
       + this->get_y_length() * this->get_y_length());
   return FinalShape::Implementation::make_final_shape(
@@ -109,7 +109,7 @@ FinalShape Box::finalize() const
 //==============================================================================
 FinalConvexShape Box::finalize_convex() const
 {
-  double characteristic_length = std::sqrt(
+  double characteristic_length = 0.5 * std::sqrt(
       this->get_x_length() * this->get_x_length()
       + this->get_y_length() * this->get_y_length());
   return FinalConvexShape::Implementation::make_final_shape(
