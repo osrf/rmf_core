@@ -2374,7 +2374,12 @@ SCENARIO("Test computing Starts from coordinates")
 
   const rmf_traffic::Time initial_time = std::chrono::steady_clock::now();
 
-  WHEN("Location is on a waypoint")
+  double max_waypoint_merging_distance = 0.1;
+  double max_lane_merging_distance = 1.0;
+  double min_lane_length = 1e-8;
+
+  WHEN("Location is on a waypoint, that is part of both a unidirectional and "
+      "bidirectional lane")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
     graph.add_waypoint(test_map_name, {0.05, 0.05}); // 1
@@ -2382,24 +2387,30 @@ SCENARIO("Test computing Starts from coordinates")
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(0, 1); // 0
-    graph.add_lane(1, 2); // 1
-    REQUIRE(graph.num_lanes() == 2);
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    REQUIRE(graph.num_lanes() == 3);
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     Eigen::Vector3d robot_loc = {0, 0, 0};
 
-    rmf_utils::optional<Planner::StartSet> start_set_opt =
-        planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-    CHECK(start_set_opt);
-
-    Planner::StartSet start_set = start_set_opt.value();
+    std::vector<rmf_traffic::agv::Plan::Start> start_set =
+        rmf_traffic::agv::compute_plan_starts(
+            planner.get_configuration().graph(), robot_loc,  initial_time,
+            max_waypoint_merging_distance,
+            max_lane_merging_distance,
+            min_lane_length);
+    
     CHECK(!start_set.empty());
     CHECK(start_set.size() == 1);
+    CHECK_FALSE(start_set[0].location());
+    CHECK_FALSE(start_set[0].lane());
     CHECK(start_set[0].waypoint() == 0);
   }
 
-  WHEN("Location is near a waypoint, within the waypoint merging distance")
+  WHEN("Location is near a waypoint, within the waypoint merging distance. "
+      "Waypoint is part of both a unidirectional and a bidirectional lane.")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
     graph.add_waypoint(test_map_name, {0.1, 0.1}); // 1
@@ -2407,54 +2418,72 @@ SCENARIO("Test computing Starts from coordinates")
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(0, 1); // 0
-    graph.add_lane(1, 2); // 1
-    REQUIRE(graph.num_lanes() == 2);
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    REQUIRE(graph.num_lanes() == 3);
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     {
       Eigen::Vector3d robot_loc = {0.1 + 1e-8, 0.1, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
     {
       Eigen::Vector3d robot_loc = {0.1 - 1e-8, 0.1, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
   }
 
-  WHEN("Location is right on the border of merging to a waypoint")
+  WHEN("Location is right on the border of merging to a waypoint, that is "
+      "connected to both a unidirectional and bidirectional lane.")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
     graph.add_waypoint(test_map_name, {0.1, 0.1}); // 1
@@ -2462,54 +2491,73 @@ SCENARIO("Test computing Starts from coordinates")
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(0, 1); // 0
-    graph.add_lane(1, 2); // 1
-    REQUIRE(graph.num_lanes() == 2);
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    REQUIRE(graph.num_lanes() == 3);
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     {
       Eigen::Vector3d robot_loc = {0.1 + 0.1 - 1e-8, 0.1, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
     {
       Eigen::Vector3d robot_loc = {0.1 - 0.1 + 1e-8, 0.1, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 + 0.1 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 - 0.1 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt =
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance, 
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].location());
+      CHECK_FALSE(start_set[0].lane());
       CHECK(start_set[0].waypoint() == 1);
     }
   }
 
-  WHEN("Location is near multiple waypoints, could be merged to either one")
+  WHEN("Location is near multiple waypoints, could be merged to either one. "
+      "Waypoints are either connected to both unidirectional and bidirectional "
+      "lanes.")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
     graph.add_waypoint(test_map_name, {0.01, 0.01}); // 1
@@ -2520,23 +2568,29 @@ SCENARIO("Test computing Starts from coordinates")
     REQUIRE(graph.num_waypoints() == 6);
 
     graph.add_lane(0, 1); // 0
-    graph.add_lane(0, 2); // 1
-    graph.add_lane(0, 3); // 1
-    graph.add_lane(0, 4); // 1
-    graph.add_lane(0, 5); // 1
-    REQUIRE(graph.num_lanes() == 5);
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(0, 2); // 2
+    graph.add_lane(0, 3); // 3
+    graph.add_lane(3, 0); // 4
+    graph.add_lane(0, 4); // 5
+    graph.add_lane(0, 5); // 6
+    REQUIRE(graph.num_lanes() == 7);
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     Eigen::Vector3d robot_loc = {0.05, 0.05, 0};
 
-    rmf_utils::optional<Planner::StartSet> start_set_opt =
-        planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-    CHECK(start_set_opt);
+    std::vector<rmf_traffic::agv::Plan::Start> start_set =
+        rmf_traffic::agv::compute_plan_starts(
+            planner.get_configuration().graph(), robot_loc, initial_time, 
+            max_waypoint_merging_distance,
+            max_lane_merging_distance, 
+            min_lane_length);
 
-    Planner::StartSet start_set = start_set_opt.value();
     CHECK(!start_set.empty());
     CHECK(start_set.size() == 1);
+    CHECK_FALSE(start_set[0].location());
+    CHECK_FALSE(start_set[0].lane());
     CHECK((start_set[0].waypoint() == 0 || start_set[0].waypoint() == 1
         || start_set[0].waypoint() == 2 || start_set[0].waypoint() == 3
         || start_set[0].waypoint() == 4));
@@ -2544,7 +2598,8 @@ SCENARIO("Test computing Starts from coordinates")
 
   WHEN("Location is not within merging with waypoints, within lane merging, "
       "not between lane entry and lane exit, right outside of waypoint "
-      "merging distance.")
+      "merging distance. Waypoints are connected to both unidirectional or "
+      "bidirectional lanes.")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
     graph.add_waypoint(test_map_name, {1, 0}); // 1
@@ -2552,46 +2607,97 @@ SCENARIO("Test computing Starts from coordinates")
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(0, 1); // 0
-    graph.add_lane(1, 2); // 1
-    REQUIRE(graph.num_lanes() == 2);
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    REQUIRE(graph.num_lanes() == 3);
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     {
-      Eigen::Vector3d robot_loc = {0 - 0.1 - 1e-8, 0, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      Eigen::Vector3d robot_loc = 
+          {0 - max_waypoint_merging_distance - 1e-8, 0, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
+      CHECK(start_set[0].waypoint() == 0);
+    }
+
+    const double slightly_larger_radius_x_y =
+        sqrt(pow(max_waypoint_merging_distance + 1e-8, 2.0) / 2.0);
+    {
+      Eigen::Vector3d robot_loc = 
+          {0 - slightly_larger_radius_x_y, 0 + slightly_larger_radius_x_y, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
+      CHECK(!start_set.empty());
+      CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
       CHECK(start_set[0].waypoint() == 0);
     }
     {
-      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + 0.1 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      Eigen::Vector3d robot_loc = 
+          {0 - slightly_larger_radius_x_y, 0 - slightly_larger_radius_x_y, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
+      CHECK(start_set[0].waypoint() == 0);
+    }
+
+    const double very_near_to_border_y =
+        sqrt(pow(max_waypoint_merging_distance + 1e-8, 2.0) - pow(1e-8, 2.0));
+    {
+      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + very_near_to_border_y, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
+      CHECK(!start_set.empty());
+      CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
       CHECK(start_set[0].waypoint() == 0);
     }
     {
-      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - 0.1 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - very_near_to_border_y, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
       CHECK(start_set[0].waypoint() == 0);
     }
   }
 
   WHEN("Location is not within merging with waypoints, within lane merging, "
       "not between lane entry and lane exit, right within lane merging "
-      "distance.")
+      "distance. Waypoint is connected to both unidirectional and bidirectional"
+      " lanes.")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
     graph.add_waypoint(test_map_name, {1, 0}); // 1
@@ -2599,44 +2705,97 @@ SCENARIO("Test computing Starts from coordinates")
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(0, 1); // 0
-    graph.add_lane(1, 2); // 1
-    REQUIRE(graph.num_lanes() == 2);
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    REQUIRE(graph.num_lanes() == 3);
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
     {
-      Eigen::Vector3d robot_loc = {0 - 1.0 + 1e-8, 0, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      Eigen::Vector3d robot_loc = {0 - max_lane_merging_distance + 1e-8, 0, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
+      CHECK(start_set[0].waypoint() == 0);
+    }
+
+    const double slightly_smaller_than_border_x_y =
+        sqrt(pow(max_lane_merging_distance - 1e-8, 2.0) / 2.0);
+    {
+      Eigen::Vector3d robot_loc = 
+          {0 - slightly_smaller_than_border_x_y, 
+          0 + slightly_smaller_than_border_x_y, 
+          0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
+      CHECK(!start_set.empty());
+      CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
       CHECK(start_set[0].waypoint() == 0);
     }
     {
-      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + 1.0 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      Eigen::Vector3d robot_loc = 
+          {0 - slightly_smaller_than_border_x_y, 
+          0 - slightly_smaller_than_border_x_y, 
+          0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
+      CHECK(start_set[0].waypoint() == 0);
+    }
+
+    const double very_near_to_border_y =
+        sqrt(pow(max_lane_merging_distance - 1e-8, 2.0) - pow(1e-8, 2.0));
+    {
+      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + very_near_to_border_y, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
+      CHECK(!start_set.empty());
+      CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
       CHECK(start_set[0].waypoint() == 0);
     }
     {
-      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - 1.0 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
+      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - very_near_to_border_y, 0};
+      std::vector<rmf_traffic::agv::Plan::Start> start_set =
+          rmf_traffic::agv::compute_plan_starts(
+              planner.get_configuration().graph(), robot_loc, initial_time, 
+              max_waypoint_merging_distance,
+              max_lane_merging_distance, 
+              min_lane_length);
       CHECK(!start_set.empty());
       CHECK(start_set.size() == 1);
+      CHECK_FALSE(start_set[0].lane());
+      CHECK(start_set[0].location());
       CHECK(start_set[0].waypoint() == 0);
     }
   }
 
-  WHEN("Location is on lane")
+  WHEN("Location is on unidirectional lane")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
     graph.add_waypoint(test_map_name, {0.5, 0.5}); // 1
@@ -2651,279 +2810,322 @@ SCENARIO("Test computing Starts from coordinates")
 
     Eigen::Vector3d robot_loc = {5.5, 5.5, 0};
 
-    rmf_utils::optional<Planner::StartSet> start_set_opt = 
-        planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-    CHECK(start_set_opt);
-
-    Planner::StartSet start_set = start_set_opt.value();
+    std::vector<rmf_traffic::agv::Plan::Start> start_set =
+        rmf_traffic::agv::compute_plan_starts(
+            planner.get_configuration().graph(), robot_loc, initial_time,
+            max_waypoint_merging_distance,
+            max_lane_merging_distance,
+            min_lane_length);
     CHECK(!start_set.empty());
-    CHECK(start_set.size() == 2);
-    CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
-        (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
+    CHECK(start_set.size() == 1);
+    CHECK(start_set[0].waypoint() == 2);
+    CHECK(start_set[0].location());
+    CHECK(start_set[0].lane() == 1);
   }
 
-  WHEN("Location is not within merging with waypoints, within lane merging, "
-      "between lane entry and exit.")
+  WHEN("Location is on bidirectional lane")
   {
     graph.add_waypoint(test_map_name, {0, 0}); // 0
-    graph.add_waypoint(test_map_name, {1, 0}); // 1
-    graph.add_waypoint(test_map_name, {10, 0}); // 2
+    graph.add_waypoint(test_map_name, {0.5, 0.5}); // 1
+    graph.add_waypoint(test_map_name, {10.0, 10.0}); // 2
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(0, 1); // 0
     graph.add_lane(1, 2); // 1
-    REQUIRE(graph.num_lanes() == 2);
-
-    planner = Planner{Planner::Configuration{graph, traits}, default_options};
-
-    {
-      Eigen::Vector3d robot_loc = {5, 0 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 2);
-      CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
-          (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
-    }
-    {
-      Eigen::Vector3d robot_loc = {5, 0 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 2);
-      CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
-          (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
-    }
-    {
-      Eigen::Vector3d robot_loc = {5, 0 + 1.0 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 2);
-      CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
-          (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
-    }
-    {
-      Eigen::Vector3d robot_loc = {5, 0 - 1.0 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 2);
-      CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
-          (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
-    }
-  }
-
-  WHEN("Location is on the cross section of 2 lanes, within lane merging for "
-      "both lanes")
-  {
-    graph.add_waypoint(test_map_name, {-10, 0}); // 0
-    graph.add_waypoint(test_map_name, {10, 0}); // 1
-    graph.add_waypoint(test_map_name, {0, 10}); // 2
-    graph.add_waypoint(test_map_name, {0, -10}); // 3
-    REQUIRE(graph.num_waypoints() == 4);
-
-    graph.add_lane(0, 1); // 0
-    graph.add_lane(2, 3); // 1
-    REQUIRE(graph.num_lanes() == 2);
-
-    planner = Planner{Planner::Configuration{graph, traits}, default_options};
-
-    {
-      Eigen::Vector3d robot_loc = {0, 0, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 4);
-
-      std::unordered_set<std::size_t> accounted_waypoints;
-      for (std::size_t i = 0; i < 4; ++i)
-      {
-        CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
-            start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
-        CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
-      }
-    }
-    {
-      Eigen::Vector3d robot_loc = {0 + 1e-8, 0 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 4);
-
-      std::unordered_set<std::size_t> accounted_waypoints;
-      for (std::size_t i = 0; i < 4; ++i)
-      {
-        CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
-            start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
-        CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
-      }
-    }
-    {
-      Eigen::Vector3d robot_loc = {0 + 1e-8, 0 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 4);
-
-      std::unordered_set<std::size_t> accounted_waypoints;
-      for (std::size_t i = 0; i < 4; ++i)
-      {
-        CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
-            start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
-        CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
-      }
-    }
-    {
-      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 4);
-
-      std::unordered_set<std::size_t> accounted_waypoints;
-      for (std::size_t i = 0; i < 4; ++i)
-      {
-        CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
-            start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
-        CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
-      }
-    }
-    {
-      Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + 1e-8, 0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(start_set_opt);
-      Planner::StartSet start_set = start_set_opt.value();
-      CHECK(!start_set.empty());
-      CHECK(start_set.size() == 4);
-
-      std::unordered_set<std::size_t> accounted_waypoints;
-      for (std::size_t i = 0; i < 4; ++i)
-      {
-        CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
-            start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
-        CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
-      }
-    }
-  }
-
-  WHEN("Location is neither within waypoint merging nor lane merging")
-  {
-    graph.add_waypoint(test_map_name, {-10, 0}); // 0
-    graph.add_waypoint(test_map_name, {10, 0}); // 1
-    graph.add_waypoint(test_map_name, {0, 10}); // 2
-    graph.add_waypoint(test_map_name, {0, -10}); // 3
-    REQUIRE(graph.num_waypoints() == 4);
-
-    graph.add_lane(0, 1); // 0
-    graph.add_lane(2, 3); // 1
-    REQUIRE(graph.num_lanes() == 2);
-
-    planner = Planner{Planner::Configuration{graph, traits}, default_options};
-
-    {
-      Eigen::Vector3d robot_loc = {1 + 1e-8, 1 + 1e-8, 0.0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(!start_set_opt);
-    }
-    {
-      Eigen::Vector3d robot_loc = {1 + 1e-8, -1 - 1e-8, 0.0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(!start_set_opt);
-    }
-    {
-      Eigen::Vector3d robot_loc = {-1 - 1e-8, 1 + 1e-8, 0.0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(!start_set_opt);
-    }
-    {
-      Eigen::Vector3d robot_loc = {-1 - 1e-8, -1 - 1e-8, 0.0};
-      rmf_utils::optional<Planner::StartSet> start_set_opt = 
-          planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-      CHECK(!start_set_opt);
-    }
-  }
-
-  WHEN("Location is within the waypoint merging of a junction")
-  {
-    graph.add_waypoint(test_map_name, {0, 10}); // 0
-    graph.add_waypoint(test_map_name, {0, 0}); // 1
-    graph.add_waypoint(test_map_name, {10, 0}); // 2
-    graph.add_waypoint(test_map_name, {-5, -5}); // 3
-    REQUIRE(graph.num_waypoints() == 4);
-
-    graph.add_lane(0, 1); // 0
-    graph.add_lane(1, 2); // 1
-    graph.add_lane(1, 3); // 2
+    graph.add_lane(2, 1); // 2
     REQUIRE(graph.num_lanes() == 3);
 
     planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-    Eigen::Vector3d robot_loc = {1e-8, 1e-8, 0};
+    Eigen::Vector3d robot_loc = {5.5, 5.5, 0};
 
-    rmf_utils::optional<Planner::StartSet> start_set_opt = 
-        planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-    CHECK(start_set_opt);
-
-    Planner::StartSet start_set = start_set_opt.value();
+    std::vector<rmf_traffic::agv::Plan::Start> start_set =
+        rmf_traffic::agv::compute_plan_starts(
+            planner.get_configuration().graph(), robot_loc, initial_time,
+            max_waypoint_merging_distance,
+            max_lane_merging_distance,
+            min_lane_length);
     CHECK(!start_set.empty());
-    CHECK(start_set.size() == 1);
-    CHECK(start_set[0].waypoint() == 1);
-  }
+    CHECK(start_set.size() == 2);
 
-  WHEN("Location is not within the waypoint merging, but within lane merging "
-      "of a junction, inside the elbow")
-  {
-    graph.add_waypoint(test_map_name, {0, 10}); // 0
-    graph.add_waypoint(test_map_name, {0, 0}); // 1
-    graph.add_waypoint(test_map_name, {10, 0}); // 2
-    graph.add_waypoint(test_map_name, {0, -5}); // 3
-    REQUIRE(graph.num_waypoints() == 4);
-
-    graph.add_lane(0, 1); // 0
-    graph.add_lane(1, 2); // 1
-    graph.add_lane(1, 3); // 2
-    REQUIRE(graph.num_lanes() == 3);
-
-    planner = Planner{Planner::Configuration{graph, traits}, default_options};
-
-    Eigen::Vector3d robot_loc = {0 + 0.1 + 1e-8, 0 + 0.1 + 1e-8, 0};
-
-    rmf_utils::optional<Planner::StartSet> start_set_opt = 
-        planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
-    CHECK(start_set_opt);
-
-    Planner::StartSet start_set = start_set_opt.value();
-    CHECK(!start_set.empty());
-    CHECK(start_set.size() == 3);
-
-    std::unordered_set<std::size_t> accounted_waypoints;
-    for (std::size_t i = 0; i < 3; ++i)
+    std::unordered_set<std::size_t> lane_indices;
+    std::unordered_set<std::size_t> waypoint_indices;
+    for (std::size_t i = 0; i < 2; ++i)
     {
-      CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
-          start_set[i].waypoint() == 2));
-      CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
+      std::size_t waypoint_index = start_set[i].waypoint();
+      CHECK(waypoint_indices.insert(waypoint_index).second);
+      CHECK((waypoint_index == 1 || waypoint_index == 2));
+      
+      CHECK(start_set[i].location());
+
+      std::size_t lane_index = start_set[i].lane();
+      CHECK(lane_indices.insert(lane_index).second);
+      CHECK((start_set[i].lane() == 1 || start_set[i].lane() == 2));
     }
   }
+
+  // WHEN("Location is not within merging with waypoints, within lane merging, "
+  //     "between lane entry and exit.")
+  // {
+  //   graph.add_waypoint(test_map_name, {0, 0}); // 0
+  //   graph.add_waypoint(test_map_name, {1, 0}); // 1
+  //   graph.add_waypoint(test_map_name, {10, 0}); // 2
+  //   REQUIRE(graph.num_waypoints() == 3);
+
+  //   graph.add_lane(0, 1); // 0
+  //   graph.add_lane(1, 2); // 1
+  //   REQUIRE(graph.num_lanes() == 2);
+
+  //   planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+  //   {
+  //     Eigen::Vector3d robot_loc = {5, 0 + 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 2);
+  //     CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
+  //         (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {5, 0 - 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 2);
+  //     CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
+  //         (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {5, 0 + 1.0 - 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 2);
+  //     CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
+  //         (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {5, 0 - 1.0 + 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 2);
+  //     CHECK(((start_set[0].waypoint() == 1 && start_set[1].waypoint() == 2) || 
+  //         (start_set[0].waypoint() == 2 && start_set[1].waypoint() == 1)));
+  //   }
+  // }
+
+  // WHEN("Location is on the cross section of 2 lanes, within lane merging for "
+  //     "both lanes")
+  // {
+  //   graph.add_waypoint(test_map_name, {-10, 0}); // 0
+  //   graph.add_waypoint(test_map_name, {10, 0}); // 1
+  //   graph.add_waypoint(test_map_name, {0, 10}); // 2
+  //   graph.add_waypoint(test_map_name, {0, -10}); // 3
+  //   REQUIRE(graph.num_waypoints() == 4);
+
+  //   graph.add_lane(0, 1); // 0
+  //   graph.add_lane(2, 3); // 1
+  //   REQUIRE(graph.num_lanes() == 2);
+
+  //   planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+  //   {
+  //     Eigen::Vector3d robot_loc = {0, 0, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 4);
+
+  //     std::unordered_set<std::size_t> accounted_waypoints;
+  //     for (std::size_t i = 0; i < 4; ++i)
+  //     {
+  //       CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
+  //           start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
+  //       CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
+  //     }
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {0 + 1e-8, 0 + 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 4);
+
+  //     std::unordered_set<std::size_t> accounted_waypoints;
+  //     for (std::size_t i = 0; i < 4; ++i)
+  //     {
+  //       CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
+  //           start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
+  //       CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
+  //     }
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {0 + 1e-8, 0 - 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 4);
+
+  //     std::unordered_set<std::size_t> accounted_waypoints;
+  //     for (std::size_t i = 0; i < 4; ++i)
+  //     {
+  //       CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
+  //           start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
+  //       CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
+  //     }
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 4);
+
+  //     std::unordered_set<std::size_t> accounted_waypoints;
+  //     for (std::size_t i = 0; i < 4; ++i)
+  //     {
+  //       CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
+  //           start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
+  //       CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
+  //     }
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + 1e-8, 0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(start_set_opt);
+  //     Planner::StartSet start_set = start_set_opt.value();
+  //     CHECK(!start_set.empty());
+  //     CHECK(start_set.size() == 4);
+
+  //     std::unordered_set<std::size_t> accounted_waypoints;
+  //     for (std::size_t i = 0; i < 4; ++i)
+  //     {
+  //       CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
+  //           start_set[i].waypoint() == 2 || start_set[i].waypoint() == 3));
+  //       CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
+  //     }
+  //   }
+  // }
+
+  // WHEN("Location is neither within waypoint merging nor lane merging")
+  // {
+  //   graph.add_waypoint(test_map_name, {-10, 0}); // 0
+  //   graph.add_waypoint(test_map_name, {10, 0}); // 1
+  //   graph.add_waypoint(test_map_name, {0, 10}); // 2
+  //   graph.add_waypoint(test_map_name, {0, -10}); // 3
+  //   REQUIRE(graph.num_waypoints() == 4);
+
+  //   graph.add_lane(0, 1); // 0
+  //   graph.add_lane(2, 3); // 1
+  //   REQUIRE(graph.num_lanes() == 2);
+
+  //   planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+  //   {
+  //     Eigen::Vector3d robot_loc = {1 + 1e-8, 1 + 1e-8, 0.0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(!start_set_opt);
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {1 + 1e-8, -1 - 1e-8, 0.0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(!start_set_opt);
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {-1 - 1e-8, 1 + 1e-8, 0.0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(!start_set_opt);
+  //   }
+  //   {
+  //     Eigen::Vector3d robot_loc = {-1 - 1e-8, -1 - 1e-8, 0.0};
+  //     rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //         planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //     CHECK(!start_set_opt);
+  //   }
+  // }
+
+  // WHEN("Location is within the waypoint merging of a junction")
+  // {
+  //   graph.add_waypoint(test_map_name, {0, 10}); // 0
+  //   graph.add_waypoint(test_map_name, {0, 0}); // 1
+  //   graph.add_waypoint(test_map_name, {10, 0}); // 2
+  //   graph.add_waypoint(test_map_name, {-5, -5}); // 3
+  //   REQUIRE(graph.num_waypoints() == 4);
+
+  //   graph.add_lane(0, 1); // 0
+  //   graph.add_lane(1, 2); // 1
+  //   graph.add_lane(1, 3); // 2
+  //   REQUIRE(graph.num_lanes() == 3);
+
+  //   planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+  //   Eigen::Vector3d robot_loc = {1e-8, 1e-8, 0};
+
+  //   rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //       planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //   CHECK(start_set_opt);
+
+  //   Planner::StartSet start_set = start_set_opt.value();
+  //   CHECK(!start_set.empty());
+  //   CHECK(start_set.size() == 1);
+  //   CHECK(start_set[0].waypoint() == 1);
+  // }
+
+  // WHEN("Location is not within the waypoint merging, but within lane merging "
+  //     "of a junction, inside the elbow")
+  // {
+  //   graph.add_waypoint(test_map_name, {0, 10}); // 0
+  //   graph.add_waypoint(test_map_name, {0, 0}); // 1
+  //   graph.add_waypoint(test_map_name, {10, 0}); // 2
+  //   graph.add_waypoint(test_map_name, {0, -5}); // 3
+  //   REQUIRE(graph.num_waypoints() == 4);
+
+  //   graph.add_lane(0, 1); // 0
+  //   graph.add_lane(1, 2); // 1
+  //   graph.add_lane(1, 3); // 2
+  //   REQUIRE(graph.num_lanes() == 3);
+
+  //   planner = Planner{Planner::Configuration{graph, traits}, default_options};
+
+  //   Eigen::Vector3d robot_loc = {0 + 0.1 + 1e-8, 0 + 0.1 + 1e-8, 0};
+
+  //   rmf_utils::optional<Planner::StartSet> start_set_opt = 
+  //       planner.compute_plan_starts(robot_loc, initial_time, 0.1, 1.0);
+  //   CHECK(start_set_opt);
+
+  //   Planner::StartSet start_set = start_set_opt.value();
+  //   CHECK(!start_set.empty());
+  //   CHECK(start_set.size() == 3);
+
+  //   std::unordered_set<std::size_t> accounted_waypoints;
+  //   for (std::size_t i = 0; i < 3; ++i)
+  //   {
+  //     CHECK((start_set[i].waypoint() == 0 || start_set[i].waypoint() == 1 ||
+  //         start_set[i].waypoint() == 2));
+  //     CHECK(accounted_waypoints.insert(start_set[i].waypoint()).second);
+  //   }
+  // }
 }
 

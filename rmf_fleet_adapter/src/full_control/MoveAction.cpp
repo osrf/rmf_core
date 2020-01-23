@@ -115,8 +115,11 @@ public:
 
     // TODO: further parameterize waypoint and lane merging distance
     const auto plan_starts = 
-        planner.compute_plan_starts(pose, start_time, 0.1, 1.0);
-    if (!plan_starts)
+        rmf_traffic::agv::compute_plan_starts(
+            planner.get_configuration().graph(), pose, start_time, 0.1, 1.0, 
+            1e-8);
+
+    if (plan_starts.empty())
     {
       RCLCPP_WARN(
           _node->get_logger(), 
@@ -1110,8 +1113,11 @@ public:
         std::chrono::nanoseconds(0);
 
     // TODO: further parameterize waypoint and lane merging distance
-    const auto plan_starts = 
-        planner.compute_plan_starts(pose, start_time, 0.1, 1.0);
+    const auto plan_starts =
+        rmf_traffic::agv::compute_plan_starts(
+            planner.get_configuration().graph(), pose, start_time, 0.1, 1.0,
+            1e-8);
+
     if (!plan_starts)
     {
       RCLCPP_WARN(

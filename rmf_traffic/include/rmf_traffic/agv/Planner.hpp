@@ -335,35 +335,6 @@ public:
 
   using StartSet = std::vector<Start>;
 
-  /// Produces a set of starting conditions in order to start planning. This
-  /// method attempts to find the most suitable starting nodes within the graph
-  /// for merging, planning and execution of plans. If none of the waypoints in
-  /// the graph fulfils the requirements, a nullopt will be returned.
-  ///
-  /// \param[in] pose
-  ///   Current pose in terms of 2D coordinates, x and y, being the first and
-  ///   second element respectively, while the third element being the yaw.
-  ///
-  /// \param[in] start_time
-  ///   The starting time that will be attributed to all the generated starts
-  ///   to compute a new plan. In some occations, users will want to add small
-  ///   delays to the current time, in order to account for computation time or
-  ///   network delays.
-  ///
-  /// \param[in] max_merge_waypoint_distance
-  ///   The maximum distance allowed to automatically merge onto a waypoint in 
-  ///   the graph, default value as 0.1 meters.
-  ///
-  /// \param[in] max_merge_lane_distance
-  ///   The maximum distance allowed to automatically merge onto a lane, i.e.
-  ///   adding the lane's entry and exit waypoints as potential starts. default
-  ///   value as 1.0 meters.
-  rmf_utils::optional<StartSet> compute_plan_starts(
-      const Eigen::Vector3d pose,
-      const rmf_traffic::Time start_time,
-      const double max_merge_waypoint_distance = 0.1,
-      const double max_merge_lane_distance = 1.0) const;
-
   /// Produce a plan for the given starting conditions and goal. The default
   /// Options of this Planner instance will be used.
   ///
@@ -572,6 +543,47 @@ public:
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
+
+
+/// Produces a set of possible starting waypoints and lanes in order to start
+/// planning. This method attempts to find the most suitable starting nodes
+/// within the provided graph for merging, planning and execution of plans,
+/// from the provided pose. If none of the waypoints in the graph fulfils the
+/// requirements, an empty vector will be returned.
+///
+/// \param[in] graph
+///   Graph which the starting waypoints and lanes will be derived from.
+///
+/// \param[in] pose
+///   Current pose in terms of 2D coordinates, x and y, being the first and
+///   second element respectively, while the third element being the yaw.
+///
+/// \param[in] start_time
+///   The starting time that will be attributed to all the generated starts
+///   to compute a new plan. In some occations, users will want to add small
+///   delays to the current time, in order to account for computation time or
+///   network delays.
+///
+/// \param[in] max_merge_waypoint_distance
+///   The maximum distance allowed to automatically merge onto a waypoint in 
+///   the graph. Default value as 0.1 meters.
+///
+/// \param[in] max_merge_lane_distance
+///   The maximum distance allowed to automatically merge onto a lane, i.e.
+///   adding the lane's entry and exit waypoints as potential starts. Default
+///   value as 1.0 meters.
+///
+/// \param[in] min_lane_length
+///   The minimum length of a lane in the provided graph to be considered valid,
+///   any lanes shorter than this value will not be evaluated. Default value as
+///   1e-8 meters.
+std::vector<Plan::Start> compute_plan_starts(
+    const rmf_traffic::agv::Graph& graph,
+    const Eigen::Vector3d pose,
+    const rmf_traffic::Time start_time,
+    const double max_merge_waypoint_distance = 0.1,
+    const double max_merge_lane_distance = 1.0,
+    const double min_lane_length = 1e-8);
 
 } // namespace agv
 } // namespace rmf_traffic

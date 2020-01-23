@@ -15,8 +15,6 @@
  *
 */
 
-#include <iostream>
-
 #include <rmf_traffic/agv/Planner.hpp>
 
 #include "internal_Planner.hpp"
@@ -376,129 +374,6 @@ public:
 
   Configuration configuration;
 
-  rmf_utils::optional<Planner::StartSet> compute_plan_starts(
-      const Eigen::Vector3d pose,
-      const rmf_traffic::Time start_time,
-      const double max_merge_waypoint_distance,
-      const double max_merge_lane_distance) const
-  {
-    const Eigen::Vector2d p_location = {pose[0], pose[1]};
-    const double start_yaw = pose[2];
-
-    const auto& graph = configuration.graph();
-
-    // If there are waypoints which are very close, take that as the only Start
-    for (std::size_t i=0; i < graph.num_waypoints() ; ++i)
-    {
-      const auto& wp = graph.get_waypoint(i);
-      const Eigen::Vector2d wp_location = wp.get_location();
-
-      if ( (p_location - wp_location).norm() < max_merge_waypoint_distance)
-      {
-        StartSet starts = {Plan::Start(start_time, wp.index(), start_yaw)};
-        return starts;
-      }
-    }
-
-    // Iterate through the lanes and return the set of possible waypoints, i.e.
-    // entries and exits of nearby lanes.
-    StartSet starts;
-    std::unordered_set<std::size_t> starts_waypoint_indices;
-
-    for (std::size_t i=0; i < graph.num_lanes(); ++i)
-    {
-      const auto& lane = graph.get_lane(i);
-      const Eigen::Vector2d p0 = 
-          graph.get_waypoint(lane.entry().waypoint_index()).get_location();
-      const Eigen::Vector2d p1 =
-          graph.get_waypoint(lane.exit().waypoint_index()).get_location();
-      
-      const double lane_length = (p1 - p0).norm();
-
-      // This "lane" is effectively a single point, so we'll skip it
-      if (lane_length < 1e-8)
-        continue;
-
-      const Eigen::Vector2d pn = (p1 - p0) / lane_length;
-      const Eigen::Vector2d p_l = p_location - p0;
-      const double p_l_projection = p_l.dot(pn);
-
-      // If it's negative then its closest point on the lane is the entry
-      // point
-      if (p_l_projection < 0.0)
-      {
-        const double dist_to_entry = p_l.norm();
-        const std::size_t entry_waypoint_index = 
-            lane.entry().waypoint_index();
-
-        if (dist_to_entry < max_merge_lane_distance)
-        {
-          if (!starts_waypoint_indices.insert(entry_waypoint_index).second)
-            continue;
-          
-          starts.emplace_back(
-              Plan::Start(
-                  start_time, entry_waypoint_index, start_yaw, p_location));
-        }
-      }
-      // If it's larger than the lane length, then its closest point on the
-      // lane is the exit point.
-      else if (lane_length < p_l_projection)
-      {
-        const double dist_to_exit = (p_location - p1).norm();
-        const std::size_t exit_waypoint_index = 
-            lane.exit().waypoint_index();
-
-        if (dist_to_exit < max_merge_lane_distance)
-        {
-          if (!starts_waypoint_indices.insert(exit_waypoint_index).second)
-            continue;
-          
-          starts.emplace_back(
-              Plan::Start(
-                  start_time, exit_waypoint_index, start_yaw, p_location));
-        }
-      }
-      // If it's between the entry and the exit waypoints, then we should
-      // compute it's distance away from the lane line.
-      else
-      {
-        const double lane_dist = (p_l - p_l_projection*pn).norm();
-        const std::size_t entry_waypoint_index = lane.entry().waypoint_index();
-        const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
-
-        if (lane_dist < max_merge_lane_distance)
-        {
-          if (starts_waypoint_indices.insert(entry_waypoint_index).second)
-          {
-            starts.emplace_back(
-                Plan::Start(
-                    start_time, entry_waypoint_index, start_yaw, 
-                    p_location, i));
-          }
-
-          if (starts_waypoint_indices.insert(exit_waypoint_index).second)
-          {
-            starts.emplace_back(
-                Plan::Start(
-                    start_time, exit_waypoint_index, start_yaw, 
-                    p_location, i));
-          }
-        }
-      }
-    }
-
-    // None of the waypoints or lanes were close enough, this will most likely
-    // require human intervention, so we'll go ahead and return a nullopt, let
-    // the client handle it.
-    if (starts.empty())
-    {
-      return rmf_utils::nullopt;
-    }
-
-    return starts;
-  }
-
 };
 
 //==============================================================================
@@ -569,17 +444,6 @@ auto Planner::get_default_options() -> Options&
 auto Planner::get_default_options() const -> const Options&
 {
   return _pimpl->default_options;
-}
-
-//==============================================================================
-rmf_utils::optional<Planner::StartSet> Planner::compute_plan_starts(
-    const Eigen::Vector3d pose,
-    const rmf_traffic::Time start_time,
-    const double max_merge_waypoint_distance,
-    const double max_merge_lane_distance) const
-{
-  return _pimpl->compute_plan_starts(
-      pose, start_time, max_merge_waypoint_distance, max_merge_lane_distance);
 }
 
 //==============================================================================
@@ -736,6 +600,106 @@ const Planner::Options& Plan::get_options() const
 const Planner::Configuration& Plan::get_configuration() const
 {
   return _pimpl->cache_mgr.get_configuration();
+}
+
+//==============================================================================
+
+std::vector<Plan::Start> compute_plan_starts(
+    const rmf_traffic::agv::Graph& graph,
+    const Eigen::Vector3d pose,
+    const rmf_traffic::Time start_time,
+    const double max_merge_waypoint_distance,
+    const double max_merge_lane_distance,
+    const double min_lane_length)
+{
+  const Eigen::Vector2d p_location = {pose[0], pose[1]};
+  const double start_yaw = pose[2];
+
+  // If there are waypoints which are very close, take that as the only Start
+  for (std::size_t i=0; i < graph.num_waypoints() ; ++i)
+  {
+    const auto& wp = graph.get_waypoint(i);
+    const Eigen::Vector2d wp_location = wp.get_location();
+
+    if ( (p_location - wp_location).norm() < max_merge_waypoint_distance)
+    {
+      return {Plan::Start(start_time, wp.index(), start_yaw)};
+    }
+  }
+
+  // Iterate through the lanes and return the set of possible waypoints, i.e.
+  // entries and exits of nearby lanes.
+  std::vector<Plan::Start> starts;
+  std::unordered_set<std::size_t> raw_starts;
+
+  for (std::size_t i=0; i < graph.num_lanes(); ++i)
+  {
+    const auto& lane = graph.get_lane(i);
+    const Eigen::Vector2d p0 = 
+        graph.get_waypoint(lane.entry().waypoint_index()).get_location();
+    const Eigen::Vector2d p1 =
+        graph.get_waypoint(lane.exit().waypoint_index()).get_location();
+    
+    const double lane_length = (p1 - p0).norm();
+
+    // This "lane" is effectively a single point, so we'll skip it
+    if (lane_length < min_lane_length)
+      continue;
+
+    const Eigen::Vector2d pn = (p1 - p0) / lane_length;
+    const Eigen::Vector2d p_l = p_location - p0;
+    const double p_l_projection = p_l.dot(pn);
+
+    // If it's negative then its closest point on the lane is the entry point
+    if (p_l_projection < 0.0)
+    {
+      const double dist_to_entry = p_l.norm();
+      const std::size_t entry_waypoint_index = lane.entry().waypoint_index();
+
+      if (dist_to_entry < max_merge_lane_distance)
+      {
+        if (!raw_starts.insert(entry_waypoint_index).second)
+          continue;
+
+        starts.emplace_back(
+            Plan::Start(
+                start_time, entry_waypoint_index, start_yaw, p_location));
+      }
+    }
+    // If it's larger than the lane length, then its closest point on the lane
+    // is the exit point.
+    else if (lane_length < p_l_projection)
+    {
+      const double dist_to_exit = (p_location - p1).norm();
+      const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
+
+      if (dist_to_exit < max_merge_lane_distance)
+      {
+        if (!raw_starts.insert(exit_waypoint_index).second)
+          continue;
+
+        starts.emplace_back(
+            Plan::Start(
+                start_time, exit_waypoint_index, start_yaw, p_location));
+      }
+    }
+    // If it's between the entry and the exit waypoints, then we should
+    // compute it's distance away from the lane line.
+    else
+    {
+      const double lane_dist = (p_l - p_l_projection*pn).norm();
+      const std::size_t exit_waypoint_index = lane.exit().waypoint_index();
+
+      if (lane_dist < max_merge_lane_distance)
+      {
+        starts.emplace_back(
+            Plan::Start(
+                start_time, exit_waypoint_index, start_yaw, p_location, i));
+      }
+    }
+  }
+
+  return starts;
 }
 
 } // namespace agv
