@@ -139,10 +139,6 @@ double evaluate_spline(
       + coeffs[2] * t * t
       + coeffs[1] * t
       + coeffs[0]);
-  // double value = 0.0;
-  // for (int i=0; i <=3; ++i)
-  //   value += coeffs[i] * pow(t, i);
-  // return value;
 }
 
 std::array<double, 2> get_local_extrema(
@@ -157,7 +153,10 @@ std::array<double, 2> get_local_extrema(
   if (std::abs(coeffs[3]) < 1e-12)
   {
     if (std::abs(coeffs[2]) > 1e-12)
-      t_sols.emplace_back(-coeffs[1] / coeffs[2]);
+    {
+      double t = -coeffs[1] / (2 * coeffs[2]);
+      t_sols.emplace_back(evaluate_spline(coeffs, t));
+    }
   }
   else
   {

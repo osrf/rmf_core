@@ -231,7 +231,7 @@ SCENARIO("Test Broad-Phase Collision Detection")
     }
   }
 
-  GIVEN("Time ranges and bounding boxes of entire trajectories overlap but segments do not intersect")
+  GIVEN("Bounding boxes overlap in space, but are offset in time")
   {
     rmf_traffic::Trajectory trajectory_a("test_map");
     trajectory_a.insert(
@@ -296,7 +296,7 @@ SCENARIO("Test Broad-Phase Collision Detection")
     if (test_performance)
     {
       const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-      std::cout << "Overlapping bounding boxes but segments do not intersect\n";
+      std::cout << "Bounding boxes overlap in space, but are offset in time\n";
       std::cout << "Total: " << sec << std::endl;
       std::cout << "Per run: " << sec/N << std::endl;
     }
