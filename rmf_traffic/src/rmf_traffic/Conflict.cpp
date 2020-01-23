@@ -144,10 +144,10 @@ double evaluate_spline(
 std::array<double, 2> get_local_extrema(
     const Eigen::Vector4d& coeffs)
 {
-  std::vector<double> t_sols;
+  std::vector<double> extrema_candidates;
   // Store boundary values as potential extrema
-  t_sols.emplace_back(evaluate_spline(coeffs, 0));
-  t_sols.emplace_back(evaluate_spline(coeffs, 1));
+  extrema_candidates.emplace_back(evaluate_spline(coeffs, 0));
+  extrema_candidates.emplace_back(evaluate_spline(coeffs, 1));
 
   // When derivate of spline motion is not quadratic
   if (std::abs(coeffs[3]) < 1e-12)
@@ -155,7 +155,7 @@ std::array<double, 2> get_local_extrema(
     if (std::abs(coeffs[2]) > 1e-12)
     {
       double t = -coeffs[1] / (2 * coeffs[2]);
-      t_sols.emplace_back(evaluate_spline(coeffs, t));
+      extrema_candidates.emplace_back(evaluate_spline(coeffs, t));
     }
   }
   else
@@ -168,7 +168,7 @@ std::array<double, 2> get_local_extrema(
     {
       double t = (-2 * coeffs[2]) / (6 * coeffs[3]);
       double extrema = evaluate_spline(coeffs, t);
-      t_sols.emplace_back(extrema);
+      extrema_candidates.emplace_back(extrema);
     }
     else if (D < 0)
     {
@@ -179,17 +179,19 @@ std::array<double, 2> get_local_extrema(
       double t1 = ((-2 * coeffs[2]) + std::sqrt(D)) / (6 * coeffs[3]);
       double t2 = ((-2 * coeffs[2]) - std::sqrt(D)) / (6 * coeffs[3]);
 
-      double extrema1 = evaluate_spline(coeffs, t1);
-      double extrema2 = evaluate_spline(coeffs, t2);
-
-      t_sols.emplace_back(extrema1);
-      t_sols.emplace_back(extrema2);
+      extrema_candidates.emplace_back(evaluate_spline(coeffs, t1));
+      extrema_candidates.emplace_back(evaluate_spline(coeffs, t2));
     }
   }
+  
   std::array<double, 2> extrema;
-  assert(!t_sols.empty());
-  extrema[0] = *std::min_element(t_sols.begin(), t_sols.end());
-  extrema[1] = *std::max_element(t_sols.begin(), t_sols.end());
+  assert(!extrema_candidates.empty());
+  extrema[0] = *std::min_element(
+      extrema_candidates.begin(),
+      extrema_candidates.end());
+  extrema[1] = *std::max_element(
+      extrema_candidates.begin(),
+      extrema_candidates.end());
 
   return extrema;
 }
