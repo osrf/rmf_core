@@ -551,6 +551,25 @@ Viewer::View Viewer::query(const Query& parameters) const
 }
 
 //==============================================================================
+const std::unordered_set<ParticipantId>& Viewer::participant_ids() const
+{
+  return _pimpl->current_participant_ids;
+}
+
+//==============================================================================
+rmf_utils::optional<const Participant&> Viewer::get_participant(
+    std::size_t participant_id) const
+{
+  const Implementation::ParticipantMap::const_iterator it =
+      _pimpl->current_participants.find(participant_id);
+
+  if (it == _pimpl->current_participants.end())
+    return rmf_utils::nullopt;
+
+  return it->second;
+}
+
+//==============================================================================
 Version Viewer::oldest_version() const
 {
   return _pimpl->oldest_version;

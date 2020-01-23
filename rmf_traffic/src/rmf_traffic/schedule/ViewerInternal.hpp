@@ -35,17 +35,31 @@ namespace internal {
 struct Entry;
 using EntryPtr = std::shared_ptr<Entry>;
 using ConstEntryPtr = std::shared_ptr<const Entry>;
-using ChangePtr = std::unique_ptr<Database::Change>;
-using ConstChangePtr = std::unique_ptr<const Database::Change>;
+using ChangePtr = std::unique_ptr<Change>;
+using ConstChangePtr = std::unique_ptr<const Change>;
+
+//==============================================================================
+struct RouteInfo
+{
+  std::shared_ptr<Route> route;
+
+};
 
 //==============================================================================
 struct Entry
 {
-  // The trajectory for this entry
-  Trajectory trajectory;
 
-  // The version number of this entry
-  Version version;
+  // The trajectory for this entry
+  Itinerary itinerary;
+
+  // The participant that this entry is related to
+  ParticipantId participant;
+
+  // The itinerary version number of this entry
+  Version itinerary_version;
+
+  // The schedule version number of this entry
+  Version schedule_version;
 
   // Succeeds
   ConstEntryPtr succeeds;
@@ -243,6 +257,15 @@ class Viewer::Implementation
 {
 public:
 
+  /// The most current itineraries for each participant
+  using Itineraries = std::unordered_map<ParticipantId, internal::EntryPtr>;
+  Itineraries current_itineraries;
+
+  using ParticipantMap = std::unordered_map<ParticipantId, Participant>;
+  ParticipantMap current_participants;
+
+  std::unordered_set<ParticipantId> current_participant_ids;
+
   using Bucket = std::vector<internal::ConstEntryPtr>;
 
   // TODO(MXG): A possible performance improvement could be to introduce spatial
@@ -257,22 +280,17 @@ public:
 
   MapToTimeline timelines;
 
-  // TODO(MXG): Consider using a sorted vector here instead of a std::map.
-  using EntryMap = std::map<Version, internal::EntryPtr>;
-  EntryMap all_entries;
-
   Version oldest_version = 0;
   Version latest_version = 0;
 
   /// Remembers the version number and time value of the last culling that took
   /// place.
-  bool cull_has_occurred = false;
-  std::pair<Version, Time> last_cull;
+  rmf_utils::optional<std::pair<Version, Time>> last_cull;
 
   static constexpr std::size_t ChangeModeNum =
-      static_cast<std::size_t>(Database::Change::Mode::NUM);
+      static_cast<std::size_t>(Change::Mode::NUM);
   using Changers =
-      std::array<std::function<void(const Database::Change&)>, ChangeModeNum>;
+      std::array<std::function<void(const Change&)>, ChangeModeNum>;
   /// Used by the Mirror class to apply changes to its record.
   ///
   /// This field does not get used by the Database class
