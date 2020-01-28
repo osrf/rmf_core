@@ -54,7 +54,7 @@ ConstEntryPtr get_last_known_ancestor(
     const Version last_known_version,
     const VersionRange& versions)
 {
-  while(from && versions.less(last_known_version, from->version))
+  while(from && versions.less(last_known_version, from->schedule_version))
     from = from->succeeds;
 
   return from;
@@ -70,7 +70,8 @@ void ChangeRelevanceInspector::inspect(
   if(entry->succeeded_by)
     return;
 
-  if(after_version && versions.less_or_equal(entry->version, *after_version))
+  if(after_version
+     && versions.less_or_equal(entry->schedule_version, *after_version))
     return;
 
   const bool needed = relevant(entry);

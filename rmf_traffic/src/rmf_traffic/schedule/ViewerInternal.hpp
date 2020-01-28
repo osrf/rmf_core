@@ -39,21 +39,13 @@ using ChangePtr = std::unique_ptr<Change>;
 using ConstChangePtr = std::unique_ptr<const Change>;
 
 //==============================================================================
-struct RouteInfo
+struct Entry : std::enable_shared_from_this<Entry>
 {
-  std::shared_ptr<Route> route;
-
-};
-
-//==============================================================================
-struct Entry
-{
+  // The participant that this entry is related to
+  ParticipantId participant;
 
   // The trajectory for this entry
   Itinerary itinerary;
-
-  // The participant that this entry is related to
-  ParticipantId participant;
 
   // The itinerary version number of this entry
   Version itinerary_version;
@@ -61,83 +53,30 @@ struct Entry
   // The schedule version number of this entry
   Version schedule_version;
 
-  // Succeeds
+  // The entry that this one succeeds
   ConstEntryPtr succeeds;
-
-  // A version that succeeded this entry, if such a version exists
-  ConstEntryPtr succeeded_by;
 
   // The change that led to this entry
   ConstChangePtr change;
 
-  // Initialize this entry
+  // A pointer to an entry that succeeded this entry, if such an entry exists
+  const Entry* succeeded_by;
+
   Entry(
-      Trajectory _trajectory,
-      Version _version,
-      ConstEntryPtr _succeeds = nullptr,
-      ChangePtr _change = nullptr);
-};
+      ParticipantId _participant,
+      Itinerary _itinerary,
+      Version _itinerary_version,
+      Version _schedule_version);
 
-//==============================================================================
-struct DeepIterator
-{
-  std::vector<const Trajectory*>::const_iterator it;
-
-  const Trajectory& operator*()
+  // Create a new entry for a participant.
+  template<typename... Args>
+  static EntryPtr make(Args&&... args)
   {
-    return **it;
+    return std::make_shared<Entry>(std::forward<Args>(args)...);
   }
 
-  const Trajectory& operator*() const
-  {
-    return **it;
-  }
-
-  const Trajectory* operator->()
-  {
-    return *it;
-  }
-
-  const Trajectory* operator->() const
-  {
-    return *it;
-  }
-
-  DeepIterator& operator++()
-  {
-    ++it;
-    return *this;
-  }
-
-  DeepIterator& operator--()
-  {
-    --it;
-    return *this;
-  }
-
-  DeepIterator operator++(int)
-  {
-    DeepIterator original = *this;
-    ++it;
-    return original;
-  }
-
-  DeepIterator operator--(int)
-  {
-    DeepIterator original = *this;
-    --it;
-    return original;
-  }
-
-  bool operator==(const DeepIterator& other) const
-  {
-    return it == other.it;
-  }
-
-  bool operator!=(const DeepIterator& other) const
-  {
-    return it != other.it;
-  }
+  // Make a child for this Entry
+  EntryPtr make_child(ConstChangePtr apply_change, Version _itinerary_version);
 };
 
 //==============================================================================
@@ -258,7 +197,8 @@ class Viewer::Implementation
 public:
 
   /// The most current itineraries for each participant
-  using Itineraries = std::unordered_map<ParticipantId, internal::EntryPtr>;
+  using Itineraries =
+      std::unordered_map<ParticipantId, internal::ConstEntryPtr>;
   Itineraries current_itineraries;
 
   using ParticipantMap = std::unordered_map<ParticipantId, Participant>;
@@ -512,12 +452,6 @@ public:
   }
 
 };
-
-//==============================================================================
-Trajectory add_interruption(
-    Trajectory old_trajectory,
-    const Trajectory& interruption_trajectory,
-    const Duration delay);
 
 //==============================================================================
 Trajectory add_delay(

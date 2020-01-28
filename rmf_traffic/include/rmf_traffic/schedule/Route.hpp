@@ -61,6 +61,9 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
+using RoutePtr = std::shared_ptr<Route>;
+using ConstRoutePtr = std::shared_ptr<const Route>;
+
 } // namespace schedule
 } // namespace rmf_traffic
 

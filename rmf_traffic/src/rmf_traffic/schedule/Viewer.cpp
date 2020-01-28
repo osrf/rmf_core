@@ -42,16 +42,28 @@ const Duration PartialBucketDuration = std::chrono::seconds(50);
 namespace internal {
 
 //==============================================================================
-Entry::Entry(Trajectory _trajectory,
-    Version _version,
-    ConstEntryPtr _succeeds,
-    ChangePtr _change)
-  : trajectory(std::move(_trajectory)),
-    version(_version),
-    succeeds(std::move(_succeeds)),
-    change(std::move(_change))
+Entry::Entry(
+    ParticipantId _participant,
+    Itinerary _itinerary,
+    Version _itinerary_version,
+    Version _schedule_version)
+  : participant(_participant),
+    itinerary(std::move(_itinerary)),
+    itinerary_version(_itinerary_version),
+    schedule_version(_schedule_version),
+    succeeds(nullptr),
+    change(nullptr),
+    succeeded_by(nullptr)
 {
   // Do nothing
+}
+
+//==============================================================================
+EntryPtr Entry::make_child(
+    ConstChangePtr apply_change,
+    Version _itinerary_version)
+{
+
 }
 
 //==============================================================================
@@ -570,6 +582,22 @@ rmf_utils::optional<const Participant&> Viewer::get_participant(
 }
 
 //==============================================================================
+rmf_utils::optional<Itinerary> Viewer::get_itinerary(
+    std::size_t participant_id) const
+{
+  const Implementation::Itineraries::const_iterator it =
+      _pimpl->current_itineraries.find(participant_id);
+
+  if (it == _pimpl->current_itineraries.end())
+    return rmf_utils::nullopt;
+
+  if (!it->second)
+    return rmf_utils::nullopt;
+
+  return it->second->itinerary;
+}
+
+//==============================================================================
 Version Viewer::oldest_version() const
 {
   return _pimpl->oldest_version;
@@ -586,11 +614,6 @@ Viewer::Viewer()
   : _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // Do nothing
-}
-
-std::size_t Viewer::Debug::get_num_entries(const Viewer& viewer)
-{
-  return viewer._pimpl->all_entries.size();
 }
 
 } // namespace schedule

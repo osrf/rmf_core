@@ -207,6 +207,32 @@ public:
   /// \return the new version of the schedule.
   Version unregister_participant(ParticipantId participant);
 
+  //============================================================================
+  // Viewer API
+
+  // Documentation inherited
+  View query(const Query& parameters) const final;
+
+  // Documentation inherited
+  const std::unordered_set<ParticipantId>& participant_ids() const final;
+
+  // Documentation inherited
+  rmf_utils::optional<const Participant&> get_participant(
+      std::size_t participant_id) const final;
+
+  // Documentation inherited
+  rmf_utils::optional<Itinerary> get_itinerary(
+      std::size_t participant_id) const final;
+
+  // Documentation inherited
+  Version oldest_version() const final;
+
+  // Documentation inherited
+  Version latest_version() const final;
+
+  class Implementation;
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace schedule
