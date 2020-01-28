@@ -560,7 +560,7 @@ private:
 ///
 /// \param[in] start_time
 ///   The starting time that will be attributed to all the generated starts
-///   to compute a new plan. In some occations, users will want to add small
+///   to compute a new plan. In some occasions, users will want to add small
 ///   delays to the current time, in order to account for computation time or
 ///   network delays.
 ///

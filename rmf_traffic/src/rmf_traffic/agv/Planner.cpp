@@ -683,7 +683,7 @@ std::vector<Plan::Start> compute_plan_starts(
                 start_time, exit_waypoint_index, start_yaw, p_location));
       }
     }
-    // If it's between the entry and the exit waypoints, then we should
+    // If its between the entry and the exit waypoints, then we should
     // compute it's distance away from the lane line.
     else
     {
