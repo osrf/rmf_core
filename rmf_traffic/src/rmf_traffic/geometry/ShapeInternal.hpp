@@ -51,6 +51,8 @@ public:
 
   CollisionGeometries _collisions;
 
+  double _characteristic_length;
+
   static const CollisionGeometries& get_collisions(const FinalShape& shape)
   {
     return shape._pimpl->_collisions;
@@ -58,11 +60,14 @@ public:
 
   static FinalShape make_final_shape(
       rmf_utils::impl_ptr<const Shape> shape,
-      CollisionGeometries collisions)
+      CollisionGeometries collisions,
+      double characteristic_length)
   {
     FinalShape result;
     result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(shape), std::move(collisions)});
+          Implementation{std::move(shape),
+          std::move(collisions),
+          std::move(characteristic_length)});
     return result;
   }
 
@@ -80,11 +85,14 @@ public:
 
   static FinalConvexShape make_final_shape(
       rmf_utils::impl_ptr<const Shape> shape,
-      CollisionGeometries collisions)
+      CollisionGeometries collisions,
+      double characteristic_length)
   {
     FinalConvexShape result;
     result._pimpl = rmf_utils::make_impl<FinalShape::Implementation>(
-          FinalShape::Implementation{std::move(shape), std::move(collisions)});
+          FinalShape::Implementation{std::move(shape),
+          std::move(collisions),
+          characteristic_length});
     return result;
   }
 };

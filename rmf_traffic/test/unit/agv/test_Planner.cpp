@@ -2231,7 +2231,6 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   using VehicleTraits = rmf_traffic::agv::VehicleTraits;
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
-  using DetectConflict = rmf_traffic::DetectConflict;
 
   const std::string test_map_name = "test_map";
   Graph graph;
