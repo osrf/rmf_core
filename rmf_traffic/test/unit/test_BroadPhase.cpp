@@ -18,7 +18,6 @@
 #include <rmf_utils/catch.hpp>
 
 #include <rmf_traffic/Conflict.hpp>
-#include <rmf_traffic/geometry/SimplePolygon.hpp>
 
 #include "utils_Trajectory.hpp"
 

@@ -658,7 +658,7 @@ FinalShape SimplePolygon::finalize() const
   double characteristic_length = 0;
   for (const Eigen::Vector2d& point : this->get_points())
   {
-    double distance = (point - Eigen::Vector2d{0, 0}).norm();
+    const double distance = point.norm();
     if (distance > characteristic_length)
       characteristic_length = distance;
   }

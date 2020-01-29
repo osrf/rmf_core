@@ -210,11 +210,9 @@ BoundingBox get_bounding_box(const rmf_traffic::Spline& spline)
   double char_length =  params.profile_ptr->get_shape()
       ->get_characteristic_length();
 
-  if (char_length > 0)
-  {
-    min_coord -= Eigen::Vector2d{char_length, char_length};
-    max_coord += Eigen::Vector2d{char_length, char_length};
-  }
+  assert(char_length >= 0.0);
+  min_coord -= Eigen::Vector2d{char_length, char_length};
+  max_coord += Eigen::Vector2d{char_length, char_length};
 
   bounding_box.min = min_coord;
   bounding_box.max = max_coord;
