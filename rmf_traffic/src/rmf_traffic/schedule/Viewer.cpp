@@ -24,6 +24,8 @@
 #include <rmf_traffic/schedule/Database.hpp>
 #include "debug_Viewer.hpp"
 
+#include <algorithm>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -41,15 +43,77 @@ const Duration PartialBucketDuration = std::chrono::seconds(50);
 
 namespace internal {
 
+namespace {
+
+//==============================================================================
+Viewer::Implementation::Timeline::iterator get_timeline_iterator(
+    Viewer::Implementation::Timeline& timeline, const Time time)
+{
+  Viewer::Implementation::Timeline::iterator start_it =
+      timeline.lower_bound(time);
+
+  if(start_it == timeline.end())
+  {
+    if(timeline.empty())
+    {
+      // This timeline is completely empty, so we'll begin creating buckets
+      // starting from the time of this trajectory.
+      return timeline.insert(
+            timeline.end(),
+            std::make_pair(
+              time + PartialBucketDuration,
+              std::make_unique<Viewer::Implementation::Bucket>()));
+    }
+
+    Viewer::Implementation::Timeline::iterator last_it = --timeline.end();
+    while(last_it->first < time)
+    {
+      last_it = timeline.insert(
+            timeline.end(),
+            std::make_pair(
+              last_it->first + BucketDuration,
+              std::make_unique<Viewer::Implementation::Bucket>()));
+    }
+
+    return last_it;
+  }
+
+  while(time + BucketDuration < start_it->first)
+  {
+    start_it = timeline.insert(
+          start_it,
+          std::make_pair(
+            start_it->first - BucketDuration,
+            std::make_unique<Viewer::Implementation::Bucket>()));
+  }
+
+  return start_it;
+}
+
+//==============================================================================
+std::string throw_missing_id_error(
+    const std::string& operation,
+    const Version id,
+    const Version oldest,
+    const Version latest)
+{
+  const std::string message = std::string()
+      + "Requested " + operation + " for ID that does not exist in this "
+        "Database: " + std::to_string(id) + ". The oldest known id is ["
+      + std::to_string(oldest) + "] and the latest is ["
+      + std::to_string(latest) + "], but note that IDs inside that range can "
+        "still be invalid if they have been culled or erased.";
+  throw std::runtime_error(message);
+}
+} // anonymous namespace
+
 //==============================================================================
 Entry::Entry(
     ParticipantId _participant,
     Itinerary _itinerary,
-    Version _itinerary_version,
     Version _schedule_version)
   : participant(_participant),
     itinerary(std::move(_itinerary)),
-    itinerary_version(_itinerary_version),
     schedule_version(_schedule_version),
     succeeds(nullptr),
     change(nullptr),
@@ -59,9 +123,7 @@ Entry::Entry(
 }
 
 //==============================================================================
-EntryPtr Entry::make_child(
-    ConstChangePtr apply_change,
-    Version _itinerary_version)
+EntryPtr Entry::make_child(ConstChangePtr apply_change)
 {
 
 }
@@ -154,233 +216,101 @@ void ViewRelevanceInspector::inspect(
 } // namespace internal
 
 //==============================================================================
-internal::EntryPtr Viewer::Implementation::add_entry(
-    internal::EntryPtr entry,
-    const bool erasure)
+internal::EntryPtr Viewer::Implementation::add_entry(internal::EntryPtr entry)
 {
-  all_entries.insert(std::make_pair(entry->version, entry));
-
-  if(!erasure)
+  for (const auto& route : entry->itinerary)
   {
-    const Trajectory& trajectory = entry->trajectory;
-    assert(trajectory.start_time());
-    const Time start_time = *trajectory.start_time();
-    const Time finish_time = *trajectory.finish_time();
+    RouteToInfo::iterator route_it;
+    bool inserted;
+    std::tie(route_it, inserted) =
+        routes.insert(std::make_pair(route, RouteInfo{}));
+    RouteInfo& route_info = route_it->second;
+    route_info.entries.insert(entry);
 
-    const MapToTimeline::iterator map_it = timelines.insert(
-          std::make_pair(entry->trajectory.get_map_name(), Timeline())).first;
-
-    Timeline& timeline = map_it->second;
-
-    const Timeline::iterator start_it =
-        get_timeline_iterator(timeline, start_time);
-    const Timeline::iterator finish_it =
-        get_timeline_iterator(timeline, finish_time);
-
-    const Timeline::const_iterator end_it = ++Timeline::iterator(finish_it);
-
-    for(auto it = start_it; it != end_it; ++it)
+    if (inserted)
     {
-      it->second.push_back(entry);
+      const Time start_time = *route->trajectory().start_time();
+      const Time finish_time = *route->trajectory().finish_time();
+      const std::string& map_name = route->map();
+
+      const MapToTimeline::iterator map_it = timelines.insert(
+            std::make_pair(map_name, Timeline())).first;
+
+      Timeline& timeline = map_it->second;
+
+      const Timeline::iterator start_it =
+          get_timeline_iterator(timeline, start_time);
+      const Timeline::const_iterator end_it =
+          ++get_timeline_iterator(timeline, finish_time);
+
+      for (auto it = start_it; it != end_it; ++it)
+      {
+        it->second->push_back(route);
+        route_info.buckets.push_back(it->second.get());
+      }
     }
   }
+
+  current_itineraries.at(entry->participant) = entry;
 
   return entry;
 }
 
 //==============================================================================
-void Viewer::Implementation::modify_entry(
-    const internal::EntryPtr& entry,
-    Trajectory new_trajectory,
-    const Version new_id)
+void take_entry_from_route(
+    internal::EntryPtr entry,
+    ConstRoutePtr route,
+    Viewer::Implementation::RouteInfo& info)
 {
-  const Version old_version = entry->version;
-  all_entries.erase(old_version);
-  entry->version = new_id;
-  all_entries.insert(std::make_pair(new_id, entry));
-
-  // TODO(MXG): Handle the case where a replacement changes the map name
-
-  // TODO(MXG): It should be posssible to improve performance for entry
-  // modifications by applying the change directly to the original Trajectory
-  // object instead of making a copy.
-  Timeline& timeline = timelines.at(entry->trajectory.get_map_name());
-
-  const Time old_start = *entry->trajectory.start_time();
-  const Time old_end = *entry->trajectory.finish_time();
-  // TODO(MXG): A micro-optimization might be to store these iterators in the
-  // entry data so we don't need to look them up again.
-  const Timeline::iterator old_start_it = timeline.lower_bound(old_start);
-  const Timeline::iterator old_end_it = timeline.lower_bound(old_end);
-
-  const Time new_start = *new_trajectory.start_time();
-  const Time new_end = *new_trajectory.finish_time();
-  const Timeline::iterator new_start_it =
-      get_timeline_iterator(timeline, new_start);
-  const Timeline::iterator new_end_it =
-      get_timeline_iterator(timeline, new_end);
-
-  entry->trajectory = std::move(new_trajectory);
-
-  // Fix the bucketing for this entry
-  if(old_end_it->first < new_start_it->first
-     || new_end_it->first < old_start_it->first)
+  info.entries.erase(entry);
+  if (info.entries.empty())
   {
-    for(auto it = new_start_it; it != ++Timeline::iterator(new_end_it); ++it)
+    // There are no more entries using this route, so we should remove it from
+    // all of its buckets.
+    for (Viewer::Implementation::Bucket* bucket : info.buckets)
     {
-      Bucket& bucket = it->second;
-      bucket.push_back(entry);
-    }
+      const auto route_it =
+          std::find(bucket->begin(), bucket->end(), route);
 
-    for(auto it = old_start_it; it != ++Timeline::iterator(old_end_it); ++it)
-    {
-      Bucket& bucket = it->second;
-      bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
-                   bucket.end());
-    }
-  }
-  else
-  {
-    if(old_start_it->first < new_start_it->first)
-    {
-      for(auto it = old_start_it; it != new_start_it; ++it)
-      {
-        Bucket& bucket = it->second;
-        bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
-                     bucket.end());
-      }
-    }
-    else
-    {
-      for(auto it = new_start_it; it != old_start_it; ++it)
-      {
-        Bucket& bucket = it->second;
-        bucket.push_back(entry);
-      }
-    }
-
-    if(new_end_it->first < old_end_it->first)
-    {
-      const auto begin_erase = ++Timeline::iterator(new_end_it);
-      const auto end_erase = ++Timeline::iterator(old_end_it);
-      for(auto it = begin_erase; it != end_erase; ++it)
-      {
-        Bucket& bucket = it->second;
-        bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
-                     bucket.end());
-      }
-    }
-    else
-    {
-      const auto begin_insert = ++Timeline::iterator(old_end_it);
-      const auto end_insert = ++Timeline::iterator(new_end_it);
-      for(auto it = begin_insert; it != end_insert; ++it)
-      {
-        Bucket& bucket = it->second;
-        bucket.push_back(entry);
-      }
+      bucket->erase(route_it);
     }
   }
 }
 
 //==============================================================================
-void Viewer::Implementation::erase_entry(Version id)
+void Viewer::Implementation::remove_entry(internal::EntryPtr entry)
 {
-  const internal::EntryPtr& entry = get_entry_iterator(id, "erasure")->second;
-
-  Timeline& timeline = timelines.at(entry->trajectory.get_map_name());
-
-  const Time old_start = *entry->trajectory.start_time();
-  const Time old_end = *entry->trajectory.finish_time();
-  // TODO(MXG): A micro-optimization might be to store these iterators in the
-  // entry data so we don't need to look them up again.
-  const Timeline::iterator begin_it = timeline.lower_bound(old_start);
-  const Timeline::iterator end_it = ++timeline.lower_bound(old_end);
-  for(auto it = begin_it; it != end_it; ++it)
+  const auto itinerary_it = current_itineraries.find(entry->participant);
+  if (itinerary_it != current_itineraries.end())
   {
-    Bucket& bucket = it->second;
-    bucket.erase(std::remove(bucket.begin(), bucket.end(), entry),
-                 bucket.end());
+    // If the current itinerary for this participant is the one we are removing,
+    // then erase the current itinerary for this participant altogether.
+    if (itinerary_it->second == entry)
+      itinerary_it->second = nullptr;
   }
 
-  all_entries.erase(id);
+  for (const auto& route : entry->itinerary)
+  {
+    RouteInfo& route_info = routes.at(route);
+    take_entry_from_route(entry, route, route_info);
+  }
+
+  if (entry->succeeded_by)
+  {
+    entry->succeeded_by->succeeds = nullptr;
+  }
 }
 
 //==============================================================================
-auto Viewer::Implementation::get_timeline_iterator(
-    Timeline& timeline, const Time time) -> Timeline::iterator
+void Viewer::Implementation::replace_entry(internal::EntryPtr entry)
 {
-  Timeline::iterator start_it = timeline.lower_bound(time);
-
-  if(start_it == timeline.end())
-  {
-    if(timeline.empty())
-    {
-      // This timeline is completely empty, so we'll begin creating buckets
-      // starting from the time of this trajectory.
-      return timeline.insert(
-            timeline.end(),
-            std::make_pair(time + PartialBucketDuration, Bucket()));
-    }
-
-    Timeline::iterator last_it = --timeline.end();
-    while(last_it->first < time)
-    {
-      last_it = timeline.insert(
-            timeline.end(),
-            std::make_pair(last_it->first + BucketDuration, Bucket()));
-    }
-
-    return last_it;
-  }
-
-  while(time + BucketDuration < start_it->first)
-  {
-    start_it = timeline.insert(
-          start_it,
-          std::make_pair(start_it->first - BucketDuration, Bucket()));
-  }
-
-  return start_it;
-}
-
-namespace {
-//==============================================================================
-std::string throw_missing_id_error(
-    const std::string& operation,
-    const Version id,
-    const Version oldest,
-    const Version latest)
-{
-  const std::string message = std::string()
-      + "Requested " + operation + " for ID that does not exist in this "
-        "Database: " + std::to_string(id) + ". The oldest known id is ["
-      + std::to_string(oldest) + "] and the latest is ["
-      + std::to_string(latest) + "], but note that IDs inside that range can "
-        "still be invalid if they have been culled or erased.";
-  throw std::runtime_error(message);
-}
-} // anonymous namespace
-
-//==============================================================================
-auto Viewer::Implementation::get_entry_iterator(
-    const Version id,
-    const std::string& operation) -> EntryMap::iterator
-{
-  const auto old_entry_it = all_entries.find(id);
-  if(old_entry_it == all_entries.end())
-  {
-    throw_missing_id_error(
-          operation, id, oldest_version, latest_version);
-  }
-
-  return old_entry_it;
+  add_entry(entry);
+  remove_entry(entry->succeeds);
 }
 
 //==============================================================================
 void Viewer::Implementation::cull(Version id, Time time)
 {
-  cull_has_occurred = true;
   last_cull = std::make_pair(id, time);
 
   std::unordered_set<Version> culled;

@@ -26,6 +26,14 @@
 namespace rmf_traffic {
 namespace schedule {
 
+class Database::Implementation : public Viewer::Implementation
+{
+public:
+
+
+
+};
+
 namespace internal {
 
 //==============================================================================

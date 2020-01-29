@@ -35,18 +35,29 @@ public:
   Erase erase;
 
   ParticipantId participant;
+  Version schedule_version;
 
-  Implementation(Mode mode_, ParticipantId participant_)
-    : mode(mode_),
-      participant(participant_)
+  Implementation(
+      Mode mode_,
+      ParticipantId participant_,
+      Version schedule_version_)
+  : mode(mode_),
+    participant(participant_),
+    schedule_version(schedule_version_)
   {
     // Do nothing
   }
 
-  static Change make(Mode mode_, ParticipantId participant_)
+  static Change make(
+      Mode mode_,
+      ParticipantId participant_,
+      Version schedule_version_)
   {
     Change change;
-    change._pimpl = rmf_utils::make_impl<Implementation>(mode_, participant_);
+    change._pimpl =
+        rmf_utils::make_impl<Implementation>(
+          mode_, participant_, schedule_version_);
+
     return change;
   }
 
@@ -90,7 +101,7 @@ public:
 
   // TODO(MXG): This could be an aliased shared_ptr to an alias's route to
   // improve performance for the schedule database.
-  Route route;
+  ConstRoutePtr route;
 
 };
 
@@ -134,9 +145,14 @@ public:
 };
 
 //==============================================================================
-Change Change::make_put(ParticipantId participant, Itinerary itinerary)
+Change Change::make_put(
+    ParticipantId participant,
+    Itinerary itinerary,
+    Version schedule_version)
 {
-  Change change = Implementation::make(Mode::Put, participant);
+  Change change =
+      Implementation::make(Mode::Put, participant, schedule_version);
+
   change._pimpl->put._pimpl =
       Implementation::make_impl<Put>(std::move(itinerary));
 
@@ -144,11 +160,17 @@ Change Change::make_put(ParticipantId participant, Itinerary itinerary)
 }
 
 //==============================================================================
-Change Change::make_post(ParticipantId participant, Route route)
+Change Change::make_post(
+    ParticipantId participant,
+    Route route,
+    Version schedule_version)
 {
-  Change change = Implementation::make(Mode::Post, participant);
+  Change change =
+      Implementation::make(Mode::Post, participant, schedule_version);
+
   change._pimpl->post._pimpl =
-      Implementation::make_impl<Post>(std::move(route));
+      Implementation::make_impl<Post>(
+        std::make_shared<const Route>(std::move(route)));
 
   return change;
 }
@@ -157,9 +179,12 @@ Change Change::make_post(ParticipantId participant, Route route)
 Change Change::make_delay(
     ParticipantId participant,
     Time from,
-    Duration duration)
+    Duration duration,
+    Version schedule_version)
 {
-  Change change = Implementation::make(Mode::Delay, participant);
+  Change change =
+      Implementation::make(Mode::Delay, participant, schedule_version);
+
   change._pimpl->delay._pimpl =
       Implementation::make_impl<Delay>(from, duration);
 
@@ -167,9 +192,11 @@ Change Change::make_delay(
 }
 
 //==============================================================================
-Change Change::make_erase(ParticipantId participant)
+Change Change::make_erase(ParticipantId participant, Version schedule_version)
 {
-  Change change = Implementation::make(Mode::Erase, participant);
+  Change change =
+      Implementation::make(Mode::Erase, participant, schedule_version);
+
   change._pimpl->erase._pimpl =
       Implementation::make_impl<Erase>(true, std::vector<RouteId>());
 
@@ -179,9 +206,12 @@ Change Change::make_erase(ParticipantId participant)
 //==============================================================================
 Change Change::make_erase(
     ParticipantId participant,
-    std::vector<RouteId> routes)
+    std::vector<RouteId> routes,
+    Version schedule_version)
 {
-  Change change = Implementation::make(Mode::Erase, participant);
+  Change change =
+      Implementation::make(Mode::Erase, participant, schedule_version);
+
   change._pimpl->erase._pimpl =
       Implementation::make_impl<Erase>(false, std::move(routes));
 
@@ -198,6 +228,12 @@ Change::Mode Change::get_mode() const
 ParticipantId Change::participant() const
 {
   return _pimpl->participant;
+}
+
+//==============================================================================
+Version Change::schedule_version() const
+{
+  return _pimpl->schedule_version;
 }
 
 //==============================================================================

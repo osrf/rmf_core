@@ -269,103 +269,6 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// A class to describe a filter on what version changes to query from a
-  /// schedule.
-  class Versions
-  {
-  public:
-
-    /// The mode for how to filter versions in a schedule database query.
-    enum class Mode : uint16_t
-    {
-      /// Invalid mode, behavior is undefined.
-      Invalid,
-
-      /// Get everything, regardless of version.
-      All,
-
-      /// Get every version after the specified one.
-      After,
-    };
-
-    /// This is a placeholder class in case we ever want to extend the features
-    /// of the `All` mode.
-    class All
-    {
-    public:
-
-      class Implementation;
-    private:
-      All();
-      friend class Participants;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// The interface for the Versions::After mode.
-    class After
-    {
-    public:
-
-      /// Constructor.
-      After(Version version);
-
-      /// Get the specified version. The Query will only return Trajectories
-      /// which were introduced after this version of the schedule.
-      Version get_version() const;
-
-      /// Set the version.
-      ///
-      /// \param[in] version
-      ///   The Query will only return Trajectories which were introduced after
-      ///   this version of the schedule.
-      After& set_version(Version version);
-
-      class Implementation;
-    private:
-      /// Default constructor. This is not accessible to users because it leaves
-      /// the After instance null.
-      After();
-      friend class Versions;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// Default constructor, uses All mode.
-    Versions();
-
-    /// Constructor to use After mode.
-    ///
-    /// \param[in] version
-    ///   The Query will only return Trajectories which were introduced after
-    ///   this version of the schedule.
-    Versions(Version version);
-
-    /// Get the current Versions mode of this query.
-    Mode get_mode() const;
-
-    /// Set the mode of this Versions interface to query for All Trajectories
-    /// regardless of version.
-    All& query_all();
-
-    /// Set the mode of this Versions interface to query for only Trajectories
-    /// that changed after the given version.
-    ///
-    /// \param[in] version
-    ///   The Query will only return Trajectories which were introduced after
-    ///   this version of the schedule.
-    After& query_after(Version version);
-
-    /// Get the Versions After interface to use for this Query. If this Versions
-    /// is not in the After mode, then this will return a nullptr.
-    After* after();
-
-    /// const-qualified after()
-    const After* after() const;
-
-    class Implementation;
-  private:
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
   /// A class to describe a filter on which schedule participants to pay
   /// attention to.
   class Participants
@@ -474,6 +377,10 @@ public:
     /// const-qualified include()
     const Include* include() const;
 
+    /// Change this filter to Include mode, and include the specified
+    /// participant IDs.
+    Participants& include(std::vector<ParticipantId> ids);
+
     /// Get the Exclude interface if this Participants filter is in Exclude
     /// mode, otherwise get a nullptr.
     Exclude* exclude();
@@ -481,8 +388,109 @@ public:
     /// const-qualified exclude()
     const Exclude* exclude() const;
 
+    /// Change this filter to Exclude mode, and exclude the specified
+    /// participant IDs.
+    Participants& exclude(std::vector<ParticipantId> ids);
+
   private:
     class Implementation;
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  /// A class to describe a filter on what version changes to query from a
+  /// schedule.
+  class Versions
+  {
+  public:
+
+    /// The mode for how to filter versions in a schedule database query.
+    enum class Mode : uint16_t
+    {
+      /// Invalid mode, behavior is undefined.
+      Invalid,
+
+      /// Get everything, regardless of version.
+      All,
+
+      /// Get every version after the specified one.
+      After,
+    };
+
+    /// This is a placeholder class in case we ever want to extend the features
+    /// of the `All` mode.
+    class All
+    {
+    public:
+
+      class Implementation;
+    private:
+      All();
+      friend class Participants;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// The interface for the Versions::After mode.
+    class After
+    {
+    public:
+
+      /// Constructor.
+      After(Version version);
+
+      /// Get the specified version. The Query will only return Trajectories
+      /// which were introduced after this version of the schedule.
+      Version get_version() const;
+
+      /// Set the version.
+      ///
+      /// \param[in] version
+      ///   The Query will only return Trajectories which were introduced after
+      ///   this version of the schedule.
+      After& set_version(Version version);
+
+      class Implementation;
+    private:
+      /// Default constructor. This is not accessible to users because it leaves
+      /// the After instance null.
+      After();
+      friend class Versions;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// Default constructor, uses All mode.
+    Versions();
+
+    /// Constructor to use After mode.
+    ///
+    /// \param[in] version
+    ///   The Query will only return Trajectories which were introduced after
+    ///   this version of the schedule.
+    Versions(Version version);
+
+    /// Get the current Versions mode of this query.
+    Mode get_mode() const;
+
+    /// Set the mode of this Versions interface to query for All Trajectories
+    /// regardless of version.
+    All& query_all();
+
+    /// Set the mode of this Versions interface to query for only Trajectories
+    /// that changed after the given version.
+    ///
+    /// \param[in] version
+    ///   The Query will only return Trajectories which were introduced after
+    ///   this version of the schedule.
+    After& query_after(Version version);
+
+    /// Get the Versions After interface to use for this Query. If this Versions
+    /// is not in the After mode, then this will return a nullptr.
+    After* after();
+
+    /// const-qualified after()
+    const After* after() const;
+
+    class Implementation;
+  private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -491,6 +499,12 @@ public:
 
   /// const-qualified spacetime()
   const Spacetime& spacetime() const;
+
+  /// Get the Participants component of this Query.
+  Participants& participants();
+
+  /// const-qualified participants()
+  const Participants& participants() const;
 
   /// Get the Versions component of this Query.
   Versions& versions();
@@ -507,11 +521,11 @@ private:
 };
 
 //==============================================================================
-/// Query for all Trajectories in a schedule database
+/// Query for all entries in a schedule database
 Query query_everything();
 
 //==============================================================================
-/// Query for all Trajectories in a schedule database that were introduced
+/// Query for all entries in a schedule database that were introduced
 /// after a specified version of the schedule.
 ///
 /// \param[in] after_version

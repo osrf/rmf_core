@@ -47,25 +47,21 @@ struct Entry : std::enable_shared_from_this<Entry>
   // The trajectory for this entry
   Itinerary itinerary;
 
-  // The itinerary version number of this entry
-  Version itinerary_version;
-
   // The schedule version number of this entry
   Version schedule_version;
 
   // The entry that this one succeeds
-  ConstEntryPtr succeeds;
+  EntryPtr succeeds;
 
   // The change that led to this entry
   ConstChangePtr change;
 
   // A pointer to an entry that succeeded this entry, if such an entry exists
-  const Entry* succeeded_by;
+  Entry* succeeded_by;
 
   Entry(
       ParticipantId _participant,
       Itinerary _itinerary,
-      Version _itinerary_version,
       Version _schedule_version);
 
   // Create a new entry for a participant.
@@ -76,7 +72,7 @@ struct Entry : std::enable_shared_from_this<Entry>
   }
 
   // Make a child for this Entry
-  EntryPtr make_child(ConstChangePtr apply_change, Version _itinerary_version);
+  EntryPtr make_child(ConstChangePtr apply_change);
 };
 
 //==============================================================================
@@ -199,14 +195,12 @@ public:
   /// The most current itineraries for each participant
   using Itineraries =
       std::unordered_map<ParticipantId, internal::ConstEntryPtr>;
-  Itineraries current_itineraries;
 
   using ParticipantMap = std::unordered_map<ParticipantId, Participant>;
-  ParticipantMap current_participants;
 
-  std::unordered_set<ParticipantId> current_participant_ids;
 
-  using Bucket = std::vector<internal::ConstEntryPtr>;
+  using Bucket = std::vector<ConstRoutePtr>;
+  using BucketPtr = std::unique_ptr<Bucket>;
 
   // TODO(MXG): A possible performance improvement could be to introduce spatial
   // buckets that are orthogonal to the time buckets. This could be added later
@@ -214,11 +208,25 @@ public:
 
   // Each bucket stores trajectories whose time span intersects with the range
   // ( key(timeline_it - 1), key(timeline_it) ].
-  using Timeline = std::map<Time, Bucket>;
+  using Timeline = std::map<Time, BucketPtr>;
   using MapToTimeline = std::unordered_map<std::string, Timeline>;
 
 
+  struct RouteInfo
+  {
+    std::vector<Bucket*> buckets;
+    std::unordered_set<internal::EntryPtr> entries;
+  };
+
+  using RouteToInfo =
+      std::unordered_map<ConstRoutePtr, RouteInfo>;
+
+  Itineraries current_itineraries;
+  RouteToInfo routes;
   MapToTimeline timelines;
+
+  ParticipantMap current_participants;
+  std::unordered_set<ParticipantId> current_participant_ids;
 
   Version oldest_version = 0;
   Version latest_version = 0;
@@ -236,21 +244,16 @@ public:
   /// This field does not get used by the Database class
   Changers changers;
 
-  internal::EntryPtr add_entry(internal::EntryPtr entry, bool erasure = false);
-
-  /// Used by the Mirror class to make efficient changes to entries
-  void modify_entry(const internal::EntryPtr& entry,
-      Trajectory new_trajectory, const Version new_id);
+  internal::EntryPtr add_entry(internal::EntryPtr entry);
 
   /// Used by the Mirror class to erase entries that are no longer needed
-  void erase_entry(Version id);
+  void remove_entry(internal::EntryPtr entry);
+
+  /// Used by the Mirror class to make efficient changes to entries
+  void replace_entry(internal::EntryPtr entry);
 
   Timeline::iterator get_timeline_iterator(
       Timeline& timeline, Time time);
-
-  EntryMap::iterator get_entry_iterator(
-      Version id,
-      const std::string& operation);
 
   void cull(Version id, Time time);
 

@@ -72,7 +72,8 @@ public:
   ///
   static Change make_put(
       ParticipantId participant,
-      Itinerary itinerary);
+      Itinerary itinerary,
+      Version schedule_version);
 
   /// Post a new route to the participant's itinerary. This will add the route
   /// to the participant's existing itinerary without impacting the routes that
@@ -85,7 +86,8 @@ public:
   ///   The route being added to the itinerary.
   static Change make_post(
       ParticipantId participant,
-      Route route);
+      Route route,
+      Version schedule_version);
 
   /// Add a delay to the existing itinerary. All
   ///
@@ -103,14 +105,17 @@ public:
   static Change make_delay(
       ParticipantId participant,
       Time from,
-      Duration delay);
+      Duration delay,
+      Version schedule_version);
 
   /// Erase the itinerary of a participant
   ///
   /// \param[in] participant
   ///   The ID of the participant whose itinerary is being erased.
   ///
-  static Change make_erase(ParticipantId participant);
+  static Change make_erase(
+      ParticipantId participant,
+      Version schedule_version);
 
   /// Erase one or more routes of a participant
   ///
@@ -122,7 +127,8 @@ public:
   ///
   static Change make_erase(
       ParticipantId participant,
-      std::vector<RouteId> routes);
+      std::vector<RouteId> routes,
+      Version schedule_version);
 
   /// The API for a Put change
   class Put
@@ -145,7 +151,7 @@ public:
   public:
 
     /// A reference to the Route that was inserted.
-    const Route& route() const;
+    ConstRoutePtr route() const;
 
     class Implementation;
   private:
@@ -197,6 +203,9 @@ public:
 
   /// Get the version ID that this change refers to
   ParticipantId participant() const;
+
+  /// Get the schedule version that this change produced
+  Version schedule_version() const;
 
   /// Get the Put interface if this is a Put type change. Otherwise this returns
   /// a nullptr.
