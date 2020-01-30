@@ -72,17 +72,18 @@ ConstEntryPtr get_last_known_ancestor(
 
 //==============================================================================
 void ChangeRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
-    const std::function<bool(const ConstEntryPtr&)>& relevant)
+    const ConstRoutePtr& route,
+    const RouteInfo& info,
+    const std::function<bool(const ConstRoutePtr&)>& relevant)
 {
-  if(entry->succeeded_by)
-    return;
+  const auto& entry = info.latest_entry;
+  assert(!entry->succeeded_by);
 
   if(after_version
      && versions.less_or_equal(entry->schedule_version, *after_version))
     return;
 
-  const bool needed = relevant(entry);
+  const bool needed = relevant(route);
 
   if(needed)
   {
@@ -138,14 +139,14 @@ void ChangeRelevanceInspector::inspect(
       // so just create an insertion for it and transmit that.
       relevant_changes.emplace_back(
             Change::Implementation::make_insert_ref(
-              &entry->trajectory, entry->version));
+              &route->trajectory, route->version));
     }
   }
   else if(after_version)
   {
     // Figure out if this trajectory needs to be erased
     const ConstEntryPtr check =
-        get_last_known_ancestor(entry, *after_version, versions);
+        get_last_known_ancestor(route, *after_version, versions);
 
     if(check)
     {
@@ -156,7 +157,7 @@ void ChangeRelevanceInspector::inspect(
         // transmit its change history. If a later version of this trajectory
         // becomes relevant again, we will tell it to insert it at that time.
         relevant_changes.emplace_back(
-              Database::Change::make_erase(check->version, entry->version));
+              Change::make_erase(check->version, route->version));
       }
     }
   }
@@ -169,19 +170,19 @@ void ChangeRelevanceInspector::inspect(
 
 //==============================================================================
 void ChangeRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
+    const ConstRoutePtr& route,
+    const RouteInfo& info,
     const rmf_traffic::internal::Spacetime& spacetime)
 {
-  inspect(entry, [&](const ConstEntryPtr& e) -> bool {
-    const Trajectory& trajectory = e->trajectory;
+  inspect(route, info, [&](const ConstRoutePtr& r) -> bool {
+    const Trajectory& trajectory = r->trajectory();
     if(trajectory.start_time())
     {
       return rmf_traffic::internal::detect_conflicts(
-            e->trajectory, spacetime, nullptr);
+            trajectory, spacetime, nullptr);
     }
     else
     {
-      assert(e->change->get_mode() == Database::Change::Mode::Erase);
       return false;
     }
   });
@@ -189,12 +190,13 @@ void ChangeRelevanceInspector::inspect(
 
 //==============================================================================
 void ChangeRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
+    const ConstRoutePtr& route,
+    const RouteInfo& info,
     const Time* const lower_time_bound,
     const Time* const upper_time_bound)
 {
-  inspect(entry, [&](const ConstEntryPtr& e) -> bool {
-    const Trajectory& trajectory = e->trajectory;
+  inspect(route, info, [&](const ConstRoutePtr& r) -> bool {
+    const Trajectory& trajectory = r->trajectory();
     if(trajectory.start_time())
     {
       if(lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
@@ -207,7 +209,6 @@ void ChangeRelevanceInspector::inspect(
     }
     else
     {
-      assert(e->change->get_mode() == Database::Change::Mode::Erase);
       return false;
     }
   });

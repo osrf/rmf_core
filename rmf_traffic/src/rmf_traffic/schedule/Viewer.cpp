@@ -111,21 +111,16 @@ std::string throw_missing_id_error(
 Entry::Entry(
     ParticipantId _participant,
     Itinerary _itinerary,
-    Version _schedule_version)
+    Version _schedule_version,
+    ConstChangePtr _change)
   : participant(_participant),
     itinerary(std::move(_itinerary)),
     schedule_version(_schedule_version),
+    change(std::move(_change)),
     succeeds(nullptr),
-    change(nullptr),
     succeeded_by(nullptr)
 {
   // Do nothing
-}
-
-//==============================================================================
-EntryPtr Entry::make_child(ConstChangePtr apply_change)
-{
-
 }
 
 //==============================================================================
@@ -173,34 +168,37 @@ void ViewRelevanceInspector::reserve(const std::size_t size)
 
 //==============================================================================
 void ViewRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
+    const ConstRoutePtr& route,
+    const RouteInfo& info,
     const rmf_traffic::internal::Spacetime& spacetime_region)
 {
-  if(entry->succeeded_by)
-    return;
+  const auto& entry = info.latest_entry;
+  assert(!entry->succeeded_by);
 
-  if(after_version && versions.less_or_equal(entry->version, *after_version))
+  if(after_version
+     && versions.less_or_equal(entry->schedule_version, *after_version))
     return;
 
   if(rmf_traffic::internal::detect_conflicts(
-       entry->trajectory, spacetime_region, nullptr))
-    elements.emplace_back(Viewer::View::Element{
-                            entry->version, entry->trajectory});
+       route->trajectory(), spacetime_region, nullptr))
+    elements.emplace_back(Element{entry->participant, route});
 }
 
 //==============================================================================
 void ViewRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
+    const ConstRoutePtr& route,
+    const RouteInfo& info,
     const Time* lower_time_bound,
     const Time* upper_time_bound)
 {
-  if(entry->succeeded_by)
+  const auto& entry = info.latest_entry;
+  assert(!entry->succeeded_by);
+
+  if(after_version
+     && versions.less_or_equal(entry->schedule_version, *after_version))
     return;
 
-  if(after_version && versions.less_or_equal(entry->version, *after_version))
-    return;
-
-  const Trajectory& trajectory = entry->trajectory;
+  const Trajectory& trajectory = route->trajectory();
   assert(trajectory.start_time() != nullptr);
 
   if(lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
@@ -209,8 +207,47 @@ void ViewRelevanceInspector::inspect(
   if(upper_time_bound && *upper_time_bound < *trajectory.start_time())
     return;
 
-  elements.emplace_back(Viewer::View::Element{
-                          entry->version, entry->trajectory});
+  elements.emplace_back(Element{entry->participant, route});
+}
+
+//==============================================================================
+void add_route_to_timeline(
+    MapToTimeline& timelines,
+    ConstRoutePtr route,
+    RouteInfo& info)
+{
+  const Time start_time = *route->trajectory().start_time();
+  const Time finish_time = *route->trajectory().finish_time();
+  const std::string& map_name = route->map();
+
+  const internal::MapToTimeline::iterator map_it = timelines.insert(
+        std::make_pair(map_name, internal::Timeline())).first;
+
+  internal::Timeline& timeline = map_it->second;
+
+  const internal::Timeline::iterator start_it =
+      get_timeline_iterator(timeline, start_time);
+  const internal::Timeline::const_iterator end_it =
+      ++get_timeline_iterator(timeline, finish_time);
+
+  for (auto it = start_it; it != end_it; ++it)
+  {
+    it->second->push_back(route);
+    info.buckets.push_back(it->second.get());
+  }
+}
+
+//==============================================================================
+void remove_route_from_timelines(
+    const ConstRoutePtr& route,
+    RouteInfo& info)
+{
+  for (auto* bucket : info.buckets)
+  {
+    const auto bucket_it = std::find(bucket->begin(), bucket->end(), route);
+    if (bucket_it != bucket->end())
+      bucket->erase(bucket_it);
+  }
 }
 
 } // namespace internal
@@ -218,63 +255,45 @@ void ViewRelevanceInspector::inspect(
 //==============================================================================
 internal::EntryPtr Viewer::Implementation::add_entry(internal::EntryPtr entry)
 {
+  std::vector<ConstRoutePtr> removed_routes;
+
+  const auto previous_it = current_itineraries.find(entry->participant);
+  if (previous_it != current_itineraries.end())
+    removed_routes = previous_it->second->itinerary;
+
   for (const auto& route : entry->itinerary)
   {
-    RouteToInfo::iterator route_it;
+    // We may receive nullptr routes which implies that a participant has a
+    // route in its itinerary that is filtered out by this mirror's query
+    // parameters.
+    if (!route)
+      continue;
+
+    internal::RouteToInfo::iterator route_it;
     bool inserted;
     std::tie(route_it, inserted) =
-        routes.insert(std::make_pair(route, RouteInfo{}));
-    RouteInfo& route_info = route_it->second;
-    route_info.entries.insert(entry);
+        routes.insert(std::make_pair(route, internal::RouteInfo{}));
+    internal::RouteInfo& route_info = route_it->second;
+    route_info.latest_entry = entry;
 
     if (inserted)
-    {
-      const Time start_time = *route->trajectory().start_time();
-      const Time finish_time = *route->trajectory().finish_time();
-      const std::string& map_name = route->map();
+      add_route_to_timeline(timelines, route, route_info);
 
-      const MapToTimeline::iterator map_it = timelines.insert(
-            std::make_pair(map_name, Timeline())).first;
-
-      Timeline& timeline = map_it->second;
-
-      const Timeline::iterator start_it =
-          get_timeline_iterator(timeline, start_time);
-      const Timeline::const_iterator end_it =
-          ++get_timeline_iterator(timeline, finish_time);
-
-      for (auto it = start_it; it != end_it; ++it)
-      {
-        it->second->push_back(route);
-        route_info.buckets.push_back(it->second.get());
-      }
-    }
+    const auto remove_it =
+        std::find(removed_routes.begin(), removed_routes.end(), route);
+    if (remove_it != removed_routes.end())
+      removed_routes.erase(remove_it);
   }
 
   current_itineraries.at(entry->participant) = entry;
 
-  return entry;
-}
-
-//==============================================================================
-void take_entry_from_route(
-    internal::EntryPtr entry,
-    ConstRoutePtr route,
-    Viewer::Implementation::RouteInfo& info)
-{
-  info.entries.erase(entry);
-  if (info.entries.empty())
+  for (const auto& route : removed_routes)
   {
-    // There are no more entries using this route, so we should remove it from
-    // all of its buckets.
-    for (Viewer::Implementation::Bucket* bucket : info.buckets)
-    {
-      const auto route_it =
-          std::find(bucket->begin(), bucket->end(), route);
-
-      bucket->erase(route_it);
-    }
+    internal::RouteInfo& info = routes.at(route);
+    remove_route_from_timelines(route, info);
   }
+
+  return entry;
 }
 
 //==============================================================================
@@ -291,21 +310,31 @@ void Viewer::Implementation::remove_entry(internal::EntryPtr entry)
 
   for (const auto& route : entry->itinerary)
   {
-    RouteInfo& route_info = routes.at(route);
-    take_entry_from_route(entry, route, route_info);
+    internal::RouteInfo& info = routes.at(route);
+    if (info.latest_entry == entry)
+    {
+      remove_route_from_timelines(route, info);
+      info.latest_entry = nullptr;
+      routes.erase(route);
+    }
   }
 
   if (entry->succeeded_by)
-  {
     entry->succeeded_by->succeeds = nullptr;
-  }
 }
 
 //==============================================================================
 void Viewer::Implementation::replace_entry(internal::EntryPtr entry)
 {
+  const auto previous_it = current_itineraries.find(entry->participant);
+  internal::EntryPtr previous_entry;
+  if (previous_it != current_itineraries.end())
+    previous_entry = previous_it->second;
+
   add_entry(entry);
-  remove_entry(entry->succeeds);
+
+  if (previous_entry)
+    remove_entry(previous_entry);
 }
 
 //==============================================================================
@@ -313,34 +342,33 @@ void Viewer::Implementation::cull(Version id, Time time)
 {
   last_cull = std::make_pair(id, time);
 
-  std::unordered_set<Version> culled;
   for(auto& pair : timelines)
   {
-    Timeline& timeline = pair.second;
-    const Timeline::iterator last_it = timeline.lower_bound(time);
-    const Timeline::iterator end_it = last_it == timeline.end()?
-          timeline.end() : ++Timeline::iterator(last_it);
+    internal::Timeline& timeline = pair.second;
+    const internal::Timeline::iterator last_it = timeline.lower_bound(time);
+    const internal::Timeline::iterator end_it = last_it == timeline.end()?
+          timeline.end() : ++internal::Timeline::iterator(last_it);
 
-    for(Timeline::iterator it = timeline.begin(); it != end_it; ++it)
+    for(internal::Timeline::iterator it = timeline.begin(); it != end_it; ++it)
     {
-      Bucket& bucket = it->second;
-      const Bucket::iterator removed =
+      internal::Bucket& bucket = *it->second;
+      const internal::Bucket::iterator removed =
           std::remove_if(bucket.begin(), bucket.end(),
                      [&](const internal::ConstEntryPtr& entry) -> bool
       {
         return *entry->trajectory.finish_time() < time;
       });
 
-      for(Bucket::iterator bit = removed; bit != bucket.end(); ++bit)
+      for(internal::Bucket::iterator bit = removed; bit != bucket.end(); ++bit)
         culled.insert((*bit)->version);
 
       bucket.erase(removed, bucket.end());
     }
 
-    Timeline::iterator stop_erasing = timeline.begin();
-    for(Timeline::iterator it = timeline.begin(); it != end_it; ++it)
+    internal::Timeline::iterator stop_erasing = timeline.begin();
+    for(internal::Timeline::iterator it = timeline.begin(); it != end_it; ++it)
     {
-      const Bucket& bucket = it->second;
+      const internal::Bucket& bucket = *it->second;
       if(!bucket.empty())
       {
         // If this bucket is not empty, then stop the erasing now
@@ -348,17 +376,11 @@ void Viewer::Implementation::cull(Version id, Time time)
       }
 
       // If this bucket is empty, then stop the erasing at the next entry
-      stop_erasing = ++Timeline::iterator(it);
+      stop_erasing = ++internal::Timeline::iterator(it);
     }
 
     timeline.erase(timeline.begin(), stop_erasing);
   }
-
-  for(const Version v : culled)
-    all_entries.erase(v);
-
-  if(!all_entries.empty())
-    oldest_version = all_entries.begin()->first;
 }
 
 //==============================================================================
