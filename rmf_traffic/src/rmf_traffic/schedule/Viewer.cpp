@@ -521,7 +521,7 @@ const std::unordered_set<ParticipantId>& Viewer::participant_ids() const
 }
 
 //==============================================================================
-rmf_utils::optional<const Participant&> Viewer::get_participant(
+rmf_utils::optional<const ParticipantDescription&> Viewer::get_participant(
     std::size_t participant_id) const
 {
   const Implementation::ParticipantMap::const_iterator it =

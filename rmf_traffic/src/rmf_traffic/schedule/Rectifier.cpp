@@ -15,24 +15,16 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
-#define RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
-
-#include <rmf_traffic/schedule/Route.hpp>
-#include <rmf_traffic/schedule/Version.hpp>
-
-#include <vector>
+#include "RectifierInternal.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-using ItineraryVersion = uint64_t;
-
-//==============================================================================
-using Itinerary = std::vector<ConstRoutePtr>;
+RectificationRequester::~RectificationRequester()
+{
+  // Do nothing
+}
 
 } // namespace schedule
 } // namespace rmf_traffic
-
-#endif // RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP

@@ -21,7 +21,7 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-class Participant::Implementation
+class ParticipantDescription::Implementation
 {
 public:
 
@@ -34,7 +34,7 @@ public:
 };
 
 //==============================================================================
-Participant::Participant(
+ParticipantDescription::ParticipantDescription(
     std::string name,
     std::string owner,
     Rx responsiveness,
@@ -53,66 +53,66 @@ Participant::Participant(
 }
 
 //==============================================================================
-Participant& Participant::name(std::string value)
+ParticipantDescription& ParticipantDescription::name(std::string value)
 {
   _pimpl->name = std::move(value);
   return *this;
 }
 
 //==============================================================================
-const std::string& Participant::name() const
+const std::string& ParticipantDescription::name() const
 {
   return _pimpl->name;
 }
 
 //==============================================================================
-Participant& Participant::owner(std::string value)
+ParticipantDescription& ParticipantDescription::owner(std::string value)
 {
   _pimpl->owner = std::move(value);
   return *this;
 }
 
 //==============================================================================
-const std::string& Participant::owner() const
+const std::string& ParticipantDescription::owner() const
 {
   return _pimpl->owner;
 }
 
 //==============================================================================
-Participant& Participant::responsiveness(Rx value)
+ParticipantDescription& ParticipantDescription::responsiveness(Rx value)
 {
   _pimpl->responsiveness = value;
   return *this;
 }
 
 //==============================================================================
-Participant::Rx Participant::responsiveness() const
+ParticipantDescription::Rx ParticipantDescription::responsiveness() const
 {
   return _pimpl->responsiveness;
 }
 
 //==============================================================================
-Participant& Participant::footprint(geometry::ConstFinalConvexShapePtr shape)
+ParticipantDescription& ParticipantDescription::footprint(geometry::ConstFinalConvexShapePtr shape)
 {
   _pimpl->footprint = std::move(shape);
   return *this;
 }
 
 //==============================================================================
-const geometry::ConstFinalConvexShapePtr& Participant::footprint() const
+const geometry::ConstFinalConvexShapePtr& ParticipantDescription::footprint() const
 {
   return _pimpl->footprint;
 }
 
 //==============================================================================
-Participant& Participant::vicinity(geometry::ConstFinalConvexShapePtr shape)
+ParticipantDescription& ParticipantDescription::vicinity(geometry::ConstFinalConvexShapePtr shape)
 {
   _pimpl->vicinity = std::move(shape);
   return *this;
 }
 
 //==============================================================================
-const geometry::ConstFinalConvexShapePtr& Participant::vicinity() const
+const geometry::ConstFinalConvexShapePtr& ParticipantDescription::vicinity() const
 {
   return _pimpl->vicinity;
 }

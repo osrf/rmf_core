@@ -20,6 +20,7 @@
 
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_traffic/schedule/Patch.hpp>
+#include <rmf_traffic/schedule/Writer.hpp>
 
 #include <rmf_utils/macros.hpp>
 
@@ -37,138 +38,89 @@ namespace schedule {
 /// You can also retrieve update patches from a database. To apply those patches
 /// to a downstream Viewer, it is strongly advised to use the
 /// rmf_traffic::schedule::Mirror class.
-class Database : public Viewer
+class Database : public Viewer, public Writer
 {
 public:
+
+  //============================================================================
+  // Writer API
+  //============================================================================
+
+  /// Documentation inherited from Writer
+  void put(
+      ParticipantId participant,
+      Itinerary itinerary,
+      bool retransmission) final;
+
+  /// Documentation inherited from Writer
+  void post(
+      ParticipantId participant,
+      Itinerary itinerary,
+      bool retransmission) final;
+
+  /// Documentation inherited from Writer
+  void delay(
+      ParticipantId participant,
+      Time from,
+      Duration delay,
+      ItineraryVersion version,
+      bool retransmission) final;
+
+  /// Documentation inherited from Writer
+  void erase(
+      ParticipantId participant,
+      ItineraryVersion version,
+      bool retransmission) final;
+
+  /// Documentation inherited from Writer
+  void erase(
+      ParticipantId participant,
+      const std::vector<ItineraryVersion>& routes,
+      ItineraryVersion version,
+      bool retransmission) final;
+
+  /// Documentation inherited from Writer
+  ParticipantId register_participant(
+      ParticipantDescription participant_info) final;
+
+  /// Documentation inherited from Writer
+  void unregister_participant(ParticipantId participant) final;
+
+
+  //============================================================================
+  // Viewer API
+  //============================================================================
+
+  /// Documentation inherited from Viewer
+  View query(const Query& parameters) const final;
+
+  /// Documentation inherited from Viewer
+  const std::unordered_set<ParticipantId>& participant_ids() const final;
+
+  /// Documentation inherited from Viewer
+  rmf_utils::optional<const ParticipantDescription&> get_participant(
+      std::size_t participant_id) const final;
+
+  /// Documentation inherited from Viewer
+  rmf_utils::optional<Itinerary> get_itinerary(
+      std::size_t participant_id) const final;
+
+  /// Documentation inherited from Viewer
+  Version oldest_version() const final;
+
+  /// Documentation inherited from Viewer
+  Version latest_version() const final;
+
+
+  //============================================================================
+  // Database API
+  //============================================================================
 
   /// Initialize a Database
   Database();
 
   /// Get the changes in this Database that match the given Query parameters.
   Patch changes(const Query& parameters) const;
-
-  //============================================================================
-  /// The ItineraryVersion number is used to identify the current version of a
-  /// participant's itinerary. This will be used to ensure consistency between
-  /// a schedule database's information and the updates that are sent by remote
-  /// participants.
-  ///
-  /// As updates stream in from the remote participants, the updates will be
-  /// stamped with itinerary version numbers. If a version is missing from the
-  /// sequence of updates for a participant, then the schedule will send out a
-  /// request for a fresh Put for that participant.
-  struct ItineraryVersion
-  {
-    /// The most recent version that the remote participant knows the schedule
-    /// contains.
-    Version base_version;
-
-    /// The version that the remote participant has assigned to this change.
-    Version change_version;
-  };
-
-  //============================================================================
-  /// The ChangeResult is produced by the functions below which modify
-  /// itineraries in the database.
-  struct ChangeResult
-  {
-    /// The new version of the overall schedule.
-    Version version;
-
-    /// True if the result should be consistent with the remote participant's
-    /// intended itinerary. False if the schedule may have gotten out of sync
-    /// with the remote participant and therefore needs a new put or erase.
-    bool consistent;
-  };
-
-  /// Put in a brand new itinerary for a participant. This will replace any
-  /// itinerary that is already in the schedule for the participant.
-  ///
-  /// \param[in] participant
-  ///   The ID of the participant whose itinerary is being updated.
-  ///
-  /// \param[in] itinerary
-  ///   The new itinerary of the participant.
-  ///
-  /// \param[in] version
-  ///   The version for the itinerary that is being put into the schedule.
-  ///
-  /// \return the result of making this change. If consistent is false, that
-  /// means the version of this put is lower than the latest itinerary version
-  /// that is in this schedule.
-  ChangeResult put(
-      ParticipantId participant,
-      Itinerary itinerary,
-      ItineraryVersion version);
-
-  /// Add a route to the itinerary of this participant.
-  ///
-  /// \param[in] participant
-  ///   The ID of the participant whose itinerary is being updated.
-  ///
-  /// \param[in] route
-  ///   The route that should be added to the itinerary.
-  ///
-  /// \param[in] version
-  ///   The version of the itinerary that should result from this change.
-  ///
-  /// \return the result of making this change.
-  ChangeResult post(
-      ParticipantId participant,
-      Route route,
-      ItineraryVersion version);
-
-  /// Add a delay to the itinerary from the specified Time.
-  ///
-  /// Nothing about the routes in the itinerary will be changed except that
-  /// waypoints which come after the specified time will be pushed back by the
-  /// specified delay.
-  ///
-  /// \note This can create distortions in the Trajectory movement that leads
-  /// up to the `from` Time, so use with caution. This is primarily intended to
-  /// make corrections to live Trajectories based on incoming state information.
-  ///
-  /// \param[in] participant
-  ///   The ID of the participant whose itinerary is being delayed.
-  ///
-  /// \param[in] from
-  ///   All Trajectory Waypoints that end after this time point will be pushed
-  ///   back by the delay.
-  ///
-  /// \param[in] delay
-  ///   This is the duration of time to delay all qualifying Trajectory
-  ///   Waypoints.
-  ///
-  /// \return the result of making this change.
-  ChangeResult delay(
-      ParticipantId participant,
-      Time from,
-      Duration delay,
-      ItineraryVersion version);
-
-  /// Erase an itinerary from this database.
-  ///
-  /// \param[in] participant
-  ///   The ID of the participant whose itinerary is being delayed.
-  ///
-  /// \return the result of making this change. If consistent is false, that
-  /// means the version of this erasure is lower than the latest itinerary
-  /// version that is in this schedule.
-  ChangeResult erase(ParticipantId participant);
-
-  /// Erase a route from an itinerary.
-  ///
-  /// \param[in] participant
-  ///   The ID of the participant whose itinerary is being delayed.
-  ///
-  /// \param[in] routes
-  ///   The indices of the routes that should be erased.
-  ///
-  /// \return the result of making this change. If consistent is false, that
-  /// means the version of this erasure is lower than the latest itinerary.
-  ChangeResult erase(
-      ParticipantId participant,
-      const std::vector<RouteId>& routes);
 
   /// Throw away all itineraries up to the specified time.
   ///
@@ -180,55 +132,6 @@ public:
   /// \return The new version of the schedule database. If nothing was culled,
   /// this version number will remain the same.
   Version cull(Time time);
-
-  /// The return structure from registering a participant.
-  struct RegistrationResult
-  {
-    /// The new version of the schedule after registering the participant.
-    Version version;
-
-    /// The ID of the newly registered participant.
-    ParticipantId id;
-  };
-
-  /// Register a new participant.
-  ///
-  /// \param[in] participant_info
-  ///   Information about the new participant.
-  ///
-  /// \return result of registering the new participant.
-  RegistrationResult register_participant(Participant participant_info);
-
-  /// Unregister an existing participant.
-  ///
-  /// \param[in] participant
-  ///   The ID of the participant to unregister.
-  ///
-  /// \return the new version of the schedule.
-  Version unregister_participant(ParticipantId participant);
-
-  //============================================================================
-  // Viewer API
-
-  // Documentation inherited
-  View query(const Query& parameters) const final;
-
-  // Documentation inherited
-  const std::unordered_set<ParticipantId>& participant_ids() const final;
-
-  // Documentation inherited
-  rmf_utils::optional<const Participant&> get_participant(
-      std::size_t participant_id) const final;
-
-  // Documentation inherited
-  rmf_utils::optional<Itinerary> get_itinerary(
-      std::size_t participant_id) const final;
-
-  // Documentation inherited
-  Version oldest_version() const final;
-
-  // Documentation inherited
-  Version latest_version() const final;
 
   class Implementation;
 private:

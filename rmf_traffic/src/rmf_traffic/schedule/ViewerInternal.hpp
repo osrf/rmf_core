@@ -47,6 +47,9 @@ struct Entry : std::enable_shared_from_this<Entry>
   // The trajectory for this entry
   Itinerary itinerary;
 
+  // The itinerary version number of this entry
+  Version itinerary_version;
+
   // The schedule version number of this entry
   Version schedule_version;
 
@@ -78,7 +81,7 @@ struct Entry : std::enable_shared_from_this<Entry>
 using Itineraries =
     std::unordered_map<ParticipantId, internal::EntryPtr>;
 
-using ParticipantMap = std::unordered_map<ParticipantId, Participant>;
+using ParticipantMap = std::unordered_map<ParticipantId, ParticipantDescription>;
 
 
 using Bucket = std::vector<ConstRoutePtr>;
