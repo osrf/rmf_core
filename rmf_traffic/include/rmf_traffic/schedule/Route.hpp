@@ -26,6 +26,9 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
+using RouteId = uint64_t;
+
+//==============================================================================
 /// A route on the schedule. This is used as a component of a schedule
 /// participant's itinerary.
 class Route

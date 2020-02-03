@@ -223,7 +223,9 @@ Database::Database()
 }
 
 //==============================================================================
-auto Database::changes(const Query& parameters) const -> Patch
+auto Database::changes(
+    const Query& parameters,
+    rmf_utils::optional<Version> after) const -> Patch
 {
   auto relevant_changes = _pimpl->inspect<internal::ChangeRelevanceInspector>(
         parameters).relevant_changes;

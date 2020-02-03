@@ -120,7 +120,28 @@ public:
   Database();
 
   /// Get the changes in this Database that match the given Query parameters.
-  Patch changes(const Query& parameters) const;
+  /// If a version number is specified, then the returned Patch will reflect the
+  /// changes that occurred from the specified version to the current version of
+  /// the schedule.
+  ///
+  /// To get a consistent reflection of the schedule when specifying a base
+  /// version, it is important that the query parameters are not changed in
+  /// between calls.
+  ///
+  /// \param[in] parameters
+  ///   The parameters describing what types of schedule entries the mirror
+  ///   cares about.
+  ///
+  /// \param[in] after
+  ///   Specify that only changes which come after this version number are
+  ///   desired. If you give a nullopt for this argument, then all changes will
+  ///   be provided.
+  ///
+  /// \return A Patch of schedule changes that are relevant to the specified
+  /// query parameters.
+  Patch changes(
+      const Query& parameters,
+      rmf_utils::optional<Version> after) const;
 
   /// Throw away all itineraries up to the specified time.
   ///

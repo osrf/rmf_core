@@ -609,138 +609,16 @@ auto Query::Participants::exclude(std::vector<ParticipantId> ids)
 }
 
 //==============================================================================
-class Query::Versions::All::Implementation
-{
-  // Empty placeholder class
-};
-
-//==============================================================================
-Query::Versions::All::All()
-{
-  // Do nothing
-}
-
-//==============================================================================
-class Query::Versions::After::Implementation
-{
-public:
-
-  std::size_t after_version;
-
-};
-
-//==============================================================================
-Query::Versions::After::After(Version version)
-  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{version}))
-{
-  // Do nothing
-}
-
-//==============================================================================
-Query::Versions::After::After()
-{
-  // Do nothing
-}
-
-//==============================================================================
-class Query::Versions::Implementation
-{
-public:
-
-  Mode mode;
-  All all_instance;
-  After after_instance;
-
-};
-
-//==============================================================================
-Version Query::Versions::After::get_version() const
-{
-  return _pimpl->after_version;
-}
-
-//==============================================================================
-auto Query::Versions::After::set_version(Version version) -> After&
-{
-  _pimpl->after_version = version;
-  return *this;
-}
-
-//==============================================================================
-Query::Versions::Versions()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
-{
-  query_all();
-}
-
-//==============================================================================
-Query::Versions::Versions(Version version)
-  : _pimpl(rmf_utils::make_impl<Implementation>())
-{
-  query_after(version);
-}
-
-//==============================================================================
-Query::Versions::Mode Query::Versions::get_mode() const
-{
-  return _pimpl->mode;
-}
-
-//==============================================================================
-auto Query::Versions::query_all() -> All&
-{
-  _pimpl->mode = Mode::All;
-  return _pimpl->all_instance;
-}
-
-//==============================================================================
-auto Query::Versions::query_after(Version version) -> After&
-{
-  _pimpl->mode = Mode::After;
-  if(_pimpl->after_instance._pimpl)
-    _pimpl->after_instance.set_version(version);
-  else
-    _pimpl->after_instance = After(version);
-
-  return _pimpl->after_instance;
-}
-
-//==============================================================================
-auto Query::Versions::after() -> After*
-{
-  if(Mode::After == _pimpl->mode)
-    return &_pimpl->after_instance;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Query::Versions::after() const -> const After*
-{
-  if(Mode::After == _pimpl->mode)
-    return &_pimpl->after_instance;
-
-  return nullptr;
-}
-
-//==============================================================================
 class Query::Implementation
 {
 public:
 
   Spacetime spacetime_instance;
-  Versions versions_instance;
+  Participants participants_instance;
 
-  static Query query_everything()
+  static Query query_all()
   {
     return Query();
-  }
-
-  static Query make_query(std::size_t after_version)
-  {
-    Query result;
-    result.versions().query_after(after_version);
-    return result;
   }
 
   static Query make_query(
@@ -767,17 +645,6 @@ public:
 
     return result;
   }
-
-  static Query make_query(
-      std::size_t after_version,
-      std::vector<Region> regions)
-  {
-    Query result;
-    result.versions().query_after(after_version);
-    result.spacetime().query_regions(std::move(regions));
-    return result;
-  }
-
 };
 
 //==============================================================================
@@ -793,18 +660,6 @@ auto Query::spacetime() const -> const Spacetime&
 }
 
 //==============================================================================
-auto Query::versions() -> Versions&
-{
-  return _pimpl->versions_instance;
-}
-
-//==============================================================================
-auto Query::versions() const -> const Versions&
-{
-  return _pimpl->versions_instance;
-}
-
-//==============================================================================
 Query::Query()
   : _pimpl(rmf_utils::make_impl<Implementation>())
 {
@@ -812,15 +667,9 @@ Query::Query()
 }
 
 //==============================================================================
-Query query_everything()
+Query query_all()
 {
-  return Query::Implementation::query_everything();
-}
-
-//==============================================================================
-Query make_query(Version after_version)
-{
-  return Query::Implementation::make_query(after_version);
+  return Query::Implementation::query_all();
 }
 
 //==============================================================================
@@ -837,14 +686,6 @@ Query make_query(
 {
   return Query::Implementation::make_query(
         std::move(maps), start_time, finish_time);
-}
-
-//==============================================================================
-Query make_query(
-    Version after_version,
-    std::vector<Region> regions)
-{
-  return Query::Implementation::make_query(after_version, std::move(regions));
 }
 
 } // namespace schedule

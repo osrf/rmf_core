@@ -30,7 +30,14 @@ namespace schedule {
 using ItineraryVersion = uint64_t;
 
 //==============================================================================
-using Itinerary = std::vector<ConstRoutePtr>;
+struct ItineraryElement
+{
+  RouteId id;
+  ConstRoutePtr route;
+};
+
+//==============================================================================
+using Itinerary = std::vector<ItineraryElement>;
 
 } // namespace schedule
 } // namespace rmf_traffic

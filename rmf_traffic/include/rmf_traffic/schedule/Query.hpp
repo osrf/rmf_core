@@ -397,103 +397,6 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// A class to describe a filter on what version changes to query from a
-  /// schedule.
-  class Versions
-  {
-  public:
-
-    /// The mode for how to filter versions in a schedule database query.
-    enum class Mode : uint16_t
-    {
-      /// Invalid mode, behavior is undefined.
-      Invalid,
-
-      /// Get everything, regardless of version.
-      All,
-
-      /// Get every version after the specified one.
-      After,
-    };
-
-    /// This is a placeholder class in case we ever want to extend the features
-    /// of the `All` mode.
-    class All
-    {
-    public:
-
-      class Implementation;
-    private:
-      All();
-      friend class Participants;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// The interface for the Versions::After mode.
-    class After
-    {
-    public:
-
-      /// Constructor.
-      After(Version version);
-
-      /// Get the specified version. The Query will only return Trajectories
-      /// which were introduced after this version of the schedule.
-      Version get_version() const;
-
-      /// Set the version.
-      ///
-      /// \param[in] version
-      ///   The Query will only return Trajectories which were introduced after
-      ///   this version of the schedule.
-      After& set_version(Version version);
-
-      class Implementation;
-    private:
-      /// Default constructor. This is not accessible to users because it leaves
-      /// the After instance null.
-      After();
-      friend class Versions;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// Default constructor, uses All mode.
-    Versions();
-
-    /// Constructor to use After mode.
-    ///
-    /// \param[in] version
-    ///   The Query will only return Trajectories which were introduced after
-    ///   this version of the schedule.
-    Versions(Version version);
-
-    /// Get the current Versions mode of this query.
-    Mode get_mode() const;
-
-    /// Set the mode of this Versions interface to query for All Trajectories
-    /// regardless of version.
-    All& query_all();
-
-    /// Set the mode of this Versions interface to query for only Trajectories
-    /// that changed after the given version.
-    ///
-    /// \param[in] version
-    ///   The Query will only return Trajectories which were introduced after
-    ///   this version of the schedule.
-    After& query_after(Version version);
-
-    /// Get the Versions After interface to use for this Query. If this Versions
-    /// is not in the After mode, then this will return a nullptr.
-    After* after();
-
-    /// const-qualified after()
-    const After* after() const;
-
-    class Implementation;
-  private:
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
   /// Get the Spacetime component of this Query.
   Spacetime& spacetime();
 
@@ -506,12 +409,6 @@ public:
   /// const-qualified participants()
   const Participants& participants() const;
 
-  /// Get the Versions component of this Query.
-  Versions& versions();
-
-  /// const-qualified versions()
-  const Versions& versions() const;
-
   class Implementation;
 private:
   /// \internal The default constructor is private because users are expected
@@ -522,17 +419,7 @@ private:
 
 //==============================================================================
 /// Query for all entries in a schedule database
-Query query_everything();
-
-//==============================================================================
-/// Query for all entries in a schedule database that were introduced
-/// after a specified version of the schedule.
-///
-/// \param[in] after_version
-///   Only query Trajectories that were added to the schedule after this
-///   version number.
-Query make_query(
-    Version after_version);
+Query query_all();
 
 //==============================================================================
 /// Query for all Trajectories that intersect with this set of spacetime
@@ -557,20 +444,6 @@ Query make_query(
     std::vector<std::string> maps,
     const Time* start_time,
     const Time* finish_time);
-
-//==============================================================================
-/// Query for all Trajectories that were introduced after a specified version of
-/// the schedule, and which intersect with this set of spacetime regions.
-///
-/// \param[in] after_version
-///   Only query Trajectories that were added to the schedule after this
-///   version number.
-///
-/// \param[in] regions
-///   Only query Trajectories that intersect with the specified regions.
-Query make_query(
-    Version after_version,
-    std::vector<Region> regions);
 
 } // namespace schedule
 
