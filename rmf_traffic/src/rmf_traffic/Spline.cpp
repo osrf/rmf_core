@@ -80,7 +80,11 @@ Spline::Parameters compute_parameters(
   const Eigen::Vector3d v0 = delta_t * start.velocity();
   const Eigen::Vector3d v1 = delta_t * finish.velocity();
 
+  const rmf_traffic::Trajectory::ConstProfilePtr profile_ptr =
+      finish_it ->get_profile();
+
   return {
+    profile_ptr,
     compute_coefficients(x0, x1, v0, v1),
     delta_t,
     {start_time, finish_time}
@@ -107,7 +111,11 @@ Spline::Parameters compute_parameters(
   const Eigen::Vector3d v0 = delta_t * start.velocity;
   const Eigen::Vector3d v1 = delta_t * finish.velocity;
 
+  const rmf_traffic::Trajectory::ConstProfilePtr profile_ptr =
+      finish_it->data.profile;
+
   return {
+    profile_ptr,
     compute_coefficients(x0, x1, v0, v1),
     delta_t,
     {start_time, finish_time}
@@ -287,6 +295,12 @@ Eigen::Vector3d Spline::compute_acceleration(const Time at_time) const
   const double delta_t_inv = 1.0/params.delta_t;
   return pow(delta_t_inv, 2 ) * rmf_traffic::compute_acceleration(
         params, compute_scaled_time(at_time, params));
+}
+
+//==============================================================================
+const Spline::Parameters& Spline::get_params() const
+{
+  return params;
 }
 
 } // namespace rmf_traffic

@@ -54,6 +54,12 @@ const Shape& FinalShape::source() const
 }
 
 //==============================================================================
+double FinalShape::get_characteristic_length() const
+{
+  return _pimpl->_characteristic_length;
+}
+
+//==============================================================================
 FinalShape::FinalShape()
 {
   // Do nothing. The _pimpl will be constructed by

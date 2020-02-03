@@ -57,6 +57,7 @@ public:
 
   struct Parameters
   {
+    rmf_traffic::Trajectory::ConstProfilePtr profile_ptr;
     std::array<Eigen::Vector4d, 3> coeffs;
     double delta_t;
     std::array<Time, 2> time_range;
@@ -70,6 +71,9 @@ public:
 
   /// Compute the velocity of the spline at this moment in time
   Eigen::Vector3d compute_acceleration(const Time at_time) const;
+
+  /// Get a const reference to the parameters of this spline
+  const Parameters& get_params() const;
 
 private:
 
