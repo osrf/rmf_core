@@ -39,16 +39,21 @@ using ChangePtr = std::unique_ptr<Change>;
 using ConstChangePtr = std::unique_ptr<const Change>;
 
 //==============================================================================
+void erase_route(RouteId id, Itinerary& itinerary)
+{
+  const auto erase_it = std::find_if(itinerary.begin(), itinerary.end(),
+               [&](const ItineraryElement& e){ return e.id == id; });
+
+  itinerary.erase(erase_it);
+}
+
+//==============================================================================
 struct Entry : std::enable_shared_from_this<Entry>
 {
   // The participant that this entry is related to
   ParticipantId participant;
 
-  // The trajectory for this entry
-  Itinerary itinerary;
-
-  // The itinerary version number of this entry
-  Version itinerary_version;
+  //
 
   // The schedule version number of this entry
   Version schedule_version;

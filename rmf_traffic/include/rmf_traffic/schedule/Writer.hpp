@@ -56,8 +56,8 @@ public:
   /// \param[in] participant
   ///   The ID of the participant whose itinerary is being updated.
   ///
-  /// \param[in] route
-  ///   The route that should be added to the itinerary.
+  /// \param[in] itinerary
+  ///   The set of routes that should be added to the itinerary.
   ///
   /// \param[in] retransmission
   ///   Set this to true if this is a retransmission of an update that was
