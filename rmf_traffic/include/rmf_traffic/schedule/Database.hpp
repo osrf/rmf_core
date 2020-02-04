@@ -47,15 +47,17 @@ public:
   //============================================================================
 
   /// Documentation inherited from Writer
-  void put(
+  void set(
       ParticipantId participant,
-      Itinerary itinerary,
+      Input itinerary,
+      ItineraryVersion version,
       bool retransmission) final;
 
   /// Documentation inherited from Writer
-  void post(
+  void extend(
       ParticipantId participant,
-      Itinerary itinerary,
+      Input routes,
+      ItineraryVersion version,
       bool retransmission) final;
 
   /// Documentation inherited from Writer

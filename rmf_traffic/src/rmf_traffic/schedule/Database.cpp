@@ -30,7 +30,14 @@ class Database::Implementation : public Viewer::Implementation
 {
 public:
 
+#ifndef NDEBUG
+  // This field is used, only in DEBUG mode, to keep track of all route IDs that
+  // have ever been added. If there is ever a repeat, an exception will be
+  // thrown.
+  std::unordered_set<RouteId> all_route_ids_ever;
+#endif // NDEBUG
 
+  std::unordered_map<ConstRoutePtr, internal::EntryPtr> route_to_entry;
 
 };
 

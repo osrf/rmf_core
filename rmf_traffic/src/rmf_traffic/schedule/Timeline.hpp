@@ -15,24 +15,30 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
-#define RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#ifndef SRC__RMF_TRAFFIC__SCHEDULE__TIMELINE_HPP
+#define SRC__RMF_TRAFFIC__SCHEDULE__TIMELINE_HPP
 
-#include <rmf_traffic/schedule/Route.hpp>
-#include <rmf_traffic/schedule/Version.hpp>
-
-#include <vector>
+#include <rmf_traffic/schedule/Query.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-using ItineraryVersion = uint64_t;
+template<typename Entry>
+class Timeline
+{
+public:
 
-//==============================================================================
-using Itinerary = std::vector<ConstRoutePtr>;
+  using EntryPtr = std::shared_ptr<Entry>;
+
+
+
+private:
+
+
+};
 
 } // namespace schedule
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#endif // SRC__RMF_TRAFFIC__SCHEDULE__TIMELINE_HPP

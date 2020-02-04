@@ -38,59 +38,47 @@ using ConstEntryPtr = std::shared_ptr<const Entry>;
 using ChangePtr = std::unique_ptr<Change>;
 using ConstChangePtr = std::unique_ptr<const Change>;
 
-//==============================================================================
-void erase_route(RouteId id, Itinerary& itinerary)
-{
-  const auto erase_it = std::find_if(itinerary.begin(), itinerary.end(),
-               [&](const ItineraryElement& e){ return e.id == id; });
-
-  itinerary.erase(erase_it);
-}
+using Bucket = std::vector<ConstEntryPtr>;
+using BucketPtr = std::unique_ptr<Bucket>;
 
 //==============================================================================
-struct Entry : std::enable_shared_from_this<Entry>
+struct Entry
 {
-  // The participant that this entry is related to
   ParticipantId participant;
 
-  //
+  std::vector<Writer::Item> routes;
 
-  // The schedule version number of this entry
+  ItineraryVersion itinerary_version;
+
   Version schedule_version;
 
-  // The change that led to this entry
-  ConstChangePtr change;
-
-  // The entry that this one succeeds
   EntryPtr succeeds;
 
-  // A pointer to an entry that succeeded this entry, if such an entry exists
-  Entry* succeeded_by;
-
-  Entry(
-      ParticipantId _participant,
-      Itinerary _itinerary,
-      Version _schedule_version,
-      ConstChangePtr _change);
-
-  // Create a new entry for a participant.
-  template<typename... Args>
-  static EntryPtr make(Args&&... args)
-  {
-    return std::make_shared<Entry>(std::forward<Args>(args)...);
-  }
 };
+
+//==============================================================================
+
+
+//==============================================================================
+struct RouteInfo
+{
+  // Information for this route
+  ConstRoutePtr route;
+
+  // The entry that introduced this route
+  EntryPtr entry;
+};
+
+//==============================================================================
+using RouteIdToEntry = std::map<RouteId, Entry>;
 
 //==============================================================================
 /// The most current itineraries for each participant
 using Itineraries =
-    std::unordered_map<ParticipantId, internal::EntryPtr>;
+    std::unordered_map<ParticipantId, RouteIdToEntry>;
 
 using ParticipantMap = std::unordered_map<ParticipantId, ParticipantDescription>;
 
-
-using Bucket = std::vector<ConstRoutePtr>;
-using BucketPtr = std::unique_ptr<Bucket>;
 
 //==============================================================================
 // TODO(MXG): A possible performance improvement could be to introduce spatial
@@ -101,23 +89,6 @@ using BucketPtr = std::unique_ptr<Bucket>;
 // ( key(timeline_it - 1), key(timeline_it) ].
 using Timeline = std::map<Time, BucketPtr>;
 using MapToTimeline = std::unordered_map<std::string, Timeline>;
-
-//==============================================================================
-struct RouteInfo
-{
-  std::vector<Bucket*> buckets;
-
-  // NOTE(MXG): Keeping track of the "latest" entry makes an assumption that
-  // ConstRoutePtr values will never be shared between multiple participants.
-  // We enforce this by having the Database::put(~) command make copies of all
-  // the route entries that are passed into it so that those routes cannot be
-  // shared between participants.
-  internal::EntryPtr latest_entry;
-};
-
-//==============================================================================
-using RouteToInfo =
-    std::unordered_map<ConstRoutePtr, RouteInfo>;
 
 //==============================================================================
 /// This class allows us to correctly handle version number overflow. Since the
@@ -252,7 +223,6 @@ class Viewer::Implementation
 public:
 
   internal::Itineraries current_itineraries;
-  internal::RouteToInfo routes;
   internal::MapToTimeline timelines;
 
   internal::ParticipantMap current_participants;

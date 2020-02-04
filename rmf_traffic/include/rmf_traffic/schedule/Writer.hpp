@@ -33,7 +33,15 @@ class Writer
 {
 public:
 
-  /// Put in a brand new itinerary for a participant. This will replace any
+  struct Item
+  {
+    RouteId id;
+    ConstRoutePtr route;
+  };
+
+  using Input = std::vector<Item>;
+
+  /// Set a brand new itinerary for a participant. This will replace any
   /// itinerary that is already in the schedule for the participant.
   ///
   /// \param[in] participant
@@ -42,13 +50,17 @@ public:
   /// \param[in] itinerary
   ///   The new itinerary of the participant.
   ///
+  /// \param[in] version
+  ///   The version for this itinerary change
+  ///
   /// \param[in] retransmission
   ///   Set this to true if this is a retransmission of an update that was
   ///   previously lost. Otherwise set it to false.
   ///
-  virtual void put(
+  virtual void set(
       ParticipantId participant,
-      Itinerary itinerary,
+      Input itinerary,
+      ItineraryVersion version,
       bool retransmission) = 0;
 
   /// Add a set of routes to the itinerary of this participant.
@@ -56,16 +68,20 @@ public:
   /// \param[in] participant
   ///   The ID of the participant whose itinerary is being updated.
   ///
-  /// \param[in] itinerary
+  /// \param[in] routes
   ///   The set of routes that should be added to the itinerary.
+  ///
+  /// \param[in] version
+  ///   The version for this itinerary change
   ///
   /// \param[in] retransmission
   ///   Set this to true if this is a retransmission of an update that was
   ///   previously lost. Otherwise set it to false.
   ///
-  virtual void post(
+  virtual void extend(
       ParticipantId participant,
-      Itinerary itinerary,
+      Input routes,
+      ItineraryVersion version,
       bool retransmission) = 0;
 
   /// Add a delay to the itinerary from the specified Time.
@@ -137,7 +153,7 @@ public:
   ///
   virtual void erase(
       ParticipantId participant,
-      const std::vector<ItineraryVersion>& routes,
+      const std::vector<RouteId>& routes,
       ItineraryVersion version,
       bool retransmission) = 0;
 
