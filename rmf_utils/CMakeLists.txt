@@ -29,6 +29,10 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
+set(extra_cmake_modules
+  rmf_cmake_uncrustify/cmake/rmf_uncrustify.cmake
+)
+
 foreach(module ${extra_cmake_modules})
   list(APPEND ${PROJECT_NAME}_CONFIG_EXTRAS cmake/${module})
 endforeach()
