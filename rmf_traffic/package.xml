@@ -13,6 +13,8 @@
   <build_depend>rmf_utils</build_depend>
   <build_export_depend>rmf_utils</build_export_depend>
 
+  <test_depend>ament_cmake_cpplint</test_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
