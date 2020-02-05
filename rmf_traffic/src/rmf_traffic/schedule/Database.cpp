@@ -15,7 +15,7 @@
  *
 */
 
-#include "ViewerInternal.hpp"
+#include "Timeline.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
@@ -26,7 +26,7 @@
 namespace rmf_traffic {
 namespace schedule {
 
-class Database::Implementation : public Viewer::Implementation
+class Database::Implementation
 {
 public:
 
@@ -37,7 +37,32 @@ public:
   std::unordered_set<RouteId> all_route_ids_ever;
 #endif // NDEBUG
 
-  std::unordered_map<ConstRoutePtr, internal::EntryPtr> route_to_entry;
+  struct Itinerary;
+  using ItineraryPtr = std::shared_ptr<Itinerary>;
+  using ConstItineraryPtr = std::shared_ptr<const Itinerary>;
+
+  struct Itinerary
+  {
+
+    std::unordered_map<RouteId, ConstRoutePtr> routes;
+
+    ItineraryVersion itinerary_version;
+
+    Version schedule_version;
+
+
+  };
+
+  struct TimelineEntry
+  {
+    ConstRoutePtr route;
+    ParticipantId participant;
+    Timeline<TimelineEntry>::Handle timeline_handle;
+
+
+  };
+
+  Timeline<TimelineEntry> storage;
 
 };
 

@@ -312,6 +312,7 @@ public:
       Include(std::vector<ParticipantId> ids);
 
       /// Get the IDs of the participants that should be included.
+      // TODO(MXG): Consider returning unordered_set
       const std::vector<ParticipantId>& get_ids() const;
 
       /// Set the IDs of the participants that should be included.
@@ -333,6 +334,7 @@ public:
       Exclude(std::vector<ParticipantId> ids);
 
       /// Get the IDs of the participants that should be excluded.
+      // TODO(MXG): Consider returning unordered_set
       const std::vector<ParticipantId>& get_ids() const;
 
       /// Set the IDs of the participants that should be excluded.
@@ -362,6 +364,9 @@ public:
     /// \param[in] ids
     ///   The IDs of the participants that should be excluded from the query.
     static Participants make_all_except(std::vector<ParticipantId> ids);
+
+    /// Get the mode for this Participants filter
+    Mode get_mode() const;
 
     /// Get the All interface if this Participants filter is in All mode,
     /// otherwise get a nullptr.

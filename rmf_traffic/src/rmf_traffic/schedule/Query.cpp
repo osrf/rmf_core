@@ -548,6 +548,12 @@ auto Query::Participants::make_all_except(std::vector<ParticipantId> ids)
 }
 
 //==============================================================================
+auto Query::Participants::get_mode() const -> Mode
+{
+  return _pimpl->mode;
+}
+
+//==============================================================================
 auto Query::Participants::all() -> All*
 {
   if (Mode::All == _pimpl->mode)
