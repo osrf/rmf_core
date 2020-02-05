@@ -62,7 +62,7 @@ if(BUILD_TESTING)
   find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
                 
   rmf_uncrustify(
-    ARGN include src
+    ARGN include src test
     CONFIG_FILE ${uncrustify_config_file}
     MAX_LINE_LENGTH 80
   )
