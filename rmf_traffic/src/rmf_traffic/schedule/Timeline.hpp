@@ -146,6 +146,7 @@ public:
     std::vector<std::weak_ptr<Bucket>> _buckets;
   };
 
+  /// Insert a new entry into the timeline
   void insert(Entry& entry)
   {
     const Time start_time = *entry.route->trajectory().start_time();
@@ -170,9 +171,11 @@ public:
     _all_bucket->push_back(&entry);
     buckets.emplace_back(_all_bucket);
 
-    entry.timeline_handle = std::move(buckets);
+    entry.timeline_handle = std::make_shared<Handle>(
+          &entry, std::move(buckets));
   }
 
+  /// Inspect the timeline for entries that match the query
   template<typename Inspector>
   void inspect(
       const Query& query,
@@ -210,6 +213,8 @@ public:
     }
   }
 
+private:
+
   template<typename Inspector, typename ParticipantFilter>
   void inspect_spacetime(
       const Query::Spacetime& spacetime,
@@ -220,7 +225,17 @@ public:
 
     if (Query::Spacetime::Mode::All == mode)
     {
-
+      inspect_all_spacetime(participant_filter, inspector);
+    }
+    else if (Query::Spacetime::Mode::Regions == mode)
+    {
+      inspect_spacetime_regions(
+            spacetime.regions(), participant_filter, inspector);
+    }
+    else if (Query::Spacetime::Mode::Timespan == mode)
+    {
+      inspect_spacetime_timespan(
+            spacetime.timespan(), participant_filter, inspector);
     }
   }
 
@@ -229,12 +244,18 @@ public:
       const ParticipantFilter& participant_filter,
       Inspector& inspector) const
   {
+    std::unordered_set<const Entry*> checked;
+
+    const auto relevant = [](const ConstRoutePtr& r) -> bool { return true; };
     for (const auto& entry : _all_bucket)
     {
       if (participant_filter.ignore(entry->participant))
         continue;
 
-      inspector.inspect(entry);
+      if (!checked.insert(entry).second)
+        continue;
+
+      inspector.inspect(entry, relevant, checked);
     }
   }
 
@@ -246,6 +267,12 @@ public:
   {
     std::unordered_set<const Entry*> checked;
     checked.reserve(_all_bucket->size());
+
+    rmf_traffic::internal::Spacetime spacetime_data;
+    const auto relevant = [&spacetime_data](const ConstRoutePtr& r) -> bool {
+      return rmf_traffic::internal::detect_conflicts(
+            r->trajectory(), spacetime_data, nullptr);
+    };
 
     for (const Region& region : regions)
     {
@@ -264,9 +291,9 @@ public:
 
       const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
 
-      rmf_traffic::internal::Spacetime spacetime_data;
       spacetime_data.lower_time_bound = lower_time_bound;
       spacetime_data.upper_time_bound = upper_time_bound;
+
       for (auto space_it = region.begin(); space_it != region.end(); ++space_it)
       {
         spacetime_data.pose = space_it->get_pose();
@@ -276,12 +303,87 @@ public:
         for (; timeline_it != timeline_end; ++timeline_it)
         {
           const Bucket& bucket = *timeline_it->second;
+
+          auto entry_it = bucket.begin();
+          for (; entry_it != bucket.begin(); ++entry_it)
+          {
+            const Entry* entry = *entry_it;
+
+            if (participant_filter.ignore(entry->participant))
+              continue;
+
+            if (!checked.insert(entry).second)
+              continue;
+
+            inspector.inspect(entry, relevant);
+          }
         }
       }
     }
   }
 
-private:
+  template<typename Inspector, typename ParticipantFilter>
+  void inspect_spacetime_timespan(
+      const Query::Spacetime::Timespan& timespan,
+      const ParticipantFilter& participant_filter,
+      Inspector& inspector)
+  {
+    std::unordered_set<const Entry*> checked;
+    checked.reserve(_all_bucket->size());
+
+    const Time* const lower_time_bound = timespan.get_lower_time_bound();
+    const Time* const upper_time_bound = timespan.get_upper_time_bound();
+    const auto& maps = timespan.get_maps();
+
+    const auto relevant = [&lower_time_bound, &upper_time_bound](
+        const ConstRoutePtr& r) -> bool
+    {
+      const Trajectory& trajectory = r->trajectory();
+      assert(trajectory.start_time());
+      if (lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
+        return false;
+
+      if (upper_time_bound && *upper_time_bound < *trajectory.start_time())
+        return false;
+
+      return true;
+    };
+
+    for (const std::string& map : maps)
+    {
+      const auto map_it = _timelines.find(map);
+      if (map_it == _timelines.end())
+        continue;
+
+      const Entries& timeline = map_it->second;
+
+      const auto timeline_begin =
+          (lower_time_bound == nullptr)?
+            timeline.begin() : timeline.lower_bound(*lower_time_bound);
+
+      const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
+
+      auto timeline_it = timeline_begin;
+      for (; timeline_it != timeline_end; ++timeline_it)
+      {
+        const Bucket& bucket = timeline_it->second;
+
+        auto entry_it = bucket.begin();
+        for (; entry_it != bucket.end(); ++entry_it)
+        {
+          const Entry* entry = *entry_it;
+
+          if (participant_filter.ignore(entry->participant))
+            continue;
+
+          if (!checked.insert(entry).second)
+            continue;
+
+          inspector.inspect(entry, relevant);
+        }
+      }
+    }
+  }
 
   // TODO(MXG): Come up with a better name for this data structure than Entries
   using Entries = std::map<Time, BucketPtr>;
@@ -356,6 +458,11 @@ template<typename Entry>
 class TimelineInspector
 {
 public:
+
+  virtual void inspect(
+      const Entry* entry,
+      const std::function<void()>& relevant,
+      std::unordered_set<const Entry*>& checked) = 0;
 
 };
 

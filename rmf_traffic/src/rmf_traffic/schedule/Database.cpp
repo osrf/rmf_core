@@ -22,6 +22,7 @@
 #include <rmf_traffic/schedule/Database.hpp>
 
 #include <algorithm>
+#include <list>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -37,32 +38,52 @@ public:
   std::unordered_set<RouteId> all_route_ids_ever;
 #endif // NDEBUG
 
-  struct Itinerary;
-  using ItineraryPtr = std::shared_ptr<Itinerary>;
-  using ConstItineraryPtr = std::shared_ptr<const Itinerary>;
+  struct ParticipantState;
 
-  struct Itinerary
+  struct Transition;
+  using TransitionPtr = std::unique_ptr<Transition>;
+  using ConstTransitionPtr = std::unique_ptr<const Transition>;
+
+  struct TimelineEntry;
+  using TimelineEntryPtr = std::unique_ptr<TimelineEntry>;
+
+  using RouteHistory = std::list<TimelineEntryPtr>;
+
+  struct Transition
   {
-
-    std::unordered_map<RouteId, ConstRoutePtr> routes;
-
-    ItineraryVersion itinerary_version;
-
-    Version schedule_version;
-
-
+    Change change;
+    TimelineEntryPtr successor;
   };
 
   struct TimelineEntry
   {
+    // ===== Mandatory fields for a Timeline Entry =====
     ConstRoutePtr route;
     ParticipantId participant;
-    Timeline<TimelineEntry>::Handle timeline_handle;
+    std::shared_ptr<void> timeline_handle;
 
-
+    // ===== Additional fields for this timeline entry =====
+    // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
+    // templates to automatically mix these custom fields with the required
+    // fields of the base Entry
+    RouteId route_id;
+    Version schedule_version;
+    TransitionPtr successor;
+    TimelineEntry* predecessor;
   };
 
-  Timeline<TimelineEntry> storage;
+  Timeline<TimelineEntry> timeline;
+
+  using ParticipantStorage = std::unordered_map<RouteId, TimelineEntryPtr>;
+  using Storage = std::unordered_map<ParticipantId, ParticipantStorage>;
+
+  struct ParticipantState
+  {
+    std::unordered_set<RouteId> active_routes;
+    ItineraryVersion itinerary_version;
+  };
+
+
 
 };
 
