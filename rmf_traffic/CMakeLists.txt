@@ -59,12 +59,10 @@ if(BUILD_TESTING)
   )
 
   find_package(rmf_cmake_uncrustify REQUIRED)
-  find_package(ament_cmake_cpplint)
-
   find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
                 
   rmf_uncrustify(
-    ARGN include src test
+    ARGN include src
     CONFIG_FILE ${uncrustify_config_file}
     MAX_LINE_LENGTH 80
   )
