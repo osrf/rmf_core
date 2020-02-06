@@ -53,15 +53,10 @@ public:
   /// \param[in] version
   ///   The version for this itinerary change
   ///
-  /// \param[in] retransmission
-  ///   Set this to true if this is a retransmission of an update that was
-  ///   previously lost. Otherwise set it to false.
-  ///
   virtual void set(
       ParticipantId participant,
       Input itinerary,
-      ItineraryVersion version,
-      bool retransmission) = 0;
+      ItineraryVersion version) = 0;
 
   /// Add a set of routes to the itinerary of this participant.
   ///
@@ -74,15 +69,10 @@ public:
   /// \param[in] version
   ///   The version for this itinerary change
   ///
-  /// \param[in] retransmission
-  ///   Set this to true if this is a retransmission of an update that was
-  ///   previously lost. Otherwise set it to false.
-  ///
   virtual void extend(
       ParticipantId participant,
       Input routes,
-      ItineraryVersion version,
-      bool retransmission) = 0;
+      ItineraryVersion version) = 0;
 
   /// Add a delay to the itinerary from the specified Time.
   ///
@@ -108,16 +98,11 @@ public:
   /// \param[in] version
   ///   The version for this itinerary change
   ///
-  /// \param[in] retransmission
-  ///   Set this to true if this is a retransmission of an update that was
-  ///   previously lost. Otherwise set it to false.
-  ///
   virtual void delay(
       ParticipantId participant,
       Time from,
       Duration delay,
-      ItineraryVersion version,
-      bool retransmission) = 0;
+      ItineraryVersion version) = 0;
 
   /// Erase an itinerary from this database.
   ///
@@ -127,14 +112,9 @@ public:
   /// \param[in] version
   ///   The version for this itinerary change
   ///
-  /// \param[in] retransmission
-  ///   Set this to true if this is a retransmission of an update that was
-  ///   previously lost. Otherwise set it to false.
-  ///
   virtual void erase(
       ParticipantId participant,
-      ItineraryVersion version,
-      bool retransmission) = 0;
+      ItineraryVersion version) = 0;
 
   /// Erase a route from an itinerary.
   ///
@@ -147,15 +127,10 @@ public:
   /// \param[in] version
   ///   The version for this itinerary change
   ///
-  /// \param[in] retransmission
-  ///   Set this to true if this is a retransmission of an update that was
-  ///   previously lost. Otherwise set it to false.
-  ///
   virtual void erase(
       ParticipantId participant,
       const std::vector<RouteId>& routes,
-      ItineraryVersion version,
-      bool retransmission) = 0;
+      ItineraryVersion version) = 0;
 
   /// Register a new participant.
   ///

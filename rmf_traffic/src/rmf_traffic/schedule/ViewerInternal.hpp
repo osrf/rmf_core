@@ -90,31 +90,6 @@ using ParticipantMap = std::unordered_map<ParticipantId, ParticipantDescription>
 using Timeline = std::map<Time, BucketPtr>;
 using MapToTimeline = std::unordered_map<std::string, Timeline>;
 
-//==============================================================================
-/// This class allows us to correctly handle version number overflow. Since the
-/// schedule needs to continue running for an arbitrarily long time, we cannot
-/// expect its versions numbers to get reset before it reaches the limit of
-/// Version. This class allows us to compare version numbers that could have
-/// overflowed at some point. As long as database entries are getting culled
-/// before all version numbers are taken up, this should be guaranteed to handle
-/// the eventual integer overflow correctly.
-class VersionRange
-{
-public:
-
-  VersionRange() = default;
-
-  VersionRange(Version oldest);
-
-  bool less(Version lhs, Version rhs) const;
-
-  bool less_or_equal(Version lhs, Version rhs) const;
-
-private:
-
-  Version _oldest = 0;
-
-};
 
 //==============================================================================
 /// Pure abstract interface class for the

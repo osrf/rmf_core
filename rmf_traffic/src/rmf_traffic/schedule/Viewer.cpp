@@ -124,31 +124,6 @@ Entry::Entry(
 }
 
 //==============================================================================
-VersionRange::VersionRange(const Version oldest)
-  : _oldest(oldest)
-{
-  // Do nothing
-}
-
-//==============================================================================
-bool VersionRange::less(const Version lhs, const Version rhs) const
-{
-  // This modular arithmetic should guarantee that even if version numbers
-  // overflow after the schedule has been operating for a very long time, we
-  // will still compare versions correctly.
-
-  // TODO(MXG): Make sure tests get written to verify the behavior for this is
-  // correct.
-  return (lhs - _oldest) < (rhs - _oldest);
-}
-
-//==============================================================================
-bool VersionRange::less_or_equal(const Version lhs, const Version rhs) const
-{
-  return (lhs == rhs) || less(lhs, rhs);
-}
-
-//==============================================================================
 void ViewRelevanceInspector::version_range(VersionRange _range)
 {
   versions = std::move(_range);

@@ -131,7 +131,7 @@ public:
       Version schedule_version);
 
   /// The API for a Put change
-  class Put
+  class Set
   {
   public:
 
@@ -140,22 +140,22 @@ public:
 
     class Implementation;
   private:
-    Put();
+    Set();
     friend class Change;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
   /// The API for a Post change
-  class Post
+  class Extend
   {
   public:
 
     /// A reference to the Route that was inserted.
-    ConstRoutePtr route() const;
+    const Itinerary& route() const;
 
     class Implementation;
   private:
-    Post();
+    Extend();
     friend class Change;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
@@ -204,16 +204,13 @@ public:
   /// Get the version ID that this change refers to
   ParticipantId participant() const;
 
-  /// Get the schedule version that this change produced
-  Version schedule_version() const;
-
   /// Get the Put interface if this is a Put type change. Otherwise this returns
   /// a nullptr.
-  const Put* put() const;
+  const Set* set() const;
 
   /// Get the Post interface if this is an Post type change. Otherwise
   /// this returns a nullptr.
-  const Post* post() const;
+  const Extend* extend() const;
 
   /// Get the Delay interface if this is a Delay type change. Otherwise this
   /// returns a nullptr.

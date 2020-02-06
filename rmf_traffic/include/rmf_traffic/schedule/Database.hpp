@@ -24,6 +24,9 @@
 
 #include <rmf_utils/macros.hpp>
 
+#include <map>
+#include <unordered_map>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -50,36 +53,31 @@ public:
   void set(
       ParticipantId participant,
       Input itinerary,
-      ItineraryVersion version,
-      bool retransmission) final;
+      ItineraryVersion version) final;
 
   /// Documentation inherited from Writer
   void extend(
       ParticipantId participant,
       Input routes,
-      ItineraryVersion version,
-      bool retransmission) final;
+      ItineraryVersion version) final;
 
   /// Documentation inherited from Writer
   void delay(
       ParticipantId participant,
       Time from,
       Duration delay,
-      ItineraryVersion version,
-      bool retransmission) final;
+      ItineraryVersion version) final;
 
   /// Documentation inherited from Writer
   void erase(
       ParticipantId participant,
-      ItineraryVersion version,
-      bool retransmission) final;
+      ItineraryVersion version) final;
 
   /// Documentation inherited from Writer
   void erase(
       ParticipantId participant,
       const std::vector<ItineraryVersion>& routes,
-      ItineraryVersion version,
-      bool retransmission) final;
+      ItineraryVersion version) final;
 
   /// Documentation inherited from Writer
   ParticipantId register_participant(
@@ -155,6 +153,27 @@ public:
   /// \return The new version of the schedule database. If nothing was culled,
   /// this version number will remain the same.
   Version cull(Time time);
+
+  /// A description of all inconsistencies currently present in the database.
+  /// Inconsistencies are isolated between Participants, so the outer
+  /// associative container maps from a ParticipantId to the inconsistencies of
+  /// that Participant.
+  ///
+  /// An Inconsistency occurs when one or more ItineraryVersion values get
+  /// skipped by the inputs into the database. The inner associative container
+  /// expresses the ranges of which ItineraryVersions were skipped. The key
+  /// represents the first version that was missing in the range, and the
+  /// associated value represents the last version of that range which was
+  /// missing (inclusive). To fix the inconsistency, the Participant should
+  /// resend every Itinerary change that was missing from every range, or else
+  /// send a change that nullifies all previous changes, such as a set(~) or
+  /// erase(ParticipantId).
+  using Inconsistencies =
+      std::unordered_map<
+          ParticipantId,
+          std::map<ItineraryVersion, ItineraryVersion>>;
+
+  const Inconsistencies& inconsistencies() const;
 
   class Implementation;
 private:

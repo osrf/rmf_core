@@ -16,6 +16,7 @@
 */
 
 #include "Timeline.hpp"
+#include "Modular.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
@@ -26,6 +27,10 @@
 
 namespace rmf_traffic {
 namespace schedule {
+
+namespace {
+
+} // anonymous namespace
 
 class Database::Implementation
 {
@@ -44,18 +49,18 @@ public:
   using TransitionPtr = std::unique_ptr<Transition>;
   using ConstTransitionPtr = std::unique_ptr<const Transition>;
 
-  struct TimelineEntry;
-  using TimelineEntryPtr = std::unique_ptr<TimelineEntry>;
+  struct RouteEntry;
+  using RouteEntryPtr = std::unique_ptr<RouteEntry>;
 
-  using RouteHistory = std::list<TimelineEntryPtr>;
+  using RouteHistory = std::list<RouteEntryPtr>;
 
   struct Transition
   {
     Change change;
-    TimelineEntryPtr successor;
+    RouteEntryPtr predecessor;
   };
 
-  struct TimelineEntry
+  struct RouteEntry
   {
     // ===== Mandatory fields for a Timeline Entry =====
     ConstRoutePtr route;
@@ -68,24 +73,117 @@ public:
     // fields of the base Entry
     RouteId route_id;
     Version schedule_version;
-    TransitionPtr successor;
-    TimelineEntry* predecessor;
+    TransitionPtr predecessor;
+    RouteEntry* successor;
   };
 
-  Timeline<TimelineEntry> timeline;
+  Timeline<RouteEntry> timeline;
 
-  using ParticipantStorage = std::unordered_map<RouteId, TimelineEntryPtr>;
+  using ParticipantStorage = std::unordered_map<RouteId, RouteEntryPtr>;
   using Storage = std::unordered_map<ParticipantId, ParticipantStorage>;
+  Storage storage;
 
   struct ParticipantState
   {
     std::unordered_set<RouteId> active_routes;
     ItineraryVersion itinerary_version;
   };
+  using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
+  ParticipantStates states;
 
+  Inconsistencies inconsistencies;
 
-
+  Version schedule_version = 0;
 };
+
+//==============================================================================
+void Database::set(
+    ParticipantId participant,
+    Input itinerary,
+    ItineraryVersion version)
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::set] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  Implementation::ParticipantState& state = p_it->second;
+
+  if (Modular<ItineraryVersion>(version).less_or_equal(state.itinerary_version))
+  {
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
+  }
+
+  // NOTE(MXG): We store references to the values of the route entries, because
+  // iterators to a std::unordered_map can be invalidated by insertions, but
+  // pointers and references to the values inside the container to do not get
+  // invalidated by inserstion. Source:
+  // https://en.cppreference.com/w/cpp/container/unordered_map#Iterator_invalidation
+  std::vector<Implementation::RouteEntryPtr&> entries;
+  entries.reserve(itinerary.size());
+
+  Implementation::ParticipantStorage& routes = _pimpl->storage.at(participant);
+
+  // Verify that the new route IDs do not overlap any that are still in the
+  // database
+  for (const Item& item : itinerary)
+  {
+    const auto insertion = routes.insert(std::make_pair(item.id, nullptr));
+
+    // If the result of this insertion attempt was anything besides a nullptr,
+    // then that means this route ID was already taken, so we should reject this
+    // itinerary change.
+    if (insertion.first->second)
+    {
+      throw std::runtime_error(
+            "[Database::set] New route ID [" + std::to_string(item.id)
+            + "] collides with one already in the database");
+    }
+
+    entries.push_back(insertion.first->second);
+  }
+
+  //======== All validation is complete ===========
+  const Version schedule_version = ++_pimpl->schedule_version;
+
+  // Since this is a nullifying change, we can erase any prior inconsistencies
+  // that may have accumulated for this participant.
+  const auto inc_it = _pimpl->inconsistencies.find(participant);
+  if (inc_it == _pimpl->inconsistencies.end())
+  {
+    inc_it->second.clear();
+  }
+
+  state.active_routes.clear();
+
+  for (std::size_t i=0; i < itinerary.size(); ++i)
+  {
+    const auto& item = itinerary[i];
+    const RouteId route_id = item.id;
+    state.active_routes.insert(route_id);
+
+    Implementation::RouteEntryPtr& entry = entries[i];
+    entry = std::make_unique<Implementation::RouteEntry>(
+          Implementation::RouteEntry{
+            item.route,
+            participant,
+            nullptr,
+            route_id,
+            schedule_version,
+            nullptr,
+            nullptr
+          });
+
+    _pimpl->timeline.insert(*entry);
+  }
+
+  state.itinerary_version = version;
+}
 
 namespace internal {
 
