@@ -116,6 +116,18 @@ private:
 
 };
 
+/// This function gives a convenient way to instantiate a Modular<V> object.
+/// The rules of C++ template instantiation do not allow a class constructor to
+/// infer the template type based on argument values, but function templates are
+/// able to make such an inference. This allows someone to call modular(v)
+/// instead of Modular<MyIntegerValue>(v) to get an object of type
+/// Modular<MyIntegerValue>.
+template<typename V>
+Modular<V> modular(V value)
+{
+  return Modular<V>(value);
+}
+
 } // namespace schedule
 } // namespace rmf_traffic
 

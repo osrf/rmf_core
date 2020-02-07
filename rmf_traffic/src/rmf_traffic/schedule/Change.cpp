@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_traffic/schedule/Change.hpp>
+#include "ChangeInternal.hpp"
 
 #include <rmf_utils/optional.hpp>
 
@@ -29,8 +29,8 @@ public:
 
   // TODO(MXG): This implementation could be changed to use a std::variant
   Mode mode;
-  Put put;
-  Post post;
+  Set set;
+  Extend extend;
   Delay delay;
   Erase erase;
 
@@ -72,13 +72,13 @@ public:
 };
 
 //==============================================================================
-Change::Put::Put()
+Change::Set::Set()
 {
   // Do nothing
 }
 
 //==============================================================================
-class Change::Put::Implementation
+class Change::Set::Implementation
 {
 public:
 
@@ -89,13 +89,13 @@ public:
 };
 
 //==============================================================================
-Change::Post::Post()
+Change::Extend::Extend()
 {
   // Do nothing
 }
 
 //==============================================================================
-class Change::Post::Implementation
+class Change::Extend::Implementation
 {
 public:
 
@@ -110,19 +110,6 @@ Change::Delay::Delay()
 {
   // Do nothing
 }
-
-//==============================================================================
-class Change::Delay::Implementation
-{
-public:
-
-  /// The time that the delay began
-  Time from;
-
-  /// The duration of the delay
-  Duration duration;
-
-};
 
 //==============================================================================
 Change::Erase::Erase()
@@ -145,31 +132,30 @@ public:
 };
 
 //==============================================================================
-Change Change::make_put(
+Change Change::make_set(
     ParticipantId participant,
     Itinerary itinerary,
     Version schedule_version)
 {
   Change change =
-      Implementation::make(Mode::Put, participant, schedule_version);
+      Implementation::make(Mode::Set, participant, schedule_version);
 
-  change._pimpl->put._pimpl =
-      Implementation::make_impl<Put>(std::move(itinerary));
+  change._pimpl->set._pimpl =
+      Implementation::make_impl<Set>(std::move(itinerary));
 
   return change;
 }
 
 //==============================================================================
-Change Change::make_post(
+Change Change::make_extend(
     ParticipantId participant,
-    Route route,
-    Version schedule_version)
+    Route route)
 {
   Change change =
-      Implementation::make(Mode::Post, participant, schedule_version);
+      Implementation::make(Mode::Extend, participant);
 
-  change._pimpl->post._pimpl =
-      Implementation::make_impl<Post>(
+  change._pimpl->extend._pimpl =
+      Implementation::make_impl<Extend>(
         std::make_shared<const Route>(std::move(route)));
 
   return change;
@@ -231,27 +217,21 @@ ParticipantId Change::participant() const
 }
 
 //==============================================================================
-Version Change::schedule_version() const
+const Change::Set* Change::set() const
 {
-  return _pimpl->schedule_version;
+  if (Mode::Set == _pimpl->mode)
+    return nullptr;
+
+  return &_pimpl->set;
 }
 
 //==============================================================================
-const Change::Put* Change::put() const
+const Change::Extend* Change::extend() const
 {
-  if (Mode::Put == _pimpl->mode)
+  if (Mode::Extend == _pimpl->mode)
     return nullptr;
 
-  return &_pimpl->put;
-}
-
-//==============================================================================
-const Change::Post* Change::post() const
-{
-  if (Mode::Post == _pimpl->mode)
-    return nullptr;
-
-  return &_pimpl->post;
+  return &_pimpl->extend;
 }
 
 //==============================================================================

@@ -15,8 +15,10 @@
  *
 */
 
-#include "Timeline.hpp"
+#include "ChangeInternal.hpp"
+#include "InconsistencyTracker.hpp"
 #include "Modular.hpp"
+#include "Timeline.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
@@ -56,7 +58,11 @@ public:
 
   struct Transition
   {
-    Change change;
+    // If this has a delay value, then the change is a delay to the route.
+    // If this contains a nullopt, then the change is an erasure.
+    rmf_utils::optional<Change::Delay::Implementation> delay;
+
+    // The previous route entry that this transition is based on.
     RouteEntryPtr predecessor;
   };
 
@@ -73,7 +79,7 @@ public:
     // fields of the base Entry
     RouteId route_id;
     Version schedule_version;
-    TransitionPtr predecessor;
+    TransitionPtr transition;
     RouteEntry* successor;
   };
 
@@ -86,12 +92,30 @@ public:
   struct ParticipantState
   {
     std::unordered_set<RouteId> active_routes;
-    ItineraryVersion itinerary_version;
+    InconsistencyTracker tracker;
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
 
+  // NOTE(MXG): We store this record of inconsistency ranges here as a single
+  // group that covers all participants in order to make it easy for us to share
+  // it externally using the inconsistencies() function.
+  //
+  // This field should only be modified by InconsistencyTracker or
+  // unregister_participant. We are also trusting the InconsistencyTracker
+  // instance of each ParticipantState to not touch any other ParticipantState's
+  // entry in this field.
   Inconsistencies inconsistencies;
+
+  using StagedChanges =
+    std::unordered_map<
+      ParticipantId,
+      std::map<ItineraryVersion, Change>>;
+  StagedChanges staged_changes;
+
+  std::unordered_set<ParticipantId> participant_ids;
+
+  std::unordered_map<ParticipantId, ParticipantDescription> participants;
 
   Version schedule_version = 0;
 };
@@ -112,7 +136,7 @@ void Database::set(
 
   Implementation::ParticipantState& state = p_it->second;
 
-  if (Modular<ItineraryVersion>(version).less_or_equal(state.itinerary_version))
+  if (modular(version).less_or_equal(state.tracker.version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
@@ -153,12 +177,9 @@ void Database::set(
 
   // Since this is a nullifying change, we can erase any prior inconsistencies
   // that may have accumulated for this participant.
-  const auto inc_it = _pimpl->inconsistencies.find(participant);
-  if (inc_it == _pimpl->inconsistencies.end())
-  {
-    inc_it->second.clear();
-  }
+  state.tracker.reset(version, _pimpl->inconsistencies);
 
+  // Clear the list of routes that are currently active
   state.active_routes.clear();
 
   for (std::size_t i=0; i < itinerary.size(); ++i)
@@ -181,9 +202,46 @@ void Database::set(
 
     _pimpl->timeline.insert(*entry);
   }
-
-  state.itinerary_version = version;
 }
+
+//==============================================================================
+void Database::extend(
+    ParticipantId participant,
+    Input routes,
+    ItineraryVersion version)
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::extend] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  Implementation::ParticipantState& state = p_it->second;
+
+  if (modular(version).less_or_equal(state.tracker.version()))
+  {
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
+  }
+
+  // Check if the version on this change has any inconsistencies
+  if (auto ticket = state.tracker.check(version, _pimpl->inconsistencies))
+  {
+    // If we got a ticket from the inconsistency tracker, then pass along a
+    // callback to call this
+    ticket->set([=](){ this->extend(participant, routes, version); });
+    return;
+  }
+
+  // FIXME(MXG): Finish this function definition
+}
+
+//==============================================================================
+// ASSUMPTION(MXG): When a new participant is registered, we will create an
+// entry in storage, states, participant_ids, and participants.
 
 namespace internal {
 

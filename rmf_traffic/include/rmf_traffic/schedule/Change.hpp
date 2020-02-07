@@ -40,10 +40,10 @@ public:
     Invalid = 0,
 
     /// The whole itinerary of a participant was inserted or replaced
-    Put,
+    Set,
 
     /// A route was added to a participant's existing itinerary
-    Post,
+    Extend,
 
     /// A delay was introduced to an itinerary
     Delay,
@@ -70,7 +70,7 @@ public:
   /// \param[in] itinerary
   ///   The itinerary that is being put for this participant.
   ///
-  static Change make_put(
+  static Change make_set(
       ParticipantId participant,
       Itinerary itinerary,
       Version schedule_version);
@@ -84,9 +84,9 @@ public:
   ///
   /// \param[in] route
   ///   The route being added to the itinerary.
-  static Change make_post(
+  static Change make_extend(
       ParticipantId participant,
-      Route route,
+      Itinerary route,
       Version schedule_version);
 
   /// Add a delay to the existing itinerary. All

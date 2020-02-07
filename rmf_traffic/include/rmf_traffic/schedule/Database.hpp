@@ -154,24 +154,30 @@ public:
   /// this version number will remain the same.
   Version cull(Time time);
 
+
+  /// An Inconsistency occurs when one or more ItineraryVersion values get
+  /// skipped by the inputs into the database. This associative container
+  /// expresses the ranges of which ItineraryVersions were skipped for a single
+  /// Participant. The key represents the last version that was missing in the
+  /// range, and the associated value represents the first version of that range
+  /// which was missing (inclusive). Using the key to represent the last version
+  /// allows us to use the std::map::lower_bound() function to easily check
+  /// whether a given value is inside of a range.
+  ///
+  /// To fix the inconsistency, the Participant should resend every Itinerary
+  /// change that was missing from every range, or else send a change that
+  /// nullifies all previous changes, such as a set(~) or erase(ParticipantId).
+  using InconsistencyRanges = std::map<ItineraryVersion, ItineraryVersion>;
+
   /// A description of all inconsistencies currently present in the database.
   /// Inconsistencies are isolated between Participants, so the outer
   /// associative container maps from a ParticipantId to the inconsistencies of
   /// that Participant.
-  ///
-  /// An Inconsistency occurs when one or more ItineraryVersion values get
-  /// skipped by the inputs into the database. The inner associative container
-  /// expresses the ranges of which ItineraryVersions were skipped. The key
-  /// represents the first version that was missing in the range, and the
-  /// associated value represents the last version of that range which was
-  /// missing (inclusive). To fix the inconsistency, the Participant should
-  /// resend every Itinerary change that was missing from every range, or else
-  /// send a change that nullifies all previous changes, such as a set(~) or
-  /// erase(ParticipantId).
   using Inconsistencies =
-      std::unordered_map<
-          ParticipantId,
-          std::map<ItineraryVersion, ItineraryVersion>>;
+      std::unordered_map<ParticipantId, InconsistencyRanges>;
+
+  // TODO(MXG): Consider whether these Inconsistency classes should be made into
+  // explicit rmf_traffic API classes with PIMPL protection.
 
   const Inconsistencies& inconsistencies() const;
 
