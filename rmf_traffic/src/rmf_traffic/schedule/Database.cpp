@@ -136,10 +136,16 @@ void Database::set(
 
   Implementation::ParticipantState& state = p_it->second;
 
-  if (modular(version).less_or_equal(state.tracker.version()))
+  if (modular(version).less_than(state.tracker.expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
+    return;
+  }
+
+  if (auto ticket = state.tracker.check(version, _pimpl->inconsistencies, true))
+  {
+    ticket->set([=](){ this->set(participant, itinerary, version); });
     return;
   }
 
@@ -174,10 +180,6 @@ void Database::set(
 
   //======== All validation is complete ===========
   const Version schedule_version = ++_pimpl->schedule_version;
-
-  // Since this is a nullifying change, we can erase any prior inconsistencies
-  // that may have accumulated for this participant.
-  state.tracker.reset(version, _pimpl->inconsistencies);
 
   // Clear the list of routes that are currently active
   state.active_routes.clear();
@@ -220,7 +222,7 @@ void Database::extend(
 
   Implementation::ParticipantState& state = p_it->second;
 
-  if (modular(version).less_or_equal(state.tracker.version()))
+  if (modular(version).less_than(state.tracker.expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.

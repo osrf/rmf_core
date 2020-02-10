@@ -47,7 +47,7 @@ public:
   /// within half of the maximum modular distance of the basis. If rhs is
   /// further than that distance from the basis (either from above or below)
   /// then an exception will be thrown.
-  bool less(const V rhs) const
+  bool less_than(const V rhs) const
   {
     // "distance" here means how far the RHS is from the basis, adjusted back by
     // half of the maximum window size.
@@ -71,9 +71,9 @@ public:
   }
 
   /// Modify less(V) to also return true when equal.
-  bool less_or_equal(const V rhs) const
+  bool less_than_or_equal(const V rhs) const
   {
-    return (_basis == rhs) || less(rhs);
+    return (_basis == rhs) || less_than(rhs);
   }
 
   /// Compare lhs (left-hand side) to rhs (right-hand side), and return true if
@@ -83,15 +83,15 @@ public:
   /// neither of these values has spilled past (overlapped) the basis value.
   /// This assumption allows us to do this comparison without any risk of an
   /// excpetion.
-  bool less(const V lhs, const V rhs) const
+  bool less_than(const V lhs, const V rhs) const
   {
     return (lhs - _basis) < (rhs - _basis);
   }
 
   /// Modify less(V, V) to also return true when lhs and rhs are equal.
-  bool less_or_equal(const V lhs, const V rhs) const
+  bool less_than_or_equal(const V lhs, const V rhs) const
   {
-    return (lhs == rhs) || less(lhs, rhs);
+    return (lhs == rhs) || less_than(lhs, rhs);
   }
 
 private:

@@ -29,10 +29,6 @@ public:
 
   InconsistencyTracker(ParticipantId id);
 
-  void reset(
-      ItineraryVersion current_version,
-      Database::Inconsistencies& inconsistencies);
-
   /// The Ticket class is a way to inform the caller that there is an
   /// inconsistency with the version of an incoming change. When the
   /// Inconsistency::check() function returns a Ticket, the caller must pass
@@ -49,17 +45,8 @@ public:
     /// Set the change for this ticket.
     void set(std::function<void()> change);
 
-    /// This custom destructor will throw an exception if the callback wasn't
-    /// set before the ticket object dies, because that implies that the
-    /// inconsistency ticket was not handled correctly.
-    ///
-    /// \note It is generally considered bad practice to throw an exception from
-    /// a destructor because there are cases where this can cause undefined
-    /// behavior and make an application crash with no chance of recovery.
-    /// However Ticket is a private class within the implementation of
-    /// rmf_traffic, so we have full control over its use, and any situation
-    /// where this exception might occur. If this ever throws an exception,
-    /// that indicates a bug in rmf_traffic that should be fixed immediately.
+    /// This custom destructor will check whether the inconsistency has been
+    /// resolved, and if so then it will apply the changes
     ~Ticket();
 
   private:
@@ -70,18 +57,34 @@ public:
         InconsistencyTracker& parent,
         std::function<void()>& callback);
 
-    std::function<void()>& _callback;
     InconsistencyTracker& _parent;
+    std::function<void()>& _callback;
     bool _set = false;
   };
 
+  /// Check whether an entry has an inconsistency
+  ///
+  /// \param[in] version
+  ///   The declared version of this change
+  ///
+  /// \param[in] inconsistencies
+  ///   The current record of inconsistencies
+  ///
+  /// \param[in] reset
+  ///   Whether this change will nullify the changes that came before it. If
+  ///   true, we will discard the recording of the changes that predate this
+  ///   one.
+  ///
+  /// \return an inconistency ticket which must get set with a change by the
+  /// caller of check().
   rmf_utils::optional<Ticket> check(
       ItineraryVersion version,
-      Database::Inconsistencies& inconsistencies);
+      Database::Inconsistencies& inconsistencies,
+      bool nullifying = false);
 
-  ItineraryVersion version() const
+  ItineraryVersion expected_version() const
   {
-    return _current_version;
+    return _expected_version;
   }
 
 private:
@@ -89,7 +92,7 @@ private:
   void _apply_changes();
 
   ParticipantId _participant;
-  ItineraryVersion _current_version;
+  ItineraryVersion _expected_version = 0;
   std::map<ItineraryVersion, std::function<void()>> _changes;
   bool _ready = false;
 
