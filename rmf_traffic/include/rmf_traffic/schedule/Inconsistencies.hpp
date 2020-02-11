@@ -20,7 +20,7 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
-#include <rmf_traffic/detail/bidirectional_iterator.hpp>
+#include <rmf_traffic/detail/forward_iterator.hpp>
 #include <rmf_traffic/schedule/Itinerary.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 
@@ -38,7 +38,7 @@ class Inconsistencies
 public:
 
   template<typename E, typename I, typename F>
-  using base_iter = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
+  using base_iter = rmf_traffic::detail::forward_iterator<E, I, F>;
 
   /// A container of the ranges of inconsistencies for a single participant
   class Ranges
@@ -55,11 +55,27 @@ public:
       ItineraryVersion upper;
     };
 
+    class IterImpl;
+    using const_iterator = base_iter<const Range, IterImpl, Ranges>;
 
+    /// Get the beginning iterator
+    const_iterator begin() const;
+
+    /// Explicitly const-qualified alternative for begin()
+    const_iterator cbegin() const;
+
+    /// Get the one-past-the-end iterator
+    const_iterator end() const;
+
+    /// Explicitly const-qualified alternative for end()
+    const_iterator cend() const;
+
+    /// Get the number of ranges in this container
+    std::size_t size() const;
 
     class Implementation;
   private:
-    rmf_utils::impl_ptr<Implementation> _pimpl;
+    rmf_utils::unique_impl_ptr<Implementation> _pimpl;
   };
 
   /// An element of the Inconsistencies container. This tells the ranges of
@@ -73,6 +89,21 @@ public:
   class IterImpl;
   using const_iterator = base_iter<const Element, IterImpl, Inconsistencies>;
 
+  /// Get the beginning iterator
+  const_iterator begin() const;
+
+  /// Explicitly const-qualified alternative for begin()
+  const_iterator cbegin() const;
+
+  /// Get the one-past-the-end iterator
+  const_iterator end() const;
+
+  /// Explicitly const-qualified alternative for end()
+  const_iterator cend() const;
+
+  /// Get the number of participants with inconsistencies
+  std::size_t size() const;
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
@@ -80,6 +111,25 @@ private:
 
 
 } // namespace schedule
+
+namespace detail {
+
+//==============================================================================
+extern template class forward_iterator<
+    const schedule::Inconsistencies::Ranges::Range,
+    schedule::Inconsistencies::Ranges::IterImpl,
+    schedule::Inconsistencies::Ranges
+>;
+
+//==============================================================================
+extern template class forward_iterator<
+    const schedule::Inconsistencies::Ranges,
+    schedule::Inconsistencies::IterImpl,
+    schedule::Inconsistencies
+>;
+
+} // namespace detail
+
 } // namespace rmf_traffic
 
 #endif // RMF_TRAFFIC__SCHEDULE__INCONSISTENCY_HPP

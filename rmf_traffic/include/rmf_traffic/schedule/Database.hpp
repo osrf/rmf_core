@@ -50,13 +50,13 @@ public:
   /// Documentation inherited from Writer
   void set(
       ParticipantId participant,
-      Input itinerary,
+      const Input& itinerary,
       ItineraryVersion version) final;
 
   /// Documentation inherited from Writer
   void extend(
       ParticipantId participant,
-      Input routes,
+      const Input& routes,
       ItineraryVersion version) final;
 
   /// Documentation inherited from Writer

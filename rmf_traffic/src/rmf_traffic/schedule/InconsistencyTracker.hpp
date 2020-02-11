@@ -18,16 +18,46 @@
 #ifndef SRC__RMF_TRAFFIC__SCHEDULE__INCONSISTENCYTRACKER_HPP
 #define SRC__RMF_TRAFFIC__SCHEDULE__INCONSISTENCYTRACKER_HPP
 
-#include <rmf_traffic/schedule/Database.hpp>
+#include "Modular.hpp"
+
+#include <rmf_traffic/schedule/Inconsistencies.hpp>
+#include <rmf_traffic/schedule/Itinerary.hpp>
+#include <rmf_traffic/schedule/Participant.hpp>
+
+#include <rmf_utils/optional.hpp>
+
+#include <set>
+#include <map>
+#include <unordered_map>
 
 namespace rmf_traffic {
 namespace schedule {
 
+//==============================================================================
+struct RangeLess
+{
+  using Range = Inconsistencies::Ranges::Range;
+
+  bool operator()(const Range& lhs, const Range& rhs)
+  {
+    return modular(lhs.upper).less_than(rhs.upper);
+  }
+};
+
+//==============================================================================
+using RangesSet = std::set<Inconsistencies::Ranges::Range, RangeLess>;
+
+//==============================================================================
+using InconsistenciesMap = std::unordered_map<ParticipantId, RangesSet>;
+
+//==============================================================================
 class InconsistencyTracker
 {
 public:
 
-  InconsistencyTracker(ParticipantId id);
+  InconsistencyTracker(
+      ParticipantId id,
+      RangesSet& parent);
 
   /// The Ticket class is a way to inform the caller that there is an
   /// inconsistency with the version of an incoming change. When the
@@ -79,7 +109,6 @@ public:
   /// caller of check().
   rmf_utils::optional<Ticket> check(
       ItineraryVersion version,
-      Database::Inconsistencies& inconsistencies,
       bool nullifying = false);
 
   ItineraryVersion expected_version() const
@@ -92,8 +121,13 @@ private:
   void _apply_changes();
 
   ParticipantId _participant;
+  RangesSet& _ranges;
   ItineraryVersion _expected_version = 0;
   std::map<ItineraryVersion, std::function<void()>> _changes;
+
+  // TODO(MXG): Consider whether this _ready flag is superfluous since a Ticket
+  // can simply check _ranges.empty() to determine if the changes are ready to
+  // be applied.
   bool _ready = false;
 
 };

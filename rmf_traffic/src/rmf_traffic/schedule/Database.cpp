@@ -16,7 +16,7 @@
 */
 
 #include "ChangeInternal.hpp"
-#include "InconsistencyTracker.hpp"
+#include "InconsistenciesInternal.hpp"
 #include "Modular.hpp"
 #include "Timeline.hpp"
 
@@ -31,6 +31,22 @@ namespace rmf_traffic {
 namespace schedule {
 
 namespace {
+
+//==============================================================================
+Writer::Input deep_copy_input(Writer::Input input)
+{
+  Writer::Input copy;
+  for (const auto& item : input)
+  {
+    auto copy_item = Writer::Item{
+        item.id,
+        std::make_shared<Route>(*item.route)};
+
+    copy.emplace_back(std::move(copy_item));
+  }
+
+  return copy;
+}
 
 } // anonymous namespace
 
@@ -92,7 +108,7 @@ public:
   struct ParticipantState
   {
     std::unordered_set<RouteId> active_routes;
-    InconsistencyTracker tracker;
+    std::unique_ptr<InconsistencyTracker> tracker;
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
@@ -118,14 +134,143 @@ public:
   std::unordered_map<ParticipantId, ParticipantDescription> participants;
 
   Version schedule_version = 0;
+
+  /// This function verifies that the route IDs specified in the input are not
+  /// already being used. If that ever happens, it is indicative of a bug or a
+  /// malformed input into the database.
+  ///
+  /// This returns a vector of pointers to RouteEntryPtr objects. The entries in
+  /// that vector can be used to efficiently populate the route information,
+  /// saving us the cost of a second map lookup later on.
+  std::vector<RouteEntryPtr*> check_route_ids(
+      ParticipantId participant,
+      const Input& input)
+  {
+    // NOTE(MXG): We store references to the values of the route entries,
+    // because iterators to a std::unordered_map can be invalidated by
+    // insertions, but pointers and references to the values inside the
+    // container to do not get invalidated by inserstion. Source:
+    // https://en.cppreference.com/w/cpp/container/unordered_map#Iterator_invalidation
+    std::vector<RouteEntryPtr*> entries;
+    entries.reserve(input.size());
+
+    ParticipantStorage& routes = storage.at(participant);
+
+    // Verify that the new route IDs do not overlap any that are still in the
+    // database
+    for (const Item& item : input)
+    {
+      const auto insertion = routes.insert(std::make_pair(item.id, nullptr));
+
+      // If the result of this insertion attempt was anything besides a nullptr,
+      // then that means this route ID was already taken, so we should reject
+      // this itinerary change.
+      if (insertion.first->second)
+      {
+        throw std::runtime_error(
+              "[Database::set] New route ID [" + std::to_string(item.id)
+              + "] collides with one already in the database");
+      }
+
+      entries.push_back(&insertion.first->second);
+    }
+
+    return entries;
+  }
+
+  /// This function is used to insert items into the Database. This function
+  /// assumes that the items have already been fully validated and that there
+  /// would be no negative side-effects to entering them.
+  void insert_items(
+      ParticipantId participant,
+      ParticipantState& state,
+      const std::vector<RouteEntryPtr*>& entries,
+      const Input& input)
+  {
+    assert(entries.size() == input.size());
+
+    for (std::size_t i=0; i < input.size(); ++i)
+    {
+      const auto& item = input[i];
+      const RouteId route_id = item.id;
+      state.active_routes.insert(route_id);
+
+      RouteEntryPtr& entry = *entries[i];
+      entry = std::make_unique<RouteEntry>(
+            RouteEntry{
+              item.route,
+              participant,
+              nullptr,
+              route_id,
+              schedule_version,
+              nullptr,
+              nullptr
+            });
+
+      timeline.insert(*entry);
+    }
+  }
+
+  void apply_delay(
+      ParticipantId participant,
+      const ParticipantState& state,
+      Time from,
+      Duration delay)
+  {
+    ParticipantStorage& routes = storage.at(participant);
+    for (const RouteId id : state.active_routes)
+    {
+      assert(routes.find(id) != routes.end());
+      auto& old_entry = routes.at(id);
+      const Trajectory& old_trajectory = old_entry->route->trajectory();
+      assert(old_trajectory.start_time());
+
+      if (*old_trajectory.finish_time() < from)
+        continue;
+
+      Trajectory new_trajectory = old_trajectory;
+      if (from < *old_trajectory.start_time())
+      {
+        new_trajectory.begin()->adjust_times(delay);
+      }
+      else
+      {
+        new_trajectory.find(from)->adjust_times(delay);
+      }
+
+      auto new_route = std::make_shared<Route>(
+            old_entry->route->map(), std::move(new_trajectory));
+
+      auto transition = std::make_unique<Transition>(
+            Transition{
+              Change::Delay::Implementation{from, delay},
+              std::move(old_entry)
+            });
+
+      RouteEntryPtr entry = std::make_unique<RouteEntry>(
+            RouteEntry{
+              std::move(new_route),
+              participant,
+              nullptr,
+              id,
+              schedule_version,
+              std::move(transition),
+              nullptr
+            });
+
+      entry->transition->predecessor->successor = entry.get();
+    }
+  }
 };
 
 //==============================================================================
 void Database::set(
     ParticipantId participant,
-    Input itinerary,
+    const Input& input,
     ItineraryVersion version)
 {
+  auto itinerary = deep_copy_input(input);
+
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
@@ -136,82 +281,40 @@ void Database::set(
 
   Implementation::ParticipantState& state = p_it->second;
 
-  if (modular(version).less_than(state.tracker.expected_version()))
+  if (modular(version).less_than(state.tracker->expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
     return;
   }
 
-  if (auto ticket = state.tracker.check(version, _pimpl->inconsistencies, true))
+  if (auto ticket = state.tracker->check(version, true))
   {
     ticket->set([=](){ this->set(participant, itinerary, version); });
     return;
   }
 
-  // NOTE(MXG): We store references to the values of the route entries, because
-  // iterators to a std::unordered_map can be invalidated by insertions, but
-  // pointers and references to the values inside the container to do not get
-  // invalidated by inserstion. Source:
-  // https://en.cppreference.com/w/cpp/container/unordered_map#Iterator_invalidation
-  std::vector<Implementation::RouteEntryPtr&> entries;
-  entries.reserve(itinerary.size());
-
-  Implementation::ParticipantStorage& routes = _pimpl->storage.at(participant);
-
-  // Verify that the new route IDs do not overlap any that are still in the
-  // database
-  for (const Item& item : itinerary)
-  {
-    const auto insertion = routes.insert(std::make_pair(item.id, nullptr));
-
-    // If the result of this insertion attempt was anything besides a nullptr,
-    // then that means this route ID was already taken, so we should reject this
-    // itinerary change.
-    if (insertion.first->second)
-    {
-      throw std::runtime_error(
-            "[Database::set] New route ID [" + std::to_string(item.id)
-            + "] collides with one already in the database");
-    }
-
-    entries.push_back(insertion.first->second);
-  }
+  std::vector<Implementation::RouteEntryPtr*> entries =
+      _pimpl->check_route_ids(participant, itinerary);
 
   //======== All validation is complete ===========
-  const Version schedule_version = ++_pimpl->schedule_version;
+  ++_pimpl->schedule_version;
 
   // Clear the list of routes that are currently active
   state.active_routes.clear();
 
-  for (std::size_t i=0; i < itinerary.size(); ++i)
-  {
-    const auto& item = itinerary[i];
-    const RouteId route_id = item.id;
-    state.active_routes.insert(route_id);
-
-    Implementation::RouteEntryPtr& entry = entries[i];
-    entry = std::make_unique<Implementation::RouteEntry>(
-          Implementation::RouteEntry{
-            item.route,
-            participant,
-            nullptr,
-            route_id,
-            schedule_version,
-            nullptr,
-            nullptr
-          });
-
-    _pimpl->timeline.insert(*entry);
-  }
+  // Insert the new routes into the current itinerary
+  _pimpl->insert_items(participant, state, entries, input);
 }
 
 //==============================================================================
 void Database::extend(
     ParticipantId participant,
-    Input routes,
+    const Input& input,
     ItineraryVersion version)
 {
+  auto routes = deep_copy_input(input);
+
   const auto p_it = _pimpl->states.find(participant);
   if (p_it == _pimpl->states.end())
   {
@@ -222,7 +325,8 @@ void Database::extend(
 
   Implementation::ParticipantState& state = p_it->second;
 
-  if (modular(version).less_than(state.tracker.expected_version()))
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
@@ -230,7 +334,7 @@ void Database::extend(
   }
 
   // Check if the version on this change has any inconsistencies
-  if (auto ticket = state.tracker.check(version, _pimpl->inconsistencies))
+  if (auto ticket = state.tracker->check(version))
   {
     // If we got a ticket from the inconsistency tracker, then pass along a
     // callback to call this
@@ -238,7 +342,49 @@ void Database::extend(
     return;
   }
 
-  // FIXME(MXG): Finish this function definition
+  std::vector<Implementation::RouteEntryPtr*> entries =
+      _pimpl->check_route_ids(participant, routes);
+
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+
+  _pimpl->insert_items(participant, state, entries, input);
+}
+
+//==============================================================================
+void Database::delay(
+    ParticipantId participant,
+    Time from,
+    Duration delay,
+    ItineraryVersion version)
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::delay] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  Implementation::ParticipantState& state = p_it->second;
+
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
+  {
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
+  }
+
+  if (auto ticket = state.tracker->check(version))
+  {
+    ticket->set([=](){ this->delay(participant, from, delay, version); });
+    return;
+  }
+
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+  _pimpl->apply_delay(participant, state, from, delay);
 }
 
 //==============================================================================

@@ -55,7 +55,7 @@ public:
   ///
   virtual void set(
       ParticipantId participant,
-      Input itinerary,
+      const Input& itinerary,
       ItineraryVersion version) = 0;
 
   /// Add a set of routes to the itinerary of this participant.
@@ -71,7 +71,7 @@ public:
   ///
   virtual void extend(
       ParticipantId participant,
-      Input routes,
+      const Input& routes,
       ItineraryVersion version) = 0;
 
   /// Add a delay to the itinerary from the specified Time.

@@ -16,6 +16,7 @@
 */
 
 #include "InconsistencyTracker.hpp"
+#include "InconsistenciesInternal.hpp"
 #include "Modular.hpp"
 
 namespace rmf_traffic {
@@ -23,8 +24,10 @@ namespace schedule {
 
 //==============================================================================
 InconsistencyTracker::InconsistencyTracker(
-    ParticipantId id)
-: _participant(id)
+    ParticipantId id,
+    RangesSet& ranges)
+: _participant(id),
+  _ranges(ranges)
 {
   // Do nothing
 }
@@ -67,14 +70,12 @@ InconsistencyTracker::Ticket::Ticket(
 //==============================================================================
 auto InconsistencyTracker::check(
     const ItineraryVersion version,
-    Database::Inconsistencies& inconsistencies,
     const bool nullifying)
 -> rmf_utils::optional<Ticket>
 {
-  using Ranges = Database::InconsistencyRanges;
+  using Range = Inconsistencies::Ranges::Range;
 
-  auto inc_it = inconsistencies.find(_participant);
-  if (inc_it == inconsistencies.end())
+  if (_ranges.empty())
   {
     if (version == _expected_version)
     {
@@ -87,13 +88,8 @@ auto InconsistencyTracker::check(
     // it here just to make sure.
     assert(!modular(version).less_than(_expected_version));
 
-    // We didn't have any inconsistencies before, but we do now.
-    inc_it = inconsistencies.insert(
-          std::make_pair(_participant, Ranges())).first;
-
-    // This is the only inconsistency, so it should be easy to fill in the map:
-    Ranges& ranges = inc_it->second;
-    ranges[version-1] = _expected_version;
+    // This is the only inconsistency, so it should be easy to fill in the set:
+    _ranges.insert(Range{_expected_version, version-1});
 
     const auto c_it = _changes.insert(std::make_pair(version, nullptr)).first;
     return Ticket(*this, c_it->second);
@@ -103,11 +99,6 @@ auto InconsistencyTracker::check(
     // There are already inconsistencies with this participant, so we will check
     // how this new entry affects the current ranges of inconsistencies and
     // adjust them as needed.
-    Ranges& ranges = inc_it->second;
-
-    // If the ranges of inconsistencies is empty, then this entry shouldn't be
-    // in the inconsistencies field to begin with.
-    assert(!ranges.empty());
 
     const auto c_insertion = _changes.insert(std::make_pair(version, nullptr));
     auto& callback = c_insertion.first->second;
@@ -141,6 +132,7 @@ auto InconsistencyTracker::check(
 
       // We can update the expected version because earlier changes no longer
       // matter.
+      //
       // NOTE(MXG): We should make it equal to version, not equal to version+1
       // because otherwise the database will ignore it later when it's time to
       // apply all the changes that we've been saving up.
@@ -160,8 +152,8 @@ auto InconsistencyTracker::check(
     //
     // ^: location of the current change
 
-    const auto range_it = ranges.lower_bound(version);
-    if (range_it == ranges.end())
+    const auto range_it = _ranges.lower_bound(Range{version, version});
+    if (range_it == _ranges.end())
     {
       // x x o x x x o _ _ _ _
       //                     ^
@@ -180,7 +172,7 @@ auto InconsistencyTracker::check(
         // and all earlier inconsistencies and start fresh.
 
         _changes.clear();
-        inconsistencies.erase(inc_it);
+        _ranges.clear();
         _expected_version = version + 1;
         return rmf_utils::nullopt;
       }
@@ -190,8 +182,8 @@ auto InconsistencyTracker::check(
         // far. We will create an inconsistency range between this and the
         // highest change value that we have received so far.
 
-        const ItineraryVersion upper = version - 1;
         const ItineraryVersion lower = _changes.rbegin()->first + 1;
+        const ItineraryVersion upper = version - 1;
 
         if (modular(lower).less_than_or_equal(upper))
         {
@@ -203,7 +195,7 @@ auto InconsistencyTracker::check(
           // x x o x x x o _ _
           //                 ^
 
-          ranges.insert(std::make_pair(upper, lower));
+          _ranges.insert(Range{lower, upper});
         }
         else
         {
@@ -225,13 +217,16 @@ auto InconsistencyTracker::check(
     }
     else
     {
-      const ItineraryVersion upper = range_it->first;
-      const ItineraryVersion lower = range_it->second;
+      const ItineraryVersion lower = range_it->lower;
+      const ItineraryVersion upper = range_it->upper;
 
       if (nullifying)
       {
         // Since this is a nullifying change, it eliminates all ranges of
         // inconsistencies that come before it.
+        const auto hint_it =
+            _ranges.erase(_ranges.begin(), ++RangesSet::iterator(range_it));
+
         if (version == upper)
         {
           // x x o x x x o x x o
@@ -239,15 +234,13 @@ auto InconsistencyTracker::check(
 
           // The new change also eliminates the range of inconsistencies that it
           // belongs to, because it is the upper end of its range.
-          ranges.erase(ranges.begin(), ++Ranges::iterator(range_it));
 
-          if (ranges.empty())
+          if (_ranges.empty())
           {
             // x x o x x x o o o
             //           ^
 
             // All inconsistencies have been eliminated.
-            inconsistencies.erase(inc_it);
             _ready = true;
           }
         }
@@ -258,8 +251,7 @@ auto InconsistencyTracker::check(
 
           // The lesser ranges are eliminated completely, while the range that
           // this change is inside of will simply be reduced.
-          ranges.erase(ranges.begin(), range_it);
-          range_it->second = version + 1;
+          _ranges.insert(hint_it, Range{version + 1, upper});
         }
 
         return Ticket(*this, callback);
@@ -272,9 +264,9 @@ auto InconsistencyTracker::check(
           //       ^
 
           // The new version eliminates this unit-sized range of inconsistencies
-          ranges.erase(range_it);
+          _ranges.erase(range_it);
 
-          if (ranges.empty())
+          if (_ranges.empty())
           {
             // o o o x o o
             //       ^
@@ -282,7 +274,6 @@ auto InconsistencyTracker::check(
             // The new version eliminates all outstanding inconsistencies for
             // this participant, so we are ready to start applying the changes
             // that have been accumulating.
-            inconsistencies.erase(inc_it);
             _ready = true;
           }
         }
@@ -299,8 +290,8 @@ auto InconsistencyTracker::check(
           // must be less.
           assert(modular(lower).less_than(version));
 
-          ranges.insert(range_it, std::make_pair(version-1, lower));
-          ranges.erase(range_it);
+          _ranges.insert(range_it, Range{lower, version-1});
+          _ranges.erase(range_it);
         }
 
         return Ticket(*this, callback);
@@ -315,7 +306,8 @@ auto InconsistencyTracker::check(
 
           // The new version shrinks this range of inconsistencies by 1 from the
           // bottom.
-          range_it->second = version;
+          const auto hint_it = _ranges.erase(range_it);
+          _ranges.insert(hint_it, Range{version, upper});
         }
         else
         {
@@ -330,8 +322,9 @@ auto InconsistencyTracker::check(
           //         ^
 
           // The new version is splitting this range of inconsistencies.
-          range_it->second = version + 1;
-          ranges.insert(std::make_pair(version, lower));
+          const auto hint_it = _ranges.erase(range_it);
+          _ranges.insert(hint_it, Range{lower, version-1});
+          _ranges.insert(hint_it, Range{version+1, upper});
         }
 
         return Ticket(*this, callback);

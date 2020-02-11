@@ -128,6 +128,17 @@ Modular<V> modular(V value)
   return Modular<V>(value);
 }
 
+/// This class wraps up the Modular::less_than operation into a "binary
+/// predicate" class type so it can be used in template metaprogramming.
+template<typename V>
+struct ModularLess
+{
+  bool operator()(const V& lhs, const V& rhs) const
+  {
+    return modular(lhs).less_than(rhs);
+  }
+};
+
 } // namespace schedule
 } // namespace rmf_traffic
 
