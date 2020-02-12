@@ -70,8 +70,6 @@ public:
   struct RouteEntry;
   using RouteEntryPtr = std::unique_ptr<RouteEntry>;
 
-  using RouteHistory = std::list<RouteEntryPtr>;
-
   struct Transition
   {
     // If this has a delay value, then the change is a delay to the route.
@@ -221,8 +219,8 @@ public:
     for (const RouteId id : state.active_routes)
     {
       assert(routes.find(id) != routes.end());
-      auto& old_entry = routes.at(id);
-      const Trajectory& old_trajectory = old_entry->route->trajectory();
+      auto& entry = routes.at(id);
+      const Trajectory& old_trajectory = entry->route->trajectory();
       assert(old_trajectory.start_time());
 
       if (*old_trajectory.finish_time() < from)
@@ -239,15 +237,18 @@ public:
       }
 
       auto new_route = std::make_shared<Route>(
-            old_entry->route->map(), std::move(new_trajectory));
+            entry->route->map(), std::move(new_trajectory));
 
       auto transition = std::make_unique<Transition>(
             Transition{
               Change::Delay::Implementation{from, delay},
-              std::move(old_entry)
+              std::move(entry)
             });
 
-      RouteEntryPtr entry = std::make_unique<RouteEntry>(
+      // NOTE(MXG): The previous contents of entry have been moved into the
+      // predecessor field of transition, so we are free to refill entry with
+      // the newly created data.
+      entry = std::make_unique<RouteEntry>(
             RouteEntry{
               std::move(new_route),
               participant,
@@ -259,7 +260,44 @@ public:
             });
 
       entry->transition->predecessor->successor = entry.get();
+      timeline.insert(*entry);
     }
+  }
+
+  void erase_routes(
+      ParticipantId participant,
+      const std::unordered_set<RouteId>& erase)
+  {
+    ParticipantStorage& routes = storage.at(participant);
+    for (const RouteId id : erase)
+    {
+      assert(routes.find(id) != routes.end());
+      auto& old_entry = routes.at(id);
+
+      auto transition = std::make_unique<Transition>(
+            Transition{
+              rmf_utils::nullopt,
+              std::move(old_entry)
+            });
+
+      RouteEntryPtr entry = std::make_unique<RouteEntry>(
+            RouteEntry{
+              nullptr,
+              participant,
+              nullptr,
+              id,
+              schedule_version,
+              std::move(transition),
+              nullptr
+            });
+
+      entry->transition->predecessor->successor = entry.get();
+      timeline.insert(*entry);
+    }
+
+    // TODO(MXG): Consider erasing the routes from the active_routes field of
+    // the state using this function. It gets tricky, though since the "erase"
+    // argument is sometimes a reference to the active_routes field.
   }
 };
 
@@ -385,6 +423,99 @@ void Database::delay(
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
   _pimpl->apply_delay(participant, state, from, delay);
+}
+
+//==============================================================================
+void Database::erase(
+    ParticipantId participant,
+    ItineraryVersion version)
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::erase] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  Implementation::ParticipantState& state = p_it->second;
+
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
+  {
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
+  }
+
+  if (auto ticket = state.tracker->check(version))
+  {
+    ticket->set([=](){ this->erase(participant, version); });
+    return;
+  }
+
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+  _pimpl->erase_routes(participant, state.active_routes);
+  state.active_routes.clear();
+}
+
+//==============================================================================
+void Database::erase(
+    ParticipantId participant,
+    const std::vector<RouteId>& routes,
+    ItineraryVersion version)
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::erase] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  Implementation::ParticipantState& state = p_it->second;
+
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
+  {
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
+  }
+
+  if (auto ticket = state.tracker->check(version))
+  {
+    ticket->set([=](){ this->erase(participant, routes, version); });
+    return;
+  }
+
+  std::unordered_set<RouteId> route_set;
+  route_set.reserve(routes.size());
+  for (const RouteId id : routes)
+  {
+    if (state.active_routes.count(id) == 0)
+    {
+      throw std::runtime_error(
+            "[Database::erase] The route with ID [" + std::to_string(id)
+            + "] is not active!");
+    }
+
+    route_set.insert(id);
+  }
+
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+  _pimpl->erase_routes(participant, route_set);
+  for (const RouteId id : routes)
+    state.active_routes.erase(id);
+}
+
+//==============================================================================
+ParticipantId register_participant(
+    ParticipantDescription participant_info)
+{
+
 }
 
 //==============================================================================

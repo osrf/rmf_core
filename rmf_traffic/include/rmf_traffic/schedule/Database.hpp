@@ -74,7 +74,7 @@ public:
   /// Documentation inherited from Writer
   void erase(
       ParticipantId participant,
-      const std::vector<ItineraryVersion>& routes,
+      const std::vector<RouteId>& routes,
       ItineraryVersion version) final;
 
   /// Documentation inherited from Writer

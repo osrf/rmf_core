@@ -149,27 +149,30 @@ public:
   /// Insert a new entry into the timeline
   void insert(Entry& entry)
   {
-    const Time start_time = *entry.route->trajectory().start_time();
-    const Time finish_time = *entry.route->trajectory().finish_time();
-    const std::string& map_name = entry.route->map();
-
-    const auto map_it = _timelines.insert(
-          std::make_pair(map_name, Entries())).first;
-
-    Entries& timeline = map_it->second;
-
-    const auto start_it = get_timeline_iterator(timeline, start_time);
-    const auto end_it = ++get_timeline_iterator(timeline, finish_time);
-
     std::vector<std::weak_ptr<Bucket>> buckets;
-    for (auto it = start_it; it != end_it; ++it)
-    {
-      it->second->push_back(&entry);
-      buckets.emplace_back(it->second);
-    }
-
     _all_bucket->push_back(&entry);
     buckets.emplace_back(_all_bucket);
+
+    if (entry.route && entry.route->trajectory().start_time())
+    {
+      const Time start_time = *entry.route->trajectory().start_time();
+      const Time finish_time = *entry.route->trajectory().finish_time();
+      const std::string& map_name = entry.route->map();
+
+      const auto map_it = _timelines.insert(
+            std::make_pair(map_name, Entries())).first;
+
+      Entries& timeline = map_it->second;
+
+      const auto start_it = get_timeline_iterator(timeline, start_time);
+      const auto end_it = ++get_timeline_iterator(timeline, finish_time);
+
+      for (auto it = start_it; it != end_it; ++it)
+      {
+        it->second->push_back(&entry);
+        buckets.emplace_back(it->second);
+      }
+    }
 
     entry.timeline_handle = std::make_shared<Handle>(
           &entry, std::move(buckets));
