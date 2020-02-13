@@ -83,6 +83,9 @@ public:
   /// match the Query parameters.
   virtual View query(const Query& parameters) const = 0;
 
+  // TODO(MXG): Consider providing an iterator-style API to view participant IDs
+  // and participant descriptions.
+
   /// Get the set of active participant IDs.
   virtual const std::unordered_set<ParticipantId>& participant_ids() const = 0;
 

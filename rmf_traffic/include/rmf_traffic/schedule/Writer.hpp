@@ -132,22 +132,34 @@ public:
       const std::vector<RouteId>& routes,
       ItineraryVersion version) = 0;
 
+  // TODO(MXG): Consider saying "add" instead of "register" and "remove" instead
+  // of "unregister".
+
   /// Register a new participant.
   ///
   /// \param[in] participant_info
   ///   Information about the new participant.
   ///
+  /// \param[in] time
+  ///   The time at which the registration is being requested.
+  ///
   /// \return result of registering the new participant.
   virtual ParticipantId register_participant(
-      ParticipantDescription participant_info) = 0;
+      ParticipantDescription participant_info,
+      Time time) = 0;
 
   /// Unregister an existing participant.
   ///
   /// \param[in] participant
   ///   The ID of the participant to unregister.
   ///
+  /// \param[in] time
+  ///   The time at which the de-registration is being requested.
+  ///
   /// \return the new version of the schedule.
-  virtual void unregister_participant(ParticipantId participant) = 0;
+  virtual void unregister_participant(
+      ParticipantId participant,
+      Time time) = 0;
 
 };
 

@@ -99,17 +99,27 @@ public:
 
   Timeline<RouteEntry> timeline;
 
+  // TODO(MXG): Should storage be merged with state?
   using ParticipantStorage = std::unordered_map<RouteId, RouteEntryPtr>;
-  using Storage = std::unordered_map<ParticipantId, ParticipantStorage>;
-  Storage storage;
 
   struct ParticipantState
   {
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
+    ParticipantStorage storage;
+    const ParticipantDescription description;
+    const Version initial_schedule_version;
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
+
+  using ParticipantRegistrationVersions = std::map<Version, ParticipantId>;
+  ParticipantRegistrationVersions add_participant_version;
+  ParticipantRegistrationVersions remove_participant_version;
+
+  using ParticipantRegistrationTime = std::map<Time, ParticipantId>;
+  ParticipantRegistrationTime add_participant_time;
+  ParticipantRegistrationTime remove_participant_time;
 
   // NOTE(MXG): We store this record of inconsistency ranges here as a single
   // group that covers all participants in order to make it easy for us to share
@@ -129,8 +139,6 @@ public:
 
   std::unordered_set<ParticipantId> participant_ids;
 
-  std::unordered_map<ParticipantId, ParticipantDescription> participants;
-
   Version schedule_version = 0;
 
   /// This function verifies that the route IDs specified in the input are not
@@ -141,7 +149,7 @@ public:
   /// that vector can be used to efficiently populate the route information,
   /// saving us the cost of a second map lookup later on.
   std::vector<RouteEntryPtr*> check_route_ids(
-      ParticipantId participant,
+      ParticipantState& state,
       const Input& input)
   {
     // NOTE(MXG): We store references to the values of the route entries,
@@ -152,13 +160,13 @@ public:
     std::vector<RouteEntryPtr*> entries;
     entries.reserve(input.size());
 
-    ParticipantStorage& routes = storage.at(participant);
+    ParticipantStorage& storage = state.storage;
 
     // Verify that the new route IDs do not overlap any that are still in the
     // database
     for (const Item& item : input)
     {
-      const auto insertion = routes.insert(std::make_pair(item.id, nullptr));
+      const auto insertion = storage.insert(std::make_pair(item.id, nullptr));
 
       // If the result of this insertion attempt was anything besides a nullptr,
       // then that means this route ID was already taken, so we should reject
@@ -211,15 +219,15 @@ public:
 
   void apply_delay(
       ParticipantId participant,
-      const ParticipantState& state,
+      ParticipantState& state,
       Time from,
       Duration delay)
   {
-    ParticipantStorage& routes = storage.at(participant);
+    ParticipantStorage& storage = state.storage;
     for (const RouteId id : state.active_routes)
     {
-      assert(routes.find(id) != routes.end());
-      auto& entry = routes.at(id);
+      assert(storage.find(id) != storage.end());
+      auto& entry = storage.at(id);
       const Trajectory& old_trajectory = entry->route->trajectory();
       assert(old_trajectory.start_time());
 
@@ -266,13 +274,14 @@ public:
 
   void erase_routes(
       ParticipantId participant,
-      const std::unordered_set<RouteId>& erase)
+      ParticipantState& state,
+      const std::unordered_set<RouteId>& routes)
   {
-    ParticipantStorage& routes = storage.at(participant);
-    for (const RouteId id : erase)
+    ParticipantStorage& storage = state.storage;
+    for (const RouteId id : routes)
     {
-      assert(routes.find(id) != routes.end());
-      auto& old_entry = routes.at(id);
+      assert(storage.find(id) != storage.end());
+      auto& old_entry = storage.at(id);
 
       auto transition = std::make_unique<Transition>(
             Transition{
@@ -299,6 +308,32 @@ public:
     // the state using this function. It gets tricky, though since the "erase"
     // argument is sometimes a reference to the active_routes field.
   }
+
+  ParticipantId get_next_participant_id()
+  {
+    // This will cycle through the set of currently active participant IDs until
+    // it finds a value which is not already taken. If it cycles through the
+    // entire set of possible values and cannot find a value that is available,
+    // then we will quit and throw an exception. Note that it is
+    // incomprehensible to have that many participants in the schedule.
+    const ParticipantId initial_suggestion = _next_participant_id;
+    do
+    {
+      const auto insertion = participant_ids.insert(_next_participant_id);
+      ++_next_participant_id;
+      if (insertion.second)
+        return *insertion.first;
+
+    } while (_next_participant_id != initial_suggestion);
+
+    throw std::runtime_error(
+          "[Database::Implementation::get_next_participant_id] There are no "
+          "remaining Participant ID values available. This should never happen."
+          " Please report this as a serious bug.");
+  }
+
+private:
+  ParticipantId _next_participant_id = 0;
 };
 
 //==============================================================================
@@ -333,7 +368,7 @@ void Database::set(
   }
 
   std::vector<Implementation::RouteEntryPtr*> entries =
-      _pimpl->check_route_ids(participant, itinerary);
+      _pimpl->check_route_ids(state, itinerary);
 
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
@@ -381,7 +416,7 @@ void Database::extend(
   }
 
   std::vector<Implementation::RouteEntryPtr*> entries =
-      _pimpl->check_route_ids(participant, routes);
+      _pimpl->check_route_ids(state, routes);
 
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
@@ -456,7 +491,7 @@ void Database::erase(
 
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
-  _pimpl->erase_routes(participant, state.active_routes);
+  _pimpl->erase_routes(participant, state, state.active_routes);
   state.active_routes.clear();
 }
 
@@ -506,21 +541,117 @@ void Database::erase(
 
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
-  _pimpl->erase_routes(participant, route_set);
+  _pimpl->erase_routes(participant, state, route_set);
   for (const RouteId id : routes)
     state.active_routes.erase(id);
 }
 
 //==============================================================================
-ParticipantId register_participant(
-    ParticipantDescription participant_info)
+ParticipantId Database::register_participant(
+    ParticipantDescription participant_info,
+    Time time)
 {
+  const ParticipantId id = _pimpl->get_next_participant_id();
+  auto tracker = Inconsistencies::Implementation::register_participant(
+        _pimpl->inconsistencies, id);
 
+  const Version version = ++_pimpl->schedule_version;
+
+  _pimpl->states.insert(
+        std::make_pair(
+          id,
+          Implementation::ParticipantState{
+            {},
+            std::move(tracker),
+            {},
+            std::move(participant_info),
+            version
+          }));
+
+  _pimpl->add_participant_version[version] = id;
+  _pimpl->add_participant_time[time] = id;
 }
 
 //==============================================================================
-// ASSUMPTION(MXG): When a new participant is registered, we will create an
-// entry in storage, states, participant_ids, and participants.
+void Database::unregister_participant(
+    ParticipantId participant,
+    const Time time)
+{
+  const auto id_it = _pimpl->participant_ids.find(participant);
+  const auto state_it = _pimpl->states.find(participant);
+
+  if (id_it == _pimpl->participant_ids.end()
+      && state_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::unregister_participant] Requested unregistering an "
+          "inactive participant ID [" + std::to_string(participant) + "]");
+  }
+  else if (id_it == _pimpl->participant_ids.end()
+           || state_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::unregister_participant] Inconsistency in participant "
+          "registration ["
+          + std::to_string(id_it == _pimpl->participant_ids.end()) + ":"
+          + std::to_string(state_it == _pimpl->states.end())
+          + "]. Please report this as a serious bug!");
+  }
+
+  _pimpl->participant_ids.erase(id_it);
+  _pimpl->states.erase(state_it);
+
+  const Version version = ++_pimpl->schedule_version;
+  _pimpl->remove_participant_version[version] = participant;
+  _pimpl->remove_participant_time[time] = participant;
+}
+
+//==============================================================================
+const std::unordered_set<ParticipantId>& Database::participant_ids() const
+{
+  return _pimpl->participant_ids;
+}
+
+//==============================================================================
+rmf_utils::optional<const ParticipantDescription&> Database::get_participant(
+    std::size_t participant_id) const
+{
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  return state_it->second.description;
+}
+
+//==============================================================================
+rmf_utils::optional<Itinerary> Database::get_itinerary(
+    std::size_t participant_id) const
+{
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  const Implementation::ParticipantState& state = state_it->second;
+
+  Itinerary itinerary;
+  itinerary.reserve(state.active_routes.size());
+  for (const RouteId route : state.active_routes)
+    itinerary.push_back(state.storage.at(route)->route);
+
+  return itinerary;
+}
+
+//==============================================================================
+Version Database::latest_version() const
+{
+  return _pimpl->schedule_version;
+}
+
+//==============================================================================
+const Inconsistencies& Database::inconsistencies() const
+{
+  return _pimpl->inconsistencies;
+}
 
 namespace internal {
 

@@ -33,7 +33,9 @@ class Inconsistencies::Implementation
 {
 public:
 
-  std::unique_ptr<InconsistencyTracker> register_participant(ParticipantId id);
+  static std::unique_ptr<InconsistencyTracker> register_participant(
+      Inconsistencies& inconsistencies,
+      ParticipantId id);
 
   void unregister_participant(ParticipantId id);
 

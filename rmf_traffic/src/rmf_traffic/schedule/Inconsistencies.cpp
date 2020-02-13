@@ -92,12 +92,17 @@ std::size_t Inconsistencies::Ranges::size() const
 
 //==============================================================================
 std::unique_ptr<InconsistencyTracker>
-Inconsistencies::Implementation::register_participant(ParticipantId id)
+Inconsistencies::Implementation::register_participant(
+    Inconsistencies& inconsistencies,
+    ParticipantId id)
 {
+  auto& _inconsistencies = inconsistencies._pimpl->_inconsistencies;
+  auto& _api = inconsistencies._pimpl->_api;
+
   assert(_inconsistencies.find(id) == _inconsistencies.end());
   const auto it = _inconsistencies.insert(std::make_pair(id, RangesSet()));
   assert(it.second);
-  RangesSet& ranges = it->second;
+  RangesSet& ranges = it.first->second;
   _api.insert(
         std::make_pair(id, Element{id, Ranges::Implementation::make(ranges)}));
 

@@ -79,10 +79,13 @@ public:
 
   /// Documentation inherited from Writer
   ParticipantId register_participant(
-      ParticipantDescription participant_info) final;
+      ParticipantDescription participant_info,
+      Time time) final;
 
   /// Documentation inherited from Writer
-  void unregister_participant(ParticipantId participant) final;
+  void unregister_participant(
+      ParticipantId participant,
+      Time time) final;
 
 
   //============================================================================
@@ -102,9 +105,6 @@ public:
   /// Documentation inherited from Viewer
   rmf_utils::optional<Itinerary> get_itinerary(
       std::size_t participant_id) const final;
-
-  /// Documentation inherited from Viewer
-  Version oldest_version() const final;
 
   /// Documentation inherited from Viewer
   Version latest_version() const final;
