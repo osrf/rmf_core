@@ -85,13 +85,13 @@ public:
     // ===== Mandatory fields for a Timeline Entry =====
     ConstRoutePtr route;
     ParticipantId participant;
+    RouteId route_id;
     std::shared_ptr<void> timeline_handle;
 
     // ===== Additional fields for this timeline entry =====
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
     // templates to automatically mix these custom fields with the required
     // fields of the base Entry
-    RouteId route_id;
     Version schedule_version;
     TransitionPtr transition;
     RouteEntry* successor;
@@ -688,6 +688,71 @@ ConstEntryPtr get_last_known_ancestor(
 }
 
 } // anonymous namespace
+
+//==============================================================================
+
+
+//==============================================================================
+class PatchRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  PatchRelevanceInspector(Version after)
+  : _after(after)
+  {
+    // Do nothing
+  }
+
+  Version _after;
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+
+  struct Add
+  {
+    Version version;
+    ParticipantId participant;
+    RouteId route_id;
+    ConstRoutePtr route;
+  };
+
+  const RouteEntry* get_last_known_ancestor(const RouteEntry* from) const
+  {
+    assert(from);
+    while (from && modular(_after).less_than(from->schedule_version))
+    {
+      if (from->transition)
+        from = from->transition->predecessor.get();
+      else
+        return nullptr;
+    }
+
+    while (from->successor
+           && modular(from->successor->schedule_version)
+                .less_than_or_equal(_after))
+    {
+      from = from->successor;
+    }
+
+    return from;
+  }
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const Route &)>& relevant) override
+  {
+    const RouteEntry* last = get_last_known_ancestor(entry);
+    if (last)
+    {
+
+    }
+    else
+    {
+
+    }
+  }
+
+};
 
 //==============================================================================
 void ChangeRelevanceInspector::inspect(

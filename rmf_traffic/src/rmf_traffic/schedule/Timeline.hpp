@@ -113,6 +113,8 @@ public:
 
   using Bucket = std::vector<const Entry*>;
   using BucketPtr = std::shared_ptr<Bucket>;
+  using Checked =
+      std::unordered_map<ParticipantId, std::unordered_set<RouteId>>;
 
   /// This Timeline::Handle class allows us to use RAII so that when an Entry is
   /// deleted it will automatically be removed from any of its timeline buckets.
@@ -247,18 +249,18 @@ private:
       const ParticipantFilter& participant_filter,
       Inspector& inspector) const
   {
-    std::unordered_set<const Entry*> checked;
+    Checked checked;
 
-    const auto relevant = [](const ConstRoutePtr& r) -> bool { return true; };
+    const auto relevant = [](const Route& r) -> bool { return true; };
     for (const auto& entry : _all_bucket)
     {
       if (participant_filter.ignore(entry->participant))
         continue;
 
-      if (!checked.insert(entry).second)
+      if (!checked[entry->participant].insert(entry->route_id).second)
         continue;
 
-      inspector.inspect(entry, relevant, checked);
+      inspector.inspect(entry, relevant);
     }
   }
 
@@ -268,13 +270,12 @@ private:
       const ParticipantFilter& participant_filter,
       Inspector& inspector) const
   {
-    std::unordered_set<const Entry*> checked;
-    checked.reserve(_all_bucket->size());
+    Checked checked;
 
     rmf_traffic::internal::Spacetime spacetime_data;
-    const auto relevant = [&spacetime_data](const ConstRoutePtr& r) -> bool {
+    const auto relevant = [&spacetime_data](const Route& r) -> bool {
       return rmf_traffic::internal::detect_conflicts(
-            r->trajectory(), spacetime_data, nullptr);
+            r.trajectory(), spacetime_data, nullptr);
     };
 
     for (const Region& region : regions)
@@ -315,7 +316,7 @@ private:
             if (participant_filter.ignore(entry->participant))
               continue;
 
-            if (!checked.insert(entry).second)
+            if (!checked[entry->participant].insert(entry->route_id).second)
               continue;
 
             inspector.inspect(entry, relevant);
@@ -332,16 +333,15 @@ private:
       Inspector& inspector)
   {
     std::unordered_set<const Entry*> checked;
-    checked.reserve(_all_bucket->size());
 
     const Time* const lower_time_bound = timespan.get_lower_time_bound();
     const Time* const upper_time_bound = timespan.get_upper_time_bound();
     const auto& maps = timespan.get_maps();
 
     const auto relevant = [&lower_time_bound, &upper_time_bound](
-        const ConstRoutePtr& r) -> bool
+        const Route& r) -> bool
     {
-      const Trajectory& trajectory = r->trajectory();
+      const Trajectory& trajectory = r.trajectory();
       assert(trajectory.start_time());
       if (lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
         return false;
@@ -379,7 +379,7 @@ private:
           if (participant_filter.ignore(entry->participant))
             continue;
 
-          if (!checked.insert(entry).second)
+          if (!checked[entry->participant].insert(entry->route_id).second)
             continue;
 
           inspector.inspect(entry, relevant);
@@ -455,7 +455,6 @@ private:
 
 };
 
-
 //==============================================================================
 template<typename Entry>
 class TimelineInspector
@@ -464,8 +463,7 @@ public:
 
   virtual void inspect(
       const Entry* entry,
-      const std::function<void()>& relevant,
-      std::unordered_set<const Entry*>& checked) = 0;
+      const std::function<bool(const Route& route)>& relevant) = 0;
 
 };
 

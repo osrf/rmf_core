@@ -101,9 +101,6 @@ public:
   virtual rmf_utils::optional<Itinerary> get_itinerary(
       std::size_t participant_id) const = 0;
 
-  /// Get the oldest version number inside this Database.
-  virtual Version oldest_version() const = 0;
-
   /// Get the latest version number of this Database.
   virtual Version latest_version() const = 0;
 
