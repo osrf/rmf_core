@@ -715,6 +715,24 @@ public:
     RouteId route_id;
     ConstRoutePtr route;
   };
+  std::vector<Add> _additions;
+
+  struct Delay
+  {
+    ParticipantId participant;
+    Time from;
+    Duration duration;
+  };
+  // NOTE(MXG): This data structure assumes that every Delay has a unique
+  // schedule::Version value across all participants.
+  std::map<Version, Delay> _delays;
+
+  struct Erase
+  {
+    ParticipantId participant;
+    RouteId route_id;
+  };
+  std::vector<Erase> _erasures;
 
   const RouteEntry* get_last_known_ancestor(const RouteEntry* from) const
   {
@@ -737,166 +755,99 @@ public:
     return from;
   }
 
+  const RouteEntry* get_most_recent(const RouteEntry* from) const
+  {
+    assert(from);
+    while (from->successor)
+      from = from->successor;
+
+    return from;
+  }
+
   void inspect(
       const RouteEntry* entry,
       const std::function<bool(const Route &)>& relevant) override
   {
-    const RouteEntry* last = get_last_known_ancestor(entry);
-    if (last)
-    {
+    const RouteEntry* const last = get_last_known_ancestor(entry);
+    const RouteEntry* const newest = get_most_recent(entry);
 
+    if (last == newest)
+    {
+      // There are no changes for this route to give the mirror
+      return;
     }
-    else
+
+    if (last && last->route && relevant(*last->route))
     {
-
-    }
-  }
-
-};
-
-//==============================================================================
-void ChangeRelevanceInspector::inspect(
-    const ConstRoutePtr& route,
-    const RouteInfo& info,
-    const std::function<bool(const ConstRoutePtr&)>& relevant)
-{
-  const auto& entry = info.latest_entry;
-  assert(!entry->succeeded_by);
-
-  if(after_version
-     && versions.less_or_equal(entry->schedule_version, *after_version))
-    return;
-
-  const bool needed = relevant(route);
-
-  if(needed)
-  {
-    // Check if this entry descends from an entry that the remote mirror does
-    // not know about.
-    ConstEntryPtr record_changes_from = nullptr;
-    if(after_version)
-    {
-      const ConstEntryPtr check =
-          get_last_known_ancestor(entry, *after_version, versions);
-
-      if(check)
+      // The mirror knew about a previous version of this route
+      if (newest->route && relevant(*newest->route))
       {
-        if(relevant(check))
+        // The newest version of this route is relevant to the mirror
+        const RouteEntry* traverse = newest;
+        while (traverse != last)
         {
-          // The remote mirror already knows the lineage of this entry, so we
-          // will transmit all of its changes from the last version that the
-          // mirror knew about.
-          record_changes_from = check;
-        }
-        else
-        {
-          // The remote mirror does not know the lineage of this entry, so we
-          // will simply transmit the current entry as an insertion. We simply
-          // leave record_changes_from as a nullptr.
+          const auto* const transition = traverse->transition.get();
+          assert(transition);
+          assert(transition->delay);
+          const auto& delay = *transition->delay;
+          const auto insertion = _delays.insert(
+                std::make_pair(
+                  traverse->schedule_version,
+                  Delay{
+                    traverse->participant,
+                    delay.from,
+                    delay.duration
+                  }));
+#ifndef NDEBUG
+          // When compiling in debug mode, if we see a duplicate insertion,
+          // let's make sure that the previously entered data matches what we
+          // wanted to enter just now.
+          if (!insertion.second)
+          {
+            const Delay& previous = insertion.first->second;
+            assert(previous.participant == traverse->participant);
+            assert(previous.from == delay.from);
+            assert(previous.duration == delay.duration);
+          }
+#elif
+          // When compiling in release mode, cast the return value to void to
+          // suppress compiler warnings.
+          (void)(insertion);
+#endif // NDEBUG
         }
       }
       else
       {
-        // The remote mirror does not know the lineage of this entry, so we
-        // will simply transmit the current entry as an insertion. We simply
-        // leave record_changes_from as a nullptr.
+        // The newest version of this route is not relevant to the mirror, so
+        // we will erase it from the mirror.
+        _erasures.emplace_back(
+              Erase{
+                newest->participant,
+                newest->route_id
+              });
       }
     }
-
-    if(record_changes_from)
+    else
     {
-      // TODO(MXG): We can improve bandwidth usage a bit if we check whether a
-      // Replace operation has taken place since the last known ancestor. If
-      // that is the case, then we can skip recording all of the changes and
-      // just use a single replace from the old version number to the current
-      // version of the trajectory.
-      ConstEntryPtr record = record_changes_from->succeeded_by;
-      while(record)
+      // No version of this route has been seen by the mirror
+      if (newest->route && relevant(*newest->route))
       {
-        relevant_changes.emplace_back(*record->change);
-        record = record->succeeded_by;
+        // The newest version of this route is relevant to the mirror
+        _additions.emplace_back(
+              Add{
+                newest->schedule_version,
+                newest->participant,
+                newest->route_id,
+                newest->route
+              });
       }
-    }
-    else
-    {
-      // We are not transmitting the chain of changes that led to this entry,
-      // so just create an insertion for it and transmit that.
-      relevant_changes.emplace_back(
-            Change::Implementation::make_insert_ref(
-              &route->trajectory, route->version));
-    }
-  }
-  else if(after_version)
-  {
-    // Figure out if this trajectory needs to be erased
-    const ConstEntryPtr check =
-        get_last_known_ancestor(route, *after_version, versions);
-
-    if(check)
-    {
-      if(relevant(check))
+      else
       {
-        // This trajectory is no longer relevant to the remote mirror, so we
-        // will tell the remote mirror to erase it rather than continuing to
-        // transmit its change history. If a later version of this trajectory
-        // becomes relevant again, we will tell it to insert it at that time.
-        relevant_changes.emplace_back(
-              Change::make_erase(check->version, route->version));
+        // Ignore this route. The mirror has no need to know about it.
       }
     }
   }
-  else
-  {
-    // The remote mirror never knew about the lineage of this entry, so there's
-    // no need to transmit any information about it at all.
-  }
-}
-
-//==============================================================================
-void ChangeRelevanceInspector::inspect(
-    const ConstRoutePtr& route,
-    const RouteInfo& info,
-    const rmf_traffic::internal::Spacetime& spacetime)
-{
-  inspect(route, info, [&](const ConstRoutePtr& r) -> bool {
-    const Trajectory& trajectory = r->trajectory();
-    if(trajectory.start_time())
-    {
-      return rmf_traffic::internal::detect_conflicts(
-            trajectory, spacetime, nullptr);
-    }
-    else
-    {
-      return false;
-    }
-  });
-}
-
-//==============================================================================
-void ChangeRelevanceInspector::inspect(
-    const ConstRoutePtr& route,
-    const RouteInfo& info,
-    const Time* const lower_time_bound,
-    const Time* const upper_time_bound)
-{
-  inspect(route, info, [&](const ConstRoutePtr& r) -> bool {
-    const Trajectory& trajectory = r->trajectory();
-    if(trajectory.start_time())
-    {
-      if(lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
-        return false;
-
-      if(upper_time_bound && *upper_time_bound < *trajectory.start_time())
-        return false;
-
-      return true;
-    }
-    else
-    {
-      return false;
-    }
-  });
-}
+};
 
 } // namespace internal
 
@@ -935,116 +886,6 @@ auto Database::changes(
   }
 
   return Patch(relevant_changes, latest_version());
-}
-
-//==============================================================================
-Version Database::insert(Trajectory trajectory)
-{
-  internal::EntryPtr new_entry =
-      std::make_shared<internal::Entry>(
-        std::move(trajectory),
-        ++_pimpl->latest_version);
-
-  new_entry->change = std::make_unique<Change>(
-        Change::Implementation::make_insert_ref(
-          &new_entry->trajectory, new_entry->version));
-
-  _pimpl->add_entry(new_entry);
-
-  return new_entry->version;
-}
-
-//==============================================================================
-Version Database::interrupt(
-    Version id,
-    Trajectory interruption_trajectory,
-    Duration delay)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(id, "interruption")->second;
-
-  Trajectory new_trajectory = add_interruption(
-        old_entry->trajectory, interruption_trajectory, delay);
-
-  const Version new_version = ++_pimpl->latest_version;
-  Change change = Database::Change::make_interrupt(
-        id, std::move(interruption_trajectory), delay, new_version);
-
-  old_entry->succeeded_by = _pimpl->add_entry(
-      std::make_shared<internal::Entry>(
-        std::move(new_trajectory),
-        new_version,
-        old_entry,
-        std::make_unique<Change>(std::move(change))));
-
-  return new_version;
-}
-
-//==============================================================================
-Version Database::delay(
-    const Version id,
-    const Time from,
-    const Duration delay)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(id, "delay")->second;
-
-  Trajectory new_trajectory = add_delay(
-        old_entry->trajectory, from, delay);
-
-  const Version new_version = ++_pimpl->latest_version;
-  Change change = Database::Change::make_delay(id, from, delay, new_version);
-
-  old_entry->succeeded_by = _pimpl->add_entry(
-        std::make_shared<internal::Entry>(
-          std::move(new_trajectory),
-          new_version,
-          old_entry,
-          std::make_unique<Change>(std::move(change))));
-
-  return new_version;
-}
-
-//==============================================================================
-Version Database::replace(
-    Version previous_id,
-    Trajectory trajectory)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(previous_id, "replacement")->second;
-
-  const Version new_version = ++_pimpl->latest_version;
-  internal::EntryPtr new_entry =
-      std::make_shared<internal::Entry>(
-        std::move(trajectory),
-        new_version,
-        old_entry);
-
-  new_entry->change = std::make_unique<Change>(
-        Change::Implementation::make_replace_ref(
-          previous_id, &new_entry->trajectory, new_version));
-
-  old_entry->succeeded_by = _pimpl->add_entry(new_entry);
-
-  return new_version;
-}
-
-//==============================================================================
-Version Database::erase(Version id)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(id, "erasure")->second;
-
-  const Version new_version = ++_pimpl->latest_version;
-
-  old_entry->succeeded_by = _pimpl->add_entry(
-        std::make_shared<internal::Entry>(
-          Trajectory{old_entry->trajectory.get_map_name()},
-          new_version,
-          old_entry,
-          std::make_unique<Change>(Change::make_erase(id, new_version))), true);
-
-  return new_version;
 }
 
 //==============================================================================
