@@ -22,6 +22,8 @@
 
 #include <rmf_traffic/detail/bidirectional_iterator.hpp>
 
+#include <rmf_utils/optional.hpp>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -34,10 +36,60 @@ public:
   template<typename E, typename I, typename F>
   using base_iterator = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
 
+  class Participant
+  {
+  public:
+
+    /// Constructor
+    ///
+    /// \param[in] id
+    ///   The ID of the participant that is being changed
+    ///
+    /// \param[in] erasures
+    ///   The information about which routes to erase
+    ///
+    /// \param[in] delays
+    ///   The information about what delays have occurred
+    ///
+    /// \param[in] additions
+    ///   The information about which routes to add
+    Participant(
+        ParticipantId id,
+        Change::Erase erasures,
+        std::vector<Change::Delay> delays,
+        Change::Add additions);
+
+    /// The ID of the participant that this set of changes will patch.
+    ParticipantId participant_id() const;
+
+    /// The route erasures to perform.
+    ///
+    /// These erasures should be performed before any other changes.
+    const Change::Erase& erasures() const;
+
+    /// The sequence of delays to apply.
+    ///
+    /// These delays should be applied in sequential order after the erasures
+    /// are performed, and before any additions are performed.
+    const std::vector<Change::Delay>& delays() const;
+
+    /// The set of additions to perfom.
+    ///
+    /// These additions should be applied after all other changes.
+    const Change::Add& additions() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
   class IterImpl;
   using const_iterator = base_iterator<const Change, IterImpl, Patch>;
 
-  Patch(std::vector<Change> changes, Version latest_version);
+  Patch(
+      std::vector<Participant> changes,
+      rmf_utils::optional<Change::Cull> cull,
+      Version latest_version);
 
   /// Returns an iterator to the first element of the Patch.
   const_iterator begin() const;
@@ -49,6 +101,9 @@ public:
 
   /// Get the number of elements in this Patch.
   std::size_t size() const;
+
+  /// Get the cull information for this patch if a cull has occurred.
+  rmf_utils::optional<const Change::Cull&> cull() const;
 
   /// Get the latest version of the Database that informed this Patch.
   Version latest_version() const;

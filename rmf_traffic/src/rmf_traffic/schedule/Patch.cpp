@@ -53,7 +53,7 @@ public:
 };
 
 //==============================================================================
-Patch::Patch(std::vector<Change> changes, Version latest_version)
+Patch::Patch(std::vector<Participant> changes, Version latest_version)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              std::move(changes), latest_version))
 {

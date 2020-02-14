@@ -141,6 +141,8 @@ public:
 
   Version schedule_version = 0;
 
+  rmf_utils::optional<Change::Cull> last_cull;
+
   /// This function verifies that the route IDs specified in the input are not
   /// already being used. If that ever happens, it is indicative of a bug or a
   /// malformed input into the database.
@@ -206,8 +208,8 @@ public:
             RouteEntry{
               item.route,
               participant,
-              nullptr,
               route_id,
+              nullptr,
               schedule_version,
               nullptr,
               nullptr
@@ -260,8 +262,8 @@ public:
             RouteEntry{
               std::move(new_route),
               participant,
-              nullptr,
               id,
+              nullptr,
               schedule_version,
               std::move(transition),
               nullptr
@@ -293,8 +295,8 @@ public:
             RouteEntry{
               nullptr,
               participant,
-              nullptr,
               id,
+              nullptr,
               schedule_version,
               std::move(transition),
               nullptr
@@ -653,44 +655,33 @@ const Inconsistencies& Database::inconsistencies() const
   return _pimpl->inconsistencies;
 }
 
-namespace internal {
-
-//==============================================================================
-void ChangeRelevanceInspector::version_range(VersionRange range)
-{
-  versions = std::move(range);
-}
-
-//==============================================================================
-void ChangeRelevanceInspector::after(const Version* _after)
-{
-  after_version = _after;
-}
-
-//==============================================================================
-void ChangeRelevanceInspector::reserve(std::size_t size)
-{
-  relevant_changes.reserve(size);
-}
-
-//==============================================================================
 namespace {
 
-ConstEntryPtr get_last_known_ancestor(
-    ConstEntryPtr from,
-    const Version last_known_version,
-    const VersionRange& versions)
+//==============================================================================
+const Database::Implementation::RouteEntry* get_most_recent(
+    const Database::Implementation::RouteEntry* from)
 {
-  while(from && versions.less(last_known_version, from->schedule_version))
-    from = from->succeeds;
+  assert(from);
+  while (from->successor)
+    from = from->successor;
 
   return from;
 }
 
-} // anonymous namespace
+//==============================================================================
+struct Delay
+{
+  Time from;
+  Duration duration;
+};
 
 //==============================================================================
-
+struct ParticipantChanges
+{
+  std::vector<Change::Add::Item> additions;
+  std::map<Version, Delay> delays;
+  std::vector<RouteId> erasures;
+};
 
 //==============================================================================
 class PatchRelevanceInspector
@@ -708,31 +699,7 @@ public:
 
   using RouteEntry = Database::Implementation::RouteEntry;
 
-  struct Add
-  {
-    Version version;
-    ParticipantId participant;
-    RouteId route_id;
-    ConstRoutePtr route;
-  };
-  std::vector<Add> _additions;
-
-  struct Delay
-  {
-    ParticipantId participant;
-    Time from;
-    Duration duration;
-  };
-  // NOTE(MXG): This data structure assumes that every Delay has a unique
-  // schedule::Version value across all participants.
-  std::map<Version, Delay> _delays;
-
-  struct Erase
-  {
-    ParticipantId participant;
-    RouteId route_id;
-  };
-  std::vector<Erase> _erasures;
+  std::unordered_map<ParticipantId, ParticipantChanges> changes;
 
   const RouteEntry* get_last_known_ancestor(const RouteEntry* from) const
   {
@@ -751,15 +718,6 @@ public:
     {
       from = from->successor;
     }
-
-    return from;
-  }
-
-  const RouteEntry* get_most_recent(const RouteEntry* from) const
-  {
-    assert(from);
-    while (from->successor)
-      from = from->successor;
 
     return from;
   }
@@ -784,17 +742,17 @@ public:
       {
         // The newest version of this route is relevant to the mirror
         const RouteEntry* traverse = newest;
+        ParticipantChanges& p_changes = changes[newest->participant];
         while (traverse != last)
         {
           const auto* const transition = traverse->transition.get();
           assert(transition);
           assert(transition->delay);
           const auto& delay = *transition->delay;
-          const auto insertion = _delays.insert(
+          const auto insertion = p_changes.delays.insert(
                 std::make_pair(
                   traverse->schedule_version,
                   Delay{
-                    traverse->participant,
                     delay.from,
                     delay.duration
                   }));
@@ -805,7 +763,6 @@ public:
           if (!insertion.second)
           {
             const Delay& previous = insertion.first->second;
-            assert(previous.participant == traverse->participant);
             assert(previous.from == delay.from);
             assert(previous.duration == delay.duration);
           }
@@ -820,11 +777,7 @@ public:
       {
         // The newest version of this route is not relevant to the mirror, so
         // we will erase it from the mirror.
-        _erasures.emplace_back(
-              Erase{
-                newest->participant,
-                newest->route_id
-              });
+        changes[newest->participant].erasures.emplace_back(newest->route_id);
       }
     }
     else
@@ -833,10 +786,8 @@ public:
       if (newest->route && relevant(*newest->route))
       {
         // The newest version of this route is relevant to the mirror
-        _additions.emplace_back(
-              Add{
-                newest->schedule_version,
-                newest->participant,
+        changes[newest->participant].additions.emplace_back(
+              Change::Add::Item{
                 newest->route_id,
                 newest->route
               });
@@ -849,10 +800,37 @@ public:
   }
 };
 
-} // namespace internal
+//==============================================================================
+class FirstPatchRelevantInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+
+  std::unordered_map<ParticipantId, ParticipantChanges> changes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const Route&)>& relevant) final
+  {
+    const RouteEntry* const newest = get_most_recent(entry);
+    if (newest->route && relevant(*newest->route))
+    {
+      changes[newest->participant].additions.emplace_back(
+            Change::Add::Item{
+              newest->route_id,
+              newest->route
+            });
+    }
+  }
+};
+
+} // anonymous namespace
 
 //==============================================================================
 Database::Database()
+: _pimpl(rmf_utils::make_unique_impl<Implementation>())
 {
   // Do nothing
 }
@@ -862,30 +840,46 @@ auto Database::changes(
     const Query& parameters,
     rmf_utils::optional<Version> after) const -> Patch
 {
-  auto relevant_changes = _pimpl->inspect<internal::ChangeRelevanceInspector>(
-        parameters).relevant_changes;
-
-  if(_pimpl->cull_has_occurred)
+  std::unordered_map<ParticipantId, ParticipantChanges> changes;
+  if (after)
   {
-    const auto* after = parameters.versions().after();
-    const auto& last_cull = _pimpl->last_cull;
-    if(after)
-    {
-      const auto range = internal::VersionRange(_pimpl->oldest_version);
-      if(range.less(after->get_version(), last_cull.first))
-      {
-        relevant_changes.push_back(
-              Change::make_cull(last_cull.second, last_cull.first));
-      }
-    }
-    else
-    {
-      relevant_changes.push_back(
-            Change::make_cull(last_cull.second, last_cull.first));
-    }
+    PatchRelevanceInspector inspector(*after);
+    _pimpl->timeline.inspect(parameters, inspector);
+    changes = inspector.changes;
+  }
+  else
+  {
+    FirstPatchRelevantInspector inspector;
+    _pimpl->timeline.inspect(parameters, inspector);
+    changes = inspector.changes;
   }
 
-  return Patch(relevant_changes, latest_version());
+  std::vector<Patch::Participant> part_patches;
+  for (const auto p : changes)
+  {
+    std::vector<Change::Delay> delays;
+    for (const auto d : p.second.delays)
+    {
+      delays.emplace_back(
+            Change::Delay{
+              d.second.from,
+              d.second.duration
+            });
+    }
+
+    part_patches.emplace_back(
+          Patch::Participant{
+            p.first,
+            Change::Erase(std::move(p.second.erasures)),
+            std::move(delays),
+            Change::Add(std::move(p.second.additions))
+          });
+  }
+
+  return Patch(
+        std::move(part_patches),
+        _pimpl->last_cull,
+        _pimpl->schedule_version);
 }
 
 //==============================================================================
@@ -897,5 +891,4 @@ Version Database::cull(Time time)
 }
 
 } // namespace schedule
-
 } // namespace rmf_traffic

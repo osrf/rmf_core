@@ -162,7 +162,7 @@ public:
 
   class Implementation;
 private:
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace schedule
