@@ -63,29 +63,44 @@ class Query::Spacetime::Timespan::Implementation
 public:
 
   std::unordered_set<std::string> maps;
+  bool all_maps;
 
   rmf_utils::optional<Time> lower_bound;
   rmf_utils::optional<Time> upper_bound;
 
   static Timespan make(
       std::vector<std::string> maps,
-      const Time* lower_bound,
-      const Time* upper_bound)
+      rmf_utils::optional<Time> lower_bound,
+      rmf_utils::optional<Time> upper_bound)
   {
     Timespan span;
-    span._pimpl->maps = std::unordered_set<std::string>{
-          std::make_move_iterator(maps.begin()),
-          std::make_move_iterator(maps.end())};
+    span._pimpl = rmf_utils::make_impl<Implementation>(
+          Implementation{
+            std::unordered_set<std::string>{
+              std::make_move_iterator(maps.begin()),
+              std::make_move_iterator(maps.end())
+            },
+            false,
+            lower_bound,
+            upper_bound
+          });
 
-    if(lower_bound)
-      span._pimpl->lower_bound = *lower_bound;
-    else
-      span._pimpl->lower_bound = rmf_utils::nullopt;
+    return span;
+  }
 
-    if(upper_bound)
-      span._pimpl->upper_bound = *upper_bound;
-    else
-      span._pimpl->upper_bound = rmf_utils::nullopt;
+  static Timespan make(
+      bool query_all_maps,
+      rmf_utils::optional<Time> lower_bound,
+      rmf_utils::optional<Time> upper_bound)
+  {
+    Timespan span;
+    span._pimpl = rmf_utils::make_impl<Implementation>(
+          Implementation{
+            {},
+            query_all_maps,
+            lower_bound,
+            upper_bound
+          });
 
     return span;
   }
@@ -106,7 +121,9 @@ public:
   // get used.
   Implementation()
     : regions_instance(Regions::Implementation::make({})),
-      timespan_instance(Timespan::Implementation::make({}, nullptr, nullptr))
+      timespan_instance(
+        Timespan::Implementation::make(
+          {}, rmf_utils::nullopt, rmf_utils::nullopt))
   {
     // Do nothing
   }
@@ -244,7 +261,7 @@ Query::Spacetime::Regions::Regions()
 
 //==============================================================================
 const std::unordered_set<std::string>&
-Query::Spacetime::Timespan::get_maps() const
+Query::Spacetime::Timespan::maps() const
 {
   return _pimpl->maps;
 }
@@ -261,6 +278,19 @@ auto Query::Spacetime::Timespan::remove_map(const std::string& map_name)
   -> Timespan&
 {
   _pimpl->maps.erase(map_name);
+  return *this;
+}
+
+//==============================================================================
+bool Query::Spacetime::Timespan::all_maps() const
+{
+  return _pimpl->all_maps;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::all_maps(bool query_all_maps) -> Timespan&
+{
+  _pimpl->all_maps = query_all_maps;
   return *this;
 }
 
@@ -312,7 +342,6 @@ auto Query::Spacetime::Timespan::remove_upper_time_bound() -> Timespan&
 
 //==============================================================================
 Query::Spacetime::Timespan::Timespan()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // Do nothing
 }
@@ -353,7 +382,7 @@ auto Query::Spacetime::query_timespan(
   _pimpl->mode = Mode::Timespan;
   _pimpl->timespan_instance =
       Timespan::Implementation::make(
-        std::move(maps), &lower_bound, &upper_bound);
+        std::move(maps), lower_bound, upper_bound);
 
   return _pimpl->timespan_instance;
 }
@@ -366,7 +395,7 @@ auto Query::Spacetime::query_timespan(
   _pimpl->mode = Mode::Timespan;
   _pimpl->timespan_instance =
       Timespan::Implementation::make(
-        std::move(maps), &lower_bound, nullptr);
+        std::move(maps), lower_bound, rmf_utils::nullopt);
 
   return _pimpl->timespan_instance;
 }
@@ -377,7 +406,23 @@ auto Query::Spacetime::query_timespan(
 {
   _pimpl->mode = Mode::Timespan;
   _pimpl->timespan_instance =
-      Timespan::Implementation::make(std::move(maps), nullptr, nullptr);
+      Timespan::Implementation::make(
+        std::move(maps),
+        rmf_utils::nullopt,
+        rmf_utils::nullopt);
+
+  return _pimpl->timespan_instance;
+}
+
+//==============================================================================
+auto Query::Spacetime::query_timespan(bool query_all_maps) -> Timespan&
+{
+  _pimpl->mode = Mode::Timespan;
+  _pimpl->timespan_instance =
+      Timespan::Implementation::make(
+        query_all_maps,
+        rmf_utils::nullopt,
+        rmf_utils::nullopt);
 
   return _pimpl->timespan_instance;
 }

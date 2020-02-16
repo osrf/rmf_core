@@ -136,13 +136,22 @@ public:
     public:
 
       /// Get the maps that will be queried.
-      const std::unordered_set<std::string>& get_maps() const;
+      const std::unordered_set<std::string>& maps() const;
 
       /// Add a map to the query.
       Timespan& add_map(std::string map_name);
 
       /// Remove a map from the query.
       Timespan& remove_map(const std::string& map_name);
+
+      /// Returns true if all maps should be queried. If true, the set of maps
+      /// mentioned above will be ignored.
+      bool all_maps() const;
+
+      /// Set whether all maps should be queried. When true, the set of maps
+      /// above will be ignored. When false, only the maps in the set above will
+      /// be included in the query.
+      Timespan& all_maps(bool query_all_maps);
 
       /// Get the lower bound for the time range.
       ///
@@ -256,6 +265,9 @@ public:
 
     /// Query for all trajectories on a set of maps
     Timespan& query_timespan(std::vector<std::string> maps);
+
+    /// Switch to timespan mode, and specify whether or not to use all maps.
+    Timespan& query_timespan(bool query_all_maps = true);
 
     /// Get the Timespan of Spacetime to use for this Query. If this Spacetime
     /// is not in Timespan mode, then this will return a nullptr.

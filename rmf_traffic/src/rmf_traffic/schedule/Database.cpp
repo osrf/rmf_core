@@ -19,6 +19,7 @@
 #include "InconsistenciesInternal.hpp"
 #include "Modular.hpp"
 #include "Timeline.hpp"
+#include "ViewerInternal.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
@@ -141,7 +142,13 @@ public:
 
   Version schedule_version = 0;
 
-  rmf_utils::optional<Change::Cull> last_cull;
+  struct CullInfo
+  {
+    Change::Cull cull;
+    Version version;
+  };
+
+  rmf_utils::optional<CullInfo> last_cull;
 
   /// This function verifies that the route IDs specified in the input are not
   /// already being used. If that ever happens, it is indicative of a bug or a
@@ -609,52 +616,6 @@ void Database::unregister_participant(
 }
 
 //==============================================================================
-const std::unordered_set<ParticipantId>& Database::participant_ids() const
-{
-  return _pimpl->participant_ids;
-}
-
-//==============================================================================
-rmf_utils::optional<const ParticipantDescription&> Database::get_participant(
-    std::size_t participant_id) const
-{
-  const auto state_it = _pimpl->states.find(participant_id);
-  if (state_it == _pimpl->states.end())
-    return rmf_utils::nullopt;
-
-  return state_it->second.description;
-}
-
-//==============================================================================
-rmf_utils::optional<Itinerary> Database::get_itinerary(
-    std::size_t participant_id) const
-{
-  const auto state_it = _pimpl->states.find(participant_id);
-  if (state_it == _pimpl->states.end())
-    return rmf_utils::nullopt;
-
-  const Implementation::ParticipantState& state = state_it->second;
-
-  Itinerary itinerary;
-  itinerary.reserve(state.active_routes.size());
-  for (const RouteId route : state.active_routes)
-    itinerary.push_back(state.storage.at(route)->route);
-
-  return itinerary;
-}
-
-//==============================================================================
-Version Database::latest_version() const
-{
-  return _pimpl->schedule_version;
-}
-
-//==============================================================================
-const Inconsistencies& Database::inconsistencies() const
-{
-  return _pimpl->inconsistencies;
-}
-
 namespace {
 
 //==============================================================================
@@ -694,8 +655,6 @@ public:
   {
     // Do nothing
   }
-
-  Version _after;
 
   using RouteEntry = Database::Implementation::RouteEntry;
 
@@ -798,10 +757,13 @@ public:
       }
     }
   }
+
+private:
+  const Version _after;
 };
 
 //==============================================================================
-class FirstPatchRelevantInspector
+class FirstPatchRelevanceInspector
     : public TimelineInspector<Database::Implementation::RouteEntry>
 {
 public:
@@ -826,13 +788,117 @@ public:
   }
 };
 
+//==============================================================================
+class ViewRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const Route&)>& relevant) final
+  {
+    entry = get_most_recent(entry);
+    if (entry->route && relevant(*entry->route))
+      routes.emplace_back(Storage{entry->participant, entry->route});
+  }
+};
+
+//==============================================================================
+class CullRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+
+  struct Info
+  {
+    ParticipantId participant;
+    RouteId route_id;
+  };
+
+  std::vector<Info> routes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const Route&)>& relevant) final
+  {
+    while(entry->successor && entry->successor->route)
+      entry = entry->successor;
+
+    if (relevant(*entry->route))
+      routes.emplace_back(Info{entry->participant, entry->route_id});
+  }
+};
+
 } // anonymous namespace
+
+//==============================================================================
+Viewer::View Database::query(const Query& parameters) const
+{
+  ViewRelevanceInspector inspector;
+  _pimpl->timeline.inspect(parameters, inspector);
+  return Viewer::View::Implementation::make_view(std::move(inspector.routes));
+}
+
+//==============================================================================
+const std::unordered_set<ParticipantId>& Database::participant_ids() const
+{
+  return _pimpl->participant_ids;
+}
+
+//==============================================================================
+const ParticipantDescription* Database::get_participant(
+    std::size_t participant_id) const
+{
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return nullptr;
+
+  return &state_it->second.description;
+}
+
+//==============================================================================
+rmf_utils::optional<Itinerary> Database::get_itinerary(
+    std::size_t participant_id) const
+{
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  const Implementation::ParticipantState& state = state_it->second;
+
+  Itinerary itinerary;
+  itinerary.reserve(state.active_routes.size());
+  for (const RouteId route : state.active_routes)
+    itinerary.push_back(state.storage.at(route)->route);
+
+  return itinerary;
+}
+
+//==============================================================================
+Version Database::latest_version() const
+{
+  return _pimpl->schedule_version;
+}
 
 //==============================================================================
 Database::Database()
 : _pimpl(rmf_utils::make_unique_impl<Implementation>())
 {
   // Do nothing
+}
+
+//==============================================================================
+const Inconsistencies& Database::inconsistencies() const
+{
+  return _pimpl->inconsistencies;
 }
 
 //==============================================================================
@@ -849,7 +915,7 @@ auto Database::changes(
   }
   else
   {
-    FirstPatchRelevantInspector inspector;
+    FirstPatchRelevanceInspector inspector;
     _pimpl->timeline.inspect(parameters, inspector);
     changes = inspector.changes;
   }
@@ -876,18 +942,45 @@ auto Database::changes(
           });
   }
 
-  return Patch(
-        std::move(part_patches),
-        _pimpl->last_cull,
-        _pimpl->schedule_version);
+  rmf_utils::optional<Change::Cull> cull;
+  if (_pimpl->last_cull && after && *after < _pimpl->last_cull->version)
+  {
+    cull = _pimpl->last_cull->cull;
+  }
+
+  return Patch(std::move(part_patches), cull, _pimpl->schedule_version);
 }
 
 //==============================================================================
 Version Database::cull(Time time)
 {
-  _pimpl->cull(++_pimpl->latest_version, time);
+  Query query = query_all();
+  query.spacetime().query_timespan().set_upper_time_bound(time);
 
-  return _pimpl->latest_version;
+  CullRelevanceInspector inspector;
+  _pimpl->timeline.inspect(query, inspector);
+
+  // TODO(MXG) This iterating could probably be made more efficient by grouping
+  // together the culls of each participant.
+  for (const auto route : inspector.routes)
+  {
+    auto p_it = _pimpl->states.find(route.participant);
+    assert(p_it != _pimpl->states.end());
+
+    auto& storage = p_it->second.storage;
+    const auto r_it = storage.find(route.route_id);
+    assert(r_it != storage.end());
+
+    storage.erase(r_it);
+  }
+
+  ++_pimpl->schedule_version;
+  _pimpl->last_cull = Implementation::CullInfo{
+      Change::Cull(time),
+      _pimpl->schedule_version
+  };
+
+  return _pimpl->schedule_version;
 }
 
 } // namespace schedule

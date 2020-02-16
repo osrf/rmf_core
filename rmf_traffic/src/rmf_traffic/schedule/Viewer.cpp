@@ -439,22 +439,6 @@ Trajectory add_delay(
 }
 
 //==============================================================================
-class Viewer::View::Implementation
-{
-public:
-
-  std::vector<Element> elements;
-
-  static View make_view(std::vector<Element> elements)
-  {
-    View view;
-    view._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(elements)});
-    return view;
-  }
-};
-
-//==============================================================================
 class Viewer::View::IterImpl
 {
 public:

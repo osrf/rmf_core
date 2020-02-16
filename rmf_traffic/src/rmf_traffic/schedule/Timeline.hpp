@@ -116,6 +116,10 @@ public:
   using Checked =
       std::unordered_map<ParticipantId, std::unordered_set<RouteId>>;
 
+  // TODO(MXG): Come up with a better name for this data structure than Entries
+  using Entries = std::map<Time, BucketPtr>;
+  using MapNameToEntries = std::unordered_map<std::string, Entries>;
+
   /// This Timeline::Handle class allows us to use RAII so that when an Entry is
   /// deleted it will automatically be removed from any of its timeline buckets.
   struct Handle
@@ -251,7 +255,7 @@ private:
   {
     Checked checked;
 
-    const auto relevant = [](const Route& r) -> bool { return true; };
+    const auto relevant = [](const Route&) -> bool { return true; };
     for (const auto& entry : _all_bucket)
     {
       if (participant_filter.ignore(entry->participant))
@@ -289,39 +293,27 @@ private:
       const Time* const lower_time_bound = region.get_lower_time_bound();
       const Time* const upper_time_bound = region.get_upper_time_bound();
 
+      spacetime_data.lower_time_bound = lower_time_bound;
+      spacetime_data.upper_time_bound = upper_time_bound;
+
       const auto timeline_begin =
           (lower_time_bound == nullptr)?
             timeline.begin() : timeline.lower_bound(*lower_time_bound);
 
       const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
 
-      spacetime_data.lower_time_bound = lower_time_bound;
-      spacetime_data.upper_time_bound = upper_time_bound;
-
       for (auto space_it = region.begin(); space_it != region.end(); ++space_it)
       {
         spacetime_data.pose = space_it->get_pose();
         spacetime_data.shape = space_it->get_shape();
 
-        auto timeline_it = timeline_begin;
-        for (; timeline_it != timeline_end; ++timeline_it)
-        {
-          const Bucket& bucket = *timeline_it->second;
-
-          auto entry_it = bucket.begin();
-          for (; entry_it != bucket.begin(); ++entry_it)
-          {
-            const Entry* entry = *entry_it;
-
-            if (participant_filter.ignore(entry->participant))
-              continue;
-
-            if (!checked[entry->participant].insert(entry->route_id).second)
-              continue;
-
-            inspector.inspect(entry, relevant);
-          }
-        }
+        inspect_entries(
+              relevant,
+              participant_filter,
+              inspector,
+              timeline_begin,
+              timeline_end,
+              checked);
       }
     }
   }
@@ -336,7 +328,8 @@ private:
 
     const Time* const lower_time_bound = timespan.get_lower_time_bound();
     const Time* const upper_time_bound = timespan.get_upper_time_bound();
-    const auto& maps = timespan.get_maps();
+
+
 
     const auto relevant = [&lower_time_bound, &upper_time_bound](
         const Route& r) -> bool
@@ -352,45 +345,95 @@ private:
       return true;
     };
 
-    for (const std::string& map : maps)
+    if (timespan.all_maps())
     {
-      const auto map_it = _timelines.find(map);
-      if (map_it == _timelines.end())
-        continue;
-
-      const Entries& timeline = map_it->second;
-
-      const auto timeline_begin =
-          (lower_time_bound == nullptr)?
-            timeline.begin() : timeline.lower_bound(*lower_time_bound);
-
-      const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
-
-      auto timeline_it = timeline_begin;
-      for (; timeline_it != timeline_end; ++timeline_it)
+      for (const auto& timeline_it : _timelines)
       {
-        const Bucket& bucket = timeline_it->second;
+        inspect_entries_timespan(
+              lower_time_bound,
+              upper_time_bound,
+              timeline_it.second,
+              relevant,
+              participant_filter,
+              inspector,
+              checked);
+      }
+    }
+    else
+    {
+      const auto& maps = timespan.maps();
+      for (const std::string& map : maps)
+      {
+        const auto map_it = _timelines.find(map);
+        if (map_it == _timelines.end())
+          continue;
 
-        auto entry_it = bucket.begin();
-        for (; entry_it != bucket.end(); ++entry_it)
-        {
-          const Entry* entry = *entry_it;
-
-          if (participant_filter.ignore(entry->participant))
-            continue;
-
-          if (!checked[entry->participant].insert(entry->route_id).second)
-            continue;
-
-          inspector.inspect(entry, relevant);
-        }
+        inspect_entries_timespan(
+              lower_time_bound,
+              upper_time_bound,
+              map_it->second,
+              relevant,
+              participant_filter,
+              inspector,
+              checked);
       }
     }
   }
 
-  // TODO(MXG): Come up with a better name for this data structure than Entries
-  using Entries = std::map<Time, BucketPtr>;
-  using MapNameToEntries = std::unordered_map<std::string, Timeline>;
+  template<typename Inspector, typename ParticipantFilter>
+  void inspect_entries_timespan(
+      const Time* const lower_time_bound,
+      const Time* const upper_time_bound,
+      const Entries& timeline,
+      const std::function<bool(const Route&)>& relevant,
+      const ParticipantFilter& participant_filter,
+      Inspector& inspector,
+      std::unordered_set<const Entry*>& checked)
+  {
+    const auto timeline_begin =
+        (lower_time_bound == nullptr)?
+          timeline.begin() : timeline.lower_bound(*lower_time_bound);
+
+    const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
+
+    inspect_entries(
+          relevant,
+          participant_filter,
+          inspector,
+          timeline_begin,
+          timeline_end,
+          checked);
+  }
+
+  template<typename Inspector, typename ParticipantFilter>
+  void inspect_entries(
+      const std::function<bool(const Route&)>& relevant,
+      const ParticipantFilter& participant_filter,
+      Inspector& inspector,
+      const typename Entries::const_iterator& timeline_begin,
+      const typename Entries::const_iterator& timeline_end,
+      std::unordered_set<const Entry*>& checked)
+  {
+    auto timeline_it = timeline_begin;
+    for (; timeline_it != timeline_end; ++timeline_it)
+    {
+      const Bucket& bucket = *timeline_it->second;
+
+      auto entry_it = bucket.begin();
+      for (; entry_it != bucket.begin(); ++entry_it)
+      {
+        const Entry* entry = *entry_it;
+
+        if (participant_filter.ignore(entry->participant))
+          continue;
+
+        if (!checked[entry->participant].insert(entry->route_id).second)
+          continue;
+
+        inspector.inspect(entry, relevant);
+      }
+    }
+  }
 
   //============================================================================
   static typename Entries::iterator get_timeline_iterator(

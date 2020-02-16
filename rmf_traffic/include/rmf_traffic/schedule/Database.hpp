@@ -99,7 +99,7 @@ public:
   const std::unordered_set<ParticipantId>& participant_ids() const final;
 
   /// Documentation inherited from Viewer
-  rmf_utils::optional<const ParticipantDescription&> get_participant(
+  const ParticipantDescription* get_participant(
       std::size_t participant_id) const final;
 
   /// Documentation inherited from Viewer
@@ -116,6 +116,14 @@ public:
 
   /// Initialize a Database
   Database();
+
+  /// A description of all inconsistencies currently present in the database.
+  /// Inconsistencies are isolated between Participants.
+  ///
+  /// To fix the inconsistency, the Participant should resend every Itinerary
+  /// change that was missing from every range, or else send a change that
+  /// nullifies all previous changes, such as a set(~) or erase(ParticipantId).
+  const Inconsistencies& inconsistencies() const;
 
   /// Get the changes in this Database that match the given Query parameters.
   /// If a version number is specified, then the returned Patch will reflect the
@@ -151,14 +159,6 @@ public:
   /// \return The new version of the schedule database. If nothing was culled,
   /// this version number will remain the same.
   Version cull(Time time);
-
-  /// A description of all inconsistencies currently present in the database.
-  /// Inconsistencies are isolated between Participants.
-  ///
-  /// To fix the inconsistency, the Participant should resend every Itinerary
-  /// change that was missing from every range, or else send a change that
-  /// nullifies all previous changes, such as a set(~) or erase(ParticipantId).
-  const Inconsistencies& inconsistencies() const;
 
   class Implementation;
 private:
