@@ -97,7 +97,7 @@ public:
   ///
   /// If you are unsure about the stated assumptions, then use the between()
   /// function instead. It is undefined behavior to call this function on any
-  /// pair of Trajectories that would fail the broad_phase() test. Waypointation
+  /// pair of Trajectories that would fail the broad_phase() test. Segmentation
   /// faults or false positives may occur when this function is called on
   /// Trajectories that do not pass the broad_phase test.
   static std::vector<ConflictData> narrow_phase(
