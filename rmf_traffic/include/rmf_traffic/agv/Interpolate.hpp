@@ -94,7 +94,6 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
   static Trajectory positions(
-      std::string map,
       const VehicleTraits& traits,
       Time start_time,
       const std::vector<Eigen::Vector3d>& input_positions,

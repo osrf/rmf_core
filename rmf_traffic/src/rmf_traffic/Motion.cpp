@@ -20,6 +20,46 @@
 namespace rmf_traffic {
 
 //==============================================================================
+std::unique_ptr<Motion> Motion::compute_cubic_splines(
+    const Trajectory::const_iterator& input_begin,
+    const Trajectory::const_iterator& input_end)
+{
+  if (input_begin == input_end)
+  {
+    throw std::runtime_error(
+          "[rmf_traffic::Motion::compute_cubic_spline] invalid waypoint range: "
+          "begin == end");
+  }
+
+  using const_iterator = internal::WaypointList::const_iterator;
+  const const_iterator begin = internal::get_raw_iterator(input_begin);
+  const const_iterator end = internal::get_raw_iterator(input_end);
+
+  if (++const_iterator(begin) == end)
+  {
+    const auto& point = *begin;
+    return std::make_unique<SinglePointMotion>(
+          point.data.time, point.data.position, point.data.velocity);
+  }
+
+  std::vector<Spline> splines;
+  for (auto it = ++const_iterator(begin); it != end; ++it)
+    splines.emplace_back(Spline(it));
+
+  if (splines.size() == 1)
+    return std::make_unique<SplineMotion>(std::move(splines[0]));
+
+  return std::make_unique<PiecewiseSplineMotion>(std::move(splines));
+}
+
+//==============================================================================
+std::unique_ptr<Motion> Motion::compute_cubic_splines(
+    const Trajectory& trajectory)
+{
+  return compute_cubic_splines(trajectory.begin(), trajectory.end());
+}
+
+//==============================================================================
 SinglePointMotion::SinglePointMotion(
     const Time t,
     Eigen::Vector3d p,
@@ -96,6 +136,50 @@ Eigen::Vector3d SplineMotion::compute_velocity(Time t) const
 Eigen::Vector3d SplineMotion::compute_acceleration(Time t) const
 {
   return _spline.compute_acceleration(t);
+}
+
+//==============================================================================
+PiecewiseSplineMotion::PiecewiseSplineMotion(std::vector<Spline> splines)
+{
+  assert(!splines.empty());
+  for (auto& spline : splines)
+  {
+    const Time t = spline.finish_time();
+    _splines[t] = std::move(spline);
+  }
+
+  _start_time = _splines.begin()->second.start_time();
+  _finish_time = _splines.rbegin()->second.finish_time();
+}
+
+//==============================================================================
+Time PiecewiseSplineMotion::start_time() const
+{
+  return _start_time;
+}
+
+//==============================================================================
+Time PiecewiseSplineMotion::finish_time() const
+{
+  return _finish_time;
+}
+
+//==============================================================================
+Eigen::Vector3d PiecewiseSplineMotion::compute_position(Time t) const
+{
+  return _splines.lower_bound(t)->second.compute_position(t);
+}
+
+//==============================================================================
+Eigen::Vector3d PiecewiseSplineMotion::compute_velocity(Time t) const
+{
+  return _splines.lower_bound(t)->second.compute_velocity(t);
+}
+
+//==============================================================================
+Eigen::Vector3d PiecewiseSplineMotion::compute_acceleration(Time t) const
+{
+  return _splines.lower_bound(t)->second.compute_acceleration(t);
 }
 
 } // namespace rmf_traffic

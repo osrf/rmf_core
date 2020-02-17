@@ -26,13 +26,13 @@
 
 namespace rmf_traffic {
 
+namespace internal {
 //==============================================================================
-namespace detail {
 class TrajectoryIteratorImplementation
 {
 public:
 
-  internal::WaypointList::iterator raw_iterator;
+  WaypointList::iterator raw_iterator;
   const Trajectory::Implementation* parent;
 
   template<typename SegT>
@@ -68,8 +68,21 @@ public:
     return old_it;
   }
 
+  static WaypointList::const_iterator raw(
+      const Trajectory::const_iterator& iterator)
+  {
+    return iterator._pimpl->raw_iterator;
+  }
 };
-} // namespace detail
+
+//==============================================================================
+WaypointList::const_iterator get_raw_iterator(
+    const Trajectory::const_iterator& iterator)
+{
+  return TrajectoryIteratorImplementation::raw(iterator);
+}
+
+} // namespace internal
 
 //==============================================================================
 class Trajectory::Waypoint::Implementation
@@ -93,7 +106,7 @@ public:
 
   Time time() const
   {
-    return data().finish_time;
+    return data().time;
   }
 
 };
@@ -151,8 +164,8 @@ public:
 
   InsertionResult insert(internal::WaypointElement::Data data)
   {
-    const internal::OrderMap::iterator hint = ordering.lower_bound(data.finish_time);
-    if(hint != ordering.end() && hint->first == data.finish_time)
+    const internal::OrderMap::iterator hint = ordering.lower_bound(data.time);
+    if(hint != ordering.end() && hint->first == data.time)
     {
       // We already have a Waypoint in the Trajectory that ends at this same
       // exact moment in time, so we will return the existing iterator along
@@ -169,7 +182,7 @@ public:
     result->myself = make_segment(result);
     assert(segments.size() > 0);
 
-    ordering.emplace_hint(hint, data.finish_time, result);
+    ordering.emplace_hint(hint, data.time, result);
     assert(ordering.size() > 0);
 
     return InsertionResult{make_iterator<Waypoint>(result), true};
@@ -183,7 +196,7 @@ public:
 
     // If the time comes before the start of the Trajectory, then we return
     // the end() iterator
-    if(time < segments.begin()->data.finish_time)
+    if(time < segments.begin()->data.time)
       return make_iterator<Waypoint>(segments.end());
 
     return make_iterator<Waypoint>(it->second);
@@ -191,7 +204,7 @@ public:
 
   iterator erase(iterator waypoint)
   {
-    ordering.erase(waypoint->_pimpl->myself->data.finish_time);
+    ordering.erase(waypoint->_pimpl->myself->data.time);
     return make_iterator<Waypoint>(segments.erase(waypoint->_pimpl->myself));
   }
 
@@ -201,9 +214,9 @@ public:
     const auto seg_end = last._pimpl->raw_iterator == segments.end()?
           segments.end() : last->_pimpl->myself;
 
-    const auto order_start = ordering.find(seg_begin->data.finish_time);
+    const auto order_start = ordering.find(seg_begin->data.time);
     const auto order_end = seg_end == segments.end()?
-          ordering.end() : ordering.find(seg_end->data.finish_time);
+          ordering.end() : ordering.find(seg_end->data.time);
 
     ordering.erase(order_start, order_end);
     return make_iterator<Waypoint>(segments.erase(seg_begin, seg_end));
@@ -260,7 +273,7 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
 {
   internal::WaypointList::iterator data_it = _pimpl->myself;
   internal::WaypointElement::Data& current_data = data_it->data;
-  const Time current_time = current_data.finish_time;
+  const Time current_time = current_data.time;
 
   if(current_time == new_time)
   {
@@ -303,12 +316,12 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
     const internal::WaypointList::const_iterator destination = hint->second;
     assert(destination != segments.end());
 
-    if(destination->data.finish_time == new_time)
+    if(destination->data.time == new_time)
     {
       // The new time conflicts with an existing time, so we will throw an
       // exception.
       throw std::invalid_argument(
-            "[Trajectory::Waypoint::set_finish_time] Attempted to set time to "
+            "[Trajectory::Waypoint::change_time] Attempted to set time to "
             + std::to_string(new_time.time_since_epoch().count())
             + "ns, but a waypoint already exists at that timestamp.");
     }
@@ -318,8 +331,8 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
     ordering.emplace_hint(hint, new_time, std::move(data_it));
   }
 
-  // Update the finish_time value in the data field.
-  current_data.finish_time = new_time;
+  // Update the time value in the data field.
+  current_data.time = new_time;
 
   return *this;
 }
@@ -329,7 +342,7 @@ void Trajectory::Waypoint::adjust_times(Duration delta_t)
 {
   internal::WaypointList& segments = _pimpl->parent->segments;
   const internal::WaypointList::iterator begin_it = _pimpl->myself;
-  const Time original_begin_time = begin_it->data.finish_time;
+  const Time original_begin_time = begin_it->data.time;
 
   if(delta_t.count() < 0 && begin_it != segments.begin())
   {
@@ -338,15 +351,15 @@ void Trajectory::Waypoint::adjust_times(Duration delta_t)
     // predecessor Waypoint.
     const internal::WaypointList::const_iterator predecessor_it =
         --internal::WaypointList::iterator(begin_it);
-    const auto new_time = begin_it->data.finish_time + delta_t;
-    if(new_time <= predecessor_it->data.finish_time)
+    const auto new_time = begin_it->data.time + delta_t;
+    if(new_time <= predecessor_it->data.time)
     {
-      const auto tp = predecessor_it->data.finish_time
+      const auto tp = predecessor_it->data.time
           .time_since_epoch().count();
       const auto tc = (new_time).time_since_epoch().count();
 
       const std::string error =
-          std::string("[Trajectory::Waypoint::adjust_finish_times] ")
+          std::string("[Trajectory::Waypoint::adjust_times] ")
           + "The given negative change in time: "
           + std::to_string(delta_t.count()) + "ns caused the Waypoint's new "
           + "time window [" + std::to_string(tc)
@@ -362,7 +375,7 @@ void Trajectory::Waypoint::adjust_times(Duration delta_t)
   list_iterators.reserve(segments.size());
   for(internal::WaypointList::iterator it = begin_it; it != segments.end(); ++it)
   {
-    it->data.finish_time += delta_t;
+    it->data.time += delta_t;
     list_iterators.push_back(it);
   }
 
@@ -379,7 +392,7 @@ void Trajectory::Waypoint::adjust_times(Duration delta_t)
   // hint that it can always append the entry to the end of the map.
   for(internal::WaypointList::iterator& it : list_iterators)
   {
-    const Time new_time = it->data.finish_time;
+    const Time new_time = it->data.time;
     ordering.emplace_hint(ordering.end(), new_time, std::move(it));
   }
 }
@@ -394,7 +407,7 @@ std::unique_ptr<Motion> Trajectory::Waypoint::compute_motion() const
   if(it == segments.begin())
   {
     return std::make_unique<SinglePointMotion>(
-          finish_data.finish_time,
+          finish_data.time,
           finish_data.position,
           finish_data.velocity);
   }
@@ -431,13 +444,14 @@ Trajectory& Trajectory::operator=(const Trajectory& other)
 }
 
 //==============================================================================
-Trajectory::InsertionResult Trajectory::insert(Time finish_time,
+Trajectory::InsertionResult Trajectory::insert(
+    Time time,
     Eigen::Vector3d position,
     Eigen::Vector3d velocity)
 {
   return _pimpl->insert(
         internal::WaypointElement::Data{
-          std::move(finish_time),
+          std::move(time),
           std::move(position),
           std::move(velocity)});
 }
@@ -536,14 +550,14 @@ auto Trajectory::back() const -> const Waypoint&
 const Time* Trajectory::start_time() const
 {
   const auto& segments = _pimpl->segments;
-  return segments.size() == 0? nullptr : &segments.front().data.finish_time;
+  return segments.size() == 0? nullptr : &segments.front().data.time;
 }
 
 //==============================================================================
 const Time* Trajectory::finish_time() const
 {
   const auto& segments = _pimpl->segments;
-  return segments.size() == 0? nullptr : &segments.back().data.finish_time;
+  return segments.size() == 0? nullptr : &segments.back().data.time;
 }
 
 //==============================================================================
@@ -552,7 +566,7 @@ Duration Trajectory::duration() const
   const auto& segments = _pimpl->segments;
   return segments.size() < 2?
         Duration(0) :
-        segments.back().data.finish_time - segments.front().data.finish_time;
+        segments.back().data.time - segments.front().data.time;
 }
 
 //==============================================================================
@@ -637,8 +651,8 @@ bool Trajectory::base_iterator<SegT>::operator<(
   }
 
   // If they are both valid iterators, then we can compare their times.
-  return this->_pimpl->raw_iterator->data.finish_time
-      < other._pimpl->raw_iterator->data.finish_time;
+  return this->_pimpl->raw_iterator->data.time
+      < other._pimpl->raw_iterator->data.time;
 }
 
 //==============================================================================
@@ -659,8 +673,8 @@ bool Trajectory::base_iterator<SegT>::operator>(
   }
 
   // If they are both valid iterators, then we can compare their times.
-  return this->_pimpl->raw_iterator->data.finish_time
-      > other._pimpl->raw_iterator->data.finish_time;
+  return this->_pimpl->raw_iterator->data.time
+      > other._pimpl->raw_iterator->data.time;
 }
 
 //==============================================================================
@@ -689,7 +703,7 @@ Trajectory::base_iterator<SegT>::operator const_iterator() const
 //==============================================================================
 template<typename SegT>
 Trajectory::base_iterator<SegT>::base_iterator()
-  : _pimpl(rmf_utils::make_impl<detail::TrajectoryIteratorImplementation>())
+  : _pimpl(rmf_utils::make_impl<internal::TrajectoryIteratorImplementation>())
 {
   // Do nothing
 }
@@ -713,7 +727,7 @@ bool Trajectory::Debug::check_iterator_time_consistency(
   internal::OrderMap::const_iterator o_it = ordering.begin();
   for( ; s_it != segments.end() && o_it != ordering.end(); ++s_it, ++o_it)
   {
-    consistent &= s_it->data.finish_time == o_it->first;
+    consistent &= s_it->data.time == o_it->first;
   }
 
   consistent &= s_it == segments.end();
@@ -729,10 +743,10 @@ bool Trajectory::Debug::check_iterator_time_consistency(
     for( ; s_it != segments.end() && o_it != ordering.end();
          ++s_it, ++o_it, ++index)
     {
-      const auto difference = o_it->first - s_it->data.finish_time;
+      const auto difference = o_it->first - s_it->data.time;
       std::cout << " -- [" << index << "] "
                 << o_it->first.time_since_epoch().count()/1e9 << " | "
-                << s_it->data.finish_time.time_since_epoch().count()/1e9
+                << s_it->data.time.time_since_epoch().count()/1e9
                 << " | Difference: " << difference.count()/1e9 << "\n";
     }
 
@@ -742,7 +756,7 @@ bool Trajectory::Debug::check_iterator_time_consistency(
       for( ; s_it != segments.end(); ++s_it, ++index)
       {
         std::cout << "      -- [" << index << "] "
-                  << s_it->data.finish_time.time_since_epoch().count()/1e9
+                  << s_it->data.time.time_since_epoch().count()/1e9
                   << "\n";
       }
     }

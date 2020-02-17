@@ -61,7 +61,7 @@ Time Change::Delay::from() const
 //==============================================================================
 Duration Change::Delay::duration() const
 {
-  return _pimpl->delay;
+  return _pimpl->duration;
 }
 
 //==============================================================================

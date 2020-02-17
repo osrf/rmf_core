@@ -19,6 +19,7 @@
 #define RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
 
 #include <rmf_traffic/Trajectory.hpp>
+#include <rmf_traffic/schedule/ParticipantDescription.hpp>
 
 namespace rmf_traffic {
 namespace agv {
@@ -103,7 +104,6 @@ public:
   VehicleTraits(
       Limits linear,
       Limits angular,
-      Trajectory::ConstProfilePtr profile,
       Differential steering = Differential());
 
   Limits& linear();
@@ -111,10 +111,6 @@ public:
 
   Limits& rotational();
   const Limits& rotational() const;
-
-  VehicleTraits& set_profile(Trajectory::ConstProfilePtr profile);
-
-  const Trajectory::ConstProfilePtr& get_profile() const;
 
   Steering get_steering() const;
 

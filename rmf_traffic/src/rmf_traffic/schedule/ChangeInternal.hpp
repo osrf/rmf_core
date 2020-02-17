@@ -31,7 +31,7 @@ class Change::Delay::Implementation
 public:
 
   Time from;
-  Duration delay;
+  Duration duration;
 
 };
 

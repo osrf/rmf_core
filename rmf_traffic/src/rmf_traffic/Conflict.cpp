@@ -196,6 +196,7 @@ std::array<double, 2> get_local_extrema(
   return extrema;
 }
 
+//==============================================================================
 BoundingBox get_bounding_box(const rmf_traffic::Spline& spline)
 {
   BoundingBox bounding_box;
@@ -220,6 +221,7 @@ BoundingBox get_bounding_box(const rmf_traffic::Spline& spline)
   return bounding_box;
 }
 
+//==============================================================================
 bool overlap(const BoundingBox& box_a, const BoundingBox& box_b)
 {
   for (std::size_t i=0; i < 2; ++i)
