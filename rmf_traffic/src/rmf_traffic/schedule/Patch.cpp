@@ -25,21 +25,11 @@ class Patch::Implementation
 {
 public:
 
-  std::vector<Change> changes;
-
+  std::vector<Change::UnregisterParticipant> unregistered;
+  std::vector<Change::RegisterParticipant> registered;
+  std::vector<Participant> changes;
+  rmf_utils::optional<Change::Cull> cull;
   Version latest_version;
-
-  Implementation()
-  {
-    // Do nothing
-  }
-
-  Implementation(std::vector<Change> _changes, Version _latest_version)
-    : changes(std::move(_changes)),
-      latest_version(_latest_version)
-  {
-    // Do nothing
-  }
 
 };
 
@@ -48,16 +38,39 @@ class Patch::IterImpl
 {
 public:
 
-  std::vector<Change>::const_iterator iter;
+  std::vector<Participant>::const_iterator iter;
 
 };
 
 //==============================================================================
-Patch::Patch(std::vector<Participant> changes, Version latest_version)
+Patch::Patch(
+    std::vector<Change::UnregisterParticipant> removed_participants,
+    std::vector<Change::RegisterParticipant> new_participants,
+    std::vector<Participant> changes,
+    rmf_utils::optional<Change::Cull> cull,
+    Version latest_version)
   : _pimpl(rmf_utils::make_impl<Implementation>(
-             std::move(changes), latest_version))
+             Implementation{
+               std::move(removed_participants),
+               std::move(new_participants),
+               std::move(changes),
+               cull,
+               latest_version
+             }))
 {
   // Do nothing
+}
+
+//==============================================================================
+const std::vector<Change::UnregisterParticipant>& Patch::unregistered() const
+{
+  return _pimpl->unregistered;
+}
+
+//==============================================================================
+const std::vector<Change::RegisterParticipant>& Patch::registered() const
+{
+  return _pimpl->registered;
 }
 
 //==============================================================================
@@ -79,15 +92,18 @@ std::size_t Patch::size() const
 }
 
 //==============================================================================
-Version Patch::latest_version() const
+const Change::Cull* Patch::cull() const
 {
-  return _pimpl->latest_version;
+  if (_pimpl->cull)
+    return &_pimpl->cull.value();
+
+  return nullptr;
 }
 
 //==============================================================================
-Patch::Patch()
+Version Patch::latest_version() const
 {
-  // Do nothing
+  return _pimpl->latest_version;
 }
 
 } // namespace schedule
@@ -96,7 +112,7 @@ Patch::Patch()
 namespace detail {
 
 template class bidirectional_iterator<
-    const schedule::Change,
+    const schedule::Patch::Participant,
     schedule::Patch::IterImpl,
     schedule::Patch
 >;

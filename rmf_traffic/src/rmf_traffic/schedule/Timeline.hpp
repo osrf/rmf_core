@@ -103,7 +103,7 @@ struct ParticipantFilter
 
 //==============================================================================
 template<typename Entry>
-struct TimelineInspector;
+class TimelineInspector;
 
 //==============================================================================
 template<typename Entry>
@@ -219,6 +219,22 @@ public:
       throw std::runtime_error(
             "Unexpected Query::Participants mode: "
             + std::to_string(static_cast<uint16_t>(mode)));
+    }
+  }
+
+  void cull(const Time time)
+  {
+    for (auto& pair : _timelines)
+    {
+      auto& timeline = pair.second;
+
+      // NOTE(MXG): It is not an error that we are using get_timeline_begin() to
+      // find the ending iterator. We want to stop just before the first bucket
+      // that contains the cull time, because we only want to erase times that
+      // come before it.
+      const auto end_it = get_timeline_begin(timeline, &time);
+      if (end_it != timeline.begin())
+        timeline.erase(timeline.begin(), end_it);
     }
   }
 
@@ -349,13 +365,13 @@ private:
     {
       for (const auto& timeline_it : _timelines)
       {
-        inspect_entries_timespan(
-              lower_time_bound,
-              upper_time_bound,
-              timeline_it.second,
+        const Entries& timeline = timeline_it.second;
+        inspect_entries(
               relevant,
               participant_filter,
               inspector,
+              get_timeline_begin(timeline, lower_time_bound),
+              get_timeline_end(timeline, upper_time_bound),
               checked);
       }
     }
@@ -368,41 +384,16 @@ private:
         if (map_it == _timelines.end())
           continue;
 
-        inspect_entries_timespan(
-              lower_time_bound,
-              upper_time_bound,
-              map_it->second,
+        const Entries& timeline = map_it->second;
+        inspect_entries(
               relevant,
               participant_filter,
               inspector,
+              get_timeline_begin(timeline, lower_time_bound),
+              get_timeline_end(timeline, upper_time_bound),
               checked);
       }
     }
-  }
-
-  template<typename Inspector, typename ParticipantFilter>
-  void inspect_entries_timespan(
-      const Time* const lower_time_bound,
-      const Time* const upper_time_bound,
-      const Entries& timeline,
-      const std::function<bool(const Route&)>& relevant,
-      const ParticipantFilter& participant_filter,
-      Inspector& inspector,
-      std::unordered_set<const Entry*>& checked)
-  {
-    const auto timeline_begin =
-        (lower_time_bound == nullptr)?
-          timeline.begin() : timeline.lower_bound(*lower_time_bound);
-
-    const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
-
-    inspect_entries(
-          relevant,
-          participant_filter,
-          inspector,
-          timeline_begin,
-          timeline_end,
-          checked);
   }
 
   template<typename Inspector, typename ParticipantFilter>
@@ -479,6 +470,14 @@ private:
     return start_it;
   }
 
+  static typename Entries::const_iterator get_timeline_begin(
+      const Entries& timeline,
+      const Time* const lower_time_bound)
+  {
+    return (lower_time_bound == nullptr)?
+          timeline.begin() : timeline.lower_bound(*lower_time_bound);
+  }
+
   static typename Entries::const_iterator get_timeline_end(
       const Entries& timeline,
       const Time* upper_time_bound)
@@ -508,6 +507,7 @@ public:
       const Entry* entry,
       const std::function<bool(const Route& route)>& relevant) = 0;
 
+  virtual ~TimelineInspector() = default;
 };
 
 

@@ -33,6 +33,7 @@ class Change
 {
 public:
 
+  //============================================================================
   /// The API for an Add change
   class Add
   {
@@ -59,6 +60,7 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  //============================================================================
   /// The API for a Delay change
   class Delay
   {
@@ -86,6 +88,7 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  //============================================================================
   /// A class that describes an erasing change.
   class Erase
   {
@@ -104,6 +107,56 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  //============================================================================
+  /// A class that describes a participant registration.
+  class RegisterParticipant
+  {
+  public:
+
+    /// Constructor
+    ///
+    /// \param[in] id
+    ///   The ID of the participant
+    ///
+    /// \param[in] description
+    ///   The description of the participant
+    RegisterParticipant(
+        ParticipantId id,
+        ParticipantDescription description);
+
+    /// The ID for the participant
+    ParticipantId id() const;
+
+    /// The description of the participant
+    const ParticipantDescription& description() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  //============================================================================
+  /// A class that specifies a participant to unregister.
+  class UnregisterParticipant
+  {
+  public:
+
+    /// Constructor
+    ///
+    /// \param[in] id
+    ///   The ID of the participant that is being unregistered.
+    UnregisterParticipant(ParticipantId id);
+
+    /// The ID for the participant
+    ParticipantId id() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  //============================================================================
+  /// A class that describes a culling.
   class Cull
   {
   public:

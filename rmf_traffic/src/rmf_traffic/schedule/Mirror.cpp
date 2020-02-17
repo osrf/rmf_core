@@ -17,132 +17,255 @@
 
 #include <rmf_traffic/schedule/Mirror.hpp>
 
+#include "ChangeInternal.hpp"
+#include "Timeline.hpp"
 #include "ViewerInternal.hpp"
-
 
 namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-Mirror::Mirror()
+class Mirror::Implementation
 {
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Insert)]
-      = [&](const Database::Change& change)
+public:
+
+  struct RouteEntry
   {
-    const Database::Change::Insert& insertion = *change.insert();
+    ConstRoutePtr route;
+    ParticipantId participant;
+    RouteId route_id;
+    std::shared_ptr<void> timeline_handle;
+  };
+  using RouteEntryPtr = std::shared_ptr<RouteEntry>;
 
-//    std::cout << "Getting insertion [" << change.id() << "]" << std::endl;
+  Timeline<RouteEntry> timeline;
 
-    _pimpl->add_entry(
-          std::make_shared<internal::Entry>(
-            *insertion.trajectory(),
-            change.id()));
+  struct ParticipantState
+  {
+    std::unordered_map<RouteId, RouteEntryPtr> storage;
+    const ParticipantDescription description;
   };
 
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Interrupt)]
-      = [&](const Database::Change& change)
+  using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
+  ParticipantStates states;
+
+  Version latest_version = 0;
+
+  static void erase_routes(
+      const ParticipantId participant,
+      ParticipantState& state,
+      const Change::Erase& erase)
   {
-    const Database::Change::Interrupt& interruption = *change.interrupt();
-
-//    std::cout << "Getting interruption [" << interruption.original_id()
-//              << "] --> [" << change.id()
-//              << "]" << std::endl;
-
-    const internal::EntryPtr& entry =
-        _pimpl->get_entry_iterator(
-          interruption.original_id(), "interruption")->second;
-
-    Trajectory new_trajectory = add_interruption(
-          entry->trajectory,
-          *interruption.interruption(),
-          interruption.delay());
-
-    _pimpl->modify_entry(entry, std::move(new_trajectory), change.id());
-  };
-
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Delay)]
-      = [&](const Database::Change& change)
-  {
-    const Database::Change::Delay& delay = *change.delay();
-
-//    std::cout << "Getting delay [" << delay.original_id()
-//              << "] --> [" << change.id() << "]" << std::endl;
-
-    const internal::EntryPtr& entry =
-        _pimpl->get_entry_iterator(delay.original_id(), "delay")->second;
-
-    Trajectory new_trajectory = add_delay(
-          entry->trajectory,
-          delay.from(),
-          delay.duration());
-
-    _pimpl->modify_entry(entry, std::move(new_trajectory), change.id());
-  };
-
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Replace)]
-      = [&](const Database::Change& change)
-  {
-    const Database::Change::Replace& replace = *change.replace();
-
-//    std::cout << "Getting replacement [" << replace.original_id()
-//              << "] --> [" << change.id() << "]" << std::endl;
-
-    try
+    for (const RouteId id : erase.ids())
     {
-      const internal::EntryPtr& entry =
-          _pimpl->get_entry_iterator(
-            replace.original_id(), "replacement")->second;
+      const auto r_it = state.storage.find(id);
+      assert(r_it != state.storage.end());
+      if (r_it == state.storage.end())
+      {
+        std::cerr << "[Mirror::update] Erasing unrecognized route [" << id
+                  << "] for participant [" << participant << "]" << std::endl;
+        continue;
+      }
 
-      _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
+      state.storage.erase(r_it);
     }
-    catch(const std::runtime_error& e)
+  }
+
+  void apply_delay(
+      ParticipantState& state,
+      const Change::Delay& delay)
+  {
+    for (auto& s : state.storage)
     {
-//      std::cout << "Failed replacement [" << replace.original_id()
-//                << "] --> [" << change.id() << "]" << std::endl;
+      RouteEntryPtr& entry = s.second;
+      assert(entry);
+      assert(entry->route);
+      auto delayed = schedule::apply_delay(
+            entry->route->trajectory(), delay.from(), delay.duration());
+      if (!delayed)
+        continue;
 
-      // Sometimes replacements have been failing because the previous entry
-      // somehow doesn't exist anymore, so we'll just treat this replacement
-      // like an insertion
-      // TODO(MXG): This shouldn't really be happening, so debug this when time
-      // permits.
-      _pimpl->add_entry(
-            std::make_shared<internal::Entry>(
-              *replace.trajectory(),
-              change.id()));
+      auto new_route = std::make_shared<Route>(
+            entry->route->map(), std::move(*delayed));
 
-      // We'll continue with throwing the exception so that noise keeps getting
-      // made about this issue.
-      throw e;
+      entry = std::make_unique<RouteEntry>(*entry);
+      entry->route = std::move(new_route);
+      timeline.insert(*entry);
     }
-  };
+  }
 
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Erase)]
-      = [&](const Database::Change& change)
+  void add_routes(
+      const ParticipantId participant,
+      ParticipantState& state,
+      const Change::Add& add)
   {
-    const Database::Change::Erase& erase = *change.erase();
+    for (const auto& item : add.items())
+    {
+      const RouteId route_id = item.id;
+      auto insertion = state.storage.insert(std::make_pair(route_id, nullptr));
+      const bool inserted = insertion.second;
+      assert(inserted);
+      if (!inserted)
+      {
+        std::cerr << "[Mirror::update] Inserting a route [" << item.id
+                  << "] which already exists for participant [" << participant
+                  << "]" << std::endl;
+        // NOTE(MXG): We will continue anyway. The new route will simply
+        // overwrite the old one.
+      }
 
-//    std::cout << "Getting erase [" << erase.original_id() << "] --> ["
-//              << change.id() << "]" << std::endl;
+      auto route = std::make_shared<Route>(*item.route);
 
-    _pimpl->erase_entry(erase.original_id());
-  };
+      auto& entry = insertion.first->second;
+      entry = std::make_unique<RouteEntry>(
+            RouteEntry{
+              std::move(route),
+              participant,
+              route_id,
+              nullptr
+            });
 
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Cull)]
-      = [&](const Database::Change& change)
+      timeline.insert(*entry);
+    }
+  }
+};
+
+namespace {
+//==============================================================================
+class MirrorViewRelevanceInspector
+    : public TimelineInspector<Mirror::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Mirror::Implementation::RouteEntry;
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const Route&)>& relevant) final
   {
-    const Database::Change::Cull& cull = *change.cull();
-    _pimpl->cull(change.id(), cull.time());
+    assert(entry);
+    assert(entry->route);
+    if (relevant(*entry->route))
+      routes.emplace_back(Storage{entry->participant, entry->route});
+  }
+
+};
+
+//==============================================================================
+class MirrorCullRelevanceInspector
+    : public TimelineInspector<Mirror::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Mirror::Implementation::RouteEntry;
+  struct Info
+  {
+    ParticipantId participant;
+    RouteId route_id;
   };
+
+  std::vector<Info> info;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const Route&)>& relevant) final
+  {
+    assert(entry);
+    assert(entry->route);
+    if (relevant(*entry->route))
+      info.emplace_back(Info{entry->participant, entry->route_id});
+  }
+
+};
+
+} // anonymous namespace
+
+//==============================================================================
+Mirror::Mirror()
+: _pimpl(rmf_utils::make_unique_impl<Implementation>())
+{
+  // Do nothing
 }
 
 //==============================================================================
-Version Mirror::update(const Database::Patch& patch)
+Version Mirror::update(const Patch& patch)
 {
-  for(const auto& change : patch)
-    _pimpl->changers[static_cast<std::size_t>(change.get_mode())](change);
+  for (const auto& unregistered : patch.unregistered())
+  {
+    const ParticipantId id = unregistered.id();
+    const auto p_it = _pimpl->states.find(id);
+    assert(p_it != _pimpl->states.end());
+    if (p_it == _pimpl->states.end())
+    {
+      std::cerr << "[Mirror::update] Unrecognized participant ["
+                << id << "] being unregistered" << std::endl;
+      continue;
+    }
+
+    _pimpl->states.erase(p_it);
+  }
+
+  for (const auto& registered : patch.registered())
+  {
+    const ParticipantId id = registered.id();
+    const bool inserted = _pimpl->states.insert(
+          std::make_pair(
+            id,
+            Implementation::ParticipantState{
+              {},
+              registered.description()
+            })).second;
+
+    assert(inserted);
+    if (!inserted)
+    {
+      std::cerr << "[Mirror::update] Duplicate participant ID ["
+                << id << "] while trying to register a new participant"
+                << std::endl;
+    }
+  }
+
+  for (const auto& p : patch)
+  {
+    const ParticipantId participant = p.participant_id();
+    Implementation::ParticipantState& state = _pimpl->states.at(participant);
+
+    Implementation::erase_routes(participant, state, p.erasures());
+
+    for (const auto& delay : p.delays())
+      _pimpl->apply_delay(state, delay);
+
+    _pimpl->add_routes(participant, state, p.additions());
+  }
+
+  if (const Change::Cull* cull = patch.cull())
+  {
+    const Time time = cull->time();
+    Query query = query_all();
+    query.spacetime().query_timespan().set_upper_time_bound(time);
+
+    MirrorCullRelevanceInspector inspector;
+    _pimpl->timeline.inspect(query, inspector);
+
+    for (const auto& route : inspector.info)
+    {
+      auto p_it = _pimpl->states.find(route.participant);
+      assert(p_it != _pimpl->states.end());
+      if (p_it == _pimpl->states.end())
+      {
+        std::cerr << "[Mirror::update] Non-existent participant ["
+                  << route.participant << "] in timeline entry" << std::endl;
+        continue;
+      }
+
+      p_it->second.storage.erase(route.route_id);
+    }
+  }
 
   _pimpl->latest_version = patch.latest_version();
-
   return _pimpl->latest_version;
 }
 

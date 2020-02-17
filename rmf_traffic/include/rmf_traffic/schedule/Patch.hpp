@@ -84,12 +84,43 @@ public:
   };
 
   class IterImpl;
-  using const_iterator = base_iterator<const Change, IterImpl, Patch>;
+  using const_iterator = base_iterator<const Participant, IterImpl, Patch>;
 
+  /// Constructor. Mirrors should evaluate the fields of the Patch class in the
+  /// order of these constructor arguments.
+  ///
+  /// \param[in] removed_participants
+  ///   Information about which participants have been unregistered since the
+  ///   last update.
+  ///
+  /// \param[in] new_participants
+  ///   Information about which participants have been registered since the last
+  ///   update.
+  ///
+  /// \param[in] changes
+  ///   Information about how the participants have changed since the last
+  ///   update.
+  ///
+  /// \param[in] cull
+  ///   Information about how the database has culled old data since the last
+  ///   update.
+  ///
+  /// \param[in] latest_version
+  ///   The lastest version of the database that this Patch represents.
   Patch(
+      std::vector<Change::UnregisterParticipant> removed_participants,
+      std::vector<Change::RegisterParticipant> new_participants,
       std::vector<Participant> changes,
       rmf_utils::optional<Change::Cull> cull,
       Version latest_version);
+
+  /// Get a list of which participants have been unregistered. This should be
+  /// evaluated first in the patch.
+  const std::vector<Change::UnregisterParticipant>& unregistered() const;
+
+  /// Get a list of new participants that have been registered. This should be
+  /// evaluated after the unregistered participants.
+  const std::vector<Change::RegisterParticipant>& registered() const;
 
   /// Returns an iterator to the first element of the Patch.
   const_iterator begin() const;
@@ -103,14 +134,13 @@ public:
   std::size_t size() const;
 
   /// Get the cull information for this patch if a cull has occurred.
-  rmf_utils::optional<const Change::Cull&> cull() const;
+  const Change::Cull* cull() const;
 
   /// Get the latest version of the Database that informed this Patch.
   Version latest_version() const;
 
   class Implementation;
 private:
-  Patch();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
@@ -119,7 +149,7 @@ private:
 namespace detail {
 
 extern template class bidirectional_iterator<
-    const schedule::Change,
+    const schedule::Patch::Participant,
     schedule::Patch::IterImpl,
     schedule::Patch
 >;

@@ -145,8 +145,7 @@ public:
   ///
   /// \return result of registering the new participant.
   virtual ParticipantId register_participant(
-      ParticipantDescription participant_info,
-      Time time) = 0;
+      ParticipantDescription participant_info) = 0;
 
   /// Unregister an existing participant.
   ///

@@ -20,6 +20,8 @@
 
 #include <rmf_traffic/schedule/Change.hpp>
 
+#include <rmf_utils/optional.hpp>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -28,13 +30,33 @@ class Change::Delay::Implementation
 {
 public:
 
-  /// The time that the delay began
   Time from;
-
-  /// The duration of the delay
-  Duration duration;
+  Duration delay;
 
 };
+
+//==============================================================================
+rmf_utils::optional<Trajectory> apply_delay(
+    const Trajectory& old_trajectory,
+    Time from,
+    Duration delay)
+{
+  if (*old_trajectory.finish_time() < from)
+    return rmf_utils::nullopt;
+
+  Trajectory new_trajectory = old_trajectory;
+
+  if (from < *old_trajectory.start_time())
+  {
+    new_trajectory.begin()->adjust_times(delay);
+  }
+  else
+  {
+    new_trajectory.find(from)->adjust_times(delay);
+  }
+
+  return std::move(new_trajectory);
+}
 
 } // namespace schedule
 } // namespace rmf_traffic

@@ -47,42 +47,40 @@ public:
   // Writer API
   //============================================================================
 
-  /// Documentation inherited from Writer
+  // Documentation inherited from Writer
   void set(
       ParticipantId participant,
       const Input& itinerary,
       ItineraryVersion version) final;
 
-  /// Documentation inherited from Writer
+  // Documentation inherited from Writer
   void extend(
       ParticipantId participant,
       const Input& routes,
       ItineraryVersion version) final;
 
-  /// Documentation inherited from Writer
+  // Documentation inherited from Writer
   void delay(
       ParticipantId participant,
       Time from,
       Duration delay,
       ItineraryVersion version) final;
 
-  /// Documentation inherited from Writer
+  // Documentation inherited from Writer
   void erase(
       ParticipantId participant,
       ItineraryVersion version) final;
 
-  /// Documentation inherited from Writer
+  // Documentation inherited from Writer
   void erase(
       ParticipantId participant,
       const std::vector<RouteId>& routes,
       ItineraryVersion version) final;
 
-  /// Documentation inherited from Writer
-  ParticipantId register_participant(
-      ParticipantDescription participant_info,
-      Time time) final;
+  // Documentation inherited from Writer
+  ParticipantId register_participant(ParticipantDescription participant_info) final;
 
-  /// Documentation inherited from Writer
+  // Documentation inherited from Writer
   void unregister_participant(
       ParticipantId participant,
       Time time) final;
@@ -92,21 +90,21 @@ public:
   // Viewer API
   //============================================================================
 
-  /// Documentation inherited from Viewer
+  // Documentation inherited from Viewer
   View query(const Query& parameters) const final;
 
-  /// Documentation inherited from Viewer
+  // Documentation inherited from Viewer
   const std::unordered_set<ParticipantId>& participant_ids() const final;
 
-  /// Documentation inherited from Viewer
+  // Documentation inherited from Viewer
   const ParticipantDescription* get_participant(
       std::size_t participant_id) const final;
 
-  /// Documentation inherited from Viewer
+  // Documentation inherited from Viewer
   rmf_utils::optional<Itinerary> get_itinerary(
       std::size_t participant_id) const final;
 
-  /// Documentation inherited from Viewer
+  // Documentation inherited from Viewer
   Version latest_version() const final;
 
 

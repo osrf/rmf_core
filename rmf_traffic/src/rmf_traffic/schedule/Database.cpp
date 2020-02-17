@@ -51,6 +51,7 @@ Writer::Input deep_copy_input(Writer::Input input)
 
 } // anonymous namespace
 
+//==============================================================================
 class Database::Implementation
 {
 public:
@@ -118,8 +119,7 @@ public:
   ParticipantRegistrationVersions add_participant_version;
   ParticipantRegistrationVersions remove_participant_version;
 
-  using ParticipantRegistrationTime = std::map<Time, ParticipantId>;
-  ParticipantRegistrationTime add_participant_time;
+  using ParticipantRegistrationTime = std::map<Time, Version>;
   ParticipantRegistrationTime remove_participant_time;
 
   // NOTE(MXG): We store this record of inconsistency ranges here as a single
@@ -240,21 +240,12 @@ public:
       const Trajectory& old_trajectory = entry->route->trajectory();
       assert(old_trajectory.start_time());
 
-      if (*old_trajectory.finish_time() < from)
+      auto delayed = schedule::apply_delay(old_trajectory, from, delay);
+      if (!delayed)
         continue;
 
-      Trajectory new_trajectory = old_trajectory;
-      if (from < *old_trajectory.start_time())
-      {
-        new_trajectory.begin()->adjust_times(delay);
-      }
-      else
-      {
-        new_trajectory.find(from)->adjust_times(delay);
-      }
-
       auto new_route = std::make_shared<Route>(
-            entry->route->map(), std::move(new_trajectory));
+            entry->route->map(), std::move(*delayed));
 
       auto transition = std::make_unique<Transition>(
             Transition{
@@ -557,8 +548,7 @@ void Database::erase(
 
 //==============================================================================
 ParticipantId Database::register_participant(
-    ParticipantDescription participant_info,
-    Time time)
+    ParticipantDescription participant_info)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
   auto tracker = Inconsistencies::Implementation::register_participant(
@@ -578,7 +568,7 @@ ParticipantId Database::register_participant(
           }));
 
   _pimpl->add_participant_version[version] = id;
-  _pimpl->add_participant_time[time] = id;
+  return id;
 }
 
 //==============================================================================
@@ -607,12 +597,15 @@ void Database::unregister_participant(
           + "]. Please report this as a serious bug!");
   }
 
+  const Version initial_version = state_it->second.initial_schedule_version;
+  _pimpl->add_participant_version.erase(initial_version);
+
   _pimpl->participant_ids.erase(id_it);
   _pimpl->states.erase(state_it);
 
   const Version version = ++_pimpl->schedule_version;
   _pimpl->remove_participant_version[version] = participant;
-  _pimpl->remove_participant_time[time] = participant;
+  _pimpl->remove_participant_time[time] = version;
 }
 
 //==============================================================================
@@ -921,10 +914,10 @@ auto Database::changes(
   }
 
   std::vector<Patch::Participant> part_patches;
-  for (const auto p : changes)
+  for (const auto& p : changes)
   {
     std::vector<Change::Delay> delays;
-    for (const auto d : p.second.delays)
+    for (const auto& d : p.second.delays)
     {
       delays.emplace_back(
             Change::Delay{
@@ -942,13 +935,46 @@ auto Database::changes(
           });
   }
 
+  std::vector<Change::RegisterParticipant> registered;
+  std::vector<Change::UnregisterParticipant> unregistered;
+  if (after)
+  {
+    const Version after_v = *after;
+
+    auto add_it = _pimpl->add_participant_version.upper_bound(after_v);
+    for (; add_it != _pimpl->add_participant_version.end(); ++add_it)
+    {
+      const auto p_it = _pimpl->states.find(add_it->second);
+      assert(p_it != _pimpl->states.end());
+      registered.emplace_back(p_it->first, p_it->second.description);
+    }
+
+    auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
+    for (; remove_it != _pimpl->remove_participant_version.end(); ++remove_it)
+      unregistered.emplace_back(remove_it->second);
+  }
+  else
+  {
+    // If this is a mirror's first pull from the database, then we should send
+    // all the participant information.
+    for (const auto& p : _pimpl->states)
+      registered.emplace_back(p.first, p.second.description);
+
+    // We do not need to mention any participants that have unregistered.
+  }
+
   rmf_utils::optional<Change::Cull> cull;
   if (_pimpl->last_cull && after && *after < _pimpl->last_cull->version)
   {
     cull = _pimpl->last_cull->cull;
   }
 
-  return Patch(std::move(part_patches), cull, _pimpl->schedule_version);
+  return Patch(
+        std::move(unregistered),
+        std::move(registered),
+        std::move(part_patches),
+        cull,
+        _pimpl->schedule_version);
 }
 
 //==============================================================================
@@ -962,7 +988,7 @@ Version Database::cull(Time time)
 
   // TODO(MXG) This iterating could probably be made more efficient by grouping
   // together the culls of each participant.
-  for (const auto route : inspector.routes)
+  for (const auto& route : inspector.routes)
   {
     auto p_it = _pimpl->states.find(route.participant);
     assert(p_it != _pimpl->states.end());
@@ -974,7 +1000,27 @@ Version Database::cull(Time time)
     storage.erase(r_it);
   }
 
+  _pimpl->timeline.cull(time);
+
+  // Erase all trace of participants that were removed before the culling time.
+  const auto p_cull_begin = _pimpl->remove_participant_time.begin();
+  const auto p_cull_end = _pimpl->remove_participant_time.upper_bound(time);
+  for (auto p_cull_it = p_cull_begin; p_cull_it != p_cull_end; ++p_cull_it)
+  {
+    const auto remove_it =
+        _pimpl->remove_participant_version.find(p_cull_it->second);
+    assert(remove_it != _pimpl->remove_participant_version.end());
+
+    _pimpl->remove_participant_version.erase(remove_it);
+  }
+
+  if (p_cull_begin != p_cull_end)
+    _pimpl->remove_participant_time.erase(p_cull_begin, p_cull_end);
+
+  // Update the version of the schedule
   ++_pimpl->schedule_version;
+
+  // Record the occurrence of this cull
   _pimpl->last_cull = Implementation::CullInfo{
       Change::Cull(time),
       _pimpl->schedule_version
