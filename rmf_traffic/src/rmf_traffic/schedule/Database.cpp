@@ -715,7 +715,7 @@ public:
             assert(previous.from == delay.from);
             assert(previous.duration == delay.duration);
           }
-#elif
+#else
           // When compiling in release mode, cast the return value to void to
           // suppress compiler warnings.
           (void)(insertion);

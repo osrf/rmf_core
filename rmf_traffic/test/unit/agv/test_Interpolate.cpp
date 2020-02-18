@@ -18,6 +18,7 @@
 #include <rmf_utils/catch.hpp>
 
 #include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/Motion.hpp>
 
 #include <iostream>
 
@@ -73,7 +74,10 @@ void test_interpolation(
     const auto it = trajectory.find(t);
     REQUIRE(it != trajectory.end());
 
-    const auto motion = it->compute_motion();
+    const auto motion = rmf_traffic::Motion::compute_cubic_splines(
+          --rmf_traffic::Trajectory::const_iterator(it),
+          ++rmf_traffic::Trajectory::const_iterator(it));
+
     REQUIRE(motion != nullptr);
     CHECK(start_time - 10ns <= motion->start_time());
     CHECK(motion->finish_time() <= finish_time + 10ns);
@@ -177,7 +181,7 @@ SCENARIO("Test Interpolations")
   const double alpha_n = 0.25;
 
   const rmf_traffic::agv::VehicleTraits traits(
-      {v_n, a_n}, {w_n, alpha_n}, nullptr);
+      {v_n, a_n}, {w_n, alpha_n}, {nullptr, nullptr});
 
   GIVEN("Three distant points")
   {
@@ -192,8 +196,7 @@ SCENARIO("Test Interpolations")
       };
 
     rmf_traffic::Trajectory trajectory =
-        rmf_traffic::agv::Interpolate::positions(
-          "test_map", traits, start_time, positions);
+        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
     THEN("The trajectory is correctly interpolated")
     {
@@ -240,8 +243,7 @@ SCENARIO("Test Interpolations")
     };
 
     rmf_traffic::Trajectory trajectory =
-        rmf_traffic::agv::Interpolate::positions(
-          "test_map", traits, start_time, positions);
+        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
     THEN("The trajectory is correctly interpolated")
     {
@@ -279,8 +281,7 @@ SCENARIO("Test Interpolations")
     };
 
     rmf_traffic::Trajectory trajectory =
-        rmf_traffic::agv::Interpolate::positions(
-          "test_map", traits, start_time, positions);
+        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
     // NOTE(MXG): This test is here because a bug was found when orientations
     // were not getting changed. It's a simple test, but please do not delete

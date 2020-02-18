@@ -485,10 +485,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       const rmf_traffic::Time time_3 = time + 15s;
       const Eigen::Vector3d pos_3 = Eigen::Vector3d(6, 6, 6);
       const Eigen::Vector3d vel_3 = Eigen::Vector3d(7, 7, 7);
-      rmf_traffic::Trajectory::iterator fourth_it = trajectory.insert(
-                                                                  time_3, create_test_profile(UnitBox, rmf_traffic::Trajectory::Profile::Autonomy::Guided),
-                                                                  pos_3, vel_3)
-                                                        .it;
+      auto fourth_it = trajectory.insert(time_3, pos_3, vel_3).it;
 
       THEN("base_iterators assigned prior are still valid")
       {

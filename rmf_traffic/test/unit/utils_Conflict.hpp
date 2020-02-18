@@ -66,6 +66,7 @@ inline void CHECK_between_is_commutative(
   }
 }
 
+//==============================================================================
 inline void CHECK_ConflictData(
     const ConflictData& data,
     const rmf_traffic::Time start_time,
@@ -90,6 +91,7 @@ inline void CHECK_ConflictData(
     CHECK(computed_duration == Approx(expected_duration).margin(error_margin));
 }
 
+//==============================================================================
 struct ConflictDataParams
 {
     const rmf_traffic::Time start_time;
@@ -99,6 +101,7 @@ struct ConflictDataParams
     const double error_margin;
 };
 
+//==============================================================================
 inline void CHECK_ConflictList(
     const std::vector<ConflictData>& computed_conflicts,
     const std::vector<ConflictDataParams>& expected_conflicts)
