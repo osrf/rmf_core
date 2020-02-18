@@ -149,7 +149,7 @@ public:
   using iterator = base_iterator<Waypoint>;
   using const_iterator = base_iterator<const Waypoint>;
 
-  /// Create a Trajectory that takes place on the specified map
+  /// Create an empty Trajectory
   Trajectory();
 
   // Copy construction/assignment
