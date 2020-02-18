@@ -15,15 +15,14 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULDE__ROUTE_HPP
-#define RMF_TRAFFIC__SCHEDULDE__ROUTE_HPP
+#ifndef RMF_TRAFFIC__ROUTE_HPP
+#define RMF_TRAFFIC__ROUTE_HPP
 
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
 namespace rmf_traffic {
-namespace schedule {
 
 //==============================================================================
 using RouteId = uint64_t;
@@ -59,15 +58,14 @@ public:
   /// Get the trajectory for this itinerary element
   const Trajectory& trajectory() const;
 
-private:
   class Implementation;
+private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 using RoutePtr = std::shared_ptr<Route>;
 using ConstRoutePtr = std::shared_ptr<const Route>;
 
-} // namespace schedule
 } // namespace rmf_traffic
 
 

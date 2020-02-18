@@ -282,6 +282,13 @@ auto Query::Spacetime::Timespan::remove_map(const std::string& map_name)
 }
 
 //==============================================================================
+auto Query::Spacetime::Timespan::clear_maps() -> Timespan&
+{
+  _pimpl->maps.clear();
+  return *this;
+}
+
+//==============================================================================
 bool Query::Spacetime::Timespan::all_maps() const
 {
   return _pimpl->all_maps;

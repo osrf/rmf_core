@@ -145,7 +145,7 @@ PiecewiseSplineMotion::PiecewiseSplineMotion(std::vector<Spline> splines)
   for (auto& spline : splines)
   {
     const Time t = spline.finish_time();
-    _splines[t] = std::move(spline);
+    _splines.insert(std::make_pair(t, std::move(spline)));
   }
 
   _start_time = _splines.begin()->second.start_time();

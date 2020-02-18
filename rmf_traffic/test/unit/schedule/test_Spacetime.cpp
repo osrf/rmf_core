@@ -15,17 +15,17 @@
  *
 */
 
-#include<iostream>
+#include <iostream>
 #include <rmf_traffic/geometry/Box.hpp>
-#include<rmf_traffic/geometry/Circle.hpp>
-#include<rmf_traffic/Conflict.hpp>
-#include<rmf_traffic/schedule/Mirror.hpp>
-#include<rmf_traffic/schedule/Query.hpp>
+#include <rmf_traffic/geometry/Circle.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
+#include <rmf_traffic/schedule/Mirror.hpp>
+#include <rmf_traffic/schedule/Query.hpp>
 #include "utils_Database.hpp"
 #include <rmf_traffic/schedule/Database.hpp>
 #include "src/rmf_traffic/DetectConflictInternal.hpp"
 #include <rmf_utils/catch.hpp>
-#include<rmf_traffic/Trajectory.hpp>
+#include <rmf_traffic/Trajectory.hpp>
 
 
 

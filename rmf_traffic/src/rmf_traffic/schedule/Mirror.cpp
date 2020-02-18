@@ -34,6 +34,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
+    const ParticipantDescription& description;
     std::shared_ptr<void> timeline_handle;
   };
   using RouteEntryPtr = std::shared_ptr<RouteEntry>;
@@ -122,6 +123,7 @@ public:
               std::move(route),
               participant,
               route_id,
+              state.description,
               nullptr
             });
 
@@ -144,11 +146,11 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     assert(entry);
     assert(entry->route);
-    if (relevant(*entry->route))
+    if (relevant(*entry))
       routes.emplace_back(Storage{entry->participant, entry->route});
   }
 
@@ -171,11 +173,11 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     assert(entry);
     assert(entry->route);
-    if (relevant(*entry->route))
+    if (relevant(*entry))
       info.emplace_back(Info{entry->participant, entry->route_id});
   }
 

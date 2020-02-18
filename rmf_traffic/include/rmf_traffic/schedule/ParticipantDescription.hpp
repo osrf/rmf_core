@@ -18,7 +18,7 @@
 #ifndef RMF_TRAFFIC__SCHEDULE__PARTICIPANTDESCRIPTION_HPP
 #define RMF_TRAFFIC__SCHEDULE__PARTICIPANTDESCRIPTION_HPP
 
-#include <rmf_traffic/geometry/ConvexShape.hpp>
+#include <rmf_traffic/Profile.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
@@ -66,20 +66,11 @@ public:
   ///   What category of responsiveness this participant has. A Responsive
   ///   participant might be able to react to a conflict or a request for
   ///   accommodations.
-  ///
-  /// \param[in] footprint
-  ///   An estimate of the space that this participant occupies.
-  ///
-  /// \param[in] vicinity
-  ///   An estimate of the vicinity around the participant in which the presence
-  ///   of other traffic would disrupt its operations.
-  ///
   ParticipantDescription(
       std::string name,
       std::string owner,
       Rx responsiveness,
-      geometry::ConstFinalConvexShapePtr footprint,
-      geometry::ConstFinalConvexShapePtr vicinity);
+      Profile profile);
 
   /// Set the name of the participant.
   ParticipantDescription& name(std::string value);
@@ -99,17 +90,11 @@ public:
   /// Get the responsiveness of the participant.
   Rx responsiveness() const;
 
-  /// Set the footprint of the participant.
-  ParticipantDescription& footprint(geometry::ConstFinalConvexShapePtr shape);
+  /// Set the profile of the participant
+  ParticipantDescription& profile(Profile new_profile);
 
-  /// Get the footprint of the participant.
-  const geometry::ConstFinalConvexShapePtr& footprint() const;
-
-  /// Set the vicinity of this participant.
-  ParticipantDescription& vicinity(geometry::ConstFinalConvexShapePtr shape);
-
-  /// Get the vicinity of this participant.
-  const geometry::ConstFinalConvexShapePtr& vicinity() const;
+  /// Get the profile of the participant
+  const Profile& profile() const;
 
 private:
   class Implementation;

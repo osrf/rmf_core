@@ -41,19 +41,18 @@ SCENARIO("DetectConflict unit tests")
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     const auto shape = rmf_traffic::geometry::make_final_convex<
         rmf_traffic::geometry::Box>(profile_scale, profile_scale);
-    rmf_traffic::Trajectory::ProfilePtr profile =
-        rmf_traffic::Trajectory::Profile::make_guided(shape);
+    rmf_traffic::Profile profile{shape};
     Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
     Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
-    rmf_traffic::Trajectory t1("test_map");
-    t1.insert(time, profile, pos, vel);
-    t1.insert(time + 10s, profile, pos, vel);
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, pos, vel);
+    t1.insert(time + 10s, pos, vel);
 
     WHEN("t1 and t2 are identical and overlapping")
     {
-      rmf_traffic::Trajectory t2("test_map");
-      t2.insert(time, profile, pos, vel);
-      t2.insert(time + 10s, profile, pos, vel);
+      rmf_traffic::Trajectory t2;
+      t2.insert(time, pos, vel);
+      t2.insert(time + 10s, pos, vel);
 
       THEN("The broad phase function detects a conflict")
       {

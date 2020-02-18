@@ -523,9 +523,9 @@ Plan::Waypoint::Waypoint()
 }
 
 //==============================================================================
-const std::vector<Trajectory>& Plan::get_trajectories() const
+const std::vector<Route>& Plan::get_routes() const
 {
-  return _pimpl->result.trajectories;
+  return _pimpl->result.routes;
 }
 
 //==============================================================================

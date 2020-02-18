@@ -144,6 +144,9 @@ public:
       /// Remove a map from the query.
       Timespan& remove_map(const std::string& map_name);
 
+      /// Remove all maps from the query.
+      Timespan& clear_maps();
+
       /// Returns true if all maps should be queried. If true, the set of maps
       /// mentioned above will be ignored.
       bool all_maps() const;

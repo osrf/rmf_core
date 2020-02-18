@@ -255,12 +255,12 @@ private:
     else if (Query::Spacetime::Mode::Regions == mode)
     {
       inspect_spacetime_regions(
-            spacetime.regions(), participant_filter, inspector);
+            *spacetime.regions(), participant_filter, inspector);
     }
     else if (Query::Spacetime::Mode::Timespan == mode)
     {
       inspect_spacetime_timespan(
-            spacetime.timespan(), participant_filter, inspector);
+            *spacetime.timespan(), participant_filter, inspector);
     }
   }
 
@@ -271,8 +271,8 @@ private:
   {
     Checked checked;
 
-    const auto relevant = [](const Route&) -> bool { return true; };
-    for (const auto& entry : _all_bucket)
+    const auto relevant = [](const Entry&) -> bool { return true; };
+    for (const auto& entry : *_all_bucket)
     {
       if (participant_filter.ignore(entry->participant))
         continue;
@@ -293,9 +293,11 @@ private:
     Checked checked;
 
     rmf_traffic::internal::Spacetime spacetime_data;
-    const auto relevant = [&spacetime_data](const Route& r) -> bool {
+    const auto relevant = [&spacetime_data](const Entry& entry) -> bool {
       return rmf_traffic::internal::detect_conflicts(
-            r.trajectory(), spacetime_data, nullptr);
+            entry.description.profile(),
+            entry.route->trajectory(),
+            spacetime_data);
     };
 
     for (const Region& region : regions)
@@ -338,19 +340,17 @@ private:
   void inspect_spacetime_timespan(
       const Query::Spacetime::Timespan& timespan,
       const ParticipantFilter& participant_filter,
-      Inspector& inspector)
+      Inspector& inspector) const
   {
-    std::unordered_set<const Entry*> checked;
+    Checked checked;
 
     const Time* const lower_time_bound = timespan.get_lower_time_bound();
     const Time* const upper_time_bound = timespan.get_upper_time_bound();
 
-
-
     const auto relevant = [&lower_time_bound, &upper_time_bound](
-        const Route& r) -> bool
+        const Entry& entry) -> bool
     {
-      const Trajectory& trajectory = r.trajectory();
+      const Trajectory& trajectory = entry.route->trajectory();
       assert(trajectory.start_time());
       if (lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
         return false;
@@ -398,12 +398,12 @@ private:
 
   template<typename Inspector, typename ParticipantFilter>
   void inspect_entries(
-      const std::function<bool(const Route&)>& relevant,
+      const std::function<bool(const Entry&)>& relevant,
       const ParticipantFilter& participant_filter,
       Inspector& inspector,
       const typename Entries::const_iterator& timeline_begin,
       const typename Entries::const_iterator& timeline_end,
-      std::unordered_set<const Entry*>& checked)
+      Checked& checked) const
   {
     auto timeline_it = timeline_begin;
     for (; timeline_it != timeline_end; ++timeline_it)
@@ -505,7 +505,7 @@ public:
 
   virtual void inspect(
       const Entry* entry,
-      const std::function<bool(const Route& route)>& relevant) = 0;
+      const std::function<bool(const Entry& entry)>& relevant) = 0;
 
   virtual ~TimelineInspector() = default;
 };

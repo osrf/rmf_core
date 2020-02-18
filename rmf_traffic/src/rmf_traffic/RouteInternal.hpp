@@ -15,24 +15,29 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
-#define RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#ifndef SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#define SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
 
 #include <rmf_traffic/Route.hpp>
-#include <rmf_traffic/schedule/Version.hpp>
-
-#include <vector>
 
 namespace rmf_traffic {
-namespace schedule {
 
 //==============================================================================
-using ItineraryVersion = uint64_t;
+class Route::Implementation
+{
+public:
 
-//==============================================================================
-using Itinerary = std::vector<ConstRoutePtr>;
+  std::string map;
+  Trajectory trajectory;
 
-} // namespace schedule
+  static Route make(Implementation data)
+  {
+    return Route(std::move(data.map), std::move(data.trajectory));
+  }
+};
+
+using RouteData = Route::Implementation;
+
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#endif // SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP

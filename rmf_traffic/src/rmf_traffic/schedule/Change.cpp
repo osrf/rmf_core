@@ -23,6 +23,29 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
+rmf_utils::optional<Trajectory> apply_delay(
+    const Trajectory& old_trajectory,
+    Time from,
+    Duration delay)
+{
+  if (*old_trajectory.finish_time() < from)
+    return rmf_utils::nullopt;
+
+  Trajectory new_trajectory = old_trajectory;
+
+  if (from < *old_trajectory.start_time())
+  {
+    new_trajectory.begin()->adjust_times(delay);
+  }
+  else
+  {
+    new_trajectory.find(from)->adjust_times(delay);
+  }
+
+  return std::move(new_trajectory);
+}
+
+//==============================================================================
 class Change::Add::Implementation
 {
 public:
@@ -75,7 +98,7 @@ public:
 
 //==============================================================================
 Change::Erase::Erase(std::vector<RouteId> ids)
-: _pimpl(rmf_utils::make_impl<Implementation>(std::move(ids)))
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{std::move(ids)}))
 {
   // Do nothing
 }

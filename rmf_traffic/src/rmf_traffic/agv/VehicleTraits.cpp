@@ -37,8 +37,8 @@ class VehicleTraits::Implementation
 public:
 
   Limits _linear;
-
   Limits _rotation;
+  Profile _profile;
 
   Steering _steering_mode;
   Differential _differential;
@@ -47,9 +47,11 @@ public:
   Implementation(
       Limits linear,
       Limits rotation,
+      Profile profile,
       Differential differential)
     : _linear(std::move(linear)),
       _rotation(std::move(rotation)),
+      _profile(std::move(profile)),
       _steering_mode(Steering::Differential),
       _differential(differential)
   {
@@ -159,12 +161,15 @@ VehicleTraits::Holonomic::Holonomic()
 }
 
 //==============================================================================
-VehicleTraits::VehicleTraits(Limits linear,
+VehicleTraits::VehicleTraits(
+    Limits linear,
     Limits rotational,
+    Profile profile,
     Differential steering)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              std::move(linear),
              std::move(rotational),
+             std::move(profile),
              std::move(steering)))
 {
   // Do nothing
@@ -192,6 +197,18 @@ VehicleTraits::Limits& VehicleTraits::rotational()
 const VehicleTraits::Limits& VehicleTraits::rotational() const
 {
   return _pimpl->_rotation;
+}
+
+//==============================================================================
+Profile& VehicleTraits::profile()
+{
+  return _pimpl->_profile;
+}
+
+//==============================================================================
+const Profile& VehicleTraits::profile() const
+{
+  return _pimpl->_profile;
 }
 
 //==============================================================================

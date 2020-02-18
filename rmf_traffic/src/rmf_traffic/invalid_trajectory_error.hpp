@@ -18,7 +18,7 @@
 #ifndef SRC__RMF_TRAFFIC__INVALID_TRAJECTORY_ERROR_HPP
 #define SRC__RMF_TRAFFIC__INVALID_TRAJECTORY_ERROR_HPP
 
-#include <rmf_traffic/Conflict.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
 
 namespace rmf_traffic {
 

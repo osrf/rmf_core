@@ -24,7 +24,7 @@
 #include <rmf_utils/catch.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 #include<iostream>
-#include<rmf_traffic/Conflict.hpp>
+#include<rmf_traffic/DetectConflict.hpp>
 inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory *t, rmf_traffic::Trajectory t2)
 {
 rmf_traffic::Trajectory t1= *t;

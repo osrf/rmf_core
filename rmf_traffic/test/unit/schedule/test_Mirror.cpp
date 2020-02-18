@@ -25,7 +25,7 @@
 #include<iostream>
 using namespace std::chrono_literals;
 #include <rmf_traffic/schedule/Mirror.hpp>
-#include<rmf_traffic/Conflict.hpp>
+#include<rmf_traffic/DetectConflict.hpp>
 
 SCENARIO("Test Mirror of a Database with two trajectories")
 {

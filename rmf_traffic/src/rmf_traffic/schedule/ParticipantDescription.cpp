@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_traffic/schedule/Participant.hpp>
+#include <rmf_traffic/schedule/ParticipantDescription.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -28,8 +28,7 @@ public:
   std::string name;
   std::string owner;
   Rx responsiveness;
-  geometry::ConstFinalConvexShapePtr footprint;
-  geometry::ConstFinalConvexShapePtr vicinity;
+  Profile profile;
 
 };
 
@@ -38,16 +37,14 @@ ParticipantDescription::ParticipantDescription(
     std::string name,
     std::string owner,
     Rx responsiveness,
-    geometry::ConstFinalConvexShapePtr footprint,
-    geometry::ConstFinalConvexShapePtr vicinity)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(name),
-               std::move(owner),
-               responsiveness,
-               std::move(footprint),
-               std::move(vicinity)
-             }))
+    Profile profile)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             std::move(name),
+             std::move(owner),
+             std::move(responsiveness),
+             std::move(profile)
+           }))
 {
   // Do nothing
 }
@@ -86,35 +83,22 @@ ParticipantDescription& ParticipantDescription::responsiveness(Rx value)
 }
 
 //==============================================================================
-ParticipantDescription::Rx ParticipantDescription::responsiveness() const
+auto ParticipantDescription::responsiveness() const -> Rx
 {
   return _pimpl->responsiveness;
 }
 
 //==============================================================================
-ParticipantDescription& ParticipantDescription::footprint(geometry::ConstFinalConvexShapePtr shape)
+ParticipantDescription& ParticipantDescription::profile(Profile new_profile)
 {
-  _pimpl->footprint = std::move(shape);
+  _pimpl->profile = std::move(new_profile);
   return *this;
 }
 
 //==============================================================================
-const geometry::ConstFinalConvexShapePtr& ParticipantDescription::footprint() const
+const Profile& ParticipantDescription::profile() const
 {
-  return _pimpl->footprint;
-}
-
-//==============================================================================
-ParticipantDescription& ParticipantDescription::vicinity(geometry::ConstFinalConvexShapePtr shape)
-{
-  _pimpl->vicinity = std::move(shape);
-  return *this;
-}
-
-//==============================================================================
-const geometry::ConstFinalConvexShapePtr& ParticipantDescription::vicinity() const
-{
-  return _pimpl->vicinity;
+  return _pimpl->profile;
 }
 
 } // namespace schedule

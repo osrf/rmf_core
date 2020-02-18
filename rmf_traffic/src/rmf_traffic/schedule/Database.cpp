@@ -56,13 +56,6 @@ class Database::Implementation
 {
 public:
 
-#ifndef NDEBUG
-  // This field is used, only in DEBUG mode, to keep track of all route IDs that
-  // have ever been added. If there is ever a repeat, an exception will be
-  // thrown.
-  std::unordered_set<RouteId> all_route_ids_ever;
-#endif // NDEBUG
-
   struct ParticipantState;
 
   struct Transition;
@@ -88,6 +81,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
+    const ParticipantDescription& description;
     std::shared_ptr<void> timeline_handle;
 
     // ===== Additional fields for this timeline entry =====
@@ -216,6 +210,7 @@ public:
               item.route,
               participant,
               route_id,
+              state.description,
               nullptr,
               schedule_version,
               nullptr,
@@ -261,6 +256,7 @@ public:
               std::move(new_route),
               participant,
               id,
+              state.description,
               nullptr,
               schedule_version,
               std::move(transition),
@@ -294,6 +290,7 @@ public:
               nullptr,
               participant,
               id,
+              state.description,
               nullptr,
               schedule_version,
               std::move(transition),
@@ -676,7 +673,7 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route &)>& relevant) override
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     const RouteEntry* const last = get_last_known_ancestor(entry);
     const RouteEntry* const newest = get_most_recent(entry);
@@ -687,10 +684,10 @@ public:
       return;
     }
 
-    if (last && last->route && relevant(*last->route))
+    if (last && last->route && relevant(*last))
     {
       // The mirror knew about a previous version of this route
-      if (newest->route && relevant(*newest->route))
+      if (newest->route && relevant(*newest))
       {
         // The newest version of this route is relevant to the mirror
         const RouteEntry* traverse = newest;
@@ -735,7 +732,7 @@ public:
     else
     {
       // No version of this route has been seen by the mirror
-      if (newest->route && relevant(*newest->route))
+      if (newest->route && relevant(*newest))
       {
         // The newest version of this route is relevant to the mirror
         changes[newest->participant].additions.emplace_back(
@@ -767,10 +764,10 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     const RouteEntry* const newest = get_most_recent(entry);
-    if (newest->route && relevant(*newest->route))
+    if (newest->route && relevant(*newest))
     {
       changes[newest->participant].additions.emplace_back(
             Change::Add::Item{
@@ -794,10 +791,10 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     entry = get_most_recent(entry);
-    if (entry->route && relevant(*entry->route))
+    if (entry->route && relevant(*entry))
       routes.emplace_back(Storage{entry->participant, entry->route});
   }
 };
@@ -820,12 +817,12 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     while(entry->successor && entry->successor->route)
       entry = entry->successor;
 
-    if (relevant(*entry->route))
+    if (relevant(*entry))
       routes.emplace_back(Info{entry->participant, entry->route_id});
   }
 };
@@ -872,7 +869,7 @@ rmf_utils::optional<Itinerary> Database::get_itinerary(
   for (const RouteId route : state.active_routes)
     itinerary.push_back(state.storage.at(route)->route);
 
-  return itinerary;
+  return std::move(itinerary);
 }
 
 //==============================================================================

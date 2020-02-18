@@ -18,7 +18,7 @@
 #include <rmf_traffic/agv/Planner.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 
-#include <rmf_traffic/Conflict.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
 
 #include <rmf_utils/catch.hpp>
 #include <rmf_utils/math.hpp>

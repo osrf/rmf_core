@@ -15,24 +15,27 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
-#define RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#ifndef SRC__RMF_TRAFFIC__PROFILEINTERNAL_HPP
+#define SRC__RMF_TRAFFIC__PROFILEINTERNAL_HPP
 
-#include <rmf_traffic/Route.hpp>
-#include <rmf_traffic/schedule/Version.hpp>
-
-#include <vector>
+#include <rmf_traffic/Profile.hpp>
 
 namespace rmf_traffic {
-namespace schedule {
 
 //==============================================================================
-using ItineraryVersion = uint64_t;
+class Profile::Implementation
+{
+public:
 
-//==============================================================================
-using Itinerary = std::vector<ConstRoutePtr>;
+  geometry::ConstFinalConvexShapePtr footprint;
+  geometry::ConstFinalConvexShapePtr vicinity;
 
-} // namespace schedule
+  static const Implementation& get(const Profile& profile)
+  {
+    return *profile._pimpl;
+  }
+};
+
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#endif // SRC__RMF_TRAFFIC__PROFILEINTERNAL_HPP

@@ -139,6 +139,11 @@ public:
     return seg;
   }
 
+  Implementation()
+  {
+    // Do nothing
+  }
+
   Implementation(const Implementation& other)
   {
     *this = other;
@@ -395,24 +400,6 @@ void Trajectory::Waypoint::adjust_times(Duration delta_t)
     const Time new_time = it->data.time;
     ordering.emplace_hint(ordering.end(), new_time, std::move(it));
   }
-}
-
-//==============================================================================
-std::unique_ptr<Motion> Trajectory::Waypoint::compute_motion() const
-{
-  const internal::WaypointList& segments = _pimpl->parent->segments;
-  const internal::WaypointList::const_iterator& it = _pimpl->myself;
-  const internal::WaypointElement::Data& finish_data = it->data;
-
-  if(it == segments.begin())
-  {
-    return std::make_unique<SinglePointMotion>(
-          finish_data.time,
-          finish_data.position,
-          finish_data.velocity);
-  }
-
-  return std::make_unique<SplineMotion>(Spline(it));
 }
 
 //==============================================================================

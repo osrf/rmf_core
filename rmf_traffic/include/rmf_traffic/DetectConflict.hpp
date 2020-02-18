@@ -15,62 +15,52 @@
  *
 */
 
-#ifndef SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
-#define SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
+#ifndef RMF_TRAFFIC__CONFLICT_HPP
+#define RMF_TRAFFIC__CONFLICT_HPP
 
-#include <rmf_traffic/DetectConflict.hpp>
-
-#include "geometry/ShapeInternal.hpp"
-
-#include <rmf_traffic/Profile.hpp>
 #include <rmf_traffic/Trajectory.hpp>
-
-#include <unordered_map>
+#include <rmf_traffic/Profile.hpp>
+#include <exception>
 
 namespace rmf_traffic {
-namespace internal {
 
 //==============================================================================
-struct Spacetime
-{
-  const Time* lower_time_bound;
-  const Time* upper_time_bound;
-
-  Eigen::Isometry2d pose;
-  geometry::ConstFinalShapePtr shape;
-};
-
-//==============================================================================
-bool detect_conflicts(const Profile& profile,
-    const Trajectory& trajectory,
-    const Spacetime& region);
-
-
-} // namespace internal
-
-class DetectConflict::Implementation
+class invalid_trajectory_error : public std::exception
 {
 public:
 
-  struct Conflict
+  const char* what() const noexcept override;
+
+  class Implementation;
+private:
+  invalid_trajectory_error();
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+};
+
+//==============================================================================
+class DetectConflict
+{
+public:
+
+  enum class Interpolate : uint16_t
   {
-    Trajectory::const_iterator a_it;
-    Trajectory::const_iterator b_it;
-    Time time;
+    CubicSpline
   };
 
-  using Conflicts = std::vector<Conflict>;
-
+  /// Checks if there are any conflicts between the two trajectories.
+  ///
+  /// \return true if a conflict exists between the trajectories, false
+  /// otherwise.
   static bool between(
       const Profile& profile_a,
       const Trajectory& trajectory_a,
       const Profile& profile_b,
       const Trajectory& trajectory_b,
-      Interpolate interpolation,
-      std::vector<Conflict>* output_conflicts = nullptr);
+      Interpolate interpolation = Interpolate::CubicSpline);
 
+  class Implementation;
 };
 
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
+#endif // RMF_TRAFFIC__CONFLICT_HPP
