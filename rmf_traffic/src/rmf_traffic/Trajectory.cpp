@@ -346,7 +346,7 @@ void Trajectory::Waypoint::adjust_times(Duration delta_t)
       const auto tc = (new_time).time_since_epoch().count();
 
       const std::string error =
-          std::string("[Trajectory::Waypoint::adjust_finish_times] ")
+          std::string("[Trajectory::Waypoint::adjust_times] ")
           + "The given negative change in time: "
           + std::to_string(delta_t.count()) + "ns caused the Waypoint's new "
           + "time window [" + std::to_string(tc)
