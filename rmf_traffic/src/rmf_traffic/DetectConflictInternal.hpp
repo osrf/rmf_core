@@ -28,25 +28,6 @@
 #include <unordered_map>
 
 namespace rmf_traffic {
-namespace internal {
-
-//==============================================================================
-struct Spacetime
-{
-  const Time* lower_time_bound;
-  const Time* upper_time_bound;
-
-  Eigen::Isometry2d pose;
-  geometry::ConstFinalShapePtr shape;
-};
-
-//==============================================================================
-bool detect_conflicts(const Profile& profile,
-    const Trajectory& trajectory,
-    const Spacetime& region);
-
-
-} // namespace internal
 
 class DetectConflict::Implementation
 {
@@ -70,6 +51,27 @@ public:
       std::vector<Conflict>* output_conflicts = nullptr);
 
 };
+
+namespace internal {
+
+//==============================================================================
+struct Spacetime
+{
+  const Time* lower_time_bound;
+  const Time* upper_time_bound;
+
+  Eigen::Isometry2d pose;
+  geometry::ConstFinalShapePtr shape;
+};
+
+//==============================================================================
+bool detect_conflicts(
+    const Profile& profile,
+    const Trajectory& trajectory,
+    const Spacetime& region,
+    DetectConflict::Implementation::Conflicts* output_conflicts = nullptr);
+
+} // namespace internal
 
 } // namespace rmf_traffic
 

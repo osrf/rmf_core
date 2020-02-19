@@ -25,8 +25,7 @@ SCENARIO("Test Query API")
 {
   using namespace std::chrono_literals;
 
-  rmf_traffic::schedule::Query query =
-      rmf_traffic::schedule::make_query(10, {});
+  rmf_traffic::schedule::Query query = rmf_traffic::schedule::make_query({});
 
     auto now = std::chrono::steady_clock::now();
 

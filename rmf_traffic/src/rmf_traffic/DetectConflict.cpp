@@ -458,6 +458,9 @@ bool DetectConflict::Implementation::between(
          (profile_a.vicinity != profile_a.footprint)
       || (profile_b.vicinity != profile_b.footprint);
 
+  if (output_conflicts)
+    output_conflicts->clear();
+
   while (a_it != trajectory_a.end() && b_it != trajectory_b.end())
   {
     if (!spline_a)
@@ -541,7 +544,8 @@ namespace internal {
 bool detect_conflicts(
     const Profile& profile,
     const Trajectory& trajectory,
-    const Spacetime& region)
+    const Spacetime& region,
+    DetectConflict::Implementation::Conflicts* output_conflicts)
 {
 #ifndef NDEBUG
   // This should never actually happen because this function only gets used
@@ -596,10 +600,11 @@ bool detect_conflicts(
 
   const fcl::ContinuousCollisionRequest request = make_fcl_request();
 
-  bool collision_detected = false;
-
   const std::shared_ptr<fcl::CollisionGeometry> vicinity_geom =
       geometry::FinalConvexShape::Implementation::get_collision(*vicinity);
+
+  if (output_conflicts)
+    output_conflicts->clear();
 
   for(auto it = begin_it; it != end_it; ++it)
   {
@@ -624,14 +629,32 @@ bool detect_conflicts(
       const auto obj_region = fcl::ContinuousCollisionObject(
             region_shape, motion_region);
 
+      // TODO(MXG): Would should do a broadphase test here before using
+      // fcl::collide
+
       fcl::ContinuousCollisionResult result;
       fcl::collide(&obj_trajectory, &obj_region, request, result);
       if(result.is_collide)
-        return true;
+      {
+        if (!output_conflicts)
+          return true;
+
+        output_conflicts->emplace_back(
+              DetectConflict::Implementation::Conflict{
+                it, it,
+                compute_time(
+                  result.time_of_contact,
+                  spline_start_time,
+                  spline_finish_time)
+              });
+      }
     }
   }
 
-  return collision_detected;
+  if (!output_conflicts)
+    return false;
+
+  return !output_conflicts->empty();
 }
 } // namespace internal
 
