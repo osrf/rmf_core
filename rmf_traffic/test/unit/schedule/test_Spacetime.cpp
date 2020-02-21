@@ -1266,33 +1266,25 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
       rmf_traffic::geometry::Circle>(0.5);
   rmf_traffic::Profile small_circle{small_circle_shape};
 
-
   GIVEN("A Trajectory t1 with circular profile which traces the outline of a box")
   {
-    rmf_traffic::Trajectory t1("test_map");
-    rmf_traffic::geometry::Circle t_shape(0.5); //radius
-    rmf_traffic::geometry::ConstFinalConvexShapePtr final_t_shape =rmf_traffic::geometry::make_final_convex(t_shape);
-    auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_t_shape);
     auto time =std::chrono::steady_clock::now();
-    //defining t1 as box with corners (-10,10), (-10,-10), (10,-10) and (10,10)
 
-    t1.insert(time, profile, Eigen::Vector3d{-10.0,10.0,0}, Eigen::Vector3d{0,0,0});
-    t1.insert(time+20s, profile, Eigen::Vector3d{-10.0,-10.0,0}, Eigen::Vector3d{0,0,0});
-    t1.insert(time+40s, profile, Eigen::Vector3d{10.0,-10.0,0}, Eigen::Vector3d{0,0,0});
-    t1.insert(time+60s, profile, Eigen::Vector3d{10.0,10.0,0}, Eigen::Vector3d{0,0,0});
-    t1.insert(time+80s, profile, Eigen::Vector3d{-10.0,10.0,0}, Eigen::Vector3d{0,0,0});
+    rmf_traffic::Trajectory t1;
+    //defining t1 as box with corners (-10,10), (-10,-10), (10,-10) and (10,10)
+    t1.insert(time, {-10.0, 10.0, 0}, {0, 0, 0});
+    t1.insert(time+20s, {-10.0, -10.0, 0}, {0, 0, 0});
+    t1.insert(time+40s, {10.0, -10.0, 0}, {0, 0, 0});
+    t1.insert(time+60s, {10.0, 10.0, 0}, {0, 0, 0});
+    t1.insert(time+80s, {-10.0, 10.0, 0}, {0, 0, 0});
 
     REQUIRE(t1.size()==5);
 
-    std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
     Eigen::Isometry2d tf= Eigen::Isometry2d::Identity();
 
     WHEN("Checked with circular spacetime circumscribing t1")
     {
-      //Creating Spacetime
-
-      auto space_shape = rmf_traffic::geometry::Circle(15);
-      const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+      // Creating Spacetime
       lower_time_bound=time;
       upper_time_bound=time+81s;
 
@@ -1300,70 +1292,62 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
         &lower_time_bound,
         &upper_time_bound,
         tf,
-        final_space_shape
+        rmf_traffic::geometry::make_final_convex<
+            rmf_traffic::geometry::Circle>(15.0)
       };
 
-      bool conflict= rmf_traffic::internal::detect_conflicts(
-            small_circle, t1,region,&output_iterators);
-      CHECK(conflict);
-      CHECK(output_iterators.size()==4);
+      rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+      CHECK(rmf_traffic::internal::detect_conflicts(
+              small_circle, t1, region, &conflicts));
+      CHECK(conflicts.size() == 4);
     }
 
     WHEN("Checked with circular spacetime intersecting 3 segments of t1")
     {
-      //Creating Spacetime
-
-      auto space_shape = rmf_traffic::geometry::Circle(15);
-      const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+      // Creating Spacetime
       lower_time_bound=time;
       upper_time_bound=time+81s;
 
-      tf.translate(Eigen::Vector2d{10,0});
+      tf.translate(Eigen::Vector2d{10, 0});
 
       rmf_traffic::internal::Spacetime region={
         &lower_time_bound,
         &upper_time_bound,
         tf,
-        final_space_shape
+        rmf_traffic::geometry::make_final_convex<
+            rmf_traffic::geometry::Circle>(15.0)
       };
 
-      bool conflict= rmf_traffic::internal::detect_conflicts(
-            small_circle, t1, region,&output_iterators);
-      CHECK(conflict);
-      CHECK(output_iterators.size()==3);
+      rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+      CHECK(rmf_traffic::internal::detect_conflicts(
+            small_circle, t1, region, &conflicts));
+      CHECK(conflicts.size() == 3);
     }
 
     WHEN("Checked with circular spacetime intersecting 1 waypoint of t1")
     {
-      //Creating Spacetime
-
-      auto space_shape = rmf_traffic::geometry::Circle(0.5);
-      const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+      // Creating Spacetime
       lower_time_bound=time;
       upper_time_bound=time+81s;
 
-      tf.translate(Eigen::Vector2d{5,10});
+      tf.translate(Eigen::Vector2d{5, 10});
 
       rmf_traffic::internal::Spacetime region={
         &lower_time_bound,
         &upper_time_bound,
         tf,
-        final_space_shape
+        small_circle_shape
       };
 
-      bool conflict= rmf_traffic::internal::detect_conflicts(
-            small_circle, t1,region,&output_iterators);
-      CHECK(conflict);
-      CHECK(output_iterators.size()==1);
+      rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+      CHECK(rmf_traffic::internal::detect_conflicts(
+            small_circle, t1, region, &conflicts));
+      CHECK(conflicts.size() == 1);
     }
-
 
     WHEN("Checked with box spacetime encompassing t1")
     {
-      //Creating Spacetime
-
-      auto space_shape = rmf_traffic::geometry::Box(30,30);
-      const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+      // Creating Spacetime
       lower_time_bound=time;
       upper_time_bound=time+81s;
 
@@ -1371,23 +1355,19 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
         &lower_time_bound,
         &upper_time_bound,
         tf,
-        final_space_shape
+        rmf_traffic::geometry::make_final_convex<
+            rmf_traffic::geometry::Box>(30.0, 30.0)
       };
 
-
-
-      bool conflict= rmf_traffic::internal::detect_conflicts(
-            small_circle, t1,region,&output_iterators);
-      CHECK(conflict);
-      CHECK(output_iterators.size()==4);
+      rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+      CHECK(rmf_traffic::internal::detect_conflicts(
+            small_circle, t1, region, &conflicts));
+      CHECK(conflicts.size() == 4);
     }
 
     WHEN("Checked with box spacetime intersecting 3 segments of t1")
     {
-      //Creating Spacetime
-
-      auto space_shape = rmf_traffic::geometry::Box(30,30);
-      const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+      // Creating Spacetime
       lower_time_bound=time;
       upper_time_bound=time+81s;
 
@@ -1397,47 +1377,44 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
         &lower_time_bound,
         &upper_time_bound,
         tf,
-        final_space_shape
+        rmf_traffic::geometry::make_final_convex<
+            rmf_traffic::geometry::Box>(30.0, 30.0)
       };
 
-      bool conflict= rmf_traffic::internal::detect_conflicts(
-            small_circle, t1,region,&output_iterators);
-      CHECK(conflict);
-      CHECK(output_iterators.size()==3);
+      rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+      CHECK(rmf_traffic::internal::detect_conflicts(
+            small_circle, t1, region, &conflicts));
+      CHECK(conflicts.size() == 3);
     }
 
     WHEN("Checked with box spacetime intersecting 1 waypoint of t1")
     {
-      //Creating Spacetime
-
-      auto space_shape = rmf_traffic::geometry::Box(1,1);
-      const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+      // Creating Spacetime
       lower_time_bound=time;
       upper_time_bound=time+81s;
 
-      tf.translate(Eigen::Vector2d{-10,0});
+      tf.translate(Eigen::Vector2d{-10, 0});
 
       rmf_traffic::internal::Spacetime region={
         &lower_time_bound,
         &upper_time_bound,
         tf,
-        final_space_shape
+        rmf_traffic::geometry::make_final_convex<
+            rmf_traffic::geometry::Box>(1.0, 1.0)
       };
 
-
-
-      bool conflict= rmf_traffic::internal::detect_conflicts(
-            small_circle, t1,region,&output_iterators);
-      CHECK(conflict);
-      CHECK(output_iterators.size()==1);
+      rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+      CHECK(rmf_traffic::internal::detect_conflicts(
+            small_circle, t1, region, &conflicts));
+      CHECK(conflicts.size() == 1);
     }
 
     WHEN("Checked with box spacetime partially overlapping with t1")
     {
       //Creating Spacetime
 
-      auto space_shape = rmf_traffic::geometry::Box(30,30);
-      const auto final_space_shape = rmf_traffic::geometry::make_final_convex(space_shape);
+      const auto big_region_shape = rmf_traffic::geometry::make_final_convex<
+          rmf_traffic::geometry::Box>(30.0, 30.0);
 
       THEN("Single conflict when time bounds overlap with first waypoint only")
       {
@@ -1448,13 +1425,13 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
           &lower_time_bound,
           &upper_time_bound,
           tf,
-          final_space_shape
+          big_region_shape
         };
 
-        bool conflict= rmf_traffic::internal::detect_conflicts(
-              small_circle, t1,region,&output_iterators);
-        CHECK(conflict);
-        CHECK(output_iterators.size()==1);
+        rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+        CHECK(rmf_traffic::internal::detect_conflicts(
+              small_circle, t1, region, &conflicts));
+        CHECK(conflicts.size() == 1);
       }
 
       THEN("Single conflict when time bounds overlap with second waypoint only")
@@ -1466,13 +1443,13 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
           &lower_time_bound,
           &upper_time_bound,
           tf,
-          final_space_shape
+          big_region_shape
         };
 
-        bool conflict= rmf_traffic::internal::detect_conflicts(
-              small_circle, t1,region,&output_iterators);
-        CHECK(conflict);
-        CHECK(output_iterators.size()==1);
+        rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+        CHECK(rmf_traffic::internal::detect_conflicts(
+              small_circle, t1, region, &conflicts));
+        CHECK(conflicts.size() == 1);
       }
 
       THEN("Single conflict when time bounds overlap with third waypoint only")
@@ -1484,14 +1461,13 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
           &lower_time_bound,
           &upper_time_bound,
           tf,
-          final_space_shape
+          big_region_shape
         };
 
-        bool conflict= rmf_traffic::internal::detect_conflicts(
-              small_circle, t1,region,&output_iterators);
-        CHECK(conflict);
-        CHECK(output_iterators.size()==1);
-
+        rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+        CHECK(rmf_traffic::internal::detect_conflicts(
+              small_circle, t1, region, &conflicts));
+        CHECK(conflicts.size() == 1);
       }
 
       THEN("Single conflict when time bounds overlap with fourth waypoint only")
@@ -1503,44 +1479,38 @@ SCENARIO("Testing multi-waypoint trajectories with various spacetimes")
           &lower_time_bound,
           &upper_time_bound,
           tf,
-          final_space_shape
+          big_region_shape
         };
 
-        bool conflict= rmf_traffic::internal::detect_conflicts(
-              small_circle, t1,region,&output_iterators);
-        CHECK(conflict);
-        CHECK(output_iterators.size()==1);
+        rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+        CHECK(rmf_traffic::internal::detect_conflicts(
+              small_circle, t1, region, &conflicts));
+        CHECK(conflicts.size() == 1);
       }
     }
   } //end of given
 
 
   GIVEN("A Trajectory t1 with circular profile which traces the outline of a circle")
-   { 
-      rmf_traffic::Trajectory t1("test_map");
-      rmf_traffic::geometry::Circle t_shape(0.5); //radius 
-      rmf_traffic::geometry::ConstFinalConvexShapePtr final_t_shape =rmf_traffic::geometry::make_final_convex(t_shape);
-      auto profile = rmf_traffic::Trajectory::Profile::make_guided(final_t_shape);
-      auto time =std::chrono::steady_clock::now();
-    //defining t1 as circle with corners of radius 10m
+  {
+    // TODO(MXG): It looks like this test was never finished.
 
-      t1.insert(time, profile, Eigen::Vector3d{0,10.0,0}, Eigen::Vector3d{-1,0,0});
-      t1.insert(time+20s, profile, Eigen::Vector3d{-10.0,0,0}, Eigen::Vector3d{1,0,0});
+    auto time =std::chrono::steady_clock::now();
 
+    // defining t1 as circle with corners of radius 10m
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, {0, 10.0, 0}, {-1, 0, 0});
+    t1.insert(time+20s, {-10.0, 0, 0}, {1, 0, 0});
+    t1.insert(time+40s, {10.0, -10.0, 0}, {0, 0, 0});
+    t1.insert(time+60s, {10.0, 10.0, 0}, {0, 0, 0});
+    t1.insert(time+80s, {-10.0, 10.0, 0}, {0, 0, 0});
 
-      t1.insert(time+40s, profile, Eigen::Vector3d{10.0,-10.0,0}, Eigen::Vector3d{0,0,0});
-      t1.insert(time+60s, profile, Eigen::Vector3d{10.0,10.0,0}, Eigen::Vector3d{0,0,0});
-      t1.insert(time+80s, profile, Eigen::Vector3d{-10.0,10.0,0}, Eigen::Vector3d{0,0,0});
+    REQUIRE(t1.size()==5);
 
-      REQUIRE(t1.size()==5);
-
-      std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
-     // Eigen::Isometry2d tf= Eigen::Isometry2d::Identity();
-   }
-
-
-
- }//end of scenario
+    rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
+   // Eigen::Isometry2d tf= Eigen::Isometry2d::Identity();
+  }
+}
 
 
 

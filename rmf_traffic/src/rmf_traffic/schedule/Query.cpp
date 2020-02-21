@@ -33,7 +33,6 @@ public:
 
 };
 
-
 //==============================================================================
 class Query::Spacetime::Regions::Implementation
 {
@@ -715,6 +714,18 @@ auto Query::spacetime() -> Spacetime&
 auto Query::spacetime() const -> const Spacetime&
 {
   return _pimpl->spacetime_instance;
+}
+
+//==============================================================================
+auto Query::participants() -> Participants&
+{
+  return _pimpl->participants_instance;
+}
+
+//==============================================================================
+auto Query::participants() const -> const Participants&
+{
+  return _pimpl->participants_instance;
 }
 
 //==============================================================================

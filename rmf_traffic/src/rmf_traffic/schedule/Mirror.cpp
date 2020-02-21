@@ -50,6 +50,8 @@ public:
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
 
+  std::unordered_set<ParticipantId> participant_ids;
+
   Version latest_version = 0;
 
   static void erase_routes(
@@ -186,6 +188,54 @@ public:
 } // anonymous namespace
 
 //==============================================================================
+Viewer::View Mirror::query(const Query& parameters) const
+{
+  MirrorViewRelevanceInspector inspector;
+  _pimpl->timeline.inspect(parameters, inspector);
+  return Viewer::View::Implementation::make_view(std::move(inspector.routes));
+}
+
+//==============================================================================
+const std::unordered_set<ParticipantId>& Mirror::participant_ids() const
+{
+  return _pimpl->participant_ids;
+}
+
+//==============================================================================
+const ParticipantDescription* Mirror::get_participant(
+    std::size_t participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return nullptr;
+
+  return &p->second.description;
+}
+
+//==============================================================================
+rmf_utils::optional<Itinerary> Mirror::get_itinerary(
+    std::size_t participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  const auto& state = p->second;
+  Itinerary itinerary;
+  itinerary.reserve(state.storage.size());
+  for (const auto& s : state.storage)
+    itinerary.push_back(s.second->route);
+
+  return itinerary;
+}
+
+//==============================================================================
+Version Mirror::latest_version() const
+{
+  return _pimpl->latest_version;
+}
+
+//==============================================================================
 Mirror::Mirror()
 : _pimpl(rmf_utils::make_unique_impl<Implementation>())
 {
@@ -208,6 +258,7 @@ Version Mirror::update(const Patch& patch)
     }
 
     _pimpl->states.erase(p_it);
+    _pimpl->participant_ids.erase(id);
   }
 
   for (const auto& registered : patch.registered())
@@ -220,6 +271,8 @@ Version Mirror::update(const Patch& patch)
               {},
               registered.description()
             })).second;
+
+    _pimpl->participant_ids.insert(id);
 
     assert(inserted);
     if (!inserted)

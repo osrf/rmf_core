@@ -78,7 +78,7 @@ inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
   return collision_trajectories;
 }
 
-rmf_traffic::schedule::Writer::Input create_test_input(
+inline rmf_traffic::schedule::Writer::Input create_test_input(
     rmf_traffic::RouteId id, const rmf_traffic::Trajectory& t)
 {
   return rmf_traffic::schedule::Writer::Input{

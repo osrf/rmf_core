@@ -333,5 +333,15 @@ auto InconsistencyTracker::check(
   }
 }
 
+//==============================================================================
+void InconsistencyTracker::_apply_changes()
+{
+  _ready = false;
+  for (const auto& c : _changes)
+    c.second();
+
+  _changes.clear();
+}
+
 } // namespace schedule
 } // namespace rmf_traffic

@@ -152,6 +152,13 @@ public:
     std::vector<std::weak_ptr<Bucket>> _buckets;
   };
 
+  /// Constructor
+  Timeline()
+    : _all_bucket(std::make_shared<Bucket>())
+  {
+    // Do nothing
+  }
+
   /// Insert a new entry into the timeline
   void insert(Entry& entry)
   {
