@@ -107,6 +107,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     t3.insert(time+10s, Eigen::Vector3d{5, 10, 0},Eigen::Vector3d{0, 0, 0});
 
     db.extend(p1, create_test_input(rv1++, t3), iv1++);
+    std::cout << "Adding: p " << p1 << " | r " << rv1-1 << " | i " << iv1-1 << std::endl;
     CHECK(db.latest_version() == ++dbv);
     CHECK_TRAJECTORY_COUNT(db, 2, 3);
     CHECK(mirror.latest_version() != db.latest_version());
@@ -114,6 +115,10 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     THEN("Updating the mirror should update its latest version")
     {
       changes = db.changes(query_all, mirror.latest_version());
+      std::cout << "Adding to: " << changes.begin()->participant_id() << std::endl;
+      std::cout << "New id: " << changes.begin()->additions().items().front().id << std::endl;
+
+      std::cout << "Patch latest version: " << changes.latest_version() << std::endl;
       mirror.update(changes);
       CHECK(mirror.latest_version() == db.latest_version());
       CHECK_TRAJECTORY_COUNT(mirror, 2, 3);

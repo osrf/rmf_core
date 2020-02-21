@@ -283,6 +283,7 @@ Version Mirror::update(const Patch& patch)
     }
   }
 
+  std::cout << " -- Patch latest version: " << patch.latest_version() << std::endl;
   for (const auto& p : patch)
   {
     const ParticipantId participant = p.participant_id();

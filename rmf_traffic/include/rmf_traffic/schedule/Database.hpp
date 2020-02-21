@@ -159,6 +159,7 @@ public:
   Version cull(Time time);
 
   class Implementation;
+  class Debug;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };

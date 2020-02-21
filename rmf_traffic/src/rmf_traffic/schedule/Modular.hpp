@@ -22,6 +22,10 @@
 #include <limits>
 #include <type_traits>
 
+
+#include <iostream>
+
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -51,7 +55,10 @@ public:
   {
     // "distance" here means how far the RHS is from the basis, adjusted back by
     // half of the maximum window size.
+    std::cout << "basis: " << _basis << " | rhs: " << rhs << std::endl;
     const V distance = rhs - _basis + HalfWindow;
+    std::cout << "distance: " << distance << " | half window: "
+              << HalfWindow << std::endl;
 
     // If the distance from the adjusted basis is greater than the maximum
     // window size, then we have an exception.
@@ -67,7 +74,7 @@ public:
     // If the distance from the adjusted basis is less than half the window
     // size, then RHS is below (i.e. less than) the original basis. Otherwise it
     // is not less than the original basis.
-    return distance < HalfWindow;
+    return HalfWindow < distance;
   }
 
   /// Modify less(V) to also return true when equal.
