@@ -275,14 +275,12 @@ SCENARIO("Testing specialized mirrors")
   db.set(p2, {{rv2++, r3}, {rv2++, r5}}, iv2++);
   CHECK(db.latest_version() == ++dbv);
 
+  // Check that there are no conflicts between the routes on test_map
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t3));
-  // Note: r1 and r4 are on different maps, so we don't compare their trajectories
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t5));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t3));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t4));
-  // Note: r2 and r5 are on different maps, so we don't compare their trajectories
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t3, profile, t4));
+
+  // Check that there is no conflict between the routes on test_map_2
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t4, profile, t5));
 
   GIVEN("Query patch with spacetime region overlapping with t1")

@@ -12,7 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *Kd
+ *
 */
 
 #include "ChangeInternal.hpp"
@@ -692,12 +692,6 @@ public:
   {
     const RouteEntry* const last = get_last_known_ancestor(entry);
     const RouteEntry* const newest = get_most_recent(entry);
-
-    auto print_id = [](const RouteEntry* const e) -> std::string
-    {
-      return "[" + std::to_string(e->participant) + ":"
-          + std::to_string(e->route_id) + "]";
-    };
 
     if (last == newest)
     {
