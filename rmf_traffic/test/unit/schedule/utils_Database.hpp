@@ -47,17 +47,8 @@ inline void CHECK_TRAJECTORY_COUNT(
     const std::size_t expected_trajectory_num)
 {
   const auto view = d.query(rmf_traffic::schedule::query_all());
-
-  std::size_t trajectory_count = 0;
-  std::unordered_set<rmf_traffic::schedule::ParticipantId> participants;
-  for(const auto& v : view)
-  {
-    participants.insert(v.participant);
-    ++trajectory_count;
-  }
-
-  CHECK(trajectory_count == expected_trajectory_num);
-  CHECK(participants.size() == expected_participant_num);
+  CHECK(view.size() == expected_trajectory_num);
+  CHECK(d.participant_ids().size() == expected_participant_num);
 }
 
 inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
@@ -72,7 +63,7 @@ inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
     const auto& v_p = viewer.get_participant(v.participant)->profile();
     const auto& v_t = v.route.trajectory();
     if(rmf_traffic::DetectConflict::between(v_p, v_t, p, t))
-        collision_trajectories.push_back(v_t);
+      collision_trajectories.push_back(v_t);
   }
 
   return collision_trajectories;

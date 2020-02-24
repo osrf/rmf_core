@@ -48,7 +48,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
   // Add two participants
   double profile_scale=1;
-  const auto shape= rmf_traffic::geometry::make_final_convex<
+  const auto shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(profile_scale, profile_scale);
   const rmf_traffic::Profile profile{shape};
 
@@ -120,7 +120,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     }
   }
 
-  GIVEN("A trajctory is added that creates a conflict in the schedule")
+  GIVEN("Create a trajectory that conflicts with the schedule")
   {
     rmf_traffic::Trajectory t3;
     t3.insert(time, Eigen::Vector3d{0, -5, 0}, Eigen::Vector3d{0, 0, 0});
@@ -140,13 +140,18 @@ SCENARIO("Test Mirror of a Database with two trajectories")
       db.set(p1, create_test_input(rv1++, t4), iv1++);
       CHECK(db.latest_version() == ++dbv);
 
+      view = db.query(query_all);
+      conflicting_trajectories =
+          get_conflicting_trajectories(db, view, profile, t3);
+      CHECK(conflicting_trajectories.size() == 0);
+
       changes = db.changes(query_all, mirror.latest_version());
       mirror.update(changes);
       CHECK(mirror.latest_version() == db.latest_version());
 
       view = mirror.query(query_all);
       conflicting_trajectories =
-          get_conflicting_trajectories(mirror, view, profile,t3);
+          get_conflicting_trajectories(mirror, view, profile, t3);
       CHECK(conflicting_trajectories.size()==0);
     }
 
@@ -205,7 +210,7 @@ SCENARIO("Testing specialized mirrors")
 
   // Creating participants
   const double profile_scale = 1.0;
-  const auto shape= rmf_traffic::geometry::make_final_convex<
+  const auto shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(profile_scale, profile_scale);
   const rmf_traffic::Profile profile{shape};
 
@@ -270,14 +275,12 @@ SCENARIO("Testing specialized mirrors")
   db.set(p2, {{rv2++, r3}, {rv2++, r5}}, iv2++);
   CHECK(db.latest_version() == ++dbv);
 
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile,t2));
+  // Check that there are no conflicts between the routes on test_map
+  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t3));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t4));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t5));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t3));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t4));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t5));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t3, profile, t4));
+
+  // Check that there is no conflict between the routes on test_map_2
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t4, profile, t5));
 
   GIVEN("Query patch with spacetime region overlapping with t1")
@@ -460,7 +463,7 @@ SCENARIO("Testing specialized mirrors")
         db.changes(query, rmf_utils::nullopt);
 
     REQUIRE(changes.size() > 0);
-    CHECK(changes.size() == 3);
+    CHECK(changes.size() == 2);
 
     IdMap ids;
     for (const auto& c : changes)

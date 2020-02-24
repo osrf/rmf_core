@@ -20,6 +20,7 @@
 #include "Modular.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
+#include "debug_Database.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
@@ -277,15 +278,15 @@ public:
     for (const RouteId id : routes)
     {
       assert(storage.find(id) != storage.end());
-      auto& old_entry = storage.at(id);
+      auto& entry = storage.at(id);
 
       auto transition = std::make_unique<Transition>(
             Transition{
               rmf_utils::nullopt,
-              std::move(old_entry)
+              std::move(entry)
             });
 
-      RouteEntryPtr entry = std::make_unique<RouteEntry>(
+      entry = std::make_unique<RouteEntry>(
             RouteEntry{
               nullptr,
               participant,
@@ -334,6 +335,17 @@ private:
 };
 
 //==============================================================================
+std::size_t Database::Debug::current_entry_history_count(
+    const Database& database)
+{
+  std::size_t count = 0;
+  for (const auto& p : database._pimpl->states)
+    count += p.second.storage.size();
+
+  return count;
+}
+
+//==============================================================================
 void Database::set(
     ParticipantId participant,
     const Input& input,
@@ -369,6 +381,9 @@ void Database::set(
 
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
+
+  // Erase the routes that are currently active
+  _pimpl->erase_routes(participant, state, state.active_routes);
 
   // Clear the list of routes that are currently active
   state.active_routes.clear();
@@ -720,6 +735,7 @@ public:
           // suppress compiler warnings.
           (void)(insertion);
 #endif // NDEBUG
+          traverse = traverse->transition->predecessor.get();
         }
       }
       else
@@ -805,6 +821,12 @@ class CullRelevanceInspector
 {
 public:
 
+  CullRelevanceInspector(Time cull_time)
+  : _cull_time(cull_time)
+  {
+    // Do nothing
+  }
+
   using RouteEntry = Database::Implementation::RouteEntry;
 
   struct Info
@@ -817,14 +839,20 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const RouteEntry&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& /*relevant*/) final
   {
     while(entry->successor && entry->successor->route)
       entry = entry->successor;
 
-    if (relevant(*entry))
+    assert(entry->route->trajectory().finish_time());
+    if (*entry->route->trajectory().finish_time() < _cull_time)
+    {
       routes.emplace_back(Info{entry->participant, entry->route_id});
+    }
   }
+
+private:
+  Time _cull_time;
 };
 
 } // anonymous namespace
@@ -980,7 +1008,7 @@ Version Database::cull(Time time)
   Query query = query_all();
   query.spacetime().query_timespan().set_upper_time_bound(time);
 
-  CullRelevanceInspector inspector;
+  CullRelevanceInspector inspector(time);
   _pimpl->timeline.inspect(query, inspector);
 
   // TODO(MXG) This iterating could probably be made more efficient by grouping

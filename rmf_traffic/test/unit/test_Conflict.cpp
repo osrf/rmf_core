@@ -114,44 +114,14 @@ SCENARIO("DetectConflict unit tests")
     WHEN("t1 and t2 overlap positionally but not in timing")
     {
       rmf_traffic::Trajectory t2;
+      t2.insert(time+11s, pos, vel);
       t2.insert(time+20s, pos, vel);
-      t2.insert(time+30s, pos, vel);
       REQUIRE(t2.size() == 2);
 
       THEN("DetectConflict::between should return empty")
       {
         const auto conflicts = get_conflicts(profile, t1, profile, t2);
         REQUIRE(conflicts.empty());
-        CHECK_between_is_commutative(profile, t1, profile, t2);
-      }
-    }
-      
-    WHEN("t2 is in a different map but has overlapping timing")
-    {
-      rmf_traffic::Trajectory t2;
-      t2.insert(time, pos, vel);
-      t2.insert(time+10s, pos, vel);
-      REQUIRE(t2.size() == 2);
-
-      THEN("DetectConflict::between should return empty")
-      {
-        REQUIRE_FALSE(
-              rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
-        CHECK_between_is_commutative(profile, t1, profile, t2);
-      }
-    }
-
-    WHEN("t2 is in a different map and different timing")
-    {
-      rmf_traffic::Trajectory t2;
-      t2.insert(time+10s, pos, vel);
-      t2.insert(time+20s, pos, vel);
-      REQUIRE(t2.size() == 2);
-
-      THEN("DetectConflict::between should return empty")
-      {
-        REQUIRE_FALSE(
-              rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
         CHECK_between_is_commutative(profile, t1, profile, t2);
       }
     }

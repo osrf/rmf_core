@@ -117,7 +117,6 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
   Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
   std::chrono::_V2::steady_clock::time_point lower_time_bound;
   std::chrono::_V2::steady_clock::time_point upper_time_bound;
-  std::vector<rmf_traffic::Trajectory::const_iterator> output_iterators;
 
   const auto region_box_shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(10.0, 1.0);
@@ -463,7 +462,7 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
         &lower_time_bound,
         &upper_time_bound,
         tf,
-        region_box_shape
+        double_region_box_shape
       };
 
       // std::cout<<"\nT_box("<<shape.get_x_length()<<","<<shape.get_y_length()<<") Shape_box:("<<box.get_x_length()<<","<<box.get_y_length()<<")";
@@ -473,7 +472,7 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
       rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
       CHECK(rmf_traffic::internal::detect_conflicts(
               unit_box, t1, region, &conflicts));
-      CHECK(output_iterators.size()==1);
+      CHECK(conflicts.size()==1);
     }
 
     WHEN("Trajectory profile is 2x2, space is 10x1, space box rotated by 90deg ") //this passes
@@ -504,7 +503,7 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
       // if(rotate) std::cout<<" Ang:"<<rot_ang<<"\n";
       rmf_traffic::DetectConflict::Implementation::Conflicts conflicts;
       CHECK(rmf_traffic::internal::detect_conflicts(
-              unit_box, t1, region, &conflicts));
+              double_box, t1, region, &conflicts));
       CHECK(conflicts.size()==1);
     }
 

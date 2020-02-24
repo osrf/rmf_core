@@ -418,7 +418,7 @@ private:
       const Bucket& bucket = *timeline_it->second;
 
       auto entry_it = bucket.begin();
-      for (; entry_it != bucket.begin(); ++entry_it)
+      for (; entry_it != bucket.end(); ++entry_it)
       {
         const Entry* entry = *entry_it;
 

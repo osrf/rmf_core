@@ -67,7 +67,7 @@ public:
     // If the distance from the adjusted basis is less than half the window
     // size, then RHS is below (i.e. less than) the original basis. Otherwise it
     // is not less than the original basis.
-    return distance < HalfWindow;
+    return HalfWindow < distance;
   }
 
   /// Modify less(V) to also return true when equal.

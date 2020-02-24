@@ -37,6 +37,7 @@ struct bad_optional_access : std::logic_error
 };
 
 // TODO(MXG): Replace this with a std::optional when we're able to support C++17
+// TODO(MXG): Consider removing the safety check for the dereference operators
 template<typename T>
 class optional
 {

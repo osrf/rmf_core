@@ -20,6 +20,7 @@
 #include <rmf_traffic/geometry/Box.hpp>
 
 #include "src/rmf_traffic/schedule/debug_Viewer.hpp"
+#include "src/rmf_traffic/schedule/debug_Database.hpp"
 
 #include <rmf_utils/catch.hpp>
 #include<iostream>
@@ -76,19 +77,20 @@ SCENARIO("Test Database Conflicts")
     changes = db.changes(query_all, 0);
     CHECK(changes.registered().size() == 1);
     CHECK(changes.unregistered().size() == 0);
+
     REQUIRE(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p1);
     REQUIRE(changes.begin()->additions().items().size() == 1);
     CHECK(changes.begin()->additions().items().begin()->id == 0);
     CHECK_FALSE(changes.cull());
-    CHECK(changes.latest_version()==1);
+    CHECK(changes.latest_version() == db.latest_version());
     CHECK_TRAJECTORY_COUNT(db, 1, 1);
 
     // WHEN("Another Trajectory is inserted")
     {
       rmf_traffic::Trajectory t2;
       t2.insert(time, Eigen::Vector3d{0,-5,0}, Eigen::Vector3d{0,0,0});
-      t2.insert(time+10s, Eigen::Vector3d{0,5,0}, Eigen::Vector3d{0,0,0});
+      t2.insert(time+10min, Eigen::Vector3d{0,5,0}, Eigen::Vector3d{0,0,0});
       REQUIRE(t2.size() == 2);
 
       db.extend(p1, create_test_input(rv1++, t2), iv1++);
@@ -105,10 +107,10 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.begin()->delays().size() == 0);
       CHECK(changes.begin()->erasures().ids().size() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 2);
+      CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      changes=db.changes(query_all, 1);
+      changes=db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
@@ -118,7 +120,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.begin()->delays().size() == 0);
       CHECK(changes.begin()->erasures().ids().size() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 2);
+      CHECK(changes.latest_version() == db.latest_version());
     }
 
     // WHEN("Trajectory is delayed")
@@ -139,10 +141,10 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.begin()->delays().size() == 0);
       CHECK(changes.begin()->erasures().ids().size() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 3);
+      CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      changes=db.changes(query_all, 2);
+      changes=db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
@@ -153,12 +155,12 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.begin()->delays().begin()->duration() == duration);
       CHECK(changes.begin()->erasures().ids().size() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 3);
+      CHECK(changes.latest_version() == db.latest_version());
     }
 
     // WHEN("Trajectory is erased")
     {
-      db.erase(p1, {0}, iv1++);
+      db.erase(p1, {1}, iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 1);
 
@@ -173,10 +175,10 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.begin()->delays().size() == 0);
       CHECK(changes.begin()->erasures().ids().size() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 4);
+      CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      changes = db.changes(query_all, 3);
+      changes = db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
@@ -186,7 +188,7 @@ SCENARIO("Test Database Conflicts")
       REQUIRE(changes.begin()->erasures().ids().size() == 1);
       CHECK(changes.begin()->erasures().ids().front() == 1);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 4);
+      CHECK(changes.latest_version() == db.latest_version());
     }
 
     // WHEN("Itinerary is erased")
@@ -201,10 +203,10 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.unregistered().size() == 0);
       CHECK(changes.size() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 5);
+      CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      changes = db.changes(query_all, 4);
+      changes = db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
@@ -214,13 +216,15 @@ SCENARIO("Test Database Conflicts")
       REQUIRE(changes.begin()->erasures().ids().size() == 1);
       CHECK(changes.begin()->erasures().ids().front() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 5);
+      CHECK(changes.latest_version() == db.latest_version());
     }
 
     // WHEN("Schedule is culled")
     {
-      auto cull_time = time + 30s;
+      auto cull_time = time + 5min;
+      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 2);
       const auto v = db.cull(cull_time);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 1);
       CHECK(db.latest_version() == ++dbv);
       CHECK(v == db.latest_version());
       CHECK_TRAJECTORY_COUNT(db, 1, 0);
@@ -231,16 +235,16 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.unregistered().size() == 0);
       CHECK(changes.size() == 0);
       CHECK_FALSE(changes.cull());
-      CHECK(changes.latest_version() == 6);
+      CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      changes = db.changes(query_all, 5);
+      changes = db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       CHECK(changes.size() == 0);
       REQUIRE(changes.cull());
       CHECK(changes.cull()->time() == cull_time);
-      CHECK(changes.latest_version() == 6);
+      CHECK(changes.latest_version() == db.latest_version());
     }
   }
 }
