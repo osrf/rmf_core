@@ -1526,7 +1526,7 @@ SCENARIO("DP1 Graph")
 
             for(const auto& _t : view)
             {
-              REQUIRE(DetectConflict::between(
+              REQUIRE_FALSE(DetectConflict::between(
                         profile, obstacle_6, profile, _t.route.trajectory()));
             }
 

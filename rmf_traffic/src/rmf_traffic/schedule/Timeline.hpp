@@ -135,8 +135,6 @@ public:
 
     ~Handle()
     {
-      std::cout << " -- Removing [" << _entry->participant << ":" << _entry->route_id << "] from timeline" << std::endl;
-
       for (const auto& b : _buckets)
       {
         BucketPtr bucket = b.lock();
@@ -283,7 +281,6 @@ private:
     const auto relevant = [](const Entry&) -> bool { return true; };
     for (const auto& entry : *_all_bucket)
     {
-      std::cout << "checking [" << entry->participant << ":" << entry->route_id << "]" << std::endl;
       if (participant_filter.ignore(entry->participant))
         continue;
 
@@ -420,27 +417,17 @@ private:
     {
       const Bucket& bucket = *timeline_it->second;
 
-      std::cout << " -- inspecting bucket [" << timeline_it->first.time_since_epoch().count() << "]"
-                << " with [" << bucket.size() << "] entries" << std::endl;
-
       auto entry_it = bucket.begin();
       for (; entry_it != bucket.end(); ++entry_it)
       {
         const Entry* entry = *entry_it;
 
         if (participant_filter.ignore(entry->participant))
-        {
-          std::cout << " -- skipping b/c participant filter" << std::endl;
           continue;
-        }
 
         if (!checked[entry->participant].insert(entry->route_id).second)
-        {
-          std::cout << " -- skipping b/c redundant" << std::endl;
           continue;
-        }
 
-        std::cout << " -- sending [" << entry->participant << ":" << entry->route_id << "] to inspector" << std::endl;
         inspector.inspect(entry, relevant);
       }
     }

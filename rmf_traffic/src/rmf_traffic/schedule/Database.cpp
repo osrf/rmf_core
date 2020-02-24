@@ -280,14 +280,12 @@ public:
       assert(storage.find(id) != storage.end());
       auto& entry = storage.at(id);
 
-      std::cout << " --- moving old entry" << std::endl;
       auto transition = std::make_unique<Transition>(
             Transition{
               rmf_utils::nullopt,
               std::move(entry)
             });
 
-      std::cout << " --- making new entry" << std::endl;
       entry = std::make_unique<RouteEntry>(
             RouteEntry{
               nullptr,
@@ -299,11 +297,9 @@ public:
               std::move(transition),
               nullptr
             });
-      std::cout << " --- done making" << std::endl;
 
       entry->transition->predecessor->successor = entry.get();
       timeline.insert(*entry);
-      std::cout << " --- done erasing" << std::endl;
     }
 
     // TODO(MXG): Consider erasing the routes from the active_routes field of
@@ -672,11 +668,8 @@ public:
   const RouteEntry* get_last_known_ancestor(const RouteEntry* from) const
   {
     assert(from);
-    const bool test = modular(_after).less_than(from->schedule_version);
-    std::cout << _after << " < " << from->schedule_version << " -> " << test << std::endl;
     while (from && modular(_after).less_than(from->schedule_version))
     {
-      std::cout << _after << " < " << from->schedule_version << std::endl;
       if (from->transition)
         from = from->transition->predecessor.get();
       else
@@ -709,8 +702,6 @@ public:
     if (last == newest)
     {
       // There are no changes for this route to give the mirror
-      std::cout << " -- skipping " << print_id(last) << " because of no change ["
-                << last->schedule_version << ":" << _after << "]" << std::endl;
       return;
     }
 
@@ -750,7 +741,6 @@ public:
           // suppress compiler warnings.
           (void)(insertion);
 #endif // NDEBUG
-          std::cout << " -- inserting delay for " << print_id(last) << std::endl;
           traverse = traverse->transition->predecessor.get();
         }
       }
@@ -759,7 +749,6 @@ public:
         // The newest version of this route is not relevant to the mirror, so
         // we will erase it from the mirror.
         changes[newest->participant].erasures.emplace_back(newest->route_id);
-        std::cout << " -- erasing " << print_id(last) << std::endl;
       }
     }
     else
@@ -773,11 +762,9 @@ public:
                 newest->route_id,
                 newest->route
               });
-        std::cout << " -- adding " << print_id(newest) << std::endl;
       }
       else
       {
-        std::cout << " -- ignoring " << print_id(newest) << std::endl;
         // Ignore this route. The mirror has no need to know about it.
       }
     }
@@ -860,19 +847,13 @@ public:
       const RouteEntry* entry,
       const std::function<bool(const RouteEntry&)>& /*relevant*/) final
   {
-    std::cout << " -- inspecting cull for [" << entry->participant << ":" << entry->route_id << "]" << std::endl;
     while(entry->successor && entry->successor->route)
       entry = entry->successor;
 
     assert(entry->route->trajectory().finish_time());
     if (*entry->route->trajectory().finish_time() < _cull_time)
     {
-      std::cout << " -- will cull [" << entry->participant << ":" << entry->route_id << "]" << std::endl;
       routes.emplace_back(Info{entry->participant, entry->route_id});
-    }
-    else
-    {
-      std::cout << " -- won't cull [" << entry->participant << ":" << entry->route_id << "]" << std::endl;
     }
   }
 
@@ -1035,13 +1016,11 @@ Version Database::cull(Time time)
 
   CullRelevanceInspector inspector(time);
   _pimpl->timeline.inspect(query, inspector);
-  std::cout << " -- culled routes: " << inspector.routes.size() << std::endl;
 
   // TODO(MXG) This iterating could probably be made more efficient by grouping
   // together the culls of each participant.
   for (const auto& route : inspector.routes)
   {
-    std::cout << " -- Culling [" << route.participant << ":" << route.route_id << "]" << std::endl;
     auto p_it = _pimpl->states.find(route.participant);
     assert(p_it != _pimpl->states.end());
 

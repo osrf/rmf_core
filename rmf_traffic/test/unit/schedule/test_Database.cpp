@@ -78,26 +78,6 @@ SCENARIO("Test Database Conflicts")
     CHECK(changes.registered().size() == 1);
     CHECK(changes.unregistered().size() == 0);
 
-    if (changes.size() == 0)
-      std::cout << "NO CHANGES!" << std::endl;
-
-    for (const auto& c : changes)
-    {
-      std::cout << "\nChanges for " << c.participant_id() << std::endl;
-      std::cout << "Erasures: ";
-      for (const auto& e : c.erasures().ids())
-        std::cout << e << " ";
-      std::cout << std::endl;
-      std::cout << "Delays: ";
-      for (const auto& d : c.delays())
-        std::cout << rmf_traffic::time::to_seconds(d.duration()) << " ";
-      std::cout << std::endl;
-      std::cout << "Additions: ";
-      for (const auto& a : c.additions().items())
-        std::cout << a.id << " ";
-      std::cout << std::endl;
-    }
-
     REQUIRE(changes.size() == 1);
     CHECK(changes.begin()->participant_id() == p1);
     REQUIRE(changes.begin()->additions().items().size() == 1);
@@ -180,9 +160,7 @@ SCENARIO("Test Database Conflicts")
 
     // WHEN("Trajectory is erased")
     {
-      std::cout << " --- Erasing [0:1]" << std::endl;
       db.erase(p1, {1}, iv1++);
-      std::cout << " --- Done erasing" << std::endl;
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 1);
 
@@ -200,7 +178,6 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      std::cout << " ============ calculating diff -------------- " << std::endl;
       changes = db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
@@ -246,9 +223,7 @@ SCENARIO("Test Database Conflicts")
     {
       auto cull_time = time + 5min;
       CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 2);
-      std::cout << "About to cull" << std::endl;
       const auto v = db.cull(cull_time);
-      std::cout << "Finished culling" << std::endl;
       CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 1);
       CHECK(db.latest_version() == ++dbv);
       CHECK(v == db.latest_version());
