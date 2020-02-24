@@ -837,6 +837,12 @@ class CullRelevanceInspector
 {
 public:
 
+  CullRelevanceInspector(Time cull_time)
+  : _cull_time(cull_time)
+  {
+    // Do nothing
+  }
+
   using RouteEntry = Database::Implementation::RouteEntry;
 
   struct Info
@@ -849,13 +855,14 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const RouteEntry&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& /*relevant*/) final
   {
     std::cout << " -- inspecting cull for [" << entry->participant << ":" << entry->route_id << "]" << std::endl;
     while(entry->successor && entry->successor->route)
       entry = entry->successor;
 
-    if (relevant(*entry))
+    assert(entry->route->trajectory().finish_time());
+    if (*entry->route->trajectory().finish_time() < _cull_time)
     {
       std::cout << " -- will cull [" << entry->participant << ":" << entry->route_id << "]" << std::endl;
       routes.emplace_back(Info{entry->participant, entry->route_id});
@@ -865,6 +872,9 @@ public:
       std::cout << " -- won't cull [" << entry->participant << ":" << entry->route_id << "]" << std::endl;
     }
   }
+
+private:
+  Time _cull_time;
 };
 
 } // anonymous namespace
@@ -1020,7 +1030,7 @@ Version Database::cull(Time time)
   Query query = query_all();
   query.spacetime().query_timespan().set_upper_time_bound(time);
 
-  CullRelevanceInspector inspector;
+  CullRelevanceInspector inspector(time);
   _pimpl->timeline.inspect(query, inspector);
   std::cout << " -- culled routes: " << inspector.routes.size() << std::endl;
 

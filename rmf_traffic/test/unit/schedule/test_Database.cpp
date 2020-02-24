@@ -249,7 +249,7 @@ SCENARIO("Test Database Conflicts")
       std::cout << "About to cull" << std::endl;
       const auto v = db.cull(cull_time);
       std::cout << "Finished culling" << std::endl;
-      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 2);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 1);
       CHECK(db.latest_version() == ++dbv);
       CHECK(v == db.latest_version());
       CHECK_TRAJECTORY_COUNT(db, 1, 0);
