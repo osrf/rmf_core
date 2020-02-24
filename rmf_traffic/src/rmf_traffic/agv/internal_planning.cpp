@@ -506,8 +506,6 @@ struct DifferentialDriveExpander
       assert(_event);
       const auto duration = _event->duration();
       return expander->make_delay(
-            // TODO(MXG): Somehow this was compiling without the dereference
-            // operator. That should not be possible; please investigate.
             *_parent->waypoint,
             _parent,
             duration,
@@ -863,7 +861,7 @@ struct DifferentialDriveExpander
             _context.viewer.get_participant(check.participant);
         assert(description);
 
-        if(!DetectConflict::between(
+        if(DetectConflict::between(
              _context.profile, trajectory,
              description->profile(), check_trajectory))
           return false;
@@ -883,7 +881,7 @@ struct DifferentialDriveExpander
             _context.viewer.get_participant(check.participant);
         assert(description);
 
-        if(!DetectConflict::between(
+        if(DetectConflict::between(
              _context.profile, trajectory,
              description->profile(), check_trajectory))
           return false;

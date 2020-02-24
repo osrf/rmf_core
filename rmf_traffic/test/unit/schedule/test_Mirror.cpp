@@ -48,7 +48,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
   // Add two participants
   double profile_scale=1;
-  const auto shape= rmf_traffic::geometry::make_final_convex<
+  const auto shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(profile_scale, profile_scale);
   const rmf_traffic::Profile profile{shape};
 
@@ -107,7 +107,6 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     t3.insert(time+10s, Eigen::Vector3d{5, 10, 0},Eigen::Vector3d{0, 0, 0});
 
     db.extend(p1, create_test_input(rv1++, t3), iv1++);
-    std::cout << "Adding: p " << p1 << " | r " << rv1-1 << " | i " << iv1-1 << std::endl;
     CHECK(db.latest_version() == ++dbv);
     CHECK_TRAJECTORY_COUNT(db, 2, 3);
     CHECK(mirror.latest_version() != db.latest_version());
@@ -115,17 +114,13 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     THEN("Updating the mirror should update its latest version")
     {
       changes = db.changes(query_all, mirror.latest_version());
-      std::cout << "Adding to: " << changes.begin()->participant_id() << std::endl;
-      std::cout << "New id: " << changes.begin()->additions().items().front().id << std::endl;
-
-      std::cout << "Patch latest version: " << changes.latest_version() << std::endl;
       mirror.update(changes);
       CHECK(mirror.latest_version() == db.latest_version());
       CHECK_TRAJECTORY_COUNT(mirror, 2, 3);
     }
   }
 
-  GIVEN("A trajctory is added that creates a conflict in the schedule")
+  GIVEN("Create a trajectory that conflicts with the schedule")
   {
     rmf_traffic::Trajectory t3;
     t3.insert(time, Eigen::Vector3d{0, -5, 0}, Eigen::Vector3d{0, 0, 0});
@@ -145,13 +140,18 @@ SCENARIO("Test Mirror of a Database with two trajectories")
       db.set(p1, create_test_input(rv1++, t4), iv1++);
       CHECK(db.latest_version() == ++dbv);
 
+      view = db.query(query_all);
+      conflicting_trajectories =
+          get_conflicting_trajectories(db, view, profile, t3);
+      CHECK(conflicting_trajectories.size() == 0);
+
       changes = db.changes(query_all, mirror.latest_version());
       mirror.update(changes);
       CHECK(mirror.latest_version() == db.latest_version());
 
       view = mirror.query(query_all);
       conflicting_trajectories =
-          get_conflicting_trajectories(mirror, view, profile,t3);
+          get_conflicting_trajectories(mirror, view, profile, t3);
       CHECK(conflicting_trajectories.size()==0);
     }
 
@@ -210,7 +210,7 @@ SCENARIO("Testing specialized mirrors")
 
   // Creating participants
   const double profile_scale = 1.0;
-  const auto shape= rmf_traffic::geometry::make_final_convex<
+  const auto shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(profile_scale, profile_scale);
   const rmf_traffic::Profile profile{shape};
 
@@ -275,13 +275,13 @@ SCENARIO("Testing specialized mirrors")
   db.set(p2, {{rv2++, r3}, {rv2++, r5}}, iv2++);
   CHECK(db.latest_version() == ++dbv);
 
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile,t2));
+  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t3));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t4));
+  // Note: r1 and r4 are on different maps, so we don't compare their trajectories
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t5));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t3));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t4));
-  CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t2, profile, t5));
+  // Note: r2 and r5 are on different maps, so we don't compare their trajectories
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t3, profile, t4));
   CHECK_FALSE(rmf_traffic::DetectConflict::between(profile, t4, profile, t5));
 
@@ -465,7 +465,7 @@ SCENARIO("Testing specialized mirrors")
         db.changes(query, rmf_utils::nullopt);
 
     REQUIRE(changes.size() > 0);
-    CHECK(changes.size() == 3);
+    CHECK(changes.size() == 2);
 
     IdMap ids;
     for (const auto& c : changes)

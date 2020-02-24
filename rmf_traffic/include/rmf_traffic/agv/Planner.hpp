@@ -229,13 +229,13 @@ public:
     double orientation() const;
 
     /// Get the starting location, if one was specified
-    rmf_utils::optional<Eigen::Vector2d> location() const;
+    const rmf_utils::optional<Eigen::Vector2d>& location() const;
 
     /// Set the starting location, or remove it by using rmf_utils::nullopt
     Start& location(rmf_utils::optional<Eigen::Vector2d> initial_location);
 
     /// Get the starting lane, if one was specified
-    rmf_utils::optional<std::size_t> lane() const;
+    const rmf_utils::optional<std::size_t>& lane() const;
 
     /// Set the starting lane, or remove it by using rmf_utils::nullopt
     Start& lane(rmf_utils::optional<std::size_t> initial_lane);

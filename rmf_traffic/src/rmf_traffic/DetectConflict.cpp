@@ -206,21 +206,23 @@ std::array<double, 2> get_local_extrema(
     // Calculate the discriminant otherwise
     double D = (4 * pow(coeffs[2], 2) - 12 * coeffs[3] * coeffs[1]);
 
-
-    if (std::abs(D) < 1e-12)
+    if (std::abs(D) < 1e-4)
     {
-      double t = (-2 * coeffs[2]) / (6 * coeffs[3]);
-      double extrema = evaluate_spline(coeffs, t);
+      const double t = (-2 * coeffs[2]) / (6 * coeffs[3]);
+      const double extrema = evaluate_spline(coeffs, t);
       extrema_candidates.emplace_back(extrema);
     }
     else if (D < 0)
     {
       assert(false);
+      // Skip this extrema, because it is imaginary.
+      // TODO(MXG): Should we have a way to log this occurrence? Print something
+      // to stderr?
     }
     else
     {
-      double t1 = ((-2 * coeffs[2]) + std::sqrt(D)) / (6 * coeffs[3]);
-      double t2 = ((-2 * coeffs[2]) - std::sqrt(D)) / (6 * coeffs[3]);
+      const double t1 = ((-2 * coeffs[2]) + std::sqrt(D)) / (6 * coeffs[3]);
+      const double t2 = ((-2 * coeffs[2]) - std::sqrt(D)) / (6 * coeffs[3]);
 
       extrema_candidates.emplace_back(evaluate_spline(coeffs, t1));
       extrema_candidates.emplace_back(evaluate_spline(coeffs, t2));

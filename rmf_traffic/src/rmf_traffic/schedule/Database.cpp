@@ -386,6 +386,9 @@ void Database::set(
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
 
+  // Erase the routes that are currently active
+  _pimpl->erase_routes(participant, state, state.active_routes);
+
   // Clear the list of routes that are currently active
   state.active_routes.clear();
 

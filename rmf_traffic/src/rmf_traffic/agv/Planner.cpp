@@ -219,7 +219,7 @@ Planner::Start::Start(
                initial_waypoint,
                initial_orientation,
                std::move(initial_location),
-               initial_lane
+               std::move(initial_lane)
              }))
 {
   // Do nothing
@@ -265,7 +265,7 @@ double Planner::Start::orientation() const
 }
 
 //==============================================================================
-rmf_utils::optional<Eigen::Vector2d> Planner::Start::location() const
+const rmf_utils::optional<Eigen::Vector2d>& Planner::Start::location() const
 {
   return _pimpl->location;
 }
@@ -279,7 +279,7 @@ auto Planner::Start::location(
 }
 
 //==============================================================================
-rmf_utils::optional<std::size_t> Planner::Start::lane() const
+const rmf_utils::optional<std::size_t>& Planner::Start::lane() const
 {
   return _pimpl->lane;
 }

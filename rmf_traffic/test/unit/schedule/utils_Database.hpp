@@ -63,7 +63,7 @@ inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
     const auto& v_p = viewer.get_participant(v.participant)->profile();
     const auto& v_t = v.route.trajectory();
     if(rmf_traffic::DetectConflict::between(v_p, v_t, p, t))
-        collision_trajectories.push_back(v_t);
+      collision_trajectories.push_back(v_t);
   }
 
   return collision_trajectories;
