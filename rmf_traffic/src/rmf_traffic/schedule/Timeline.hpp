@@ -322,10 +322,10 @@ private:
       spacetime_data.upper_time_bound = upper_time_bound;
 
       const auto timeline_begin =
-          (lower_time_bound == nullptr)?
-            timeline.begin() : timeline.lower_bound(*lower_time_bound);
+          get_timeline_begin(timeline, lower_time_bound);
 
-      const auto timeline_end = get_timeline_end(timeline, upper_time_bound);
+      const auto timeline_end =
+          get_timeline_end(timeline, upper_time_bound);
 
       for (auto space_it = region.begin(); space_it != region.end(); ++space_it)
       {

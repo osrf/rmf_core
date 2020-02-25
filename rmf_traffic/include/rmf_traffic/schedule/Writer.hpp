@@ -107,7 +107,7 @@ public:
   /// Erase an itinerary from this database.
   ///
   /// \param[in] participant
-  ///   The ID of the participant whose itinerary is being delayed.
+  ///   The ID of the participant whose itinerary is being erased.
   ///
   /// \param[in] version
   ///   The version for this itinerary change
@@ -119,7 +119,7 @@ public:
   /// Erase a route from an itinerary.
   ///
   /// \param[in] participant
-  ///   The ID of the participant whose itinerary is being delayed.
+  ///   The ID of the participant whose routes are being erased.
   ///
   /// \param[in] routes
   ///   The indices of the routes that should be erased.

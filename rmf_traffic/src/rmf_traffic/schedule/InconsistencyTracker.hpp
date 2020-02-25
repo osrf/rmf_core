@@ -97,10 +97,7 @@ public:
   /// \param[in] version
   ///   The declared version of this change
   ///
-  /// \param[in] inconsistencies
-  ///   The current record of inconsistencies
-  ///
-  /// \param[in] reset
+  /// \param[in] nullifying
   ///   Whether this change will nullify the changes that came before it. If
   ///   true, we will discard the recording of the changes that predate this
   ///   one.

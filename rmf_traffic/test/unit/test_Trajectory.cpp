@@ -65,7 +65,7 @@ SCENARIO("Waypoint Unit Tests")
     rmf_traffic::Trajectory trajectory = create_test_trajectory(inputs);
     rmf_traffic::Trajectory::iterator trajectory_it = trajectory.begin();
     rmf_traffic::Trajectory::Waypoint& waypoint = *trajectory_it;
-    rmf_traffic::Trajectory::Waypoint& segment_10s = *(++trajectory_it);
+    rmf_traffic::Trajectory::Waypoint& waypoint_10s = *(++trajectory_it);
 
     WHEN("Setting a new finish position using position() function")
     {
@@ -110,12 +110,12 @@ SCENARIO("Waypoint Unit Tests")
       }
     }
 
-    WHEN("Setting a new finish time that causes a rearrangement of adjacent segments")
+    WHEN("Setting a new finish time that causes a rearrangement of adjacent waypoints")
     {
       const rmf_traffic::Time new_time = time + 12s;
       waypoint.change_time(new_time);
 
-      THEN("The appropriate segments are rearranged")
+      THEN("The appropriate waypoints are rearranged")
       {
         int new_order[3] = {1, 0, 2};
         int i = 0;
@@ -124,12 +124,12 @@ SCENARIO("Waypoint Unit Tests")
       }
     }
 
-    WHEN("Setting a new finish time that causes a rearrangement of non-adjacent segments")
+    WHEN("Setting a new finish time that causes a rearrangement of non-adjacent waypoints")
     {
       const rmf_traffic::Time new_time = time + 22s;
       waypoint.change_time(new_time);
 
-      THEN("The appropriate segments are rearranged")
+      THEN("The appropriate waypoints are rearranged")
       {
         int new_order[3] = {1, 2, 0};
         int i = 0;
@@ -191,7 +191,7 @@ SCENARIO("Waypoint Unit Tests")
     WHEN("Positively adjusting all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(5);
-      segment_10s.adjust_times(delta_t);
+      waypoint_10s.adjust_times(delta_t);
       int i = 0;
 
       THEN("Finish times from the second waypoint on are adjusted correctly.")
@@ -207,7 +207,7 @@ SCENARIO("Waypoint Unit Tests")
     WHEN("Negatively adjusting all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-5);
-      segment_10s.adjust_times(delta_t);
+      waypoint_10s.adjust_times(delta_t);
       int i = 0;
 
       THEN("All finish times are adjusted correctly.")
@@ -226,7 +226,7 @@ SCENARIO("Waypoint Unit Tests")
 
       THEN("std::invalid_argument exception thrown due to violation of previous waypoint time boundary")
       {
-        CHECK_THROWS(segment_10s.adjust_times(delta_t));
+        CHECK_THROWS(waypoint_10s.adjust_times(delta_t));
       }
     }
   }
@@ -598,7 +598,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing a empty range of segments using range notation")
+    WHEN("Erasing an empty range of waypoints using range notation")
     {
       THEN("Nothing is erased and current iterator is returned")
       {
@@ -611,7 +611,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing a empty range of segments from a copy using range notation")
+    WHEN("Erasing an empty range of waypoints from a copy using range notation")
     {
       THEN("Nothing is erased")
       {
@@ -655,7 +655,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing the first and second segments using range notation")
+    WHEN("Erasing the first and second waypoints using range notation")
     {
       THEN("2 Waypoints are erased and trajectory is rearranged")
       {
@@ -668,7 +668,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing the first and second segments of a copy using range notation")
+    WHEN("Erasing the first and second waypoints of a copy using range notation")
     {
       THEN("2 Waypoints are erased and trajectory is rearranged")
       {
@@ -683,7 +683,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing all segments using range notation")
+    WHEN("Erasing all waypoints using range notation")
     {
       THEN("All Waypoints are erased and trajectory is empty")
       {
@@ -710,7 +710,7 @@ SCENARIO("Trajectory and base_iterator unit tests")
       }
     }
 
-    WHEN("Erasing all segments of a copy using range notation")
+    WHEN("Erasing all waypoints of a copy using range notation")
     {
       THEN("All Waypoints are erased and trajectory is empty")
       {
