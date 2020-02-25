@@ -63,25 +63,25 @@ public:
   // Default destructor
   virtual ~Motion() = default;
 
+  /// Compute a piecewise cubic spline motion object for a Trajectory from the
+  /// begin iterator up to (but not including) the end iterator.
+  ///
+  /// \param[in] begin
+  ///   The iterator of the first waypoint to include in the motion. It is
+  ///   undefined behavior to pass in Trajectory::end() for this argument.
+  ///
+  /// \param[in] end
+  ///   The iterator of the first waypoint to exclude from the motion. To
+  ///   include all the way to the end of the trajectory, pass in
+  ///   Trajectory::end(). An exception will be thrown if begin == end.
+  static std::unique_ptr<Motion> compute_cubic_splines(
+      const Trajectory::const_iterator& begin,
+      const Trajectory::const_iterator& end);
+
+  /// Compute a piecewise cubic spline motion object for an entire Trajectory.
+  static std::unique_ptr<Motion> compute_cubic_splines(
+      const Trajectory& trajectory);
 };
-
-//==============================================================================
-/// Compute a piecewise cubic spline motion object for a Trajectory from the
-/// begin iterator up to (but not including) the end iterator.
-///
-/// \param[in] begin
-///   The iterator of the first waypoint to include in the motion.
-///
-/// \param[in] end
-///   The iterator of the first waypoint to exclude from the motion. To include
-///   all waypoints to the end of the trajectory, pass in Trajectory::end().
-std::unique_ptr<Motion> compute_cubic_splines(
-    const Trajectory::const_iterator& begin,
-    const Trajectory::const_iterator& end);
-
-//==============================================================================
-/// Compute a piecewise cubic spline motion object for an entire Trajectory.
-std::unique_ptr<Motion> compute_cubic_splines(const Trajectory& trajectory);
 
 } // namespace rmf_traffic
 

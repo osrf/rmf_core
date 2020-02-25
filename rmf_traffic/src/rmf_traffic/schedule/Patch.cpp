@@ -16,9 +16,63 @@
 */
 
 #include <rmf_traffic/schedule/Patch.hpp>
+#include "../detail/internal_bidirectional_iterator.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
+
+//==============================================================================
+class Patch::Participant::Implementation
+{
+public:
+
+  ParticipantId id;
+  Change::Erase erasures;
+  std::vector<Change::Delay> delays;
+  Change::Add additions;
+
+};
+
+//==============================================================================
+Patch::Participant::Participant(
+    ParticipantId id,
+    Change::Erase erasures,
+    std::vector<Change::Delay> delays,
+    Change::Add additions)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             id,
+             std::move(erasures),
+             std::move(delays),
+             std::move(additions)
+           }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+ParticipantId Patch::Participant::participant_id() const
+{
+  return _pimpl->id;
+}
+
+//==============================================================================
+const Change::Erase& Patch::Participant::erasures() const
+{
+  return _pimpl->erasures;
+}
+
+//==============================================================================
+const std::vector<Change::Delay>& Patch::Participant::delays() const
+{
+  return _pimpl->delays;
+}
+
+//==============================================================================
+const Change::Add& Patch::Participant::additions() const
+{
+  return _pimpl->additions;
+}
 
 //==============================================================================
 class Patch::Implementation
@@ -118,6 +172,4 @@ template class bidirectional_iterator<
 >;
 
 } // namespace detail
-
-
 } // namespace rmf_traffic

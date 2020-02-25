@@ -18,6 +18,7 @@
 #ifndef RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP
 #define RMF_TRAFFIC__TEST__UNIT__UTILS_TRAJECTORY_HPP
 
+#include <rmf_traffic/Profile.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/geometry/Box.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
@@ -30,40 +31,19 @@ enum TestProfileType
   UnitCircle
 };
 
-inline rmf_traffic::Trajectory::ProfilePtr create_test_profile(
-    TestProfileType shape,
-    rmf_traffic::Trajectory::Profile::Autonomy autonomy =
-        rmf_traffic::Trajectory::Profile::Autonomy::Guided,
-    std::string queue_number = "0")
+//==============================================================================
+inline rmf_traffic::Profile create_test_profile(TestProfileType shape_type)
 {
-  if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Autonomy::Guided == autonomy)
-  {
-    return rmf_traffic::Trajectory::Profile::make_guided(
-        rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Box>(1.0, 1.0));
-  }
-  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Autonomy::Guided == autonomy)
-  {
-    return rmf_traffic::Trajectory::Profile::make_guided(
-        rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Circle>(1.0));
-  }
-  else if (UnitBox == shape && rmf_traffic::Trajectory::Profile::Autonomy::Queued == autonomy)
-  {
-    return rmf_traffic::Trajectory::Profile::make_queued(
-        rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Box>(1.0, 1.0), queue_number);
-  }
-  else if (UnitCircle == shape && rmf_traffic::Trajectory::Profile::Autonomy::Queued == autonomy)
-  {
-    return rmf_traffic::Trajectory::Profile::make_queued(
-        rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Circle>(1.0), queue_number);
-  }
-  else
-  {
-    return nullptr;
-  }
+  rmf_traffic::geometry::ConstFinalConvexShapePtr shape;
+
+  if (UnitBox == shape_type)
+    shape = rmf_traffic::geometry::make_final_convex<
+        rmf_traffic::geometry::Box>(1.0, 1.0);
+  else if (UnitCircle == shape_type)
+    shape = rmf_traffic::geometry::make_final_convex<
+        rmf_traffic::geometry::Circle>(1.0);
+
+  return rmf_traffic::Profile(shape, shape);
 }
 
 //==============================================================================
@@ -75,55 +55,21 @@ struct TrajectoryInsertInput
   Eigen::Vector3d vel;
 };
 
+//==============================================================================
 inline rmf_traffic::Trajectory create_test_trajectory()
 {
-  rmf_traffic::Trajectory trajectory("test_map");
+  rmf_traffic::Trajectory trajectory;
   return trajectory;
 }
 
-inline rmf_traffic::Trajectory create_test_trajectory(std::vector<TrajectoryInsertInput> param_list)
+//==============================================================================
+inline rmf_traffic::Trajectory create_test_trajectory(
+    std::vector<TrajectoryInsertInput> param_list)
 {
-  rmf_traffic::Trajectory trajectory("test_map");
+  rmf_traffic::Trajectory trajectory;
   for (auto x : param_list)
   {
-    trajectory.insert(x.time, create_test_profile(x.profile_type), x.pos, x.vel);
-  }
-  return trajectory;
-}
-
-// For backward compatibility in other tests
-//==============================================================================
-inline rmf_traffic::Trajectory::ProfilePtr make_test_profile(TestProfileType shape)
-{
-  if (UnitBox == shape)
-  {
-    return rmf_traffic::Trajectory::Profile::make_guided(
-        rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Box>(1.0, 1.0));
-  }
-  else if (UnitCircle == shape)
-  {
-    return rmf_traffic::Trajectory::Profile::make_guided(
-        rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Circle>(1.0));
-  }
-  else
-  {
-    return nullptr;
-  }
-}
-
-inline rmf_traffic::Trajectory make_test_trajectory(rmf_traffic::Time t, int length, int dur)
-{
-  using namespace std::chrono_literals;
-  rmf_traffic::Trajectory trajectory("test_map");
-  for (auto i = 0; i < length; ++i)
-  {
-    const auto finish_time = t + std::chrono::seconds(i * dur);
-    const auto profile = make_test_profile(UnitBox);
-    const Eigen::Vector3d final_pos = Eigen::Vector3d(1, 1, 1);
-    const Eigen::Vector3d final_vel = Eigen::Vector3d(1, 1, 1);
-    auto result = trajectory.insert(finish_time, profile, final_pos, final_vel);
+    trajectory.insert(x.time, x.pos, x.vel);
   }
   return trajectory;
 }

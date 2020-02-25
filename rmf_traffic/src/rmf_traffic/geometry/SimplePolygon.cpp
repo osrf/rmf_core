@@ -92,7 +92,7 @@ bool compute_intersection(
 
   Eigen::Matrix2d M;
   M.block<2,1>(0,0) =   p_b1 - p_b0;
-  M.block<2,1>(1,0) = -(p_a1 - p_a0);
+  M.block<2,1>(0,1) = -(p_a1 - p_a0);
 
   const Eigen::Vector2d c = p_a0 - p_b0;
 

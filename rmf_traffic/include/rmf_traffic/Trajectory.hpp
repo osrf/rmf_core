@@ -31,11 +31,11 @@
 namespace rmf_traffic {
 
 //==============================================================================
-namespace detail {
+namespace internal {
 /// \internal We declare this private PIMPL class outside of the
 /// Trajectory::base_iterator class so that it does not need to be templated.
 class TrajectoryIteratorImplementation;
-} // namespace detail
+} // namespace internal
 
 //==============================================================================
 class Trajectory
@@ -279,7 +279,7 @@ public:
   class Debug;
 
 private:
-  friend class detail::TrajectoryIteratorImplementation;
+  friend class internal::TrajectoryIteratorImplementation;
   class Implementation;
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 
@@ -362,8 +362,8 @@ public:
 
 private:
   friend class Trajectory;
-  friend class detail::TrajectoryIteratorImplementation;
-  rmf_utils::impl_ptr<detail::TrajectoryIteratorImplementation> _pimpl;
+  friend class internal::TrajectoryIteratorImplementation;
+  rmf_utils::impl_ptr<internal::TrajectoryIteratorImplementation> _pimpl;
 };
 
 extern template class Trajectory::base_iterator<Trajectory::Waypoint>;

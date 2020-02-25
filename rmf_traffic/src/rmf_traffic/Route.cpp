@@ -15,33 +15,47 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__SCHEDULE__CHANGEINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__SCHEDULE__CHANGEINTERNAL_HPP
-
-#include <rmf_traffic/schedule/Change.hpp>
-
-#include <rmf_utils/optional.hpp>
+#include "RouteInternal.hpp"
 
 namespace rmf_traffic {
-namespace schedule {
 
 //==============================================================================
-class Change::Delay::Implementation
+Route::Route(
+    std::string map,
+    Trajectory trajectory)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             std::move(map),
+             std::move(trajectory)
+           }))
 {
-public:
-
-  Time from;
-  Duration duration;
-
-};
+  // Do nothing
+}
 
 //==============================================================================
-rmf_utils::optional<Trajectory> apply_delay(
-    const Trajectory& old_trajectory,
-    Time from,
-    Duration delay);
+Route& Route::map(std::string value)
+{
+  _pimpl->map = std::move(value);
+  return *this;
+}
 
-} // namespace schedule
+//==============================================================================
+const std::string& Route::map() const
+{
+  return _pimpl->map;
+}
+
+//==============================================================================
+Route& Route::trajectory(Trajectory value)
+{
+  _pimpl->trajectory = std::move(value);
+  return *this;
+}
+
+//==============================================================================
+const Trajectory& Route::trajectory() const
+{
+  return _pimpl->trajectory;
+}
+
 } // namespace rmf_traffic
-
-#endif // SRC__RMF_TRAFFIC__SCHEDULE__CHANGEINTERNAL_HPP

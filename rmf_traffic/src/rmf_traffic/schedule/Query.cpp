@@ -33,7 +33,6 @@ public:
 
 };
 
-
 //==============================================================================
 class Query::Spacetime::Regions::Implementation
 {
@@ -278,6 +277,13 @@ auto Query::Spacetime::Timespan::remove_map(const std::string& map_name)
   -> Timespan&
 {
   _pimpl->maps.erase(map_name);
+  return *this;
+}
+
+//==============================================================================
+auto Query::Spacetime::Timespan::clear_maps() -> Timespan&
+{
+  _pimpl->maps.clear();
   return *this;
 }
 
@@ -708,6 +714,18 @@ auto Query::spacetime() -> Spacetime&
 auto Query::spacetime() const -> const Spacetime&
 {
   return _pimpl->spacetime_instance;
+}
+
+//==============================================================================
+auto Query::participants() -> Participants&
+{
+  return _pimpl->participants_instance;
+}
+
+//==============================================================================
+auto Query::participants() const -> const Participants&
+{
+  return _pimpl->participants_instance;
 }
 
 //==============================================================================

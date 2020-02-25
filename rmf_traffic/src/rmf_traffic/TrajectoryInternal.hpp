@@ -31,11 +31,12 @@ struct WaypointElement;
 using WaypointList = std::list<WaypointElement>;
 using OrderMap = std::map<Time, WaypointList::iterator>;
 
+//==============================================================================
 struct WaypointElement
 {
   struct Data
   {
-    Time finish_time;
+    Time time;
     Eigen::Vector3d position;
     Eigen::Vector3d velocity;
   };
@@ -69,6 +70,10 @@ struct WaypointElement
   WaypointElement(WaypointElement&&) = default;
   WaypointElement& operator=(WaypointElement&&) = default;
 };
+
+//==============================================================================
+WaypointList::const_iterator get_raw_iterator(
+    const Trajectory::const_iterator& iterator);
 
 } // namespace internal
 } // namespace rmf_traffic

@@ -27,6 +27,8 @@
 namespace rmf_traffic {
 namespace schedule {
 
+class Database;
+
 //============================================================================
 /// An Inconsistency occurs when one or more ItineraryVersion values get
 /// skipped by the inputs into the database. This container expresses the ranges
@@ -106,7 +108,9 @@ public:
 
   class Implementation;
 private:
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  friend class Database;
+  Inconsistencies();
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 
@@ -123,7 +127,7 @@ extern template class forward_iterator<
 
 //==============================================================================
 extern template class forward_iterator<
-    const schedule::Inconsistencies::Ranges,
+    const schedule::Inconsistencies::Element,
     schedule::Inconsistencies::IterImpl,
     schedule::Inconsistencies
 >;

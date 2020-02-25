@@ -16,6 +16,7 @@
 */
 
 #include "InconsistenciesInternal.hpp"
+#include "../detail/internal_forward_iterator.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -147,6 +148,16 @@ public:
       ++it;
       return original;
     }
+
+    bool operator==(const Iter& other) const
+    {
+      return it == other.it;
+    }
+
+    bool operator!=(const Iter& other) const
+    {
+      return it != other.it;
+    }
   };
 
   Iter iter;
@@ -193,6 +204,13 @@ std::size_t Inconsistencies::size() const
   return _pimpl->_api.size();
 }
 
+//==============================================================================
+Inconsistencies::Inconsistencies()
+: _pimpl(rmf_utils::make_unique_impl<Implementation>())
+{
+  // Do nothing
+}
+
 } // namespace schedule
 
 namespace detail {
@@ -206,7 +224,7 @@ template class forward_iterator<
 
 //==============================================================================
 template class forward_iterator<
-    const schedule::Inconsistencies::Ranges,
+    const schedule::Inconsistencies::Element,
     schedule::Inconsistencies::IterImpl,
     schedule::Inconsistencies
 >;

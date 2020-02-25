@@ -18,13 +18,40 @@
 #ifndef SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
 #define SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP
 
+#include <rmf_traffic/DetectConflict.hpp>
+
 #include "geometry/ShapeInternal.hpp"
 
+#include <rmf_traffic/Profile.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 
 #include <unordered_map>
 
 namespace rmf_traffic {
+
+class DetectConflict::Implementation
+{
+public:
+
+  struct Conflict
+  {
+    Trajectory::const_iterator a_it;
+    Trajectory::const_iterator b_it;
+    Time time;
+  };
+
+  using Conflicts = std::vector<Conflict>;
+
+  static bool between(
+      const Profile& profile_a,
+      const Trajectory& trajectory_a,
+      const Profile& profile_b,
+      const Trajectory& trajectory_b,
+      Interpolate interpolation,
+      std::vector<Conflict>* output_conflicts = nullptr);
+
+};
+
 namespace internal {
 
 //==============================================================================
@@ -39,12 +66,13 @@ struct Spacetime
 
 //==============================================================================
 bool detect_conflicts(
+    const Profile& profile,
     const Trajectory& trajectory,
     const Spacetime& region,
-    std::vector<Trajectory::const_iterator>* output_iterators);
-
+    DetectConflict::Implementation::Conflicts* output_conflicts = nullptr);
 
 } // namespace internal
+
 } // namespace rmf_traffic
 
 #endif // SRC__RMF_UTILS__DETECTCONFLICTINTERNAL_HPP

@@ -15,24 +15,27 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
-#define RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#ifndef SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_DATABASE_HPP
+#define SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_DATABASE_HPP
 
-#include <rmf_traffic/Route.hpp>
-#include <rmf_traffic/schedule/Version.hpp>
-
-#include <vector>
+#include <rmf_traffic/schedule/Database.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
 
-//==============================================================================
-using ItineraryVersion = uint64_t;
+class Database::Debug
+{
+public:
 
-//==============================================================================
-using Itinerary = std::vector<ConstRoutePtr>;
+  /// Returns how many entry histories are still in the database. An entry
+  /// history is the chain of changes tied to the route ID of a single
+  /// participant. The full history of an entry is preserved until the database
+  /// is given a cull command, and the entry qualifies for the cull.
+  static std::size_t current_entry_history_count(const Database& database);
+
+};
 
 } // namespace schedule
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__SCHEDULE__ITINERARY_HPP
+#endif // SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_DATABASE_HPP

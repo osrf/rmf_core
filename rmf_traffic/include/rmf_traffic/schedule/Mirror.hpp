@@ -42,7 +42,7 @@ public:
   View query(const Query& parameters) const final;
 
   // Documentation inherited from Viewer
-  const std::unordered_set<ParticipantId> & participant_ids() const final;
+  const std::unordered_set<ParticipantId>& participant_ids() const final;
 
   // Documentation inherited from Viewer
   const ParticipantDescription* get_participant(

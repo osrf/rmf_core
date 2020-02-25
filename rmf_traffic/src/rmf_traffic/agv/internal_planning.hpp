@@ -33,7 +33,7 @@ using CachePtr = std::shared_ptr<Cache>;
 //==============================================================================
 struct Result
 {
-  std::vector<Trajectory> trajectories;
+  std::vector<Route> routes;
   std::vector<agv::Plan::Waypoint> waypoints;
 
   agv::Planner::Start start;

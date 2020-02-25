@@ -20,6 +20,7 @@
 #include "Modular.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
+#include "debug_Database.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
@@ -56,13 +57,6 @@ class Database::Implementation
 {
 public:
 
-#ifndef NDEBUG
-  // This field is used, only in DEBUG mode, to keep track of all route IDs that
-  // have ever been added. If there is ever a repeat, an exception will be
-  // thrown.
-  std::unordered_set<RouteId> all_route_ids_ever;
-#endif // NDEBUG
-
   struct ParticipantState;
 
   struct Transition;
@@ -88,6 +82,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
+    const ParticipantDescription& description;
     std::shared_ptr<void> timeline_handle;
 
     // ===== Additional fields for this timeline entry =====
@@ -216,6 +211,7 @@ public:
               item.route,
               participant,
               route_id,
+              state.description,
               nullptr,
               schedule_version,
               nullptr,
@@ -261,6 +257,7 @@ public:
               std::move(new_route),
               participant,
               id,
+              state.description,
               nullptr,
               schedule_version,
               std::move(transition),
@@ -281,19 +278,20 @@ public:
     for (const RouteId id : routes)
     {
       assert(storage.find(id) != storage.end());
-      auto& old_entry = storage.at(id);
+      auto& entry = storage.at(id);
 
       auto transition = std::make_unique<Transition>(
             Transition{
               rmf_utils::nullopt,
-              std::move(old_entry)
+              std::move(entry)
             });
 
-      RouteEntryPtr entry = std::make_unique<RouteEntry>(
+      entry = std::make_unique<RouteEntry>(
             RouteEntry{
               nullptr,
               participant,
               id,
+              state.description,
               nullptr,
               schedule_version,
               std::move(transition),
@@ -337,6 +335,17 @@ private:
 };
 
 //==============================================================================
+std::size_t Database::Debug::current_entry_history_count(
+    const Database& database)
+{
+  std::size_t count = 0;
+  for (const auto& p : database._pimpl->states)
+    count += p.second.storage.size();
+
+  return count;
+}
+
+//==============================================================================
 void Database::set(
     ParticipantId participant,
     const Input& input,
@@ -372,6 +381,9 @@ void Database::set(
 
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
+
+  // Erase the routes that are currently active
+  _pimpl->erase_routes(participant, state, state.active_routes);
 
   // Clear the list of routes that are currently active
   state.active_routes.clear();
@@ -676,7 +688,7 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route &)>& relevant) override
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     const RouteEntry* const last = get_last_known_ancestor(entry);
     const RouteEntry* const newest = get_most_recent(entry);
@@ -687,10 +699,10 @@ public:
       return;
     }
 
-    if (last && last->route && relevant(*last->route))
+    if (last && last->route && relevant(*last))
     {
       // The mirror knew about a previous version of this route
-      if (newest->route && relevant(*newest->route))
+      if (newest->route && relevant(*newest))
       {
         // The newest version of this route is relevant to the mirror
         const RouteEntry* traverse = newest;
@@ -718,11 +730,12 @@ public:
             assert(previous.from == delay.from);
             assert(previous.duration == delay.duration);
           }
-#elif
+#else
           // When compiling in release mode, cast the return value to void to
           // suppress compiler warnings.
           (void)(insertion);
 #endif // NDEBUG
+          traverse = traverse->transition->predecessor.get();
         }
       }
       else
@@ -735,7 +748,7 @@ public:
     else
     {
       // No version of this route has been seen by the mirror
-      if (newest->route && relevant(*newest->route))
+      if (newest->route && relevant(*newest))
       {
         // The newest version of this route is relevant to the mirror
         changes[newest->participant].additions.emplace_back(
@@ -767,10 +780,10 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     const RouteEntry* const newest = get_most_recent(entry);
-    if (newest->route && relevant(*newest->route))
+    if (newest->route && relevant(*newest))
     {
       changes[newest->participant].additions.emplace_back(
             Change::Add::Item{
@@ -794,10 +807,10 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
     entry = get_most_recent(entry);
-    if (entry->route && relevant(*entry->route))
+    if (entry->route && relevant(*entry))
       routes.emplace_back(Storage{entry->participant, entry->route});
   }
 };
@@ -807,6 +820,12 @@ class CullRelevanceInspector
     : public TimelineInspector<Database::Implementation::RouteEntry>
 {
 public:
+
+  CullRelevanceInspector(Time cull_time)
+  : _cull_time(cull_time)
+  {
+    // Do nothing
+  }
 
   using RouteEntry = Database::Implementation::RouteEntry;
 
@@ -820,14 +839,20 @@ public:
 
   void inspect(
       const RouteEntry* entry,
-      const std::function<bool(const Route&)>& relevant) final
+      const std::function<bool(const RouteEntry&)>& /*relevant*/) final
   {
     while(entry->successor && entry->successor->route)
       entry = entry->successor;
 
-    if (relevant(*entry->route))
+    assert(entry->route->trajectory().finish_time());
+    if (*entry->route->trajectory().finish_time() < _cull_time)
+    {
       routes.emplace_back(Info{entry->participant, entry->route_id});
+    }
   }
+
+private:
+  Time _cull_time;
 };
 
 } // anonymous namespace
@@ -872,7 +897,7 @@ rmf_utils::optional<Itinerary> Database::get_itinerary(
   for (const RouteId route : state.active_routes)
     itinerary.push_back(state.storage.at(route)->route);
 
-  return itinerary;
+  return std::move(itinerary);
 }
 
 //==============================================================================
@@ -983,7 +1008,7 @@ Version Database::cull(Time time)
   Query query = query_all();
   query.spacetime().query_timespan().set_upper_time_bound(time);
 
-  CullRelevanceInspector inspector;
+  CullRelevanceInspector inspector(time);
   _pimpl->timeline.inspect(query, inspector);
 
   // TODO(MXG) This iterating could probably be made more efficient by grouping

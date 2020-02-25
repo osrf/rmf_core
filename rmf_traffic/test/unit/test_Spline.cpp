@@ -28,16 +28,14 @@ SCENARIO("Test spline")
 
   const rmf_traffic::Time begin_time = std::chrono::steady_clock::now();
 
-  rmf_traffic::Trajectory trajectory_a("test_map");
+  rmf_traffic::Trajectory trajectory_a;
   trajectory_a.insert(
         begin_time,
-        make_test_profile(UnitBox),
         Eigen::Vector3d{-5.0,  0.0,  0.0},
         Eigen::Vector3d{ 1.0,  0.0,  0.0});
 
   trajectory_a.insert(
         begin_time + 10s,
-        make_test_profile(UnitBox),
         Eigen::Vector3d{ 5.0,  0.0,  0.0},
         Eigen::Vector3d{ 1.0,  0.0,  0.0});
   REQUIRE(trajectory_a.size() == 2);
@@ -49,16 +47,14 @@ SCENARIO("Test spline")
     CHECK(p[0] == Approx(delta_t.count() - 5.0));
   }
 
-  rmf_traffic::Trajectory trajectory_b("test_map");
+  rmf_traffic::Trajectory trajectory_b;
   trajectory_b.insert(
         begin_time,
-        make_test_profile(UnitBox),
         Eigen::Vector3d{ 0.0, -5.0,  0.0},
         Eigen::Vector3d{ 0.0,  1.0,  0.0});
 
   trajectory_b.insert(
         begin_time + 10s,
-        make_test_profile(UnitBox),
         Eigen::Vector3d{ 0.0,  5.0,  0.0},
         Eigen::Vector3d{ 0.0,  1.0,  0.0});
   REQUIRE(trajectory_b.size() == 2);

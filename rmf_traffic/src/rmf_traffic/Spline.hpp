@@ -57,7 +57,6 @@ public:
 
   struct Parameters
   {
-    rmf_traffic::Trajectory::ConstProfilePtr profile_ptr;
     std::array<Eigen::Vector4d, 3> coeffs;
     double delta_t;
     std::array<Time, 2> time_range;
