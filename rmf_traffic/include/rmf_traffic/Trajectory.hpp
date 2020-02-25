@@ -60,7 +60,7 @@ public:
     /// are x and y coordinates, while the third is rotation about the z-axis.
     ///
     /// \param[in] new_position
-    ///   The new finishing position for this Trajectory Waypoint.
+    ///   The new position for this Trajectory Waypoint.
     Waypoint& position(Eigen::Vector3d new_position);
 
     /// Get the intended velocity of the robot at the end of this Trajectory
@@ -78,59 +78,57 @@ public:
     /// are x and y coordinates, while the third is rotation about the z-axis.
     ///
     /// \param[in] new_velocity
-    ///   The new finishing velocity for this Trajectory Waypoint.
+    ///   The new velocity at this Trajectory Waypoint.
     Waypoint& velocity(Eigen::Vector3d new_velocity);
 
-    /// Get the time that this Trajectory Waypoint is meant to finish.
+    /// Get the time that the trajectory will reach this Waypoint.
     Time time() const;
 
-    /// Change the finish time of this Trajectory Waypoint. Note that this
-    /// function will only affect this waypoint, and may cause this waypoint to be
+    /// Change the timing of this Trajectory Waypoint. Note that this function
+    /// will only affect this waypoint, and may cause this waypoint to be
     /// reordered within the Trajectory.
     ///
-    /// To change the finish time for this waypoint while preserving the relative
-    /// times of all subsequent Trajectory segments, use adjust_finish_times()
+    /// To change the timing for this waypoint while preserving the relative
+    /// times of all subsequent Trajectory Waypoints, use adjust_times()
     /// instead.
     ///
-    /// \warning If you change the finishing time value of this Waypoint such
-    /// that it falls directly on another Waypoint's finish time, you will get a
+    /// \warning If you change the time value of this Waypoint such that it
+    /// falls directly on another Waypoint's time, you will get a
     /// std::invalid_argument exception, because discontinuous jumps are not
     /// supported, and indicate a significant mishandling of trajectory data,
     /// which is most likely a serious bug that should be remedied.
     ///
-    /// \note If this Waypoint's finish time crosses over another Waypoint's
-    /// finish time, that signficantly changes the topology of the Trajectory,
-    /// because it will change the order in which the positions are passed
-    /// through.
+    /// \note If this Waypoint's time crosses over another Waypoint's time, that
+    /// signficantly changes the topology of the Trajectory, because it will
+    /// change the order in which the positions are traversed.
     ///
     /// \param[in] new_time
-    ///   The new finishing time for this Trajectory Waypoint.
+    ///   The new timing for this Trajectory Waypoint.
     ///
-    /// \sa adjust_finish_times(Time new_time)
+    /// \sa adjust_times(Time new_time)
     Waypoint& change_time(Time new_time);
 
-    /// Adjust the finishing time of this waypoint and all subsequent segments by
-    /// the given duration. This is guaranteed to maintain the ordering of the
+    /// Adjust the timing of this waypoint and all subsequent waypoints by the
+    /// given duration. This is guaranteed to maintain the ordering of the
     /// Trajectory Waypoints, and is more efficient than changing all the times
     /// directly.
     ///
     /// \warning If a negative delta_t is given, it must not cause this
-    /// Waypoint's finish time to be less than or equal to the finish time of its
-    /// preceding Waypoint, or else a std::invalid_argument exception will be
-    /// thrown.
+    /// Waypoint's time to be less than or equal to the time of its preceding
+    /// Waypoint, or else a std::invalid_argument exception will be thrown.
     ///
     /// \param[in] delta_t
-    ///   How much to change the finishing time of this waypoint and all later
-    ///   segments. If negative, it must not cross over the finish time of the
+    ///   How much to change the timing of this waypoint and all later
+    ///   waypoints. If negative, it must not cross over the time of the
     ///   previous waypoint, or else a std::invalid_argument will be thrown.
     ///
-    /// \sa set_finish_time(Time new_time)
+    /// \sa change_time(Time new_time)
     void adjust_times(Duration delta_t);
 
     class Implementation;
   private:
 
-    /// \internal Private constructor. Use Trajectory::add_segment() to create
+    /// \internal Private constructor. Use Trajectory::insert() to create
     /// a new Trajectory Waypoint.
     Waypoint();
     Waypoint(const Waypoint&) = delete;
@@ -144,8 +142,7 @@ public:
   // These classes allow users to traverse the contents of the Trajectory.
   // The trajectory operates much like a typical C++ container, but only for
   // Trajectory::Waypoint information.
-  template<typename SegT>
-  class base_iterator;
+  template<typename> class base_iterator;
   using iterator = base_iterator<Waypoint>;
   using const_iterator = base_iterator<const Waypoint>;
 
@@ -166,24 +163,28 @@ public:
 
   /// Contains two fields:
   /// * iterator it:   contains the iterator for the Waypoint that ends at the
-  ///                  given finish_time
-  /// * bool inserted: true if the Waypoint was inserted, false if a Waypoint with
-  ///                  the exact same finish_time already existed
+  ///                  given time
+  /// * bool inserted: true if the Waypoint was inserted, false if a Waypoint
+  ///                  with the exact same time already existed
   struct InsertionResult;
 
   /// Add a Waypoint to this Trajectory.
   ///
-  /// The Waypoint will be inserted into the Trajectory according to its
-  /// finish_time, ensuring correct ordering of all Waypoints.
+  /// The Waypoint will be inserted into the Trajectory according to its time,
+  /// ensuring correct ordering of all Waypoints.
   InsertionResult insert(
-      Time finish_time,
+      Time time,
       Eigen::Vector3d position,
       Eigen::Vector3d velocity);
 
   /// Insert a copy of another Trajectory's Waypoint into this one.
   InsertionResult insert(const Waypoint& other);
 
-  /// Find the Waypoint of this Trajectory that is active during the given time.
+  // TODO(MXG): Consider an insert() function that accepts a range of iterators
+  // from another Trajectory instance.
+
+  /// Find the Waypoint of this Trajectory that comes after or exactly on the
+  /// given time.
   ///
   /// \note This will return Trajectory::end() if the time is before the
   /// Trajectory starts or after the Trajectory finishes.
@@ -227,7 +228,8 @@ public:
   ///
   /// \note In compliance with C++ standards, this is really a one-past-the-end
   /// iterator and must not be dereferenced. It should only be used to identify
-  /// when an iteration must end. See: https://en.cppreference.com/w/cpp/container/list/end
+  /// when an iteration must end. See:
+  /// https://en.cppreference.com/w/cpp/container/list/end
   iterator end();
 
   /// const-qualified version of end()
@@ -260,8 +262,8 @@ public:
   /// Trajectory is empty.
   const Time* start_time() const;
 
-  /// Get the finish time, if available. This will return a nullptr if the
-  /// Trajectory is empty.
+  /// Get the finish time of the Trajectory, if available. This will return a
+  /// nullptr if the Trajectory is empty.
   const Time* finish_time() const;
 
   /// Get the duration of the Trajectory. This will be 0 if the Trajectory is
@@ -286,16 +288,16 @@ private:
 };
 
 //==============================================================================
-template<typename SegT>
+template<typename W>
 class Trajectory::base_iterator
 {
 public:
 
   /// Dereference operator
-  SegT& operator*() const;
+  W& operator*() const;
 
   /// Drill-down operator
-  SegT* operator->() const;
+  W* operator->() const;
 
   /// Pre-increment operator: ++it
   ///
