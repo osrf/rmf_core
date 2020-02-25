@@ -67,24 +67,20 @@ Spline::Parameters compute_parameters(
   const Trajectory::const_iterator start_it =
       --Trajectory::const_iterator(finish_it);
 
-  const Trajectory::Segment& start = *start_it;
-  const Trajectory::Segment& finish = *finish_it;
+  const Trajectory::Waypoint& start = *start_it;
+  const Trajectory::Waypoint& finish = *finish_it;
 
-  const Time start_time = start.get_finish_time();
-  const Time finish_time = finish.get_finish_time();
+  const Time start_time = start.time();
+  const Time finish_time = finish.time();
 
   const double delta_t = compute_delta_t(finish_time, start_time);
 
-  const Eigen::Vector3d x0 = start.get_finish_position();
-  const Eigen::Vector3d x1 = finish.get_finish_position();
-  const Eigen::Vector3d v0 = delta_t * start.get_finish_velocity();
-  const Eigen::Vector3d v1 = delta_t * finish.get_finish_velocity();
-
-  const rmf_traffic::Trajectory::ConstProfilePtr profile_ptr =
-      finish_it ->get_profile();
+  const Eigen::Vector3d x0 = start.position();
+  const Eigen::Vector3d x1 = finish.position();
+  const Eigen::Vector3d v0 = delta_t * start.velocity();
+  const Eigen::Vector3d v1 = delta_t * finish.velocity();
 
   return {
-    profile_ptr,
     compute_coefficients(x0, x1, v0, v1),
     delta_t,
     {start_time, finish_time}
@@ -93,16 +89,16 @@ Spline::Parameters compute_parameters(
 
 //==============================================================================
 Spline::Parameters compute_parameters(
-    const internal::SegmentList::const_iterator& finish_it)
+    const internal::WaypointList::const_iterator& finish_it)
 {
-  const internal::SegmentList::const_iterator start_it =
-      --internal::SegmentList::const_iterator(finish_it);
+  const internal::WaypointList::const_iterator start_it =
+      --internal::WaypointList::const_iterator(finish_it);
 
-  const internal::SegmentElement::Data& start = start_it->data;
-  const internal::SegmentElement::Data& finish = finish_it->data;
+  const internal::WaypointElement::Data& start = start_it->data;
+  const internal::WaypointElement::Data& finish = finish_it->data;
 
-  const Time start_time = start.finish_time;
-  const Time finish_time = finish.finish_time;
+  const Time start_time = start.time;
+  const Time finish_time = finish.time;
 
   const double delta_t = compute_delta_t(finish_time, start_time);
 
@@ -111,11 +107,7 @@ Spline::Parameters compute_parameters(
   const Eigen::Vector3d v0 = delta_t * start.velocity;
   const Eigen::Vector3d v1 = delta_t * finish.velocity;
 
-  const rmf_traffic::Trajectory::ConstProfilePtr profile_ptr =
-      finish_it->data.profile;
-
   return {
-    profile_ptr,
     compute_coefficients(x0, x1, v0, v1),
     delta_t,
     {start_time, finish_time}
@@ -199,7 +191,7 @@ Spline::Spline(const Trajectory::const_iterator& it)
 }
 
 //==============================================================================
-Spline::Spline(const internal::SegmentList::const_iterator& it)
+Spline::Spline(const internal::WaypointList::const_iterator& it)
   : params(compute_parameters(it))
 {
   // Do nothing

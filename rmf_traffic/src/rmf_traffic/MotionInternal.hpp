@@ -34,11 +34,11 @@ public:
       Eigen::Vector3d p,
       Eigen::Vector3d v);
 
-  Time start_time() const override;
-  Time finish_time() const override;
-  Eigen::Vector3d compute_position(Time t) const override;
-  Eigen::Vector3d compute_velocity(Time t) const override;
-  Eigen::Vector3d compute_acceleration(Time t) const override;
+  Time start_time() const final;
+  Time finish_time() const final;
+  Eigen::Vector3d compute_position(Time t) const final;
+  Eigen::Vector3d compute_velocity(Time t) const final;
+  Eigen::Vector3d compute_acceleration(Time t) const final;
 
 private:
 
@@ -55,15 +55,36 @@ public:
 
   SplineMotion(Spline spline);
 
-  Time start_time() const override;
-  Time finish_time() const override;
-  Eigen::Vector3d compute_position(Time t) const override;
-  Eigen::Vector3d compute_velocity(Time t) const override;
-  Eigen::Vector3d compute_acceleration(Time t) const override;
+  Time start_time() const final;
+  Time finish_time() const final;
+  Eigen::Vector3d compute_position(Time t) const final;
+  Eigen::Vector3d compute_velocity(Time t) const final;
+  Eigen::Vector3d compute_acceleration(Time t) const final;
 
 private:
 
   Spline _spline;
+
+};
+
+//==============================================================================
+class PiecewiseSplineMotion : public Motion
+{
+public:
+
+  PiecewiseSplineMotion(std::vector<Spline> splines);
+
+  Time start_time() const final;
+  Time finish_time() const final;
+  Eigen::Vector3d compute_position(Time t) const final;
+  Eigen::Vector3d compute_velocity(Time t) const final;
+  Eigen::Vector3d compute_acceleration(Time t) const final;
+
+private:
+
+  std::map<Time, Spline> _splines;
+  Time _start_time;
+  Time _finish_time;
 
 };
 

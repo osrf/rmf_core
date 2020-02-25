@@ -21,11 +21,12 @@
 #include <rmf_traffic/detail/bidirectional_iterator.hpp>
 
 #include <rmf_traffic/schedule/Query.hpp>
-
-#include <rmf_traffic/Trajectory.hpp>
+#include <rmf_traffic/schedule/Participant.hpp>
+#include <rmf_traffic/schedule/Itinerary.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/macros.hpp>
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -55,8 +56,8 @@ public:
     // TODO(MXG): Replace this with a PIMPL class
     struct Element
     {
-      Version id;
-      const Trajectory& trajectory;
+      ParticipantId participant;
+      const Route& route;
     };
 
     class IterImpl;
@@ -80,25 +81,33 @@ public:
 
   /// Query this Viewer to get a View of the Trajectories inside of it that
   /// match the Query parameters.
-  View query(const Query& parameters) const;
+  virtual View query(const Query& parameters) const = 0;
 
-  /// Get the oldest version number inside this Database.
-  Version oldest_version() const;
+  // TODO(MXG): Consider providing an iterator-style API to view participant IDs
+  // and participant descriptions.
+
+  /// Get the set of active participant IDs.
+  virtual const std::unordered_set<ParticipantId>& participant_ids() const = 0;
+
+  /// Get the information of the specified participant if it is available.
+  /// If a participant with the specified ID is not registered with the
+  /// schedule, then this will return a nullptr.
+  virtual const ParticipantDescription* get_participant(
+      std::size_t participant_id) const = 0;
+
+  /// Get the itinerary of a specific participant if it is available. If a
+  /// participant with the specified ID is not registered with the schedule or
+  /// has never submitted an itinerary, then this will return a nullopt.
+  virtual rmf_utils::optional<Itinerary> get_itinerary(
+      std::size_t participant_id) const = 0;
 
   /// Get the latest version number of this Database.
-  Version latest_version() const;
-
+  virtual Version latest_version() const = 0;
 
   // The Debug class is for internal testing use only. Its definition is not
   // visible to downstream users.
   class Debug;
   class Implementation;
-protected:
-  // These constructors and operators are protected so that users can only
-  // constructor or assign using classes that are derived from Viewer.
-  Viewer();
-  RMF_UTILS__DEFAULT_COPY_MOVE(Viewer);
-  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace schedule

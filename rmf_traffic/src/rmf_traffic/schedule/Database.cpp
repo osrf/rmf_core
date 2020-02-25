@@ -15,958 +15,1044 @@
  *
 */
 
+#include "ChangeInternal.hpp"
+#include "InconsistenciesInternal.hpp"
+#include "Modular.hpp"
+#include "Timeline.hpp"
 #include "ViewerInternal.hpp"
+#include "debug_Database.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
 #include <rmf_traffic/schedule/Database.hpp>
 
 #include <algorithm>
+#include <list>
 
 namespace rmf_traffic {
 namespace schedule {
 
-//==============================================================================
-class Database::Change::Implementation
-{
-public:
-
-  Mode mode;
-  Insert insert;
-  Interrupt interrupt;
-  Delay delay;
-  Replace replace;
-  Erase erase;
-  Cull cull;
-
-  Version id;
-
-  static Change make(const Mode mode, const Version id)
-  {
-    Change change;
-    change._pimpl->mode = mode;
-    change._pimpl->id = id;
-
-    return change;
-  }
-
-  static Change make_insert_ref(
-      const Trajectory* trajectory,
-      Version id);
-
-  // Note(MXG): We're not using make_interrupt_ref yet, and perhaps we never
-  // will. In theory this function could be used to save time and memory when a
-  // Database generates a Patch that includes an interrupt, but it would add
-  // complexity to the implementation of Patch generation, so I'm deferring that
-  // feature for later.
-  static Change make_interrupt_ref(
-      Version original_id,
-      const Trajectory* interruption_trajectory,
-      Duration delay,
-      Version id);
-
-  static Change make_replace_ref(
-      Version original_id,
-      const Trajectory* trajectory,
-      Version id);
-};
-
 namespace {
+
 //==============================================================================
-// TODO(MXG): Consider generalizing this class using templates if it ends up
-// being useful in any other context.
-class DeepOrShallowTrajectory
+Writer::Input deep_copy_input(Writer::Input input)
 {
-public:
-
-  const Trajectory* get() const
+  Writer::Input copy;
+  for (const auto& item : input)
   {
-    if(is_deep)
-      return deep.get();
+    auto copy_item = Writer::Item{
+        item.id,
+        std::make_shared<Route>(*item.route)};
 
-    return shallow;
+    copy.emplace_back(std::move(copy_item));
   }
 
-  rmf_utils::impl_ptr<const Trajectory> deep;
-  const Trajectory* shallow = nullptr;
-  bool is_deep = true;
-
-};
-
-//==============================================================================
-DeepOrShallowTrajectory make_deep(Trajectory deep)
-{
-  DeepOrShallowTrajectory traj;
-  traj.is_deep = true;
-  traj.deep = rmf_utils::make_impl<const Trajectory>(std::move(deep));
-
-  return traj;
-}
-
-DeepOrShallowTrajectory make_shallow(const Trajectory* const shallow)
-{
-  DeepOrShallowTrajectory traj;
-  traj.is_deep = false;
-  traj.shallow = shallow;
-
-  return traj;
+  return copy;
 }
 
 } // anonymous namespace
 
 //==============================================================================
-class Database::Change::Insert::Implementation
+class Database::Implementation
 {
 public:
 
-  /// The trajectory that was inserted
-  DeepOrShallowTrajectory trajectory;
+  struct ParticipantState;
 
-  /// This is used to create a Change whose lifetime is not tied to the Database
-  /// instance that constructed it.
-  static Insert make_copy(Trajectory trajectory)
+  struct Transition;
+  using TransitionPtr = std::unique_ptr<Transition>;
+  using ConstTransitionPtr = std::unique_ptr<const Transition>;
+
+  struct RouteEntry;
+  using RouteEntryPtr = std::unique_ptr<RouteEntry>;
+
+  struct Transition
   {
-    Insert result;
+    // If this has a delay value, then the change is a delay to the route.
+    // If this contains a nullopt, then the change is an erasure.
+    rmf_utils::optional<Change::Delay::Implementation> delay;
 
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{make_deep(std::move(trajectory))});
+    // The previous route entry that this transition is based on.
+    RouteEntryPtr predecessor;
+  };
 
-    return result;
+  struct RouteEntry
+  {
+    // ===== Mandatory fields for a Timeline Entry =====
+    ConstRoutePtr route;
+    ParticipantId participant;
+    RouteId route_id;
+    const ParticipantDescription& description;
+    std::shared_ptr<void> timeline_handle;
+
+    // ===== Additional fields for this timeline entry =====
+    // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
+    // templates to automatically mix these custom fields with the required
+    // fields of the base Entry
+    Version schedule_version;
+    TransitionPtr transition;
+    RouteEntry* successor;
+  };
+
+  Timeline<RouteEntry> timeline;
+
+  // TODO(MXG): Should storage be merged with state?
+  using ParticipantStorage = std::unordered_map<RouteId, RouteEntryPtr>;
+
+  struct ParticipantState
+  {
+    std::unordered_set<RouteId> active_routes;
+    std::unique_ptr<InconsistencyTracker> tracker;
+    ParticipantStorage storage;
+    const ParticipantDescription description;
+    const Version initial_schedule_version;
+  };
+  using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
+  ParticipantStates states;
+
+  using ParticipantRegistrationVersions = std::map<Version, ParticipantId>;
+  ParticipantRegistrationVersions add_participant_version;
+  ParticipantRegistrationVersions remove_participant_version;
+
+  using ParticipantRegistrationTime = std::map<Time, Version>;
+  ParticipantRegistrationTime remove_participant_time;
+
+  // NOTE(MXG): We store this record of inconsistency ranges here as a single
+  // group that covers all participants in order to make it easy for us to share
+  // it externally using the inconsistencies() function.
+  //
+  // This field should only be modified by InconsistencyTracker or
+  // unregister_participant. We are also trusting the InconsistencyTracker
+  // instance of each ParticipantState to not touch any other ParticipantState's
+  // entry in this field.
+  Inconsistencies inconsistencies;
+
+  using StagedChanges =
+    std::unordered_map<
+      ParticipantId,
+      std::map<ItineraryVersion, Change>>;
+  StagedChanges staged_changes;
+
+  std::unordered_set<ParticipantId> participant_ids;
+
+  Version schedule_version = 0;
+
+  struct CullInfo
+  {
+    Change::Cull cull;
+    Version version;
+  };
+
+  rmf_utils::optional<CullInfo> last_cull;
+
+  /// This function verifies that the route IDs specified in the input are not
+  /// already being used. If that ever happens, it is indicative of a bug or a
+  /// malformed input into the database.
+  ///
+  /// This returns a vector of pointers to RouteEntryPtr objects. The entries in
+  /// that vector can be used to efficiently populate the route information,
+  /// saving us the cost of a second map lookup later on.
+  std::vector<RouteEntryPtr*> check_route_ids(
+      ParticipantState& state,
+      const Input& input)
+  {
+    // NOTE(MXG): We store references to the values of the route entries,
+    // because iterators to a std::unordered_map can be invalidated by
+    // insertions, but pointers and references to the values inside the
+    // container to do not get invalidated by inserstion. Source:
+    // https://en.cppreference.com/w/cpp/container/unordered_map#Iterator_invalidation
+    std::vector<RouteEntryPtr*> entries;
+    entries.reserve(input.size());
+
+    ParticipantStorage& storage = state.storage;
+
+    // Verify that the new route IDs do not overlap any that are still in the
+    // database
+    for (const Item& item : input)
+    {
+      const auto insertion = storage.insert(std::make_pair(item.id, nullptr));
+
+      // If the result of this insertion attempt was anything besides a nullptr,
+      // then that means this route ID was already taken, so we should reject
+      // this itinerary change.
+      if (insertion.first->second)
+      {
+        throw std::runtime_error(
+              "[Database::set] New route ID [" + std::to_string(item.id)
+              + "] collides with one already in the database");
+      }
+
+      entries.push_back(&insertion.first->second);
+    }
+
+    return entries;
   }
 
-  /// This is used by Database instances to create a Change without the overhead
-  /// of copying a Trajectory instance. The Change's lifetime will be tied to
-  /// the lifetime of the Database object.
-  static Insert make_ref(const Trajectory* const trajectory)
+  /// This function is used to insert items into the Database. This function
+  /// assumes that the items have already been fully validated and that there
+  /// would be no negative side-effects to entering them.
+  void insert_items(
+      ParticipantId participant,
+      ParticipantState& state,
+      const std::vector<RouteEntryPtr*>& entries,
+      const Input& input)
   {
-    Insert result;
+    assert(entries.size() == input.size());
 
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{make_shallow(trajectory)});
+    for (std::size_t i=0; i < input.size(); ++i)
+    {
+      const auto& item = input[i];
+      const RouteId route_id = item.id;
+      state.active_routes.insert(route_id);
 
-    return result;
+      RouteEntryPtr& entry = *entries[i];
+      entry = std::make_unique<RouteEntry>(
+            RouteEntry{
+              item.route,
+              participant,
+              route_id,
+              state.description,
+              nullptr,
+              schedule_version,
+              nullptr,
+              nullptr
+            });
+
+      timeline.insert(*entry);
+    }
   }
+
+  void apply_delay(
+      ParticipantId participant,
+      ParticipantState& state,
+      Time from,
+      Duration delay)
+  {
+    ParticipantStorage& storage = state.storage;
+    for (const RouteId id : state.active_routes)
+    {
+      assert(storage.find(id) != storage.end());
+      auto& entry = storage.at(id);
+      const Trajectory& old_trajectory = entry->route->trajectory();
+      assert(old_trajectory.start_time());
+
+      auto delayed = schedule::apply_delay(old_trajectory, from, delay);
+      if (!delayed)
+        continue;
+
+      auto new_route = std::make_shared<Route>(
+            entry->route->map(), std::move(*delayed));
+
+      auto transition = std::make_unique<Transition>(
+            Transition{
+              Change::Delay::Implementation{from, delay},
+              std::move(entry)
+            });
+
+      // NOTE(MXG): The previous contents of entry have been moved into the
+      // predecessor field of transition, so we are free to refill entry with
+      // the newly created data.
+      entry = std::make_unique<RouteEntry>(
+            RouteEntry{
+              std::move(new_route),
+              participant,
+              id,
+              state.description,
+              nullptr,
+              schedule_version,
+              std::move(transition),
+              nullptr
+            });
+
+      entry->transition->predecessor->successor = entry.get();
+      timeline.insert(*entry);
+    }
+  }
+
+  void erase_routes(
+      ParticipantId participant,
+      ParticipantState& state,
+      const std::unordered_set<RouteId>& routes)
+  {
+    ParticipantStorage& storage = state.storage;
+    for (const RouteId id : routes)
+    {
+      assert(storage.find(id) != storage.end());
+      auto& entry = storage.at(id);
+
+      auto transition = std::make_unique<Transition>(
+            Transition{
+              rmf_utils::nullopt,
+              std::move(entry)
+            });
+
+      entry = std::make_unique<RouteEntry>(
+            RouteEntry{
+              nullptr,
+              participant,
+              id,
+              state.description,
+              nullptr,
+              schedule_version,
+              std::move(transition),
+              nullptr
+            });
+
+      entry->transition->predecessor->successor = entry.get();
+      timeline.insert(*entry);
+    }
+
+    // TODO(MXG): Consider erasing the routes from the active_routes field of
+    // the state using this function. It gets tricky, though since the "erase"
+    // argument is sometimes a reference to the active_routes field.
+  }
+
+  ParticipantId get_next_participant_id()
+  {
+    // This will cycle through the set of currently active participant IDs until
+    // it finds a value which is not already taken. If it cycles through the
+    // entire set of possible values and cannot find a value that is available,
+    // then we will quit and throw an exception. Note that it is
+    // incomprehensible to have that many participants in the schedule.
+    const ParticipantId initial_suggestion = _next_participant_id;
+    do
+    {
+      const auto insertion = participant_ids.insert(_next_participant_id);
+      ++_next_participant_id;
+      if (insertion.second)
+        return *insertion.first;
+
+    } while (_next_participant_id != initial_suggestion);
+
+    throw std::runtime_error(
+          "[Database::Implementation::get_next_participant_id] There are no "
+          "remaining Participant ID values available. This should never happen."
+          " Please report this as a serious bug.");
+  }
+
+private:
+  ParticipantId _next_participant_id = 0;
 };
 
 //==============================================================================
-Database::Change::Insert::Insert()
+std::size_t Database::Debug::current_entry_history_count(
+    const Database& database)
 {
-  // Do nothing
+  std::size_t count = 0;
+  for (const auto& p : database._pimpl->states)
+    count += p.second.storage.size();
+
+  return count;
 }
 
 //==============================================================================
-Database::Change::Change()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
+void Database::set(
+    ParticipantId participant,
+    const Input& input,
+    ItineraryVersion version)
 {
-  // Do nothing
-}
+  auto itinerary = deep_copy_input(input);
 
-//==============================================================================
-auto Database::Change::make_insert(
-    Trajectory trajectory,
-    Version id) -> Change
-{
-  Change change = Implementation::make(Mode::Insert, id);
-  change._pimpl->insert = Insert::Implementation::make_copy(trajectory);
-
-  return change;
-}
-
-//==============================================================================
-auto Database::Change::Implementation::make_insert_ref(
-    const Trajectory* const trajectory,
-    const Version id) -> Change
-{
-  Change change = Implementation::make(Mode::Insert, id);
-  change._pimpl->insert = Insert::Implementation::make_ref(trajectory);
-
-  return change;
-}
-
-//==============================================================================
-class Database::Change::Interrupt::Implementation
-{
-public:
-
-  DeepOrShallowTrajectory trajectory;
-  Version original_id;
-  Duration delay;
-
-  template<typename... Args>
-  static Interrupt make_copy(
-      Trajectory trajectory,
-      Args&&... args)
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
   {
-    Interrupt result;
-
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{make_deep(std::move(trajectory)),
-                         std::forward<Args>(args)...});
-
-    return result;
+    throw std::runtime_error(
+          "[Database::set] No participant with ID ["
+          + std::to_string(participant) + "]");
   }
 
-  template<typename... Args>
-  static Interrupt make_ref(
-      const Trajectory* const trajectory,
-      Args&&... args)
+  Implementation::ParticipantState& state = p_it->second;
+
+  if (modular(version).less_than(state.tracker->expected_version()))
   {
-    Interrupt result;
-
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{make_shallow(trajectory),
-                         std::forward<Args>(args)...});
-
-    return result;
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
   }
 
-};
-
-//==============================================================================
-Database::Change::Interrupt::Interrupt()
-{
-  // Do nothing
-}
-
-//==============================================================================
-auto Database::Change::make_interrupt(
-    Version original_id,
-    Trajectory interruption_trajectory,
-    Duration delay,
-    Version id) -> Change
-{
-  Change change = Implementation::make(Mode::Interrupt, id);
-  change._pimpl->interrupt = Interrupt::Implementation::make_copy(
-        std::move(interruption_trajectory), original_id, delay);
-  return change;
-}
-
-//==============================================================================
-auto Database::Change::Implementation::make_interrupt_ref(
-    const Version original_id,
-    const Trajectory* const interruption_trajectory,
-    const Duration delay,
-    const Version id) -> Change
-{
-  Change change = Implementation::make(Mode::Interrupt, id);
-  change._pimpl->interrupt = Interrupt::Implementation::make_ref(
-        interruption_trajectory, original_id, delay);
-  return change;
-}
-
-//==============================================================================
-class Database::Change::Delay::Implementation
-{
-public:
-
-  Version original_id;
-  Time from;
-  Duration delay;
-
-  template<typename... Args>
-  static Delay make(Args&&... args)
+  if (auto ticket = state.tracker->check(version, true))
   {
-    Delay result;
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::forward<Args>(args)...});
-    return result;
+    ticket->set([=](){ this->set(participant, itinerary, version); });
+    return;
   }
 
-};
+  std::vector<Implementation::RouteEntryPtr*> entries =
+      _pimpl->check_route_ids(state, itinerary);
 
-//==============================================================================
-Database::Change::Delay::Delay()
-{
-  // Do nothing
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+
+  // Erase the routes that are currently active
+  _pimpl->erase_routes(participant, state, state.active_routes);
+
+  // Clear the list of routes that are currently active
+  state.active_routes.clear();
+
+  // Insert the new routes into the current itinerary
+  _pimpl->insert_items(participant, state, entries, input);
 }
 
 //==============================================================================
-auto Database::Change::make_delay(
-    Version original_id,
+void Database::extend(
+    ParticipantId participant,
+    const Input& input,
+    ItineraryVersion version)
+{
+  auto routes = deep_copy_input(input);
+
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::extend] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  Implementation::ParticipantState& state = p_it->second;
+
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
+  {
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
+  }
+
+  // Check if the version on this change has any inconsistencies
+  if (auto ticket = state.tracker->check(version))
+  {
+    // If we got a ticket from the inconsistency tracker, then pass along a
+    // callback to call this
+    ticket->set([=](){ this->extend(participant, routes, version); });
+    return;
+  }
+
+  std::vector<Implementation::RouteEntryPtr*> entries =
+      _pimpl->check_route_ids(state, routes);
+
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+
+  _pimpl->insert_items(participant, state, entries, input);
+}
+
+//==============================================================================
+void Database::delay(
+    ParticipantId participant,
     Time from,
     Duration delay,
-    Version id) -> Change
+    ItineraryVersion version)
 {
-  Change change = Implementation::make(Mode::Delay, id);
-  change._pimpl->delay = Delay::Implementation::make(
-        original_id, from, delay);
-  return change;
-}
-
-//==============================================================================
-class Database::Change::Replace::Implementation
-{
-public:
-
-  Version original_id;
-  DeepOrShallowTrajectory trajectory;
-
-  static Replace make_copy(
-      const Version original_id,
-      Trajectory trajectory)
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
   {
-    Replace result;
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{original_id, make_deep(std::move(trajectory))});
-    return result;
+    throw std::runtime_error(
+          "[Database::delay] No participant with ID ["
+          + std::to_string(participant) + "]");
   }
 
-  static Replace make_ref(
-      const Version original_id,
-      const Trajectory* const trajectory)
+  Implementation::ParticipantState& state = p_it->second;
+
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
   {
-    Replace result;
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{original_id, make_shallow(trajectory)});
-    return result;
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
   }
 
-};
-
-//==============================================================================
-Database::Change::Replace::Replace()
-{
-  // Do nothing
-}
-
-//==============================================================================
-auto Database::Change::make_replace(
-    const Version original_id,
-    Trajectory trajectory,
-    const Version id) -> Change
-{
-  Change change = Implementation::make(Mode::Replace, id);
-  change._pimpl->replace = Replace::Implementation::make_copy(
-        original_id, std::move(trajectory));
-  return change;
-}
-
-//==============================================================================
-auto Database::Change::Implementation::make_replace_ref(
-    const Version original_id,
-    const Trajectory* const trajectory,
-    const Version id) -> Change
-{
-  Change change = Implementation::make(Mode::Replace, id);
-  change._pimpl->replace = Replace::Implementation::make_ref(
-        original_id, trajectory);
-  return change;
-}
-
-//==============================================================================
-class Database::Change::Erase::Implementation
-{
-public:
-
-  Version original_id;
-
-  static Erase make(const Version original_id)
+  if (auto ticket = state.tracker->check(version))
   {
-    Erase result;
-    result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{original_id});
-    return result;
+    ticket->set([=](){ this->delay(participant, from, delay, version); });
+    return;
   }
 
-};
-
-//==============================================================================
-Database::Change::Erase::Erase()
-{
-  // Do nothing
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+  _pimpl->apply_delay(participant, state, from, delay);
 }
 
 //==============================================================================
-auto Database::Change::make_erase(
-    const Version original_id,
-    const Version id) -> Change
+void Database::erase(
+    ParticipantId participant,
+    ItineraryVersion version)
 {
-  Change change = Implementation::make(Mode::Erase, id);
-  change._pimpl->erase = Erase::Implementation::make(original_id);
-  return change;
-}
-
-//==============================================================================
-class Database::Change::Cull::Implementation
-{
-public:
-
-  Time time;
-
-  static Cull make(Time time)
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
   {
-    Cull result;
-    result._pimpl = rmf_utils::make_impl<Implementation>(Implementation{time});
-    return result;
+    throw std::runtime_error(
+          "[Database::erase] No participant with ID ["
+          + std::to_string(participant) + "]");
   }
 
-};
+  Implementation::ParticipantState& state = p_it->second;
 
-//==============================================================================
-Database::Change::Cull::Cull()
-{
-  // Do nothing
-}
-
-//==============================================================================
-auto Database::Change::make_cull(
-    const Time time,
-    const Version id) -> Change
-{
-  Change change = Implementation::make(Mode::Cull, id);
-  change._pimpl->cull = Cull::Implementation::make(time);
-  return change;
-}
-
-//==============================================================================
-const Trajectory* Database::Change::Insert::trajectory() const
-{
-  return _pimpl->trajectory.get();
-}
-
-//==============================================================================
-Version Database::Change::Interrupt::original_id() const
-{
-  return _pimpl->original_id;
-}
-
-//==============================================================================
-const Trajectory* Database::Change::Interrupt::interruption() const
-{
-  return _pimpl->trajectory.get();
-}
-
-//==============================================================================
-Duration Database::Change::Interrupt::delay() const
-{
-  return _pimpl->delay;
-}
-
-//==============================================================================
-Version Database::Change::Delay::original_id() const
-{
-  return _pimpl->original_id;
-}
-
-//==============================================================================
-Time Database::Change::Delay::from() const
-{
-  return _pimpl->from;
-}
-
-//==============================================================================
-Duration Database::Change::Delay::duration() const
-{
-  return _pimpl->delay;
-}
-
-//==============================================================================
-Version Database::Change::Replace::original_id() const
-{
-  return _pimpl->original_id;
-}
-
-//==============================================================================
-const Trajectory* Database::Change::Replace::trajectory() const
-{
-  return _pimpl->trajectory.get();
-}
-
-//==============================================================================
-Version Database::Change::Erase::original_id() const
-{
-  return _pimpl->original_id;
-}
-
-//==============================================================================
-Time Database::Change::Cull::time() const
-{
-  return _pimpl->time;
-}
-
-//==============================================================================
-auto Database::Change::get_mode() const -> Mode
-{
-  return _pimpl->mode;
-}
-
-//==============================================================================
-Version Database::Change::id() const
-{
-  return _pimpl->id;
-}
-
-//==============================================================================
-auto Database::Change::insert() const -> const Insert*
-{
-  if(Mode::Insert == _pimpl->mode)
-    return &_pimpl->insert;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Database::Change::interrupt() const -> const Interrupt*
-{
-  if(Mode::Interrupt == _pimpl->mode)
-    return &_pimpl->interrupt;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Database::Change::delay() const -> const Delay*
-{
-  if(Mode::Delay == _pimpl->mode)
-    return &_pimpl->delay;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Database::Change::replace() const -> const Replace*
-{
-  if(Mode::Replace == _pimpl->mode)
-    return &_pimpl->replace;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Database::Change::erase() const -> const Erase*
-{
-  if(Mode::Erase == _pimpl->mode)
-    return &_pimpl->erase;
-
-  return nullptr;
-}
-
-//==============================================================================
-auto Database::Change::cull() const -> const Cull*
-{
-  if(Mode::Cull == _pimpl->mode)
-    return &_pimpl->cull;
-
-  return nullptr;
-}
-
-//==============================================================================
-class Database::Patch::Implementation
-{
-public:
-
-  std::vector<Change> changes;
-
-  Version latest_version;
-
-  Implementation()
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
   {
-    // Do nothing
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
   }
 
-  Implementation(std::vector<Change> _changes, Version _latest_version)
-    : changes(std::move(_changes)),
-      latest_version(_latest_version)
+  if (auto ticket = state.tracker->check(version))
   {
-    // Sort the changes to make sure they get applied in the correct order
-    std::sort(changes.begin(), changes.end(),
-              [](const Change& c1, const Change& c2) {
-      return c1.id() < c2.id();
-    });
+    ticket->set([=](){ this->erase(participant, version); });
+    return;
   }
 
-};
-
-//==============================================================================
-class Database::Patch::IterImpl
-{
-public:
-
-  std::vector<Change>::const_iterator iter;
-
-};
-
-//==============================================================================
-Database::Patch::Patch(std::vector<Change> changes, Version latest_version)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             std::move(changes), latest_version))
-{
-  // Do nothing
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+  _pimpl->erase_routes(participant, state, state.active_routes);
+  state.active_routes.clear();
 }
 
 //==============================================================================
-auto Database::Patch::begin() const -> const_iterator
+void Database::erase(
+    ParticipantId participant,
+    const std::vector<RouteId>& routes,
+    ItineraryVersion version)
 {
-  return const_iterator(IterImpl{_pimpl->changes.begin()});
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::erase] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  Implementation::ParticipantState& state = p_it->second;
+
+  assert(state.tracker);
+  if (modular(version).less_than(state.tracker->expected_version()))
+  {
+    // This is an old change, possibly a retransmission requested by a different
+    // database tracker, so we will ignore it.
+    return;
+  }
+
+  if (auto ticket = state.tracker->check(version))
+  {
+    ticket->set([=](){ this->erase(participant, routes, version); });
+    return;
+  }
+
+  std::unordered_set<RouteId> route_set;
+  route_set.reserve(routes.size());
+  for (const RouteId id : routes)
+  {
+    if (state.active_routes.count(id) == 0)
+    {
+      throw std::runtime_error(
+            "[Database::erase] The route with ID [" + std::to_string(id)
+            + "] is not active!");
+    }
+
+    route_set.insert(id);
+  }
+
+  //======== All validation is complete ===========
+  ++_pimpl->schedule_version;
+  _pimpl->erase_routes(participant, state, route_set);
+  for (const RouteId id : routes)
+    state.active_routes.erase(id);
 }
 
 //==============================================================================
-auto Database::Patch::end() const -> const_iterator
+ParticipantId Database::register_participant(
+    ParticipantDescription participant_info)
 {
-  return const_iterator(IterImpl{_pimpl->changes.end()});
+  const ParticipantId id = _pimpl->get_next_participant_id();
+  auto tracker = Inconsistencies::Implementation::register_participant(
+        _pimpl->inconsistencies, id);
+
+  const Version version = ++_pimpl->schedule_version;
+
+  _pimpl->states.insert(
+        std::make_pair(
+          id,
+          Implementation::ParticipantState{
+            {},
+            std::move(tracker),
+            {},
+            std::move(participant_info),
+            version
+          }));
+
+  _pimpl->add_participant_version[version] = id;
+  return id;
 }
 
 //==============================================================================
-std::size_t Database::Patch::size() const
+void Database::unregister_participant(
+    ParticipantId participant,
+    const Time time)
 {
-  return _pimpl->changes.size();
-}
+  const auto id_it = _pimpl->participant_ids.find(participant);
+  const auto state_it = _pimpl->states.find(participant);
 
-//==============================================================================
-Version Database::Patch::latest_version() const
-{
-  return _pimpl->latest_version;
-}
+  if (id_it == _pimpl->participant_ids.end()
+      && state_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::unregister_participant] Requested unregistering an "
+          "inactive participant ID [" + std::to_string(participant) + "]");
+  }
+  else if (id_it == _pimpl->participant_ids.end()
+           || state_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::unregister_participant] Inconsistency in participant "
+          "registration ["
+          + std::to_string(id_it == _pimpl->participant_ids.end()) + ":"
+          + std::to_string(state_it == _pimpl->states.end())
+          + "]. Please report this as a serious bug!");
+  }
 
-//==============================================================================
-Database::Patch::Patch()
-{
-  // Do nothing
-}
+  const Version initial_version = state_it->second.initial_schedule_version;
+  _pimpl->add_participant_version.erase(initial_version);
 
-namespace internal {
+  _pimpl->participant_ids.erase(id_it);
+  _pimpl->states.erase(state_it);
 
-//==============================================================================
-void ChangeRelevanceInspector::version_range(VersionRange range)
-{
-  versions = std::move(range);
-}
-
-//==============================================================================
-void ChangeRelevanceInspector::after(const Version* _after)
-{
-  after_version = _after;
-}
-
-//==============================================================================
-void ChangeRelevanceInspector::reserve(std::size_t size)
-{
-  relevant_changes.reserve(size);
+  const Version version = ++_pimpl->schedule_version;
+  _pimpl->remove_participant_version[version] = participant;
+  _pimpl->remove_participant_time[time] = version;
 }
 
 //==============================================================================
 namespace {
 
-ConstEntryPtr get_last_known_ancestor(
-    ConstEntryPtr from,
-    const Version last_known_version,
-    const VersionRange& versions)
+//==============================================================================
+const Database::Implementation::RouteEntry* get_most_recent(
+    const Database::Implementation::RouteEntry* from)
 {
-  while(from && versions.less(last_known_version, from->version))
-    from = from->succeeds;
+  assert(from);
+  while (from->successor)
+    from = from->successor;
 
   return from;
 }
 
-} // anonymous namespace
+//==============================================================================
+struct Delay
+{
+  Time from;
+  Duration duration;
+};
 
 //==============================================================================
-void ChangeRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
-    const std::function<bool(const ConstEntryPtr&)>& relevant)
+struct ParticipantChanges
 {
-  if(entry->succeeded_by)
-    return;
+  std::vector<Change::Add::Item> additions;
+  std::map<Version, Delay> delays;
+  std::vector<RouteId> erasures;
+};
 
-  if(after_version && versions.less_or_equal(entry->version, *after_version))
-    return;
+//==============================================================================
+class PatchRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
 
-  const bool needed = relevant(entry);
-
-  if(needed)
+  PatchRelevanceInspector(Version after)
+  : _after(after)
   {
-    // Check if this entry descends from an entry that the remote mirror does
-    // not know about.
-    ConstEntryPtr record_changes_from = nullptr;
-    if(after_version)
-    {
-      const ConstEntryPtr check =
-          get_last_known_ancestor(entry, *after_version, versions);
+    // Do nothing
+  }
 
-      if(check)
+  using RouteEntry = Database::Implementation::RouteEntry;
+
+  std::unordered_map<ParticipantId, ParticipantChanges> changes;
+
+  const RouteEntry* get_last_known_ancestor(const RouteEntry* from) const
+  {
+    assert(from);
+    while (from && modular(_after).less_than(from->schedule_version))
+    {
+      if (from->transition)
+        from = from->transition->predecessor.get();
+      else
+        return nullptr;
+    }
+
+    while (from->successor
+           && modular(from->successor->schedule_version)
+                .less_than_or_equal(_after))
+    {
+      from = from->successor;
+    }
+
+    return from;
+  }
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const RouteEntry&)>& relevant) final
+  {
+    const RouteEntry* const last = get_last_known_ancestor(entry);
+    const RouteEntry* const newest = get_most_recent(entry);
+
+    if (last == newest)
+    {
+      // There are no changes for this route to give the mirror
+      return;
+    }
+
+    if (last && last->route && relevant(*last))
+    {
+      // The mirror knew about a previous version of this route
+      if (newest->route && relevant(*newest))
       {
-        if(relevant(check))
+        // The newest version of this route is relevant to the mirror
+        const RouteEntry* traverse = newest;
+        ParticipantChanges& p_changes = changes[newest->participant];
+        while (traverse != last)
         {
-          // The remote mirror already knows the lineage of this entry, so we
-          // will transmit all of its changes from the last version that the
-          // mirror knew about.
-          record_changes_from = check;
-        }
-        else
-        {
-          // The remote mirror does not know the lineage of this entry, so we
-          // will simply transmit the current entry as an insertion. We simply
-          // leave record_changes_from as a nullptr.
+          const auto* const transition = traverse->transition.get();
+          assert(transition);
+          assert(transition->delay);
+          const auto& delay = *transition->delay;
+          const auto insertion = p_changes.delays.insert(
+                std::make_pair(
+                  traverse->schedule_version,
+                  Delay{
+                    delay.from,
+                    delay.duration
+                  }));
+#ifndef NDEBUG
+          // When compiling in debug mode, if we see a duplicate insertion,
+          // let's make sure that the previously entered data matches what we
+          // wanted to enter just now.
+          if (!insertion.second)
+          {
+            const Delay& previous = insertion.first->second;
+            assert(previous.from == delay.from);
+            assert(previous.duration == delay.duration);
+          }
+#else
+          // When compiling in release mode, cast the return value to void to
+          // suppress compiler warnings.
+          (void)(insertion);
+#endif // NDEBUG
+          traverse = traverse->transition->predecessor.get();
         }
       }
       else
       {
-        // The remote mirror does not know the lineage of this entry, so we
-        // will simply transmit the current entry as an insertion. We simply
-        // leave record_changes_from as a nullptr.
-      }
-    }
-
-    if(record_changes_from)
-    {
-      // TODO(MXG): We can improve bandwidth usage a bit if we check whether a
-      // Replace operation has taken place since the last known ancestor. If
-      // that is the case, then we can skip recording all of the changes and
-      // just use a single replace from the old version number to the current
-      // version of the trajectory.
-      ConstEntryPtr record = record_changes_from->succeeded_by;
-      while(record)
-      {
-        relevant_changes.emplace_back(*record->change);
-        record = record->succeeded_by;
+        // The newest version of this route is not relevant to the mirror, so
+        // we will erase it from the mirror.
+        changes[newest->participant].erasures.emplace_back(newest->route_id);
       }
     }
     else
     {
-      // We are not transmitting the chain of changes that led to this entry,
-      // so just create an insertion for it and transmit that.
-      relevant_changes.emplace_back(
-            Database::Change::Implementation::make_insert_ref(
-              &entry->trajectory, entry->version));
-    }
-  }
-  else if(after_version)
-  {
-    // Figure out if this trajectory needs to be erased
-    const ConstEntryPtr check =
-        get_last_known_ancestor(entry, *after_version, versions);
-
-    if(check)
-    {
-      if(relevant(check))
+      // No version of this route has been seen by the mirror
+      if (newest->route && relevant(*newest))
       {
-        // This trajectory is no longer relevant to the remote mirror, so we
-        // will tell the remote mirror to erase it rather than continuing to
-        // transmit its change history. If a later version of this trajectory
-        // becomes relevant again, we will tell it to insert it at that time.
-        relevant_changes.emplace_back(
-              Database::Change::make_erase(check->version, entry->version));
+        // The newest version of this route is relevant to the mirror
+        changes[newest->participant].additions.emplace_back(
+              Change::Add::Item{
+                newest->route_id,
+                newest->route
+              });
+      }
+      else
+      {
+        // Ignore this route. The mirror has no need to know about it.
       }
     }
   }
-  else
+
+private:
+  const Version _after;
+};
+
+//==============================================================================
+class FirstPatchRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+
+  std::unordered_map<ParticipantId, ParticipantChanges> changes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const RouteEntry&)>& relevant) final
   {
-    // The remote mirror never knew about the lineage of this entry, so there's
-    // no need to transmit any information about it at all.
+    const RouteEntry* const newest = get_most_recent(entry);
+    if (newest->route && relevant(*newest))
+    {
+      changes[newest->participant].additions.emplace_back(
+            Change::Add::Item{
+              newest->route_id,
+              newest->route
+            });
+    }
   }
+};
+
+//==============================================================================
+class ViewRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const RouteEntry&)>& relevant) final
+  {
+    entry = get_most_recent(entry);
+    if (entry->route && relevant(*entry))
+      routes.emplace_back(Storage{entry->participant, entry->route});
+  }
+};
+
+//==============================================================================
+class CullRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  CullRelevanceInspector(Time cull_time)
+  : _cull_time(cull_time)
+  {
+    // Do nothing
+  }
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+
+  struct Info
+  {
+    ParticipantId participant;
+    RouteId route_id;
+  };
+
+  std::vector<Info> routes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const RouteEntry&)>& /*relevant*/) final
+  {
+    while(entry->successor && entry->successor->route)
+      entry = entry->successor;
+
+    assert(entry->route->trajectory().finish_time());
+    if (*entry->route->trajectory().finish_time() < _cull_time)
+    {
+      routes.emplace_back(Info{entry->participant, entry->route_id});
+    }
+  }
+
+private:
+  Time _cull_time;
+};
+
+} // anonymous namespace
+
+//==============================================================================
+Viewer::View Database::query(const Query& parameters) const
+{
+  ViewRelevanceInspector inspector;
+  _pimpl->timeline.inspect(parameters, inspector);
+  return Viewer::View::Implementation::make_view(std::move(inspector.routes));
 }
 
 //==============================================================================
-void ChangeRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
-    const rmf_traffic::internal::Spacetime& spacetime)
+const std::unordered_set<ParticipantId>& Database::participant_ids() const
 {
-  inspect(entry, [&](const ConstEntryPtr& e) -> bool {
-    const Trajectory& trajectory = e->trajectory;
-    if(trajectory.start_time())
-    {
-      return rmf_traffic::internal::detect_conflicts(
-            e->trajectory, spacetime, nullptr);
-    }
-    else
-    {
-      assert(e->change->get_mode() == Database::Change::Mode::Erase);
-      return false;
-    }
-  });
+  return _pimpl->participant_ids;
 }
 
 //==============================================================================
-void ChangeRelevanceInspector::inspect(
-    const ConstEntryPtr& entry,
-    const Time* const lower_time_bound,
-    const Time* const upper_time_bound)
+const ParticipantDescription* Database::get_participant(
+    std::size_t participant_id) const
 {
-  inspect(entry, [&](const ConstEntryPtr& e) -> bool {
-    const Trajectory& trajectory = e->trajectory;
-    if(trajectory.start_time())
-    {
-      if(lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
-        return false;
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return nullptr;
 
-      if(upper_time_bound && *upper_time_bound < *trajectory.start_time())
-        return false;
-
-      return true;
-    }
-    else
-    {
-      assert(e->change->get_mode() == Database::Change::Mode::Erase);
-      return false;
-    }
-  });
+  return &state_it->second.description;
 }
 
-} // namespace internal
+//==============================================================================
+rmf_utils::optional<Itinerary> Database::get_itinerary(
+    std::size_t participant_id) const
+{
+  const auto state_it = _pimpl->states.find(participant_id);
+  if (state_it == _pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  const Implementation::ParticipantState& state = state_it->second;
+
+  Itinerary itinerary;
+  itinerary.reserve(state.active_routes.size());
+  for (const RouteId route : state.active_routes)
+    itinerary.push_back(state.storage.at(route)->route);
+
+  return std::move(itinerary);
+}
+
+//==============================================================================
+Version Database::latest_version() const
+{
+  return _pimpl->schedule_version;
+}
 
 //==============================================================================
 Database::Database()
+: _pimpl(rmf_utils::make_unique_impl<Implementation>())
 {
   // Do nothing
 }
 
 //==============================================================================
-auto Database::changes(const Query& parameters) const -> Patch
+const Inconsistencies& Database::inconsistencies() const
 {
-  auto relevant_changes = _pimpl->inspect<internal::ChangeRelevanceInspector>(
-        parameters).relevant_changes;
+  return _pimpl->inconsistencies;
+}
 
-  if(_pimpl->cull_has_occurred)
+//==============================================================================
+auto Database::changes(
+    const Query& parameters,
+    rmf_utils::optional<Version> after) const -> Patch
+{
+  std::unordered_map<ParticipantId, ParticipantChanges> changes;
+  if (after)
   {
-    const auto* after = parameters.versions().after();
-    const auto& last_cull = _pimpl->last_cull;
-    if(after)
-    {
-      const auto range = internal::VersionRange(_pimpl->oldest_version);
-      if(range.less(after->get_version(), last_cull.first))
-      {
-        relevant_changes.push_back(
-              Change::make_cull(last_cull.second, last_cull.first));
-      }
-    }
-    else
-    {
-      relevant_changes.push_back(
-            Change::make_cull(last_cull.second, last_cull.first));
-    }
+    PatchRelevanceInspector inspector(*after);
+    _pimpl->timeline.inspect(parameters, inspector);
+    changes = inspector.changes;
+  }
+  else
+  {
+    FirstPatchRelevanceInspector inspector;
+    _pimpl->timeline.inspect(parameters, inspector);
+    changes = inspector.changes;
   }
 
-  return Patch(relevant_changes, latest_version());
-}
+  std::vector<Patch::Participant> part_patches;
+  for (const auto& p : changes)
+  {
+    std::vector<Change::Delay> delays;
+    for (const auto& d : p.second.delays)
+    {
+      delays.emplace_back(
+            Change::Delay{
+              d.second.from,
+              d.second.duration
+            });
+    }
 
-//==============================================================================
-Version Database::insert(Trajectory trajectory)
-{
-  internal::EntryPtr new_entry =
-      std::make_shared<internal::Entry>(
-        std::move(trajectory),
-        ++_pimpl->latest_version);
+    part_patches.emplace_back(
+          Patch::Participant{
+            p.first,
+            Change::Erase(std::move(p.second.erasures)),
+            std::move(delays),
+            Change::Add(std::move(p.second.additions))
+          });
+  }
 
-  new_entry->change = std::make_unique<Change>(
-        Change::Implementation::make_insert_ref(
-          &new_entry->trajectory, new_entry->version));
+  std::vector<Change::RegisterParticipant> registered;
+  std::vector<Change::UnregisterParticipant> unregistered;
+  if (after)
+  {
+    const Version after_v = *after;
 
-  _pimpl->add_entry(new_entry);
+    auto add_it = _pimpl->add_participant_version.upper_bound(after_v);
+    for (; add_it != _pimpl->add_participant_version.end(); ++add_it)
+    {
+      const auto p_it = _pimpl->states.find(add_it->second);
+      assert(p_it != _pimpl->states.end());
+      registered.emplace_back(p_it->first, p_it->second.description);
+    }
 
-  return new_entry->version;
-}
+    auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
+    for (; remove_it != _pimpl->remove_participant_version.end(); ++remove_it)
+      unregistered.emplace_back(remove_it->second);
+  }
+  else
+  {
+    // If this is a mirror's first pull from the database, then we should send
+    // all the participant information.
+    for (const auto& p : _pimpl->states)
+      registered.emplace_back(p.first, p.second.description);
 
-//==============================================================================
-Version Database::interrupt(
-    Version id,
-    Trajectory interruption_trajectory,
-    Duration delay)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(id, "interruption")->second;
+    // We do not need to mention any participants that have unregistered.
+  }
 
-  Trajectory new_trajectory = add_interruption(
-        old_entry->trajectory, interruption_trajectory, delay);
+  rmf_utils::optional<Change::Cull> cull;
+  if (_pimpl->last_cull && after && *after < _pimpl->last_cull->version)
+  {
+    cull = _pimpl->last_cull->cull;
+  }
 
-  const Version new_version = ++_pimpl->latest_version;
-  Change change = Database::Change::make_interrupt(
-        id, std::move(interruption_trajectory), delay, new_version);
-
-  old_entry->succeeded_by = _pimpl->add_entry(
-      std::make_shared<internal::Entry>(
-        std::move(new_trajectory),
-        new_version,
-        old_entry,
-        std::make_unique<Change>(std::move(change))));
-
-  return new_version;
-}
-
-//==============================================================================
-Version Database::delay(
-    const Version id,
-    const Time from,
-    const Duration delay)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(id, "delay")->second;
-
-  Trajectory new_trajectory = add_delay(
-        old_entry->trajectory, from, delay);
-
-  const Version new_version = ++_pimpl->latest_version;
-  Change change = Database::Change::make_delay(id, from, delay, new_version);
-
-  old_entry->succeeded_by = _pimpl->add_entry(
-        std::make_shared<internal::Entry>(
-          std::move(new_trajectory),
-          new_version,
-          old_entry,
-          std::make_unique<Change>(std::move(change))));
-
-  return new_version;
-}
-
-//==============================================================================
-Version Database::replace(
-    Version previous_id,
-    Trajectory trajectory)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(previous_id, "replacement")->second;
-
-  const Version new_version = ++_pimpl->latest_version;
-  internal::EntryPtr new_entry =
-      std::make_shared<internal::Entry>(
-        std::move(trajectory),
-        new_version,
-        old_entry);
-
-  new_entry->change = std::make_unique<Change>(
-        Change::Implementation::make_replace_ref(
-          previous_id, &new_entry->trajectory, new_version));
-
-  old_entry->succeeded_by = _pimpl->add_entry(new_entry);
-
-  return new_version;
-}
-
-//==============================================================================
-Version Database::erase(Version id)
-{
-  const internal::EntryPtr old_entry =
-      _pimpl->get_entry_iterator(id, "erasure")->second;
-
-  const Version new_version = ++_pimpl->latest_version;
-
-  old_entry->succeeded_by = _pimpl->add_entry(
-        std::make_shared<internal::Entry>(
-          Trajectory{old_entry->trajectory.get_map_name()},
-          new_version,
-          old_entry,
-          std::make_unique<Change>(Change::make_erase(id, new_version))), true);
-
-  return new_version;
+  return Patch(
+        std::move(unregistered),
+        std::move(registered),
+        std::move(part_patches),
+        cull,
+        _pimpl->schedule_version);
 }
 
 //==============================================================================
 Version Database::cull(Time time)
 {
-  _pimpl->cull(++_pimpl->latest_version, time);
+  Query query = query_all();
+  query.spacetime().query_timespan().set_upper_time_bound(time);
 
-  return _pimpl->latest_version;
+  CullRelevanceInspector inspector(time);
+  _pimpl->timeline.inspect(query, inspector);
+
+  // TODO(MXG) This iterating could probably be made more efficient by grouping
+  // together the culls of each participant.
+  for (const auto& route : inspector.routes)
+  {
+    auto p_it = _pimpl->states.find(route.participant);
+    assert(p_it != _pimpl->states.end());
+
+    auto& storage = p_it->second.storage;
+    const auto r_it = storage.find(route.route_id);
+    assert(r_it != storage.end());
+
+    storage.erase(r_it);
+  }
+
+  _pimpl->timeline.cull(time);
+
+  // Erase all trace of participants that were removed before the culling time.
+  const auto p_cull_begin = _pimpl->remove_participant_time.begin();
+  const auto p_cull_end = _pimpl->remove_participant_time.upper_bound(time);
+  for (auto p_cull_it = p_cull_begin; p_cull_it != p_cull_end; ++p_cull_it)
+  {
+    const auto remove_it =
+        _pimpl->remove_participant_version.find(p_cull_it->second);
+    assert(remove_it != _pimpl->remove_participant_version.end());
+
+    _pimpl->remove_participant_version.erase(remove_it);
+  }
+
+  if (p_cull_begin != p_cull_end)
+    _pimpl->remove_participant_time.erase(p_cull_begin, p_cull_end);
+
+  // Update the version of the schedule
+  ++_pimpl->schedule_version;
+
+  // Record the occurrence of this cull
+  _pimpl->last_cull = Implementation::CullInfo{
+      Change::Cull(time),
+      _pimpl->schedule_version
+  };
+
+  return _pimpl->schedule_version;
 }
 
 } // namespace schedule
-
-namespace detail {
-
-template class bidirectional_iterator<
-    const schedule::Database::Change,
-    schedule::Database::Patch::IterImpl,
-    schedule::Database::Patch
->;
-
-} // namespace detail
-
 } // namespace rmf_traffic

@@ -76,7 +76,6 @@ void interpolate_translation(
     const Time start_time,
     const Eigen::Vector3d& start,
     const Eigen::Vector3d& finish,
-    const Trajectory::ConstProfilePtr& profile,
     const double threshold);
 
 //==============================================================================
@@ -87,7 +86,6 @@ void interpolate_rotation(
     const Time start_time,
     const Eigen::Vector3d& start,
     const Eigen::Vector3d& finish,
-    const Trajectory::ConstProfilePtr& profile,
     const double threshold);
 
 } // namespace internal

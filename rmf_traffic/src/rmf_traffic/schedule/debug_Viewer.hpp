@@ -27,8 +27,6 @@ class Viewer::Debug
 {
 public:
 
-  static std::size_t get_num_entries(const Viewer& viewer);
-
 };
 
 } // namespace schedule

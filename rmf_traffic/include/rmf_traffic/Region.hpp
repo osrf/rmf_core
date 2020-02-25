@@ -155,10 +155,12 @@ private:
 
 namespace detail {
 
+//==============================================================================
 extern template class bidirectional_iterator<
     geometry::Space, Region::IterImpl, Region
 >;
 
+//==============================================================================
 extern template class bidirectional_iterator<
     const geometry::Space, Region::IterImpl, Region
 >;

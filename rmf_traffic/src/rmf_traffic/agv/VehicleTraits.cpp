@@ -37,10 +37,8 @@ class VehicleTraits::Implementation
 public:
 
   Limits _linear;
-
   Limits _rotation;
-
-  Trajectory::ConstProfilePtr _profile;
+  Profile _profile;
 
   Steering _steering_mode;
   Differential _differential;
@@ -49,7 +47,7 @@ public:
   Implementation(
       Limits linear,
       Limits rotation,
-      Trajectory::ConstProfilePtr profile,
+      Profile profile,
       Differential differential)
     : _linear(std::move(linear)),
       _rotation(std::move(rotation)),
@@ -166,11 +164,13 @@ VehicleTraits::Holonomic::Holonomic()
 VehicleTraits::VehicleTraits(
     Limits linear,
     Limits rotational,
-    Trajectory::ConstProfilePtr profile,
+    Profile profile,
     Differential steering)
   : _pimpl(rmf_utils::make_impl<Implementation>(
-             std::move(linear), std::move(rotational),
-             std::move(profile), std::move(steering)))
+             std::move(linear),
+             std::move(rotational),
+             std::move(profile),
+             std::move(steering)))
 {
   // Do nothing
 }
@@ -200,15 +200,13 @@ const VehicleTraits::Limits& VehicleTraits::rotational() const
 }
 
 //==============================================================================
-auto VehicleTraits::set_profile(Trajectory::ConstProfilePtr profile)
--> VehicleTraits&
+Profile& VehicleTraits::profile()
 {
-  _pimpl->_profile = std::move(profile);
-  return *this;
+  return _pimpl->_profile;
 }
 
 //==============================================================================
-const Trajectory::ConstProfilePtr& VehicleTraits::get_profile() const
+const Profile& VehicleTraits::profile() const
 {
   return _pimpl->_profile;
 }

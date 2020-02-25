@@ -18,7 +18,7 @@
 #ifndef SRC__RMF_TRAFFIC__INVALID_TRAJECTORY_ERROR_HPP
 #define SRC__RMF_TRAFFIC__INVALID_TRAJECTORY_ERROR_HPP
 
-#include <rmf_traffic/Conflict.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
 
 namespace rmf_traffic {
 
@@ -48,7 +48,7 @@ public:
     error._pimpl->what = std::string()
         + "[rmf_traffic::invalid_trajectory_error] Attempting to check a "
         + "conflict with a Trajectory that has no shape specified for the "
-        + "profile of its segment at time ["
+        + "profile of its waypoint at time ["
         + std::to_string(time.time_since_epoch().count())
         + "ns]. This is not supported.";
 

@@ -37,13 +37,13 @@ class Spline
 {
 public:
 
-  /// Create a spline that goes from the end of the preceding to the Segment of
+  /// Create a spline that goes from the end of the preceding to the Waypoint of
   /// `it`.
   Spline(const Trajectory::const_iterator& it);
 
-  /// Create a spline that goes from the end of the preceding to the Segment of
+  /// Create a spline that goes from the end of the preceding to the Waypoint of
   /// `it`.
-  Spline(const internal::SegmentList::const_iterator& it);
+  Spline(const internal::WaypointList::const_iterator& it);
 
   /// Compute the knots for the motion of this spline from start_time to
   /// finish_time, scaled to a "time" range of [0, 1].
@@ -57,7 +57,6 @@ public:
 
   struct Parameters
   {
-    rmf_traffic::Trajectory::ConstProfilePtr profile_ptr;
     std::array<Eigen::Vector4d, 3> coeffs;
     double delta_t;
     std::array<Time, 2> time_range;

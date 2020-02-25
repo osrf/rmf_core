@@ -34,17 +34,47 @@ class Mirror : public Viewer
 {
 public:
 
+  //============================================================================
+  // Viewer API
+  //============================================================================
+
+  // Documentation inherited from Viewer
+  View query(const Query& parameters) const final;
+
+  // Documentation inherited from Viewer
+  const std::unordered_set<ParticipantId>& participant_ids() const final;
+
+  // Documentation inherited from Viewer
+  const ParticipantDescription* get_participant(
+      std::size_t participant_id) const final;
+
+  // Documentation inherited from Viewer
+  rmf_utils::optional<Itinerary> get_itinerary(
+      std::size_t participant_id) const final;
+
+  // Documentation inherited from Viewer
+  Version latest_version() const final;
+
+
+  //============================================================================
+  // Mirror API
+  //============================================================================
+
   /// Create a database mirror
   Mirror();
 
   /// Update this mirror.
   ///
   /// \return the last version that this Mirror knows of
-  Version update(const Database::Patch& patch);
+  Version update(const Patch& patch);
 
   // TODO(MXG): Consider a feature to log and report any possible
   // inconsistencies that might show up with the patches, e.g. replacing or
   // erasing a trajectory that was never received in the first place.
+
+  class Implementation;
+private:
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 
