@@ -327,6 +327,13 @@ private:
       const auto timeline_end =
           get_timeline_end(timeline, upper_time_bound);
 
+      if (timeline_begin == timeline_end)
+      {
+        // No buckets in the timeline overlap with this spacetime region, so we
+        // can move on to the next region without looping through this one.
+        continue;
+      }
+
       for (auto space_it = region.begin(); space_it != region.end(); ++space_it)
       {
         spacetime_data.pose = space_it->get_pose();
