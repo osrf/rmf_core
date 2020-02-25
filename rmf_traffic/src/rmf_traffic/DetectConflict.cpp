@@ -631,7 +631,7 @@ bool detect_conflicts(
       const auto obj_region = fcl::ContinuousCollisionObject(
             region_shape, motion_region);
 
-      // TODO(MXG): Would should do a broadphase test here before using
+      // TODO(MXG): We should do a broadphase test here before using
       // fcl::collide
 
       fcl::ContinuousCollisionResult result;
