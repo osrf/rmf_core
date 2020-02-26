@@ -22,12 +22,8 @@
 namespace rmf_traffic {
 namespace schedule {
 
-//==============================================================================
-InconsistencyTracker::InconsistencyTracker(
-    ParticipantId id,
-    RangesSet& ranges)
-: _participant(id),
-  _ranges(ranges)
+InconsistencyTracker::InconsistencyTracker(RangesSet& ranges)
+: _ranges(ranges)
 {
   // Do nothing
 }

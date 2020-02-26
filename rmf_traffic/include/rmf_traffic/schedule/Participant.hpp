@@ -22,7 +22,7 @@
 #include <rmf_traffic/schedule/Writer.hpp>
 #include <rmf_traffic/schedule/Rectifier.hpp>
 
-#include <future>
+#include <unordered_set>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -69,7 +69,7 @@ public:
   ///
   /// \param[in] routes
   ///   The list of routes to erase.
-  void erase(std::vector<RouteId> routes);
+  void erase(const std::unordered_set<RouteId>& routes);
 
   /// Clear all routes from the itinerary.
   void clear();
@@ -79,6 +79,13 @@ public:
   RouteId last_route_id() const;
 
   /// Get the current itinerary of the participant.
+  //
+  // TODO(MXG): The implementation of this class could be simpler and more
+  // efficient if we did not provide this function. But it would might also hurt
+  // usability if end users want some verification or reflection of the changes
+  // that they are making to the schedule. Perhaps we can create a second class
+  // that extends the functionality of this one, where it will both make the
+  // changes to the schedule and reflect the changes locally.
   const Writer::Input& itinerary() const;
 
   /// Get the description of this participant.

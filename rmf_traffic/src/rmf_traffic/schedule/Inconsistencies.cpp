@@ -107,7 +107,7 @@ Inconsistencies::Implementation::register_participant(
   _api.insert(
         std::make_pair(id, Element{id, Ranges::Implementation::make(ranges)}));
 
-  return std::make_unique<InconsistencyTracker>(id, ranges);
+  return std::make_unique<InconsistencyTracker>(ranges);
 }
 
 //==============================================================================

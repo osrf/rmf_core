@@ -43,13 +43,20 @@ public:
 
   ItineraryVersion current_version() const;
 
-private:
-  friend class Participant;
-
+  // Note: It would be better if this constructor were private, but we need to
+  // make it public so it can be used by rmf_utils::make_unique_impl
   Implementation(
+      ParticipantId id,
       ParticipantDescription description,
       Writer& writer);
 
+private:
+  friend class Participant;
+
+  Writer::Input make_input(std::vector<Route> itinerary);
+  ItineraryVersion get_next_version();
+
+  const ParticipantId _id;
   const ParticipantDescription _description;
   Writer& _writer;
   std::unique_ptr<RectificationRequester> _rectification;

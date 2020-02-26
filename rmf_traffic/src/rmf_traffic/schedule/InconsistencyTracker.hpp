@@ -55,9 +55,7 @@ class InconsistencyTracker
 {
 public:
 
-  InconsistencyTracker(
-      ParticipantId id,
-      RangesSet& parent);
+  InconsistencyTracker(RangesSet& parent);
 
   /// The Ticket class is a way to inform the caller that there is an
   /// inconsistency with the version of an incoming change. When the
@@ -117,7 +115,6 @@ private:
 
   void _apply_changes();
 
-  ParticipantId _participant;
   RangesSet& _ranges;
   ItineraryVersion _expected_version = 0;
   std::map<ItineraryVersion, std::function<void()>> _changes;

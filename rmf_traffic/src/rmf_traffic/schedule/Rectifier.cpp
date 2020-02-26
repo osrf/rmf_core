@@ -32,9 +32,11 @@ Rectifier Rectifier::Implementation::make(
 }
 
 //==============================================================================
-void Rectifier::retransmit(ItineraryVersion from, ItineraryVersion to)
+void Rectifier::retransmit(
+    const std::vector<Range>& ranges,
+    ItineraryVersion last_known_version)
 {
-  _pimpl->participant.retransmit(from, to);
+  _pimpl->participant.retransmit(ranges, last_known_version);
 }
 
 //==============================================================================

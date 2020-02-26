@@ -31,7 +31,7 @@ Participant Participant::Implementation::make(
 
   Participant participant;
   participant._pimpl = rmf_utils::make_unique_impl<Implementation>(
-        std::move(description), writer);
+        id, std::move(description), writer);
 
   participant._pimpl->_rectification =
       rectifier_factory->make(
@@ -86,10 +86,208 @@ ItineraryVersion Participant::Implementation::current_version() const
 }
 
 //==============================================================================
+Participant::Implementation::Implementation(
+    ParticipantId id,
+    ParticipantDescription description,
+    Writer& writer)
+: _id(id),
+  _description(std::move(description)),
+  _writer(writer)
+{
+  // Do nothing
+}
+
+//==============================================================================
+Writer::Input Participant::Implementation::make_input(
+    std::vector<Route> itinerary)
+{
+  Writer::Input input;
+  input.reserve(itinerary.size());
+
+  for (std::size_t i=0; i < itinerary.size(); ++i)
+  {
+    input.emplace_back(
+          Writer::Item{
+            ++_last_route_id,
+            std::make_shared<Route>(std::move(itinerary[i]))
+          });
+  }
+
+  return input;
+}
+
+//==============================================================================
+ItineraryVersion Participant::Implementation::get_next_version()
+{
+  return ++_version;
+}
+
+//==============================================================================
 RouteId Participant::set(std::vector<Route> itinerary)
 {
+  const RouteId initial_route_id = _pimpl->_last_route_id;
+  if (itinerary.empty())
+    return initial_route_id;
+
   _pimpl->_change_history.clear();
 
+  auto input = _pimpl->make_input(std::move(itinerary));
+
+  _pimpl->itinerary = input;
+
+  const ItineraryVersion itinerary_version = _pimpl->get_next_version();
+  const ParticipantId id = _pimpl->_id;
+  auto change = [this, input = std::move(input), itinerary_version, id]()
+  {
+    this->_pimpl->_writer.set(id, input, itinerary_version);
+  };
+
+  _pimpl->_change_history[itinerary_version] = change;
+  change();
+
+  return initial_route_id;
+}
+
+//==============================================================================
+RouteId Participant::extend(const std::vector<Route>& additional_routes)
+{
+  const RouteId initial_route_id = _pimpl->_last_route_id;
+  if (additional_routes.empty())
+    return initial_route_id;
+
+  auto input = _pimpl->make_input(std::move(additional_routes));
+
+  _pimpl->itinerary.reserve(_pimpl->itinerary.size() + input.size());
+  for (const auto& item : input)
+    _pimpl->itinerary.push_back(item);
+
+  const ItineraryVersion itinerary_version = _pimpl->get_next_version();
+  const ParticipantId id = _pimpl->_id;
+  auto change = [this, input = std::move(input), itinerary_version, id]()
+  {
+    this->_pimpl->_writer.extend(id, input, itinerary_version);
+  };
+
+  _pimpl->_change_history[itinerary_version] = change;
+  change();
+
+  return initial_route_id;
+}
+
+//==============================================================================
+void Participant::delay(Time from, Duration delay)
+{
+  for (auto& item : _pimpl->itinerary)
+  {
+    const auto& original_trajectory = item.route->trajectory();
+    const auto old_it = original_trajectory.find(from);
+    if (old_it == original_trajectory.end())
+      continue;
+
+    auto new_trajectory = original_trajectory;
+    const auto new_it = new_trajectory.find(from);
+    new_it->adjust_times(delay);
+
+    item.route = std::make_shared<Route>(item.route->map(), new_trajectory);
+  }
+
+  const ItineraryVersion itinerary_version = _pimpl->get_next_version();
+  const ParticipantId id = _pimpl->_id;
+  auto change = [this, from, delay, itinerary_version, id]()
+  {
+    this->_pimpl->_writer.delay(id, from, delay, itinerary_version);
+  };
+
+  _pimpl->_change_history[itinerary_version] = change;
+  change();
+}
+
+//==============================================================================
+void Participant::erase(const std::unordered_set<RouteId>& input_routes)
+{
+  const auto remove_it = std::remove_if(
+        _pimpl->itinerary.begin(),
+        _pimpl->itinerary.end(),
+        [&](const Writer::Item& item)
+  {
+    return input_routes.count(item.id) > 0;
+  });
+
+  if (remove_it == _pimpl->itinerary.end())
+  {
+    // None of the requested IDs are in the current itinerary, so there is
+    // nothing to remove
+    return;
+  }
+
+  std::vector<RouteId> routes;
+  routes.reserve(input_routes.size());
+  for (auto it = remove_it; it != _pimpl->itinerary.end(); ++it)
+    routes.push_back(it->id);
+
+  _pimpl->itinerary.erase(remove_it, _pimpl->itinerary.end());
+
+  const ItineraryVersion itinerary_version = _pimpl->get_next_version();
+  const ParticipantId id = _pimpl->_id;
+  auto change = [this, routes = std::move(routes), itinerary_version, id]()
+  {
+    this->_pimpl->_writer.erase(id, routes, itinerary_version);
+  };
+
+  _pimpl->_change_history[itinerary_version] = change;
+  change();
+}
+
+//==============================================================================
+void Participant::clear()
+{
+  _pimpl->itinerary.clear();
+
+  const ItineraryVersion itinerary_version = _pimpl->get_next_version();
+  const ParticipantId id = _pimpl->_id;
+  auto change = [this, itinerary_version, id]()
+  {
+    this->_pimpl->_writer.erase(id, itinerary_version);
+  };
+
+  _pimpl->_change_history[itinerary_version] = change;
+  change();
+}
+
+//==============================================================================
+RouteId Participant::last_route_id() const
+{
+  return _pimpl->_last_route_id;
+}
+
+//==============================================================================
+const Writer::Input& Participant::itinerary() const
+{
+  return _pimpl->itinerary;
+}
+
+//==============================================================================
+const ParticipantDescription& Participant::description() const
+{
+  return _pimpl->_description;
+}
+
+//==============================================================================
+Participant::Participant()
+{
+  // Do nothing
+}
+
+//==============================================================================
+Participant make_participant(
+    ParticipantDescription description,
+    Writer& writer,
+    RectificationRequesterFactory* rectifier_factory)
+{
+  return Participant::Implementation::make(
+        std::move(description),
+        writer,
+        rectifier_factory);
 }
 
 } // namespace schedule
