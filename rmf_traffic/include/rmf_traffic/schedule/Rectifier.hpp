@@ -39,24 +39,40 @@ class Rectifier
 {
 public:
 
+  /// A range of itinerary change IDs that is currently missing from a database.
+  /// All IDs from lower to upper are missing, including lower and upper
+  /// themselves.
+  ///
+  /// It is undefined behavior if the value given to upper is less than the
+  /// value given to upper.
+  struct Range
+  {
+    /// The ID of the first itinerary change in this range that is missing
+    ItineraryVersion lower;
+
+    /// The ID of the last itinerary change in this range that is missing
+    ItineraryVersion upper;
+  };
+
   /// Ask the participant to retransmit the specified range of its itinerary
   /// changes.
   ///
-  /// \param[in] from
-  ///   The ID of the first itinerary change that should be retransmitted.
+  /// \param[in] ranges
+  ///   The ranges of missing Itinerary IDs
   ///
-  /// \param[in] to
-  ///   The ID of the last itinerary change that should be retransmitted. All
-  ///   itinerary changes between the \code{from} value and this will also be
-  ///   retransmitted.
+  /// \param[in] last_known_version
+  ///   The last ItineraryVersion known upstream.
   void retransmit(
-      ItineraryVersion from,
-      ItineraryVersion to);
+      const std::vector<Range>& ranges,
+      ItineraryVersion last_known_version);
+
+  /// Get the current ItineraryVersion of the Participant.
+  ItineraryVersion current_version() const;
 
   class Implementation;
 private:
   Rectifier();
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 //==============================================================================
@@ -85,7 +101,6 @@ public:
 /// The RectificationRequesterFactory is a pure abstract interface class which
 /// should be implemented for any middlewares that intend to act as transport
 /// layers for the scheduling system.
-///
 class RectificationRequesterFactory
 {
 public:

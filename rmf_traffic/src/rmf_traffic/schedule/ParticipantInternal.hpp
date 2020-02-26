@@ -18,7 +18,11 @@
 #ifndef SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
 #define SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
 
+#include "Modular.hpp"
+
 #include <rmf_traffic/schedule/Participant.hpp>
+
+#include <map>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -27,6 +31,37 @@ namespace schedule {
 class Participant::Implementation
 {
 public:
+
+  static Participant make(
+      ParticipantDescription description,
+      Writer& writer,
+      RectificationRequesterFactory* rectifier_factory);
+
+  void retransmit(
+      const std::vector<Rectifier::Range>& from,
+      ItineraryVersion last_known);
+
+  ItineraryVersion current_version() const;
+
+private:
+  friend class Participant;
+
+  Implementation(
+      ParticipantDescription description,
+      Writer& writer);
+
+  const ParticipantDescription _description;
+  Writer& _writer;
+  std::unique_ptr<RectificationRequester> _rectification;
+
+  using ChangeHistory =
+      std::map<RouteId, std::function<void()>, ModularLess<RouteId>>;
+
+  Writer::Input itinerary;
+
+  ChangeHistory _change_history;
+  RouteId _last_route_id = std::numeric_limits<RouteId>::max();
+  ItineraryVersion _version = std::numeric_limits<ItineraryVersion>::max();
 };
 
 } // namespace schedule

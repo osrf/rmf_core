@@ -21,6 +21,29 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
+Rectifier Rectifier::Implementation::make(
+    Participant::Implementation& participant)
+{
+  Rectifier rectifier;
+  rectifier._pimpl = rmf_utils::make_unique_impl<Implementation>(
+        Implementation{participant});
+
+  return rectifier;
+}
+
+//==============================================================================
+void Rectifier::retransmit(ItineraryVersion from, ItineraryVersion to)
+{
+  _pimpl->participant.retransmit(from, to);
+}
+
+//==============================================================================
+Rectifier::Rectifier()
+{
+  // Do nothing
+}
+
+//==============================================================================
 RectificationRequester::~RectificationRequester()
 {
   // Do nothing
