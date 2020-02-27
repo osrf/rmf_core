@@ -75,6 +75,9 @@ public:
     /// Get the number of ranges in this container
     std::size_t size() const;
 
+    /// Get the value of the last itinerary version that has been received
+    ItineraryVersion last_known_version() const;
+
     class Implementation;
   private:
     rmf_utils::unique_impl_ptr<Implementation> _pimpl;
@@ -82,6 +85,7 @@ public:
 
   /// An element of the Inconsistencies container. This tells the ranges of
   /// inconsistencies that are present for the specified Participant.
+  // TODO(MXG): Consider pimplfying this class
   struct Element
   {
     ParticipantId participant;

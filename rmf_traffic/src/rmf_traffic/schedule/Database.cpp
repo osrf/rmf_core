@@ -145,6 +145,10 @@ public:
 
   rmf_utils::optional<CullInfo> last_cull;
 
+  /// The current time is used to know when participants can be culled after
+  /// getting unregistered
+  rmf_traffic::Time current_time = rmf_traffic::Time(rmf_traffic::Duration(0));
+
   /// This function verifies that the route IDs specified in the input are not
   /// already being used. If that ever happens, it is indicative of a bug or a
   /// malformed input into the database.
@@ -343,6 +347,13 @@ std::size_t Database::Debug::current_entry_history_count(
     count += p.second.storage.size();
 
   return count;
+}
+
+//==============================================================================
+std::size_t Database::Debug::current_removed_participant_count(
+    const Database& database)
+{
+  return database._pimpl->remove_participant_version.size();
 }
 
 //==============================================================================
@@ -585,8 +596,7 @@ ParticipantId Database::register_participant(
 
 //==============================================================================
 void Database::unregister_participant(
-    ParticipantId participant,
-    const Time time)
+    ParticipantId participant)
 {
   const auto id_it = _pimpl->participant_ids.find(participant);
   const auto state_it = _pimpl->states.find(participant);
@@ -617,7 +627,7 @@ void Database::unregister_participant(
 
   const Version version = ++_pimpl->schedule_version;
   _pimpl->remove_participant_version[version] = participant;
-  _pimpl->remove_participant_time[time] = version;
+  _pimpl->remove_participant_time[_pimpl->current_time] = version;
 }
 
 //==============================================================================
@@ -1052,6 +1062,12 @@ Version Database::cull(Time time)
   };
 
   return _pimpl->schedule_version;
+}
+
+//==============================================================================
+void Database::set_current_time(Time time)
+{
+  _pimpl->current_time = time;
 }
 
 } // namespace schedule

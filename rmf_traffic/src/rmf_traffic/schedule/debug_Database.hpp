@@ -33,6 +33,12 @@ public:
   /// is given a cull command, and the entry qualifies for the cull.
   static std::size_t current_entry_history_count(const Database& database);
 
+  /// Returns how many participants remain in the record of participants that
+  /// have been removed (aka unregistered). These entries should gradually
+  /// disappear when the database is culled from a time that comes after the
+  /// unregistering time.
+  static std::size_t current_removed_participant_count(const Database& db);
+
 };
 
 } // namespace schedule

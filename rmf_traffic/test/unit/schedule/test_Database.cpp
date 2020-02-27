@@ -23,9 +23,8 @@
 #include "src/rmf_traffic/schedule/debug_Database.hpp"
 
 #include <rmf_utils/catch.hpp>
-#include<iostream>
-using namespace std::chrono_literals;
 
+using namespace std::chrono_literals;
 
 SCENARIO("Test Database Conflicts")
 {
@@ -221,7 +220,7 @@ SCENARIO("Test Database Conflicts")
 
     // WHEN("Schedule is culled")
     {
-      auto cull_time = time + 5min;
+      const auto cull_time = time + 5min;
       CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 2);
       const auto v = db.cull(cull_time);
       CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 1);
@@ -238,6 +237,55 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
+      changes = db.changes(query_all, db.latest_version()-1);
+      CHECK(changes.registered().size() == 0);
+      CHECK(changes.unregistered().size() == 0);
+      CHECK(changes.size() == 0);
+      REQUIRE(changes.cull());
+      CHECK(changes.cull()->time() == cull_time);
+      CHECK(changes.latest_version() == db.latest_version());
+    }
+
+    // WHEN("Unregistering a participant")
+    {
+      auto current_time = time + 10min;
+      db.set_current_time(current_time);
+      db.unregister_participant(p1);
+      CHECK(db.latest_version() == ++dbv);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_removed_participant_count(db) == 1);
+
+      // query from the start
+      changes = db.changes(query_all, rmf_utils::nullopt);
+      CHECK(changes.registered().size() == 0);
+      CHECK(changes.unregistered().size() == 0);
+      CHECK(changes.size() == 0);
+      CHECK_FALSE(changes.cull());
+      CHECK(changes.latest_version() == db.latest_version());
+
+      // query the diff
+      changes = db.changes(query_all, db.latest_version()-1);
+      CHECK(changes.registered().size() == 0);
+      CHECK(changes.unregistered().size() == 1);
+      CHECK(changes.size() == 0);
+      CHECK_FALSE(changes.cull());
+      CHECK(changes.latest_version() == db.latest_version());
+
+      // cull the unregistered participant
+      const auto cull_time = current_time + 10min;
+      db.cull(cull_time);
+      CHECK(db.latest_version() == ++dbv);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_removed_participant_count(db) == 0);
+
+      // query the diff
+      changes = db.changes(query_all, db.latest_version()-1);
+      CHECK(changes.registered().size() == 0);
+      CHECK(changes.unregistered().size() == 0);
+      CHECK(changes.size() == 0);
+      REQUIRE(changes.cull());
+      CHECK(changes.cull()->time() == cull_time);
+      CHECK(changes.latest_version() == db.latest_version());
+
+      // query the diff minus two
       changes = db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);

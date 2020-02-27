@@ -39,6 +39,9 @@ class Rectifier
 {
 public:
 
+  // TODO(MXG): Consider if there might be a good way to merge the functionality
+  // of this Range struct with the Inconsistency::Ranges::Range struct.
+
   /// A range of itinerary change IDs that is currently missing from a database.
   /// All IDs from lower to upper are missing, including lower and upper
   /// themselves.
@@ -109,6 +112,40 @@ public:
       Rectifier rectifier,
       ParticipantId participant_id) = 0;
 
+};
+
+//==============================================================================
+// Forward declaration for DatabaseRectificationRequesterFactory
+class Database;
+
+//==============================================================================
+/// This class provides a simple implementation of a
+/// RectificationRequesterFactory that just hooks directly into a Database
+/// instance and issues rectification requests when told to based on the current
+/// inconsistencies in the Database.
+class DatabaseRectificationRequesterFactory
+    : public RectificationRequesterFactory
+{
+public:
+
+  /// This accepts a const-reference to a Database instance. Note that this
+  /// class will store a reference to this Database, so its lifecycle is
+  /// implicitly dependent on the Database's lifecycle.
+  //
+  // TODO(MXG): Should this demand a std::shared_ptr<Database> instead?
+  DatabaseRectificationRequesterFactory(const Database& database);
+
+  std::unique_ptr<RectificationRequester> make(
+      Rectifier rectifier,
+      ParticipantId participant_id) final;
+
+  /// Call this function to instruct all the RectificationRequestors produced
+  /// by this factory to perform their rectifications.
+  void rectify();
+
+  class Implementation;
+private:
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace schedule

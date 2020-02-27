@@ -33,9 +33,12 @@ Participant Participant::Implementation::make(
   participant._pimpl = rmf_utils::make_unique_impl<Implementation>(
         id, std::move(description), writer);
 
-  participant._pimpl->_rectification =
-      rectifier_factory->make(
-        Rectifier::Implementation::make(*participant._pimpl), id);
+  if (rectifier_factory)
+  {
+    participant._pimpl->_rectification =
+        rectifier_factory->make(
+          Rectifier::Implementation::make(*participant._pimpl), id);
+  }
 
   return participant;
 }
@@ -47,7 +50,7 @@ void Participant::Implementation::retransmit(
 {
   for (const auto& range : ranges)
   {
-    assert(range.lower < range.upper);
+    assert(modular(range.lower).less_than_or_equal(range.upper));
 
     // We use lower_bound because it is possible that some of this range has
     // been truncated because of a nullifying change. Therefore we should accept
@@ -270,6 +273,18 @@ const Writer::Input& Participant::itinerary() const
 const ParticipantDescription& Participant::description() const
 {
   return _pimpl->_description;
+}
+
+//==============================================================================
+ParticipantId Participant::id() const
+{
+  return _pimpl->_id;
+}
+
+//==============================================================================
+Participant::~Participant()
+{
+  _pimpl->_writer.unregister_participant(_pimpl->_id);
 }
 
 //==============================================================================

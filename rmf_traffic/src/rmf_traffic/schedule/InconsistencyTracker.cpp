@@ -22,8 +22,11 @@
 namespace rmf_traffic {
 namespace schedule {
 
-InconsistencyTracker::InconsistencyTracker(RangesSet& ranges)
-: _ranges(ranges)
+InconsistencyTracker::InconsistencyTracker(
+    RangesSet& ranges,
+    ItineraryVersion& last_known_version)
+: _ranges(ranges),
+  _last_known_version(last_known_version)
 {
   // Do nothing
 }
@@ -33,6 +36,16 @@ void InconsistencyTracker::Ticket::set(std::function<void ()> change)
 {
   _set = true;
   _callback = change;
+}
+
+//==============================================================================
+InconsistencyTracker::Ticket::Ticket(
+    InconsistencyTracker& parent,
+    std::function<void()>& callback)
+: _parent(parent),
+  _callback(callback)
+{
+  // Do nothing
 }
 
 //==============================================================================
@@ -54,22 +67,16 @@ InconsistencyTracker::Ticket::~Ticket()
 }
 
 //==============================================================================
-InconsistencyTracker::Ticket::Ticket(
-    InconsistencyTracker& parent,
-    std::function<void()>& callback)
-: _parent(parent),
-  _callback(callback)
-{
-  // Do nothing
-}
-
-//==============================================================================
 auto InconsistencyTracker::check(
     const ItineraryVersion version,
     const bool nullifying)
--> rmf_utils::optional<Ticket>
+-> std::unique_ptr<Ticket>
 {
   using Range = Inconsistencies::Ranges::Range;
+
+  // Check if this is the lastest itinerary version for this trajectory
+  if (modular(_last_known_version).less_than(version))
+    _last_known_version = version;
 
   if (_ranges.empty())
   {
@@ -77,7 +84,7 @@ auto InconsistencyTracker::check(
     {
       // This means we have no inconsistencies to worry about
       ++_expected_version;
-      return rmf_utils::nullopt;
+      return nullptr;
     }
 
     // This should have been checked earlier by the caller, but we will assert
@@ -88,7 +95,7 @@ auto InconsistencyTracker::check(
     _ranges.insert(Range{_expected_version, version-1});
 
     const auto c_it = _changes.insert(std::make_pair(version, nullptr)).first;
-    return Ticket(*this, c_it->second);
+    return std::make_unique<Ticket>(*this, c_it->second);
   }
   else
   {
@@ -112,7 +119,7 @@ auto InconsistencyTracker::check(
       // We have already received this change in the past, so we don't need to
       // modify the inconsistency ranges. We're assuming that repeats of the
       // changes we receive from participants will be consistent with themselves
-      return Ticket(*this, callback);
+      return std::make_unique<Ticket>(*this, callback);
     }
 
     if (nullifying)
@@ -170,7 +177,7 @@ auto InconsistencyTracker::check(
         _changes.clear();
         _ranges.clear();
         _expected_version = version + 1;
-        return rmf_utils::nullopt;
+        return nullptr;
       }
       else
       {
@@ -208,7 +215,7 @@ auto InconsistencyTracker::check(
           // any new range of inconsistency.
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
     }
     else
@@ -250,7 +257,7 @@ auto InconsistencyTracker::check(
           _ranges.insert(hint_it, Range{version + 1, upper});
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
       else if (version == upper)
       {
@@ -290,7 +297,7 @@ auto InconsistencyTracker::check(
           _ranges.erase(range_it);
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
       else
       {
@@ -323,7 +330,7 @@ auto InconsistencyTracker::check(
           _ranges.insert(hint_it, Range{version+1, upper});
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
     }
   }

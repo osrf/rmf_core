@@ -152,13 +152,9 @@ public:
   /// \param[in] participant
   ///   The ID of the participant to unregister.
   ///
-  /// \param[in] time
-  ///   The time at which the de-registration is being requested.
-  ///
   /// \return the new version of the schedule.
   virtual void unregister_participant(
-      ParticipantId participant,
-      Time time) = 0;
+      ParticipantId participant) = 0;
 
 };
 

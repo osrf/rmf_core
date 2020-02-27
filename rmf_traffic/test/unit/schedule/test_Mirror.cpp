@@ -25,7 +25,6 @@
 #include <rmf_traffic/schedule/Mirror.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
-#include <iostream>
 #include <unordered_map>
 
 using namespace std::chrono_literals;

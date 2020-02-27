@@ -78,12 +78,15 @@ public:
       ItineraryVersion version) final;
 
   // Documentation inherited from Writer
-  ParticipantId register_participant(ParticipantDescription participant_info) final;
+  ParticipantId register_participant(
+      ParticipantDescription participant_info) final;
 
-  // Documentation inherited from Writer
+  /// Before calling this function on a Database, you should set the current
+  /// time for the database by calling set_current_time(). This will allow the
+  /// database to cull this participant after a reasonable amount of time has
+  /// passed.
   void unregister_participant(
-      ParticipantId participant,
-      Time time) final;
+      ParticipantId participant) final;
 
 
   //============================================================================
@@ -157,6 +160,12 @@ public:
   /// \return The new version of the schedule database. If nothing was culled,
   /// this version number will remain the same.
   Version cull(Time time);
+
+  /// Set the current time on the database. This should be used immediately
+  /// before calling unregister_participant() so that the database can cull the
+  /// existence of the participant at an appropriate time. There's no need to
+  /// call this function for any other purpose.
+  void set_current_time(Time time);
 
   class Implementation;
   class Debug;

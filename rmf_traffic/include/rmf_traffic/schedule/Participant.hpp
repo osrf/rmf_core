@@ -91,6 +91,18 @@ public:
   /// Get the description of this participant.
   const ParticipantDescription& description() const;
 
+  /// Get the ID that was assigned to this participant.
+  ParticipantId id() const;
+
+  // Move constructor and operator must be explicitly declared, because the
+  // destructor is explicitly declared.
+  Participant(Participant&&) = default;
+  Participant& operator=(Participant&&) = default;
+
+  /// The destructor will automatically tell the Writer to unregister this
+  /// participant.
+  ~Participant();
+
   class Implementation;
 private:
   // The constructor for this class is private. It should only be constructed
@@ -100,10 +112,31 @@ private:
 };
 
 //==============================================================================
+/// Make a participant for the schedule.
+///
+/// \param[in] description
+///   A descrition of the participant.
+///
+/// \param[in] writer
+///   An interface to use when writing to the schedule. It is imperative that
+///   the object providing this interface is alive for the entire lifecycle of
+///   the returned Participant object, or else undefined behavior will occur.
+///
+/// \param[in] rectifier_factory
+///   A reference to a factory that can produce a rectifier for this
+///   Participant. This is useful for distributed schedule systems that have
+///   unreliable connections between the Database and the Participant. Passing
+///   in a nullptr indicates that there will never be a need for rectification.
+///   For example, if the \code{writer} argument refers to a Database instance,
+///   then there is no need for a RectifierRequesterFactory.
 Participant make_participant(
     ParticipantDescription description,
     Writer& writer,
-    RectificationRequesterFactory* rectifier_factory);
+    RectificationRequesterFactory* rectifier_factory = nullptr);
+
+// TODO(MXG): Consider creating an overload of make_participant() that accepts
+// a std::shared_ptr<Writer> to ensure that the writer's lifecycle is long
+// enough.
 
 } // namespace schedule
 } // namespace rmf_traffic
