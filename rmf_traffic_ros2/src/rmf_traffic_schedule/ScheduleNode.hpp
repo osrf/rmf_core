@@ -53,72 +53,6 @@ private:
 
   using request_id_ptr = std::shared_ptr<rmw_request_id_t>;
 
-  using SubmitTrajectories = rmf_traffic_msgs::srv::SubmitTrajectories;
-  using SubmitTrajectoriesService = rclcpp::Service<SubmitTrajectories>;
-
-  std::unordered_set<uint64_t> process_trajectories(
-      std::vector<rmf_traffic::Trajectory>& output_trajectories,
-      std::vector<uint64_t>& output_conflicts,
-      const std::vector<rmf_traffic_msgs::msg::Trajectory>& requests,
-      const std::unordered_set<uint64_t>& initial_conflicts = {},
-      const std::unordered_set<uint64_t>& replace_ids = {});
-
-  void submit_trajectories(
-      const request_id_ptr& request_header,
-      const SubmitTrajectories::Request::SharedPtr& request,
-      const SubmitTrajectories::Response::SharedPtr& response);
-
-  SubmitTrajectoriesService::SharedPtr submit_trajectories_service;
-
-
-  using ReplaceTrajectories = rmf_traffic_msgs::srv::ReplaceTrajectories;
-  using ReplaceTrajectoriesService = rclcpp::Service<ReplaceTrajectories>;
-
-  void perform_replacement(
-      const std::vector<uint64_t>& replace_ids,
-      std::vector<rmf_traffic::Trajectory> trajectories,
-      uint64_t& latest_trajectory_version,
-      uint64_t& current_version);
-
-  void replace_trajectories(
-      const request_id_ptr& request_header,
-      const ReplaceTrajectories::Request::SharedPtr& request,
-      const ReplaceTrajectories::Response::SharedPtr& response);
-
-  ReplaceTrajectoriesService::SharedPtr replace_trajectories_service;
-
-
-  using DelayTrajectories = rmf_traffic_msgs::srv::DelayTrajectories;
-  using DelayTrajectoriesService = rclcpp::Service<DelayTrajectories>;
-
-  void delay_trajectories(
-      const request_id_ptr& request_header,
-      const DelayTrajectories::Request::SharedPtr& request,
-      const DelayTrajectories::Response::SharedPtr& response);
-
-  DelayTrajectoriesService::SharedPtr delay_trajectories_service;
-
-
-  using EraseTrajectories = rmf_traffic_msgs::srv::EraseTrajectories;
-  using EraseTrajectoriesService = rclcpp::Service<EraseTrajectories>;
-
-  void erase_trajectories(
-      const std::shared_ptr<rmw_request_id_t>& request_header,
-      const EraseTrajectories::Request::SharedPtr& request,
-      const EraseTrajectories::Response::SharedPtr& response);
-
-  EraseTrajectoriesService::SharedPtr erase_trajectories_service;
-
-
-  using ResolveConflicts = rmf_traffic_msgs::srv::ResolveConflicts;
-  using ResolveConflictsService = rclcpp::Service<ResolveConflicts>;
-
-  ResolveConflictsService::SharedPtr resolve_conflicts_service;
-
-  void resolve_conflicts(
-      const std::shared_ptr<rmw_request_id_t>& request_header,
-      const ResolveConflicts::Request::SharedPtr& request,
-      const ResolveConflicts::Response::SharedPtr& response);
 
 
   using RegisterQuery = rmf_traffic_msgs::srv::RegisterQuery;
@@ -171,7 +105,7 @@ private:
   rmf_traffic::schedule::Database database;
 
   using QueryMap =
-      std::unordered_map<uint64_t, rmf_traffic::schedule::Query::Spacetime>;
+      std::unordered_map<uint64_t, rmf_traffic::schedule::Query>;
   // TODO(MXG): Have a way to make query registrations expire after they have
   // not been used for some set amount of time (e.g. 24 hours? 48 hours?).
   std::size_t last_query_id = 0;

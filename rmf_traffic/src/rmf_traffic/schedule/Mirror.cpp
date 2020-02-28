@@ -34,7 +34,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
-    const ParticipantDescription& description;
+    std::shared_ptr<const ParticipantDescription> description;
     std::shared_ptr<void> timeline_handle;
   };
   using RouteEntryPtr = std::shared_ptr<RouteEntry>;
@@ -44,7 +44,7 @@ public:
   struct ParticipantState
   {
     std::unordered_map<RouteId, RouteEntryPtr> storage;
-    const ParticipantDescription description;
+    std::shared_ptr<const ParticipantDescription> description;
   };
 
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
@@ -153,7 +153,14 @@ public:
     assert(entry);
     assert(entry->route);
     if (relevant(*entry))
-      routes.emplace_back(Storage{entry->participant, entry->route});
+    {
+      routes.emplace_back(
+            Storage{
+              entry->participant,
+              entry->route,
+              entry->description
+            });
+    }
   }
 
 };
@@ -209,7 +216,7 @@ const ParticipantDescription* Mirror::get_participant(
   if (p == _pimpl->states.end())
     return nullptr;
 
-  return &p->second.description;
+  return p->second.description.get();
 }
 
 //==============================================================================
@@ -226,7 +233,7 @@ rmf_utils::optional<Itinerary> Mirror::get_itinerary(
   for (const auto& s : state.storage)
     itinerary.push_back(s.second->route);
 
-  return itinerary;
+  return std::move(itinerary);
 }
 
 //==============================================================================
@@ -269,7 +276,7 @@ Version Mirror::update(const Patch& patch)
             id,
             Implementation::ParticipantState{
               {},
-              registered.description()
+              std::make_shared<ParticipantDescription>(registered.description())
             })).second;
 
     _pimpl->participant_ids.insert(id);

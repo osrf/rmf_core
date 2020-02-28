@@ -34,6 +34,7 @@ public:
   {
     ParticipantId participant;
     ConstRoutePtr route;
+    std::shared_ptr<const ParticipantDescription> description;
   };
 
   std::vector<Storage> storage;
@@ -46,7 +47,7 @@ public:
     for (const auto& s : input)
     {
       assert(s.route);
-      elements.emplace_back(Element{s.participant, *s.route});
+      elements.emplace_back(Element{s.participant, *s.route, *s.description});
     }
 
     View view;

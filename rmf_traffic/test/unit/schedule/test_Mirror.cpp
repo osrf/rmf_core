@@ -127,7 +127,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
     auto view = mirror.query(query_all);
     auto conflicting_trajectories =
-        get_conflicting_trajectories(mirror, view, profile, t3);
+        get_conflicting_trajectories(view, profile, t3);
     CHECK(conflicting_trajectories.size()==1);
 
     WHEN("Replacing conflicting trajectory in db and updating mirror should eliminate conflict")
@@ -141,7 +141,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
       view = db.query(query_all);
       conflicting_trajectories =
-          get_conflicting_trajectories(db, view, profile, t3);
+          get_conflicting_trajectories(view, profile, t3);
       CHECK(conflicting_trajectories.size() == 0);
 
       changes = db.changes(query_all, mirror.latest_version());
@@ -150,7 +150,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
       view = mirror.query(query_all);
       conflicting_trajectories =
-          get_conflicting_trajectories(mirror, view, profile, t3);
+          get_conflicting_trajectories(view, profile, t3);
       CHECK(conflicting_trajectories.size()==0);
     }
 
@@ -164,7 +164,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
       view = mirror.query(query_all);
       conflicting_trajectories =
-          get_conflicting_trajectories(mirror, view, profile, t3);
+          get_conflicting_trajectories(view, profile, t3);
       CHECK(conflicting_trajectories.size()==0);
     }
 
@@ -178,7 +178,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
       view = mirror.query(query_all);
       conflicting_trajectories =
-          get_conflicting_trajectories(mirror, view, profile, t3);
+          get_conflicting_trajectories(view, profile, t3);
       CHECK(conflicting_trajectories.size()==0);
     }
 
@@ -191,7 +191,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
 
       view = mirror.query(query_all);
       conflicting_trajectories =
-          get_conflicting_trajectories(mirror, view, profile, t3);
+          get_conflicting_trajectories(view, profile, t3);
       CHECK(conflicting_trajectories.size()==0);
      }
   }

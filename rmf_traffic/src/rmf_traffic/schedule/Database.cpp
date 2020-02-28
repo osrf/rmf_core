@@ -82,7 +82,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
-    const ParticipantDescription& description;
+    std::shared_ptr<const ParticipantDescription> description;
     std::shared_ptr<void> timeline_handle;
 
     // ===== Additional fields for this timeline entry =====
@@ -104,7 +104,7 @@ public:
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
-    const ParticipantDescription description;
+    const std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
@@ -571,7 +571,7 @@ void Database::erase(
 
 //==============================================================================
 ParticipantId Database::register_participant(
-    ParticipantDescription participant_info)
+    ParticipantDescription description)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
   auto tracker = Inconsistencies::Implementation::register_participant(
@@ -586,7 +586,7 @@ ParticipantId Database::register_participant(
             {},
             std::move(tracker),
             {},
-            std::move(participant_info),
+            std::make_shared<ParticipantDescription>(std::move(description)),
             version
           }));
 
@@ -821,7 +821,14 @@ public:
   {
     entry = get_most_recent(entry);
     if (entry->route && relevant(*entry))
-      routes.emplace_back(Storage{entry->participant, entry->route});
+    {
+      routes.emplace_back(
+            Storage{
+              entry->participant,
+              entry->route,
+              entry->description
+            });
+    }
   }
 };
 
@@ -889,7 +896,7 @@ const ParticipantDescription* Database::get_participant(
   if (state_it == _pimpl->states.end())
     return nullptr;
 
-  return &state_it->second.description;
+  return state_it->second.description.get();
 }
 
 //==============================================================================
@@ -981,7 +988,7 @@ auto Database::changes(
     {
       const auto p_it = _pimpl->states.find(add_it->second);
       assert(p_it != _pimpl->states.end());
-      registered.emplace_back(p_it->first, p_it->second.description);
+      registered.emplace_back(p_it->first, *p_it->second.description);
     }
 
     auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
@@ -993,7 +1000,7 @@ auto Database::changes(
     // If this is a mirror's first pull from the database, then we should send
     // all the participant information.
     for (const auto& p : _pimpl->states)
-      registered.emplace_back(p.first, p.second.description);
+      registered.emplace_back(p.first, *p.second.description);
 
     // We do not need to mention any participants that have unregistered.
   }

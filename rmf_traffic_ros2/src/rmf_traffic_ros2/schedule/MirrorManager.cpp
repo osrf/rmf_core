@@ -259,7 +259,7 @@ class MirrorManagerFuture::Implementation
 public:
 
   rclcpp::Node& node;
-  rmf_traffic::schedule::Query::Spacetime spacetime;
+  rmf_traffic::schedule::Query query;
   MirrorManager::Options options;
 
   using RegisterQuery = rmf_traffic_msgs::srv::RegisterQuery;
@@ -279,10 +279,10 @@ public:
 
   Implementation(
       rclcpp::Node& _node,
-      rmf_traffic::schedule::Query::Spacetime _spacetime,
+      rmf_traffic::schedule::Query _query,
       MirrorManager::Options _options)
     : node(_node),
-      spacetime(std::move(_spacetime)),
+      query(std::move(_query)),
       options(std::move(_options)),
       abandon_discovery(false),
       registration_sent(false)
@@ -315,7 +315,7 @@ public:
     if(ready && !abandon_discovery)
     {
       RegisterQuery::Request register_query_request;
-      register_query_request.query = convert(spacetime);
+      register_query_request.query = convert(query);
       register_query_client->async_send_request(
             std::make_shared<RegisterQuery::Request>(register_query_request),
             [&](const RegisterQueryFuture response)
@@ -475,11 +475,11 @@ MirrorManagerFuture::MirrorManagerFuture()
 //==============================================================================
 MirrorManagerFuture make_mirror(
     rclcpp::Node& node,
-    rmf_traffic::schedule::Query::Spacetime spacetime,
+    rmf_traffic::schedule::Query query,
     MirrorManager::Options options)
 {
   return MirrorManagerFuture::Implementation::make(
-        node, std::move(spacetime), std::move(options));
+        node, std::move(query), std::move(options));
 }
 
 } // namespace schedule

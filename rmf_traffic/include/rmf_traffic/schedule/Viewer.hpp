@@ -58,6 +58,7 @@ public:
     {
       ParticipantId participant;
       const Route& route;
+      const ParticipantDescription& description;
     };
 
     class IterImpl;

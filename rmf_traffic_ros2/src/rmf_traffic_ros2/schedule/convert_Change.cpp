@@ -23,14 +23,14 @@
 namespace rmf_traffic_ros2 {
 
 //==============================================================================
-rmf_traffic::schedule::Change::Add::Item convert_item(
+rmf_traffic::schedule::Change::Add::Item convert(
     const rmf_traffic_msgs::msg::ScheduleChangeAdd& from)
 {
   return {from.id, std::make_shared<rmf_traffic::Route>(convert(from.route))};
 }
 
 //==============================================================================
-rmf_traffic_msgs::msg::ScheduleChangeAdd convert_item(
+rmf_traffic_msgs::msg::ScheduleChangeAdd convert(
     const rmf_traffic::schedule::Change::Add::Item& from)
 {
   if (!from.route)

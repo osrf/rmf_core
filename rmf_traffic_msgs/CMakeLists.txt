@@ -33,6 +33,8 @@ set(msg_files
   "msg/ScheduleConflict.msg"
   "msg/ScheduleParticipantPatch.msg"
   "msg/SchedulePatch.msg"
+  "msg/ScheduleQuery.msg"
+  "msg/ScheduleQueryParticipants.msg"
   "msg/ScheduleQuerySpacetime.msg"
   "msg/ScheduleRegister.msg"
   "msg/Shape.msg"

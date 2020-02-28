@@ -52,7 +52,6 @@ inline void CHECK_TRAJECTORY_COUNT(
 }
 
 inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
-    const rmf_traffic::schedule::Viewer& viewer,
     const rmf_traffic::schedule::Viewer::View& view,
     const rmf_traffic::Profile& p,
     const rmf_traffic::Trajectory& t)
@@ -60,7 +59,7 @@ inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
   std::vector<rmf_traffic::Trajectory> collision_trajectories;
   for(const auto& v : view)
   {
-    const auto& v_p = viewer.get_participant(v.participant)->profile();
+    const auto& v_p = v.description.profile();
     const auto& v_t = v.route.trajectory();
     if(rmf_traffic::DetectConflict::between(v_p, v_t, p, t))
       collision_trajectories.push_back(v_t);
