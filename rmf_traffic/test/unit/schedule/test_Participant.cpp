@@ -117,6 +117,10 @@ private:
 };
 
 //=============================================================================
+namespace {
+
+using RouteId = rmf_traffic::RouteId;
+using ConstRoutePtr = rmf_traffic::ConstRoutePtr;
 
 inline void CHECK_EQUAL_TRAJECOTRY(
     const rmf_traffic::Trajectory& t1,
@@ -139,12 +143,9 @@ inline void CHECK_EQUAL_TRAJECOTRY(
   }
 }
 
-std::unordered_map<rmf_traffic::RouteId, rmf_traffic:ConstRoutePtr> convert_itinerary(
-    rmf_traffic::schedule::Writer::Input& input)
+std::unordered_map<RouteId, ConstRoutePtr> convert_itinerary(
+    rmf_traffic::schedule::Writer::Input input)
 {
-  using RouteId = rmf_traffic::RouteId;
-  using ConstRoutePtr = rmf_traffic::ConstRoutePtr;
-
   std::unordered_map<RouteId, ConstRoutePtr> itinerary;
   itinerary.reserve(input.size());
 
@@ -164,8 +165,9 @@ inline void CHECK_ITINERARY(
   REQUIRE(db.get_itinerary(p.id()));
 
   // const auto db_iti = db.get_itinerary(p.id()).value();
-  const auto db_iti = Debug::get_itinerary(db, p.id()).value();
-  const auto& p_iti = p.itinerary();
+  auto db_iti = convert_itinerary(
+      Debug::get_itinerary(db, p.id()).value());
+  auto p_iti = convert_itinerary(p.itinerary());
   REQUIRE(db_iti.size() == p_iti.size());
 
   // Create a map for each itinerary
@@ -187,6 +189,7 @@ inline void CHECK_ITINERARY(
   // }
 }
 
+} // namespace anonymous
 //=============================================================================
 
 // Symbol key for the test scenarios below
