@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Open Source Robotics Foundation
+ * Copyright (C) 2020 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,32 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_ROS2__SCHEDULE__PATCH_HPP
-#define RMF_TRAFFIC_ROS2__SCHEDULE__PATCH_HPP
-
-#include <rmf_traffic/schedule/Patch.hpp>
-
-#include <rmf_traffic_msgs/msg/schedule_patch.hpp>
+#include <rmf_traffic_ros2/Profile.hpp>
+#include <rmf_traffic_ros2/geometry/ConvexShape.hpp>
 
 namespace rmf_traffic_ros2 {
 
 //==============================================================================
-rmf_traffic_msgs::msg::SchedulePatch convert(
-    const rmf_traffic::schedule::Patch& from);
+rmf_traffic::Profile convert(const rmf_traffic_msgs::msg::Profile& from)
+{
+  const geometry::ConvexShapeContext context = convert(from.shape_context);
+
+  return rmf_traffic::Profile{
+    context.at(from.footprint),
+    context.at(from.vicinity)
+  };
+}
 
 //==============================================================================
-rmf_traffic::schedule::Patch convert(
-    const rmf_traffic_msgs::msg::SchedulePatch& from);
+rmf_traffic_msgs::msg::Profile convert(const rmf_traffic::Profile& from)
+{
+  geometry::ConvexShapeContext context;
 
-} // nmaespace rmf_traffic_ros2
+  rmf_traffic_msgs::msg::Profile profile;
+  profile.footprint = context.insert(from.footprint());
+  profile.vicinity = context.insert(from.vicinity());
 
-#endif // RMF_TRAFFIC_ROS2__SCHEDULE__PATCH_HPP
+  return profile;
+}
+
+} // namespace rmf_traffic_ros2

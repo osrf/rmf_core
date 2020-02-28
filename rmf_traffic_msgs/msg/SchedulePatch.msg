@@ -1,16 +1,13 @@
 
-ScheduleChangeInsert[] insertions
+uint64[] unregister_participants
 
-ScheduleChangeInterrupt[] interruptions
+ScheduleRegister[] register_participants
 
-ScheduleChangeDelay[] delays
-
-ScheduleChangeReplace[] replacements
-
-ScheduleChangeErase[] erasures
+# The changes to the schedule, grouped into the different participants
+ScheduleParticipantPatch[] participants
 
 # TODO(MXG): The database will only ever report 1 cull per update. Consider
 # making this a single field instead of a dynamic array.
-ScheduleChangeCull[] culls
+ScheduleChangeCull[] cull
 
 uint64 latest_version

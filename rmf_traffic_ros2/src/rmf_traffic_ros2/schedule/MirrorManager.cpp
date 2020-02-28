@@ -116,7 +116,7 @@ public:
 
       try
       {
-        const rmf_traffic::schedule::Database::Patch patch =
+        const rmf_traffic::schedule::Patch patch =
             convert(response->patch);
 
         RCLCPP_DEBUG(
