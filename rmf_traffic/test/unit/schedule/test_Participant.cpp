@@ -150,8 +150,10 @@ std::unordered_map<RouteId, ConstRoutePtr> convert_itinerary(
   itinerary.reserve(input.size());
 
   for (const auto& item : input)
-    itinerary.insert(std::make_pair(item.id, item.route));
-  
+    {
+      const auto result = itinerary.insert(std::make_pair(item.id, item.route));
+      assert(result.first);
+    }
   return itinerary;
 }
 
@@ -170,28 +172,18 @@ inline void CHECK_ITINERARY(
   auto p_iti = convert_itinerary(p.itinerary());
   REQUIRE(db_iti.size() == p_iti.size());
 
-  // Create a map for each itinerary
-
-  
-  // for (std::size_t i = 0; i < db_iti.size(); i++)
-  // {
-  //   const auto& p_route = *p_iti[i].route;
-  //   const auto& db_route = *db_iti[i].route;
-    
-  //   // Debugging 
-  //   auto _parent = parent ? *parent : "";
-  //   std::cout<< "Checking Item: " << i << " for " << _parent << std::endl;
-  //   std::cout<< "P Map: " << p_route.map() << " DB Map: " << db_route.map()
-  //     << std::endl;
-
-  //   CHECK(p_route.map() == db_route.map());
-  //   // CHECK_EQUAL_TRAJECOTRY(p_route.trajectory(), db_route.trajectory());  
-  // }
+  for (const auto item : p_iti)
+  {
+    const auto db_it = db_iti.find(item.first);
+    REQUIRE(db_it != db_iti.end());
+    CHECK(item.second->map() == db_it->second->map());
+    CHECK_EQUAL_TRAJECOTRY(item.second->trajectory(), db_it->second->trajectory());
+  }
 }
 
 } // namespace anonymous
-//=============================================================================
 
+//=============================================================================
 // Symbol key for the test scenarios below
 //
 // S: accepted set change
@@ -208,12 +200,12 @@ inline void CHECK_ITINERARY(
 //
 // C: accepted clear change
 // c: dropped clear change
-
 //=============================================================================
 
 SCENARIO("Test Participant")
 {
   using namespace std::chrono_literals;
+  using Route = rmf_traffic::Route;
 
   // Create a database
   rmf_traffic::schedule::Database db;
@@ -249,7 +241,8 @@ SCENARIO("Test Participant")
   CHECK(description.name() == "participant 1");
   CHECK(description.owner() == "test_Participant");
   CHECK(description.responsiveness() == rmf_traffic::schedule
-    ::ParticipantDescription::Rx::Responsive);
+      ::ParticipantDescription::Rx::Responsive);
+  REQUIRE(p1.itinerary().size() == 0);
 
   CHECK(db.participant_ids().size() == 1);
   REQUIRE(db.participant_ids().count(p1.id()) == 1);
@@ -271,7 +264,7 @@ SCENARIO("Test Participant")
 
   GIVEN ("Changes: S")
   {
-    auto route_id = p1.set({rmf_traffic::Route{"test_map", t1}});
+    auto route_id = p1.set({Route{"test_map", t1}});
     CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.last_route_id() == 0);
     CHECK(p1.itinerary().size() == 1);
@@ -281,7 +274,7 @@ SCENARIO("Test Participant")
 
   GIVEN("Changes:: SS")
   {
-    auto route_id = p1.set({rmf_traffic::Route{"test_map", t1}});
+    auto route_id = p1.set({Route{"test_map", t1}});
     CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.last_route_id() == 0);
     CHECK(p1.itinerary().size() == 1);
@@ -289,8 +282,8 @@ SCENARIO("Test Participant")
     CHECK_ITINERARY(p1, db);
 
     route_id = p1.set({
-      rmf_traffic::Route{"test_map_2", t1},
-      rmf_traffic::Route{"test_map_3", t2}
+        Route{"test_map_2", t1},
+        Route{"test_map_3", t2}
     });
 
     CHECK(route_id == 0);
@@ -302,21 +295,82 @@ SCENARIO("Test Participant")
     CHECK_ITINERARY(p1, db, &parent);
   }
 
+  GIVEN("Changes: X")
+  {
+   
+    auto route_id = p1.extend({Route{"test_map", t1}});
+    CHECK(route_id == std::numeric_limits<rmf_traffic::RouteId>::max());
+    CHECK(p1.last_route_id() == 0);
+    CHECK(p1.itinerary().size() == 1);
+    CHECK(db.latest_version() == ++dbv);
+    CHECK_ITINERARY(p1, db);
+  }
+
+  GIVEN("Changes: SX")
+  {
+
+  }
+
+  GIVEN("Changes: D")
+  {
+    p1.delay(time, 5s);
+    CHECK(p1.last_route_id() ==
+        std::numeric_limits<rmf_traffic::RouteId>::max());
+    CHECK(p1.itinerary().size() == 0);
+
+    // Should the writer add a delay change to the database when participant
+    // itinerary is empty? 
+    CHECK(db.latest_version() == dbv);
+
+    CHECK(p1.last_route_id() ==
+        std::numeric_limits<rmf_traffic::RouteId>::max());
+  }
+
+  GIVEN("Changes: SD")
+  {
+    auto route_id = p1.set({Route{"test_map", t1}});
+    REQUIRE(p1.itinerary().size() == 1);
+    CHECK(db.latest_version() == ++dbv);
+    CHECK_ITINERARY(p1, db);
+
+    // We make a copy of the itinerary for comparison after delay
+    const auto old_itinerary = p1.itinerary();
+
+    const auto delay_duration = 5s;
+    p1.delay(time, delay_duration);
+    REQUIRE(p1.itinerary().size() == 1);
+    CHECK(old_itinerary.front().id == p1.itinerary().front().id);
+    CHECK(old_itinerary.front().route->map() ==
+        p1.itinerary().front().route->map());
+
+    auto old_it = old_itinerary.front().route->trajectory().begin();
+    auto new_it = p1.itinerary().front().route->trajectory().begin();
+
+    for (; new_it != p1.itinerary().front().route->trajectory().end();
+        new_it++, old_it++)
+    {
+      CHECK((new_it->time() - (old_it->time() + delay_duration)).count()
+          == Approx(0.0));
+    }
+
+    CHECK(db.latest_version() == ++dbv);
+    CHECK_ITINERARY(p1, db);
+  }
+
   GIVEN("Changes: s")
   {
     writer.drop_packets = true;
 
-    p1.set({rmf_traffic::Route{"test_map", t1}});
+    p1.set({{"test_map", t1}});
     CHECK(p1.itinerary().size() > 0);
-
     CHECK(db.latest_version() == dbv);
     REQUIRE(db.get_itinerary(p1.id()));
     CHECK(db.get_itinerary(p1.id())->empty());
   }
 
-  GIVEN("Changes: SeE")
+  GIVEN("Changes: SxX")
   {
-    p1.set({rmf_traffic::Route{"test_map", t1}});
+    p1.set({Route{"test_map", t1}});
 
     CHECK(db.latest_version() == ++dbv);
     REQUIRE(db.get_itinerary(p1.id()));
@@ -325,14 +379,14 @@ SCENARIO("Test Participant")
     // Tell the writer to start dropping packets
     writer.drop_packets = true;
 
-    p1.extend({rmf_traffic::Route{"test_map_2", t1}});
+    p1.extend({Route{"test_map_2", t1}});
 
     // Check that the database version did not change
     CHECK(db.latest_version() == dbv);
 
     writer.drop_packets = false;
 
-    p1.extend({rmf_traffic::Route{"test_map_3", t1}});
+    p1.extend({Route{"test_map_3", t1}});
 
     // Check that the database version still did not change
     CHECK(db.latest_version() == dbv);
@@ -348,5 +402,6 @@ SCENARIO("Test Participant")
     REQUIRE(db.get_itinerary(p1.id()));
     CHECK(db.get_itinerary(p1.id())->size() == 3);
     const auto itinerary = db.get_itinerary(p1.id());
+    CHECK_ITINERARY(p1, db);
   }
 }
