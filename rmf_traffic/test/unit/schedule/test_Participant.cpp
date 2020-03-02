@@ -26,8 +26,6 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <iostream>
-
 #include <unordered_map>
 
 class FaultyWriter : public rmf_traffic::schedule::Writer
@@ -467,6 +465,7 @@ SCENARIO("Test Participant")
     rectifier.rectify();
     CHECK(db.latest_version() == ++(++dbv));
     CHECK_ITINERARY(p1, db);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: sE")
@@ -490,6 +489,7 @@ SCENARIO("Test Participant")
     rectifier.rectify();
     CHECK(db.latest_version() == ++(++dbv));
     CHECK_ITINERARY(p1, db);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: SxX")
@@ -528,13 +528,14 @@ SCENARIO("Test Participant")
     CHECK(db.get_itinerary(p1.id())->size() == 3);
     const auto itinerary = db.get_itinerary(p1.id());
     CHECK_ITINERARY(p1, db);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: sddxeX")
   {
     writer.drop_packets = true;
     
-    // Set the itinerary for the participant
+    // Set the participant itinerary
     p1.set({Route{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
     CHECK(db.latest_version() == dbv);
@@ -593,12 +594,14 @@ SCENARIO("Test Participant")
     dbv += 6;
     CHECK(db.latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
   }
 
   GIVEN("Changes: SdDxX")
   {
-    // Set the itinerary
+    // Set the participant itinerary
     p1.set({Route{"test_map", t1}});
+    REQUIRE(p1.itinerary().size() == 1);
     CHECK(db.latest_version() == ++dbv);
     CHECK_ITINERARY(p1, db);
 
@@ -614,8 +617,8 @@ SCENARIO("Test Participant")
     p1.delay(time, 1s);
     CHECK(db.latest_version() == dbv);
     REQUIRE(db.inconsistencies().size() > 0);
-    CHECK(db.inconsistencies().begin()->participant == p1.id());
     auto inconsistency = db.inconsistencies().begin();
+    CHECK(inconsistency->participant == p1.id());
     REQUIRE(inconsistency->ranges.size() > 0);
     CHECK(inconsistency->ranges.last_known_version() == 2);
     CHECK(inconsistency->ranges.begin()->lower == 1);
@@ -649,6 +652,67 @@ SCENARIO("Test Participant")
     dbv += 4;
     CHECK(db.latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+  }
+
+  GIVEN("Changes: ScX")
+  {
+    // Set the participant itinerary
+    p1.set({Route{"test_map", t1}});
+    REQUIRE(p1.itinerary().size() == 1);
+    CHECK(db.latest_version() == ++dbv);
+    CHECK_ITINERARY(p1, db);
+
+    writer.drop_packets = true;
+
+    // Clear the itinerary
+    p1.clear();
+    REQUIRE(p1.itinerary().size() == 0);
+    CHECK(db.latest_version() == dbv);
+    REQUIRE(db.get_itinerary(p1.id()));
+    CHECK(db.get_itinerary(p1.id())->size() == 1);
+
+    writer.drop_packets = false;
+    
+    // Extend the itinerary
+    p1.extend({Route{"test_map", t2}, Route{"test_map", t3}});
+    REQUIRE(p1.itinerary().size() == 2);
+    CHECK(db.latest_version() == dbv);
+
+    // Check for inconsistencies
+    REQUIRE(db.inconsistencies().size() == 1);
+    auto inconsistency = db.inconsistencies().begin();
+    CHECK(inconsistency->participant == p1.id());
+    REQUIRE(inconsistency->ranges.size() > 0);
+    CHECK(inconsistency->ranges.last_known_version() == 2);
+    CHECK(inconsistency->ranges.begin()->lower == 1);
+    CHECK(inconsistency->ranges.begin()->upper == 1);
+
+    // Fix inconsistency
+    rectifier.rectify();
+    dbv += 2;
+    CHECK(db.latest_version() == dbv);
+    CHECK_ITINERARY(p1, db);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+  }
+
+  GIVEN("Participant unregisters")
+  {
+    p1.set({Route{"test_map", t1}});
+    REQUIRE(p1.itinerary().size() == 1);
+    CHECK(db.latest_version() == ++dbv);
+    CHECK_ITINERARY(p1, db);
+    auto id = p1.id();
+
+    // Participant should unregister when its destructor is called
+    // writer.unregister_participant(p1.id());
+    p1.~Participant();
+    
+    CHECK(db.latest_version() == ++dbv);
+    CHECK(db.participant_ids().empty());
+    CHECK(db.get_participant(id) == nullptr);
+    CHECK_FALSE(db.get_itinerary(id).has_value());
+    CHECK(db.inconsistencies().size() == 0);
   }
 
 }
