@@ -56,7 +56,8 @@ public:
     // TODO(MXG): Replace this with a PIMPL class
     struct Element
     {
-      ParticipantId participant;
+      const ParticipantId participant;
+      const RouteId route_id;
       const Route& route;
       const ParticipantDescription& description;
     };

@@ -825,6 +825,45 @@ public:
       routes.emplace_back(
             Storage{
               entry->participant,
+              entry->route_id,
+              entry->route,
+              entry->description
+            });
+    }
+  }
+};
+
+//==============================================================================
+class ViewerAfterRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  const Version after;
+
+  ViewerAfterRelevanceInspector(Version _after)
+    : after(_after)
+  {
+    // Do nothing
+  }
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const RouteEntry&)>& relevant) final
+  {
+    entry = get_most_recent(entry);
+    if (modular(after).less_than(entry->schedule_version)
+        && entry->route && relevant(*entry))
+    {
+      routes.emplace_back(
+            Storage{
+              entry->participant,
+              entry->route_id,
               entry->route,
               entry->description
             });
@@ -1017,6 +1056,14 @@ auto Database::changes(
         std::move(part_patches),
         cull,
         _pimpl->schedule_version);
+}
+
+//==============================================================================
+Viewer::View Database::query(const Query& parameters, const Version after) const
+{
+  ViewerAfterRelevanceInspector inspector{after};
+  _pimpl->timeline.inspect(parameters, inspector);
+  return Viewer::View::Implementation::make_view(std::move(inspector.routes));
 }
 
 //==============================================================================

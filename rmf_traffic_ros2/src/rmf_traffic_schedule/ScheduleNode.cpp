@@ -18,9 +18,11 @@
 #include "ScheduleNode.hpp"
 
 #include <rmf_traffic_ros2/StandardNames.hpp>
+#include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_traffic_ros2/Trajectory.hpp>
 #include <rmf_traffic_ros2/schedule/Query.hpp>
 #include <rmf_traffic_ros2/schedule/Patch.hpp>
+#include <rmf_traffic_ros2/schedule/Writer.hpp>
 
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/schedule/Mirror.hpp>
@@ -30,33 +32,39 @@
 namespace rmf_traffic_schedule {
 
 //==============================================================================
-std::unordered_set<rmf_traffic::schedule::Version> get_conflicts(
-    const rmf_traffic::schedule::Viewer::View& view)
+std::unordered_set<rmf_traffic::schedule::ParticipantId> get_conflicts(
+    const rmf_traffic::schedule::Viewer::View& view_changes,
+    const rmf_traffic::schedule::Viewer& viewer)
 {
-  // TODO(MXG): Make this function more efficient by only checking the latest
-  // unchecked changes against the ones that came before them, and then
-  // appending that list onto the conflicts of the previous version.
-
-  std::unordered_set<rmf_traffic::schedule::Version> conflicts;
-  for (auto v0 = view.begin(); v0 != view.end(); ++v0)
+  std::unordered_set<rmf_traffic::schedule::ParticipantId> conflicts;
+  const auto& participants = viewer.participant_ids();
+  for (const auto participant : participants)
   {
-    auto v1 = ++rmf_traffic::schedule::Viewer::View::const_iterator{v0};
-    for (; v1 != view.end(); ++v1)
+    const auto itinerary = *viewer.get_itinerary(participant);
+    const auto& description = *viewer.get_participant(participant);
+    for (auto vc = view_changes.begin(); vc != view_changes.end(); ++vc)
     {
-      if (v0->participant == v1->participant)
-        continue;
-
-      if (v0->route.map() != v1->route.map())
-        continue;
-
-      if (rmf_traffic::DetectConflict::between(
-            v0->description.profile(),
-            v0->route.trajectory(),
-            v1->description.profile(),
-            v1->route.trajectory()))
+      if (vc->participant == participant)
       {
-        conflicts.insert(v0->participant);
-        conflicts.insert(v1->participant);
+        // There's no need to check a participant against itself
+        continue;
+      }
+
+      for (const auto& route : itinerary)
+      {
+        assert(route);
+        if (route->map() != vc->route.map())
+          continue;
+
+        if (rmf_traffic::DetectConflict::between(
+              vc->description.profile(),
+              vc->route.trajectory(),
+              description.profile(),
+              route->trajectory()))
+        {
+          conflicts.insert(vc->participant);
+          conflicts.insert(participant);
+        }
       }
     }
   }
@@ -105,6 +113,51 @@ ScheduleNode::ScheduleNode()
         rmf_traffic_ros2::ScheduleConflictTopicName,
         rclcpp::SystemDefaultsQoS());
 
+  itinerary_set_sub =
+      create_subscription<ItinerarySet>(
+        rmf_traffic_ros2::ItinerarySetTopicName,
+        rclcpp::SystemDefaultsQoS().best_effort(),
+        [=](const ItinerarySet::UniquePtr msg)
+  {
+    this->itinerary_set(*msg);
+  });
+
+  itinerary_extend_sub =
+      create_subscription<ItineraryExtend>(
+        rmf_traffic_ros2::ItineraryExtendTopicName,
+        rclcpp::SystemDefaultsQoS().best_effort(),
+        [=](const ItineraryExtend::UniquePtr msg)
+  {
+    this->itinerary_extend(*msg);
+  });
+
+  itinerary_delay_sub =
+      create_subscription<ItineraryDelay>(
+        rmf_traffic_ros2::ItineraryDelayTopicName,
+        rclcpp::SystemDefaultsQoS().best_effort(),
+        [=](const ItineraryDelay::UniquePtr msg)
+  {
+    this->itinerary_delay(*msg);
+  });
+
+  itinerary_erase_sub =
+      create_subscription<ItineraryErase>(
+        rmf_traffic_ros2::ItineraryEraseTopicName,
+        rclcpp::SystemDefaultsQoS().best_effort(),
+        [=](const ItineraryErase::UniquePtr msg)
+  {
+    this->itinerary_erase(*msg);
+  });
+
+  itinerary_clear_sub =
+      create_subscription<ItineraryClear>(
+        rmf_traffic_ros2::ItineraryClearTopicName,
+        rclcpp::SystemDefaultsQoS().best_effort(),
+        [=](const ItineraryClear::UniquePtr msg)
+  {
+    this->itinerary_clear(*msg);
+  });
+
   conflict_check_quit = false;
   conflict_check_thread = std::thread(
         [&]()
@@ -116,6 +169,7 @@ ScheduleNode::ScheduleNode()
     while (rclcpp::ok() && !conflict_check_quit)
     {
       rmf_utils::optional<rmf_traffic::schedule::Patch> next_patch;
+      rmf_traffic::schedule::Viewer::View view_changes;
 
       // Use this scope to minimize how long we lock the database for
       {
@@ -134,6 +188,7 @@ ScheduleNode::ScheduleNode()
         }
 
         next_patch = database.changes(query_all, last_checked_version);
+        view_changes = database.query(query_all, last_checked_version);
 
         // TODO(MXG): Check whether the database really needs to remain locked
         // during this update.
@@ -149,12 +204,7 @@ ScheduleNode::ScheduleNode()
         }
       }
 
-      // TODO(MXG): If we only look at the participants that have changed since
-      // the last patch, this could be much more efficient.
-
-      const auto view = mirror.query(rmf_traffic::schedule::query_all());
-
-      const auto conflicts = get_conflicts(view);
+      const auto conflicts = get_conflicts(view_changes, mirror);
       if (!conflicts.empty())
       {
         {
@@ -165,28 +215,11 @@ ScheduleNode::ScheduleNode()
 
         ScheduleConflict msg;
         for (const auto c : conflicts)
-          msg.indices.push_back(c);
+          msg.participants.push_back(c);
 
-        msg.version = last_checked_version;
+        msg.conflict_version = last_checked_version;
 
         conflict_publisher->publish(std::move(msg));
-      }
-      else
-      {
-        bool had_conflicts = false;
-
-        {
-          std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-          had_conflicts = !active_conflicts.empty();
-          active_conflicts.clear();
-        }
-
-        if (had_conflicts)
-        {
-          ScheduleConflict msg;
-          msg.version = last_checked_version;
-          conflict_publisher->publish(std::move(msg));
-        }
       }
     }
   });
@@ -284,6 +317,64 @@ void ScheduleNode::mirror_update(
 
   response->patch =
       rmf_traffic_ros2::convert(database.changes(query_it->second, version));
+}
+
+//==============================================================================
+void ScheduleNode::itinerary_set(const ItinerarySet& set)
+{
+  std::unique_lock<std::mutex> lock(database_mutex);
+  database.set(
+        set.participant,
+        rmf_traffic_ros2::convert(set.itinerary),
+        set.itinerary_version);
+
+  conflict_check_cv.notify_all();
+}
+
+//==============================================================================
+void ScheduleNode::itinerary_extend(const ItineraryExtend& extend)
+{
+  std::unique_lock<std::mutex> lock(database_mutex);
+  database.extend(
+        extend.participant,
+        rmf_traffic_ros2::convert(extend.routes),
+        extend.itinerary_version);
+
+  conflict_check_cv.notify_all();
+}
+
+//==============================================================================
+void ScheduleNode::itinerary_delay(const ItineraryDelay& delay)
+{
+  std::unique_lock<std::mutex> lock(database_mutex);
+  database.delay(
+        delay.participant,
+        rmf_traffic::Time(rmf_traffic::Duration(delay.from_time)),
+        rmf_traffic::Duration(delay.delay),
+        delay.itinerary_version);
+
+  conflict_check_cv.notify_all();
+}
+
+//==============================================================================
+void ScheduleNode::itinerary_erase(const ItineraryErase& erase)
+{
+  std::unique_lock<std::mutex> lock(database_mutex);
+  database.erase(
+        erase.participant,
+        std::vector<rmf_traffic::RouteId>(
+          erase.routes.begin(), erase.routes.end()),
+        erase.itinerary_version);
+
+  conflict_check_cv.notify_all();
+}
+
+//==============================================================================
+void ScheduleNode::itinerary_clear(const ItineraryClear& clear)
+{
+  std::unique_lock<std::mutex> lock(database_mutex);
+  database.erase(clear.participant, clear.itinerary_version);
+  conflict_check_cv.notify_all();
 }
 
 //==============================================================================

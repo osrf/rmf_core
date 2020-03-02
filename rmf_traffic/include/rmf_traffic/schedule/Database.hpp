@@ -150,6 +150,25 @@ public:
       const Query& parameters,
       rmf_utils::optional<Version> after) const;
 
+  /// View the routes that match the parameters and have changed (been added or
+  /// delayed) since the specified version. This is useful for viewing
+  /// incremental changes.
+  ///
+  /// \param[in] parameters
+  ///   The parameters describing what types of schedule entries are relevant.
+  ///
+  /// \param[in] after
+  ///   Specify that only routes which changed after this version number are
+  ///   desired.
+  ///
+  /// \return a view of the routes that are different since the specified
+  /// version.
+  ///
+  // TODO(MXG): Consider adding this function to the Viewer class.
+  View query(
+      const Query& parameters,
+      Version after) const;
+
   /// Throw away all itineraries up to the specified time.
   ///
   /// \param[in] time

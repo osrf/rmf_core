@@ -25,6 +25,12 @@
 #include <rmf_traffic_msgs/msg/mirror_wakeup.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict.hpp>
 
+#include <rmf_traffic_msgs/msg/itinerary_clear.hpp>
+#include <rmf_traffic_msgs/msg/itinerary_delay.hpp>
+#include <rmf_traffic_msgs/msg/itinerary_erase.hpp>
+#include <rmf_traffic_msgs/msg/itinerary_extend.hpp>
+#include <rmf_traffic_msgs/msg/itinerary_set.hpp>
+
 #include <rmf_traffic_msgs/srv/submit_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/replace_trajectories.hpp>
 #include <rmf_traffic_msgs/srv/delay_trajectories.hpp>
@@ -53,13 +59,11 @@ private:
 
   using request_id_ptr = std::shared_ptr<rmw_request_id_t>;
 
-
-
   using RegisterQuery = rmf_traffic_msgs::srv::RegisterQuery;
   using RegisterQueryService = rclcpp::Service<RegisterQuery>;
 
   void register_query(
-      const std::shared_ptr<rmw_request_id_t>& request_header,
+      const request_id_ptr& request_header,
       const RegisterQuery::Request::SharedPtr& request,
       const RegisterQuery::Response::SharedPtr& response);
 
@@ -70,7 +74,7 @@ private:
   using UnregisterQueryService = rclcpp::Service<UnregisterQuery>;
 
   void unregister_query(
-      const std::shared_ptr<rmw_request_id_t>& request_header,
+      const request_id_ptr& request_header,
       const UnregisterQuery::Request::SharedPtr& request,
       const UnregisterQuery::Response::SharedPtr& response);
 
@@ -81,7 +85,7 @@ private:
   using MirrorUpdateService = rclcpp::Service<MirrorUpdate>;
 
   void mirror_update(
-      const std::shared_ptr<rmw_request_id_t>& request_header,
+      const request_id_ptr& request_header,
       const MirrorUpdate::Request::SharedPtr& request,
       const MirrorUpdate::Response::SharedPtr& response);
 
@@ -97,6 +101,26 @@ private:
   using ScheduleConflictPublisher = rclcpp::Publisher<ScheduleConflict>;
   ScheduleConflictPublisher::SharedPtr conflict_publisher;
 
+
+  using ItinerarySet = rmf_traffic_msgs::msg::ItinerarySet;
+  void itinerary_set(const ItinerarySet& set);
+  rclcpp::Subscription<ItinerarySet>::SharedPtr itinerary_set_sub;
+
+  using ItineraryExtend = rmf_traffic_msgs::msg::ItineraryExtend;
+  void itinerary_extend(const ItineraryExtend& extend);
+  rclcpp::Subscription<ItineraryExtend>::SharedPtr itinerary_extend_sub;
+
+  using ItineraryDelay = rmf_traffic_msgs::msg::ItineraryDelay;
+  void itinerary_delay(const ItineraryDelay& delay);
+  rclcpp::Subscription<ItineraryDelay>::SharedPtr itinerary_delay_sub;
+
+  using ItineraryErase = rmf_traffic_msgs::msg::ItineraryErase;
+  void itinerary_erase(const ItineraryErase& erase);
+  rclcpp::Subscription<ItineraryErase>::SharedPtr itinerary_erase_sub;
+
+  using ItineraryClear = rmf_traffic_msgs::msg::ItineraryClear;
+  void itinerary_clear(const ItineraryClear& clear);
+  rclcpp::Subscription<ItineraryClear>::SharedPtr itinerary_clear_sub;
 
   void wakeup_mirrors();
 
@@ -133,15 +157,7 @@ private:
   using ConflictMap = std::map<Version, ConflictInfo>;
   ConflictMap active_conflicts;
   std::mutex active_conflicts_mutex;
-  // TODO(MXG): As replace, delay, and erase events occur, some of the entries
-  // that are logged in the active conflicts may actually become obsolete. It
-  // may be a good idea to consider tracking and erasing those entries as they
-  // get modified.
-  //
-  // In the long-term the schedule should periodically become completely
-  // resolved, so those entries should still get erased eventually anyhow, but
-  // it may be good to erase them as they become outdated for the sake of
-  // maximum sanitation.
+  Version next_conflict_version = 0;
 };
 
 } // namespace rmf_traffic_schedule
