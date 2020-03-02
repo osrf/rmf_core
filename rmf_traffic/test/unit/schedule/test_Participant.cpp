@@ -497,8 +497,7 @@ SCENARIO("Test Participant")
     p1.set({Route{"test_map", t1}});
 
     CHECK(db.latest_version() == ++dbv);
-    REQUIRE(db.get_itinerary(p1.id()));
-    CHECK(db.get_itinerary(p1.id())->size() == 1);
+    CHECK_ITINERARY(p1, db);
 
     // Tell the writer to start dropping packets
     writer.drop_packets = true;
@@ -516,6 +515,7 @@ SCENARIO("Test Participant")
     CHECK(db.latest_version() == dbv);
 
     // Check that the database now sees that we have an inconsistency
+    REQUIRE(db.inconsistencies().size() > 0);
     CHECK(db.inconsistencies().begin()->participant == p1.id());
     CHECK(db.inconsistencies().begin()->ranges.size() != 0);
 
@@ -549,7 +549,7 @@ SCENARIO("Test Participant")
     CHECK(db.get_itinerary(p1.id())->empty());
 
     // Add a second delay to the itinerary
-    p1.delay(time, 2s);
+    p1.delay(time, 1s);
     CHECK(p1.itinerary().size() == 1);
     CHECK(db.latest_version() == dbv);
     REQUIRE(db.get_itinerary(p1.id()));
@@ -580,16 +580,73 @@ SCENARIO("Test Participant")
     CHECK(db.get_itinerary(p1.id())->empty());
 
     // Check for inconsistencies
+    REQUIRE(db.inconsistencies().size() > 0);
     CHECK(db.inconsistencies().begin()->participant == p1.id());
-    const auto inconsistancy = db.inconsistencies().begin();
-    CHECK(inconsistancy->ranges.size() == 1);
-    CHECK(inconsistancy->ranges.last_known_version() == 5);
-    CHECK(inconsistancy->ranges.begin()->lower == 0);
-    CHECK(inconsistancy->ranges.begin()->upper == 4);
+    const auto inconsistency = db.inconsistencies().begin();
+    CHECK(inconsistency->ranges.size() == 1);
+    CHECK(inconsistency->ranges.last_known_version() == 5);
+    CHECK(inconsistency->ranges.begin()->lower == 0);
+    CHECK(inconsistency->ranges.begin()->upper == 4);
 
     // Fix inconsistencies
     rectifier.rectify();
     dbv += 6;
+    CHECK(db.latest_version() == dbv);
+    CHECK_ITINERARY(p1, db);
+  }
+
+  GIVEN("Changes: SdDxX")
+  {
+    // Set the itinerary
+    p1.set({Route{"test_map", t1}});
+    CHECK(db.latest_version() == ++dbv);
+    CHECK_ITINERARY(p1, db);
+
+    writer.drop_packets = true;
+
+    // Add a delay
+    p1.delay(time, 1s);
+    CHECK(db.latest_version() == dbv);
+
+    writer.drop_packets = false;
+
+    // Add a delay
+    p1.delay(time, 1s);
+    CHECK(db.latest_version() == dbv);
+    REQUIRE(db.inconsistencies().size() > 0);
+    CHECK(db.inconsistencies().begin()->participant == p1.id());
+    auto inconsistency = db.inconsistencies().begin();
+    REQUIRE(inconsistency->ranges.size() > 0);
+    CHECK(inconsistency->ranges.last_known_version() == 2);
+    CHECK(inconsistency->ranges.begin()->lower == 1);
+    CHECK(inconsistency->ranges.begin()->upper == 1);
+
+    writer.drop_packets = true;
+
+    // Extend the itinerary
+    p1.extend({Route{"test_map", t2}});
+    CHECK(p1.itinerary().size() == 2);
+    CHECK(db.latest_version() == dbv);
+
+    writer.drop_packets = false;
+
+    // Extend the itinerary
+    p1.extend({Route{"test_map", t3}});
+    REQUIRE(db.inconsistencies().size() > 0);
+    CHECK(db.inconsistencies().begin()->participant == p1.id());
+    inconsistency = db.inconsistencies().begin();
+    // We expect two ranges of inconsistencies
+    REQUIRE(inconsistency->ranges.size() > 1);
+    CHECK(inconsistency->ranges.last_known_version() == 4);
+    auto it = inconsistency->ranges.begin();
+    CHECK(it->lower == 1);
+    CHECK(it->upper == 1);
+    CHECK((++it)->lower == 3);
+    CHECK((++it)->upper == 3);
+
+    // Fix inconsistencies
+    rectifier.rectify();
+    dbv += 4;
     CHECK(db.latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
   }
