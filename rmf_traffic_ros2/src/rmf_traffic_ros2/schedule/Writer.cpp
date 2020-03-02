@@ -25,11 +25,37 @@
 #include <rmf_traffic_msgs/msg/itinerary_erase.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_clear.hpp>
 
+
 #include <rmf_traffic_msgs/srv/register_participant.hpp>
 #include <rmf_traffic_msgs/srv/unregister_participant.hpp>
 
 namespace rmf_traffic_ros2 {
 namespace schedule {
+
+namespace {
+//==============================================================================
+class RectifierFactory
+    : public rmf_traffic::schedule::RectificationRequesterFactory
+{
+public:
+
+
+
+  RectifierFactory(rclcpp::Node& node)
+  {
+
+  }
+
+  std::unique_ptr<rmf_traffic::schedule::RectificationRequester> make(
+      rmf_traffic::schedule::Rectifier rectifier,
+      rmf_traffic::schedule::ParticipantId participant_id) final
+  {
+
+  }
+
+};
+
+} // anonymous namespace
 
 //==============================================================================
 class Writer::Implementation
@@ -206,7 +232,14 @@ public:
 //==============================================================================
 std::shared_ptr<Writer> Writer::make(rclcpp::Node& node)
 {
+  return std::shared_ptr<Writer>(new Writer(node));
+}
 
+//==============================================================================
+Writer::Writer(rclcpp::Node& node)
+  : _pimpl(rmf_utils::make_unique_impl<Implementation>(node))
+{
+  // Do nothing
 }
 
 } // namespace schedule

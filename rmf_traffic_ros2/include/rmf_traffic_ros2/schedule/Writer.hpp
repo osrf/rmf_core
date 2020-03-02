@@ -53,7 +53,7 @@ public:
   class Implementation;
 private:
   Writer(rclcpp::Node& node);
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace schedule
