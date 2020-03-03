@@ -13,6 +13,9 @@
   <build_depend>rmf_utils</build_depend>
   <build_export_depend>rmf_utils</build_export_depend>
 
+  <build_depend>libccd-dev</build_depend>
+  <build_depend>libfcl-dev</build_depend>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
