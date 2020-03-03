@@ -41,7 +41,8 @@ TEMPLATE_TEST_CASE("Test Modular", "[modular]", uint8_t, uint16_t, uint64_t)
   CHECK(rmf_traffic::schedule::modular(min_value).less_than(min_value_));
 
   // Here we check lhs < rhs when basis < lhs
-  CHECK(rmf_traffic::schedule::modular(--_max_value).less_than(_max_value, max_value));
+  auto __max_value = _max_value - 1;
+  CHECK(rmf_traffic::schedule::modular(__max_value).less_than(_max_value, max_value));
   CHECK(rmf_traffic::schedule::modular(max_value).less_than(min_value, min_value_));
 
   // Here we check lhs = rhs when basis < lhs
