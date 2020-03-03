@@ -698,21 +698,45 @@ SCENARIO("Test Participant")
 
   GIVEN("Participant unregisters")
   {
-    p1.set({Route{"test_map", t1}});
-    REQUIRE(p1.itinerary().size() == 1);
-    CHECK(db.latest_version() == ++dbv);
-    CHECK_ITINERARY(p1, db);
-    auto id = p1.id();
 
-    // Participant should unregister when its destructor is called
-    // writer.unregister_participant(p1.id());
-    p1.~Participant();
-    
+    rmf_traffic::schedule::ParticipantId p2_id;
+
+    {
+      auto p2 = rmf_traffic::schedule::make_participant(
+      rmf_traffic::schedule::ParticipantDescription{
+        "participant 2",
+        "test_Participant",
+        rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+        rmf_traffic::Profile{shape}
+      },
+      writer,
+      &rectifier);
+
+      p2_id = p2.id();
+      CHECK(db.latest_version() == ++dbv);
+      CHECK(db.participant_ids().size() == 2);
+      CHECK(db.get_participant(p2_id));
+      REQUIRE(db.get_itinerary(p2_id));
+      REQUIRE(db.inconsistencies().size() == 2);
+
+      bool found = false;
+      for (const auto& inconsistency : db.inconsistencies())
+      {
+        if (inconsistency.participant == p2_id)
+        {
+          found = true;
+          CHECK(inconsistency.ranges.size() == 0);
+        }
+      }
+      REQUIRE(found);
+    }
+
+    // Participant p2 should be unregistered when it is out of scope
     CHECK(db.latest_version() == ++dbv);
-    CHECK(db.participant_ids().empty());
-    CHECK(db.get_participant(id) == nullptr);
-    CHECK_FALSE(db.get_itinerary(id).has_value());
-    CHECK(db.inconsistencies().size() == 0);
+    CHECK(db.participant_ids().size() == 1);
+    CHECK(db.get_participant(p2_id) == nullptr);
+    CHECK_FALSE(db.get_itinerary(p2_id).has_value());
+    CHECK(db.inconsistencies().size() == 1);
   }
 
 }
