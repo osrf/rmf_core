@@ -21,11 +21,11 @@
 
 TEMPLATE_TEST_CASE("Test Modular", "[modular]", uint8_t, uint16_t, uint64_t)
 {
-  auto max_value = std::numeric_limits<TestType>::max();
-  auto min_value = std::numeric_limits<TestType>::min();
+  const auto max_value = std::numeric_limits<TestType>::max();
+  const auto min_value = std::numeric_limits<TestType>::min();
 
-  auto _max_value = max_value - 1;
-  auto min_value_ = min_value + 1;
+  const auto _max_value = max_value - 1;
+  const auto min_value_ = min_value + 1;
 
   // Here we check less_than() returns false when lhs = rhs
   CHECK_FALSE(rmf_traffic::schedule::modular(max_value).less_than(max_value));
@@ -41,7 +41,7 @@ TEMPLATE_TEST_CASE("Test Modular", "[modular]", uint8_t, uint16_t, uint64_t)
   CHECK(rmf_traffic::schedule::modular(min_value).less_than(min_value_));
 
   // Here we check lhs < rhs when basis < lhs
-  auto __max_value = _max_value - 1;
+  const auto __max_value = _max_value - 1;
   CHECK(rmf_traffic::schedule::modular(__max_value).less_than(_max_value, max_value));
   CHECK(rmf_traffic::schedule::modular(max_value).less_than(min_value, min_value_));
 
