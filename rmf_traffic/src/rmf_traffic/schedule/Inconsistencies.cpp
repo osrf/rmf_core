@@ -220,6 +220,12 @@ auto Inconsistencies::cend() const -> const_iterator
 }
 
 //==============================================================================
+auto Inconsistencies::find(const ParticipantId id) const -> const_iterator
+{
+  return Implementation::make_iterator(_pimpl->_api.find(id));
+}
+
+//==============================================================================
 std::size_t Inconsistencies::size() const
 {
   return _pimpl->_api.size();

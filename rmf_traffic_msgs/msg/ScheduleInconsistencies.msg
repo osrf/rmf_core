@@ -1,2 +1,0 @@
-
-ScheduleInconsistency[] inconsistencies

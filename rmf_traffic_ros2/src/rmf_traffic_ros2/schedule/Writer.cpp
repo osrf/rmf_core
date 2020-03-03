@@ -25,7 +25,7 @@
 #include <rmf_traffic_msgs/msg/itinerary_erase.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_clear.hpp>
 
-#include <rmf_traffic_msgs/msg/schedule_inconsistencies.hpp>
+#include <rmf_traffic_msgs/msg/schedule_inconsistency.hpp>
 
 #include <rmf_traffic_msgs/srv/register_participant.hpp>
 #include <rmf_traffic_msgs/srv/unregister_participant.hpp>
@@ -66,7 +66,7 @@ public:
 
   StubMap stub_map;
 
-  using InconsistencyMsg = rmf_traffic_msgs::msg::ScheduleInconsistencies;
+  using InconsistencyMsg = rmf_traffic_msgs::msg::ScheduleInconsistency;
   rclcpp::Subscription<InconsistencyMsg>::SharedPtr inconsistency_sub;
 
   RectifierFactory(rclcpp::Node& node)
@@ -95,35 +95,32 @@ public:
 
   void check_inconsistencies(const InconsistencyMsg& msg)
   {
-    for (const auto& p : msg.inconsistencies)
+    if (msg.ranges.empty())
     {
-      if (p.ranges.empty())
-      {
-        // This shouldn't generally happen, since empty ranges should not get
-        // published, but we'll check here anyway.
-        continue;
-      }
-
-      const auto it = stub_map.find(p.participant);
-      if (it == stub_map.end())
-        continue;
-
-      const auto& stub = it->second.lock();
-      if (!stub)
-      {
-        // This participant has expired, so we should remove it from the map
-        stub_map.erase(it);
-        continue;
-      }
-
-      using Range = rmf_traffic::schedule::Rectifier::Range;
-      std::vector<Range> ranges;
-      ranges.reserve(p.ranges.size());
-      for (const auto& r : p.ranges)
-        ranges.emplace_back(Range{r.lower, r.upper});
-
-      stub->requester.rectifier.retransmit(ranges, p.last_known_version);
+      // This shouldn't generally happen, since empty ranges should not get
+      // published, but we'll check here anyway.
+      return;
     }
+
+    const auto it = stub_map.find(msg.participant);
+    if (it == stub_map.end())
+      return;
+
+    const auto& stub = it->second.lock();
+    if (!stub)
+    {
+      // This participant has expired, so we should remove it from the map
+      stub_map.erase(it);
+      return;
+    }
+
+    using Range = rmf_traffic::schedule::Rectifier::Range;
+    std::vector<Range> ranges;
+    ranges.reserve(msg.ranges.size());
+    for (const auto& r : msg.ranges)
+      ranges.emplace_back(Range{r.lower, r.upper});
+
+    stub->requester.rectifier.retransmit(ranges, msg.last_known_version);
   }
 };
 
@@ -324,6 +321,7 @@ public:
     return std::async(
           std::launch::async,
           [description = std::move(description), this]()
+          -> rmf_traffic::schedule::Participant
     {
       return rmf_traffic::schedule::make_participant(
             std::move(description), *this, &rectifier_factory);

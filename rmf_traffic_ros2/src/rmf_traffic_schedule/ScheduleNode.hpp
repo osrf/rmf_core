@@ -31,6 +31,8 @@
 #include <rmf_traffic_msgs/msg/itinerary_extend.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_set.hpp>
 
+#include <rmf_traffic_msgs/msg/schedule_inconsistency.hpp>
+
 #include <rmf_traffic_msgs/srv/mirror_update.hpp>
 #include <rmf_traffic_msgs/srv/register_query.hpp>
 #include <rmf_traffic_msgs/srv/mirror_update.h>
@@ -115,6 +117,10 @@ private:
   using ItineraryClear = rmf_traffic_msgs::msg::ItineraryClear;
   void itinerary_clear(const ItineraryClear& clear);
   rclcpp::Subscription<ItineraryClear>::SharedPtr itinerary_clear_sub;
+
+  using InconsistencyMsg = rmf_traffic_msgs::msg::ScheduleInconsistency;
+  rclcpp::Publisher<InconsistencyMsg>::SharedPtr inconsistency_pub;
+  void publish_inconsistencies(rmf_traffic::schedule::ParticipantId id);
 
   void wakeup_mirrors();
 

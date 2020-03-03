@@ -107,6 +107,9 @@ public:
   /// Explicitly const-qualified alternative for end()
   const_iterator cend() const;
 
+  /// Get the iterator for this ParticipantId
+  const_iterator find(ParticipantId id) const;
+
   /// Get the number of participants with inconsistencies
   std::size_t size() const;
 

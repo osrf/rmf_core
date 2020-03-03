@@ -156,6 +156,9 @@ public:
   virtual void unregister_participant(
       ParticipantId participant) = 0;
 
+  // virtual destructor
+  virtual ~Writer() = default;
+
 };
 
 } // namespace schedule

@@ -23,6 +23,7 @@
 #include <rmf_traffic_ros2/schedule/Query.hpp>
 #include <rmf_traffic_ros2/schedule/Patch.hpp>
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
+#include <rmf_traffic_ros2/schedule/Inconsistencies.hpp>
 
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/schedule/Mirror.hpp>
@@ -157,6 +158,11 @@ ScheduleNode::ScheduleNode()
   {
     this->itinerary_clear(*msg);
   });
+
+  inconsistency_pub =
+      create_publisher<InconsistencyMsg>(
+        rmf_traffic_ros2::ScheduleInconsistencyTopicName,
+        rclcpp::SystemDefaultsQoS().reliable());
 
   conflict_check_quit = false;
   conflict_check_thread = std::thread(
@@ -328,6 +334,7 @@ void ScheduleNode::itinerary_set(const ItinerarySet& set)
         rmf_traffic_ros2::convert(set.itinerary),
         set.itinerary_version);
 
+  publish_inconsistencies(set.participant);
   conflict_check_cv.notify_all();
 }
 
@@ -340,6 +347,7 @@ void ScheduleNode::itinerary_extend(const ItineraryExtend& extend)
         rmf_traffic_ros2::convert(extend.routes),
         extend.itinerary_version);
 
+  publish_inconsistencies(extend.participant);
   conflict_check_cv.notify_all();
 }
 
@@ -353,6 +361,7 @@ void ScheduleNode::itinerary_delay(const ItineraryDelay& delay)
         rmf_traffic::Duration(delay.delay),
         delay.itinerary_version);
 
+  publish_inconsistencies(delay.participant);
   conflict_check_cv.notify_all();
 }
 
@@ -366,6 +375,7 @@ void ScheduleNode::itinerary_erase(const ItineraryErase& erase)
           erase.routes.begin(), erase.routes.end()),
         erase.itinerary_version);
 
+  publish_inconsistencies(erase.participant);
   conflict_check_cv.notify_all();
 }
 
@@ -374,7 +384,24 @@ void ScheduleNode::itinerary_clear(const ItineraryClear& clear)
 {
   std::unique_lock<std::mutex> lock(database_mutex);
   database.erase(clear.participant, clear.itinerary_version);
+
+  publish_inconsistencies(clear.participant);
   conflict_check_cv.notify_all();
+}
+
+//==============================================================================
+void ScheduleNode::publish_inconsistencies(
+    rmf_traffic::schedule::ParticipantId id)
+{
+  // TODO(MXG): This approach is likely to send out a lot of redundant
+  // inconsistency reports. We should try to be smarter about how
+  // inconsistencies get reported.
+  const auto it = database.inconsistencies().find(id);
+  assert(it != database.inconsistencies().end());
+  if (it->ranges.size() == 0)
+    return;
+
+  inconsistency_pub->publish(rmf_traffic_ros2::convert(*it));
 }
 
 //==============================================================================

@@ -108,9 +108,22 @@ class RectificationRequesterFactory
 {
 public:
 
+  /// Create a RectificationRequester to be held by a Participant
+  ///
+  /// \param[in] rectifier
+  ///   This rectifier can be used by the RectificationRequester to ask the
+  ///   participant to retransmit some of its changes.
+  ///
+  /// \param[in] participant_id
+  ///   The ID of the participant that will hold onto this
+  ///   RectificationRequester. This is the same participant that the rectifier
+  ///   will request retransmissions to.
   virtual std::unique_ptr<RectificationRequester> make(
       Rectifier rectifier,
       ParticipantId participant_id) = 0;
+
+  // virtual destructor
+  virtual ~RectificationRequesterFactory() = default;
 
 };
 
