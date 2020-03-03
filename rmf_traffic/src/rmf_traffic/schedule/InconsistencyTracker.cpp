@@ -80,6 +80,15 @@ auto InconsistencyTracker::check(
 
   if (_ranges.empty())
   {
+    if (nullifying)
+    {
+      // It doesn't matter whether this is the expected version, because it is
+      // a nullifying change. Simply move the expected version forward and
+      // accept this change.
+      _expected_version = version + 1;
+      return nullptr;
+    }
+
     if (version == _expected_version)
     {
       // This means we have no inconsistencies to worry about
@@ -167,7 +176,7 @@ auto InconsistencyTracker::check(
       // than any of the missing entries, we must have never received any change
       // with a higher version. If either of those beliefs are false, then there
       // is a software bug somewhere.
-      assert(!_changes.empty() && (_changes.rbegin())->first < version);
+      assert(!_changes.empty() && (_changes.rbegin())->first <= version);
 
       if (nullifying)
       {
@@ -184,8 +193,8 @@ auto InconsistencyTracker::check(
         // This is the highest inconsistent version number that we have seen so
         // far. We will create an inconsistency range between this and the
         // highest change value that we have received so far.
-
-        const ItineraryVersion lower = _changes.rbegin()->first + 1;
+        assert(_changes.size() >= 2);
+        const ItineraryVersion lower = (++_changes.rbegin())->first + 1;
         const ItineraryVersion upper = version - 1;
 
         if (modular(lower).less_than_or_equal(upper))
@@ -310,7 +319,7 @@ auto InconsistencyTracker::check(
           // The new version shrinks this range of inconsistencies by 1 from the
           // bottom.
           const auto hint_it = _ranges.erase(range_it);
-          _ranges.insert(hint_it, Range{version, upper});
+          _ranges.insert(hint_it, Range{version+1, upper});
         }
         else
         {

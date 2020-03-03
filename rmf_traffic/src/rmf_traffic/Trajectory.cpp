@@ -207,6 +207,15 @@ public:
     return make_iterator<Waypoint>(it->second);
   }
 
+  iterator lower_bound(Time time)
+  {
+    const auto it = ordering.lower_bound(time);
+    if (it == ordering.end())
+      return make_iterator<Waypoint>(segments.end());
+
+    return make_iterator<Waypoint>(it->second);
+  }
+
   iterator erase(iterator waypoint)
   {
     ordering.erase(waypoint->_pimpl->myself->data.time);
@@ -459,6 +468,18 @@ Trajectory::iterator Trajectory::find(Time time)
 Trajectory::const_iterator Trajectory::find(Time time) const
 {
   return const_cast<Implementation&>(*_pimpl).find(time);
+}
+
+//==============================================================================
+Trajectory::iterator Trajectory::lower_bound(Time time)
+{
+  return _pimpl->lower_bound(time);
+}
+
+//==============================================================================
+Trajectory::const_iterator Trajectory::lower_bound(Time time) const
+{
+  return const_cast<Implementation&>(*_pimpl).lower_bound(time);
 }
 
 //==============================================================================

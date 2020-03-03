@@ -639,6 +639,8 @@ void Database::unregister_participant(
           + "]. Please report this as a serious bug!");
   }
 
+  _pimpl->inconsistencies._pimpl->unregister_participant(participant);
+
   const Version initial_version = state_it->second.initial_schedule_version;
   _pimpl->add_participant_version.erase(initial_version);
 

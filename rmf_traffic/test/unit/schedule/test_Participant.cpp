@@ -20,7 +20,8 @@
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 
-#include "../../../src/rmf_traffic/schedule/debug_Database.hpp"
+#include "src/rmf_traffic/schedule/debug_Database.hpp"
+#include "src/rmf_traffic/schedule/debug_Participant.hpp"
 
 #include <rmf_traffic/geometry/Circle.hpp>
 
@@ -148,10 +149,10 @@ std::unordered_map<RouteId, ConstRoutePtr> convert_itinerary(
   itinerary.reserve(input.size());
 
   for (const auto& item : input)
-    {
-      const auto result = itinerary.insert(std::make_pair(item.id, item.route));
-      assert(result.first);
-    }
+  {
+    const auto result = itinerary.insert(std::make_pair(item.id, item.route));
+    assert(result.second);
+  }
   return itinerary;
 }
 
@@ -168,7 +169,7 @@ inline void CHECK_ITINERARY(
   auto p_iti = convert_itinerary(p.itinerary());
   REQUIRE(db_iti.size() == p_iti.size());
 
-  for (const auto item : p_iti)
+  for (const auto& item : p_iti)
   {
     const auto db_it = db_iti.find(item.first);
     REQUIRE(db_it != db_iti.end());
@@ -457,15 +458,61 @@ SCENARIO("Test Participant")
 
     p1.set({Route{"test_map", t2}});
     CHECK(p1.itinerary().size() == 1);
-    CHECK(db.get_itinerary(p1.id())->size() == 0);
+    CHECK(db.get_itinerary(p1.id())->size() == 1);
+    CHECK(db.latest_version() == ++dbv);
     CHECK(db.inconsistencies().begin()->participant == p1.id());
-    CHECK(db.inconsistencies().begin()->ranges.size() != 0);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
 
-    // Fix inconsistencies
     rectifier.rectify();
-    CHECK(db.latest_version() == ++(++dbv));
+    // There is no need to fix anything, because the last change was a
+    // nullifying change.
+    CHECK(db.latest_version() == dbv);
     CHECK_ITINERARY(p1, db);
     CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+  }
+
+  GIVEN("Changes sDdS")
+  {
+    writer.drop_packets = true;
+
+    p1.set({{"test_map", t1}});
+    CHECK(p1.itinerary().size() == 1);
+    CHECK(db.latest_version() == dbv);
+    REQUIRE(db.get_itinerary(p1.id()));
+    CHECK(db.get_itinerary(p1.id())->empty());
+
+    writer.drop_packets = false;
+
+    p1.delay(time, 10s);
+    CHECK(db.latest_version() == dbv);
+    REQUIRE(db.inconsistencies().size() == 1);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 1);
+    CHECK(db.inconsistencies().begin()->ranges.last_known_version() ==
+          rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
+
+    writer.drop_packets = true;
+
+    p1.delay(time, 10s);
+    CHECK(db.latest_version() == dbv);
+    CHECK(db.inconsistencies().begin()->ranges.last_known_version() + 1 ==
+          rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
+
+    writer.drop_packets = false;
+
+    p1.set({{"test_map", t2}});
+    CHECK(p1.itinerary().size() == 1);
+    CHECK(db.latest_version() == ++dbv);
+    REQUIRE(db.get_itinerary(p1.id()));
+    CHECK(db.get_itinerary(p1.id())->size() == 1);
+    CHECK(db.inconsistencies().begin()->ranges.size() == 0);
+    CHECK(db.inconsistencies().begin()->ranges.last_known_version() ==
+          rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
+
+    rectifier.rectify();
+    // There is no need to fix anything, because the last change was a
+    // nullifying change.
+    CHECK(db.latest_version() == dbv);
+    CHECK_ITINERARY(p1, db);
   }
 
   GIVEN("Changes: sE")
@@ -644,8 +691,10 @@ SCENARIO("Test Participant")
     auto it = inconsistency->ranges.begin();
     CHECK(it->lower == 1);
     CHECK(it->upper == 1);
-    CHECK((++it)->lower == 3);
-    CHECK((++it)->upper == 3);
+    ++it;
+    REQUIRE(it != inconsistency->ranges.end());
+    CHECK(it->lower == 3);
+    CHECK(it->upper == 3);
 
     // Fix inconsistencies
     rectifier.rectify();
@@ -673,7 +722,7 @@ SCENARIO("Test Participant")
     CHECK(db.get_itinerary(p1.id())->size() == 1);
 
     writer.drop_packets = false;
-    
+
     // Extend the itinerary
     p1.extend({Route{"test_map", t2}, Route{"test_map", t3}});
     REQUIRE(p1.itinerary().size() == 2);

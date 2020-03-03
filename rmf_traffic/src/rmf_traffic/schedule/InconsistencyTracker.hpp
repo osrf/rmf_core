@@ -125,7 +125,13 @@ private:
 
   void _apply_changes();
 
+  // TODO(MXG): Consider a more robust way of keeping _ranges up to date. Right
+  // now we calculate both _changes and _ranges independently, but they are
+  // really coupled. Maybe after each modification to _changes we should simply
+  // recompute _ranges from scratch. This would be less efficient but more
+  // robust.
   RangesSet& _ranges;
+
   ItineraryVersion& _last_known_version;
   ItineraryVersion _expected_version = 0;
   std::map<ItineraryVersion, std::function<void()>> _changes;
