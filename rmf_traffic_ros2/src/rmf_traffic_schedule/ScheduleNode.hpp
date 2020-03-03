@@ -31,12 +31,6 @@
 #include <rmf_traffic_msgs/msg/itinerary_extend.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_set.hpp>
 
-#include <rmf_traffic_msgs/srv/submit_trajectories.hpp>
-#include <rmf_traffic_msgs/srv/replace_trajectories.hpp>
-#include <rmf_traffic_msgs/srv/delay_trajectories.hpp>
-#include <rmf_traffic_msgs/srv/erase_trajectories.hpp>
-#include <rmf_traffic_msgs/srv/resolve_conflicts.hpp>
-
 #include <rmf_traffic_msgs/srv/mirror_update.hpp>
 #include <rmf_traffic_msgs/srv/register_query.hpp>
 #include <rmf_traffic_msgs/srv/mirror_update.h>

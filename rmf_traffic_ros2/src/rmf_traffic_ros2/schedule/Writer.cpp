@@ -25,6 +25,7 @@
 #include <rmf_traffic_msgs/msg/itinerary_erase.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_clear.hpp>
 
+#include <rmf_traffic_msgs/msg/schedule_inconsistencies.hpp>
 
 #include <rmf_traffic_msgs/srv/register_participant.hpp>
 #include <rmf_traffic_msgs/srv/unregister_participant.hpp>
@@ -40,20 +41,100 @@ class RectifierFactory
 public:
 
 
+  struct RectifierStub;
+
+  class Requester : public rmf_traffic::schedule::RectificationRequester
+  {
+  public:
+
+    rmf_traffic::schedule::Rectifier rectifier;
+    std::shared_ptr<RectifierStub> stub;
+
+    Requester(rmf_traffic::schedule::Rectifier rectifier_);
+
+  };
+
+  struct RectifierStub
+  {
+    Requester& requester;
+  };
+
+  using StubMap = std::unordered_map<
+      rmf_traffic::schedule::ParticipantId,
+      std::weak_ptr<RectifierStub>
+  >;
+
+  StubMap stub_map;
+
+  using InconsistencyMsg = rmf_traffic_msgs::msg::ScheduleInconsistencies;
+  rclcpp::Subscription<InconsistencyMsg>::SharedPtr inconsistency_sub;
 
   RectifierFactory(rclcpp::Node& node)
   {
-
+    inconsistency_sub = node.create_subscription<InconsistencyMsg>(
+          ScheduleInconsistencyTopicName,
+          rclcpp::SystemDefaultsQoS().reliable(),
+          [&](const InconsistencyMsg::UniquePtr msg)
+    {
+      check_inconsistencies(*msg);
+    });
   }
 
   std::unique_ptr<rmf_traffic::schedule::RectificationRequester> make(
       rmf_traffic::schedule::Rectifier rectifier,
       rmf_traffic::schedule::ParticipantId participant_id) final
   {
+    auto requester = std::make_unique<Requester>(std::move(rectifier));
 
+    // It's okay to just override any entry that might have been in here before,
+    // because the Database should never double-assign a ParticipantId
+    stub_map[participant_id] = requester->stub;
+
+    return std::move(requester);
   }
 
+  void check_inconsistencies(const InconsistencyMsg& msg)
+  {
+    for (const auto& p : msg.inconsistencies)
+    {
+      if (p.ranges.empty())
+      {
+        // This shouldn't generally happen, since empty ranges should not get
+        // published, but we'll check here anyway.
+        continue;
+      }
+
+      const auto it = stub_map.find(p.participant);
+      if (it == stub_map.end())
+        continue;
+
+      const auto& stub = it->second.lock();
+      if (!stub)
+      {
+        // This participant has expired, so we should remove it from the map
+        stub_map.erase(it);
+        continue;
+      }
+
+      using Range = rmf_traffic::schedule::Rectifier::Range;
+      std::vector<Range> ranges;
+      ranges.reserve(p.ranges.size());
+      for (const auto& r : p.ranges)
+        ranges.emplace_back(Range{r.lower, r.upper});
+
+      stub->requester.rectifier.retransmit(ranges, p.last_known_version);
+    }
+  }
 };
+
+//==============================================================================
+RectifierFactory::Requester::Requester(
+    rmf_traffic::schedule::Rectifier rectifier_)
+  : rectifier(std::move(rectifier_)),
+    stub(std::make_shared<RectifierStub>(RectifierStub{*this}))
+{
+  // Do nothing
+}
 
 } // anonymous namespace
 
@@ -62,6 +143,8 @@ class Writer::Implementation
     : public rmf_traffic::schedule::Writer
 {
 public:
+
+  RectifierFactory rectifier_factory;
 
   using Set = rmf_traffic_msgs::msg::ItinerarySet;
   using Extend = rmf_traffic_msgs::msg::ItineraryExtend;
@@ -81,9 +164,8 @@ public:
   rclcpp::Client<Register>::SharedPtr register_client;
   rclcpp::Client<Unregister>::SharedPtr unregister_client;
 
-  std::list<std::thread> registration_threads;
-
   Implementation(rclcpp::Node& node)
+    : rectifier_factory(node)
   {
     set_pub = node.create_publisher<Set>(
           ItinerarySetTopicName,
@@ -227,12 +309,40 @@ public:
     });
   }
 
+  std::future<rmf_traffic::schedule::Participant> make_participant(
+      rmf_traffic::schedule::ParticipantDescription description)
+  {
+    // TODO(MXG): This implementation assumes that the async promise will be
+    // finished before the Writer instance is destructed. If that is not true,
+    // then we could get undefined behavior from this implementation. However,
+    // the Writer should only get destructed during the teardown of the whole
+    // Node, which implies that the program is exiting.
+    //
+    // This shouldn't be a major concern, but it may be worth revisiting whether
+    // a cleaner approach is possible.
+
+    return std::async(
+          std::launch::async,
+          [description = std::move(description), this]()
+    {
+      return rmf_traffic::schedule::make_participant(
+            std::move(description), *this, &rectifier_factory);
+    });
+  }
+
 };
 
 //==============================================================================
 std::shared_ptr<Writer> Writer::make(rclcpp::Node& node)
 {
   return std::shared_ptr<Writer>(new Writer(node));
+}
+
+//==============================================================================
+std::future<rmf_traffic::schedule::Participant> Writer::make_participant(
+    rmf_traffic::schedule::ParticipantDescription description)
+{
+  return _pimpl->make_participant(std::move(description));
 }
 
 //==============================================================================

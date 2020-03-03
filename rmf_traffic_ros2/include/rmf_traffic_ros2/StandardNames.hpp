@@ -36,6 +36,7 @@ const std::string UnregisterQueryServiceName = Prefix + "unregister_query";
 const std::string MirrorUpdateServiceName = Prefix + "mirror_update";
 const std::string MirrorWakeupTopicName = Prefix + "mirror_wakeup";
 const std::string ScheduleConflictTopicName = Prefix + "schedule_conflict";
+const std::string ScheduleInconsistencyTopicName = Prefix + "schedule_inconsistency";
 
 const std::string EmergencyTopicName = "fire_alarm_trigger";
 

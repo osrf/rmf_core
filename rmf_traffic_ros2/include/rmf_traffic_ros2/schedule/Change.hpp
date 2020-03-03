@@ -22,9 +22,7 @@
 
 #include <rmf_traffic_msgs/msg/schedule_change_add.hpp>
 #include <rmf_traffic_msgs/msg/schedule_change_delay.hpp>
-#include <rmf_traffic_msgs/msg/schedule_change_erase.hpp>
 #include <rmf_traffic_msgs/msg/schedule_register.hpp>
-#include <rmf_traffic_msgs/msg/schedule_unregister.hpp>
 #include <rmf_traffic_msgs/msg/schedule_change_cull.hpp>
 
 namespace rmf_traffic_ros2 {

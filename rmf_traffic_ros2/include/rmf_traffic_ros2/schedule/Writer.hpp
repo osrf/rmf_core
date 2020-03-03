@@ -34,7 +34,9 @@ class Writer : std::enable_shared_from_this<Writer>
 {
 public:
 
-  /// Create an instance of a writer.
+  /// Create an instance of a writer. The writer and all Participants it creates
+  /// depend on the life of the rclcpp::Node. It's best to keep all of these as
+  /// members of the Node.
   ///
   /// \param[in] node
   ///   The node that will manage the subscriptions of this writer

@@ -67,18 +67,6 @@ rmf_traffic_msgs::msg::ScheduleParticipantPatch convert(
 }
 
 //==============================================================================
-rmf_traffic::schedule::Change::Erase convert(
-    const std::vector<rmf_traffic_msgs::msg::ScheduleChangeErase>& from)
-{
-  std::vector<rmf_traffic::RouteId> ids;
-  ids.reserve(from.size());
-  for (const auto& item : from)
-    ids.push_back(item.route_id);
-
-  return rmf_traffic::schedule::Change::Erase(std::move(ids));
-}
-
-//==============================================================================
 rmf_traffic::schedule::Patch::Participant convert(
     const rmf_traffic_msgs::msg::ScheduleParticipantPatch& from)
 {
@@ -98,7 +86,9 @@ rmf_traffic_msgs::msg::SchedulePatch convert(
 {
   rmf_traffic_msgs::msg::SchedulePatch output;
 
-  convert_vector(output.unregister_participants, from.unregistered());
+  for (const auto& u : from.unregistered())
+    output.unregister_participants.emplace_back(u.id());
+
   convert_vector(output.register_participants, from.registered());
 
   output.participants.reserve(from.size());

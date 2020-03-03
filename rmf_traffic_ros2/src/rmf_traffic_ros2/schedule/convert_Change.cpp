@@ -83,22 +83,6 @@ rmf_traffic_msgs::msg::ScheduleRegister convert(
 }
 
 //==============================================================================
-rmf_traffic::schedule::Change::UnregisterParticipant convert(
-    const rmf_traffic_msgs::msg::ScheduleUnregister& from)
-{
-  return rmf_traffic::schedule::Change::UnregisterParticipant{
-    from.participant_id
-  };
-}
-
-//==============================================================================
-rmf_traffic::schedule::ParticipantId convert(
-    const rmf_traffic::schedule::Change::UnregisterParticipant& from)
-{
-  return from.id();
-}
-
-//==============================================================================
 rmf_traffic::schedule::Change::Cull convert(
     const rmf_traffic_msgs::msg::ScheduleChangeCull& from)
 {
