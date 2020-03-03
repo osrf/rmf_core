@@ -27,7 +27,6 @@ TEMPLATE_TEST_CASE("Test Modular", "[modular]", uint8_t, uint16_t, uint64_t)
   auto _max_value = max_value - 1;
   auto min_value_ = min_value + 1;
 
-
   // Here we check less_than() returns false when lhs = rhs
   CHECK_FALSE(rmf_traffic::schedule::modular(max_value).less_than(max_value));
   CHECK_FALSE(rmf_traffic::schedule::modular(min_value).less_than(min_value));
