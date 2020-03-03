@@ -19,8 +19,6 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <iostream>
-
 TEMPLATE_TEST_CASE("Test Modular", "[modular]", uint8_t, uint16_t, uint64_t)
 {
   auto max_value = std::numeric_limits<TestType>::max();
