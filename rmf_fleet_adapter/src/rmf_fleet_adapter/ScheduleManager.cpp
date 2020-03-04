@@ -39,6 +39,42 @@ std::vector<rmf_traffic_msgs::msg::Trajectory> convert(
 } // anonymous namespace
 
 //==============================================================================
+ScheduleManager::ScheduleManager(
+    rclcpp::Node& node,
+    rmf_traffic::schedule::Participant participant,
+    std::function<void()> revision_callback)
+  : _participant(std::move(participant))
+{
+
+  auto resolve_client =
+      node.create_client<rmf_traffic_msgs::srv::TemporaryResolveConflicts>(
+        rmf_traffic_ros2::ResolveConflictsSrvName);
+
+  auto conflict_sub =
+      node.create_subscription<rmf_traffic_msgs::msg::ScheduleConflict>(
+        rmf_traffic_ros2::ScheduleConflictTopicName,
+        rclcpp::SystemDefaultsQoS().reliable(),
+        [this,
+         revision_callback = std::move(revision_callback),
+         p = participant.id()](
+        const std::unique_ptr<rmf_traffic_msgs::msg::ScheduleConflict> msg)
+  {
+    for (const auto m : msg->participants)
+    {
+      if (m == p)
+      {
+        // TODO(MXG): Fix this. ScheduleManager needs to be informed that a
+        // conflict is active
+        this->_have_conflict = true;
+        this->_conflict_version = msg->conflict_version;
+        revision_callback();
+        return;
+      }
+    }
+  });
+}
+
+//==============================================================================
 void ScheduleManager::push_trajectories(
     const std::vector<rmf_traffic::Route>& routes,
     std::function<void()> approval_callback)
@@ -123,16 +159,10 @@ std::future<ScheduleManager> make_schedule_manager(
     rmf_traffic::schedule::ParticipantDescription description,
     std::function<void()> revision_callback)
 {
-  auto resolve_client =
-      node.create_client<rmf_traffic_msgs::srv::TemporaryResolveConflicts>(
-        rmf_traffic_ros2::ResolveConflictsSrvName);
-
-
   return std::async(
         std::launch::async,
         [&node,
          &writer,
-         resolve_client = std::move(resolve_client),
          description = std::move(description),
          revision_callback = std::move(revision_callback)]() -> ScheduleManager
   {
@@ -141,30 +171,34 @@ std::future<ScheduleManager> make_schedule_manager(
 
     auto participant = participant_future.get();
 
-    auto conflict_sub =
-        node.create_subscription<rmf_traffic_msgs::msg::ScheduleConflict>(
-          rmf_traffic_ros2::ScheduleConflictTopicName,
-          rclcpp::SystemDefaultsQoS().reliable(),
-          [revision_callback = std::move(revision_callback),
-           p = participant.id()](
-          const std::unique_ptr<rmf_traffic_msgs::msg::ScheduleConflict> msg)
-    {
-      for (const auto m : msg->participants)
-      {
-        if (m == p)
-        {
-          // TODO(MXG): Fix this. ScheduleManager needs to be informed that a
-          // conflict is active
-          revision_callback();
-          return;
-        }
-      }
-    });
-
     return ScheduleManager(
+          node,
           std::move(participant),
-          std::move(resolve_client),
-          std::move(conflict_sub));
+          std::move(revision_callback));
+  });
+}
+
+//==============================================================================
+void make_schedule_manager(
+    rclcpp::Node& node,
+    rmf_traffic_ros2::schedule::Writer& writer,
+    rmf_traffic::schedule::ParticipantDescription description,
+    std::function<void()> revision_callback,
+    std::function<void(ScheduleManager)> ready_callback)
+{
+  std::async(
+        std::launch::async,
+        [&node,
+         &writer,
+         description = std::move(description),
+         revision_callback = std::move(revision_callback),
+         ready_callback = std::move(ready_callback)]
+  {
+    auto future = make_schedule_manager(
+          node, writer, std::move(description), std::move(revision_callback));
+
+    future.wait();
+    ready_callback(future.get());
   });
 }
 

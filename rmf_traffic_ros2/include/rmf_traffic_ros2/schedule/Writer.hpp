@@ -52,6 +52,20 @@ public:
   std::future<rmf_traffic::schedule::Participant> make_participant(
       rmf_traffic::schedule::ParticipantDescription description);
 
+  /// Asynchronously create a schedule participant.
+  ///
+  /// When the Participant is ready to be used, the ready_callback will be
+  /// triggered with the newly created Participant instance.
+  ///
+  /// \param[in] description
+  ///   The description of the participant.
+  ///
+  /// \param[in] ready_callback
+  ///   The callback that will be triggered when the participant is ready.
+  void async_make_participant(
+      rmf_traffic::schedule::ParticipantDescription description,
+      std::function<void(rmf_traffic::schedule::Participant)> ready_callback);
+
   class Implementation;
 private:
   Writer(rclcpp::Node& node);

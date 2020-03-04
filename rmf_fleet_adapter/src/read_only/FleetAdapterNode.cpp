@@ -40,8 +40,6 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
 {
   auto node = std::shared_ptr<FleetAdapterNode>(new FleetAdapterNode);
 
-  node->_connections = ScheduleConnections::make(*node);
-
   const auto wait_time =
       get_parameter_or_default_time(*node, "discovery_timeout", 10.0);
 
@@ -50,17 +48,6 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
 
   const auto stop_time = std::chrono::steady_clock::now() + wait_time;
 
-  while(rclcpp::ok() && std::chrono::steady_clock::now() < stop_time)
-  {
-    rclcpp::spin_some(node);
-    if (node->_connections->ready())
-      return node;
-  }
-
-  node->_properties.type =
-      rmf_traffic_msgs::msg::FleetProperties::TYPE_NO_CONTROL;
-  node->_properties.fleet_id = node->_fleet_name;
-
   RCLCPP_INFO(
         node->get_logger(),
         "Timeout while trying to connect to traffic schedule");
@@ -68,10 +55,9 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
 }
 
 FleetAdapterNode::ScheduleEntry::ScheduleEntry(FleetAdapterNode* node)
-: schedule(node->_connections.get(), node->_properties, [](){}),
-  trajectory("")
 {
-  // Do nothing
+  make_schedule_manager(
+        *node, )
 }
 
 //==============================================================================

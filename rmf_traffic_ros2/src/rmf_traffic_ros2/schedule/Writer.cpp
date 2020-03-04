@@ -318,14 +318,37 @@ public:
     // This shouldn't be a major concern, but it may be worth revisiting whether
     // a cleaner approach is possible.
 
-    return std::async(
-          std::launch::async,
-          [description = std::move(description), this]()
-          -> rmf_traffic::schedule::Participant
+    std::promise<rmf_traffic::schedule::Participant> promise;
+    auto future = promise.get_future();
+    std::thread worker(
+          [this](
+          rmf_traffic::schedule::ParticipantDescription description,
+          std::promise<rmf_traffic::schedule::Participant> promise)
     {
-      return rmf_traffic::schedule::make_participant(
-            std::move(description), *this, &rectifier_factory);
+      promise.set_value(rmf_traffic::schedule::make_participant(
+            std::move(description), *this, &rectifier_factory));
+    }, std::move(description), std::move(promise));
+
+    worker.detach();
+
+    return future;
+  }
+
+  void async_make_participant(
+      rmf_traffic::schedule::ParticipantDescription description,
+      std::function<void(rmf_traffic::schedule::Participant)> ready_callback)
+  {
+    std::thread worker(
+          [description = std::move(description),
+           this,
+           ready_callback = std::move(ready_callback)]()
+    {
+      ready_callback(
+            rmf_traffic::schedule::make_participant(
+              std::move(description), *this, &rectifier_factory));
     });
+
+    worker.detach();
   }
 
 };
@@ -341,6 +364,15 @@ std::future<rmf_traffic::schedule::Participant> Writer::make_participant(
     rmf_traffic::schedule::ParticipantDescription description)
 {
   return _pimpl->make_participant(std::move(description));
+}
+
+//==============================================================================
+void Writer::async_make_participant(
+    rmf_traffic::schedule::ParticipantDescription description,
+    std::function<void(rmf_traffic::schedule::Participant)> ready_callback)
+{
+  _pimpl->async_make_participant(
+        std::move(description), std::move(ready_callback));
 }
 
 //==============================================================================

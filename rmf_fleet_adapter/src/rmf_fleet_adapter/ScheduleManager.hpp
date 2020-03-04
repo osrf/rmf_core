@@ -34,8 +34,6 @@
 
 namespace rmf_fleet_adapter {
 
-class FleetAdapterNode;
-
 //==============================================================================
 // TODO(MXG): Move this into rmf_traffic_ros2 as a generalized utility class.
 // Consider renaming it to ScheduleParticipant.
@@ -43,13 +41,10 @@ class ScheduleManager
 {
 public:
 
-  using ResolveConflicts = rmf_traffic_msgs::srv::TemporaryResolveConflicts;
-  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
-
   ScheduleManager(
+      rclcpp::Node& node,
       rmf_traffic::schedule::Participant participant,
-      rclcpp::Client<ResolveConflicts>::SharedPtr resolve_client,
-      rclcpp::Subscription<ScheduleConflict>::SharedPtr conflict_sub);
+      std::function<void()> revision_callback);
 
   using TrajectorySet = std::vector<rmf_traffic::Trajectory>;
 
@@ -69,9 +64,13 @@ private:
 
   rmf_traffic::schedule::Participant _participant;
 
+  using ResolveConflicts = rmf_traffic_msgs::srv::TemporaryResolveConflicts;
+  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
+
   rclcpp::Client<ResolveConflicts>::SharedPtr _resolve_client;
 
-  rclcpp::Subscription<rmf_traffic_msgs::msg::ScheduleConflict> _conflict_sub;
+  rclcpp::Subscription<rmf_traffic_msgs::msg::ScheduleConflict>::SharedPtr _conflict_sub;
+
   rmf_traffic::schedule::Version _conflict_version;
   bool _have_conflict = false;
 };
@@ -82,6 +81,14 @@ std::future<ScheduleManager> make_schedule_manager(
     rmf_traffic_ros2::schedule::Writer& writer,
     rmf_traffic::schedule::ParticipantDescription description,
     std::function<void()> revision_callback);
+
+//==============================================================================
+void make_schedule_manager(
+    rclcpp::Node& node,
+    rmf_traffic_ros2::schedule::Writer& writer,
+    rmf_traffic::schedule::ParticipantDescription description,
+    std::function<void()> revision_callback,
+    std::function<void(ScheduleManager manager)> ready_callback);
 
 } // namespace rmf_fleet_adapter
 
