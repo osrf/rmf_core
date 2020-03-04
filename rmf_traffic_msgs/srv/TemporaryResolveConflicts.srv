@@ -1,0 +1,14 @@
+
+# FIXME(MXG): This file is only a temporary step for transitioning towards a
+# better conflict resolution system. This allows the schedule to pick a winner
+# in the race to resolve a conflict.
+
+uint64 conflict_version
+
+uint64 participant
+
+---
+
+bool accepted
+
+string error

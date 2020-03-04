@@ -59,6 +59,7 @@ set(msg_files
 
 set(srv_files
   "srv/MirrorUpdate.srv"
+  "srv/TemporaryResolveConflicts.srv"
   "srv/RegisterQuery.srv"
   "srv/UnregisterQuery.srv"
   "srv/RegisterParticipant.srv"

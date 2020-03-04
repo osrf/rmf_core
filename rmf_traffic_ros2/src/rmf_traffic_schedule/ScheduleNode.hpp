@@ -38,6 +38,12 @@
 #include <rmf_traffic_msgs/srv/mirror_update.h>
 #include <rmf_traffic_msgs/srv/unregister_query.hpp>
 
+
+
+#include <rmf_traffic_msgs/srv/temporary_resolve_conflicts.hpp>
+
+
+
 #include <unordered_map>
 
 namespace rmf_traffic_schedule {
@@ -124,6 +130,13 @@ private:
 
   void wakeup_mirrors();
 
+  using TemporaryResolveConflicts = rmf_traffic_msgs::srv::TemporaryResolveConflicts;
+  void temp_resolve_conflicts(
+      const request_id_ptr& request_header,
+      const TemporaryResolveConflicts::Request::SharedPtr& request,
+      const TemporaryResolveConflicts::Response::SharedPtr& response);
+  rclcpp::Service<TemporaryResolveConflicts>::SharedPtr temp_resolve_conflicts_srv;
+
   // TODO(MXG): Consider using libguarded instead of a database_mutex
   std::mutex database_mutex;
   rmf_traffic::schedule::Database database;
@@ -144,14 +157,12 @@ private:
   struct ConflictInfo
   {
     ConflictInfo(std::unordered_set<Version> ids)
-    : original_ids(std::move(ids)),
-      unresolved_ids(original_ids)
+    : participants(std::move(ids))
     {
       // Do nothing
     }
 
-    const std::unordered_set<Version> original_ids;
-    std::unordered_set<Version> unresolved_ids = {};
+    std::unordered_set<rmf_traffic::schedule::ParticipantId> participants;
   };
 
   using ConflictMap = std::map<Version, ConflictInfo>;
