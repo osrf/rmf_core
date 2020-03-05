@@ -48,13 +48,18 @@ public:
 
   using TrajectorySet = std::vector<rmf_traffic::Trajectory>;
 
-  void push_trajectories(
+  void push_routes(
       const std::vector<rmf_traffic::Route>& routes,
       std::function<void()> approval_callback);
 
   void push_delay(
       const rmf_traffic::Duration duration,
       const rmf_traffic::Time from_time);
+
+  void set_revision_callback(
+      std::function<void()> revision_callback);
+
+  rmf_traffic::schedule::ParticipantId participant_id() const;
 
 private:
 
@@ -71,6 +76,7 @@ private:
 
   rclcpp::Subscription<rmf_traffic_msgs::msg::ScheduleConflict>::SharedPtr _conflict_sub;
 
+  std::function<void()> _revision_callback;
   rmf_traffic::schedule::Version _conflict_version;
   bool _have_conflict = false;
 };

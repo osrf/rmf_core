@@ -65,6 +65,18 @@ rmf_traffic::Trajectory make_trajectory(
 }
 
 //==============================================================================
+rmf_traffic::Route make_route(
+    const rmf_fleet_msgs::msg::RobotState& state,
+    const rmf_traffic::agv::VehicleTraits& traits,
+    bool& is_sitting)
+{
+  return rmf_traffic::Route{
+    state.location.level_name,
+    make_trajectory(state, traits, is_sitting)
+  };
+}
+
+//==============================================================================
 rmf_traffic::Trajectory make_hold(
     const rmf_fleet_msgs::msg::Location& l,
     const rmf_traffic::Time t,

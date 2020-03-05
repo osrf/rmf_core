@@ -53,6 +53,12 @@ Route& Route::trajectory(Trajectory value)
 }
 
 //==============================================================================
+Trajectory& Route::trajectory()
+{
+  return _pimpl->trajectory;
+}
+
+//==============================================================================
 const Trajectory& Route::trajectory() const
 {
   return _pimpl->trajectory;

@@ -1385,7 +1385,7 @@ public:
             goal.orientation(),
             starts.front().time(),
             interrupt_flag,
-            options.ignore_schedule_ids(),
+            options.ignore_participant_ids(),
             h
           },
           DifferentialDriveExpander::InitialNodeArgs{starts},

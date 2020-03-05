@@ -179,16 +179,16 @@ const bool* Planner::Options::interrupt_flag() const
 }
 
 //==============================================================================
-auto Planner::Options::ignore_schedule_ids(
-    std::unordered_set<schedule::Version> ignore_ids) -> Options&
+auto Planner::Options::ignore_participant_ids(
+    std::unordered_set<schedule::ParticipantId> ignore_ids) -> Options&
 {
   _pimpl->ignore_schedule_ids = std::move(ignore_ids);
   return *this;
 }
 
 //==============================================================================
-std::unordered_set<schedule::Version> Planner::Options
-::ignore_schedule_ids() const
+std::unordered_set<schedule::ParticipantId> Planner::Options
+::ignore_participant_ids() const
 {
   return _pimpl->ignore_schedule_ids;
 }

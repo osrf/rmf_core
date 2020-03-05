@@ -128,7 +128,7 @@ public:
     ///   then pass in a nullptr. It is the user's responsibility to make sure
     ///   that this flag remains valid.
     ///
-    /// \param[in] ignore_schedule_ids
+    /// \param[in] ignore_participant_ids
     ///   A set of schedule IDs to ignore while planning. The plan will be
     ///   allowed to conflict with any trajectory in this set. This is useful
     ///   for planning trajectories that are meant to replace some trajectories
@@ -137,7 +137,7 @@ public:
         const schedule::Viewer& viewer,
         Duration min_hold_time = std::chrono::seconds(5),
         const bool* interrupt_flag = nullptr,
-        std::unordered_set<schedule::Version> ignore_schedule_ids = {});
+        std::unordered_set<schedule::Version> ignore_participant_ids = {});
 
     /// Change the schedule viewer to use for planning.
     ///
@@ -168,10 +168,11 @@ public:
 
     /// Specify a set of schedule IDs to ignore when collision checking. This is
     /// useful for planning a schedule replacement.
-    Options& ignore_schedule_ids(std::unordered_set<schedule::Version> ids);
+    Options& ignore_participant_ids(
+        std::unordered_set<schedule::ParticipantId> ids);
 
     /// Get the set of schedule IDs that should be ignored.
-    std::unordered_set<schedule::Version> ignore_schedule_ids() const;
+    std::unordered_set<schedule::ParticipantId> ignore_participant_ids() const;
 
     class Implementation;
   private:

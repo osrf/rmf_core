@@ -219,11 +219,11 @@ void test_ignore_obstacle(
   REQUIRE(database_version > 0);
   const auto& start = original_plan.get_start();
   rmf_traffic::agv::Plan::Options options = original_plan.get_options();
-  std::unordered_set<rmf_traffic::schedule::Version> ignore_ids;
+  std::unordered_set<rmf_traffic::schedule::ParticipantId> ignore_ids;
   for (rmf_traffic::schedule::Version v=0; v <= database_version; ++v)
     ignore_ids.insert(v);
 
-  options.ignore_schedule_ids(std::move(ignore_ids));
+  options.ignore_participant_ids(std::move(ignore_ids));
 
   const auto new_plan = original_plan.replan(start, std::move(options));
 

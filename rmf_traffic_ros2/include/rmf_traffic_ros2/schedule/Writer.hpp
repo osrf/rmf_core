@@ -42,6 +42,9 @@ public:
   ///   The node that will manage the subscriptions of this writer
   static std::shared_ptr<Writer> make(rclcpp::Node& node);
 
+  /// Returns true if all the services needed by this writer are ready.
+  bool ready() const;
+
   /// Begin creation of a schedule participant.
   ///
   /// The node of this Writer needs to be spun in order for the Participant to
@@ -71,6 +74,8 @@ private:
   Writer(rclcpp::Node& node);
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
+
+using WriterPtr = std::shared_ptr<Writer>;
 
 } // namespace schedule
 

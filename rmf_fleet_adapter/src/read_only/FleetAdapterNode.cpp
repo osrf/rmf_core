@@ -54,10 +54,24 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
   return nullptr;
 }
 
-FleetAdapterNode::ScheduleEntry::ScheduleEntry(FleetAdapterNode* node)
+FleetAdapterNode::ScheduleEntry::ScheduleEntry(
+    FleetAdapterNode* node,
+    std::string name)
 {
+  rmf_traffic::schedule::ParticipantDescription description{
+    std::move(name),
+    node->_fleet_name,
+    rmf_traffic::schedule::ParticipantDescription::Rx::Unresponsive,
+    node->_traits.profile()
+  };
+
   make_schedule_manager(
-        *node, )
+        *node, *node->_writer, std::move(description),
+        [](){},
+        [this](ScheduleManager manager)
+  {
+    this->schedule = std::move(manager);
+  });
 }
 
 //==============================================================================
@@ -96,14 +110,14 @@ void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr state)
           std::make_pair(robot.name, nullptr));
 
     if (insertion.second)
-      submit_robot(robot, insertion.first);
-    else
+      register_robot(robot, insertion.first);
+    else if (insertion.first->second->schedule)
       update_robot(robot, insertion.first);
   }
 }
 
 //==============================================================================
-void FleetAdapterNode::push_trajectory(
+void FleetAdapterNode::push_route(
     const RobotState& state,
     const ScheduleEntries::iterator& it)
 {
@@ -112,17 +126,20 @@ void FleetAdapterNode::push_trajectory(
     it->second->path.push_back(location);
 
   it->second->cumulative_delay = std::chrono::seconds(0);
-  it->second->trajectory = make_trajectory(state, _traits, it->second->sitting);
-  it->second->schedule.push_trajectories({it->second->trajectory}, [](){});
+  it->second->route = make_route(state, _traits, it->second->sitting);
+  it->second->schedule->push_routes({*it->second->route}, [](){});
 }
 
 //==============================================================================
-void FleetAdapterNode::submit_robot(
+void FleetAdapterNode::register_robot(
     const RobotState& state,
     const ScheduleEntries::iterator& it)
 {
-  it->second = std::make_unique<ScheduleEntry>(this);
-  push_trajectory(state, it);
+  it->second = std::make_unique<ScheduleEntry>(this, state.name);
+  // TODO(MXG): We could consider queuing up the current route of this robot
+  // so that it will be broadcasted as soon as the participant is registered,
+  // but it's simpler to just wait until the next state message is received,
+  // and then modify the schedule at that point.
 }
 
 //==============================================================================
@@ -130,13 +147,10 @@ void FleetAdapterNode::update_robot(
     const RobotState& state,
     const ScheduleEntries::iterator& it)
 {
-  if (it->second->schedule.waiting())
-    return;
-
   if (handle_delay(state, it))
     return;
 
-  push_trajectory(state, it);
+  push_route(state, it);
 }
 
 //==============================================================================
@@ -144,6 +158,9 @@ bool FleetAdapterNode::handle_delay(
     const RobotState& state,
     const ScheduleEntries::iterator& it)
 {
+  if (!it->second->route)
+    return false;
+
   auto& entry = *it->second;
 
   if (entry.path.size() < state.path.size())
@@ -178,8 +195,8 @@ bool FleetAdapterNode::handle_delay(
   {
     // Check if the robot is still sitting in the same location.
     const Eigen::Vector3d p_entry =
-        entry.trajectory.back().get_finish_position();
-    assert((entry.trajectory.front().get_finish_position() - p_entry).norm() < 1e-12);
+        entry.route->trajectory().back().position();
+    assert((entry.route->trajectory().front().position() - p_entry).norm() < 1e-12);
 
     const auto& l_state = state.location;
     const Eigen::Vector3d p_state{l_state.x, l_state.y, l_state.yaw};
@@ -196,15 +213,15 @@ bool FleetAdapterNode::handle_delay(
     // TODO(MXG): Make these parameters configurable
     const auto current_time = rmf_traffic_ros2::convert(state.location.t);
     const auto next_finish_time = current_time + std::chrono::seconds(10);
-    const auto delay = next_finish_time - *entry.trajectory.finish_time();
+    const auto delay = next_finish_time - *entry.route->trajectory().finish_time();
     if (delay > std::chrono::seconds(1))
     {
       entry.cumulative_delay += delay;
       if (entry.cumulative_delay >= MaxCumulativeDelay)
         return false;
 
-      entry.trajectory.back().adjust_finish_times(delay);
-      entry.schedule.push_delay(delay, current_time);
+      entry.route->trajectory().back().adjust_times(delay);
+      entry.schedule->push_delay(delay, current_time);
     }
 
     return true;
@@ -218,7 +235,7 @@ bool FleetAdapterNode::handle_delay(
   }
 
   const auto time_difference =
-      *new_trajectory.finish_time() - *entry.trajectory.finish_time();
+      *new_trajectory.finish_time() - *entry.route->trajectory().finish_time();
 
 //  std::cout << "Calculating delay: ["
 //            << rmf_traffic::time::to_seconds(time_difference) << "]" << std::endl;
@@ -245,24 +262,24 @@ bool FleetAdapterNode::handle_delay(
   const auto from_time =
       rmf_traffic_ros2::convert(state.location.t) - time_difference;
 
-  const auto t_it = entry.trajectory.find(from_time);
-  if (t_it == entry.trajectory.end())
+  const auto t_it = entry.route->trajectory().find(from_time);
+  if (t_it == entry.route->trajectory().end())
   {
-    const auto t_start = *entry.trajectory.start_time();
+    const auto t_start = *entry.route->trajectory().start_time();
     if (from_time <= t_start)
     {
       // This is okay. It just means we will push back the entire trajectory
       // in the schedule.
-      entry.trajectory.front().adjust_finish_times(time_difference);
+      entry.route->trajectory().front().adjust_times(time_difference);
     }
     else
     {
       // I can't think of a situation where this could happen, so let's report
       // it as an error and debug it later.
       const auto t_start =
-          entry.trajectory.start_time()->time_since_epoch().count();
+          entry.route->trajectory().start_time()->time_since_epoch().count();
       const auto t_finish =
-          entry.trajectory.finish_time()->time_since_epoch().count();
+          entry.route->trajectory().finish_time()->time_since_epoch().count();
 
       RCLCPP_ERROR(
             get_logger(),
@@ -280,12 +297,12 @@ bool FleetAdapterNode::handle_delay(
   else
   {
     if (time_difference.count() < 0)
-      entry.trajectory.begin()->adjust_finish_times(time_difference);
+      entry.route->trajectory().begin()->adjust_times(time_difference);
     else
-      t_it->adjust_finish_times(time_difference);
+      t_it->adjust_times(time_difference);
   }
 
-  entry.schedule.push_delay(time_difference, from_time);
+  entry.schedule->push_delay(time_difference, from_time);
 
   // Return true to indicate that the delay has been handled.
   return true;

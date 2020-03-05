@@ -58,6 +58,7 @@ private:
   using FleetState = rmf_fleet_msgs::msg::FleetState;
   rclcpp::Subscription<FleetState>::SharedPtr _fleet_state_subscription;
 
+  rmf_traffic_ros2::schedule::WriterPtr _writer;
 
   void fleet_state_update(FleetState::UniquePtr new_state);
 
@@ -70,22 +71,20 @@ private:
     rmf_traffic::Duration cumulative_delay = rmf_traffic::Duration(0);
     bool sitting = false;
 
-    ScheduleEntry(FleetAdapterNode* node);
+    ScheduleEntry(FleetAdapterNode* node, std::string name);
   };
 
-  // TODO(MXG): We could add threads to make this adapter more efficient, but
-  // then we'll need to protect this map with a mutex.
   using ScheduleEntries =
       std::unordered_map<std::string, std::unique_ptr<ScheduleEntry>>;
   ScheduleEntries _schedule_entries;
 
   using RobotState = rmf_fleet_msgs::msg::RobotState;
 
-  void push_trajectory(
+  void push_route(
       const RobotState& state,
       const ScheduleEntries::iterator& it);
 
-  void submit_robot(
+  void register_robot(
       const RobotState& state,
       const ScheduleEntries::iterator& it);
 

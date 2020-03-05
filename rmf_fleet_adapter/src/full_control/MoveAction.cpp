@@ -39,7 +39,7 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
     const auto& plan = plans[i];
     if (plan)
     {
-      const auto finish_time = plan->get_trajectories().back().finish_time();
+      const auto finish_time = plan->get_routes().back().trajectory().finish_time();
       if (!finish_time)
       {
         // If this is an empty trajectory, then the robot is already sitting on
@@ -93,12 +93,6 @@ public:
     // Do nothing
   }
 
-  std::unordered_set<uint64_t> schedule_ids() const
-  {
-    const auto& ids = _context->schedule.ids();
-    return std::unordered_set<uint64_t>{ids.begin(), ids.end()};
-  }
-
   std::vector<rmf_traffic::agv::Plan> find_plan(
       const std::chrono::nanoseconds start_delay)
   {
@@ -131,7 +125,7 @@ public:
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
     options.interrupt_flag(&interrupt_flag);
-    options.ignore_schedule_ids(schedule_ids());
+    options.ignore_participant_ids({_context->schedule.participant_id()});
 
     bool main_plan_solved = false;
     bool main_plan_failed = false;
@@ -262,7 +256,7 @@ public:
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
     options.interrupt_flag(&interrupt_flag);
-    options.ignore_schedule_ids(schedule_ids());
+    options.ignore_participant_ids({_context->schedule.participant_id()});
 
     const auto t_spread = std::chrono::seconds(15);
     bool have_resume_plan = false;
@@ -325,50 +319,50 @@ public:
     return plans;
   }
 
-  std::vector<rmf_traffic::Trajectory> collect_trajectories(
+  std::vector<rmf_traffic::Route> collect_routes(
       std::vector<rmf_traffic::agv::Plan> plans,
       std::chrono::nanoseconds delay = std::chrono::seconds(0)) const
   {
-    std::vector<rmf_traffic::Trajectory> trajectories;
+    std::vector<rmf_traffic::Route> routes;
     bool first_trajectory = true;
     for (const auto& plan : plans)
     {
-      for (auto trajectory : plan.get_trajectories())
+      for (auto r : plan.get_routes())
       {
-        if (first_trajectory && trajectory.size() > 0)
+        if (first_trajectory && r.trajectory().size() > 0)
         {
           first_trajectory = false;
           const auto now = rmf_traffic_ros2::convert(_node->now());
-          assert(trajectory.start_time());
-          if (now < *trajectory.start_time())
+          assert(r.trajectory().start_time());
+          if (now < *r.trajectory().start_time())
           {
-            const auto& s = trajectory.front();
-            trajectory.insert(
-                  now, s.get_profile(),
-                  s.get_finish_position(),
+            const auto& s = r.trajectory().front();
+            r.trajectory().insert(
+                  now,
+                  s.position(),
                   Eigen::Vector3d::Zero());
           }
         }
 
         // If the trajectory has only one point then the robot doesn't need to
         // go anywhere.
-        if (trajectory.size() < 2)
+        if (r.trajectory().size() < 2)
           continue;
 
-        trajectory.begin()->adjust_finish_times(delay);
-        trajectories.emplace_back(std::move(trajectory));
+        r.trajectory().begin()->adjust_times(delay);
+        routes.emplace_back(std::move(r));
       }
     }
 
-    return trajectories;
+    return routes;
   }
 
 
   void execute_plan(std::vector<rmf_traffic::agv::Plan> plans)
   {
     assert(!plans.empty());
-    _context->schedule.push_trajectories(
-          collect_trajectories(plans),
+    _context->schedule.push_routes(
+          collect_routes(plans),
           [&, plans](){ command_plans(plans); });
   }
 
@@ -493,9 +487,6 @@ public:
 
     void receive(const RobotState& msg) final
     {
-      if (_parent->_context->schedule.waiting())
-        return;
-
       assert(_parent->_command || _parent->_retry_time);
 
       if (_parent->handle_docking(msg))
@@ -710,8 +701,8 @@ public:
     }
     else
     {
-      trajectory_estimate.set_map_name(_node->get_graph().get_waypoint(0).get_map_name());
-      _context->schedule.push_trajectories({trajectory_estimate}, [](){});
+      const std::string& map_name = _node->get_graph().get_waypoint(0).get_map_name();
+      _context->schedule.push_routes({{map_name, trajectory_estimate}}, [](){});
       _finish_estimate = new_finish_estimate;
       _original_finish_estimate = _finish_estimate;
     }
@@ -727,23 +718,19 @@ public:
             "Robot [" + _context->robot_name() + "] has arrived at its "
             "emergency parking spot and is waiting.");
       _waiting_on_emergency = true;
-      const auto& profile = _node->get_fields().traits.get_profile();
       const auto& p = _context->location;
       const Eigen::Vector3d position{p.x, p.y, p.yaw};
 
-      rmf_traffic::Trajectory wait_trajectory{
-        _node->get_graph().get_waypoint(0).get_map_name()
-      };
-
-      wait_trajectory.insert(now, profile, position, Eigen::Vector3d::Zero());
-
+      rmf_traffic::Trajectory wait_trajectory;
+      wait_trajectory.insert(now, position, Eigen::Vector3d::Zero());
       _finish_estimate = now + std::chrono::minutes(5);
 
       wait_trajectory.insert(
-            _finish_estimate,
-            profile, position, Eigen::Vector3d::Zero());
+            _finish_estimate, position, Eigen::Vector3d::Zero());
 
-      _context->schedule.push_trajectories({wait_trajectory}, [](){});
+      const std::string& map_name =
+          _node->get_graph().get_waypoint(0).get_map_name();
+      _context->schedule.push_routes({{map_name, wait_trajectory}}, [](){});
     }
     else
     {
@@ -1130,7 +1117,7 @@ public:
     bool interrupt_flag = false;
     auto options = planner.get_default_options();
     options.interrupt_flag(&interrupt_flag);
-    options.ignore_schedule_ids(schedule_ids());
+    options.ignore_participant_ids({_context->schedule.participant_id()});
 
     std::vector<std::thread> plan_threads;
     std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> candidate_plans;
@@ -1231,12 +1218,11 @@ public:
     auto hold = make_hold(
           _context->location,
           rmf_traffic_ros2::convert(now),
-          std::chrono::seconds(2),
-          _node->get_fields().traits);
+          std::chrono::seconds(2));
     // TODO(MXG): This is fragile. Robots ought to correctly report their level
     // name, but we can't rely on that for right now.
-    hold.set_map_name(_node->get_graph().get_waypoint(0).get_map_name());
-    _context->schedule.push_trajectories({hold}, [](){});
+    const std::string& map_name = _node->get_graph().get_waypoint(0).get_map_name();
+    _context->schedule.push_routes({{map_name, hold}}, [](){});
 
     _node->mode_request_publisher->publish(std::move(request));
   }

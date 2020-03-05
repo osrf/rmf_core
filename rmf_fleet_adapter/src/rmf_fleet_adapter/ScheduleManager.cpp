@@ -43,7 +43,8 @@ ScheduleManager::ScheduleManager(
     rclcpp::Node& node,
     rmf_traffic::schedule::Participant participant,
     std::function<void()> revision_callback)
-  : _participant(std::move(participant))
+  : _participant(std::move(participant)),
+    _revision_callback(std::move(revision_callback))
 {
 
   auto resolve_client =
@@ -55,7 +56,6 @@ ScheduleManager::ScheduleManager(
         rmf_traffic_ros2::ScheduleConflictTopicName,
         rclcpp::SystemDefaultsQoS().reliable(),
         [this,
-         revision_callback = std::move(revision_callback),
          p = participant.id()](
         const std::unique_ptr<rmf_traffic_msgs::msg::ScheduleConflict> msg)
   {
@@ -67,7 +67,7 @@ ScheduleManager::ScheduleManager(
         // conflict is active
         this->_have_conflict = true;
         this->_conflict_version = msg->conflict_version;
-        revision_callback();
+        this->_revision_callback();
         return;
       }
     }
@@ -75,7 +75,7 @@ ScheduleManager::ScheduleManager(
 }
 
 //==============================================================================
-void ScheduleManager::push_trajectories(
+void ScheduleManager::push_routes(
     const std::vector<rmf_traffic::Route>& routes,
     std::function<void()> approval_callback)
 {
@@ -124,6 +124,19 @@ void ScheduleManager::push_delay(
 }
 
 //==============================================================================
+void ScheduleManager::set_revision_callback(
+    std::function<void()> revision_callback)
+{
+  _revision_callback = std::move(revision_callback);
+}
+
+//==============================================================================
+rmf_traffic::schedule::ParticipantId ScheduleManager::participant_id() const
+{
+  return _participant.id();
+}
+
+//==============================================================================
 void ScheduleManager::resolve_trajectories(
     std::vector<rmf_traffic::Route> routes,
     std::function<void()> approval_callback)
@@ -142,7 +155,10 @@ void ScheduleManager::resolve_trajectories(
     const auto response = future.get();
 
     if (!response->error.empty())
-      throw std::runtime_error(response->error);
+    {
+      throw std::runtime_error(
+          "Error while attempting to resolve a conflict: " + response->error);
+    }
 
     if (!response->accepted)
       return;

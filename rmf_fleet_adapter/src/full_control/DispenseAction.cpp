@@ -85,9 +85,6 @@ public:
 
   void update_schedule()
   {
-    if (_context->schedule.waiting())
-      return;
-
     const auto now = _node->get_clock()->now();
 
     if (_last_reported_wait_time)
@@ -109,7 +106,7 @@ public:
     const auto l = _context->location;
     const Eigen::Vector3d position{l.x, l.y, l.yaw};
 
-    const auto& profile = _node->get_fields().traits.get_profile();
+    const auto& profile = _node->get_fields().traits.profile();
     const Eigen::Vector3d zero = Eigen::Vector3d::Zero();
 
     _last_reported_wait_time = now + _duration_estimate;
@@ -120,11 +117,12 @@ public:
     const std::string map_name =
         _node->get_graph().get_waypoint(0).get_map_name();
 
-    rmf_traffic::Trajectory trajectory{map_name};
-    trajectory.insert(start, profile, position, zero);
-    trajectory.insert(finish, profile, position, zero);
+    rmf_traffic::Trajectory trajectory;
+    trajectory.insert(start, position, zero);
+    trajectory.insert(finish, position, zero);
 
-    _context->schedule.push_trajectories({trajectory}, [](){});
+    _context->schedule.push_routes(
+        {{std::move(map_name), std::move(trajectory)}}, [](){});
   }
 
   void finish()

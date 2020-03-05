@@ -360,6 +360,13 @@ std::shared_ptr<Writer> Writer::make(rclcpp::Node& node)
 }
 
 //==============================================================================
+bool Writer::ready() const
+{
+  return _pimpl->register_client->service_is_ready()
+      && _pimpl->unregister_client->service_is_ready();
+}
+
+//==============================================================================
 std::future<rmf_traffic::schedule::Participant> Writer::make_participant(
     rmf_traffic::schedule::ParticipantDescription description)
 {
