@@ -374,6 +374,20 @@ void Writer::wait_for_service() const
 }
 
 //==============================================================================
+bool Writer::wait_for_service(rmf_traffic::Time stop) const
+{
+  bool ready = true;
+
+  ready &= _pimpl->register_client->wait_for_service(
+        stop - std::chrono::steady_clock::now());
+
+  ready &= _pimpl->unregister_client->wait_for_service(
+        stop - std::chrono::steady_clock::now());
+
+  return ready;
+}
+
+//==============================================================================
 std::future<rmf_traffic::schedule::Participant> Writer::make_participant(
     rmf_traffic::schedule::ParticipantDescription description)
 {

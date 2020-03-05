@@ -46,9 +46,16 @@ public:
   bool ready() const;
 
   /// Wait for the necessary services to be available.
-  //
-  // TODO(MXG): Consider accepting a timeout argument
   void wait_for_service() const;
+
+  /// Wait for the necessary services to be available, or for the time point to
+  /// be reached, whichever happens first.
+  ///
+  /// \param[in] stop
+  ///   The maximum time point that this will wait until
+  ///
+  /// \return true if the necessary services are now available, false otherwise.
+  bool wait_for_service(rmf_traffic::Time stop) const;
 
   /// Begin creation of a schedule participant.
   ///

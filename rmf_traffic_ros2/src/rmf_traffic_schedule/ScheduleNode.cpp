@@ -23,6 +23,7 @@
 #include <rmf_traffic_ros2/schedule/Query.hpp>
 #include <rmf_traffic_ros2/schedule/Patch.hpp>
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
+#include <rmf_traffic_ros2/schedule/ParticipantDescription.hpp>
 #include <rmf_traffic_ros2/schedule/Inconsistencies.hpp>
 
 #include <rmf_traffic/DetectConflict.hpp>
@@ -95,6 +96,22 @@ ScheduleNode::ScheduleNode()
             const UnregisterQuery::Request::SharedPtr request,
             const UnregisterQuery::Response::SharedPtr response)
         { this->unregister_query(request_header, request, response); });
+
+  register_participant_service =
+      create_service<RegisterParticipant>(
+        rmf_traffic_ros2::RegisterParticipantSrvName,
+        [=](const request_id_ptr request_header,
+            const RegisterParticipant::Request::SharedPtr request,
+            const RegisterParticipant::Response::SharedPtr response)
+        { this->register_participant(request_header, request, response); });
+
+  unregister_participant_service =
+      create_service<UnregisterParticipant>(
+        rmf_traffic_ros2::UnregisterParticipantSrvName,
+        [=](const request_id_ptr request_header,
+            const UnregisterParticipant::Request::SharedPtr request,
+            const UnregisterParticipant::Response::SharedPtr response)
+        { this->unregister_participant(request_header, request, response); });
 
   mirror_update_service =
       create_service<MirrorUpdate>(
@@ -213,17 +230,20 @@ ScheduleNode::ScheduleNode()
       const auto conflicts = get_conflicts(view_changes, mirror);
       if (!conflicts.empty())
       {
+        // TODO(MXG): Skip creating a new conflict if all the conflicting
+        // participants are the same as last time.
+        const auto conflict_version = ++next_conflict_version;
         {
           std::unique_lock<std::mutex> lock(active_conflicts_mutex);
           active_conflicts.insert(
-                std::make_pair(last_checked_version, conflicts));
+                std::make_pair(conflict_version, conflicts));
         }
 
         ScheduleConflict msg;
         for (const auto c : conflicts)
           msg.participants.push_back(c);
 
-        msg.conflict_version = last_checked_version;
+        msg.conflict_version = conflict_version;
 
         conflict_publisher->publish(std::move(msg));
       }
@@ -312,6 +332,77 @@ void ScheduleNode::unregister_query(
   RCLCPP_INFO(
         get_logger(),
         "[" + std::to_string(request->query_id) + "] Unregistered query");
+}
+
+//==============================================================================
+void ScheduleNode::register_participant(
+    const request_id_ptr& /*request_header*/,
+    const RegisterParticipant::Request::SharedPtr& request,
+    const RegisterParticipant::Response::SharedPtr& response)
+{
+  std::unique_lock<std::mutex> lock(database_mutex);
+
+  // TODO(MXG): Use try on every database operation
+  try
+  {
+    response->participant_id = database.register_participant(
+          rmf_traffic_ros2::convert(request->description));
+
+    RCLCPP_INFO(
+          get_logger(),
+          "Registered participant [" + request->description.name
+          + "] owned by [" + request->description.owner + "]");
+  }
+  catch (const std::exception& e)
+  {
+    RCLCPP_ERROR(
+          get_logger(),
+          "Failed to register participant [" + request->description.name
+          + "] owned by [" + request->description.owner + "]:" + e.what());
+    response->error = e.what();
+  }
+}
+
+//==============================================================================
+void ScheduleNode::unregister_participant(
+    const request_id_ptr& /*request_header*/,
+    const UnregisterParticipant::Request::SharedPtr& request,
+    const UnregisterParticipant::Response::SharedPtr& response)
+{
+  std::unique_lock<std::mutex> lock(database_mutex);
+
+  const auto* p = database.get_participant(request->participant_id);
+  if (!p)
+  {
+    response->error =
+        "Failed to unregister participant ["
+        + std::to_string(request->participant_id) + "] because no "
+        "participant has that ID";
+    response->confirmation = false;
+
+    RCLCPP_ERROR(get_logger(), response->error);
+    return;
+  }
+
+  try
+  {
+    database.unregister_participant(request->participant_id);
+    response->confirmation = true;
+
+    RCLCPP_INFO(
+          get_logger(),
+          "Unregistered participant [" + p->name() + "] owned by ["
+          + p->owner() + "]");
+  }
+  catch (const std::exception& e)
+  {
+    RCLCPP_ERROR(
+          get_logger(),
+          "Failed to unregister participant ["
+          + std::to_string(request->participant_id) + "]:" + e.what());
+    response->error = e.what();
+    response->confirmation = false;
+  }
 }
 
 //==============================================================================

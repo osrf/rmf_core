@@ -37,6 +37,9 @@
 #include <rmf_traffic_msgs/srv/register_query.hpp>
 #include <rmf_traffic_msgs/srv/mirror_update.h>
 #include <rmf_traffic_msgs/srv/unregister_query.hpp>
+#include <rmf_traffic_msgs/srv/register_participant.hpp>
+#include <rmf_traffic_msgs/srv/unregister_participant.hpp>
+
 
 
 
@@ -81,6 +84,28 @@ private:
       const UnregisterQuery::Response::SharedPtr& response);
 
   UnregisterQueryService::SharedPtr unregister_query_service;
+
+
+  using RegisterParticipant = rmf_traffic_msgs::srv::RegisterParticipant;
+  using RegisterParticipantSrv = rclcpp::Service<RegisterParticipant>;
+
+  void register_participant(
+      const request_id_ptr& request_header,
+      const RegisterParticipant::Request::SharedPtr& request,
+      const RegisterParticipant::Response::SharedPtr& response);
+
+  RegisterParticipantSrv::SharedPtr register_participant_service;
+
+
+  using UnregisterParticipant = rmf_traffic_msgs::srv::UnregisterParticipant;
+  using UnregisterParticipantSrv = rclcpp::Service<UnregisterParticipant>;
+
+  void unregister_participant(
+      const request_id_ptr& request_header,
+      const UnregisterParticipant::Request::SharedPtr& request,
+      const UnregisterParticipant::Response::SharedPtr& response);
+
+  UnregisterParticipantSrv::SharedPtr unregister_participant_service;
 
 
   using MirrorUpdate = rmf_traffic_msgs::srv::MirrorUpdate;

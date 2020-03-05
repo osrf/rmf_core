@@ -46,7 +46,16 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
   node->_delay_threshold =
       get_parameter_or_default_time(*node, "delay_threshold", 5.0);
 
+  node->_writer = rmf_traffic_ros2::schedule::Writer::make(*node);
+
   const auto stop_time = std::chrono::steady_clock::now() + wait_time;
+  while (rclcpp::ok() && std::chrono::steady_clock::now() < stop_time)
+  {
+    rclcpp::spin_some(node);
+
+    if (node->_writer->ready())
+      return node;
+  }
 
   RCLCPP_INFO(
         node->get_logger(),
@@ -54,6 +63,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
   return nullptr;
 }
 
+//==============================================================================
 FleetAdapterNode::ScheduleEntry::ScheduleEntry(
     FleetAdapterNode* node,
     std::string name)
