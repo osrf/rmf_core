@@ -45,6 +45,11 @@ public:
   /// Returns true if all the services needed by this writer are ready.
   bool ready() const;
 
+  /// Wait for the necessary services to be available.
+  //
+  // TODO(MXG): Consider accepting a timeout argument
+  void wait_for_service() const;
+
   /// Begin creation of a schedule participant.
   ///
   /// The node of this Writer needs to be spun in order for the Participant to

@@ -367,6 +367,13 @@ bool Writer::ready() const
 }
 
 //==============================================================================
+void Writer::wait_for_service() const
+{
+  _pimpl->register_client->wait_for_service();
+  _pimpl->unregister_client->wait_for_service();
+}
+
+//==============================================================================
 std::future<rmf_traffic::schedule::Participant> Writer::make_participant(
     rmf_traffic::schedule::ParticipantDescription description)
 {
