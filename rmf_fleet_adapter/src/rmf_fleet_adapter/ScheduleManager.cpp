@@ -182,11 +182,15 @@ std::future<ScheduleManager> make_schedule_manager(
          description = std::move(description),
          revision_callback = std::move(revision_callback)]() -> ScheduleManager
   {
+    std::cout << " -- asking for a participant for " << description.name() << std::endl;
     auto participant_future = writer.make_participant(std::move(description));
+
+    std::cout << " -- waiting for a participant" << std::endl;
     participant_future.wait();
 
     auto participant = participant_future.get();
 
+    std::cout << " -- returning a schedule manager" << std::endl;
     return ScheduleManager(
           node,
           std::move(participant),
@@ -195,26 +199,28 @@ std::future<ScheduleManager> make_schedule_manager(
 }
 
 //==============================================================================
-void make_schedule_manager(
+void async_make_schedule_manager(
     rclcpp::Node& node,
     rmf_traffic_ros2::schedule::Writer& writer,
     rmf_traffic::schedule::ParticipantDescription description,
     std::function<void()> revision_callback,
     std::function<void(ScheduleManager)> ready_callback)
 {
-  std::async(
-        std::launch::async,
+  std::cout << " -- asking for a schedule manager for " << description.name() << std::endl;
+  writer.async_make_participant(
+        std::move(description),
         [&node,
-         &writer,
-         description = std::move(description),
          revision_callback = std::move(revision_callback),
-         ready_callback = std::move(ready_callback)]
+         ready_callback = std::move(ready_callback)](
+        rmf_traffic::schedule::Participant participant)
   {
-    auto future = make_schedule_manager(
-          node, writer, std::move(description), std::move(revision_callback));
-
-    future.wait();
-    ready_callback(future.get());
+    std::cout << " -- participant ready, triggering ready_callback" << std::endl;
+    ready_callback(
+          ScheduleManager{
+            node,
+            std::move(participant),
+            std::move(revision_callback)
+          });
   });
 }
 

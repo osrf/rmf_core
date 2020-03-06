@@ -18,6 +18,10 @@
 #include "ParticipantInternal.hpp"
 #include "RectifierInternal.hpp"
 
+
+#include <iostream>
+
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -98,6 +102,12 @@ Participant::Implementation::Implementation(
   _writer(writer)
 {
   // Do nothing
+}
+
+Participant::Implementation::~Implementation()
+{
+  // Unregister the participant during destruction
+  _writer.unregister_participant(_id);
 }
 
 //==============================================================================
@@ -279,12 +289,6 @@ const ParticipantDescription& Participant::description() const
 ParticipantId Participant::id() const
 {
   return _pimpl->_id;
-}
-
-//==============================================================================
-Participant::~Participant()
-{
-  _pimpl->_writer.unregister_participant(_pimpl->_id);
 }
 
 //==============================================================================

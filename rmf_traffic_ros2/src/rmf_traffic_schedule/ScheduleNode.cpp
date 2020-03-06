@@ -210,14 +210,19 @@ ScheduleNode::ScheduleNode()
           continue;
         }
 
+        std::cout << "changes since " << last_checked_version << std::endl;
         next_patch = database.changes(query_all, last_checked_version);
-        view_changes = database.query(query_all, last_checked_version);
+        std::cout << "patch " << last_checked_version << ":\n";
+        std::cout << "registered: " << next_patch->registered().size() << "\n";
+        std::cout << "unregistered: " << next_patch->unregistered().size() << "\n";
+        std::cout << std::endl;
 
         // TODO(MXG): Check whether the database really needs to remain locked
         // during this update.
         try
         {
           mirror.update(*next_patch);
+          view_changes = database.query(query_all, last_checked_version);
           last_checked_version = next_patch->latest_version();
         }
         catch(const std::exception& e)
@@ -249,6 +254,9 @@ ScheduleNode::ScheduleNode()
       }
       else
       {
+        // FIXME(MXG): We need to re-check any participants that were previously
+        // in a conflcit if their trajectories didn't get changed this time.
+
         // There are no more conflicts, so we can clear this map
         active_conflicts.clear();
       }
@@ -350,8 +358,9 @@ void ScheduleNode::register_participant(
 
     RCLCPP_INFO(
           get_logger(),
-          "Registered participant [" + request->description.name
-          + "] owned by [" + request->description.owner + "]");
+          "Registered participant [" + std::to_string(response->participant_id)
+          + "] named [" + request->description.name + "] owned by ["
+          + request->description.owner + "]");
   }
   catch (const std::exception& e)
   {
@@ -386,13 +395,18 @@ void ScheduleNode::unregister_participant(
 
   try
   {
+    // We need to copy this data before the participant is unregistered, because
+    // unregistering it will invalidate the pointer p.
+    const std::string name = p->name();
+    const std::string owner = p->owner();
+
     database.unregister_participant(request->participant_id);
     response->confirmation = true;
 
     RCLCPP_INFO(
           get_logger(),
-          "Unregistered participant [" + p->name() + "] owned by ["
-          + p->owner() + "]");
+          "Unregistered participant [" + std::to_string(request->participant_id)
+          +"] named [" + name + "] owned by [" + owner + "]");
   }
   catch (const std::exception& e)
   {

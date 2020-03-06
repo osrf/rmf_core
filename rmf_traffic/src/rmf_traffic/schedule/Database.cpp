@@ -112,7 +112,15 @@ public:
 
   using ParticipantRegistrationVersions = std::map<Version, ParticipantId>;
   ParticipantRegistrationVersions add_participant_version;
-  ParticipantRegistrationVersions remove_participant_version;
+
+  struct RemoveParticipantInfo
+  {
+    ParticipantId id;
+    Version original_version;
+  };
+  using ParticipantUnregistrationVersion =
+      std::map<Version, RemoveParticipantInfo>;
+  ParticipantUnregistrationVersion remove_participant_version;
 
   using ParticipantRegistrationTime = std::map<Time, Version>;
   ParticipantRegistrationTime remove_participant_time;
@@ -626,7 +634,7 @@ void Database::unregister_participant(
   _pimpl->states.erase(state_it);
 
   const Version version = ++_pimpl->schedule_version;
-  _pimpl->remove_participant_version[version] = participant;
+  _pimpl->remove_participant_version[version] = {participant, initial_version};
   _pimpl->remove_participant_time[_pimpl->current_time] = version;
 }
 
@@ -1032,7 +1040,12 @@ auto Database::changes(
 
     auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
     for (; remove_it != _pimpl->remove_participant_version.end(); ++remove_it)
-      unregistered.emplace_back(remove_it->second);
+    {
+      // We should only unregister this if it was registered before the last
+      // update to this mirror
+      if (remove_it->second.original_version <= *after)
+        unregistered.emplace_back(remove_it->second.id);
+    }
   }
   else
   {

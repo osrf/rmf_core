@@ -343,9 +343,17 @@ public:
            this,
            ready_callback = std::move(ready_callback)]()
     {
-      ready_callback(
-            rmf_traffic::schedule::make_participant(
-              std::move(description), *this, &rectifier_factory));
+      auto participant = rmf_traffic::schedule::make_participant(
+            std::move(description), *this, &rectifier_factory);
+
+      if (ready_callback)
+        ready_callback(std::move(participant));
+      else
+        std::cout << "No ready_callback???" << std::endl;
+
+//      ready_callback(
+//            rmf_traffic::schedule::make_participant(
+//              std::move(description), *this, &rectifier_factory));
     });
 
     worker.detach();

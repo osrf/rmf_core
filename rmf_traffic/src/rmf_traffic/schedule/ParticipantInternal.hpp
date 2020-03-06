@@ -50,6 +50,8 @@ public:
       ParticipantDescription description,
       Writer& writer);
 
+  ~Implementation();
+
 private:
   friend class Participant;
 

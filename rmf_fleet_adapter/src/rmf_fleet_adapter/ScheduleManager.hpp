@@ -89,7 +89,7 @@ std::future<ScheduleManager> make_schedule_manager(
     std::function<void()> revision_callback);
 
 //==============================================================================
-void make_schedule_manager(
+void async_make_schedule_manager(
     rclcpp::Node& node,
     rmf_traffic_ros2::schedule::Writer& writer,
     rmf_traffic::schedule::ParticipantDescription description,
