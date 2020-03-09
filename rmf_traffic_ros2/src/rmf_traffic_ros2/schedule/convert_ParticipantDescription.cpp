@@ -41,6 +41,7 @@ rmf_traffic_msgs::msg::ParticipantDescription convert(
   output.name = from.name();
   output.owner = from.owner();
   output.responsiveness = static_cast<uint8_t>(from.responsiveness());
+  output.profile = convert(from.profile());
 
   return output;
 }
