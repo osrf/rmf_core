@@ -453,6 +453,7 @@ void ScheduleNode::itinerary_set(const ItinerarySet& set)
         rmf_traffic_ros2::convert(set.itinerary),
         set.itinerary_version);
 
+  std::cout << " === SETTING ITINERARY [" << set.participant << "]" << std::endl;
   publish_inconsistencies(set.participant);
   wakeup_mirrors();
 }

@@ -66,7 +66,7 @@ private:
   using ChangeHistory =
       std::map<RouteId, std::function<void()>, ModularLess<RouteId>>;
 
-  Writer::Input itinerary;
+  Writer::Input _current_itinerary;
 
   ChangeHistory _change_history;
   RouteId _last_route_id = std::numeric_limits<RouteId>::max();

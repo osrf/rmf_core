@@ -34,6 +34,9 @@ rmf_traffic::schedule::Writer::Input convert(
           });
   }
 
+  std::cout << " === CONVERT MSG [" << from.size() << "] --> WRITER ["
+            << output.size() << std::endl;
+
   return output;
 }
 
@@ -48,7 +51,11 @@ std::vector<rmf_traffic_msgs::msg::ScheduleWriterItem> convert(
     msg.id = item.id;
     assert(item.route);
     msg.route = convert(*item.route);
+    output.push_back(std::move(msg));
   }
+
+  std::cout << " === CONVERT WRITER [" << from.size() << "] --> MSG ["
+            << output.size() << "]" << std::endl;
 
   return output;
 }

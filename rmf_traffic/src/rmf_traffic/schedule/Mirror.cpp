@@ -117,6 +117,8 @@ public:
         // overwrite the old one.
       }
 
+      std::cout << " -- ADDING ROUTE [" << participant << ":" << route_id << "]" << std::endl;
+
       auto route = std::make_shared<Route>(*item.route);
 
       auto& entry = insertion.first->second;

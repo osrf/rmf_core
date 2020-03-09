@@ -68,6 +68,8 @@ rmf_traffic_msgs::msg::ScheduleParticipantPatch convert(
         from.additions().items());
   output.delays = convert_vector<rmf_traffic_msgs::msg::ScheduleChangeDelay>(
         from.delays());
+  std::cout << " === CONVERTING ADDITIONS [" << from.additions().items().size()
+            << "] --> [" << output.additions.size() << "]" << std::endl;
 
   return output;
 }
