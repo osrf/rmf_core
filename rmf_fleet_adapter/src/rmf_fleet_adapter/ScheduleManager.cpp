@@ -56,15 +56,13 @@ ScheduleManager::ScheduleManager(
         rmf_traffic_ros2::ScheduleConflictTopicName,
         rclcpp::SystemDefaultsQoS().reliable(),
         [this,
-         p = participant.id()](
+         p = _participant.id()](
         const std::unique_ptr<rmf_traffic_msgs::msg::ScheduleConflict> msg)
   {
     for (const auto m : msg->participants)
     {
       if (m == p)
       {
-        // TODO(MXG): Fix this. ScheduleManager needs to be informed that a
-        // conflict is active
         this->_have_conflict = true;
         this->_conflict_version = msg->conflict_version;
         this->_revision_callback();

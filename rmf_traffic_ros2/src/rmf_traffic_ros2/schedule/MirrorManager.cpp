@@ -125,10 +125,14 @@ public:
               + std::to_string(response->patch.latest_version)
               + "]: " + std::to_string(patch.size()) + " changes");
 
+        std::cout << " ===== UPDATING" << std::endl;
+
         std::mutex* update_mutex = options.update_mutex();
         if (update_mutex)
         {
+          std::cout << " == WAITING FOR MUTEX" << std::endl;
           std::lock_guard<std::mutex> lock(*update_mutex);
+          std::cout << " == RECEIVED MUTEX" << std::endl;
           mirror.update(patch);
         }
         else

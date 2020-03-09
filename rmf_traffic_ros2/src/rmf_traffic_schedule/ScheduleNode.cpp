@@ -454,7 +454,7 @@ void ScheduleNode::itinerary_set(const ItinerarySet& set)
         set.itinerary_version);
 
   publish_inconsistencies(set.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -467,7 +467,7 @@ void ScheduleNode::itinerary_extend(const ItineraryExtend& extend)
         extend.itinerary_version);
 
   publish_inconsistencies(extend.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -481,7 +481,7 @@ void ScheduleNode::itinerary_delay(const ItineraryDelay& delay)
         delay.itinerary_version);
 
   publish_inconsistencies(delay.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -495,7 +495,7 @@ void ScheduleNode::itinerary_erase(const ItineraryErase& erase)
         erase.itinerary_version);
 
   publish_inconsistencies(erase.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -505,7 +505,7 @@ void ScheduleNode::itinerary_clear(const ItineraryClear& clear)
   database.erase(clear.participant, clear.itinerary_version);
 
   publish_inconsistencies(clear.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
