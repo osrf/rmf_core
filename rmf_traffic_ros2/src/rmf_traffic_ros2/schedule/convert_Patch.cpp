@@ -18,6 +18,12 @@
 #include <rmf_traffic_ros2/schedule/Patch.hpp>
 #include <rmf_traffic_ros2/schedule/Change.hpp>
 
+
+
+#include <iostream>
+
+
+
 using Time = rmf_traffic::Time;
 using Duration = rmf_traffic::Duration;
 
@@ -98,6 +104,8 @@ rmf_traffic_msgs::msg::SchedulePatch convert(
   if (const auto& cull = from.cull())
     output.cull.emplace_back(convert(*cull));
 
+  output.latest_version = from.latest_version();
+
   return output;
 }
 
@@ -115,6 +123,7 @@ rmf_traffic::schedule::Patch convert(
   if (!from.cull.empty())
     cull = convert(from.cull.front());
 
+  std::cout << " ---- CONVERTING FROM LATEST VERSION [" << from.latest_version << "]" << std::endl;
   return rmf_traffic::schedule::Patch{
     std::move(unregister),
     convert_vector<rmf_traffic::schedule::Change::RegisterParticipant>(from.register_participants),

@@ -1033,6 +1033,9 @@ auto Database::changes(
     auto add_it = _pimpl->add_participant_version.upper_bound(after_v);
     for (; add_it != _pimpl->add_participant_version.end(); ++add_it)
     {
+      std::cout << " ---- ADDING PARTICIPANT [" << add_it->second
+                << "] REGISTERED IN VERSION [" << add_it->first
+                << "] WHICH COMES AFTER [" << after_v << "]" << std::endl;
       const auto p_it = _pimpl->states.find(add_it->second);
       assert(p_it != _pimpl->states.end());
       registered.emplace_back(p_it->first, *p_it->second.description);
@@ -1049,6 +1052,7 @@ auto Database::changes(
   }
   else
   {
+    std::cout << " ~~~~~ ADDING ALL PARTICIPANTS" << std::endl;
     // If this is a mirror's first pull from the database, then we should send
     // all the participant information.
     for (const auto& p : _pimpl->states)
