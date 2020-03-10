@@ -19,6 +19,9 @@
 #define SRC__RMF_TRAFFIC__SCHEDULE__DEBUG_DATABASE_HPP
 
 #include <rmf_traffic/schedule/Database.hpp>
+#include <rmf_traffic/schedule/Writer.hpp>
+
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -38,6 +41,12 @@ public:
   /// disappear when the database is culled from a time that comes after the
   /// unregistering time.
   static std::size_t current_removed_participant_count(const Database& db);
+  
+  // Returns the itinerary of a participant with given ParticipantId in the form
+  // of Writer::Input
+  static rmf_utils::optional<Writer::Input> get_itinerary(
+      const Database& db,
+      const ParticipantId participant);
 
 };
 

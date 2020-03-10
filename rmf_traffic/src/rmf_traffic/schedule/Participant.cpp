@@ -16,10 +16,17 @@
 */
 
 #include "ParticipantInternal.hpp"
+#include "debug_Participant.hpp"
 #include "RectifierInternal.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
+
+//==============================================================================
+ItineraryVersion Participant::Debug::get_itinerary_version(const Participant& p)
+{
+  return p._pimpl->current_version();
+}
 
 //==============================================================================
 Participant Participant::Implementation::make(
@@ -100,6 +107,7 @@ Participant::Implementation::Implementation(
   // Do nothing
 }
 
+//==============================================================================
 Participant::Implementation::~Implementation()
 {
   // Unregister the participant during destruction
@@ -197,18 +205,27 @@ RouteId Participant::extend(const std::vector<Route>& additional_routes)
 //==============================================================================
 void Participant::delay(Time from, Duration delay)
 {
+  bool no_delays = true;
   for (auto& item : _pimpl->_current_itinerary)
   {
     const auto& original_trajectory = item.route->trajectory();
-    const auto old_it = original_trajectory.find(from);
+    const auto old_it = original_trajectory.lower_bound(from);
     if (old_it == original_trajectory.end())
       continue;
 
+    no_delays = false;
     auto new_trajectory = original_trajectory;
-    const auto new_it = new_trajectory.find(from);
+    const auto new_it = new_trajectory.lower_bound(from);
     new_it->adjust_times(delay);
 
     item.route = std::make_shared<Route>(item.route->map(), new_trajectory);
+  }
+
+  if (no_delays)
+  {
+    // We don't need to make any changes, because the delay doesn't apply to
+    // any routes in the itinerary.
+    return;
   }
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
@@ -262,7 +279,10 @@ void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 void Participant::clear()
 {
   if (_pimpl->_current_itinerary.empty())
+  {
+    // There is nothing to clear, so we can skip this change
     return;
+  }
 
   _pimpl->_current_itinerary.clear();
 

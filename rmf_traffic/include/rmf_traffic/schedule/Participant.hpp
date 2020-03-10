@@ -103,6 +103,7 @@ public:
   ~Participant() = default;
 
   class Implementation;
+  class Debug;
 private:
   // The constructor for this class is private. It should only be constructed
   // using make_participant

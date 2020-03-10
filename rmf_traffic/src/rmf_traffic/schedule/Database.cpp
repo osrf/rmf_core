@@ -365,6 +365,26 @@ std::size_t Database::Debug::current_removed_participant_count(
 }
 
 //==============================================================================
+rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
+    const Database& database,
+    const ParticipantId participant)
+{
+  const auto state_it = database._pimpl->states.find(participant);
+  if (state_it == database._pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  const Implementation::ParticipantState& state = state_it->second;
+
+  Writer::Input itinerary;
+  itinerary.reserve(state.active_routes.size());
+  for (const RouteId route : state.active_routes)
+    itinerary.push_back({route, state.storage.at(route)->route});
+
+  return std::move(itinerary);
+}
+
+//==============================================================================
+
 void Database::set(
     ParticipantId participant,
     const Input& input,
@@ -626,6 +646,8 @@ void Database::unregister_participant(
           + std::to_string(state_it == _pimpl->states.end())
           + "]. Please report this as a serious bug!");
   }
+
+  _pimpl->inconsistencies._pimpl->unregister_participant(participant);
 
   const Version initial_version = state_it->second.initial_schedule_version;
   _pimpl->add_participant_version.erase(initial_version);
