@@ -41,7 +41,7 @@ public:
   /// disappear when the database is culled from a time that comes after the
   /// unregistering time.
   static std::size_t current_removed_participant_count(const Database& db);
-  
+
   // Returns the itinerary of a participant with given ParticipantId in the form
   // of Writer::Input
   static rmf_utils::optional<Writer::Input> get_itinerary(

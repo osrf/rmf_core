@@ -130,7 +130,7 @@ inline void CHECK_EQUAL_TRAJECOTRY(
   REQUIRE(t1.finish_time());
   REQUIRE(t2.start_time());
   REQUIRE(t2.finish_time());
-  
+
   auto t1_it = t1.begin();
   auto t2_it = t2.begin();
 
@@ -344,8 +344,7 @@ SCENARIO("Test Participant")
         std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.itinerary().size() == 0);
 
-    // Should the writer add a delay change to the database when participant
-    // itinerary is empty? 
+    // We do not need to transmit a delay when the itinerary is empty
     CHECK(db.latest_version() == dbv);
 
     CHECK(p1.last_route_id() ==
@@ -532,7 +531,7 @@ SCENARIO("Test Participant")
     CHECK(db.inconsistencies().begin()->participant == p1.id());
     CHECK(db.inconsistencies().begin()->ranges.size() != 0);
 
-    // Fix inconsistencies 
+    // Fix inconsistencies
     rectifier.rectify();
     CHECK(db.latest_version() == ++(++dbv));
     CHECK_ITINERARY(p1, db);
@@ -581,7 +580,7 @@ SCENARIO("Test Participant")
   GIVEN("Changes: sddxeX")
   {
     writer.drop_packets = true;
-    
+
     // Set the participant itinerary
     p1.set({Route{"test_map", t1}});
     CHECK(p1.itinerary().size() == 1);
@@ -619,7 +618,7 @@ SCENARIO("Test Participant")
     CHECK(db.get_itinerary(p1.id())->empty());
 
     writer.drop_packets = false;
-    
+
     // Extend the itinerary
     p1.extend({Route{"test_map_2", t3}});
     CHECK(p1.itinerary().size() == 3);
