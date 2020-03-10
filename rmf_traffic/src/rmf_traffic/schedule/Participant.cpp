@@ -18,10 +18,6 @@
 #include "ParticipantInternal.hpp"
 #include "RectifierInternal.hpp"
 
-
-#include <iostream>
-
-
 namespace rmf_traffic {
 namespace schedule {
 
@@ -161,7 +157,6 @@ RouteId Participant::set(std::vector<Route> itinerary)
   const ParticipantId id = _pimpl->_id;
   auto change = [this, input = std::move(input), itinerary_version, id]()
   {
-    std::cout << " === Sending a set change of [" << input.size() << "]" << std::endl;
     this->_pimpl->_writer.set(id, input, itinerary_version);
   };
 
@@ -266,6 +261,9 @@ void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 //==============================================================================
 void Participant::clear()
 {
+  if (_pimpl->_current_itinerary.empty())
+    return;
+
   _pimpl->_current_itinerary.clear();
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();

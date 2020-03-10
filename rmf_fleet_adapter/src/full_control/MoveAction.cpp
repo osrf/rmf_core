@@ -684,10 +684,13 @@ public:
 
     if (new_delay < std::chrono::seconds(0))
     {
-      RCLCPP_WARN(
-            _node->get_logger(),
-            "Ignoring negative delay ["
-            + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
+      if (new_delay < std::chrono::seconds(-5))
+      {
+        RCLCPP_WARN(
+              _node->get_logger(),
+              "Ignoring big negative delay ["
+              + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
+      }
       return;
     }
 
