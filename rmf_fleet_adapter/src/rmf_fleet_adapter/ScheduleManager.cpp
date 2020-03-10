@@ -22,7 +22,6 @@
 
 namespace rmf_fleet_adapter {
 
-
 namespace {
 //==============================================================================
 std::vector<rmf_traffic_msgs::msg::Trajectory> convert(
@@ -180,18 +179,9 @@ std::future<ScheduleManager> make_schedule_manager(
          description = std::move(description),
          revision_callback = std::move(revision_callback)]() -> ScheduleManager
   {
-    std::cout << " -- asking for a participant for " << description.name() << std::endl;
-    auto participant_future = writer.make_participant(std::move(description));
-
-    std::cout << " -- waiting for a participant" << std::endl;
-    participant_future.wait();
-
-    auto participant = participant_future.get();
-
-    std::cout << " -- returning a schedule manager" << std::endl;
     return ScheduleManager(
           node,
-          std::move(participant),
+          writer.make_participant(std::move(description)).get(),
           std::move(revision_callback));
   });
 }
@@ -204,7 +194,6 @@ void async_make_schedule_manager(
     std::function<void()> revision_callback,
     std::function<void(ScheduleManager)> ready_callback)
 {
-  std::cout << " -- asking for a schedule manager for " << description.name() << std::endl;
   writer.async_make_participant(
         std::move(description),
         [&node,
@@ -212,7 +201,6 @@ void async_make_schedule_manager(
          ready_callback = std::move(ready_callback)](
         rmf_traffic::schedule::Participant participant)
   {
-    std::cout << " -- participant ready, triggering ready_callback" << std::endl;
     ready_callback(
           ScheduleManager{
             node,

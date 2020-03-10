@@ -117,8 +117,6 @@ public:
         // overwrite the old one.
       }
 
-      std::cout << " -- ADDING ROUTE [" << participant << ":" << route_id << "]" << std::endl;
-
       auto route = std::make_shared<Route>(*item.route);
 
       auto& entry = insertion.first->second;
@@ -274,7 +272,6 @@ Version Mirror::update(const Patch& patch)
   for (const auto& registered : patch.registered())
   {
     const ParticipantId id = registered.id();
-    std::cout << " ---- REGISTERING PARTICIPANT: " << id << std::endl;
     const bool inserted = _pimpl->states.insert(
           std::make_pair(
             id,
@@ -332,8 +329,6 @@ Version Mirror::update(const Patch& patch)
   }
 
   _pimpl->latest_version = patch.latest_version();
-  std::cout << " ---- UPDATED LATEST MIRROR VERSION TO [" << _pimpl->latest_version
-            << "]" << std::endl;
   return _pimpl->latest_version;
 }
 

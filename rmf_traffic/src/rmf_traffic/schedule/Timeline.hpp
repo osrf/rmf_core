@@ -163,8 +163,6 @@ public:
   void insert(Entry& entry)
   {
     std::vector<std::weak_ptr<Bucket>> buckets;
-    std::cout << " === ADDING [" << entry.participant << ":" << entry.route_id
-              << "] TO THE ALL BUCKET" << std::endl;
     _all_bucket->push_back(&entry);
     buckets.emplace_back(_all_bucket);
 
@@ -278,20 +276,13 @@ private:
       const ParticipantFilter& participant_filter,
       Inspector& inspector) const
   {
-    std::cout << " --- IN THE ALL BUCKET" << std::endl;
     Checked checked;
 
     const auto relevant = [](const Entry&) -> bool { return true; };
     for (const auto& entry : *_all_bucket)
     {
-      std::cout << " --- TIMELINE [" << entry->participant << ":" << entry->route_id
-                << "]" << std::endl;
       if (participant_filter.ignore(entry->participant))
-      {
-        std::cout << " --- PARTICIPANT FILTER IGNORING ["
-                  << entry->participant << "]" << std::endl;
         continue;
-      }
 
       if (!checked[entry->participant].insert(entry->route_id).second)
         continue;

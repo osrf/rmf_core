@@ -343,17 +343,16 @@ public:
            this,
            ready_callback = std::move(ready_callback)]()
     {
+      // TODO(MXG): We could probably make an implementation of the
+      // RectifierFactory that allows us to pass the ready_callback along to
+      // the service call so that it gets triggered when the service response is
+      // received. That way we don't need to create an additional thread here
+      // and worry about the threat of race conditions.
       auto participant = rmf_traffic::schedule::make_participant(
             std::move(description), *this, &rectifier_factory);
 
       if (ready_callback)
         ready_callback(std::move(participant));
-      else
-        std::cout << "No ready_callback???" << std::endl;
-
-//      ready_callback(
-//            rmf_traffic::schedule::make_participant(
-//              std::move(description), *this, &rectifier_factory));
     });
 
     worker.detach();

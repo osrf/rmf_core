@@ -230,8 +230,6 @@ public:
               nullptr
             });
 
-      std::cout << " === INSERTING [" << participant << ":" << route_id << "]"
-                << std::endl;
       timeline.insert(*entry);
     }
   }
@@ -388,7 +386,6 @@ void Database::set(
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
-    std::cout << " === [" << participant << "] OLD VERSION: " << version << std::endl;
     return;
   }
 
@@ -410,7 +407,6 @@ void Database::set(
   // Clear the list of routes that are currently active
   state.active_routes.clear();
 
-  std::cout << " === [" << participant << "] INSERTING " << entries.size() << " ITEMS" << std::endl;
   // Insert the new routes into the current itinerary
   _pimpl->insert_items(participant, state, entries, input);
 }
@@ -715,14 +711,8 @@ public:
     const RouteEntry* const last = get_last_known_ancestor(entry);
     const RouteEntry* const newest = get_most_recent(entry);
 
-    std::cout << " --- INSPECTING [" << newest->participant << ":"
-              << newest->route_id << "]" << std::endl;
-
-
     if (last == newest)
     {
-      std::cout << " --- SKIPPING NO CHANGES [" << newest->participant << ":"
-                << newest->route_id << "]" << std::endl;
       // There are no changes for this route to give the mirror
       return;
     }
@@ -778,8 +768,6 @@ public:
       // No version of this route has been seen by the mirror
       if (newest->route && relevant(*newest))
       {
-        std::cout << " --- FOUND RELEVANT [" << newest->participant << ":"
-                  << newest->route_id << "]" << std::endl;
         // The newest version of this route is relevant to the mirror
         changes[newest->participant].additions.emplace_back(
               Change::Add::Item{
@@ -789,10 +777,6 @@ public:
       }
       else
       {
-        if (newest->route)
-          std::cout << " --- SKIPPING IRRELEVANT ROUTE" << std::endl;
-        else
-          std::cout << " --- SKIPPING ERASED ROUTE" << std::endl;
         // Ignore this route. The mirror has no need to know about it.
       }
     }
@@ -1007,14 +991,12 @@ auto Database::changes(
   std::unordered_map<ParticipantId, ParticipantChanges> changes;
   if (after)
   {
-    std::cout << " --- CALLING PATCH RELEVANCE INSPECTOR" << std::endl;
     PatchRelevanceInspector inspector(*after);
     _pimpl->timeline.inspect(parameters, inspector);
     changes = inspector.changes;
   }
   else
   {
-    std::cout << " --- CALLING INITIAL RELEVANCE INSPECTOR" << std::endl;
     FirstPatchRelevanceInspector inspector;
     _pimpl->timeline.inspect(parameters, inspector);
     changes = inspector.changes;
@@ -1033,10 +1015,6 @@ auto Database::changes(
             });
     }
 
-    std::cout << " -- SENDING ROUTES [" << p.first << "]: ";
-    for (const auto& a : p.second.additions)
-      std::cout << a.id << " ";
-    std::cout << std::endl;
     part_patches.emplace_back(
           Patch::Participant{
             p.first,
@@ -1055,9 +1033,6 @@ auto Database::changes(
     auto add_it = _pimpl->add_participant_version.upper_bound(after_v);
     for (; add_it != _pimpl->add_participant_version.end(); ++add_it)
     {
-      std::cout << " ---- ADDING PARTICIPANT [" << add_it->second
-                << "] REGISTERED IN VERSION [" << add_it->first
-                << "] WHICH COMES AFTER [" << after_v << "]" << std::endl;
       const auto p_it = _pimpl->states.find(add_it->second);
       assert(p_it != _pimpl->states.end());
       registered.emplace_back(p_it->first, *p_it->second.description);
@@ -1074,7 +1049,6 @@ auto Database::changes(
   }
   else
   {
-    std::cout << " ~~~~~ ADDING ALL PARTICIPANTS" << std::endl;
     // If this is a mirror's first pull from the database, then we should send
     // all the participant information.
     for (const auto& p : _pimpl->states)

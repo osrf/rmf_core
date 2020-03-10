@@ -18,12 +18,6 @@
 #include <rmf_traffic_ros2/schedule/Patch.hpp>
 #include <rmf_traffic_ros2/schedule/Change.hpp>
 
-
-
-#include <iostream>
-
-
-
 using Time = rmf_traffic::Time;
 using Duration = rmf_traffic::Duration;
 
@@ -68,8 +62,6 @@ rmf_traffic_msgs::msg::ScheduleParticipantPatch convert(
         from.additions().items());
   output.delays = convert_vector<rmf_traffic_msgs::msg::ScheduleChangeDelay>(
         from.delays());
-  std::cout << " === CONVERTING ADDITIONS [" << from.additions().items().size()
-            << "] --> [" << output.additions.size() << "]" << std::endl;
 
   return output;
 }
@@ -125,7 +117,6 @@ rmf_traffic::schedule::Patch convert(
   if (!from.cull.empty())
     cull = convert(from.cull.front());
 
-  std::cout << " ---- CONVERTING FROM LATEST VERSION [" << from.latest_version << "]" << std::endl;
   return rmf_traffic::schedule::Patch{
     std::move(unregister),
     convert_vector<rmf_traffic::schedule::Change::RegisterParticipant>(from.register_participants),

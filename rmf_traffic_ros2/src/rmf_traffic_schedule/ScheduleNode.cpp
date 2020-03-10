@@ -210,12 +210,7 @@ ScheduleNode::ScheduleNode()
           continue;
         }
 
-        std::cout << "changes since " << last_checked_version << std::endl;
         next_patch = database.changes(query_all, last_checked_version);
-        std::cout << "patch " << last_checked_version << ":\n";
-        std::cout << "registered: " << next_patch->registered().size() << "\n";
-        std::cout << "unregistered: " << next_patch->unregistered().size() << "\n";
-        std::cout << std::endl;
 
         // TODO(MXG): Check whether the database really needs to remain locked
         // during this update.
@@ -453,7 +448,6 @@ void ScheduleNode::itinerary_set(const ItinerarySet& set)
         rmf_traffic_ros2::convert(set.itinerary),
         set.itinerary_version);
 
-  std::cout << " === SETTING ITINERARY [" << set.participant << "]" << std::endl;
   publish_inconsistencies(set.participant);
   wakeup_mirrors();
 }

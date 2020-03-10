@@ -109,12 +109,6 @@ public:
     request_msg->latest_mirror_version = mirror.latest_version();
     request_msg->minimum_patch_version = minimum_version;
     request_msg->initial_request = initial_request;
-
-    if (initial_request)
-      std::cout << " ---- SENDING INITIAL MIRROR REQUEST" << std::endl;
-    else
-      std::cout << " ---- REQUESTING MIRROR UPDATE AFTER VERSION [" << request_msg->latest_mirror_version << "]" << std::endl;
-
     initial_request = false;
 
     const auto future = mirror_update_client->async_send_request(
@@ -134,14 +128,10 @@ public:
               + std::to_string(response->patch.latest_version)
               + "]: " + std::to_string(patch.size()) + " changes");
 
-        std::cout << " ===== UPDATING" << std::endl;
-
         std::mutex* update_mutex = options.update_mutex();
         if (update_mutex)
         {
-          std::cout << " == WAITING FOR MUTEX" << std::endl;
           std::lock_guard<std::mutex> lock(*update_mutex);
-          std::cout << " == RECEIVED MUTEX" << std::endl;
           mirror.update(patch);
         }
         else

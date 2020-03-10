@@ -27,28 +27,10 @@ rmf_traffic::Profile convert(const rmf_traffic_msgs::msg::Profile& from)
 {
   const geometry::ConvexShapeContext context = convert(from.shape_context);
 
-  auto to = rmf_traffic::Profile{
+  return rmf_traffic::Profile{
       context.at(from.footprint),
       context.at(from.vicinity)
     };
-
-  if (from.footprint.type != from.footprint.NONE)
-    std::cout << " ==== MSG HAS A FOOTPRINT --> ";
-  else
-    std::cout << " ==== MSG NO FOOTPRINT --> ";
-
-  if (to.footprint())
-    std::cout << " PROFILE HAS A FOOTPRINT";
-  else
-    std::cout << " PROFILE NO FOOTPRINT";
-
-  std::cout << std::endl;
-
-  return to;
-//  return rmf_traffic::Profile{
-//    context.at(from.footprint),
-//    context.at(from.vicinity)
-//  };
 }
 
 //==============================================================================
@@ -60,18 +42,6 @@ rmf_traffic_msgs::msg::Profile convert(const rmf_traffic::Profile& from)
   profile.footprint = context.insert(from.footprint());
   profile.vicinity = context.insert(from.vicinity());
   profile.shape_context = convert(context);
-
-  if (from.footprint())
-    std::cout << " ==== PROFILE HAS A FOOTPRINT --> ";
-  else
-    std::cout << " ==== PROFILE NO FOOTPRINT --> ";
-
-  if (profile.footprint.type != profile.footprint.NONE)
-    std::cout << " MSG HAS A FOOTPRINT";
-  else
-    std::cout << " MSG NO FOOTPRINT";
-
-  std::cout << std::endl;
 
   return profile;
 }

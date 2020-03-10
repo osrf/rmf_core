@@ -584,15 +584,11 @@ void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr msg)
         _field->traits.profile()
       };
 
-      std::cout << " ------ REGISTERING " << robot.name << " ON THE SCHEDULE"
-                << std::endl;
       async_make_schedule_manager(
             *this, *_field->writer, std::move(description), [](){},
             [this, name = robot.name, location = robot.location](
               ScheduleManager manager)
       {
-        std::cout << " ======= FINISHED REGISTERING " << name << " ON THE SCHEDULE"
-                  << std::endl;
         this->_contexts.at(name) = std::make_unique<RobotContext>(
               name, location, std::move(manager));
       });

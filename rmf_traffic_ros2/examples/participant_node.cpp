@@ -50,41 +50,28 @@ std::shared_ptr<ParticipantNode> make_node()
   using namespace std::chrono_literals;
   const auto now = std::chrono::steady_clock::now();
 
+  rmf_traffic::schedule::ParticipantDescription description{
+    "some participant",
+    "schedule_participant_node",
+    rmf_traffic::schedule::ParticipantDescription::Rx::Unresponsive,
+    rmf_traffic::Profile{
+      rmf_traffic::geometry::make_final_convex<
+        rmf_traffic::geometry::Box>(1.0, 2.0)
+    }
+  };
+
   rmf_traffic::Trajectory t;
   t.insert(now, {0, 0, 0}, {0, 0, 0});
   t.insert(now + 10s, {0, 10, 0}, {0, 0, 0});
 
   node->writer->async_make_participant(
-        rmf_traffic::schedule::ParticipantDescription{
-          "some participant",
-          "schedule_participant_node",
-          rmf_traffic::schedule::ParticipantDescription::Rx::Unresponsive,
-          rmf_traffic::Profile{
-            rmf_traffic::geometry::make_final_convex<
-              rmf_traffic::geometry::Box>(1.0, 2.0)
-          }
-        },
+        std::move(description),
         [node, t = std::move(t)](rmf_traffic::schedule::Participant participant)
   {
     node->participant = std::move(participant);
     std::cout << "Sending trajectory" << std::endl;
     node->participant->set({{"test map", std::move(t)}});
   });
-
-//  node->writer->async_make_participant(
-//        rmf_traffic::schedule::ParticipantDescription{
-//          "some participant",
-//          "schedule_participant_node",
-//          rmf_traffic::schedule::ParticipantDescription::Rx::Unresponsive,
-//          rmf_traffic::Profile{
-//            rmf_traffic::geometry::make_final_convex<
-//              rmf_traffic::geometry::Box>(1.0, 2.0)
-//          }
-//        },
-//        [](rmf_traffic::schedule::Participant participant)
-//  {
-//    std::cout << "Yay, I got my participant!" << std::endl;
-//  });
 
   return node;
 }
