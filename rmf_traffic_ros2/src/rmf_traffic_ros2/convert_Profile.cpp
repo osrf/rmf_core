@@ -18,8 +18,6 @@
 #include <rmf_traffic_ros2/Profile.hpp>
 #include <rmf_traffic_ros2/geometry/ConvexShape.hpp>
 
-#include <iostream>
-
 namespace rmf_traffic_ros2 {
 
 //==============================================================================
