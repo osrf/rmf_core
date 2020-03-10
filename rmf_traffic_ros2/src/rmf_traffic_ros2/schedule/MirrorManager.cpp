@@ -56,6 +56,7 @@ public:
 
   rmf_traffic::schedule::Mirror mirror;
 
+  bool initial_request = true;
   bool waiting_for_reply = false;
 
   rmf_traffic::schedule::Version next_minimum_version = 0;
@@ -107,6 +108,8 @@ public:
     // This is also relevant to the next_minimum_version value.
     request_msg->latest_mirror_version = mirror.latest_version();
     request_msg->minimum_patch_version = minimum_version;
+    request_msg->initial_request = initial_request;
+    initial_request = false;
 
     const auto future = mirror_update_client->async_send_request(
           request_msg,

@@ -22,7 +22,6 @@
 
 namespace rmf_fleet_adapter {
 
-
 namespace {
 //==============================================================================
 std::vector<rmf_traffic_msgs::msg::Trajectory> convert(
@@ -56,15 +55,13 @@ ScheduleManager::ScheduleManager(
         rmf_traffic_ros2::ScheduleConflictTopicName,
         rclcpp::SystemDefaultsQoS().reliable(),
         [this,
-         p = participant.id()](
+         p = _participant.id()](
         const std::unique_ptr<rmf_traffic_msgs::msg::ScheduleConflict> msg)
   {
     for (const auto m : msg->participants)
     {
       if (m == p)
       {
-        // TODO(MXG): Fix this. ScheduleManager needs to be informed that a
-        // conflict is active
         this->_have_conflict = true;
         this->_conflict_version = msg->conflict_version;
         this->_revision_callback();
@@ -182,39 +179,34 @@ std::future<ScheduleManager> make_schedule_manager(
          description = std::move(description),
          revision_callback = std::move(revision_callback)]() -> ScheduleManager
   {
-    auto participant_future = writer.make_participant(std::move(description));
-    participant_future.wait();
-
-    auto participant = participant_future.get();
-
     return ScheduleManager(
           node,
-          std::move(participant),
+          writer.make_participant(std::move(description)).get(),
           std::move(revision_callback));
   });
 }
 
 //==============================================================================
-void make_schedule_manager(
+void async_make_schedule_manager(
     rclcpp::Node& node,
     rmf_traffic_ros2::schedule::Writer& writer,
     rmf_traffic::schedule::ParticipantDescription description,
     std::function<void()> revision_callback,
     std::function<void(ScheduleManager)> ready_callback)
 {
-  std::async(
-        std::launch::async,
+  writer.async_make_participant(
+        std::move(description),
         [&node,
-         &writer,
-         description = std::move(description),
          revision_callback = std::move(revision_callback),
-         ready_callback = std::move(ready_callback)]
+         ready_callback = std::move(ready_callback)](
+        rmf_traffic::schedule::Participant participant)
   {
-    auto future = make_schedule_manager(
-          node, writer, std::move(description), std::move(revision_callback));
-
-    future.wait();
-    ready_callback(future.get());
+    ready_callback(
+          ScheduleManager{
+            node,
+            std::move(participant),
+            std::move(revision_callback)
+          });
   });
 }
 

@@ -48,6 +48,7 @@ std::vector<rmf_traffic_msgs::msg::ScheduleWriterItem> convert(
     msg.id = item.id;
     assert(item.route);
     msg.route = convert(*item.route);
+    output.push_back(std::move(msg));
   }
 
   return output;

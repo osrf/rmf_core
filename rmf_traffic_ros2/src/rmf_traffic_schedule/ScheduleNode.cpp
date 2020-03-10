@@ -211,13 +211,13 @@ ScheduleNode::ScheduleNode()
         }
 
         next_patch = database.changes(query_all, last_checked_version);
-        view_changes = database.query(query_all, last_checked_version);
 
         // TODO(MXG): Check whether the database really needs to remain locked
         // during this update.
         try
         {
           mirror.update(*next_patch);
+          view_changes = database.query(query_all, last_checked_version);
           last_checked_version = next_patch->latest_version();
         }
         catch(const std::exception& e)
@@ -249,6 +249,9 @@ ScheduleNode::ScheduleNode()
       }
       else
       {
+        // FIXME(MXG): We need to re-check any participants that were previously
+        // in a conflcit if their trajectories didn't get changed this time.
+
         // There are no more conflicts, so we can clear this map
         active_conflicts.clear();
       }
@@ -350,8 +353,9 @@ void ScheduleNode::register_participant(
 
     RCLCPP_INFO(
           get_logger(),
-          "Registered participant [" + request->description.name
-          + "] owned by [" + request->description.owner + "]");
+          "Registered participant [" + std::to_string(response->participant_id)
+          + "] named [" + request->description.name + "] owned by ["
+          + request->description.owner + "]");
   }
   catch (const std::exception& e)
   {
@@ -386,13 +390,18 @@ void ScheduleNode::unregister_participant(
 
   try
   {
+    // We need to copy this data before the participant is unregistered, because
+    // unregistering it will invalidate the pointer p.
+    const std::string name = p->name();
+    const std::string owner = p->owner();
+
     database.unregister_participant(request->participant_id);
     response->confirmation = true;
 
     RCLCPP_INFO(
           get_logger(),
-          "Unregistered participant [" + p->name() + "] owned by ["
-          + p->owner() + "]");
+          "Unregistered participant [" + std::to_string(request->participant_id)
+          +"] named [" + name + "] owned by [" + owner + "]");
   }
   catch (const std::exception& e)
   {
@@ -440,7 +449,7 @@ void ScheduleNode::itinerary_set(const ItinerarySet& set)
         set.itinerary_version);
 
   publish_inconsistencies(set.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -453,7 +462,7 @@ void ScheduleNode::itinerary_extend(const ItineraryExtend& extend)
         extend.itinerary_version);
 
   publish_inconsistencies(extend.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -467,7 +476,7 @@ void ScheduleNode::itinerary_delay(const ItineraryDelay& delay)
         delay.itinerary_version);
 
   publish_inconsistencies(delay.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -481,7 +490,7 @@ void ScheduleNode::itinerary_erase(const ItineraryErase& erase)
         erase.itinerary_version);
 
   publish_inconsistencies(erase.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================
@@ -491,7 +500,7 @@ void ScheduleNode::itinerary_clear(const ItineraryClear& clear)
   database.erase(clear.participant, clear.itinerary_version);
 
   publish_inconsistencies(clear.participant);
-  conflict_check_cv.notify_all();
+  wakeup_mirrors();
 }
 
 //==============================================================================

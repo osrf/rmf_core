@@ -94,14 +94,13 @@ public:
   /// Get the ID that was assigned to this participant.
   ParticipantId id() const;
 
-  // Move constructor and operator must be explicitly declared, because the
-  // destructor is explicitly declared.
+  // This class supports moving but not copying
   Participant(Participant&&) = default;
   Participant& operator=(Participant&&) = default;
 
   /// The destructor will automatically tell the Writer to unregister this
   /// participant.
-  ~Participant();
+  ~Participant() = default;
 
   class Implementation;
 private:

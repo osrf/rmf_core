@@ -100,6 +100,12 @@ Participant::Implementation::Implementation(
   // Do nothing
 }
 
+Participant::Implementation::~Implementation()
+{
+  // Unregister the participant during destruction
+  _writer.unregister_participant(_id);
+}
+
 //==============================================================================
 Writer::Input Participant::Implementation::make_input(
     std::vector<Route> itinerary)
@@ -130,13 +136,22 @@ RouteId Participant::set(std::vector<Route> itinerary)
 {
   const RouteId initial_route_id = _pimpl->_last_route_id;
   if (itinerary.empty())
+  {
+    // If the current itinerary is already empty, then nothing needs to change
+    if (_pimpl->_current_itinerary.empty())
+      return initial_route_id;
+
+    // If the current itinerary is not empty, then we can do a clear command
+    // instead.
+    clear();
     return initial_route_id;
+  }
 
   _pimpl->_change_history.clear();
 
   auto input = _pimpl->make_input(std::move(itinerary));
 
-  _pimpl->itinerary = input;
+  _pimpl->_current_itinerary = input;
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
@@ -160,9 +175,11 @@ RouteId Participant::extend(const std::vector<Route>& additional_routes)
 
   auto input = _pimpl->make_input(std::move(additional_routes));
 
-  _pimpl->itinerary.reserve(_pimpl->itinerary.size() + input.size());
+  _pimpl->_current_itinerary.reserve(
+        _pimpl->_current_itinerary.size() + input.size());
+
   for (const auto& item : input)
-    _pimpl->itinerary.push_back(item);
+    _pimpl->_current_itinerary.push_back(item);
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
@@ -180,7 +197,7 @@ RouteId Participant::extend(const std::vector<Route>& additional_routes)
 //==============================================================================
 void Participant::delay(Time from, Duration delay)
 {
-  for (auto& item : _pimpl->itinerary)
+  for (auto& item : _pimpl->_current_itinerary)
   {
     const auto& original_trajectory = item.route->trajectory();
     const auto old_it = original_trajectory.find(from);
@@ -209,14 +226,14 @@ void Participant::delay(Time from, Duration delay)
 void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 {
   const auto remove_it = std::remove_if(
-        _pimpl->itinerary.begin(),
-        _pimpl->itinerary.end(),
+        _pimpl->_current_itinerary.begin(),
+        _pimpl->_current_itinerary.end(),
         [&](const Writer::Item& item)
   {
     return input_routes.count(item.id) > 0;
   });
 
-  if (remove_it == _pimpl->itinerary.end())
+  if (remove_it == _pimpl->_current_itinerary.end())
   {
     // None of the requested IDs are in the current itinerary, so there is
     // nothing to remove
@@ -225,10 +242,10 @@ void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 
   std::vector<RouteId> routes;
   routes.reserve(input_routes.size());
-  for (auto it = remove_it; it != _pimpl->itinerary.end(); ++it)
+  for (auto it = remove_it; it != _pimpl->_current_itinerary.end(); ++it)
     routes.push_back(it->id);
 
-  _pimpl->itinerary.erase(remove_it, _pimpl->itinerary.end());
+  _pimpl->_current_itinerary.erase(remove_it, _pimpl->_current_itinerary.end());
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
@@ -244,7 +261,10 @@ void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 //==============================================================================
 void Participant::clear()
 {
-  _pimpl->itinerary.clear();
+  if (_pimpl->_current_itinerary.empty())
+    return;
+
+  _pimpl->_current_itinerary.clear();
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
@@ -266,7 +286,7 @@ RouteId Participant::last_route_id() const
 //==============================================================================
 const Writer::Input& Participant::itinerary() const
 {
-  return _pimpl->itinerary;
+  return _pimpl->_current_itinerary;
 }
 
 //==============================================================================
@@ -279,12 +299,6 @@ const ParticipantDescription& Participant::description() const
 ParticipantId Participant::id() const
 {
   return _pimpl->_id;
-}
-
-//==============================================================================
-Participant::~Participant()
-{
-  _pimpl->_writer.unregister_participant(_pimpl->_id);
 }
 
 //==============================================================================

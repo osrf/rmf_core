@@ -682,6 +682,18 @@ public:
       return;
     }
 
+    if (new_delay < std::chrono::seconds(0))
+    {
+      if (new_delay < std::chrono::seconds(-5))
+      {
+        RCLCPP_WARN(
+              _node->get_logger(),
+              "Ignoring big negative delay ["
+              + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
+      }
+      return;
+    }
+
 //    std::cout << "Adding delay: ["
 //              << rmf_traffic::time::to_seconds(new_delay)
 //              << "] total: "

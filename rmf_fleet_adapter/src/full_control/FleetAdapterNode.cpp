@@ -578,13 +578,13 @@ void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr msg)
       // manager for it and instantiate it in the map
 
       rmf_traffic::schedule::ParticipantDescription description{
-        msg->name,
+        robot.name,
         get_fleet_name(),
         rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
         _field->traits.profile()
       };
 
-      make_schedule_manager(
+      async_make_schedule_manager(
             *this, *_field->writer, std::move(description), [](){},
             [this, name = robot.name, location = robot.location](
               ScheduleManager manager)

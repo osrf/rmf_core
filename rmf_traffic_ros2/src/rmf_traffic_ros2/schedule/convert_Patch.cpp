@@ -98,6 +98,8 @@ rmf_traffic_msgs::msg::SchedulePatch convert(
   if (const auto& cull = from.cull())
     output.cull.emplace_back(convert(*cull));
 
+  output.latest_version = from.latest_version();
+
   return output;
 }
 

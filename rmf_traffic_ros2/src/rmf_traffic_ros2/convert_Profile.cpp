@@ -26,9 +26,9 @@ rmf_traffic::Profile convert(const rmf_traffic_msgs::msg::Profile& from)
   const geometry::ConvexShapeContext context = convert(from.shape_context);
 
   return rmf_traffic::Profile{
-    context.at(from.footprint),
-    context.at(from.vicinity)
-  };
+      context.at(from.footprint),
+      context.at(from.vicinity)
+    };
 }
 
 //==============================================================================
@@ -39,6 +39,7 @@ rmf_traffic_msgs::msg::Profile convert(const rmf_traffic::Profile& from)
   rmf_traffic_msgs::msg::Profile profile;
   profile.footprint = context.insert(from.footprint());
   profile.vicinity = context.insert(from.vicinity());
+  profile.shape_context = convert(context);
 
   return profile;
 }
