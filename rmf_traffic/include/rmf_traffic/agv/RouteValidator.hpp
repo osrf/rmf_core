@@ -19,6 +19,7 @@
 #define RMF_TRAFFIC__AGV__ROUTEVALIDATOR_HPP
 
 #include <rmf_traffic/schedule/Viewer.hpp>
+#include <rmf_traffic/schedule/Negotiation.hpp>
 
 namespace rmf_traffic {
 namespace agv {
@@ -33,6 +34,7 @@ public:
   /// Returns true if the given route can be considered valid, false otherwise.
   virtual bool valid(const Route& route) const = 0;
 
+  virtual ~RouteValidator() = default;
 };
 
 //==============================================================================
@@ -43,8 +45,8 @@ public:
   /// Constructor
   ///
   /// \warning You are expected to maintain the lifetime of the schedule
-  /// viewer for as long as this Options instance is alive. The Options
-  /// instance will only retain a reference to the viewer, not a copy of it.
+  /// viewer for as long as this ScheduleRouteValidator instance is alive. This
+  /// object will only retain a reference to the viewer, not a copy of it.
   ///
   /// \param[in] viewer
   ///   The schedule viewer which will be used to check for conflicts
@@ -61,8 +63,6 @@ public:
   /// \warning The Options instance will store a reference to the viewer; it
   /// will not store a copy. Therefore you are responsible for keeping the
   /// schedule viewer alive while this Options class is being used.
-  // TODO(MXG): Make this a pointer instead of a reference. When this is a
-  // nullptr, then the schedule will be ignored.
   ScheduleRouteValidator& schedule_viewer(const schedule::Viewer& viewer);
 
   /// Get a const reference to the schedule viewer that will be used for
@@ -76,6 +76,7 @@ public:
   /// Get the ID of the participant that is being validated.
   schedule::ParticipantId participant() const;
 
+  // Documentation inherited
   bool valid(const Route& route) const final;
 
   class Implementation;
@@ -84,11 +85,18 @@ private:
 };
 
 //==============================================================================
-class NegotiatingRouteValidator
+class NegotiatingRouteValidator : public RouteValidator
 {
 public:
 
+  /// Constructor
+  ///
+  /// \param[in] table
+  ///   The Negotiation::Table that the route must be valid on.
+  NegotiatingRouteValidator(const schedule::Negotiation::Table& table);
 
+  // Documentation inherited
+  bool valid(const Route& route) const final;
 
   class Implementation;
 private:
