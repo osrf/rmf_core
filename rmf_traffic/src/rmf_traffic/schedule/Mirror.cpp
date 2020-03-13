@@ -210,14 +210,14 @@ const std::unordered_set<ParticipantId>& Mirror::participant_ids() const
 }
 
 //==============================================================================
-const ParticipantDescription* Mirror::get_participant(
+std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
     std::size_t participant_id) const
 {
   const auto p = _pimpl->states.find(participant_id);
   if (p == _pimpl->states.end())
     return nullptr;
 
-  return p->second.description.get();
+  return p->second.description;
 }
 
 //==============================================================================

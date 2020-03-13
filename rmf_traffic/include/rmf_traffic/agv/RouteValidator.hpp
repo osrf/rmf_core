@@ -34,6 +34,9 @@ public:
   /// Returns true if the given route can be considered valid, false otherwise.
   virtual bool valid(const Route& route) const = 0;
 
+  /// Create a clone of the underlying RouteValidator object.
+  virtual std::unique_ptr<RouteValidator> clone() const = 0;
+
   virtual ~RouteValidator() = default;
 };
 
@@ -79,6 +82,9 @@ public:
   // Documentation inherited
   bool valid(const Route& route) const final;
 
+  // Documentation inherited
+  std::unique_ptr<RouteValidator> clone() const final;
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
@@ -93,10 +99,18 @@ public:
   ///
   /// \param[in] table
   ///   The Negotiation::Table that the route must be valid on.
-  NegotiatingRouteValidator(const schedule::Negotiation::Table& table);
+  ///
+  /// \param[in] description
+  ///   The description of the participant that is being planned for.
+  NegotiatingRouteValidator(
+      const schedule::Negotiation::Table& table,
+      schedule::ParticipantDescription description);
 
   // Documentation inherited
   bool valid(const Route& route) const final;
+
+  // Documentation inherited
+  std::unique_ptr<RouteValidator> clone() const final;
 
   class Implementation;
 private:

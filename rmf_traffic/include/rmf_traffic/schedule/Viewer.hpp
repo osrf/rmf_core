@@ -94,8 +94,8 @@ public:
   /// Get the information of the specified participant if it is available.
   /// If a participant with the specified ID is not registered with the
   /// schedule, then this will return a nullptr.
-  virtual const ParticipantDescription* get_participant(
-      std::size_t participant_id) const = 0;
+  virtual std::shared_ptr<const ParticipantDescription> get_participant(
+      ParticipantId participant_id) const = 0;
 
   /// Get the itinerary of a specific participant if it is available. If a
   /// participant with the specified ID is not registered with the schedule or

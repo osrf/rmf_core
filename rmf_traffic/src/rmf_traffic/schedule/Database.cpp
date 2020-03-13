@@ -958,14 +958,14 @@ const std::unordered_set<ParticipantId>& Database::participant_ids() const
 }
 
 //==============================================================================
-const ParticipantDescription* Database::get_participant(
+std::shared_ptr<const ParticipantDescription> Database::get_participant(
     std::size_t participant_id) const
 {
   const auto state_it = _pimpl->states.find(participant_id);
   if (state_it == _pimpl->states.end())
     return nullptr;
 
-  return state_it->second.description.get();
+  return state_it->second.description;
 }
 
 //==============================================================================

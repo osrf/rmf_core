@@ -45,6 +45,14 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
   }
 }
 
+rmf_utils::clone_ptr<rmf_traffic::agv::ScheduleRouteValidator>
+make_test_schedule_validator(const rmf_traffic::schedule::Viewer& viewer)
+{
+  return rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+        viewer,
+        std::numeric_limits<rmf_traffic::schedule::ParticipantId>::max());
+}
+
 void display_path(const rmf_traffic::agv::Plan& plan)
 {
   std::vector<std::size_t> plan_indices;
@@ -223,7 +231,7 @@ void test_ignore_obstacle(
   for (rmf_traffic::schedule::Version v=0; v <= database_version; ++v)
     ignore_ids.insert(v);
 
-  options.ignore_participant_ids(std::move(ignore_ids));
+  options.validator(nullptr);
 
   const auto new_plan = original_plan.replan(start, std::move(options));
 
@@ -411,11 +419,10 @@ SCENARIO("Test Options", "[options]")
   using Duration = std::chrono::nanoseconds;
   using Database = rmf_traffic::schedule::Database;
 
-  Database database; 
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(6);
 
-  Planner::Options default_options(database, hold_time, &interrupt_flag);
+  Planner::Options default_options(nullptr, hold_time, &interrupt_flag);
   WHEN("Get the minimum_holding_time")
   {
     CHECK(rmf_traffic::time::to_seconds(
@@ -536,7 +543,9 @@ SCENARIO("Test planning")
 
   rmf_traffic::schedule::Database database;
 
-  const auto default_options = rmf_traffic::agv::Planner::Options{database};
+  const auto default_options = rmf_traffic::agv::Planner::Options{
+        make_test_schedule_validator(database)};
+
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
     default_options
@@ -1166,7 +1175,7 @@ SCENARIO("DP1 Graph")
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
   bool interrupt_flag = false;
   const rmf_traffic::agv::Planner::Options default_options{
-      database,
+      make_test_schedule_validator(database),
       std::chrono::seconds(5),
       &interrupt_flag};
 
@@ -1847,7 +1856,9 @@ SCENARIO("Graph with door", "[door]")
 
   rmf_traffic::schedule::Database database;
 
-  const auto default_options = rmf_traffic::agv::Planner::Options{database};
+  const auto default_options = rmf_traffic::agv::Planner::Options{
+      make_test_schedule_validator(database)};
+
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
     default_options
@@ -1941,7 +1952,7 @@ SCENARIO("Test planner with various start conditions")
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(6);
   const rmf_traffic::agv::Planner::Options default_options{
-      database,
+      make_test_schedule_validator(database),
       hold_time,
       &interrupt_flag};
 
@@ -2276,7 +2287,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
-      database,
+      make_test_schedule_validator(database),
       hold_time,
       &interrupt_flag};
 

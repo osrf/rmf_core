@@ -73,8 +73,15 @@ public:
   ///   The itinerary that is being submitted by this participant.
   void submit(
       ParticipantId for_participant,
-      std::vector<ParticipantId> to_accommodate,
+      const std::vector<ParticipantId>& to_accommodate,
       std::vector<Route> itinerary);
+
+  /// Reject a set of submissions as infeasible.
+  ///
+  /// \param[in] table
+  ///   The participant sequence that corresponds to the proposals that are not
+  ///   feasible.
+  void reject(const std::vector<ParticipantId>& table);
 
   /// Returns true if at least one proposal is available that has the consent of
   /// every participant.
@@ -82,6 +89,9 @@ public:
 
   /// Returns true if all possible proposals have been received and are ready to
   /// be evaluated.
+  ///
+  /// Note that ready() may still be false if complete() is true, in the event
+  /// that all proposals have been rejected.
   bool complete() const;
 
   struct Submission
@@ -100,13 +110,13 @@ public:
     /// Given a set of proposals, choose the one that is the "best". It is up to
     /// the implementation of the Evaluator to decide how to rank proposals.
     virtual std::size_t choose(
-        const std::vector<const Proposal*>& proposals) const = 0;
+        const std::vector<Proposal>& proposals) const = 0;
 
     virtual ~Evaluator() = default;
   };
 
   /// Evaluate the proposals that are available.
-  const Proposal* evaluate(const Evaluator& evaluator) const;
+  rmf_utils::optional<Proposal> evaluate(const Evaluator& evaluator) const;
 
   /// The Negotiation::Table class gives a view of what the other negotiation
   /// participants have proposed.
@@ -125,12 +135,12 @@ public:
   public:
 
     /// View this table with the given parameters.
-    Viewer::View query(const Query& parameters) const;
+    Viewer::View query(const Query::Spacetime& parameters) const;
 
     class Implementation;
   private:
     Table();
-    rmf_utils::impl_ptr<Implementation> _pimpl;
+    rmf_utils::unique_impl_ptr<Implementation> _pimpl;
   };
 
   /// Get a Negotiation::Table that provides a view into what participants are
@@ -163,7 +173,7 @@ public:
 
   // Documentation inherited
   std::size_t choose(
-      const std::vector<const Negotiation::Proposal*>& proposals) const final;
+      const std::vector<Negotiation::Proposal>& proposals) const final;
 
 };
 
