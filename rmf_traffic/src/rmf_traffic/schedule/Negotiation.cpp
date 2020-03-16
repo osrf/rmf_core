@@ -18,6 +18,7 @@
 #include <rmf_traffic/schedule/Negotiation.hpp>
 
 #include "Timeline.hpp"
+#include "ViewerInternal.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -107,7 +108,7 @@ public:
   std::vector<RouteEntryPtr> entries;
   Timeline<RouteEntry> timeline;
 
-  Query::Participants viewer_query;
+  Query::Participants participant_query;
 
   Proposal proposal;
 
@@ -146,8 +147,10 @@ public:
     std::vector<ParticipantId> all_participants = submitted;
     all_participants.insert(
           all_participants.end(), unsubmitted.begin(), unsubmitted.end());
-    viewer_query.make_all_except(all_participants);
+    participant_query.make_all_except(all_participants);
   }
+
+  Viewer::View query(const Query::Spacetime& spacetime) const;
 
   static void add_participant(Table& table, ParticipantId new_participant)
   {
@@ -514,17 +517,6 @@ bool Negotiation::complete() const
 }
 
 //==============================================================================
-auto Negotiation::table(
-    const ParticipantId for_participant,
-    const std::vector<ParticipantId>& to_accommodate) const -> const Table*
-{
-  if (const auto entry = _pimpl->get_entry(for_participant, to_accommodate))
-    return &entry->table;
-
-  return nullptr;
-}
-
-//==============================================================================
 rmf_utils::optional<Negotiation::Proposal> Negotiation::evaluate(
     const Evaluator& evaluator) const
 {
@@ -542,12 +534,180 @@ rmf_utils::optional<Negotiation::Proposal> Negotiation::evaluate(
 
     Proposal proposal = Table::Implementation::get(entry->table).proposal;
     proposal.push_back({entry->participant, *entry->itinerary});
+    proposals.emplace_back(std::move(proposal));
   }
 
   const std::size_t choice = evaluator.choose(proposals);
   assert(choice < proposals.size());
 
-  return proposals[choice];
+  return std::move(proposals[choice]);
+}
+
+namespace {
+//==============================================================================
+class NegotiationRelevanceInspector
+    : public TimelineInspector<Negotiation::Table::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Negotiation::Table::Implementation::RouteEntry;
+
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const RouteEntry&)>& relevant) final
+  {
+    assert(entry->route);
+    if (relevant(*entry))
+    {
+      routes.emplace_back(
+            Storage{
+              entry->participant,
+              entry->route_id,
+              entry->route,
+              entry->description
+            });
+    }
+  }
+};
+} // anonymous namespace
+
+//==============================================================================
+Viewer::View Negotiation::Table::Implementation::query(
+    const Query::Spacetime &spacetime) const
+{
+  Query query = query_all();
+  query.spacetime() = spacetime;
+
+  // Query for the relevant routes that are being negotiated
+  NegotiationRelevanceInspector inspector;
+  timeline.inspect(query, inspector);
+
+  // Query for the relevant routes that are outside of the negotiation
+  query.participants() = participant_query;
+  Viewer::View view = viewer->query(query);
+
+  // Merge them together into a single view
+  Viewer::View::Implementation::append_to_view(
+        view, std::move(inspector.routes));
+
+  return view;
+}
+
+//==============================================================================
+Viewer::View Negotiation::Table::query(const Query::Spacetime& parameters) const
+{
+  return _pimpl->query(parameters);
+}
+
+//==============================================================================
+Negotiation::Table::Table()
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Negotiation::table(
+    const ParticipantId for_participant,
+    const std::vector<ParticipantId>& to_accommodate) const -> const Table*
+{
+  if (const auto entry = _pimpl->get_entry(for_participant, to_accommodate))
+    return &entry->table;
+
+  return nullptr;
+}
+
+//==============================================================================
+namespace {
+rmf_utils::optional<Time> get_finish_time(const Itinerary& itinerary)
+{
+  rmf_utils::optional<Time> finish_time;
+  for (const auto& route : itinerary)
+  {
+    const auto* t = route->trajectory().finish_time();
+    if (!t)
+      continue;
+
+    if (!finish_time)
+      finish_time = *route->trajectory().finish_time();
+    else
+    {
+      if (*t < *finish_time)
+        finish_time = *t;
+    }
+  }
+
+  return finish_time;
+}
+} // anonymous namespace
+
+//==============================================================================
+std::size_t QuickestFinishEvaluator::choose(
+    const std::vector<Negotiation::Proposal>& proposals) const
+{
+  std::unordered_map<ParticipantId, Time> best_finish_times;
+
+  std::vector<std::unordered_map<ParticipantId, Time>> all_finish_times;
+  all_finish_times.reserve(proposals.size());
+
+  for (const auto& proposal : proposals)
+  {
+    all_finish_times.push_back({});
+    auto& finish_times = all_finish_times.back();
+
+    for (const auto& p : proposal)
+    {
+      auto finish_time = get_finish_time(p.itinerary);
+      if (!finish_time)
+        continue;
+
+      finish_times[p.participant] = *finish_time;
+
+      const auto insertion = best_finish_times.insert(
+            std::make_pair(p.participant, *finish_time));
+
+      if (insertion.second)
+      {
+        // The insertion took place, so there's no need to compare to the
+        // previous best
+        continue;
+      }
+
+      if (*finish_time < insertion.first->second)
+        insertion.first->second = *finish_time;
+    }
+  }
+
+  assert(all_finish_times.size() == proposals.size());
+
+  double best_penalty = std::numeric_limits<double>::infinity();
+  std::size_t best_index = std::numeric_limits<std::size_t>::max();
+  for (std::size_t i=0; i < proposals.size(); ++i)
+  {
+    const auto& finish_times = all_finish_times[i];
+    double penalty = 0;
+    for (const auto& t : finish_times)
+    {
+      const ParticipantId participant = t.first;
+      const Time time = t.second;
+      const Time best_finish_time = best_finish_times.at(participant);
+      assert(best_finish_time < time);
+
+      penalty += time::to_seconds(time - best_finish_time);
+    }
+
+    if (penalty < best_penalty)
+    {
+      best_penalty = penalty;
+      best_index = i;
+    }
+  }
+
+  assert(best_index < proposals.size());
+  return best_index;
 }
 
 } // namespace schedule
