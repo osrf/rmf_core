@@ -25,8 +25,28 @@
 
 #include <rmf_utils/catch.hpp>
 
+#include <iostream>
+
+void print_proposal(
+    const rmf_traffic::schedule::Negotiation::Proposal& proposals)
+{
+  for (const auto& proposal : proposals)
+  {
+    std::cout << "participant " << proposal.participant << ":\n";
+    for (const auto& r : proposal.itinerary)
+    {
+      for (const auto& t : r->trajectory())
+      {
+        std::cout << t.position().transpose() << std::endl;
+      }
+    }
+  }
+}
+
 SCENARIO("Test Plan Negotiation Between Two Participants")
 {
+  using namespace std::chrono_literals;
+
   rmf_traffic::schedule::Database database;
 
   rmf_traffic::Profile profile{
@@ -52,6 +72,15 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
         },
         database);
 
+  auto p3 = rmf_traffic::schedule::make_participant(
+        rmf_traffic::schedule::ParticipantDescription{
+          "participant 3",
+          "test_Negotiator",
+          rmf_traffic::schedule::ParticipantDescription::Rx::Unresponsive,
+          profile
+        },
+        database);
+
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
   graph.add_waypoint(test_map_name, {0.0, -10.0}); // 0
@@ -65,6 +94,22 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
   graph.add_waypoint(test_map_name, {0.0, 5.0}, true); // 8
   graph.add_waypoint(test_map_name, {5.0, 5.0}, true); // 9
   graph.add_waypoint(test_map_name, {0.0, 10.0}); // 10
+
+  /*
+   *                  10
+   *                   |
+   *                   |
+   *                   8------9
+   *                   |      |
+   *                   |      |
+   *     3------4------5------6------7
+   *                   |      |
+   *                   |      |
+   *                   1------2
+   *                   |
+   *                   |
+   *                   0
+   **/
 
   auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
   {
@@ -92,10 +137,12 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     profile
   };
 
+  const rmf_traffic::Duration wait_time = 1s;
+
   rmf_traffic::agv::Planner::Configuration configuration{graph, traits};
   rmf_traffic::agv::Planner planner{
     configuration,
-    rmf_traffic::agv::Planner::Options{nullptr}
+    rmf_traffic::agv::Planner::Options{nullptr, wait_time}
   };
 
   auto start_time = std::chrono::steady_clock::now();
@@ -104,18 +151,18 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
         rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),
         rmf_traffic::agv::Plan::Goal(7));
   REQUIRE(plan_1);
-  p1.set(plan_1->get_routes());
+  p1.set(plan_1->get_itinerary());
 
   const auto plan_2 = planner.plan(
         rmf_traffic::agv::Plan::Start(start_time, 0, 90.0*M_PI/180.0),
         rmf_traffic::agv::Plan::Goal(10));
   REQUIRE(plan_2);
-  p2.set(plan_2->get_routes());
+  p2.set(plan_2->get_itinerary());
 
   bool has_conflict = false;
-  for (const auto& r1 : plan_1->get_routes())
+  for (const auto& r1 : plan_1->get_itinerary())
   {
-    for (const auto& r2 : plan_2->get_routes())
+    for (const auto& r2 : plan_2->get_itinerary())
     {
       if (rmf_traffic::DetectConflict::between(
             profile, r1.trajectory(),
@@ -132,7 +179,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
   CHECK(has_conflict);
 
-  WHEN("No other vehicles in the schedule")
+  WHEN("Participants Crossing Paths")
   {
     auto negotiation = std::make_shared<rmf_traffic::schedule::Negotiation>(
           rmf_traffic::schedule::Negotiation{database, {p1.id(), p2.id()}});
@@ -149,13 +196,15 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     rmf_traffic::agv::Negotiator negotiator_1{
       plan_1->get_start(),
       plan_1->get_goal(),
-      configuration
+      configuration,
+      rmf_traffic::agv::Negotiator::Options(wait_time)
     };
 
     rmf_traffic::agv::Negotiator negotiator_2{
       plan_2->get_start(),
       plan_2->get_goal(),
-      configuration
+      configuration,
+      rmf_traffic::agv::Negotiator::Options(wait_time)
     };
 
     negotiator_1.respond(
@@ -198,5 +247,87 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
                       profile, r2->trajectory()));
       }
     }
+
+    print_proposal(*proposals);
+  }
+
+  WHEN("Participants Head-to-Head")
+  {
+    GIVEN("No third participant")
+    {
+      // Intentionally do nothing
+    }
+
+    GIVEN("A third participant")
+    {
+      const auto plan_3 = planner.plan(
+            rmf_traffic::agv::Plan::Start(start_time, 0, 90.0*M_PI/180.0),
+            rmf_traffic::agv::Plan::Goal(10));
+      REQUIRE(plan_3);
+
+      p3.set(plan_3->get_itinerary());
+    }
+
+    auto negotiation = std::make_shared<rmf_traffic::schedule::Negotiation>(
+          rmf_traffic::schedule::Negotiation{database, {p1.id(), p2.id()}});
+
+    rmf_traffic::agv::Negotiator negotiator_1{
+      rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),
+      rmf_traffic::agv::Plan::Goal(7),
+      configuration,
+      rmf_traffic::agv::Negotiator::Options(wait_time)
+    };
+
+    rmf_traffic::agv::Negotiator negotiator_2{
+      rmf_traffic::agv::Plan::Start(start_time, 7, 0.0),
+      rmf_traffic::agv::Plan::Goal(3),
+      configuration,
+      rmf_traffic::agv::Negotiator::Options(wait_time)
+    };
+
+    negotiator_1.respond(
+          negotiation->table(p1.id(), {}),
+          rmf_traffic::agv::SimpleResponder(negotiation, p1.id(), {}));
+
+    negotiator_2.respond(
+          negotiation->table(p2.id(), {}),
+          rmf_traffic::agv::SimpleResponder(negotiation, p2.id(), {}));
+
+    CHECK_FALSE(negotiation->ready());
+    CHECK_FALSE(negotiation->complete());
+
+    negotiator_1.respond(
+          negotiation->table(p1.id(), {p2.id()}),
+          rmf_traffic::agv::SimpleResponder(negotiation, p1.id(), {p2.id()}));
+
+    // ready() will be false here, because the ideal itinerary for
+    // participant 2 makes it impossible for participant 1 to get out of the
+    // way in enough time to avoid a conflict.
+    // CHECK(negotiation->ready());
+
+    negotiator_2.respond(
+          negotiation->table(p2.id(), {p1.id()}),
+          rmf_traffic::agv::SimpleResponder(negotiation, p2.id(), {p1.id()}));
+
+    CHECK(negotiation->complete());
+
+    auto proposals = negotiation->evaluate(
+          rmf_traffic::schedule::QuickestFinishEvaluator());
+    REQUIRE(proposals);
+    REQUIRE(proposals->size() == 2);
+
+    const auto& proposal_1 = proposals->at(0);
+    const auto& proposal_2 = proposals->at(1);
+    for (const auto& r1 : proposal_1.itinerary)
+    {
+      for (const auto& r2 : proposal_2.itinerary)
+      {
+        CHECK_FALSE(rmf_traffic::DetectConflict::between(
+                      profile, r1->trajectory(),
+                      profile, r2->trajectory()));
+      }
+    }
+
+//    print_proposal(*proposals);
   }
 }

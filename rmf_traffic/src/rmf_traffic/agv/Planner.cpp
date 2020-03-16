@@ -510,7 +510,7 @@ Plan::Waypoint::Waypoint()
 }
 
 //==============================================================================
-const std::vector<Route>& Plan::get_routes() const
+const std::vector<Route>& Plan::get_itinerary() const
 {
   return _pimpl->result.routes;
 }

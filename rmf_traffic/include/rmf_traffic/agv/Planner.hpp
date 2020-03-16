@@ -438,7 +438,7 @@ public:
   /// \warning If this plan is not valid, this will have undefined behavior, and
   /// will cause a segmentation fault if this Plan is uninitialized
   /// (default-constructed).
-  const std::vector<Route>& get_routes() const;
+  const std::vector<Route>& get_itinerary() const;
 
   /// If this plan is valid, this will return the waypoints of the successful
   /// plan.

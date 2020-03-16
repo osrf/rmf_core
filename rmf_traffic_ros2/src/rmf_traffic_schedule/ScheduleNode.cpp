@@ -375,7 +375,7 @@ void ScheduleNode::unregister_participant(
 {
   std::unique_lock<std::mutex> lock(database_mutex);
 
-  const auto* p = database.get_participant(request->participant_id);
+  const auto& p = database.get_participant(request->participant_id);
   if (!p)
   {
     response->error =

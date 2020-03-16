@@ -17,6 +17,11 @@
 
 #include <rmf_traffic/agv/Negotiator.hpp>
 
+
+
+#include <iostream>
+
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -113,7 +118,7 @@ void Negotiator::respond(
     return;
   }
 
-  responder.submit(plan->get_routes());
+  responder.submit(plan->get_itinerary());
 }
 
 //==============================================================================
@@ -145,6 +150,7 @@ SimpleResponder::SimpleResponder(
 //==============================================================================
 void SimpleResponder::submit(std::vector<Route> itinerary) const
 {
+  std::cout << "Getting submission from " << _pimpl->for_participant << std::endl;
   _pimpl->negotiation->submit(
         _pimpl->for_participant,
         _pimpl->to_accommodate,
@@ -154,6 +160,7 @@ void SimpleResponder::submit(std::vector<Route> itinerary) const
 //==============================================================================
 void SimpleResponder::reject() const
 {
+  std::cout << "Getting rejection from " << _pimpl->for_participant << std::endl;
   _pimpl->negotiation->reject(_pimpl->to_accommodate);
 }
 

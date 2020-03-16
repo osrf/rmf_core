@@ -103,6 +103,9 @@ public:
       const Responder& responder,
       const bool* interrupt_flag = nullptr) const;
 
+  // TODO(MXG): How should we implement fallback behaviors when a different
+  // negotiator rejects our proposal?
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
