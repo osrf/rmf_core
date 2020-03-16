@@ -155,7 +155,7 @@ public:
   ///   ordering of the participants in this set is hierarchical where each
   ///   participant is accommodating all of the participants that come before
   ///   it.
-  const Table* table(
+  std::shared_ptr<const Table> table(
       ParticipantId for_participant,
       const std::vector<ParticipantId>& to_accommodate) const;
 

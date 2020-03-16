@@ -117,7 +117,7 @@ class NegotiatingRouteValidator::Implementation
 public:
 
   const schedule::Negotiation::Table* table;
-  schedule::ParticipantDescription description;
+  Profile profile;
 
   mutable schedule::Query query;
 };
@@ -125,11 +125,11 @@ public:
 //==============================================================================
 NegotiatingRouteValidator::NegotiatingRouteValidator(
     const schedule::Negotiation::Table& table,
-    schedule::ParticipantDescription description)
+    Profile profile)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                &table,
-               std::move(description),
+               std::move(profile),
                schedule::query_all()
              }))
 {
@@ -152,11 +152,13 @@ bool NegotiatingRouteValidator::valid(const Route& route) const
   for (const auto& v : view)
   {
     if (rmf_traffic::DetectConflict::between(
-          _pimpl->description.profile(),
+          _pimpl->profile,
           route.trajectory(),
           v.description.profile(),
           v.route.trajectory()))
+    {
       return false;
+    }
   }
 
   return true;

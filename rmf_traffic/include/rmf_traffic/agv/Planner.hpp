@@ -104,6 +104,8 @@ public:
   {
   public:
 
+    static constexpr Duration DefaultMinHoldingTime = std::chrono::seconds(5);
+
     /// Constructor
     ///
     /// \param[in] validator
@@ -124,7 +126,7 @@ public:
     ///   that this flag remains valid.
     Options(
         rmf_utils::clone_ptr<RouteValidator> validator,
-        Duration min_hold_time = std::chrono::seconds(5),
+        Duration min_hold_time = DefaultMinHoldingTime,
         const bool* interrupt_flag = nullptr);
 
     /// Set the route validator
@@ -133,10 +135,10 @@ public:
     /// Get the route validator
     const rmf_utils::clone_ptr<RouteValidator>& validator() const;
 
-    /// Set the minimal amount of time to spend waiting at holding points
+    /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);
 
-    /// Get the minimal amount of time to spend waiting at holding points
+    /// Get the minimum amount of time to spend waiting at holding points
     Duration minimum_holding_time() const;
 
     /// Set an interrupt flag to stop this planner if it has run for too long.

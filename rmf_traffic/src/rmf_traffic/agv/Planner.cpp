@@ -24,6 +24,11 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
+// This line tells the linker to take care of defining the value of this field
+// inside of this translation unit.
+const Duration Planner::Options::DefaultMinHoldingTime;
+
+//==============================================================================
 class Planner::Configuration::Implementation
 {
 public:

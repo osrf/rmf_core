@@ -100,11 +100,11 @@ public:
   /// \param[in] table
   ///   The Negotiation::Table that the route must be valid on.
   ///
-  /// \param[in] description
-  ///   The description of the participant that is being planned for.
+  /// \param[in] profile
+  ///   The profile of the participant that is being planned for.
   NegotiatingRouteValidator(
       const schedule::Negotiation::Table& table,
-      schedule::ParticipantDescription description);
+      rmf_traffic::Profile profile);
 
   // Documentation inherited
   bool valid(const Route& route) const final;

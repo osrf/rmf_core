@@ -417,7 +417,6 @@ SCENARIO("Test Options", "[options]")
   using namespace std::chrono_literals;
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
-  using Database = rmf_traffic::schedule::Database;
 
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(6);
