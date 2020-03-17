@@ -92,6 +92,8 @@ SCENARIO ("Testing conflicts")
       rmf_traffic::geometry::Box>(1.0, 1.0);
   const auto box_2 = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(2.0, 2.0);
+  const auto box_3 = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Box>(3.0, 3.0);
 
   GIVEN("Two stationary trajectories with non-overlapping vicinities")
   {
@@ -185,13 +187,13 @@ SCENARIO ("Testing conflicts")
     t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
 
     Trajecotry t2;
-    t2.insert(start_time, {3.8, 0, 0}, {0, 0, 0});
-    t2.insert(start_time + 10s, {3.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time, {2.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
 
     CHECK_FALSE(rmf_traffic::DetectConflict::between(
-        {circle_1, box_2},
+        {circle_1, box_3},
         t1,
-        {circle_1, box_2},
+        {circle_1, box_3},
         t2));
   }
 
@@ -202,11 +204,11 @@ SCENARIO ("Testing conflicts")
     t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
 
     Trajecotry t2;
-    t2.insert(start_time, {2.8, 0, 0}, {0, 0, 0});
-    t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time, {2.3, 0, 0}, {0, 0, 0});
+    t2.insert(start_time + 10s, {2.3, 0, 0}, {0, 0, 0});
 
     CHECK(rmf_traffic::DetectConflict::between(
-        {circle_1, box_2},
+        {circle_1, box_3},
         t1,
         {circle_1, circle_1},
         t2));
@@ -219,13 +221,13 @@ SCENARIO ("Testing conflicts")
     t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
 
     Trajecotry t2;
-    t2.insert(start_time, {3.8, 0, 0}, {0, 0, 0});
-    t2.insert(start_time + 10s, {3.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time, {2.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
 
     CHECK(rmf_traffic::DetectConflict::between(
         {box_1, circle_2},
         t1,
-        {box_1, box_1},
+        {box_2, box_2},
         t2));
   }
 
@@ -236,8 +238,8 @@ SCENARIO ("Testing conflicts")
     t1.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
 
     Trajecotry t2;
-    t2.insert(start_time, {3.8, 0, 0}, {0, 0, 0});
-    t2.insert(start_time + 10s, {3.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time, {1.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time + 10s, {1.8, 0, 0}, {0, 0, 0});
 
     CHECK(rmf_traffic::DetectConflict::between(
         {box_2, box_2},
