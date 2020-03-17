@@ -231,14 +231,12 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
     CHECK(negotiation->complete());
 
-    auto proposals = negotiation->get_proposal(
-          *negotiation->evaluate(
-            rmf_traffic::schedule::QuickestFinishEvaluator()));
-    REQUIRE(proposals);
-    REQUIRE(proposals->size() == 2);
+    auto proposals = negotiation->evaluate(
+            rmf_traffic::schedule::QuickestFinishEvaluator())->proposal();
+    REQUIRE(proposals.size() == 2);
 
-    const auto& proposal_1 = proposals->at(0);
-    const auto& proposal_2 = proposals->at(1);
+    const auto& proposal_1 = proposals.at(0);
+    const auto& proposal_2 = proposals.at(1);
     for (const auto& r1 : proposal_1.itinerary)
     {
       for (const auto& r2 : proposal_2.itinerary)
@@ -312,14 +310,12 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
     CHECK(negotiation->complete());
 
-    auto proposals = negotiation->get_proposal(
-          *negotiation->evaluate(
-            rmf_traffic::schedule::QuickestFinishEvaluator()));
-    REQUIRE(proposals);
-    REQUIRE(proposals->size() == 2);
+    auto proposals = negotiation->evaluate(
+            rmf_traffic::schedule::QuickestFinishEvaluator())->proposal();
+    REQUIRE(proposals.size() == 2);
 
-    const auto& proposal_1 = proposals->at(0);
-    const auto& proposal_2 = proposals->at(1);
+    const auto& proposal_1 = proposals.at(0);
+    const auto& proposal_2 = proposals.at(1);
     for (const auto& r1 : proposal_1.itinerary)
     {
       for (const auto& r2 : proposal_2.itinerary)

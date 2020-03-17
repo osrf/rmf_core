@@ -51,16 +51,18 @@ void SimpleResponder::submit(
     std::vector<Route> itinerary,
     std::function<void()> /*approval_callback*/) const
 {
-  _pimpl->negotiation->submit(
-        _pimpl->for_participant,
-        _pimpl->to_accommodate,
-        std::move(itinerary));
+  const auto table = _pimpl->negotiation->table(
+        _pimpl->for_participant, _pimpl->to_accommodate);
+
+  table->submit(
+        std::move(itinerary),
+        table->version()? *table->version()+1 : 0);
 }
 
 //==============================================================================
 void SimpleResponder::reject() const
 {
-  _pimpl->negotiation->reject(_pimpl->to_accommodate);
+  _pimpl->negotiation->table(_pimpl->to_accommodate)->reject();
 }
 
 } // namespace schedule

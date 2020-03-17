@@ -23,7 +23,6 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_traffic_msgs/msg/mirror_wakeup.hpp>
-#include <rmf_traffic_msgs/msg/schedule_conflict.hpp>
 
 #include <rmf_traffic_msgs/msg/itinerary_clear.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_delay.hpp>
@@ -40,12 +39,7 @@
 #include <rmf_traffic_msgs/srv/register_participant.hpp>
 #include <rmf_traffic_msgs/srv/unregister_participant.hpp>
 
-
-
-
-#include <rmf_traffic_msgs/srv/temporary_resolve_conflicts.hpp>
-
-
+#include <rmf_traffic_msgs/msg/schedule_conflict_notice.hpp>
 
 #include <unordered_map>
 
@@ -124,9 +118,9 @@ private:
   MirrorWakeupPublisher::SharedPtr mirror_wakeup_publisher;
 
 
-  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
-  using ScheduleConflictPublisher = rclcpp::Publisher<ScheduleConflict>;
-  ScheduleConflictPublisher::SharedPtr conflict_publisher;
+  using ScheduleConflictNotice = rmf_traffic_msgs::msg::ScheduleConflictNotice;
+  using ScheduleConflictNoticePublisher = rclcpp::Publisher<ScheduleConflictNotice>;
+  ScheduleConflictNoticePublisher::SharedPtr conflict_publisher;
 
 
   using ItinerarySet = rmf_traffic_msgs::msg::ItinerarySet;
@@ -154,13 +148,6 @@ private:
   void publish_inconsistencies(rmf_traffic::schedule::ParticipantId id);
 
   void wakeup_mirrors();
-
-  using TemporaryResolveConflicts = rmf_traffic_msgs::srv::TemporaryResolveConflicts;
-  void temp_resolve_conflicts(
-      const request_id_ptr& request_header,
-      const TemporaryResolveConflicts::Request::SharedPtr& request,
-      const TemporaryResolveConflicts::Response::SharedPtr& response);
-  rclcpp::Service<TemporaryResolveConflicts>::SharedPtr temp_resolve_conflicts_srv;
 
   // TODO(MXG): Consider using libguarded instead of a database_mutex
   std::mutex database_mutex;

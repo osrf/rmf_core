@@ -15,24 +15,20 @@
  *
 */
 
-#include <rmf_traffic/Route.hpp>
-
-#include <rmf_traffic_msgs/msg/route.hpp>
+#include <rmf_traffic_ros2/schedule/Itinerary.hpp>
+#include <rmf_traffic_ros2/Route.hpp>
 
 namespace rmf_traffic_ros2 {
 
 //==============================================================================
-rmf_traffic::Route convert(const rmf_traffic_msgs::msg::Route& from);
-
-//==============================================================================
-rmf_traffic_msgs::msg::Route convert(const rmf_traffic::Route& from);
-
-//==============================================================================
-std::vector<rmf_traffic::Route> convert(
-    const std::vector<rmf_traffic_msgs::msg::Route>& from);
-
-//==============================================================================
 std::vector<rmf_traffic_msgs::msg::Route> convert(
-    const std::vector<rmf_traffic::Route>& from);
+    const rmf_traffic::schedule::Itinerary& from)
+{
+  std::vector<rmf_traffic_msgs::msg::Route> output;
+  for (const auto& r : from)
+    output.emplace_back(convert(*r));
+
+  return output;
+}
 
 } // namespace rmf_traffic_ros2

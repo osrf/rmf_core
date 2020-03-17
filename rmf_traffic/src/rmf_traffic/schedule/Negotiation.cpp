@@ -17,6 +17,7 @@
 
 #include <rmf_traffic/schedule/Negotiation.hpp>
 
+#include "Modular.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
 
@@ -76,14 +77,20 @@ Itinerary convert_itinerary(std::vector<Route> itinerary)
 }
 
 //==============================================================================
-std::string to_string(const std::vector<ParticipantId>& participants)
+struct NegotiationData
 {
-  std::string output;
-  for (const auto p : participants)
-    output += " " + std::to_string(p) + " ";
+  /// The participants that are part of the negotiation
+  std::unordered_set<ParticipantId> participants;
 
-  return output;
-}
+  /// The negotiation tables that have successfully reached a termination
+  std::vector<std::vector<ParticipantId>> successful_tables;
+
+  /// The number of negotiation tables that have reached a conclusion (either
+  /// successfully finished or rejected)
+  std::size_t num_terminated_tables = 0;
+
+  std::unordered_set<Negotiation::Table::Implementation*> rejected_tables;
+};
 
 } // anonymous namespace
 
@@ -104,8 +111,8 @@ public:
   };
   using RouteEntryPtr = std::shared_ptr<RouteEntry>;
 
-  const Viewer* viewer;
-  std::vector<ParticipantId> submitted;
+  const Viewer* const viewer;
+  std::vector<ParticipantId> sequence;
   std::vector<ParticipantId> unsubmitted;
   std::vector<RouteEntryPtr> entries;
   Timeline<RouteEntry> timeline;
@@ -114,22 +121,35 @@ public:
 
   Proposal proposal;
 
-
-  ParticipantId participant;
-  std::size_t depth;
+  const ParticipantId participant;
+  const std::size_t depth;
   rmf_utils::optional<Itinerary> itinerary;
-  TableMap descendants;
+  Version version = std::numeric_limits<Version>::max();
   bool rejected = false;
+  TableMap descendants;
+
+  std::weak_ptr<NegotiationData> weak_negotiation_data;
+  std::weak_ptr<Table> weak_owner;
+  std::weak_ptr<Table> weak_parent;
 
   Implementation(
-
+      TablePtr owner_,
+      std::shared_ptr<NegotiationData> negotiation_data_,
+      const Viewer& viewer_,
+      ParticipantId participant_,
+      std::size_t depth_,
       std::vector<ParticipantId> submitted_,
       std::vector<ParticipantId> unsubmitted_,
-      Proposal proposal_)
+      Proposal initial_proposal_,
+      TablePtr parent_)
     : viewer(&viewer_),
-      submitted(std::move(submitted_)),
       unsubmitted(std::move(unsubmitted_)),
-      proposal(std::move(proposal_))
+      proposal(std::move(initial_proposal_)),
+      participant(participant_),
+      depth(depth_),
+      weak_negotiation_data(negotiation_data_),
+      weak_owner(owner_),
+      weak_parent(std::move(parent_))
   {
     for (const auto& p : proposal)
     {
@@ -153,59 +173,67 @@ public:
       }
     }
 
-    std::vector<ParticipantId> all_participants = submitted;
+    std::vector<ParticipantId> all_participants = submitted_;
     all_participants.insert(
           all_participants.end(), unsubmitted.begin(), unsubmitted.end());
     participant_query = Query::Participants::make_all_except(all_participants);
+
+    // Add this Table's participant to the sequence
+    sequence = std::move(submitted_);
+    sequence.push_back(participant);
+
+    // Remove this Table's participant from the unsubmitted
+    const auto it = std::remove_if(unsubmitted.begin(), unsubmitted.end(),
+                   [&](const ParticipantId p) { return p == participant; });
+    assert(it != unsubmitted.end());
+    unsubmitted.erase(it);
   }
 
   Viewer::View query(const Query::Spacetime& spacetime) const;
 
-  static void add_participant(Table& table, ParticipantId new_participant)
+  void add_participant(const ParticipantId new_participant)
   {
-    table._pimpl->unsubmitted.push_back(new_participant);
+    unsubmitted.push_back(new_participant);
+
+    if (itinerary)
+    {
+      // If we already have a submission for this table, then immediately add
+      // a descendent for this new participant.
+      make_descendent(new_participant);
+    }
   }
 
-  static std::unordered_map<ParticipantId, Table> make_descendants(
-      const Table& from,
-      const ParticipantId submitting,
-      const Itinerary& itinerary)
+  void make_descendants()
   {
-    Proposal proposal = from._pimpl->proposal;
-    proposal.push_back({submitting, itinerary});
-
-    std::vector<ParticipantId> submitted = from._pimpl->submitted;
-    submitted.push_back(submitting);
-
-    std::vector<ParticipantId> unsubmitted = from._pimpl->unsubmitted;
-    const auto it = std::remove_if(unsubmitted.begin(), unsubmitted.end(),
-                   [&](const ParticipantId p) { return p == submitting; });
-    assert(it != unsubmitted.end());
-    unsubmitted.erase(it);
+    assert(itinerary);
+    assert(proposal.size() == depth);
 
     std::unordered_map<ParticipantId, Table> descendants;
     for (const auto u : unsubmitted)
-    {
-      Table table;
-      table._pimpl = rmf_utils::make_unique_impl<Implementation>(
-            *from._pimpl->viewer,
-            submitted,
-            unsubmitted,
-            proposal);
-
-      descendants.insert(std::make_pair(u, std::move(table)));
-    }
-
-    return descendants;
+      make_descendent(u);
   }
 
-  static Table make_root(
+  void make_descendent(const ParticipantId p)
+  {
+    auto table = std::make_shared<Table>(Table());
+    table->_pimpl = rmf_utils::make_unique_impl<Implementation>(
+          table, weak_negotiation_data.lock(), *viewer, p, depth+1,
+          sequence, unsubmitted, proposal, weak_owner.lock());
+
+    descendants.insert(std::make_pair(p, std::move(table)));
+  }
+
+  static TablePtr make_root(
       const Viewer& viewer,
+      const std::shared_ptr<NegotiationData> negotiation_data,
+      const ParticipantId participant,
       const std::vector<ParticipantId>& participants)
   {
-    Table table;
-    table._pimpl = rmf_utils::make_unique_impl<Implementation>(
-          Implementation(viewer, {}, participants, {}));
+    auto table = std::make_shared<Table>(Table());
+    table->_pimpl = rmf_utils::make_unique_impl<Implementation>(
+          Implementation(
+            table, negotiation_data, viewer, participant, 1, {},
+            participants, {}, nullptr));
 
     return table;
   }
@@ -220,20 +248,20 @@ public:
     return *table._pimpl;
   }
 
-  void submit(
-      const ParticipantId for_participant,
-      std::vector<Route> new_itinerary)
+  bool submit(
+      std::vector<Route> new_itinerary,
+      const Version new_version)
   {
-    bool formerly_successful = false;
-    if (rejected)
-    {
-      auto& rejections = impl.rejected_table_depths;
-      const auto it =
-          std::find(rejections.begin(), rejections.end(), depth);
-      assert(it != rejections.end());
+    if (!modular(version).less_than(new_version))
+      return false;
 
-      rejections.erase(it);
-      impl.num_terminated_tables -= depth;
+    bool formerly_successful = false;
+    const auto negotiation_data = weak_negotiation_data.lock();
+    if (rejected && negotiation_data)
+    {
+      negotiation_data->rejected_tables.erase(this);
+      negotiation_data->num_terminated_tables -=
+          termination_factor(depth, negotiation_data->participants.size());
     }
     else if (itinerary && descendants.empty())
     {
@@ -242,67 +270,118 @@ public:
       formerly_successful = true;
     }
 
-    itinerary = convert_itinerary(std::move(new_itinerary));
-    auto new_tables = Table::Implementation::make_descendants(
-          *table, for_participant, *itinerary);
-    if (new_tables.empty() && !formerly_successful)
+    const bool had_itinerary = itinerary.has_value();
+
+    version = new_version;
+    itinerary = convert_itinerary(new_itinerary);
+    rejected = false;
+
+    if (had_itinerary)
+    {
+      proposal.back() = {participant, *itinerary};
+      clear_descendants();
+    }
+    else
+    {
+      proposal.push_back({participant, *itinerary});
+    }
+
+    make_descendants();
+
+    if (descendants.empty() && !formerly_successful && negotiation_data)
     {
       // If there are no new tables that branch off of this submission, then
       // this submission has successfully terminated this branch of
       // negotiation
-      auto sequence = Table::Implementation::get(*table).submitted;
-      sequence.push_back(for_participant);
-      impl.successful_tables.push_back(std::move(sequence));
-      impl.num_terminated_tables += 1;
+      negotiation_data->successful_tables.push_back(sequence);
+      negotiation_data->num_terminated_tables += 1;
     }
 
-    for (auto& t : new_tables)
-    {
-      auto new_entry =
-          std::make_unique<TableEntry>(std::move(t.second), t.first, depth+1);
-
-      descendants.insert(std::make_pair(t.first, std::move(new_entry)));
-    }
+    return true;
   }
 
-  void reject(Implementation& impl)
+  void reject()
   {
     if (rejected)
       return;
 
-    if (itinerary && descendants.empty())
+    const auto negotiation_data = weak_negotiation_data.lock();
+    if (itinerary && descendants.empty() && negotiation_data)
     {
       // This used to be a successfully completed negotiation table.
       // TODO(MXG): It's a bit suspicious that a successfully completed
       // negotiation table would get rejected. Maybe we should put an
       // assertion here.
-      impl.num_terminated_tables -= 1;
+      negotiation_data->num_terminated_tables -= 1;
     }
 
     rejected = true;
     itinerary = rmf_utils::nullopt;
-    descendants.clear();
+    clear_descendants();
 
-    impl.num_terminated_tables += termination_factor(
-          depth, impl.participants.size());
-
-    // Erase any successful tables that branched off of this rejected table
-    const auto& submitted = Table::Implementation::get(*table).submitted;
-    const auto erase_it = std::remove_if(
-          impl.successful_tables.begin(),
-          impl.successful_tables.end(),
-          [&](const std::vector<ParticipantId>& table)
+    if (negotiation_data)
     {
-      for (std::size_t i=0; i < submitted.size(); ++i)
+      negotiation_data->num_terminated_tables += termination_factor(
+            depth, negotiation_data->participants.size());
+      negotiation_data->rejected_tables.insert(this);
+
+      // Erase any successful tables that branched off of this rejected table
+      const auto erase_it = std::remove_if(
+            negotiation_data->successful_tables.begin(),
+            negotiation_data->successful_tables.end(),
+            [&](const std::vector<ParticipantId>& table)
       {
-        if (table[i] != submitted[i])
-          return false;
+        for (std::size_t i=0; i < sequence.size(); ++i)
+        {
+          if (table[i] != sequence[i])
+            return false;
+        }
+
+        return true;
+      });
+
+      negotiation_data->successful_tables.erase(
+            erase_it, negotiation_data->successful_tables.end());
+    }
+  }
+
+  // This function removes descendent tables and makes sure that they can no
+  // longer impact the negotiation
+  void clear_descendants()
+  {
+    // TODO(MXG): Instead of clearing all the descendants during a submission,
+    // we could simply clear the ones whose proposals are in conflict with the
+    // new submission. However, all descendants must always be cleared during a
+    // rejection.
+
+    const auto negotiation_data = weak_negotiation_data.lock();
+
+    std::vector<Table::Implementation*> queue;
+    queue.push_back(this);
+    while (!queue.empty())
+    {
+      auto top = queue.back();
+      queue.pop_back();
+
+      for (const auto entry : top->descendants)
+      {
+        const auto& table = entry.second;
+        if (table->_pimpl->rejected && negotiation_data)
+        {
+          negotiation_data->num_terminated_tables -=
+              termination_factor(
+                table->_pimpl->depth, negotiation_data->participants.size());
+
+          negotiation_data->rejected_tables.erase(table->_pimpl.get());
+        }
+
+        table->_pimpl->weak_negotiation_data.reset();
+        table->_pimpl->weak_parent.reset();
+        queue.push_back(entry.second->_pimpl.get());
       }
+    }
 
-      return true;
-    });
-
-    impl.successful_tables.erase(erase_it, impl.successful_tables.end());
+    descendants.clear();
   }
 };
 
@@ -314,70 +393,45 @@ public:
   Implementation(
       const Viewer& viewer_,
       std::vector<ParticipantId> participants_)
-    : viewer(&viewer_)
+    : viewer(&viewer_),
+      data(std::make_shared<NegotiationData>())
   {
     for (const auto p : participants_)
-      participants.insert(p);
+      data->participants.insert(p);
 
-    max_terminated_tables = factorial(participants.size());
+    max_terminated_tables = factorial(data->participants.size());
 
     for (const auto p : participants_)
     {
-      tables[p] = std::make_shared<Table>(
-            Table::Implementation::make_root(viewer_, participants_), p, 1);
+      tables[p] = Table::Implementation::make_root(
+            viewer_, data, p, participants_);
     }
   }
 
-  struct Data
-  {
-
-  };
-
   const Viewer* viewer;
-  std::unordered_set<ParticipantId> participants;
   std::size_t max_terminated_tables;
 
-  struct TableEntry;
-  using TableEntryPtr = std::unique_ptr<TableEntry>;
   using TableMap = Table::Implementation::TableMap;
   TableMap tables;
 
-  /// The negotiation tables that have successfully reached a termination
-  std::vector<std::vector<ParticipantId>> successful_tables;
+  std::shared_ptr<NegotiationData> data;
 
-  /// The number of negotiation tables that have reached a conclusion (either
-  /// successfully finished or rejected)
-  std::size_t num_terminated_tables = 0;
-
-  std::vector<std::size_t> rejected_table_depths;
-
-  struct TableEntry
-  {
-    std::shared_ptr<Table> table;
-
-    TableEntry(Table table_, ParticipantId participant_, std::size_t depth_)
-      : table(std::make_shared<Table>(std::move(table_))),
-        participant(participant_),
-        depth(depth_)
-    {
-      // Do nothing
-    }
-
-  };
-
-  TableEntry* climb(const TableMap& map, const ParticipantId p)
+  TablePtr climb(const TableMap& map, const ParticipantId p)
   {
     const auto it = map.find(p);
     if (it == map.end())
       return nullptr;
 
-    return it->second.get();
+    return it->second;
   }
 
-  TableEntry* get_entry(
+  TablePtr get_entry(
       const std::vector<ParticipantId>& table)
   {
-    TableEntry* output = nullptr;
+    // TODO(MXG): We could use a TablePtr* here to avoid unnecessary reference
+    // counting. However, it would add another layer of indirection and make the
+    // nullptr semantics much trickier.
+    TablePtr output = nullptr;
     const TableMap* map = &tables;
     for (const auto p : table)
     {
@@ -385,41 +439,40 @@ public:
       if (!output)
         return nullptr;
 
-      map = &output->descendants;
+      map = &Table::Implementation::get(*output).descendants;
     }
 
     return output;
   }
 
-  const TableEntry* get_entry(
-      const std::vector<ParticipantId>& table) const
+  ConstTablePtr get_entry(const std::vector<ParticipantId>& table) const
   {
     return const_cast<Implementation&>(*this).get_entry(table);
   }
 
-  TableEntry* get_entry(
+  TablePtr get_entry(
       const ParticipantId for_participant,
       const std::vector<ParticipantId>& to_accommodate)
   {
-    const TableMap* map = nullptr;
+    TableMap* map = nullptr;
     if (to_accommodate.empty())
     {
       map = &tables;
     }
     else
     {
-      const auto* output = get_entry(to_accommodate);
+      const auto output = get_entry(to_accommodate);
       if (!output)
         return nullptr;
 
-      map = &output->descendants;
+      map = &Table::Implementation::get(*output).descendants;
     }
     assert(map);
 
     return climb(*map, for_participant);
   }
 
-  const TableEntry* get_entry(
+  ConstTablePtr get_entry(
       const ParticipantId for_participant,
       const std::vector<ParticipantId>& to_accommodate) const
   {
@@ -429,7 +482,7 @@ public:
 
   void add_participant(const ParticipantId new_participant)
   {
-    if (!participants.insert(new_participant).second)
+    if (!data->participants.insert(new_participant).second)
     {
       throw std::runtime_error(
           "[rmf_traffic::schedule::Negotiation::add_participant] "
@@ -437,27 +490,25 @@ public:
           "present in the Negotiation");
     }
 
-    participants.insert(new_participant);
-
     // We can update the maximum number of terminating tables by just
     // multiplying by the new size of negotiation participants, because the
     // value should be the factorial of the total number of negotiation
     // participants.
-    max_terminated_tables *= participants.size();
+    max_terminated_tables *= data->participants.size();
 
     // With a new participant, none of the successfully terminated negotiations
     // are valid anymore.
-    successful_tables.clear();
+    data->successful_tables.clear();
 
     // Restart the counter to zero.
-    num_terminated_tables = 0;
+    data->num_terminated_tables = 0;
 
     // The rejected tables are still terminated, but the number of tables that
     // are terminated due to rejection will be higher now, so we need to
     // recalculate it.
-    const std::size_t N = participants.size();
-    for (const auto depth : rejected_table_depths)
-      num_terminated_tables += termination_factor(depth, N);
+    const std::size_t N = data->participants.size();
+    for (const auto rejected : data->rejected_tables)
+      data->num_terminated_tables += termination_factor(rejected->depth, N);
 
     std::vector<TableMap*> queue;
     queue.push_back(&tables);
@@ -469,9 +520,9 @@ public:
       for (auto& element : *next)
       {
         const auto& entry = element.second;
-        Table::Implementation::add_participant(*entry->table, new_participant);
+        Table::Implementation::get(*entry).add_participant(new_participant);
 
-        queue.push_back(&entry->descendants);
+        queue.push_back(&Table::Implementation::get(*entry).descendants);
       }
     }
   }
@@ -494,96 +545,15 @@ void Negotiation::add_participant(ParticipantId p)
 }
 
 //==============================================================================
-bool Negotiation::submit(
-    const ParticipantId for_participant,
-    const std::vector<ParticipantId>& to_accommodate,
-    std::vector<Route> itinerary,
-    const Version version)
-{
-  auto* entry = _pimpl->get_entry(for_participant, to_accommodate);
-  if (!entry)
-  {
-    throw std::runtime_error(
-          "[rmf_traffic::schedule::Negotiation::submit] Cannot set proposal "
-          "for [" + std::to_string(for_participant) + "] to accommodate ["
-          + to_string(to_accommodate)
-          + "] because that table does not exist yet");
-  }
-
-  return entry->submit(*_pimpl, for_participant, std::move(itinerary));
-}
-
-//==============================================================================
-void Negotiation::reject(const std::vector<ParticipantId>& table)
-{
-  assert(!table.empty());
-  auto* entry = _pimpl->get_entry(table);
-  if (!entry)
-  {
-    throw std::runtime_error(
-          "[rmf_traffic::schedule::Negotiation::reject] Cannot reject proposal "
-          "[" + to_string(table) + "] because that table does not exist yet.");
-  }
-
-  entry->reject(*_pimpl);
-}
-
-//==============================================================================
 bool Negotiation::ready() const
 {
-  return !_pimpl->successful_tables.empty();
+  return !_pimpl->data->successful_tables.empty();
 }
 
 //==============================================================================
 bool Negotiation::complete() const
 {
-  return _pimpl->num_terminated_tables == _pimpl->max_terminated_tables;
-}
-
-//==============================================================================
-rmf_utils::optional<std::vector<ParticipantId>> Negotiation::evaluate(
-    const Evaluator& evaluator) const
-{
-  if (_pimpl->successful_tables.empty())
-    return rmf_utils::nullopt;
-
-  std::vector<Proposal> proposals;
-  proposals.reserve(_pimpl->successful_tables.size());
-  for (const auto& p : _pimpl->successful_tables)
-  {
-    auto proposal = get_proposal(p);
-    assert(proposal);
-
-    proposals.emplace_back(*std::move(proposal));
-  }
-
-  const std::size_t choice = evaluator.choose(proposals);
-  assert(choice < proposals.size());
-
-  return _pimpl->successful_tables[choice];
-}
-
-//==============================================================================
-auto Negotiation::get_proposal(const std::vector<ParticipantId>& table) const
--> rmf_utils::optional<Proposal>
-{
-  const auto* entry = _pimpl->get_entry(table);
-  if (!entry)
-    return rmf_utils::nullopt;
-
-  if (!entry->itinerary)
-    return rmf_utils::nullopt;
-
-  if (entry->rejected)
-    return rmf_utils::nullopt;
-
-  if (!entry->descendants.empty())
-    return rmf_utils::nullopt;
-
-  Proposal proposal = Table::Implementation::get(*entry->table).proposal;
-  proposal.push_back({entry->participant, *entry->itinerary});
-
-  return std::move(proposal);
+  return _pimpl->data->num_terminated_tables == _pimpl->max_terminated_tables;
 }
 
 namespace {
@@ -647,6 +617,91 @@ Viewer::View Negotiation::Table::query(const Query::Spacetime& parameters) const
 }
 
 //==============================================================================
+const Itinerary* Negotiation::Table::submission() const
+{
+  if (_pimpl->itinerary)
+    return &(*_pimpl->itinerary);
+
+  return nullptr;
+}
+
+//==============================================================================
+const Version* Negotiation::Table::version() const
+{
+  if (_pimpl->itinerary)
+    return &_pimpl->version;
+
+  return nullptr;
+}
+
+//==============================================================================
+auto Negotiation::Table::proposal() const -> Proposal
+{
+  return _pimpl->proposal;
+}
+
+//==============================================================================
+ParticipantId Negotiation::Table::participant() const
+{
+  return _pimpl->participant;
+}
+
+//==============================================================================
+const std::vector<ParticipantId>& Negotiation::Table::sequence() const
+{
+  return _pimpl->sequence;
+}
+
+//==============================================================================
+bool Negotiation::Table::submit(
+    std::vector<Route> itinerary,
+    const Version version)
+{
+  return _pimpl->submit(std::move(itinerary), version);
+}
+
+//==============================================================================
+void Negotiation::Table::reject()
+{
+  _pimpl->reject();
+}
+
+//==============================================================================
+auto Negotiation::Table::respond(const ParticipantId by_participant) -> TablePtr
+{
+  const auto it = _pimpl->descendants.find(by_participant);
+  if (it == _pimpl->descendants.end())
+    return nullptr;
+
+  return it->second;
+}
+
+//==============================================================================
+auto Negotiation::Table::respond(const ParticipantId by_participant) const
+-> ConstTablePtr
+{
+  return const_cast<Table&>(*this).respond(by_participant);
+}
+
+//==============================================================================
+auto Negotiation::Table::parent() -> TablePtr
+{
+  return _pimpl->weak_parent.lock();
+}
+
+//==============================================================================
+auto Negotiation::Table::parent() const -> ConstTablePtr
+{
+  return _pimpl->weak_parent.lock();
+}
+
+//==============================================================================
+bool Negotiation::Table::ongoing() const
+{
+  return static_cast<bool>(_pimpl->weak_negotiation_data.lock());
+}
+
+//==============================================================================
 Negotiation::Table::Table()
 {
   // Do nothing
@@ -655,17 +710,66 @@ Negotiation::Table::Table()
 //==============================================================================
 auto Negotiation::table(
     const ParticipantId for_participant,
-    const std::vector<ParticipantId>& to_accommodate) const
--> std::shared_ptr<const Table>
+    const std::vector<ParticipantId>& to_accommodate) -> TablePtr
 {
-  if (const auto entry = _pimpl->get_entry(for_participant, to_accommodate))
-    return entry->table;
-
-  return nullptr;
+  return _pimpl->get_entry(for_participant, to_accommodate);
 }
 
 //==============================================================================
+auto Negotiation::table(
+    const ParticipantId for_participant,
+    const std::vector<ParticipantId>& to_accommodate) const -> ConstTablePtr
+{
+  return _pimpl->get_entry(for_participant, to_accommodate);
+}
+
+//==============================================================================
+auto Negotiation::table(
+    const std::vector<ParticipantId>& sequence) -> TablePtr
+{
+  return _pimpl->get_entry(sequence);
+}
+
+//==============================================================================
+auto Negotiation::table(
+    const std::vector<ParticipantId>& sequence) const -> ConstTablePtr
+{
+  return _pimpl->get_entry(sequence);
+}
+
+//==============================================================================
+auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
+{
+  const auto& successes = _pimpl->data->successful_tables;
+  if (successes.empty())
+    return nullptr;
+
+  std::vector<const Proposal*> proposals;
+  std::vector<ConstTablePtr> tables;
+  proposals.reserve(successes.size());
+  for (const auto& s : successes)
+  {
+    auto table_ptr = _pimpl->get_entry(s);
+    assert(table_ptr);
+
+    const auto& proposal = Table::Implementation::get(*table_ptr).proposal;
+    assert(Table::Implementation::get(*table_ptr).itinerary);
+    assert(!Table::Implementation::get(*table_ptr).rejected);
+    assert(proposal.size() == Table::Implementation::get(*table_ptr).depth);
+    assert(Table::Implementation::get(*table_ptr).descendants.empty());
+
+    tables.emplace_back(std::move(table_ptr));
+    proposals.emplace_back(&proposal);
+  }
+
+  const std::size_t choice = evaluator.choose(proposals);
+  assert(choice < tables.size());
+
+  return tables[choice];
+}
+
 namespace {
+//==============================================================================
 rmf_utils::optional<Time> get_finish_time(const Itinerary& itinerary)
 {
   rmf_utils::optional<Time> finish_time;
@@ -690,7 +794,7 @@ rmf_utils::optional<Time> get_finish_time(const Itinerary& itinerary)
 
 //==============================================================================
 std::size_t QuickestFinishEvaluator::choose(
-    const std::vector<Negotiation::Proposal>& proposals) const
+    const std::vector<const Negotiation::Proposal*>& proposals) const
 {
   std::unordered_map<ParticipantId, Time> best_finish_times;
 
@@ -702,7 +806,7 @@ std::size_t QuickestFinishEvaluator::choose(
     all_finish_times.push_back({});
     auto& finish_times = all_finish_times.back();
 
-    for (const auto& p : proposal)
+    for (const auto& p : *proposal)
     {
       auto finish_time = get_finish_time(p.itinerary);
       if (!finish_time)

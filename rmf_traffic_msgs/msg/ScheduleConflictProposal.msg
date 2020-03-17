@@ -2,6 +2,9 @@
 # The conflict ID that this proposal is targeted at
 uint64 conflict_version
 
+# The version number for this proposal within the negotiation
+uint64 proposal_version
+
 # The participant ID that this proposal is coming from
 uint64 for_participant
 

@@ -35,4 +35,26 @@ rmf_traffic_msgs::msg::Route convert(const rmf_traffic::Route& from)
   return output;
 }
 
+//==============================================================================
+std::vector<rmf_traffic::Route> convert(
+    const std::vector<rmf_traffic_msgs::msg::Route>& from)
+{
+  std::vector<rmf_traffic::Route> output;
+  for (const auto& msg : from)
+    output.emplace_back(convert(msg));
+
+  return output;
+}
+
+//==============================================================================
+std::vector<rmf_traffic_msgs::msg::Route> convert(
+    const std::vector<rmf_traffic::Route>& from)
+{
+  std::vector<rmf_traffic_msgs::msg::Route> output;
+  for (const auto& msg : from)
+    output.emplace_back(convert(msg));
+
+  return output;
+}
+
 } // namespace rmf_traffic_ros2

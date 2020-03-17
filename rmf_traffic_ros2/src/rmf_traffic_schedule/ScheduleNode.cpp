@@ -127,8 +127,8 @@ ScheduleNode::ScheduleNode()
         rclcpp::SystemDefaultsQoS());
 
   conflict_publisher =
-      create_publisher<ScheduleConflict>(
-        rmf_traffic_ros2::ScheduleConflictTopicName,
+      create_publisher<ScheduleConflictNotice>(
+        rmf_traffic_ros2::ScheduleConflictNoticeTopicName,
         rclcpp::SystemDefaultsQoS());
 
   itinerary_set_sub =
@@ -239,7 +239,7 @@ ScheduleNode::ScheduleNode()
                 std::make_pair(conflict_version, conflicts));
         }
 
-        ScheduleConflict msg;
+        ScheduleConflictNotice msg;
         for (const auto c : conflicts)
           msg.participants.push_back(c);
 
@@ -256,15 +256,6 @@ ScheduleNode::ScheduleNode()
         active_conflicts.clear();
       }
     }
-  });
-
-  temp_resolve_conflicts_srv = create_service<TemporaryResolveConflicts>(
-        rmf_traffic_ros2::ResolveConflictsSrvName,
-        [=](const request_id_ptr request_header,
-            const TemporaryResolveConflicts::Request::SharedPtr request,
-            const TemporaryResolveConflicts::Response::SharedPtr response)
-  {
-    this->temp_resolve_conflicts(request_header, request, response);
   });
 }
 
@@ -526,39 +517,6 @@ void ScheduleNode::wakeup_mirrors()
   mirror_wakeup_publisher->publish(msg);
 
   conflict_check_cv.notify_all();
-}
-
-//==============================================================================
-void ScheduleNode::temp_resolve_conflicts(
-    const request_id_ptr& /*request_header*/,
-    const TemporaryResolveConflicts::Request::SharedPtr& request,
-    const TemporaryResolveConflicts::Response::SharedPtr& response)
-{
-  response->accepted = false;
-
-  std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-  const auto conflict_it = active_conflicts.find(request->conflict_version);
-  if (conflict_it == active_conflicts.end())
-  {
-    // This conflict was already addressed
-    return;
-  }
-
-  if (conflict_it->second.participants.count(request->participant) == 0)
-  {
-    response->error =
-        "participant [" + std::to_string(request->participant)
-        + "] not in the conflict set [";
-
-    for (const auto p : conflict_it->second.participants)
-      response->error += " " + std::to_string(p) + " ";
-    response->error += "]";
-
-    return;
-  }
-
-  response->accepted = true;
-  active_conflicts.erase(conflict_it);
 }
 
 } // namespace rmf_traffic_schedule

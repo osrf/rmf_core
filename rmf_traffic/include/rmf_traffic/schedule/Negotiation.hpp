@@ -54,13 +54,6 @@ public:
   /// to be finalized.
   void add_participant(ParticipantId p);
 
-  /// Reject a set of submissions as infeasible.
-  ///
-  /// \param[in] table
-  ///   The participant sequence that corresponds to the proposals that are not
-  ///   feasible.
-  void reject(const std::vector<ParticipantId>& table);
-
   /// Returns true if at least one proposal is available that has the consent of
   /// every participant.
   bool ready() const;
@@ -80,34 +73,9 @@ public:
 
   using Proposal = std::vector<Submission>;
 
-  /// A pure abstract interface class for choosing the best proposal.
-  class Evaluator
-  {
-  public:
-
-    /// Given a set of proposals, choose the one that is the "best". It is up to
-    /// the implementation of the Evaluator to decide how to rank proposals.
-    virtual std::size_t choose(
-        const std::vector<Proposal>& proposals) const = 0;
-
-    virtual ~Evaluator() = default;
-  };
-
-  /// Evaluate the proposals that are available.
-  ///
-  /// \return the negotiation table that was considered the best. Pass this to
-  /// Negotiation::get_proposal() to get the chosen set of submissions.
-  rmf_utils::optional<std::vector<ParticipantId>> evaluate(
-      const Evaluator& evaluator) const;
-
-  /// Get the final proposal of this negotiation table.
-  ///
-  /// \param[in] table
-  ///   A sequence of participant IDs that represent a negotiation table. This
-  ///   must be a successfully terminated table, or else this function will
-  ///   return a nullopt.
-  rmf_utils::optional<Proposal> get_proposal(
-      const std::vector<ParticipantId>& table) const;
+  class Table;
+  using TablePtr = std::shared_ptr<Table>;
+  using ConstTablePtr = std::shared_ptr<const Table>;
 
   /// The Negotiation::Table class gives a view of what the other negotiation
   /// participants have proposed.
@@ -121,7 +89,7 @@ public:
   /// participants that are not part of the Negotiation. That way the external
   /// itineraries can also be accounted for when planning a submission based on
   /// this Table.
-  class Table
+  class Table : public std::enable_shared_from_this<Table>
   {
   public:
 
@@ -129,7 +97,24 @@ public:
     Viewer::View query(const Query::Spacetime& parameters) const;
 
     /// Return the submission on this Negotiation Table if it has one.
-    rmf_utils::optional<Itinerary> submission() const;
+    const Itinerary* submission() const;
+
+    /// The a pointer to the latest itinerary version that was submitted to this
+    /// table, if one was submitted at all.
+    const Version* version() const;
+
+    /// The proposal on this table so far. This will include the latest
+    /// itinerary that has been submitted to this Table if anything has been
+    /// submitted. Otherwise it will only include the submissions that underlie
+    /// this table.
+    Proposal proposal() const;
+
+    /// The participant that is meant to submit to this Table.
+    ParticipantId participant() const;
+
+    /// The sequence key that refers to this table. This is equivalent to
+    /// [to_accommodate..., for_participant]
+    const std::vector<ParticipantId>& sequence() const;
 
     /// Submit a proposal for a participant that accommodates some of the other
     /// participants in the negotiation (or none if an empty vector is given for
@@ -147,6 +132,33 @@ public:
     bool submit(
         std::vector<Route> itinerary,
         Version version);
+
+    /// Reject the proposals that underlie this Negotiation::Table. This
+    /// indicates that the underlying proposals are infeasible for the
+    /// Participant of this Table to accommodate.
+    void reject();
+
+    /// If by_participant can respond to this table, then this will return a
+    /// TablePtr that by_participant can submit a proposal to.
+    ///
+    /// If this function is called before anything has been submitted to this
+    /// Table, then it will certainly return a nullptr.
+    TablePtr respond(ParticipantId by_participant);
+
+    // const-qualified respond()
+    ConstTablePtr respond(ParticipantId by_participant) const;
+
+    /// Get the parent Table of this Table if it has a parent.
+    TablePtr parent();
+
+    // const-qualified parent()
+    ConstTablePtr parent() const;
+
+    /// Return true if the negotiation is ongoing (i.e. the Negotiation instance
+    /// that created this table is still alive). When the Negotiation instance
+    /// that this Table belongs to has destructed, this will begin to return
+    /// false.
+    bool ongoing() const;
 
     class Implementation;
   private:
@@ -166,9 +178,47 @@ public:
   ///   ordering of the participants in this set is hierarchical where each
   ///   participant is accommodating all of the participants that come before
   ///   it.
-  std::shared_ptr<const Table> table(
+  TablePtr table(
+      ParticipantId for_participant,
+      const std::vector<ParticipantId>& to_accommodate);
+
+  // const-qualified table()
+  ConstTablePtr table(
       ParticipantId for_participant,
       const std::vector<ParticipantId>& to_accommodate) const;
+
+  /// Get a Negotiation::Table that corresponds to the given participant
+  /// sequence. For a table in terms of for_participant and to_accomodate, you
+  /// would call:
+  /// table([to_accommodate..., for_participant])
+  ///
+  /// \param[in] sequence
+  ///   The participant sequence that corresponds to the desired table. This is
+  ///   equivalent to [to_accommodate..., for_participant]
+  TablePtr table(const std::vector<ParticipantId>& sequence);
+
+  // const-qualified table()
+  ConstTablePtr table(const std::vector<ParticipantId>& sequence) const;
+
+  /// A pure abstract interface class for choosing the best proposal.
+  class Evaluator
+  {
+  public:
+
+    /// Given a set of proposals, choose the one that is the "best". It is up to
+    /// the implementation of the Evaluator to decide how to rank proposals.
+    virtual std::size_t choose(
+        const std::vector<const Proposal*>& proposals) const = 0;
+
+    virtual ~Evaluator() = default;
+  };
+
+  /// Evaluate the proposals that are available.
+  ///
+  /// \return the negotiation table that was considered the best. Call
+  /// Table::proposal() on this return value to see the full proposal. If there
+  /// was no
+  ConstTablePtr evaluate(const Evaluator& evaluator) const;
 
   class Implementation;
 private:
@@ -184,7 +234,7 @@ public:
 
   // Documentation inherited
   std::size_t choose(
-      const std::vector<Negotiation::Proposal>& proposals) const final;
+      const std::vector<const Negotiation::Proposal*>& proposals) const final;
 
 };
 
