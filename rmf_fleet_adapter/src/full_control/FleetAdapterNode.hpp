@@ -155,7 +155,7 @@ public:
       traits(std::move(traits_)),
       planner(
         rmf_traffic::agv::Planner::Configuration(graph_info.graph, traits),
-        rmf_traffic::agv::Planner::Options(mirror.viewer()))
+        rmf_traffic::agv::Planner::Options(nullptr))
     {
       // Do nothing
     }

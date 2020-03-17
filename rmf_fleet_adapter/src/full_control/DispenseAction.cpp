@@ -105,8 +105,6 @@ public:
 
     const auto l = _context->location;
     const Eigen::Vector3d position{l.x, l.y, l.yaw};
-
-    const auto& profile = _node->get_fields().traits.profile();
     const Eigen::Vector3d zero = Eigen::Vector3d::Zero();
 
     _last_reported_wait_time = now + _duration_estimate;
