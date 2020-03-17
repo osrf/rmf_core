@@ -193,46 +193,47 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     CHECK_FALSE(negotiation->ready());
     CHECK_FALSE(negotiation->complete());
 
-    rmf_traffic::agv::Negotiator negotiator_1{
+    rmf_traffic::agv::SimpleNegotiator negotiator_1{
       plan_1->get_start(),
       plan_1->get_goal(),
       configuration,
-      rmf_traffic::agv::Negotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
     };
 
-    rmf_traffic::agv::Negotiator negotiator_2{
+    rmf_traffic::agv::SimpleNegotiator negotiator_2{
       plan_2->get_start(),
       plan_2->get_goal(),
       configuration,
-      rmf_traffic::agv::Negotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
     };
 
     negotiator_1.respond(
           negotiation->table(p1.id(), {}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p1.id(), {}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p1.id(), {}));
 
     REQUIRE(negotiation->table(p2.id(), {p1.id()}));
 
     negotiator_2.respond(
           negotiation->table(p2.id(), {}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p2.id(), {}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p2.id(), {}));
 
     REQUIRE(negotiation->table(p1.id(), {p2.id()}));
 
     negotiator_1.respond(
           negotiation->table(p1.id(), {p2.id()}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p1.id(), {p2.id()}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p1.id(), {p2.id()}));
 
     CHECK(negotiation->ready());
 
     negotiator_2.respond(
           negotiation->table(p2.id(), {p1.id()}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p2.id(), {p1.id()}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p2.id(), {p1.id()}));
 
     CHECK(negotiation->complete());
 
-    auto proposals = negotiation->evaluate(
-          rmf_traffic::schedule::QuickestFinishEvaluator());
+    auto proposals = negotiation->get_proposal(
+          *negotiation->evaluate(
+            rmf_traffic::schedule::QuickestFinishEvaluator()));
     REQUIRE(proposals);
     REQUIRE(proposals->size() == 2);
 
@@ -248,7 +249,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       }
     }
 
-    print_proposal(*proposals);
+//    print_proposal(*proposals);
   }
 
   WHEN("Participants Head-to-Head")
@@ -271,34 +272,34 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     auto negotiation = std::make_shared<rmf_traffic::schedule::Negotiation>(
           rmf_traffic::schedule::Negotiation{database, {p1.id(), p2.id()}});
 
-    rmf_traffic::agv::Negotiator negotiator_1{
+    rmf_traffic::agv::SimpleNegotiator negotiator_1{
       rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),
       rmf_traffic::agv::Plan::Goal(7),
       configuration,
-      rmf_traffic::agv::Negotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
     };
 
-    rmf_traffic::agv::Negotiator negotiator_2{
+    rmf_traffic::agv::SimpleNegotiator negotiator_2{
       rmf_traffic::agv::Plan::Start(start_time, 7, 0.0),
       rmf_traffic::agv::Plan::Goal(3),
       configuration,
-      rmf_traffic::agv::Negotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
     };
 
     negotiator_1.respond(
           negotiation->table(p1.id(), {}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p1.id(), {}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p1.id(), {}));
 
     negotiator_2.respond(
           negotiation->table(p2.id(), {}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p2.id(), {}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p2.id(), {}));
 
     CHECK_FALSE(negotiation->ready());
     CHECK_FALSE(negotiation->complete());
 
     negotiator_1.respond(
           negotiation->table(p1.id(), {p2.id()}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p1.id(), {p2.id()}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p1.id(), {p2.id()}));
 
     // ready() will be false here, because the ideal itinerary for
     // participant 2 makes it impossible for participant 1 to get out of the
@@ -307,12 +308,13 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
     negotiator_2.respond(
           negotiation->table(p2.id(), {p1.id()}),
-          rmf_traffic::agv::SimpleResponder(negotiation, p2.id(), {p1.id()}));
+          rmf_traffic::schedule::SimpleResponder(negotiation, p2.id(), {p1.id()}));
 
     CHECK(negotiation->complete());
 
-    auto proposals = negotiation->evaluate(
-          rmf_traffic::schedule::QuickestFinishEvaluator());
+    auto proposals = negotiation->get_proposal(
+          *negotiation->evaluate(
+            rmf_traffic::schedule::QuickestFinishEvaluator()));
     REQUIRE(proposals);
     REQUIRE(proposals->size() == 2);
 

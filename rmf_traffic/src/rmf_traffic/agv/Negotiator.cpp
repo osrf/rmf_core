@@ -17,16 +17,11 @@
 
 #include <rmf_traffic/agv/Negotiator.hpp>
 
-
-
-#include <iostream>
-
-
 namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
-class Negotiator::Options::Implementation
+class SimpleNegotiator::Options::Implementation
 {
 public:
 
@@ -35,27 +30,27 @@ public:
 };
 
 //==============================================================================
-Negotiator::Options::Options(Duration min_hold_time)
+SimpleNegotiator::Options::Options(Duration min_hold_time)
   : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{min_hold_time}))
 {
   // Do nothing
 }
 
 //==============================================================================
-auto Negotiator::Options::minimum_holding_time(Duration value) -> Options&
+auto SimpleNegotiator::Options::minimum_holding_time(Duration value) -> Options&
 {
   _pimpl->minimum_holding_time = value;
   return *this;
 }
 
 //==============================================================================
-Duration Negotiator::Options::minimum_holding_time() const
+Duration SimpleNegotiator::Options::minimum_holding_time() const
 {
   return _pimpl->minimum_holding_time;
 }
 
 //==============================================================================
-class Negotiator::Implementation
+class SimpleNegotiator::Implementation
 {
 public:
 
@@ -80,7 +75,7 @@ public:
 };
 
 //==============================================================================
-Negotiator::Negotiator(
+SimpleNegotiator::SimpleNegotiator(
     Planner::Start start,
     Planner::Goal goal,
     Planner::Configuration planner_configuration,
@@ -95,7 +90,7 @@ Negotiator::Negotiator(
 }
 
 //==============================================================================
-void Negotiator::respond(
+void SimpleNegotiator::respond(
     std::shared_ptr<const schedule::Negotiation::Table> table,
     const Responder& responder,
     const bool* interrupt_flag) const
@@ -119,49 +114,6 @@ void Negotiator::respond(
   }
 
   responder.submit(plan->get_itinerary());
-}
-
-//==============================================================================
-class SimpleResponder::Implementation
-{
-public:
-
-  std::shared_ptr<schedule::Negotiation> negotiation;
-  schedule::ParticipantId for_participant;
-  std::vector<schedule::ParticipantId> to_accommodate;
-
-};
-
-//==============================================================================
-SimpleResponder::SimpleResponder(
-    std::shared_ptr<schedule::Negotiation> negotiation,
-    schedule::ParticipantId for_participant,
-    std::vector<schedule::ParticipantId> to_accommodate)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(negotiation),
-               for_participant,
-               std::move(to_accommodate)
-             }))
-{
-  // Do nothing
-}
-
-//==============================================================================
-void SimpleResponder::submit(std::vector<Route> itinerary) const
-{
-  std::cout << "Getting submission from " << _pimpl->for_participant << std::endl;
-  _pimpl->negotiation->submit(
-        _pimpl->for_participant,
-        _pimpl->to_accommodate,
-        std::move(itinerary));
-}
-
-//==============================================================================
-void SimpleResponder::reject() const
-{
-  std::cout << "Getting rejection from " << _pimpl->for_participant << std::endl;
-  _pimpl->negotiation->reject(_pimpl->to_accommodate);
 }
 
 } // namespace agv

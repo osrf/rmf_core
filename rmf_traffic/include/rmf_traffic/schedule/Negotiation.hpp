@@ -54,28 +54,6 @@ public:
   /// to be finalized.
   void add_participant(ParticipantId p);
 
-  /// Submit a proposal for a participant that accommodates some of the other
-  /// participants in the negotiation (or none if an empty vector is given for
-  /// the to_accommodate argument).
-  ///
-  /// \warning A runtime error may be thrown if the proposal hierarchy specified
-  /// by to_accommodate has not been submitted yet.
-  ///
-  /// \param[in] for_participant
-  ///   The participant whose itinerary is being submitted.
-  ///
-  /// \param[in] to_accommodate
-  ///   The participants whose submissions are being accommodated. When
-  ///   submitting the ideal itinerary for a participant, this vector should be
-  ///   empty.
-  ///
-  /// \param[in] itinerary
-  ///   The itinerary that is being submitted by this participant.
-  void submit(
-      ParticipantId for_participant,
-      const std::vector<ParticipantId>& to_accommodate,
-      std::vector<Route> itinerary);
-
   /// Reject a set of submissions as infeasible.
   ///
   /// \param[in] table
@@ -116,7 +94,20 @@ public:
   };
 
   /// Evaluate the proposals that are available.
-  rmf_utils::optional<Proposal> evaluate(const Evaluator& evaluator) const;
+  ///
+  /// \return the negotiation table that was considered the best. Pass this to
+  /// Negotiation::get_proposal() to get the chosen set of submissions.
+  rmf_utils::optional<std::vector<ParticipantId>> evaluate(
+      const Evaluator& evaluator) const;
+
+  /// Get the final proposal of this negotiation table.
+  ///
+  /// \param[in] table
+  ///   A sequence of participant IDs that represent a negotiation table. This
+  ///   must be a successfully terminated table, or else this function will
+  ///   return a nullopt.
+  rmf_utils::optional<Proposal> get_proposal(
+      const std::vector<ParticipantId>& table) const;
 
   /// The Negotiation::Table class gives a view of what the other negotiation
   /// participants have proposed.
@@ -136,6 +127,26 @@ public:
 
     /// View this table with the given parameters.
     Viewer::View query(const Query::Spacetime& parameters) const;
+
+    /// Return the submission on this Negotiation Table if it has one.
+    rmf_utils::optional<Itinerary> submission() const;
+
+    /// Submit a proposal for a participant that accommodates some of the other
+    /// participants in the negotiation (or none if an empty vector is given for
+    /// the to_accommodate argument).
+    ///
+    /// \param[in] itinerary
+    ///   The itinerary that is being submitted by this participant.
+    ///
+    /// \param[in] version
+    ///   A version number assigned to the submission. If this is less or equal
+    ///   to the last version number given, then nothing will change.
+    ///
+    /// \return True if the submission was accepted. False if the version was
+    /// out of date and nothing changed in the negotiation.
+    bool submit(
+        std::vector<Route> itinerary,
+        Version version);
 
     class Implementation;
   private:

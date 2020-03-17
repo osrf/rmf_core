@@ -92,6 +92,8 @@ class Negotiation::Table::Implementation
 {
 public:
 
+  using TableMap = std::unordered_map<ParticipantId, std::shared_ptr<Table>>;
+
   struct RouteEntry
   {
     ConstRoutePtr route;
@@ -112,8 +114,15 @@ public:
 
   Proposal proposal;
 
+
+  ParticipantId participant;
+  std::size_t depth;
+  rmf_utils::optional<Itinerary> itinerary;
+  TableMap descendants;
+  bool rejected = false;
+
   Implementation(
-      const Viewer& viewer_,
+
       std::vector<ParticipantId> submitted_,
       std::vector<ParticipantId> unsubmitted_,
       Proposal proposal_)
@@ -210,6 +219,91 @@ public:
   {
     return *table._pimpl;
   }
+
+  void submit(
+      const ParticipantId for_participant,
+      std::vector<Route> new_itinerary)
+  {
+    bool formerly_successful = false;
+    if (rejected)
+    {
+      auto& rejections = impl.rejected_table_depths;
+      const auto it =
+          std::find(rejections.begin(), rejections.end(), depth);
+      assert(it != rejections.end());
+
+      rejections.erase(it);
+      impl.num_terminated_tables -= depth;
+    }
+    else if (itinerary && descendants.empty())
+    {
+      // This means that this was a successful terminating node, so we should
+      // make note of that to keep our bookkeeping correct.
+      formerly_successful = true;
+    }
+
+    itinerary = convert_itinerary(std::move(new_itinerary));
+    auto new_tables = Table::Implementation::make_descendants(
+          *table, for_participant, *itinerary);
+    if (new_tables.empty() && !formerly_successful)
+    {
+      // If there are no new tables that branch off of this submission, then
+      // this submission has successfully terminated this branch of
+      // negotiation
+      auto sequence = Table::Implementation::get(*table).submitted;
+      sequence.push_back(for_participant);
+      impl.successful_tables.push_back(std::move(sequence));
+      impl.num_terminated_tables += 1;
+    }
+
+    for (auto& t : new_tables)
+    {
+      auto new_entry =
+          std::make_unique<TableEntry>(std::move(t.second), t.first, depth+1);
+
+      descendants.insert(std::make_pair(t.first, std::move(new_entry)));
+    }
+  }
+
+  void reject(Implementation& impl)
+  {
+    if (rejected)
+      return;
+
+    if (itinerary && descendants.empty())
+    {
+      // This used to be a successfully completed negotiation table.
+      // TODO(MXG): It's a bit suspicious that a successfully completed
+      // negotiation table would get rejected. Maybe we should put an
+      // assertion here.
+      impl.num_terminated_tables -= 1;
+    }
+
+    rejected = true;
+    itinerary = rmf_utils::nullopt;
+    descendants.clear();
+
+    impl.num_terminated_tables += termination_factor(
+          depth, impl.participants.size());
+
+    // Erase any successful tables that branched off of this rejected table
+    const auto& submitted = Table::Implementation::get(*table).submitted;
+    const auto erase_it = std::remove_if(
+          impl.successful_tables.begin(),
+          impl.successful_tables.end(),
+          [&](const std::vector<ParticipantId>& table)
+    {
+      for (std::size_t i=0; i < submitted.size(); ++i)
+      {
+        if (table[i] != submitted[i])
+          return false;
+      }
+
+      return true;
+    });
+
+    impl.successful_tables.erase(erase_it, impl.successful_tables.end());
+  }
 };
 
 //==============================================================================
@@ -229,10 +323,15 @@ public:
 
     for (const auto p : participants_)
     {
-      tables[p] = std::make_unique<TableEntry>(
+      tables[p] = std::make_shared<Table>(
             Table::Implementation::make_root(viewer_, participants_), p, 1);
     }
   }
+
+  struct Data
+  {
+
+  };
 
   const Viewer* viewer;
   std::unordered_set<ParticipantId> participants;
@@ -240,7 +339,7 @@ public:
 
   struct TableEntry;
   using TableEntryPtr = std::unique_ptr<TableEntry>;
-  using TableMap = std::unordered_map<ParticipantId, TableEntryPtr>;
+  using TableMap = Table::Implementation::TableMap;
   TableMap tables;
 
   /// The negotiation tables that have successfully reached a termination
@@ -255,11 +354,6 @@ public:
   struct TableEntry
   {
     std::shared_ptr<Table> table;
-    ParticipantId participant;
-    std::size_t depth;
-    rmf_utils::optional<Itinerary> itinerary;
-    TableMap descendants;
-    bool rejected = false;
 
     TableEntry(Table table_, ParticipantId participant_, std::size_t depth_)
       : table(std::make_shared<Table>(std::move(table_))),
@@ -269,91 +363,6 @@ public:
       // Do nothing
     }
 
-    void submit(
-        Implementation& impl,
-        const ParticipantId for_participant,
-        std::vector<Route> new_itinerary)
-    {
-      bool formerly_successful = false;
-      if (rejected)
-      {
-        auto& rejections = impl.rejected_table_depths;
-        const auto it =
-            std::find(rejections.begin(), rejections.end(), depth);
-        assert(it != rejections.end());
-
-        rejections.erase(it);
-        impl.num_terminated_tables -= depth;
-      }
-      else if (itinerary && descendants.empty())
-      {
-        // This means that this was a successful terminating node, so we should
-        // make note of that to keep our bookkeeping correct.
-        formerly_successful = true;
-      }
-
-      itinerary = convert_itinerary(std::move(new_itinerary));
-      auto new_tables = Table::Implementation::make_descendants(
-            *table, for_participant, *itinerary);
-      if (new_tables.empty() && !formerly_successful)
-      {
-        // If there are no new tables that branch off of this submission, then
-        // this submission has successfully terminated this branch of
-        // negotiation
-        auto sequence = Table::Implementation::get(*table).submitted;
-        sequence.push_back(for_participant);
-        impl.successful_tables.push_back(std::move(sequence));
-        impl.num_terminated_tables += 1;
-      }
-
-      for (auto& t : new_tables)
-      {
-        auto new_entry =
-            std::make_unique<TableEntry>(std::move(t.second), t.first, depth+1);
-
-        descendants.insert(std::make_pair(t.first, std::move(new_entry)));
-      }
-    }
-
-    void reject(Implementation& impl)
-    {
-      if (rejected)
-        return;
-
-      if (itinerary && descendants.empty())
-      {
-        // This used to be a successfully completed negotiation table.
-        // TODO(MXG): It's a bit suspicious that a successfully completed
-        // negotiation table would get rejected. Maybe we should put an
-        // assertion here.
-        impl.num_terminated_tables -= 1;
-      }
-
-      rejected = true;
-      itinerary = rmf_utils::nullopt;
-      descendants.clear();
-
-      impl.num_terminated_tables += termination_factor(
-            depth, impl.participants.size());
-
-      // Erase any successful tables that branched off of this rejected table
-      const auto& submitted = Table::Implementation::get(*table).submitted;
-      const auto erase_it = std::remove_if(
-            impl.successful_tables.begin(),
-            impl.successful_tables.end(),
-            [&](const std::vector<ParticipantId>& table)
-      {
-        for (std::size_t i=0; i < submitted.size(); ++i)
-        {
-          if (table[i] != submitted[i])
-            return false;
-        }
-
-        return true;
-      });
-
-      impl.successful_tables.erase(erase_it, impl.successful_tables.end());
-    }
   };
 
   TableEntry* climb(const TableMap& map, const ParticipantId p)
@@ -485,10 +494,11 @@ void Negotiation::add_participant(ParticipantId p)
 }
 
 //==============================================================================
-void Negotiation::submit(
+bool Negotiation::submit(
     const ParticipantId for_participant,
     const std::vector<ParticipantId>& to_accommodate,
-    std::vector<Route> itinerary)
+    std::vector<Route> itinerary,
+    const Version version)
 {
   auto* entry = _pimpl->get_entry(for_participant, to_accommodate);
   if (!entry)
@@ -500,7 +510,7 @@ void Negotiation::submit(
           + "] because that table does not exist yet");
   }
 
-  entry->submit(*_pimpl, for_participant, std::move(itinerary));
+  return entry->submit(*_pimpl, for_participant, std::move(itinerary));
 }
 
 //==============================================================================
@@ -531,30 +541,49 @@ bool Negotiation::complete() const
 }
 
 //==============================================================================
-rmf_utils::optional<Negotiation::Proposal> Negotiation::evaluate(
+rmf_utils::optional<std::vector<ParticipantId>> Negotiation::evaluate(
     const Evaluator& evaluator) const
 {
   if (_pimpl->successful_tables.empty())
     return rmf_utils::nullopt;
 
   std::vector<Proposal> proposals;
+  proposals.reserve(_pimpl->successful_tables.size());
   for (const auto& p : _pimpl->successful_tables)
   {
-    const auto* entry = _pimpl->get_entry(p);
-    assert(entry);
-    assert(entry->itinerary);
-    assert(!entry->rejected);
-    assert(entry->descendants.empty());
+    auto proposal = get_proposal(p);
+    assert(proposal);
 
-    Proposal proposal = Table::Implementation::get(*entry->table).proposal;
-    proposal.push_back({entry->participant, *entry->itinerary});
-    proposals.emplace_back(std::move(proposal));
+    proposals.emplace_back(*std::move(proposal));
   }
 
   const std::size_t choice = evaluator.choose(proposals);
   assert(choice < proposals.size());
 
-  return std::move(proposals[choice]);
+  return _pimpl->successful_tables[choice];
+}
+
+//==============================================================================
+auto Negotiation::get_proposal(const std::vector<ParticipantId>& table) const
+-> rmf_utils::optional<Proposal>
+{
+  const auto* entry = _pimpl->get_entry(table);
+  if (!entry)
+    return rmf_utils::nullopt;
+
+  if (!entry->itinerary)
+    return rmf_utils::nullopt;
+
+  if (entry->rejected)
+    return rmf_utils::nullopt;
+
+  if (!entry->descendants.empty())
+    return rmf_utils::nullopt;
+
+  Proposal proposal = Table::Implementation::get(*entry->table).proposal;
+  proposal.push_back({entry->participant, *entry->itinerary});
+
+  return std::move(proposal);
 }
 
 namespace {

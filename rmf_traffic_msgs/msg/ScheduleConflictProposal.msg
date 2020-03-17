@@ -3,10 +3,7 @@
 uint64 conflict_version
 
 # The participant ID that this proposal is coming from
-uint64 participant
-
-# The itinerary that is being proposed for this participant
-Route[] itinerary
+uint64 for_participant
 
 # The participant IDs that this proposal is trying to accommodate. As each
 # participant proposes their ideal itinerary, the other participants in the
@@ -15,11 +12,11 @@ Route[] itinerary
 # The order of IDs in this dynamic array have important semantic meaning about
 # which itineraries are being accommodated. For example:
 #
-# [] (empty):  This proposal does not accommodate any other participants. This is
-#              the best possible itinerary for this participant.
+# [] (empty):  This proposal does not accommodate any other participants. This
+#              is the best possible itinerary for this participant.
 #
-# [3]:         This proposal is the best itinerary that can accommodate the ideal
-#              itinerary of participant 3.
+# [3]:         This proposal is the best itinerary that can accommodate the
+#              ideal itinerary of participant 3.
 #
 # [3, 7]:      This proposal is the best itinerary for this participant that can
 #              accommodate both the ideal itinerary of participant 3 and the
@@ -30,4 +27,7 @@ Route[] itinerary
 #              ideal itinerary of participant 3 and the best itineraries that
 #              accommodate the best itineraries of the participants that precede
 #              them in the list, recursively.
-uint64[] accommodating
+uint64[] to_accommodate
+
+# The itinerary that is being proposed for this participant
+Route[] itinerary

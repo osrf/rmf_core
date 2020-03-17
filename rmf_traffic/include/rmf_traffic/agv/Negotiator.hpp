@@ -20,12 +20,15 @@
 
 #include <rmf_traffic/agv/Planner.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
+#include <rmf_traffic/schedule/Negotiator.hpp>
 
 namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
-class Negotiator
+/// A simple implementation of the schedule::Negotiator class. It uses an
+/// agv::Planner to try to find a solution that fits on the negotiation table.
+class SimpleNegotiator : public schedule::Negotiator
 {
 public:
 
@@ -53,25 +56,13 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// A pure abstract interface class that allows the Negotiator to respond to
-  /// other Negotiators.
-  class Responder
-  {
-  public:
-
-    /// The negotiator will call this function when it has an itinerary to
-    /// submit in response to a negotiation.
-    virtual void submit(std::vector<Route> itinerary) const = 0;
-
-    /// The negotiator will call this function if it has decided to reject an
-    /// attempt to negotiate.
-    virtual void reject() const = 0;
-
-    // Virtual destructor
-    virtual ~Responder() = default;
-  };
-
   /// Constructor
+  ///
+  /// \param[in] start
+  ///   The desired start for the plan.
+  ///
+  /// \param[in] goal
+  ///   The desired goal for the plan.
   ///
   /// \param[in] planner_configuration
   ///   The configuration that will be used by the planner underlying this
@@ -79,63 +70,20 @@ public:
   ///
   /// \param[in] options
   ///   Additional options that will be used by the Negotiator.
-  Negotiator(
+  SimpleNegotiator(
       Planner::Start start,
       Planner::Goal goal,
       Planner::Configuration planner_configuration,
       const Options& options = Options());
 
-  /// Have the Negotiator respond to an attempt to negotiate.
-  ///
-  /// \param[in] table
-  ///   The Negotiation::Table that is being used for the negotiation.
-  ///
-  /// \param[in] responder
-  ///   The Responder instance that the negotiator should use when a response is
-  ///   ready.
-  ///
-  /// \param[in] interrupt_flag
-  ///   A pointer to a flag that can be used to interrupt the planning if it has
-  ///   been running for too long. If the planner should run indefinitely, then
-  ///   pass a nullptr.
+  // Documentation inherited
   void respond(
       std::shared_ptr<const schedule::Negotiation::Table> table,
       const Responder& responder,
-      const bool* interrupt_flag = nullptr) const;
+      const bool* interrupt_flag = nullptr) const final;
 
   // TODO(MXG): How should we implement fallback behaviors when a different
   // negotiator rejects our proposal?
-
-  class Implementation;
-private:
-  rmf_utils::impl_ptr<Implementation> _pimpl;
-};
-
-//==============================================================================
-class SimpleResponder : public Negotiator::Responder
-{
-public:
-
-  /// Constructor
-  ///
-  /// \param[in] negotiation
-  ///   The Negotiation that this SimpleResponder is tied to
-  ///
-  /// \param[in] for_participant
-  ///   The participant that will respond using this SimpleResponder
-  ///
-  /// \param[in] to_accommodate
-  ///   The participants that will be accommodated by the response
-  SimpleResponder(
-      std::shared_ptr<schedule::Negotiation> negotiation,
-      schedule::ParticipantId for_participant,
-      std::vector<schedule::ParticipantId> to_accommodate);
-
-  // Documentation inherited
-  void submit(std::vector<Route> itinerary) const final;
-
-  // Documentation inherited
-  void reject() const final;
 
   class Implementation;
 private:

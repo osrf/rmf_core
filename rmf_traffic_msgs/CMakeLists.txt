@@ -35,8 +35,11 @@ set(msg_files
   "msg/ScheduleChangeAdd.msg"
   "msg/ScheduleChangeCull.msg"
   "msg/ScheduleChangeDelay.msg"
-  "msg/ScheduleConflict.msg"
+  "msg/ScheduleConflictAck.msg"
+  "msg/ScheduleConflictConclusion.msg"
+  "msg/ScheduleConflictNotice.msg"
   "msg/ScheduleConflictProposal.msg"
+  "msg/ScheduleConflictRepeat.msg"
   "msg/ScheduleInconsistency.msg"
   "msg/ScheduleInconsistencyRange.msg"
   "msg/ScheduleParticipantPatch.msg"
@@ -59,7 +62,6 @@ set(msg_files
 
 set(srv_files
   "srv/MirrorUpdate.srv"
-  "srv/TemporaryResolveConflicts.srv"
   "srv/RegisterQuery.srv"
   "srv/UnregisterQuery.srv"
   "srv/RegisterParticipant.srv"
