@@ -80,7 +80,7 @@ public:
   void respond(
       std::shared_ptr<const schedule::Negotiation::Table> table,
       const Responder& responder,
-      const bool* interrupt_flag = nullptr) const final;
+      const bool* interrupt_flag = nullptr) final;
 
   // TODO(MXG): How should we implement fallback behaviors when a different
   // negotiator rejects our proposal?

@@ -539,6 +539,12 @@ Negotiation::Negotiation(
 }
 
 //==============================================================================
+const std::unordered_set<ParticipantId>& Negotiation::participants() const
+{
+  return _pimpl->data->participants;
+}
+
+//==============================================================================
 void Negotiation::add_participant(ParticipantId p)
 {
   _pimpl->add_participant(p);

@@ -49,6 +49,9 @@ public:
       const Viewer& viewer,
       std::vector<ParticipantId> participants);
 
+  /// Get the participants that are currently involved in this negotiation.
+  const std::unordered_set<ParticipantId>& participants() const;
+
   /// Add a new participant to the negotiation. This participant will become
   /// involved in the negotiation, and must give its consent for any agreement
   /// to be finalized.

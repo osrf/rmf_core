@@ -215,12 +215,20 @@ public:
       if (!inserted.second)
         return nullptr;
 
+      std::vector<ParticipantId> participants;
+      for (const auto p : {pair.p1, pair.p2})
+      {
+        if (_viewer.get_participant(p)->responsiveness()
+            == rmf_traffic::schedule::ParticipantDescription::Rx::Responsive)
+          participants.push_back(p);
+      }
+
       const auto it =
           _entries.insert(
             std::make_pair(
               _next_conflict_version++,
               Entry{pair, rmf_traffic::schedule::Negotiation(
-                    _viewer, {pair.p1, pair.p2})}));
+                    _viewer, std::move(participants))}));
 
       return &it.first->first;
     }
@@ -259,9 +267,7 @@ public:
       // this conflict
       entry.removal_request.insert(p);
 
-      // TODO(MXG): This condition should be changed when we start to support
-      // poly-participant conflicts
-      if (entry.removal_request.size() == 2)
+      if (entry.removal_request.size() == entry.negotiation.participants().size())
       {
         const auto& pair = entry.pair;
         _record[pair.first()].erase(pair.second());

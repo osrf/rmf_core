@@ -93,7 +93,7 @@ SimpleNegotiator::SimpleNegotiator(
 void SimpleNegotiator::respond(
     std::shared_ptr<const schedule::Negotiation::Table> table,
     const Responder& responder,
-    const bool* interrupt_flag) const
+    const bool* interrupt_flag)
 {
   const auto& profile =
       _pimpl->planner.get_configuration().vehicle_traits().profile();

@@ -89,7 +89,8 @@ public:
     _event_listener(this),
     _emergency_active(false),
     _waiting_on_emergency(false),
-    _planner_options(
+    _planner_options(nullptr),
+    _validator(
       rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
         node->get_fields().mirror.viewer(), state->schedule.participant_id()))
   {
@@ -98,6 +99,13 @@ public:
 
   std::vector<rmf_traffic::agv::Plan> find_plan(
       const std::chrono::nanoseconds start_delay)
+  {
+    return find_plan(start_delay, _validator);
+  }
+
+  std::vector<rmf_traffic::agv::Plan> find_plan(
+      const std::chrono::nanoseconds start_delay,
+      const rmf_utils::clone_ptr<rmf_traffic::agv::RouteValidator> validator)
   {
     _emergency_active = false;
     _waiting_on_emergency = false;
@@ -127,6 +135,7 @@ public:
 
     bool interrupt_flag = false;
     _planner_options.interrupt_flag(&interrupt_flag);
+    _planner_options.validator(std::move(validator));
 
     bool main_plan_solved = false;
     bool main_plan_failed = false;
@@ -136,7 +145,7 @@ public:
     std::thread main_plan_thread = std::thread(
           [&]()
     {
-      main_plan = 
+      main_plan =
           planner.plan(
             plan_starts,
             rmf_traffic::agv::Plan::Goal(_goal_wp_index),
@@ -218,16 +227,45 @@ public:
     cancel(std::chrono::seconds(1));
   }
 
-  void resolve() final
-  {
-    std::cout << "Attempting to resolve plan for [" << _context->robot_name()
-              << "]" << std::endl;
-    if (_emergency_active)
-      return find_and_execute_emergency_plan();
+//  void resolve() final
+//  {
+//    std::cout << "Attempting to resolve plan for [" << _context->robot_name()
+//              << "]" << std::endl;
+//    if (_emergency_active)
+//      return find_and_execute_emergency_plan();
 
-    auto plans = find_plan(std::chrono::seconds(0));
-    if (!plans.empty())
-      return execute_plan(std::move(plans));
+//    auto plans = find_plan(std::chrono::seconds(0));
+//    if (!plans.empty())
+//      return execute_plan(std::move(plans));
+//  }
+
+  void respond(
+      rmf_traffic::schedule::Negotiation::ConstTablePtr table,
+      const Responder& responder,
+      const bool* interrupt_flag) final
+  {
+    // TODO(MXG): Do something with the interrupt flag
+    std::vector<rmf_traffic::agv::Plan> plans =
+        find_plan(
+          std::chrono::seconds(0),
+          rmf_utils::make_clone<rmf_traffic::agv::NegotiatingRouteValidator>(
+            *table, _context->schedule.description().profile()));
+
+    if (plans.empty())
+    {
+      responder.reject();
+      return;
+    }
+
+    auto itinerary = collect_routes(plans);
+    responder.submit(
+          std::move(itinerary),
+          [this, plans = std::move(plans)]()
+    {
+      // TODO(MXG): Consider doing something here to ensure that the MoveAction
+      // does not expire before this callback gets triggered.
+      command_plans(std::move(plans));
+    });
   }
 
   std::vector<rmf_traffic::agv::Plan> use_fallback(
@@ -1334,6 +1372,7 @@ private:
   bool _waiting_on_emergency = false;
 
   rmf_traffic::agv::Planner::Options _planner_options;
+  rmf_utils::clone_ptr<rmf_traffic::agv::ScheduleRouteValidator> _validator;
 };
 
 MoveAction::~MoveAction()

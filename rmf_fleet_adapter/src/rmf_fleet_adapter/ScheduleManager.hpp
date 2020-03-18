@@ -24,9 +24,7 @@
 #include "Listener.hpp"
 
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
-
-#include <rmf_traffic_msgs/srv/temporary_resolve_conflicts.hpp>
-#include <rmf_traffic_msgs/msg/schedule_conflict.hpp>
+#include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 
 #include <rclcpp/node.hpp>
 
@@ -35,8 +33,6 @@
 namespace rmf_fleet_adapter {
 
 //==============================================================================
-// TODO(MXG): Move this into rmf_traffic_ros2 as a generalized utility class.
-// Consider renaming it to ScheduleParticipant.
 class ScheduleManager
 {
 public:
@@ -44,7 +40,7 @@ public:
   ScheduleManager(
       rclcpp::Node& node,
       rmf_traffic::schedule::Participant participant,
-      std::function<void()> revision_callback);
+      rmf_traffic_ros2::schedule::Negotiation* negotiation);
 
   using TrajectorySet = std::vector<rmf_traffic::Trajectory>;
 
@@ -56,44 +52,52 @@ public:
       const rmf_traffic::Duration duration,
       const rmf_traffic::Time from_time);
 
-  void set_revision_callback(
-      std::function<void()> revision_callback);
+  void set_negotiator(
+      std::function<void(
+        rmf_traffic::schedule::Negotiation::ConstTablePtr,
+        const rmf_traffic::schedule::Negotiator::Responder&,
+        const bool*)> negotiation_callback);
 
   rmf_traffic::schedule::ParticipantId participant_id() const;
 
+  const rmf_traffic::schedule::ParticipantDescription& description() const;
+
 private:
 
-  void resolve_trajectories(
-      std::vector<rmf_traffic::Route> routes,
-      std::function<void()> approval_callback);
+  class Negotiator : public rmf_traffic::schedule::Negotiator
+  {
+  public:
 
+    void respond(
+        std::shared_ptr<const rmf_traffic::schedule::Negotiation::Table> table,
+        const Responder& responder,
+        const bool* interrupt_flag) final;
+
+    std::function<void(
+        rmf_traffic::schedule::Negotiation::ConstTablePtr,
+        const Responder&,
+        const bool*)> callback;
+  };
+
+  rclcpp::Node* _node;
   rmf_traffic::schedule::Participant _participant;
-
-  using ResolveConflicts = rmf_traffic_msgs::srv::TemporaryResolveConflicts;
-  using ScheduleConflict = rmf_traffic_msgs::msg::ScheduleConflict;
-
-  rclcpp::Client<ResolveConflicts>::SharedPtr _resolve_client;
-
-  rclcpp::Subscription<rmf_traffic_msgs::msg::ScheduleConflict>::SharedPtr _conflict_sub;
-
-  std::function<void()> _revision_callback;
-  rmf_traffic::schedule::Version _conflict_version;
-  bool _have_conflict = false;
+  Negotiator* _negotiator;
+  std::shared_ptr<void> _negotiator_handle;
 };
 
 //==============================================================================
 std::future<ScheduleManager> make_schedule_manager(
     rclcpp::Node& node,
     rmf_traffic_ros2::schedule::Writer& writer,
-    rmf_traffic::schedule::ParticipantDescription description,
-    std::function<void()> revision_callback);
+    rmf_traffic_ros2::schedule::Negotiation* negotiation,
+    rmf_traffic::schedule::ParticipantDescription description);
 
 //==============================================================================
 void async_make_schedule_manager(
     rclcpp::Node& node,
     rmf_traffic_ros2::schedule::Writer& writer,
+    rmf_traffic_ros2::schedule::Negotiation* negotiation,
     rmf_traffic::schedule::ParticipantDescription description,
-    std::function<void()> revision_callback,
     std::function<void(ScheduleManager manager)> ready_callback);
 
 } // namespace rmf_fleet_adapter

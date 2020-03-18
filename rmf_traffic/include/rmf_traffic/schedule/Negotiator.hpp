@@ -74,7 +74,7 @@ public:
   virtual void respond(
       std::shared_ptr<const schedule::Negotiation::Table> table,
       const Responder& responder,
-      const bool* interrupt_flag = nullptr) const = 0;
+      const bool* interrupt_flag = nullptr) = 0;
 
   virtual ~Negotiator() = default;
 };

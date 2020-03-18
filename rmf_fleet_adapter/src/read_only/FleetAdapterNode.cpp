@@ -76,8 +76,7 @@ FleetAdapterNode::ScheduleEntry::ScheduleEntry(
   };
 
   async_make_schedule_manager(
-        *node, *node->_writer, std::move(description),
-        [](){},
+        *node, *node->_writer, nullptr, std::move(description),
         [this](ScheduleManager manager)
   {
     this->schedule = std::move(manager);
