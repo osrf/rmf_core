@@ -57,9 +57,15 @@ public:
   /// \param[in] participant
   ///   The ID of the participant whose route is being validated. Any routes for
   ///   this participant on the schedule will be ignored while validating.
+  ///
+  /// \param[in] profile
+  ///   The profile for the participant. This is not inferred from the
+  ///   viewer because the viewer might not be synced with the schedule by the
+  ///   time this validator is being used.
   ScheduleRouteValidator(
       const schedule::Viewer& viewer,
-      schedule::ParticipantId participant);
+      schedule::ParticipantId participant_id,
+      Profile profile);
 
   /// Change the schedule viewer to use for planning.
   ///
@@ -78,6 +84,8 @@ public:
 
   /// Get the ID of the participant that is being validated.
   schedule::ParticipantId participant() const;
+
+  // TODO(MXG): Make profile setters and getters
 
   // Documentation inherited
   bool valid(const Route& route) const final;

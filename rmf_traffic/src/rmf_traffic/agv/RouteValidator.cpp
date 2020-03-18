@@ -28,7 +28,7 @@ public:
 
   const schedule::Viewer* viewer;
   schedule::ParticipantId participant;
-  schedule::ParticipantDescription description;
+  Profile profile;
   mutable rmf_traffic::schedule::Query query;
 
 };
@@ -36,12 +36,13 @@ public:
 //==============================================================================
 ScheduleRouteValidator::ScheduleRouteValidator(
     const schedule::Viewer& viewer,
-    schedule::ParticipantId participant)
+    schedule::ParticipantId participant_id,
+    Profile profile)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
                &viewer,
-               participant,
-               *viewer.get_participant(participant),
+               participant_id,
+               std::move(profile),
                rmf_traffic::schedule::query_all()
              }))
 {
@@ -95,7 +96,7 @@ bool ScheduleRouteValidator::valid(const Route& route) const
       continue;
 
     if (rmf_traffic::DetectConflict::between(
-          _pimpl->description.profile(),
+          _pimpl->profile,
           route.trajectory(),
           v.description.profile(),
           v.route.trajectory()))

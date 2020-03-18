@@ -92,7 +92,9 @@ public:
     _planner_options(nullptr),
     _validator(
       rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
-        node->get_fields().mirror.viewer(), state->schedule.participant_id()))
+        node->get_fields().mirror.viewer(),
+        state->schedule.participant_id(),
+        state->schedule.description().profile()))
   {
     // Do nothing
   }

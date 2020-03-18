@@ -275,12 +275,12 @@ SCENARIO("Test Participant")
 
     WHEN("When participant itinerary is set with an empty itinerary")
     {
-      // THe itinerary should not change
+      // This should be the same as getting cleared
       route_id = p1.set({});
       CHECK(route_id == 0);
-      CHECK(p1.itinerary().size() == 1);
-      // The databse version should not be incremented
-      CHECK(db.latest_version() == dbv);
+      CHECK(p1.itinerary().empty());
+
+      CHECK(db.latest_version() == ++dbv);
       CHECK_ITINERARY(p1, db);
     }
   }

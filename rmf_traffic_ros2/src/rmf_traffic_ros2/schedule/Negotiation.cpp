@@ -147,7 +147,8 @@ public:
       rclcpp::Node& node_,
       const rmf_traffic::schedule::Viewer& viewer_)
     : node(node_),
-      viewer(viewer_)
+      viewer(viewer_),
+      negotiators(std::make_shared<NegotiatorMap>())
   {
     // TODO(MXG): Make the QoS configurable
     const auto qos = rclcpp::ServicesQoS();

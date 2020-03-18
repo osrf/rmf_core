@@ -46,11 +46,14 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
 }
 
 rmf_utils::clone_ptr<rmf_traffic::agv::ScheduleRouteValidator>
-make_test_schedule_validator(const rmf_traffic::schedule::Viewer& viewer)
+make_test_schedule_validator(
+    const rmf_traffic::schedule::Viewer& viewer,
+    rmf_traffic::Profile profile)
 {
   return rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
         viewer,
-        std::numeric_limits<rmf_traffic::schedule::ParticipantId>::max());
+        std::numeric_limits<rmf_traffic::schedule::ParticipantId>::max(),
+        std::move(profile));
 }
 
 void display_path(const rmf_traffic::agv::Plan& plan)
@@ -543,7 +546,7 @@ SCENARIO("Test planning")
   rmf_traffic::schedule::Database database;
 
   const auto default_options = rmf_traffic::agv::Planner::Options{
-        make_test_schedule_validator(database)};
+        make_test_schedule_validator(database, profile)};
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -1174,7 +1177,7 @@ SCENARIO("DP1 Graph")
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
   bool interrupt_flag = false;
   const rmf_traffic::agv::Planner::Options default_options{
-      make_test_schedule_validator(database),
+      make_test_schedule_validator(database, profile),
       std::chrono::seconds(5),
       &interrupt_flag};
 
@@ -1856,7 +1859,7 @@ SCENARIO("Graph with door", "[door]")
   rmf_traffic::schedule::Database database;
 
   const auto default_options = rmf_traffic::agv::Planner::Options{
-      make_test_schedule_validator(database)};
+      make_test_schedule_validator(database, traits.profile())};
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -1951,7 +1954,7 @@ SCENARIO("Test planner with various start conditions")
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(6);
   const rmf_traffic::agv::Planner::Options default_options{
-      make_test_schedule_validator(database),
+      make_test_schedule_validator(database, profile),
       hold_time,
       &interrupt_flag};
 
@@ -2286,7 +2289,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
-      make_test_schedule_validator(database),
+      make_test_schedule_validator(database, traits.profile()),
       hold_time,
       &interrupt_flag};
 
