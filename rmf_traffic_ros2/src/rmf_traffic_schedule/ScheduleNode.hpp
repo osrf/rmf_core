@@ -19,6 +19,7 @@
 #define SRC__RMF_TRAFFIC_SCHEDULE__SCHEDULENODE_HPP
 
 #include <rmf_traffic/schedule/Database.hpp>
+#include <rmf_traffic/schedule/Negotiation.hpp>
 
 #include <rclcpp/node.hpp>
 
@@ -29,6 +30,13 @@
 #include <rmf_traffic_msgs/msg/itinerary_erase.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_extend.hpp>
 #include <rmf_traffic_msgs/msg/itinerary_set.hpp>
+
+#include <rmf_traffic_msgs/msg/schedule_conflict_ack.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_repeat.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_notice.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_proposal.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_rejection.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_conclusion.hpp>
 
 #include <rmf_traffic_msgs/msg/schedule_inconsistency.hpp>
 
@@ -53,8 +61,6 @@ public:
   ScheduleNode();
 
   ~ScheduleNode();
-
-private:
 
   using request_id_ptr = std::shared_ptr<rmw_request_id_t>;
 
@@ -166,21 +172,136 @@ private:
   std::atomic_bool conflict_check_quit;
 
   using Version = rmf_traffic::schedule::Version;
-  struct ConflictInfo
+  using ParticipantId = rmf_traffic::schedule::ParticipantId;
+  struct ConflictPair
   {
-    ConflictInfo(std::unordered_set<Version> ids)
-    : participants(std::move(ids))
+    ParticipantId p1;
+    ParticipantId p2;
+
+    ParticipantId first() const
+    {
+      return std::min(p1, p2);
+    }
+
+    ParticipantId second() const
+    {
+      return std::max(p1, p2);
+    }
+  };
+
+  class ConflictRecord
+  {
+  public:
+
+    struct Entry
+    {
+      ConflictPair pair;
+      rmf_traffic::schedule::Negotiation negotiation;
+      bool concluded = false;
+      std::unordered_set<ParticipantId> removal_request;
+    };
+
+    ConflictRecord(const rmf_traffic::schedule::Viewer& viewer)
+      : _viewer(viewer)
     {
       // Do nothing
     }
 
-    std::unordered_set<rmf_traffic::schedule::ParticipantId> participants;
+    const Version* insert(const ConflictPair& pair)
+    {
+      auto& first = _record[pair.first()];
+      const auto inserted = first.insert(pair.second());
+
+      if (!inserted.second)
+        return nullptr;
+
+      const auto it =
+          _entries.insert(
+            std::make_pair(
+              _next_conflict_version++,
+              Entry{pair, rmf_traffic::schedule::Negotiation(
+                    _viewer, {pair.p1, pair.p2})}));
+
+      return &it.first->first;
+    }
+
+    rmf_traffic::schedule::Negotiation* negotiation(const Version version)
+    {
+      const auto it = _entries.find(version);
+      if (it == _entries.end())
+        return nullptr;
+
+      if (it->second.concluded)
+        return nullptr;
+
+      return &it->second.negotiation;
+    }
+
+    void conclude(const Version version)
+    {
+      const auto entry_it = _entries.find(version);
+      if (entry_it == _entries.end())
+        return;
+
+      entry_it->second.concluded = true;
+    }
+
+    void acknowledge(const Version version, const ParticipantId p)
+    {
+      const auto entry_it = _entries.find(version);
+      if (entry_it == _entries.end())
+        return;
+
+      auto& entry = entry_it->second;
+      assert(entry.concluded);
+
+      // TODO(MXG): I should check to make sure that p is actually a member of
+      // this conflict
+      entry.removal_request.insert(p);
+
+      // TODO(MXG): This condition should be changed when we start to support
+      // poly-participant conflicts
+      if (entry.removal_request.size() == 2)
+      {
+        const auto& pair = entry.pair;
+        _record[pair.first()].erase(pair.second());
+        _entries.erase(entry_it);
+      }
+    }
+
+  private:
+    std::unordered_map<ParticipantId, std::unordered_set<ParticipantId>> _record;
+
+    std::unordered_map<Version, Entry> _entries;
+    const rmf_traffic::schedule::Viewer& _viewer;
+    Version _next_conflict_version = 0;
   };
 
-  using ConflictMap = std::map<Version, ConflictInfo>;
-  ConflictMap active_conflicts;
+  ConflictRecord active_conflicts;
   std::mutex active_conflicts_mutex;
-  Version next_conflict_version = 0;
+
+  using ConflictAck = rmf_traffic_msgs::msg::ScheduleConflictAck;
+  using ConflictAckSub = rclcpp::Subscription<ConflictAck>;
+  ConflictAckSub::SharedPtr conflict_ack_sub;
+  void receive_conclusion_ack(const ConflictAck& msg);
+
+  using ConflictNotice = rmf_traffic_msgs::msg::ScheduleConflictNotice;
+  using ConflictNoticePub = rclcpp::Publisher<ConflictNotice>;
+  ConflictNoticePub::SharedPtr conflict_notice_pub;
+
+  using ConflictProposal = rmf_traffic_msgs::msg::ScheduleConflictProposal;
+  using ConflictProposalSub = rclcpp::Subscription<ConflictProposal>;
+  ConflictProposalSub::SharedPtr conflict_proposal_sub;
+  void receive_proposal(const ConflictProposal& msg);
+
+  using ConflictRejection = rmf_traffic_msgs::msg::ScheduleConflictRejection;
+  using ConflictRejectionSub = rclcpp::Subscription<ConflictRejection>;
+  ConflictRejectionSub::SharedPtr conflict_rejection_sub;
+  void receive_rejection(const ConflictRejection& msg);
+
+  using ConflictConclusion = rmf_traffic_msgs::msg::ScheduleConflictConclusion;
+  using ConflictConclusionPub = rclcpp::Publisher<ConflictConclusion>;
+  ConflictConclusionPub::SharedPtr conflict_conclusion_pub;
 };
 
 } // namespace rmf_traffic_schedule
