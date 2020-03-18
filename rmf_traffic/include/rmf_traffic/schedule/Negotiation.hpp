@@ -136,6 +136,10 @@ public:
     /// Reject the proposals that underlie this Negotiation::Table. This
     /// indicates that the underlying proposals are infeasible for the
     /// Participant of this Table to accommodate.
+    //
+    // TODO(MXG): Versioning should be added to rejections as well as
+    // submissions. In fact, version numbers should be added to table sequence
+    // codes as well for maximum consistency.
     void reject();
 
     /// If by_participant can respond to this table, then this will return a

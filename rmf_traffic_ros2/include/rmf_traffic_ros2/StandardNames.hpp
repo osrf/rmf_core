@@ -39,6 +39,7 @@ const std::string ScheduleConflictAckTopicName = Prefix + "schedule_conflict_ack
 const std::string ScheduleConflictRepeatTopicName = Prefix + "schedule_conflict_repeat";
 const std::string ScheduleConflictNoticeTopicName = Prefix + "schedule_conflict_notice";
 const std::string ScheduleConflictProposalTopicName = Prefix + "schedule_conflict_proposal";
+const std::string ScheduleConflictRejectionTopicName = Prefix + "schedule_conflict_rejection";
 const std::string ScheduleConflictConclusionTopicName = Prefix + "schedule_conflict_conclusion";
 
 const std::string EmergencyTopicName = "fire_alarm_trigger";

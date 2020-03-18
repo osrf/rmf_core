@@ -15,6 +15,7 @@
  *
 */
 
+#include <rmf_traffic_ros2/Route.hpp>
 #include <rmf_traffic_ros2/schedule/Itinerary.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 
@@ -24,6 +25,7 @@
 #include <rmf_traffic_msgs/msg/schedule_conflict_repeat.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_notice.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_proposal.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_rejection.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_conclusion.hpp>
 
 #include <rclcpp/logging.hpp>
@@ -40,13 +42,17 @@ public:
   {
   public:
 
-    rmf_traffic::schedule::Negotiation::TablePtr table;
+    Implementation* const impl;
+    const rmf_traffic::schedule::Version conflict_version;
+    const rmf_traffic::schedule::Negotiation::TablePtr table;
 
-    // TODO(
-    mutable std::function<void()> approval_cb;
-
-    Responder(rmf_traffic::schedule::Negotiation::TablePtr table_)
-      : table(table_)
+    Responder(
+        Implementation* const impl_,
+        const rmf_traffic::schedule::Version version_,
+        rmf_traffic::schedule::Negotiation::TablePtr table_)
+      : impl(impl_),
+        conflict_version(version_),
+        table(table_)
     {
       // Do nothing
     }
@@ -57,11 +63,29 @@ public:
     {
       const auto* last_version = table->version();
       table->submit(itinerary, last_version? *last_version+1 : 0);
-
-      approval_cb = std::move(approval_callback);
+      impl->approvals[conflict_version][table] = std::move(approval_callback);
+      impl->publish_proposal(conflict_version, *table);
     }
 
-    void reject() const final;
+    void reject() const final
+    {
+      const auto parent = table->parent();
+      if (parent)
+      {
+        // We will reject the parent to communicate that this whole branch is
+        // infeasible
+        parent->reject();
+        impl->publish_rejection(conflict_version, *parent);
+      }
+      else if (table->ongoing())
+      {
+        // This means that the whole negotiation is completely impossible.
+        // TODO(MXG): Improve this by having the planner reveal what vehicle is
+        // blocking progress so we can add it to the negotiation
+        table->reject();
+        impl->publish_rejection(conflict_version, *table);
+      }
+    }
 
   };
 
@@ -86,6 +110,12 @@ public:
   ProposalSub::SharedPtr proposal_sub;
   ProposalPub::SharedPtr proposal_pub;
 
+  using Rejection = rmf_traffic_msgs::msg::ScheduleConflictRejection;
+  using RejectionSub = rclcpp::Subscription<Rejection>;
+  using RejectionPub = rclcpp::Publisher<Rejection>;
+  RejectionSub::SharedPtr rejection_sub;
+  RejectionPub::SharedPtr rejection_pub;
+
   using Conclusion = rmf_traffic_msgs::msg::ScheduleConflictConclusion;
   using ConclusionSub = rclcpp::Subscription<Conclusion>;
   ConclusionSub::SharedPtr conclusion_sub;
@@ -105,6 +135,13 @@ public:
   using Negotiation = rmf_traffic::schedule::Negotiation;
   using NegotiationMap = std::unordered_map<Version, Negotiation>;
   NegotiationMap negotiations;
+
+  std::unordered_set<Version> ignore_negotiations;
+
+  using TablePtr = rmf_traffic::schedule::Negotiation::TablePtr;
+  using ApprovalCallbackMap = std::unordered_map<TablePtr, std::function<void()>>;
+  using Approvals = std::unordered_map<Version, ApprovalCallbackMap>;
+  Approvals approvals;
 
   Implementation(
       rclcpp::Node& node_,
@@ -144,6 +181,16 @@ public:
 
     proposal_pub = node.create_publisher<Proposal>(
           ScheduleConflictProposalTopicName, qos);
+
+    rejection_sub = node.create_subscription<Rejection>(
+          ScheduleConflictRejectionTopicName, qos,
+          [&](const Rejection::UniquePtr msg)
+    {
+      this->receive_rejection(*msg);
+    });
+
+    rejection_pub = node.create_publisher<Rejection>(
+          ScheduleConflictRejectionTopicName, qos);
 
     conclusion_sub = node.create_subscription<Conclusion>(
           ScheduleConflictConclusionTopicName, qos,
@@ -208,7 +255,10 @@ public:
     }
 
     if (!relevant)
+    {
+      ignore_negotiations.insert(msg.conflict_version);
       return;
+    }
 
     const auto insertion = negotiations.insert(
         {msg.conflict_version, Negotiation(viewer, msg.participants)});
@@ -222,18 +272,135 @@ public:
     {
       const auto it = negotiators->find(p);
       if (it != negotiators->end())
-        request_negotiation_response(it->second, negotiation.table(p, {}));
+      {
+        const auto table = negotiation.table(p, {});
+        it->second->respond(
+              table, Responder(this, msg.conflict_version, table));
+      }
     }
   }
 
   void receive_proposal(const Proposal& msg)
   {
+    const auto negotiate_it = negotiations.find(msg.conflict_version);
+    if (negotiate_it == negotiations.end())
+    {
+      const auto ignore_it = ignore_negotiations.find(msg.conflict_version);
+      if (ignore_it == ignore_negotiations.end())
+      {
+        // TODO(MXG): Work out a scheme for caching undetermined proposals
+        // so that the negotiation can be reconstructed after requesting some
+        // repeats.
+        RCLCPP_WARN(
+              node.get_logger(),
+              "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
+              "Received a proposal for an unknown negotiation: "
+              + std::to_string(msg.conflict_version));
+      }
 
+      return;
+    }
+
+    Negotiation& negotiation = negotiate_it->second;
+    const auto table =
+        negotiation.table(msg.for_participant, msg.to_accommodate);
+
+    if (!table)
+    {
+      // TODO(MXG): Work out a scheme for caching inconsistent proposals
+      // so that the negotiation can be reconstructed after requesting some
+      // repeats.
+      RCLCPP_WARN(
+            node.get_logger(),
+            "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
+            "Receieved a proposal that builds on an unknown table");
+      return;
+    }
+
+    const bool updated =
+        table->submit(convert(msg.itinerary), msg.proposal_version);
+
+    if (!updated)
+      return;
+
+    for (const auto& n : *negotiators)
+    {
+      const ParticipantId participant = n.first;
+      const auto& negotiator = n.second;
+
+      if (const auto can_respond = table->respond(participant))
+      {
+        negotiator->respond(
+              can_respond,
+              Responder(this, msg.conflict_version, can_respond));
+      }
+    }
+  }
+
+  void receive_rejection(const Rejection& msg)
+  {
+    const auto negotiate_it = negotiations.find(msg.conflict_version);
+    if (negotiate_it == negotiations.end())
+    {
+      // We don't need to worry about caching an unknown rejection, because it
+      // is impossible for a proposal that was produced by this negotiation
+      // instance to be rejected without us being aware of that proposal.
+      return;
+    }
+
+    Negotiation& negotiation = negotiate_it->second;
+    const auto table = negotiation.table(msg.table);
+    if (!table)
+    {
+      // TODO(MXG): Work out a scheme for caching inconsistent rejections so
+      // that the negotiation can be reconstructed after requesting some
+      // repeats.
+      return;
+    }
+
+    table->reject();
+    // TODO(MXG): Give the negotiator a chance to offer a new proposal.
   }
 
   void receive_conclusion(const Conclusion& msg)
   {
+    const auto negotiate_it = negotiations.find(msg.conflict_version);
+    if (negotiate_it == negotiations.end())
+    {
+      ignore_negotiations.erase(msg.conflict_version);
+      return;
+    }
 
+    const auto approval_callback_it = approvals.find(msg.conflict_version);
+    assert(approval_callback_it != approvals.end());
+    const auto& approval_callbacks = approval_callback_it->second;
+
+    auto result = negotiate_it->second.table(msg.table);
+    std::vector<ParticipantId> participants;
+    participants.reserve(negotiators->size());
+
+    while (result)
+    {
+      const auto approve_it = approval_callbacks.find(result);
+      if (approve_it != approval_callbacks.end())
+      {
+        participants.push_back(result->participant());
+        approve_it->second();
+      }
+
+      result = result->parent();
+    }
+
+    // Erase these entries because the negotiation has concluded
+    negotiations.erase(negotiate_it);
+    approvals.erase(approval_callback_it);
+
+    // Acknowledge that we know about this conclusion
+    Ack ack;
+    ack.conflict_version = msg.conflict_version;
+    ack.participants = std::move(participants);
+    ack_pub->publish(ack);
+    // TODO(MXG): Should we consider a more robust cache cleanup strategy?
   }
 
   void publish_proposal(
@@ -257,11 +424,14 @@ public:
     proposal_pub->publish(msg);
   }
 
-  void request_negotiation_response(
-      const NegotiatorPtr& negotiator,
-      const Negotiation::TablePtr& table)
+  void publish_rejection(
+      const Version conflict_version,
+      const Negotiation::Table& table)
   {
-
+    Rejection msg;
+    msg.conflict_version = conflict_version;
+    msg.table = table.sequence();
+    rejection_pub->publish(msg);
   }
 
   struct Handle
