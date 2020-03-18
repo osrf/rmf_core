@@ -94,7 +94,8 @@ public:
       rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
         node->get_fields().mirror.viewer(),
         state->schedule.participant_id(),
-        state->schedule.description().profile()))
+        state->schedule.description().profile())),
+    _handle(std::make_shared<int>(0))
   {
     // Do nothing
   }
@@ -260,13 +261,26 @@ public:
     }
 
     auto itinerary = collect_routes(plans);
+    std::weak_ptr<void> weak_handle = _handle;
     responder.submit(
           std::move(itinerary),
-          [this, plans = std::move(plans)]()
+          [this, table, weak_handle = std::move(weak_handle), plans = std::move(plans)]()
     {
-      // TODO(MXG): Consider doing something here to ensure that the MoveAction
-      // does not expire before this callback gets triggered.
-      command_plans(std::move(plans));
+      auto handle = weak_handle.lock();
+      if (!handle)
+      {
+        std::cout << " ~~~ Ignoring plan because MoveAction has expired"
+                  << std::endl;
+        return;
+      }
+
+      std::cout << " ~~~ Executing plan given by [";
+      for (const auto s : table->sequence())
+        std::cout << " " << s;
+      std::cout << " ]" << std::endl;
+
+
+      execute_plan(std::move(plans));
     });
   }
 
@@ -425,6 +439,8 @@ public:
 
   void send_next_command(bool continuous = true)
   {
+    std::cout << " ~~~ Sending next command for " << _context->schedule.participant_id()
+              << std::endl;
     if (_remaining_waypoints.empty())
     {
       if (_emergency_active)
@@ -728,10 +744,10 @@ public:
     {
       if (new_delay < std::chrono::seconds(-5))
       {
-        RCLCPP_WARN(
-              _node->get_logger(),
-              "Ignoring big negative delay ["
-              + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
+//        RCLCPP_WARN(
+//              _node->get_logger(),
+//              "Ignoring big negative delay ["
+//              + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
       }
       return;
     }
@@ -1375,6 +1391,8 @@ private:
 
   rmf_traffic::agv::Planner::Options _planner_options;
   rmf_utils::clone_ptr<rmf_traffic::agv::ScheduleRouteValidator> _validator;
+
+  std::shared_ptr<void> _handle;
 };
 
 MoveAction::~MoveAction()

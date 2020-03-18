@@ -61,6 +61,11 @@ public:
         std::vector<rmf_traffic::Route> itinerary,
         std::function<void()> approval_callback) const final
     {
+      std::cout << " --- Received proposal for [ ";
+      for (const auto s : table->sequence())
+        std::cout << s << " ";
+      std::cout << "]" << std::endl;
+
       const auto* last_version = table->version();
       table->submit(itinerary, last_version? *last_version+1 : 0);
       impl->approvals[conflict_version][table] = std::move(approval_callback);
@@ -69,6 +74,11 @@ public:
 
     void reject() const final
     {
+      std::cout << " --- Received rejection for [ ";
+      for (const auto s : table->sequence())
+        std::cout << s << " ";
+      std::cout << "]" << std::endl;
+
       const auto parent = table->parent();
       if (parent)
       {
@@ -245,11 +255,23 @@ public:
 
   void receive_notice(const Notice& msg)
   {
+    std::cout << " --- Received conflict notice [" << msg.conflict_version
+              << "]: [";
+    for (const auto p : msg.participants)
+      std::cout << " " << p;
+    std::cout << " ] We negotiate for [";
+    for (const auto& n : *negotiators)
+      std::cout << " " << n.first;
+    std::cout << " ]" << std::endl;
+
+
+
     bool relevant = false;
     for (const auto p : msg.participants)
     {
       if (negotiators->find(p) != negotiators->end())
       {
+        std::cout << " --- We are relevant" << std::endl;
         relevant = true;
         break;
       }
@@ -265,24 +287,51 @@ public:
         {msg.conflict_version, Negotiation(viewer, msg.participants)});
 
     if (!insertion.second)
+    {
+      std::cout << " --- We already knew about this negotiation" << std::endl;
       return;
+    }
 
     auto& negotiation = insertion.first->second;
 
+    std::vector<TablePtr> queue;
     for (const auto p : msg.participants)
     {
       const auto it = negotiators->find(p);
       if (it != negotiators->end())
       {
+        std::cout << " --- Request initial response from " << p << std::endl;
         const auto table = negotiation.table(p, {});
         it->second->respond(
               table, Responder(this, msg.conflict_version, table));
+        queue.push_back(table);
+      }
+    }
+
+    while (!queue.empty())
+    {
+      const auto top = queue.back();
+      queue.pop_back();
+
+      for (const auto& n : *negotiators)
+      {
+        const auto respond_to = top->respond(n.first);
+        if (respond_to)
+        {
+          n.second->respond(
+                respond_to, Responder(this, msg.conflict_version, respond_to));
+          queue.push_back(respond_to);
+        }
       }
     }
   }
 
   void receive_proposal(const Proposal& msg)
   {
+    std::cout << " --- Incoming message proposal for [";
+    for (const auto p : msg.to_accommodate)
+      std::cout << " " << p;
+    std::cout << " " << msg.for_participant << " ]" << std::endl;
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
@@ -365,6 +414,7 @@ public:
 
   void receive_conclusion(const Conclusion& msg)
   {
+    std::cout << " --- Received conclusion for " << msg.conflict_version << std::endl;
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
@@ -373,28 +423,37 @@ public:
     }
 
     const auto approval_callback_it = approvals.find(msg.conflict_version);
-    assert(approval_callback_it != approvals.end());
-    const auto& approval_callbacks = approval_callback_it->second;
+    if (msg.resolved)
+    {
+      assert(approval_callback_it != approvals.end());
+      const auto& approval_callbacks = approval_callback_it->second;
 
-    auto result = negotiate_it->second.table(msg.table);
+      auto result = negotiate_it->second.table(msg.table);
+
+      while (result)
+      {
+        const auto approve_it = approval_callbacks.find(result);
+        if (approve_it != approval_callbacks.end())
+          approve_it->second();
+
+        result = result->parent();
+      }
+    }
+
+    if (approval_callback_it != approvals.end())
+      approvals.erase(approval_callback_it);
+
     std::vector<ParticipantId> participants;
     participants.reserve(negotiators->size());
-
-    while (result)
+    for (const auto p : negotiate_it->second.participants())
     {
-      const auto approve_it = approval_callbacks.find(result);
-      if (approve_it != approval_callbacks.end())
-      {
-        participants.push_back(result->participant());
-        approve_it->second();
-      }
-
-      result = result->parent();
+      const auto n_it = negotiators->find(p);
+      if (n_it != negotiators->end())
+        participants.push_back(n_it->first);
     }
 
     // Erase these entries because the negotiation has concluded
     negotiations.erase(negotiate_it);
-    approvals.erase(approval_callback_it);
 
     // Acknowledge that we know about this conclusion
     Ack ack;
@@ -437,11 +496,21 @@ public:
 
   struct Handle
   {
+    Handle(
+        const ParticipantId for_participant_,
+        NegotiationMapPtr map)
+      : for_participant(for_participant_),
+        weak_map(map)
+    {
+      // Do nothing
+    }
+
     ParticipantId for_participant;
     WeakNegotiationMapPtr weak_map;
 
     ~Handle()
     {
+      std::cout << " --- Erasing negotiator for " << for_participant << std::endl;
       if (const auto map = weak_map.lock())
         map->erase(for_participant);
     }
@@ -451,6 +520,7 @@ public:
       const ParticipantId for_participant,
       NegotiatorPtr negotiator)
   {
+    std::cout << " --- Registering negotiator for " << for_participant << std::endl;
     const auto insertion = negotiators->insert(
           std::make_pair(for_participant, std::move(negotiator)));
 
@@ -462,7 +532,7 @@ public:
             + std::to_string(for_participant) + "]");
     }
 
-    return std::make_shared<Handle>(Handle{for_participant, negotiators});
+    return std::make_shared<Handle>(for_participant, negotiators);
   }
 };
 

@@ -560,6 +560,11 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     return;
   }
 
+  std::cout << " === Received proposal for [ ";
+  for (const auto s : msg.to_accommodate)
+    std::cout << s << " ";
+  std::cout << msg.for_participant << " ]" << std::endl;
+
   const auto table =
       negotiation->table(msg.for_participant, msg.to_accommodate);
 
@@ -579,11 +584,14 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   table->submit(rmf_traffic_ros2::convert(msg.itinerary), msg.proposal_version);
   if (negotiation->ready())
   {
+    std::cout << " === Ready to choose a proposal" << std::endl;
     // TODO(MXG): If the negotiation is not complete yet, give some time for
     // more proposals to arrive before choosing one.
     const auto choose =
         negotiation->evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());
     assert(choose);
+
+    active_conflicts.conclude(msg.conflict_version);
 
     ConflictConclusion conclusion;
     conclusion.conflict_version = msg.conflict_version;
@@ -591,6 +599,18 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     conclusion.table = choose->sequence();
 
     conflict_conclusion_pub->publish(std::move(conclusion));
+    return;
+  }
+  else if (negotiation->complete())
+  {
+    active_conflicts.conclude(msg.conflict_version);
+
+    // This implies a complete failure
+    ConflictConclusion conclusion;
+    conclusion.conflict_version = msg.conflict_version;
+    conclusion.resolved = false;
+
+    conflict_conclusion_pub->publish(conclusion);
   }
 }
 
@@ -624,6 +644,17 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
   }
 
   table->reject();
+
+  if (negotiation->complete())
+  {
+    active_conflicts.conclude(msg.conflict_version);
+
+    ConflictConclusion conclusion;
+    conclusion.conflict_version = msg.conflict_version;
+    conclusion.resolved = false;
+
+    conflict_conclusion_pub->publish(conclusion);
+  }
 }
 
 } // namespace rmf_traffic_schedule

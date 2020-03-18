@@ -58,6 +58,8 @@ public:
         const rmf_traffic::schedule::Negotiator::Responder&,
         const bool*)> negotiation_callback);
 
+  rmf_traffic::schedule::Participant& participant();
+
   rmf_traffic::schedule::ParticipantId participant_id() const;
 
   const rmf_traffic::schedule::ParticipantDescription& description() const;
@@ -98,7 +100,8 @@ void async_make_schedule_manager(
     rmf_traffic_ros2::schedule::Writer& writer,
     rmf_traffic_ros2::schedule::Negotiation* negotiation,
     rmf_traffic::schedule::ParticipantDescription description,
-    std::function<void(ScheduleManager manager)> ready_callback);
+    std::function<void(ScheduleManager manager)> ready_callback,
+    std::mutex& ready_mutex);
 
 } // namespace rmf_fleet_adapter
 

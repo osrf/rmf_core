@@ -218,6 +218,8 @@ private:
 
   FleetAdapterNode();
 
+  std::mutex _async_mutex;
+
   std::string _fleet_name;
 
   rmf_traffic::Duration _delay_threshold;

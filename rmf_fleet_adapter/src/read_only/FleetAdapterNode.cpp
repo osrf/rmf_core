@@ -66,7 +66,8 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
 //==============================================================================
 FleetAdapterNode::ScheduleEntry::ScheduleEntry(
     FleetAdapterNode* node,
-    std::string name)
+    std::string name,
+    std::mutex& async_mutex)
 {
   rmf_traffic::schedule::ParticipantDescription description{
     std::move(name),
@@ -80,7 +81,7 @@ FleetAdapterNode::ScheduleEntry::ScheduleEntry(
         [this](ScheduleManager manager)
   {
     this->schedule = std::move(manager);
-  });
+  }, async_mutex);
 }
 
 //==============================================================================
@@ -144,7 +145,7 @@ void FleetAdapterNode::register_robot(
     const RobotState& state,
     const ScheduleEntries::iterator& it)
 {
-  it->second = std::make_unique<ScheduleEntry>(this, state.name);
+  it->second = std::make_unique<ScheduleEntry>(this, state.name, _async_mutex);
   // TODO(MXG): We could consider queuing up the current route of this robot
   // so that it will be broadcasted as soon as the participant is registered,
   // but it's simpler to just wait until the next state message is received,

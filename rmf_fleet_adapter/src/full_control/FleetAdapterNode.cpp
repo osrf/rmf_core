@@ -69,7 +69,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
       get_parameter_or_default_time(*node, "delay_threshold", 5.0);
 
   node->_retry_wait =
-      get_parameter_or_default_time(*node, "retry_wait", 15.0);
+      get_parameter_or_default_time(*node, "retry_wait", 5.0);
 
   node->_plan_time =
       get_parameter_or_default_time(*node, "planning_timeout", 5.0);
@@ -221,12 +221,14 @@ void FleetAdapterNode::RobotContext::respond(
 {
   if (_task)
     _task->respond(std::move(table), responder, interrupt_flag);
-
-  // This would be very suspicious if it happens
-  std::cerr << "[FleetAdatperNode::RobotContext::respond] "
-            << "Responding to a negotiation while not performing a task"
-            << std::endl;
-  responder.submit({}, [](){});
+  else
+  {
+    // This would be very suspicious if it happens
+    std::cerr << "[FleetAdatperNode::RobotContext::respond] "
+              << "Responding to a negotiation while not performing a task"
+              << std::endl;
+    responder.submit({}, [](){});
+  }
 }
 
 //==============================================================================
@@ -606,7 +608,7 @@ void FleetAdapterNode::fleet_state_update(FleetState::UniquePtr msg)
       {
         this->_contexts.at(name) = std::make_unique<RobotContext>(
               name, location, std::move(manager));
-      });
+      }, _async_mutex);
 
       RCLCPP_INFO(
             get_logger(),

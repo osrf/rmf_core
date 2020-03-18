@@ -20,6 +20,10 @@
 #include <rmf_traffic_ros2/Trajectory.hpp>
 #include <rmf_traffic_ros2/StandardNames.hpp>
 
+
+#include <iostream>
+
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -31,6 +35,7 @@ ScheduleManager::ScheduleManager(rclcpp::Node& node,
 {
   if (negotiation)
   {
+    std::cout << " ---- Asking to register negotiator for " << _participant.id() << std::endl;
     auto negotiator = std::make_unique<Negotiator>();
     _negotiator = negotiator.get();
     _negotiator_handle = negotiation->register_negotiator(
@@ -89,6 +94,12 @@ void ScheduleManager::set_negotiator(
 }
 
 //==============================================================================
+rmf_traffic::schedule::Participant& ScheduleManager::participant()
+{
+  return _participant;
+}
+
+//==============================================================================
 rmf_traffic::schedule::ParticipantId ScheduleManager::participant_id() const
 {
   return _participant.id();
@@ -142,15 +153,18 @@ void async_make_schedule_manager(
     rmf_traffic_ros2::schedule::Writer& writer,
     rmf_traffic_ros2::schedule::Negotiation* negotiation,
     rmf_traffic::schedule::ParticipantDescription description,
-    std::function<void(ScheduleManager)> ready_callback)
+    std::function<void(ScheduleManager)> ready_callback,
+    std::mutex& ready_mutex)
 {
   writer.async_make_participant(
         std::move(description),
         [&node,
          negotiation,
-         ready_callback = std::move(ready_callback)](
+         ready_callback = std::move(ready_callback),
+         &ready_mutex](
         rmf_traffic::schedule::Participant participant)
   {
+    std::lock_guard<std::mutex> lock(ready_mutex);
     ready_callback(
           ScheduleManager{
             node,
