@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef SRC__FULL_CONTROL__FLEETADAPTERNODE_HPP
 #define SRC__FULL_CONTROL__FLEETADAPTERNODE_HPP
@@ -21,12 +21,12 @@
 #include <rmf_traffic_ros2/schedule/MirrorManager.hpp>
 
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
-#include <rmf_fleet_msgs/msg/path_request.hpp>
 #include <rmf_fleet_msgs/msg/mode_request.hpp>
+#include <rmf_fleet_msgs/msg/path_request.hpp>
 
 #include <rmf_dispenser_msgs/msg/dispenser_request.hpp>
-#include <rmf_dispenser_msgs/msg/dispenser_state.hpp>
 #include <rmf_dispenser_msgs/msg/dispenser_result.hpp>
+#include <rmf_dispenser_msgs/msg/dispenser_state.hpp>
 
 #include <rmf_door_msgs/msg/door_request.hpp>
 #include <rmf_door_msgs/msg/door_state.hpp>
@@ -40,8 +40,8 @@
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Graph.hpp>
-#include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/agv/VehicleTraits.hpp>
 
 #include <std_msgs/msg/bool.hpp>
 
@@ -49,22 +49,20 @@
 
 #include <rmf_utils/optional.hpp>
 
+#include <queue>
 #include <unordered_map>
 #include <vector>
-#include <queue>
 
+#include "../rmf_fleet_adapter/ParseGraph.hpp"
 #include "Action.hpp"
 #include "Task.hpp"
-#include "../rmf_fleet_adapter/ParseGraph.hpp"
 
 namespace rmf_fleet_adapter {
 namespace full_control {
 
 //==============================================================================
-class FleetAdapterNode : public rclcpp::Node
-{
+class FleetAdapterNode : public rclcpp::Node {
 public:
-
   static std::shared_ptr<FleetAdapterNode> make();
 
   using WaypointKeys = std::unordered_map<std::string, std::size_t>;
@@ -74,15 +72,12 @@ public:
   using Location = rmf_fleet_msgs::msg::Location;
 
   using RobotState = rmf_fleet_msgs::msg::RobotState;
-  using RobotStateListeners = std::unordered_set<Listener<RobotState>*>;
+  using RobotStateListeners = std::unordered_set<Listener<RobotState> *>;
 
-  struct RobotContext
-  {
-    RobotContext(
-        std::string name,
-        Location location,
-        ScheduleConnections* connections,
-        const rmf_traffic_msgs::msg::FleetProperties& properties);
+  struct RobotContext {
+    RobotContext(std::string name, Location location,
+                 ScheduleConnections *connections,
+                 const rmf_traffic_msgs::msg::FleetProperties &properties);
 
     Location location;
 
@@ -92,7 +87,7 @@ public:
 
     void add_task(std::unique_ptr<Task> new_task);
 
-    void discard_task(Task* discarded_task);
+    void discard_task(Task *discarded_task);
 
     void interrupt();
 
@@ -100,15 +95,17 @@ public:
 
     void resolve();
 
+    bool has_task();
+
     std::size_t num_tasks() const;
 
-    const std::string& robot_name() const;
+    const std::string &robot_name() const;
 
-    void insert_listener(Listener<RobotState>* listener);
+    void insert_listener(Listener<RobotState> *listener);
 
-    void remove_listener(Listener<RobotState>* listener);
+    void remove_listener(Listener<RobotState> *listener);
 
-    void update_listeners(const RobotState& state);
+    void update_listeners(const RobotState &state);
 
   private:
     std::unique_ptr<Task> _task;
@@ -117,9 +114,9 @@ public:
     RobotStateListeners state_listeners;
   };
 
-  bool ignore_fleet(const std::string& fleet_name) const;
+  bool ignore_fleet(const std::string &fleet_name) const;
 
-  const std::string& get_fleet_name() const;
+  const std::string &get_fleet_name() const;
 
   rmf_traffic::Duration get_plan_time() const;
 
@@ -127,43 +124,36 @@ public:
 
   rmf_traffic::Duration get_retry_wait() const;
 
-  const rmf_traffic::agv::Planner& get_planner() const;
+  const rmf_traffic::agv::Planner &get_planner() const;
 
-  const rmf_traffic::agv::Graph& get_graph() const;
+  const rmf_traffic::agv::Graph &get_graph() const;
 
-  const WaypointKeys& get_waypoint_keys() const;
+  const WaypointKeys &get_waypoint_keys() const;
 
-  const WaypointNames& get_waypoint_names() const;
+  const WaypointNames &get_waypoint_names() const;
 
-  const std::vector<std::size_t>& get_parking_spots() const;
+  const std::vector<std::size_t> &get_parking_spots() const;
 
-  struct Fields
-  {
+  struct Fields {
     rmf_traffic_ros2::schedule::MirrorManager mirror;
     std::unique_ptr<ScheduleConnections> schedule;
     GraphInfo graph_info;
     rmf_traffic::agv::VehicleTraits traits;
     rmf_traffic::agv::Planner planner;
 
-    Fields(
-        GraphInfo graph_info_,
-        rmf_traffic::agv::VehicleTraits traits_,
-        rmf_traffic_ros2::schedule::MirrorManager mirror_,
-        std::unique_ptr<ScheduleConnections> connections_)
-    : mirror(std::move(mirror_)),
-      schedule(std::move(connections_)),
-      graph_info(std::move(graph_info_)),
-      traits(std::move(traits_)),
-      planner(
-        rmf_traffic::agv::Planner::Configuration(graph_info.graph, traits),
-        rmf_traffic::agv::Planner::Options(mirror.viewer()))
-    {
+    Fields(GraphInfo graph_info_, rmf_traffic::agv::VehicleTraits traits_,
+           rmf_traffic_ros2::schedule::MirrorManager mirror_,
+           std::unique_ptr<ScheduleConnections> connections_)
+        : mirror(std::move(mirror_)), schedule(std::move(connections_)),
+          graph_info(std::move(graph_info_)), traits(std::move(traits_)),
+          planner(rmf_traffic::agv::Planner::Configuration(graph_info.graph,
+                                                           traits),
+                  rmf_traffic::agv::Planner::Options(mirror.viewer())) {
       // Do nothing
     }
   };
 
-  rmf_traffic_msgs::msg::FleetProperties make_fleet_properties() const
-  {
+  rmf_traffic_msgs::msg::FleetProperties make_fleet_properties() const {
     rmf_traffic_msgs::msg::FleetProperties fleet;
     fleet.type = rmf_traffic_msgs::msg::FleetProperties::TYPE_RESPONSIVE;
     fleet.fleet_id = get_fleet_name();
@@ -171,27 +161,27 @@ public:
     return fleet;
   }
 
-  Fields& get_fields();
+  Fields &get_fields();
 
-  const Fields& get_fields() const;
+  const Fields &get_fields() const;
 
   using DoorState = rmf_door_msgs::msg::DoorState;
-  using DoorStateListeners = std::unordered_set<Listener<DoorState>*>;
+  using DoorStateListeners = std::unordered_set<Listener<DoorState> *>;
   DoorStateListeners door_state_listeners;
 
   using LiftState = rmf_lift_msgs::msg::LiftState;
-  using LiftStateListeners = std::unordered_set<Listener<LiftState>*>;
+  using LiftStateListeners = std::unordered_set<Listener<LiftState> *>;
   LiftStateListeners lift_state_listeners;
 
   using DispenserResult = rmf_dispenser_msgs::msg::DispenserResult;
   using DispenserState = rmf_dispenser_msgs::msg::DispenserState;
 
   using DispenserResultListeners =
-      std::unordered_set<Listener<DispenserResult>*>;
+      std::unordered_set<Listener<DispenserResult> *>;
   DispenserResultListeners dispenser_result_listeners;
 
   using DispenserStateListeners =
-      std::unordered_set<Listener<DispenserState>*>;
+      std::unordered_set<Listener<DispenserState> *>;
   DispenserStateListeners dispenser_state_listeners;
 
   using PathRequest = rmf_fleet_msgs::msg::PathRequest;
@@ -219,7 +209,6 @@ public:
   TaskSummaryPub::SharedPtr task_summary_publisher;
 
 private:
-
   FleetAdapterNode();
 
   std::string _fleet_name;
@@ -276,8 +265,6 @@ private:
   bool _in_emergency_mode = false;
 
   bool _perform_deliveries = false;
-
-  bool _have_delivery_request = false;
 
   using Context =
       std::unordered_map<std::string, std::unique_ptr<RobotContext>>;
