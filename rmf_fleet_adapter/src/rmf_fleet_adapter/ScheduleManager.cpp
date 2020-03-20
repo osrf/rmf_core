@@ -20,10 +20,6 @@
 #include <rmf_traffic_ros2/Trajectory.hpp>
 #include <rmf_traffic_ros2/StandardNames.hpp>
 
-
-#include <iostream>
-
-
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -35,7 +31,6 @@ ScheduleManager::ScheduleManager(rclcpp::Node& node,
 {
   if (negotiation)
   {
-    std::cout << " ---- Asking to register negotiator for " << _participant.id() << std::endl;
     auto negotiator = std::make_unique<Negotiator>();
     _negotiator = negotiator.get();
     _negotiator_handle = negotiation->register_negotiator(

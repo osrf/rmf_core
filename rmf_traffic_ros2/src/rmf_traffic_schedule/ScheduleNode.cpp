@@ -560,11 +560,6 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     return;
   }
 
-  std::cout << " === Received proposal for [ ";
-  for (const auto s : msg.to_accommodate)
-    std::cout << s << " ";
-  std::cout << msg.for_participant << " ]" << std::endl;
-
   const auto table =
       negotiation->table(msg.for_participant, msg.to_accommodate);
 
@@ -584,7 +579,6 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   table->submit(rmf_traffic_ros2::convert(msg.itinerary), msg.proposal_version);
   if (negotiation->ready())
   {
-    std::cout << " === Ready to choose a proposal" << std::endl;
     // TODO(MXG): If the negotiation is not complete yet, give some time for
     // more proposals to arrive before choosing one.
     const auto choose =

@@ -230,18 +230,6 @@ public:
     cancel(std::chrono::seconds(1));
   }
 
-//  void resolve() final
-//  {
-//    std::cout << "Attempting to resolve plan for [" << _context->robot_name()
-//              << "]" << std::endl;
-//    if (_emergency_active)
-//      return find_and_execute_emergency_plan();
-
-//    auto plans = find_plan(std::chrono::seconds(0));
-//    if (!plans.empty())
-//      return execute_plan(std::move(plans));
-//  }
-
   void respond(
       rmf_traffic::schedule::Negotiation::ConstTablePtr table,
       const Responder& responder,
@@ -264,21 +252,12 @@ public:
     std::weak_ptr<void> weak_handle = _handle;
     responder.submit(
           std::move(itinerary),
-          [this, table, weak_handle = std::move(weak_handle), plans = std::move(plans)]()
+          [this, table, plans = std::move(plans),
+           weak_handle = std::move(weak_handle)]()
     {
       auto handle = weak_handle.lock();
       if (!handle)
-      {
-        std::cout << " ~~~ Ignoring plan because MoveAction has expired"
-                  << std::endl;
         return;
-      }
-
-      std::cout << " ~~~ Executing plan given by [";
-      for (const auto s : table->sequence())
-        std::cout << " " << s;
-      std::cout << " ]" << std::endl;
-
 
       execute_plan(std::move(plans));
     });
@@ -439,8 +418,6 @@ public:
 
   void send_next_command(bool continuous = true)
   {
-    std::cout << " ~~~ Sending next command for " << _context->schedule.participant_id()
-              << std::endl;
     if (_remaining_waypoints.empty())
     {
       if (_emergency_active)

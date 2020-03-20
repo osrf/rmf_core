@@ -61,11 +61,6 @@ public:
         std::vector<rmf_traffic::Route> itinerary,
         std::function<void()> approval_callback) const final
     {
-      std::cout << " --- Received proposal for [ ";
-      for (const auto s : table->sequence())
-        std::cout << s << " ";
-      std::cout << "]" << std::endl;
-
       const auto* last_version = table->version();
       table->submit(itinerary, last_version? *last_version+1 : 0);
       impl->approvals[conflict_version][table] = std::move(approval_callback);
@@ -74,11 +69,6 @@ public:
 
     void reject() const final
     {
-      std::cout << " --- Received rejection for [ ";
-      for (const auto s : table->sequence())
-        std::cout << s << " ";
-      std::cout << "]" << std::endl;
-
       const auto parent = table->parent();
       if (parent)
       {
@@ -255,23 +245,11 @@ public:
 
   void receive_notice(const Notice& msg)
   {
-    std::cout << " --- Received conflict notice [" << msg.conflict_version
-              << "]: [";
-    for (const auto p : msg.participants)
-      std::cout << " " << p;
-    std::cout << " ] We negotiate for [";
-    for (const auto& n : *negotiators)
-      std::cout << " " << n.first;
-    std::cout << " ]" << std::endl;
-
-
-
     bool relevant = false;
     for (const auto p : msg.participants)
     {
       if (negotiators->find(p) != negotiators->end())
       {
-        std::cout << " --- We are relevant" << std::endl;
         relevant = true;
         break;
       }
@@ -287,10 +265,7 @@ public:
         {msg.conflict_version, Negotiation(viewer, msg.participants)});
 
     if (!insertion.second)
-    {
-      std::cout << " --- We already knew about this negotiation" << std::endl;
       return;
-    }
 
     auto& negotiation = insertion.first->second;
 
@@ -300,7 +275,6 @@ public:
       const auto it = negotiators->find(p);
       if (it != negotiators->end())
       {
-        std::cout << " --- Request initial response from " << p << std::endl;
         const auto table = negotiation.table(p, {});
         it->second->respond(
               table, Responder(this, msg.conflict_version, table));
@@ -328,10 +302,6 @@ public:
 
   void receive_proposal(const Proposal& msg)
   {
-    std::cout << " --- Incoming message proposal for [";
-    for (const auto p : msg.to_accommodate)
-      std::cout << " " << p;
-    std::cout << " " << msg.for_participant << " ]" << std::endl;
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
@@ -414,7 +384,6 @@ public:
 
   void receive_conclusion(const Conclusion& msg)
   {
-    std::cout << " --- Received conclusion for " << msg.conflict_version << std::endl;
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
@@ -510,7 +479,6 @@ public:
 
     ~Handle()
     {
-      std::cout << " --- Erasing negotiator for " << for_participant << std::endl;
       if (const auto map = weak_map.lock())
         map->erase(for_participant);
     }
@@ -520,7 +488,6 @@ public:
       const ParticipantId for_participant,
       NegotiatorPtr negotiator)
   {
-    std::cout << " --- Registering negotiator for " << for_participant << std::endl;
     const auto insertion = negotiators->insert(
           std::make_pair(for_participant, std::move(negotiator)));
 
