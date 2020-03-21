@@ -40,16 +40,39 @@ SCENARIO("Testing Construction")
     auto& footprint = profile.footprint();
     auto& vicinity = profile.vicinity();
 
-    CHECK((footprint->get_characteristic_length() - 1.0) == Approx(0.0).margin(1e-6));
-    CHECK((vicinity->get_characteristic_length() - 1.0) == Approx(0.0).margin(1e-6));
+    CHECK(footprint == circle_1);
+    CHECK(vicinity == circle_1);
+    CHECK(footprint->get_characteristic_length() == Approx(1.0));
+    CHECK(vicinity->get_characteristic_length() == Approx(1.0));
 
-    // Footprint and vicinity are updated
-    profile.vicinity(circle_2);
-    profile.footprint(circle_2);
+    WHEN("Only footprint is updated")
+    {
+      profile.footprint(circle_2);
+      CHECK(footprint == circle_2);
+      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
+      // profile.vicinity() should return footprint
+      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+    }
 
-    CHECK((profile.footprint()->get_characteristic_length() - 2.0) == Approx(0.0).margin(1e-6));
-    CHECK((profile.vicinity()->get_characteristic_length() - 2.0) == Approx(0.0).margin(1e-6));
+    WHEN("Only vicinity is updated")
+    {
+      profile.vicinity(circle_2);
+      CHECK(vicinity != profile.vicinity());
+      CHECK(profile.vicinity() == circle_2);
+      CHECK(footprint == circle_1);
+      CHECK(profile.footprint()->get_characteristic_length() == Approx(1.0));
+      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+    }
 
+    WHEN("Both footprint and vicinity are updated")
+    {
+      profile.footprint(circle_2);
+      profile.vicinity(circle_2);
+      CHECK(footprint == circle_2);
+      CHECK(vicinity == circle_2);
+      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+    }
   }
 
   WHEN ("Vicinity is passed into the constructor")
@@ -64,18 +87,39 @@ SCENARIO("Testing Construction")
     auto& footprint = profile.footprint();
     auto& vicinity = profile.vicinity();
 
-    CHECK((footprint->get_characteristic_length() - 1.0) == Approx(0.0).margin(1e-6));
-    CHECK((vicinity->get_characteristic_length() - 2.0) == Approx(0.0).margin(1e-6));
+    CHECK(footprint == circle_1);
+    CHECK(vicinity == circle_2);
+    CHECK(footprint->get_characteristic_length() == Approx(1.0));
+    CHECK(vicinity->get_characteristic_length() == Approx(2.0));
 
-    profile.footprint(circle_2);
-    profile.vicinity(circle_1);
+    WHEN("Only footprint is updated")
+    {
+      profile.footprint(circle_2);
+      CHECK(footprint == circle_2);
+      CHECK(vicinity == circle_2);
+      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
+    }
 
-    CHECK((profile.footprint()->get_characteristic_length() - 2.0)
-        == Approx(0.0).margin(1e-6));
-    CHECK((profile.vicinity()->get_characteristic_length() - 1.0)
-        == Approx(0.0).margin(1e-6));
+    WHEN("Only vicinity is updated")
+    {
+      profile.vicinity(circle_1);
+      CHECK(vicinity == circle_1);
+      CHECK(footprint == circle_1);
+      CHECK(profile.footprint()->get_characteristic_length() == Approx(1.0));
+      CHECK(profile.vicinity()->get_characteristic_length() == Approx(1.0));
+    }
+
+    WHEN("Both footprint and vicinity are updated")
+    {
+      profile.footprint(circle_2);
+      profile.vicinity(circle_1);
+      CHECK(footprint == circle_2);
+      CHECK(vicinity == circle_1);
+      CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
+      CHECK(profile.vicinity()->get_characteristic_length() == Approx(1.0));
+    }
   }
-
 }
 
 SCENARIO ("Testing conflicts")
@@ -247,5 +291,4 @@ SCENARIO ("Testing conflicts")
         {box_2, box_2},
         t2));
   }
-  
 }
