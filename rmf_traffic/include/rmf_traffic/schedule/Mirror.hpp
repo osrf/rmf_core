@@ -45,7 +45,7 @@ public:
   const std::unordered_set<ParticipantId>& participant_ids() const final;
 
   // Documentation inherited from Viewer
-  const ParticipantDescription* get_participant(
+  std::shared_ptr<const ParticipantDescription> get_participant(
       std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer

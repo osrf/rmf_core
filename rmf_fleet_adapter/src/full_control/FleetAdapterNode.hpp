@@ -97,7 +97,10 @@ public:
 
     void resume();
 
-    void resolve();
+    void respond(
+        rmf_traffic::schedule::Negotiation::ConstTablePtr table,
+        const rmf_traffic::schedule::Negotiator::Responder& responder,
+        const bool* interrupt_flag);
 
     std::size_t num_tasks() const;
 
@@ -140,22 +143,25 @@ public:
   {
     rmf_traffic_ros2::schedule::MirrorManager mirror;
     rmf_traffic_ros2::schedule::WriterPtr writer;
+    rmf_traffic_ros2::schedule::Negotiation negotiation;
     GraphInfo graph_info;
     rmf_traffic::agv::VehicleTraits traits;
     rmf_traffic::agv::Planner planner;
 
     Fields(
+        rclcpp::Node& node_,
         GraphInfo graph_info_,
         rmf_traffic::agv::VehicleTraits traits_,
         rmf_traffic_ros2::schedule::MirrorManager mirror_,
         rmf_traffic_ros2::schedule::WriterPtr writer_)
     : mirror(std::move(mirror_)),
       writer(std::move(writer_)),
+      negotiation(node_, mirror.viewer()),
       graph_info(std::move(graph_info_)),
       traits(std::move(traits_)),
       planner(
         rmf_traffic::agv::Planner::Configuration(graph_info.graph, traits),
-        rmf_traffic::agv::Planner::Options(mirror.viewer()))
+        rmf_traffic::agv::Planner::Options(nullptr))
     {
       // Do nothing
     }
@@ -211,6 +217,8 @@ public:
 private:
 
   FleetAdapterNode();
+
+  std::mutex _async_mutex;
 
   std::string _fleet_name;
 

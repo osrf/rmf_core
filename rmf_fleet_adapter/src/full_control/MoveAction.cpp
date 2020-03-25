@@ -39,7 +39,7 @@ rmf_utils::optional<std::size_t> get_fastest_plan_index(
     const auto& plan = plans[i];
     if (plan)
     {
-      const auto finish_time = plan->get_routes().back().trajectory().finish_time();
+      const auto finish_time = plan->get_itinerary().back().trajectory().finish_time();
       if (!finish_time)
       {
         // If this is an empty trajectory, then the robot is already sitting on
@@ -88,13 +88,27 @@ public:
     _event_executor(this),
     _event_listener(this),
     _emergency_active(false),
-    _waiting_on_emergency(false)
+    _waiting_on_emergency(false),
+    _planner_options(nullptr),
+    _validator(
+      rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+        node->get_fields().mirror.viewer(),
+        state->schedule.participant_id(),
+        state->schedule.description().profile())),
+    _handle(std::make_shared<int>(0))
   {
     // Do nothing
   }
 
   std::vector<rmf_traffic::agv::Plan> find_plan(
       const std::chrono::nanoseconds start_delay)
+  {
+    return find_plan(start_delay, _validator);
+  }
+
+  std::vector<rmf_traffic::agv::Plan> find_plan(
+      const std::chrono::nanoseconds start_delay,
+      const rmf_utils::clone_ptr<rmf_traffic::agv::RouteValidator> validator)
   {
     _emergency_active = false;
     _waiting_on_emergency = false;
@@ -123,9 +137,8 @@ public:
     }
 
     bool interrupt_flag = false;
-    auto options = planner.get_default_options();
-    options.interrupt_flag(&interrupt_flag);
-    options.ignore_participant_ids({_context->schedule.participant_id()});
+    _planner_options.interrupt_flag(&interrupt_flag);
+    _planner_options.validator(std::move(validator));
 
     bool main_plan_solved = false;
     bool main_plan_failed = false;
@@ -135,10 +148,12 @@ public:
     std::thread main_plan_thread = std::thread(
           [&]()
     {
-      main_plan = 
+      main_plan =
           planner.plan(
-              plan_starts, 
-              rmf_traffic::agv::Plan::Goal(_goal_wp_index), options);
+            plan_starts,
+            rmf_traffic::agv::Plan::Goal(_goal_wp_index),
+            _planner_options);
+
       if (main_plan)
       {
         main_plan_solved = true;
@@ -159,8 +174,9 @@ public:
       {
         auto fallback_plan = 
             planner.plan(
-                plan_starts, 
-                rmf_traffic::agv::Plan::Goal(goal_wp), options);
+              plan_starts,
+              rmf_traffic::agv::Plan::Goal(goal_wp),
+              _planner_options);
 
         std::unique_lock<std::mutex> lock(fallback_plan_mutex);
         if (fallback_plan)
@@ -214,16 +230,37 @@ public:
     cancel(std::chrono::seconds(1));
   }
 
-  void resolve() final
+  void respond(
+      rmf_traffic::schedule::Negotiation::ConstTablePtr table,
+      const Responder& responder,
+      const bool* interrupt_flag) final
   {
-    std::cout << "Attempting to resolve plan for [" << _context->robot_name()
-              << "]" << std::endl;
-    if (_emergency_active)
-      return find_and_execute_emergency_plan();
+    // TODO(MXG): Do something with the interrupt flag
+    std::vector<rmf_traffic::agv::Plan> plans =
+        find_plan(
+          std::chrono::seconds(0),
+          rmf_utils::make_clone<rmf_traffic::agv::NegotiatingRouteValidator>(
+            *table, _context->schedule.description().profile()));
 
-    auto plans = find_plan(std::chrono::seconds(0));
-    if (!plans.empty())
-      return execute_plan(std::move(plans));
+    if (plans.empty())
+    {
+      responder.reject();
+      return;
+    }
+
+    auto itinerary = collect_routes(plans);
+    std::weak_ptr<void> weak_handle = _handle;
+    responder.submit(
+          std::move(itinerary),
+          [this, table, plans = std::move(plans),
+           weak_handle = std::move(weak_handle)]()
+    {
+      auto handle = weak_handle.lock();
+      if (!handle)
+        return;
+
+      execute_plan(std::move(plans));
+    });
   }
 
   std::vector<rmf_traffic::agv::Plan> use_fallback(
@@ -254,9 +291,7 @@ public:
     const auto& planner = _node->get_planner();
 
     bool interrupt_flag = false;
-    auto options = planner.get_default_options();
-    options.interrupt_flag(&interrupt_flag);
-    options.ignore_participant_ids({_context->schedule.participant_id()});
+    _planner_options.interrupt_flag(&interrupt_flag);
 
     const auto t_spread = std::chrono::seconds(15);
     bool have_resume_plan = false;
@@ -275,7 +310,7 @@ public:
                 resume_time, fallback_waypoint, fallback_orientation),
               rmf_traffic::agv::Plan::Goal(
                 _goal_wp_index),
-              options);
+              _planner_options);
 
         std::unique_lock<std::mutex> lock(resume_plan_mutex);
         if (resume_plan)
@@ -327,7 +362,7 @@ public:
     bool first_trajectory = true;
     for (const auto& plan : plans)
     {
-      for (auto r : plan.get_routes())
+      for (auto r : plan.get_itinerary())
       {
         if (first_trajectory && r.trajectory().size() > 0)
         {
@@ -686,10 +721,10 @@ public:
     {
       if (new_delay < std::chrono::seconds(-5))
       {
-        RCLCPP_WARN(
-              _node->get_logger(),
-              "Ignoring big negative delay ["
-              + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
+//        RCLCPP_WARN(
+//              _node->get_logger(),
+//              "Ignoring big negative delay ["
+//              + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
       }
       return;
     }
@@ -1127,9 +1162,7 @@ public:
     }
 
     bool interrupt_flag = false;
-    auto options = planner.get_default_options();
-    options.interrupt_flag(&interrupt_flag);
-    options.ignore_participant_ids({_context->schedule.participant_id()});
+    _planner_options.interrupt_flag(&interrupt_flag);
 
     std::vector<std::thread> plan_threads;
     std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> candidate_plans;
@@ -1142,8 +1175,9 @@ public:
       {
         auto emergency_plan = 
             planner.plan(
-                plan_starts, 
-                rmf_traffic::agv::Plan::Goal(goal_wp), options);
+              plan_starts,
+              rmf_traffic::agv::Plan::Goal(goal_wp),
+              _planner_options);
 
         std::unique_lock<std::mutex> lock(plans_mutex);
         if (emergency_plan)
@@ -1332,6 +1366,10 @@ private:
   bool _emergency_active = false;
   bool _waiting_on_emergency = false;
 
+  rmf_traffic::agv::Planner::Options _planner_options;
+  rmf_utils::clone_ptr<rmf_traffic::agv::ScheduleRouteValidator> _validator;
+
+  std::shared_ptr<void> _handle;
 };
 
 MoveAction::~MoveAction()

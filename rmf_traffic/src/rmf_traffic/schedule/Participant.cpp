@@ -145,12 +145,7 @@ RouteId Participant::set(std::vector<Route> itinerary)
   const RouteId initial_route_id = _pimpl->_last_route_id;
   if (itinerary.empty())
   {
-    // If the current itinerary is already empty, then nothing needs to change
-    if (_pimpl->_current_itinerary.empty())
-      return initial_route_id;
-
-    // If the current itinerary is not empty, then we can do a clear command
-    // instead.
+    // This situation is more efficient to express as a clear() command
     clear();
     return initial_route_id;
   }

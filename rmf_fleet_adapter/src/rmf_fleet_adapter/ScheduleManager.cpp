@@ -22,53 +22,20 @@
 
 namespace rmf_fleet_adapter {
 
-namespace {
 //==============================================================================
-std::vector<rmf_traffic_msgs::msg::Trajectory> convert(
-    const std::vector<const rmf_traffic::Trajectory*>& trajectories)
-{
-  std::vector<rmf_traffic_msgs::msg::Trajectory> output;
-  output.reserve(trajectories.size());
-  for (const auto& trajectory : trajectories)
-    output.emplace_back(rmf_traffic_ros2::convert(*trajectory));
-
-  return output;
-}
-
-} // anonymous namespace
-
-//==============================================================================
-ScheduleManager::ScheduleManager(
-    rclcpp::Node& node,
+ScheduleManager::ScheduleManager(rclcpp::Node& node,
     rmf_traffic::schedule::Participant participant,
-    std::function<void()> revision_callback)
-  : _participant(std::move(participant)),
-    _revision_callback(std::move(revision_callback))
+    rmf_traffic_ros2::schedule::Negotiation* negotiation)
+  : _node(&node),
+    _participant(std::move(participant))
 {
-
-  auto resolve_client =
-      node.create_client<rmf_traffic_msgs::srv::TemporaryResolveConflicts>(
-        rmf_traffic_ros2::ResolveConflictsSrvName);
-
-  auto conflict_sub =
-      node.create_subscription<rmf_traffic_msgs::msg::ScheduleConflict>(
-        rmf_traffic_ros2::ScheduleConflictTopicName,
-        rclcpp::SystemDefaultsQoS().reliable(),
-        [this,
-         p = _participant.id()](
-        const std::unique_ptr<rmf_traffic_msgs::msg::ScheduleConflict> msg)
+  if (negotiation)
   {
-    for (const auto m : msg->participants)
-    {
-      if (m == p)
-      {
-        this->_have_conflict = true;
-        this->_conflict_version = msg->conflict_version;
-        this->_revision_callback();
-        return;
-      }
-    }
-  });
+    auto negotiator = std::make_unique<Negotiator>();
+    _negotiator = negotiator.get();
+    _negotiator_handle = negotiation->register_negotiator(
+          _participant.id(), std::move(negotiator));
+  }
 }
 
 //==============================================================================
@@ -98,13 +65,6 @@ void ScheduleManager::push_routes(
     return;
   }
 
-  if (_have_conflict)
-  {
-    return resolve_trajectories(
-          std::move(valid_routes),
-          std::move(approval_callback));
-  }
-
   _participant.set(std::move(valid_routes));
   approval_callback();
 }
@@ -114,17 +74,24 @@ void ScheduleManager::push_delay(
     const rmf_traffic::Duration duration,
     const rmf_traffic::Time from_time)
 {
-  if (_have_conflict)
-    return;
-
   _participant.delay(from_time, duration);
 }
 
 //==============================================================================
-void ScheduleManager::set_revision_callback(
-    std::function<void()> revision_callback)
+void ScheduleManager::set_negotiator(
+    std::function<void(
+      rmf_traffic::schedule::Negotiation::ConstTablePtr,
+      const Negotiator::Responder&,
+      const bool*)> negotiation_callback)
 {
-  _revision_callback = std::move(revision_callback);
+  if (_negotiator)
+    _negotiator->callback = std::move(negotiation_callback);
+}
+
+//==============================================================================
+rmf_traffic::schedule::Participant& ScheduleManager::participant()
+{
+  return _participant;
 }
 
 //==============================================================================
@@ -134,41 +101,29 @@ rmf_traffic::schedule::ParticipantId ScheduleManager::participant_id() const
 }
 
 //==============================================================================
-void ScheduleManager::resolve_trajectories(
-    std::vector<rmf_traffic::Route> routes,
-    std::function<void()> approval_callback)
+const rmf_traffic::schedule::ParticipantDescription&
+ScheduleManager::description() const
 {
-  ResolveConflicts::Request request;
-  request.participant = _participant.id();
-  request.conflict_version = _conflict_version;
+  return _participant.description();
+}
 
-  _resolve_client->async_send_request(
-        std::make_shared<ResolveConflicts::Request>(request),
-        [approval_cb = std::move(approval_callback),
-         routes = std::move(routes),
-         this](
-        const rclcpp::Client<ResolveConflicts>::SharedFuture future)
-  {
-    const auto response = future.get();
+//==============================================================================
+void ScheduleManager::Negotiator::respond(
+    std::shared_ptr<const rmf_traffic::schedule::Negotiation::Table> table,
+    const Responder& responder,
+    const bool* interrupt_flag)
+{
+  if (!callback)
+    return;
 
-    if (!response->error.empty())
-    {
-      throw std::runtime_error(
-          "Error while attempting to resolve a conflict: " + response->error);
-    }
-
-    if (!response->accepted)
-      return;
-
-    this->_participant.set(routes);
-    approval_cb();
-  });
+  callback(std::move(table), responder, interrupt_flag);
 }
 
 //==============================================================================
 std::future<ScheduleManager> make_schedule_manager(
     rclcpp::Node& node,
     rmf_traffic_ros2::schedule::Writer& writer,
+    rmf_traffic_ros2::schedule::Negotiation* negotiation,
     rmf_traffic::schedule::ParticipantDescription description,
     std::function<void()> revision_callback)
 {
@@ -176,13 +131,14 @@ std::future<ScheduleManager> make_schedule_manager(
         std::launch::async,
         [&node,
          &writer,
+         negotiation,
          description = std::move(description),
          revision_callback = std::move(revision_callback)]() -> ScheduleManager
   {
     return ScheduleManager(
           node,
           writer.make_participant(std::move(description)).get(),
-          std::move(revision_callback));
+          negotiation);
   });
 }
 
@@ -190,22 +146,25 @@ std::future<ScheduleManager> make_schedule_manager(
 void async_make_schedule_manager(
     rclcpp::Node& node,
     rmf_traffic_ros2::schedule::Writer& writer,
+    rmf_traffic_ros2::schedule::Negotiation* negotiation,
     rmf_traffic::schedule::ParticipantDescription description,
-    std::function<void()> revision_callback,
-    std::function<void(ScheduleManager)> ready_callback)
+    std::function<void(ScheduleManager)> ready_callback,
+    std::mutex& ready_mutex)
 {
   writer.async_make_participant(
         std::move(description),
         [&node,
-         revision_callback = std::move(revision_callback),
-         ready_callback = std::move(ready_callback)](
+         negotiation,
+         ready_callback = std::move(ready_callback),
+         &ready_mutex](
         rmf_traffic::schedule::Participant participant)
   {
+    std::lock_guard<std::mutex> lock(ready_mutex);
     ready_callback(
           ScheduleManager{
             node,
             std::move(participant),
-            std::move(revision_callback)
+            negotiation
           });
   });
 }

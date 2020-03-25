@@ -584,6 +584,9 @@ auto Query::Participants::make_only(std::vector<ParticipantId> ids)
 {
   Participants participants;
   participants._pimpl->mode = Mode::Include;
+  participants._pimpl->include._pimpl =
+      rmf_utils::make_impl<Include::Implementation>();
+
   participants._pimpl->include.set_ids(std::move(ids));
   return participants;
 }
@@ -594,6 +597,9 @@ auto Query::Participants::make_all_except(std::vector<ParticipantId> ids)
 {
   Participants participants;
   participants._pimpl->mode = Mode::Exclude;
+  participants._pimpl->exclude._pimpl =
+      rmf_utils::make_impl<Exclude::Implementation>();
+
   participants._pimpl->exclude.set_ids(std::move(ids));
   return participants;
 }

@@ -24,6 +24,11 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
+// This line tells the linker to take care of defining the value of this field
+// inside of this translation unit.
+const Duration Planner::Options::DefaultMinHoldingTime;
+
+//==============================================================================
 class Planner::Configuration::Implementation
 {
 public:
@@ -113,42 +118,39 @@ class Planner::Options::Implementation
 {
 public:
 
-  const schedule::Viewer* viewer;
+  rmf_utils::clone_ptr<RouteValidator> validator;
   Duration min_hold_time;
   const bool* interrupt_flag;
-  std::unordered_set<schedule::Version> ignore_schedule_ids;
 
 };
 
 //==============================================================================
 Planner::Options::Options(
-    const schedule::Viewer& viewer,
+    rmf_utils::clone_ptr<RouteValidator> validator,
     const Duration min_hold_time,
-    const bool* interrupt_flag,
-    std::unordered_set<schedule::Version> ignore_ids)
+    const bool* interrupt_flag)
   : _pimpl(rmf_utils::make_impl<Implementation>(
              Implementation{
-               &viewer,
+               std::move(validator),
                min_hold_time,
-               interrupt_flag,
-               std::move(ignore_ids)
+               interrupt_flag
              }))
 {
   // Do nothing
 }
 
 //==============================================================================
-auto Planner::Options::schedule_viewer(const schedule::Viewer& viewer)
+auto Planner::Options::validator(rmf_utils::clone_ptr<RouteValidator> v)
 -> Options&
 {
-  _pimpl->viewer = &viewer;
+  _pimpl->validator = std::move(v);
   return *this;
 }
 
 //==============================================================================
-const schedule::Viewer& Planner::Options::schedule_viewer() const
+const rmf_utils::clone_ptr<RouteValidator>& Planner::Options::validator() const
 {
-  return *_pimpl->viewer;
+  return _pimpl->validator;
 }
 
 //==============================================================================
@@ -176,21 +178,6 @@ auto Planner::Options::interrupt_flag(const bool* flag) -> Options&
 const bool* Planner::Options::interrupt_flag() const
 {
   return _pimpl->interrupt_flag;
-}
-
-//==============================================================================
-auto Planner::Options::ignore_participant_ids(
-    std::unordered_set<schedule::ParticipantId> ignore_ids) -> Options&
-{
-  _pimpl->ignore_schedule_ids = std::move(ignore_ids);
-  return *this;
-}
-
-//==============================================================================
-std::unordered_set<schedule::ParticipantId> Planner::Options
-::ignore_participant_ids() const
-{
-  return _pimpl->ignore_schedule_ids;
 }
 
 //==============================================================================
@@ -523,7 +510,7 @@ Plan::Waypoint::Waypoint()
 }
 
 //==============================================================================
-const std::vector<Route>& Plan::get_routes() const
+const std::vector<Route>& Plan::get_itinerary() const
 {
   return _pimpl->result.routes;
 }

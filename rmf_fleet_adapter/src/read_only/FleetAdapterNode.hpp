@@ -51,6 +51,8 @@ private:
 
   std::string _fleet_name;
 
+  std::mutex _async_mutex;
+
   rmf_traffic::agv::VehicleTraits _traits;
 
   rmf_traffic::Duration _delay_threshold;
@@ -71,7 +73,10 @@ private:
     rmf_traffic::Duration cumulative_delay = rmf_traffic::Duration(0);
     bool sitting = false;
 
-    ScheduleEntry(FleetAdapterNode* node, std::string name);
+    ScheduleEntry(
+        FleetAdapterNode* node,
+        std::string name,
+        std::mutex& async_mutex);
   };
 
   using ScheduleEntries =

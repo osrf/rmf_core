@@ -30,13 +30,17 @@ const std::string ItineraryEraseTopicName = Prefix + "itinerary_erase";
 const std::string ItineraryClearTopicName = Prefix + "itinerary_clear";
 const std::string RegisterParticipantSrvName = Prefix + "register_participant";
 const std::string UnregisterParticipantSrvName = Prefix + "unregister_participant";
-const std::string ResolveConflictsSrvName = Prefix + "resolve_conflicts";
 const std::string RegisterQueryServiceName = Prefix + "register_query";
 const std::string UnregisterQueryServiceName = Prefix + "unregister_query";
 const std::string MirrorUpdateServiceName = Prefix + "mirror_update";
 const std::string MirrorWakeupTopicName = Prefix + "mirror_wakeup";
-const std::string ScheduleConflictTopicName = Prefix + "schedule_conflict";
 const std::string ScheduleInconsistencyTopicName = Prefix + "schedule_inconsistency";
+const std::string ScheduleConflictAckTopicName = Prefix + "schedule_conflict_ack";
+const std::string ScheduleConflictRepeatTopicName = Prefix + "schedule_conflict_repeat";
+const std::string ScheduleConflictNoticeTopicName = Prefix + "schedule_conflict_notice";
+const std::string ScheduleConflictProposalTopicName = Prefix + "schedule_conflict_proposal";
+const std::string ScheduleConflictRejectionTopicName = Prefix + "schedule_conflict_rejection";
+const std::string ScheduleConflictConclusionTopicName = Prefix + "schedule_conflict_conclusion";
 
 const std::string EmergencyTopicName = "fire_alarm_trigger";
 
