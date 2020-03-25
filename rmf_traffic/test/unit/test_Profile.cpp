@@ -51,6 +51,7 @@ SCENARIO("Testing Construction")
       CHECK(footprint == circle_2);
       CHECK(profile.footprint()->get_characteristic_length() == Approx(2.0));
       // profile.vicinity() should return footprint
+      CHECK(profile.vicinity() == profile.footprint());
       CHECK(profile.vicinity()->get_characteristic_length() == Approx(2.0));
     }
 
