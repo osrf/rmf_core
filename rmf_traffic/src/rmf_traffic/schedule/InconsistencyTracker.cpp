@@ -22,12 +22,11 @@
 namespace rmf_traffic {
 namespace schedule {
 
-//==============================================================================
 InconsistencyTracker::InconsistencyTracker(
-    ParticipantId id,
-    RangesSet& ranges)
-: _participant(id),
-  _ranges(ranges)
+    RangesSet& ranges,
+    ItineraryVersion& last_known_version)
+: _ranges(ranges),
+  _last_known_version(last_known_version)
 {
   // Do nothing
 }
@@ -37,6 +36,16 @@ void InconsistencyTracker::Ticket::set(std::function<void ()> change)
 {
   _set = true;
   _callback = change;
+}
+
+//==============================================================================
+InconsistencyTracker::Ticket::Ticket(
+    InconsistencyTracker& parent,
+    std::function<void()>& callback)
+: _parent(parent),
+  _callback(callback)
+{
+  // Do nothing
 }
 
 //==============================================================================
@@ -58,30 +67,33 @@ InconsistencyTracker::Ticket::~Ticket()
 }
 
 //==============================================================================
-InconsistencyTracker::Ticket::Ticket(
-    InconsistencyTracker& parent,
-    std::function<void()>& callback)
-: _parent(parent),
-  _callback(callback)
-{
-  // Do nothing
-}
-
-//==============================================================================
 auto InconsistencyTracker::check(
     const ItineraryVersion version,
     const bool nullifying)
--> rmf_utils::optional<Ticket>
+-> std::unique_ptr<Ticket>
 {
   using Range = Inconsistencies::Ranges::Range;
 
+  // Check if this is the lastest itinerary version for this trajectory
+  if (modular(_last_known_version).less_than(version))
+    _last_known_version = version;
+
   if (_ranges.empty())
   {
+    if (nullifying)
+    {
+      // It doesn't matter whether this is the expected version, because it is
+      // a nullifying change. Simply move the expected version forward and
+      // accept this change.
+      _expected_version = version + 1;
+      return nullptr;
+    }
+
     if (version == _expected_version)
     {
       // This means we have no inconsistencies to worry about
       ++_expected_version;
-      return rmf_utils::nullopt;
+      return nullptr;
     }
 
     // This should have been checked earlier by the caller, but we will assert
@@ -92,7 +104,7 @@ auto InconsistencyTracker::check(
     _ranges.insert(Range{_expected_version, version-1});
 
     const auto c_it = _changes.insert(std::make_pair(version, nullptr)).first;
-    return Ticket(*this, c_it->second);
+    return std::make_unique<Ticket>(*this, c_it->second);
   }
   else
   {
@@ -116,7 +128,7 @@ auto InconsistencyTracker::check(
       // We have already received this change in the past, so we don't need to
       // modify the inconsistency ranges. We're assuming that repeats of the
       // changes we receive from participants will be consistent with themselves
-      return Ticket(*this, callback);
+      return std::make_unique<Ticket>(*this, callback);
     }
 
     if (nullifying)
@@ -164,7 +176,7 @@ auto InconsistencyTracker::check(
       // than any of the missing entries, we must have never received any change
       // with a higher version. If either of those beliefs are false, then there
       // is a software bug somewhere.
-      assert(!_changes.empty() && (_changes.rbegin())->first < version);
+      assert(!_changes.empty() && (_changes.rbegin())->first <= version);
 
       if (nullifying)
       {
@@ -174,15 +186,15 @@ auto InconsistencyTracker::check(
         _changes.clear();
         _ranges.clear();
         _expected_version = version + 1;
-        return rmf_utils::nullopt;
+        return nullptr;
       }
       else
       {
         // This is the highest inconsistent version number that we have seen so
         // far. We will create an inconsistency range between this and the
         // highest change value that we have received so far.
-
-        const ItineraryVersion lower = _changes.rbegin()->first + 1;
+        assert(_changes.size() >= 2);
+        const ItineraryVersion lower = (++_changes.rbegin())->first + 1;
         const ItineraryVersion upper = version - 1;
 
         if (modular(lower).less_than_or_equal(upper))
@@ -212,7 +224,7 @@ auto InconsistencyTracker::check(
           // any new range of inconsistency.
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
     }
     else
@@ -254,7 +266,7 @@ auto InconsistencyTracker::check(
           _ranges.insert(hint_it, Range{version + 1, upper});
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
       else if (version == upper)
       {
@@ -294,7 +306,7 @@ auto InconsistencyTracker::check(
           _ranges.erase(range_it);
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
       else
       {
@@ -307,7 +319,7 @@ auto InconsistencyTracker::check(
           // The new version shrinks this range of inconsistencies by 1 from the
           // bottom.
           const auto hint_it = _ranges.erase(range_it);
-          _ranges.insert(hint_it, Range{version, upper});
+          _ranges.insert(hint_it, Range{version+1, upper});
         }
         else
         {
@@ -327,7 +339,7 @@ auto InconsistencyTracker::check(
           _ranges.insert(hint_it, Range{version+1, upper});
         }
 
-        return Ticket(*this, callback);
+        return std::make_unique<Ticket>(*this, callback);
       }
     }
   }

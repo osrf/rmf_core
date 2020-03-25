@@ -42,6 +42,8 @@ public:
   }
 
   const RangesSet& set;
+  ItineraryVersion last_known_version =
+      std::numeric_limits<ItineraryVersion>::max();
 
   using raw_iterator = RangesSet::const_iterator;
   static const_iterator make_iterator(raw_iterator it)
@@ -57,6 +59,11 @@ public:
     Ranges result;
     result._pimpl = rmf_utils::make_unique_impl<Implementation>(set);
     return result;
+  }
+
+  static ItineraryVersion& get_last_known_version(Ranges& ranges)
+  {
+    return ranges._pimpl->last_known_version;
   }
 
 };
@@ -92,6 +99,12 @@ std::size_t Inconsistencies::Ranges::size() const
 }
 
 //==============================================================================
+ItineraryVersion Inconsistencies::Ranges::last_known_version() const
+{
+  return _pimpl->last_known_version;
+}
+
+//==============================================================================
 std::unique_ptr<InconsistencyTracker>
 Inconsistencies::Implementation::register_participant(
     Inconsistencies& inconsistencies,
@@ -104,10 +117,18 @@ Inconsistencies::Implementation::register_participant(
   const auto it = _inconsistencies.insert(std::make_pair(id, RangesSet()));
   assert(it.second);
   RangesSet& ranges = it.first->second;
-  _api.insert(
-        std::make_pair(id, Element{id, Ranges::Implementation::make(ranges)}));
+  const auto ranges_it = _api.insert(
+        std::make_pair(
+          id,
+          Element{
+            id,
+            Ranges::Implementation::make(ranges)
+          }));
 
-  return std::make_unique<InconsistencyTracker>(id, ranges);
+  auto& ranges_api = ranges_it.first->second.ranges;
+  return std::make_unique<InconsistencyTracker>(
+        ranges,
+        Ranges::Implementation::get_last_known_version(ranges_api));
 }
 
 //==============================================================================
@@ -196,6 +217,12 @@ auto Inconsistencies::end() const -> const_iterator
 auto Inconsistencies::cend() const -> const_iterator
 {
   return end();
+}
+
+//==============================================================================
+auto Inconsistencies::find(const ParticipantId id) const -> const_iterator
+{
+  return Implementation::make_iterator(_pimpl->_api.find(id));
 }
 
 //==============================================================================

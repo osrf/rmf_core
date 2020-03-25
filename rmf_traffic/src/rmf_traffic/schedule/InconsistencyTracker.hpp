@@ -56,8 +56,8 @@ class InconsistencyTracker
 public:
 
   InconsistencyTracker(
-      ParticipantId id,
-      RangesSet& parent);
+      RangesSet& parent,
+      ItineraryVersion& last_known_version);
 
   /// The Ticket class is a way to inform the caller that there is an
   /// inconsistency with the version of an incoming change. When the
@@ -75,6 +75,13 @@ public:
     /// Set the change for this ticket.
     void set(std::function<void()> change);
 
+    Ticket(
+        InconsistencyTracker& parent,
+        std::function<void()>& callback);
+
+    Ticket(const Ticket&) = delete;
+    Ticket& operator=(const Ticket&) = delete;
+
     /// This custom destructor will check whether the inconsistency has been
     /// resolved, and if so then it will apply the changes
     ~Ticket();
@@ -82,10 +89,6 @@ public:
   private:
 
     friend class InconsistencyTracker;
-
-    Ticket(
-        InconsistencyTracker& parent,
-        std::function<void()>& callback);
 
     InconsistencyTracker& _parent;
     std::function<void()>& _callback;
@@ -104,7 +107,12 @@ public:
   ///
   /// \return an inconistency ticket which must get set with a change by the
   /// caller of check().
-  rmf_utils::optional<Ticket> check(
+  //
+  // TODO(MXG): When we are allowed to use std::optional, check if that might
+  // work here. rmf_utils::optional does not work for this because the move
+  // semantics aren't right, but maybe the STL version would. Or maybe we need
+  // a moveable version of std::reference_wrapper.
+  std::unique_ptr<Ticket> check(
       ItineraryVersion version,
       bool nullifying = false);
 
@@ -117,8 +125,14 @@ private:
 
   void _apply_changes();
 
-  ParticipantId _participant;
+  // TODO(MXG): Consider a more robust way of keeping _ranges up to date. Right
+  // now we calculate both _changes and _ranges independently, but they are
+  // really coupled. Maybe after each modification to _changes we should simply
+  // recompute _ranges from scratch. This would be less efficient but more
+  // robust.
   RangesSet& _ranges;
+
+  ItineraryVersion& _last_known_version;
   ItineraryVersion _expected_version = 0;
   std::map<ItineraryVersion, std::function<void()>> _changes;
 

@@ -114,6 +114,18 @@ public:
       rmf_utils::optional<Change::Cull> cull,
       Version latest_version);
 
+  // TODO(MXG): Consider using a persistent reliable topic to broadcast the
+  // active participant information instead of making it part of the patch.
+  // Ideally this information would not need to change frequently, so it doesn't
+  // necessarily need to be in the Patch scheme. The addition and loss of
+  // participants is significant enough that we should guarantee it's always
+  // transmitted correctly.
+  //
+  // The current scheme makes an assumption that remote mirrors will always
+  // either sync up before unregistered participant information is culled, or
+  // else they will perform a complete refresh. This might be a point of
+  // vulnerability if a remote mirror is not being managed correctly.
+
   /// Get a list of which participants have been unregistered. This should be
   /// evaluated first in the patch.
   const std::vector<Change::UnregisterParticipant>& unregistered() const;

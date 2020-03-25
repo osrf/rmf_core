@@ -2,6 +2,9 @@
 # The ID of the query description to use
 uint64 query_id
 
+# Set this to true if this is the first update request for this mirror
+bool initial_request
+
 # The last known version of the mirror
 uint64 latest_mirror_version
 

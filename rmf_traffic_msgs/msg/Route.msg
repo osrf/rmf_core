@@ -1,4 +1,4 @@
 
-uint64 version
+string map
 
 Trajectory trajectory

@@ -82,7 +82,7 @@ public:
     ConstRoutePtr route;
     ParticipantId participant;
     RouteId route_id;
-    const ParticipantDescription& description;
+    std::shared_ptr<const ParticipantDescription> description;
     std::shared_ptr<void> timeline_handle;
 
     // ===== Additional fields for this timeline entry =====
@@ -104,7 +104,7 @@ public:
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
-    const ParticipantDescription description;
+    const std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
@@ -112,7 +112,15 @@ public:
 
   using ParticipantRegistrationVersions = std::map<Version, ParticipantId>;
   ParticipantRegistrationVersions add_participant_version;
-  ParticipantRegistrationVersions remove_participant_version;
+
+  struct RemoveParticipantInfo
+  {
+    ParticipantId id;
+    Version original_version;
+  };
+  using ParticipantUnregistrationVersion =
+      std::map<Version, RemoveParticipantInfo>;
+  ParticipantUnregistrationVersion remove_participant_version;
 
   using ParticipantRegistrationTime = std::map<Time, Version>;
   ParticipantRegistrationTime remove_participant_time;
@@ -144,6 +152,10 @@ public:
   };
 
   rmf_utils::optional<CullInfo> last_cull;
+
+  /// The current time is used to know when participants can be culled after
+  /// getting unregistered
+  rmf_traffic::Time current_time = rmf_traffic::Time(rmf_traffic::Duration(0));
 
   /// This function verifies that the route IDs specified in the input are not
   /// already being used. If that ever happens, it is indicative of a bug or a
@@ -346,6 +358,33 @@ std::size_t Database::Debug::current_entry_history_count(
 }
 
 //==============================================================================
+std::size_t Database::Debug::current_removed_participant_count(
+    const Database& database)
+{
+  return database._pimpl->remove_participant_version.size();
+}
+
+//==============================================================================
+rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
+    const Database& database,
+    const ParticipantId participant)
+{
+  const auto state_it = database._pimpl->states.find(participant);
+  if (state_it == database._pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  const Implementation::ParticipantState& state = state_it->second;
+
+  Writer::Input itinerary;
+  itinerary.reserve(state.active_routes.size());
+  for (const RouteId route : state.active_routes)
+    itinerary.push_back({route, state.storage.at(route)->route});
+
+  return std::move(itinerary);
+}
+
+//==============================================================================
+
 void Database::set(
     ParticipantId participant,
     const Input& input,
@@ -560,7 +599,7 @@ void Database::erase(
 
 //==============================================================================
 ParticipantId Database::register_participant(
-    ParticipantDescription participant_info)
+    ParticipantDescription description)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
   auto tracker = Inconsistencies::Implementation::register_participant(
@@ -575,7 +614,7 @@ ParticipantId Database::register_participant(
             {},
             std::move(tracker),
             {},
-            std::move(participant_info),
+            std::make_shared<ParticipantDescription>(std::move(description)),
             version
           }));
 
@@ -585,8 +624,7 @@ ParticipantId Database::register_participant(
 
 //==============================================================================
 void Database::unregister_participant(
-    ParticipantId participant,
-    const Time time)
+    ParticipantId participant)
 {
   const auto id_it = _pimpl->participant_ids.find(participant);
   const auto state_it = _pimpl->states.find(participant);
@@ -609,6 +647,8 @@ void Database::unregister_participant(
           + "]. Please report this as a serious bug!");
   }
 
+  _pimpl->inconsistencies._pimpl->unregister_participant(participant);
+
   const Version initial_version = state_it->second.initial_schedule_version;
   _pimpl->add_participant_version.erase(initial_version);
 
@@ -616,8 +656,8 @@ void Database::unregister_participant(
   _pimpl->states.erase(state_it);
 
   const Version version = ++_pimpl->schedule_version;
-  _pimpl->remove_participant_version[version] = participant;
-  _pimpl->remove_participant_time[time] = version;
+  _pimpl->remove_participant_version[version] = {participant, initial_version};
+  _pimpl->remove_participant_time[_pimpl->current_time] = version;
 }
 
 //==============================================================================
@@ -811,7 +851,53 @@ public:
   {
     entry = get_most_recent(entry);
     if (entry->route && relevant(*entry))
-      routes.emplace_back(Storage{entry->participant, entry->route});
+    {
+      routes.emplace_back(
+            Storage{
+              entry->participant,
+              entry->route_id,
+              entry->route,
+              entry->description
+            });
+    }
+  }
+};
+
+//==============================================================================
+class ViewerAfterRelevanceInspector
+    : public TimelineInspector<Database::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Database::Implementation::RouteEntry;
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  const Version after;
+
+  ViewerAfterRelevanceInspector(Version _after)
+    : after(_after)
+  {
+    // Do nothing
+  }
+
+  void inspect(
+      const RouteEntry* entry,
+      const std::function<bool(const RouteEntry&)>& relevant) final
+  {
+    entry = get_most_recent(entry);
+    if (modular(after).less_than(entry->schedule_version)
+        && entry->route && relevant(*entry))
+    {
+      routes.emplace_back(
+            Storage{
+              entry->participant,
+              entry->route_id,
+              entry->route,
+              entry->description
+            });
+    }
   }
 };
 
@@ -872,14 +958,14 @@ const std::unordered_set<ParticipantId>& Database::participant_ids() const
 }
 
 //==============================================================================
-const ParticipantDescription* Database::get_participant(
+std::shared_ptr<const ParticipantDescription> Database::get_participant(
     std::size_t participant_id) const
 {
   const auto state_it = _pimpl->states.find(participant_id);
   if (state_it == _pimpl->states.end())
     return nullptr;
 
-  return &state_it->second.description;
+  return state_it->second.description;
 }
 
 //==============================================================================
@@ -971,19 +1057,24 @@ auto Database::changes(
     {
       const auto p_it = _pimpl->states.find(add_it->second);
       assert(p_it != _pimpl->states.end());
-      registered.emplace_back(p_it->first, p_it->second.description);
+      registered.emplace_back(p_it->first, *p_it->second.description);
     }
 
     auto remove_it = _pimpl->remove_participant_version.upper_bound(after_v);
     for (; remove_it != _pimpl->remove_participant_version.end(); ++remove_it)
-      unregistered.emplace_back(remove_it->second);
+    {
+      // We should only unregister this if it was registered before the last
+      // update to this mirror
+      if (remove_it->second.original_version <= *after)
+        unregistered.emplace_back(remove_it->second.id);
+    }
   }
   else
   {
     // If this is a mirror's first pull from the database, then we should send
     // all the participant information.
     for (const auto& p : _pimpl->states)
-      registered.emplace_back(p.first, p.second.description);
+      registered.emplace_back(p.first, *p.second.description);
 
     // We do not need to mention any participants that have unregistered.
   }
@@ -1000,6 +1091,14 @@ auto Database::changes(
         std::move(part_patches),
         cull,
         _pimpl->schedule_version);
+}
+
+//==============================================================================
+Viewer::View Database::query(const Query& parameters, const Version after) const
+{
+  ViewerAfterRelevanceInspector inspector{after};
+  _pimpl->timeline.inspect(parameters, inspector);
+  return Viewer::View::Implementation::make_view(std::move(inspector.routes));
 }
 
 //==============================================================================
@@ -1052,6 +1151,12 @@ Version Database::cull(Time time)
   };
 
   return _pimpl->schedule_version;
+}
+
+//==============================================================================
+void Database::set_current_time(Time time)
+{
+  _pimpl->current_time = time;
 }
 
 } // namespace schedule

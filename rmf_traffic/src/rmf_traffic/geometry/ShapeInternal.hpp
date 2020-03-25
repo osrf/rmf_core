@@ -40,6 +40,8 @@ public:
 
   virtual CollisionGeometries make_fcl() const = 0;
 
+  virtual ~Internal() = default;
+
 };
 
 //==============================================================================

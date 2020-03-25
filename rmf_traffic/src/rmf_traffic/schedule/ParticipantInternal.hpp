@@ -18,7 +18,11 @@
 #ifndef SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
 #define SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
 
+#include "Modular.hpp"
+
 #include <rmf_traffic/schedule/Participant.hpp>
+
+#include <map>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -27,6 +31,46 @@ namespace schedule {
 class Participant::Implementation
 {
 public:
+
+  static Participant make(
+      ParticipantDescription description,
+      Writer& writer,
+      RectificationRequesterFactory* rectifier_factory);
+
+  void retransmit(
+      const std::vector<Rectifier::Range>& from,
+      ItineraryVersion last_known);
+
+  ItineraryVersion current_version() const;
+
+  // Note: It would be better if this constructor were private, but we need to
+  // make it public so it can be used by rmf_utils::make_unique_impl
+  Implementation(
+      ParticipantId id,
+      ParticipantDescription description,
+      Writer& writer);
+
+  ~Implementation();
+
+private:
+  friend class Participant;
+
+  Writer::Input make_input(std::vector<Route> itinerary);
+  ItineraryVersion get_next_version();
+
+  const ParticipantId _id;
+  const ParticipantDescription _description;
+  Writer& _writer;
+  std::unique_ptr<RectificationRequester> _rectification;
+
+  using ChangeHistory =
+      std::map<RouteId, std::function<void()>, ModularLess<RouteId>>;
+
+  Writer::Input _current_itinerary;
+
+  ChangeHistory _change_history;
+  RouteId _last_route_id = std::numeric_limits<RouteId>::max();
+  ItineraryVersion _version = std::numeric_limits<ItineraryVersion>::max();
 };
 
 } // namespace schedule

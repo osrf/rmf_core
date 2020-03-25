@@ -204,7 +204,7 @@ std::array<double, 2> get_local_extrema(
   else
   {
     // Calculate the discriminant otherwise
-    double D = (4 * pow(coeffs[2], 2) - 12 * coeffs[3] * coeffs[1]);
+    const double D = (4 * pow(coeffs[2], 2) - 12 * coeffs[3] * coeffs[1]);
 
     if (std::abs(D) < 1e-4)
     {
@@ -214,10 +214,9 @@ std::array<double, 2> get_local_extrema(
     }
     else if (D < 0)
     {
-      assert(false);
-      // Skip this extrema, because it is imaginary.
-      // TODO(MXG): Should we have a way to log this occurrence? Print something
-      // to stderr?
+      // If D is negative, then the local extrema would be imaginary. This will
+      // happen for splines that have no local extrema. When that happens, the
+      // endpoints of the spline are the only extrema.
     }
     else
     {

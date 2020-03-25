@@ -1,6 +1,7 @@
 
 # A 2D shape reference.
 
+uint8 NONE=0
 uint8 BOX=1
 uint8 CIRCLE=2
 

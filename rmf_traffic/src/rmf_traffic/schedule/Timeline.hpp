@@ -302,7 +302,7 @@ private:
     rmf_traffic::internal::Spacetime spacetime_data;
     const auto relevant = [&spacetime_data](const Entry& entry) -> bool {
       return rmf_traffic::internal::detect_conflicts(
-            entry.description.profile(),
+            entry.description->profile(),
             entry.route->trajectory(),
             spacetime_data);
     };

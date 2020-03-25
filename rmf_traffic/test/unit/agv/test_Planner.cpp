@@ -45,6 +45,17 @@ void print_timing(const std::chrono::steady_clock::time_point& start_time)
   }
 }
 
+rmf_utils::clone_ptr<rmf_traffic::agv::ScheduleRouteValidator>
+make_test_schedule_validator(
+    const rmf_traffic::schedule::Viewer& viewer,
+    rmf_traffic::Profile profile)
+{
+  return rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+        viewer,
+        std::numeric_limits<rmf_traffic::schedule::ParticipantId>::max(),
+        std::move(profile));
+}
+
 void display_path(const rmf_traffic::agv::Plan& plan)
 {
   std::vector<std::size_t> plan_indices;
@@ -70,7 +81,7 @@ void print_trajectory_info(
     rmf_traffic::Time time)
 {
   int count = 1;
-  const auto& r = plan.get_routes().front();
+  const auto& r = plan.get_itinerary().front();
   const auto& t = r.trajectory();
   std::cout<<"Trajectory in: "
       << r.map()
@@ -139,8 +150,8 @@ rmf_traffic::Trajectory test_with_obstacle(
 
   const auto& graph = original_plan.get_configuration().graph();
 
-  REQUIRE(plan->get_routes().size() == 1);
-  t_obs = plan->get_routes().front().trajectory();
+  REQUIRE(plan->get_itinerary().size() == 1);
+  t_obs = plan->get_itinerary().front().trajectory();
   const Eigen::Vector2d initial_position = [&]() -> Eigen::Vector2d
   {
     if (original_plan.get_start().location())
@@ -163,7 +174,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   CHECK( (p_final - goal_position).norm() == Approx(0.0) );
   
   const auto& original_trajectory =
-      original_plan.get_routes().front().trajectory();
+      original_plan.get_itinerary().front().trajectory();
   if (expect_conflict)
   {
     CHECK( original_trajectory.duration() < t_obs.duration() );
@@ -219,18 +230,18 @@ void test_ignore_obstacle(
   REQUIRE(database_version > 0);
   const auto& start = original_plan.get_start();
   rmf_traffic::agv::Plan::Options options = original_plan.get_options();
-  std::unordered_set<rmf_traffic::schedule::Version> ignore_ids;
+  std::unordered_set<rmf_traffic::schedule::ParticipantId> ignore_ids;
   for (rmf_traffic::schedule::Version v=0; v <= database_version; ++v)
     ignore_ids.insert(v);
 
-  options.ignore_schedule_ids(std::move(ignore_ids));
+  options.validator(nullptr);
 
   const auto new_plan = original_plan.replan(start, std::move(options));
 
   // The new plan which ignores the conflicts should be the same as the original
-  REQUIRE(new_plan->get_routes().size() == 1);
-  CHECK(new_plan->get_routes().front().trajectory().duration()
-        == original_plan.get_routes().front().trajectory().duration());
+  REQUIRE(new_plan->get_itinerary().size() == 1);
+  CHECK(new_plan->get_itinerary().front().trajectory().duration()
+        == original_plan.get_itinerary().front().trajectory().duration());
 
   REQUIRE(new_plan->get_waypoints().size()
           == original_plan.get_waypoints().size());
@@ -301,8 +312,8 @@ inline void CHECK_PLAN(
     const double* last_orientation = nullptr)
 {
   REQUIRE(plan);
-  REQUIRE(plan->get_routes().size() > 0);
-  auto t = plan->get_routes().front().trajectory();
+  REQUIRE(plan->get_itinerary().size() > 0);
+  auto t = plan->get_itinerary().front().trajectory();
   // check locations
   CHECK((t.front().position().block<2,1>(0,0)
       - first_location).norm() == Approx(0.0).margin(1e-6));
@@ -409,13 +420,11 @@ SCENARIO("Test Options", "[options]")
   using namespace std::chrono_literals;
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
-  using Database = rmf_traffic::schedule::Database;
 
-  Database database; 
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(6);
 
-  Planner::Options default_options(database, hold_time, &interrupt_flag);
+  Planner::Options default_options(nullptr, hold_time, &interrupt_flag);
   WHEN("Get the minimum_holding_time")
   {
     CHECK(rmf_traffic::time::to_seconds(
@@ -536,7 +545,9 @@ SCENARIO("Test planning")
 
   rmf_traffic::schedule::Database database;
 
-  const auto default_options = rmf_traffic::agv::Planner::Options{database};
+  const auto default_options = rmf_traffic::agv::Planner::Options{
+        make_test_schedule_validator(database, profile)};
+
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
     default_options
@@ -561,8 +572,8 @@ SCENARIO("Test planning")
           rmf_traffic::agv::Planner::Goal(3, 0.0));
 
     REQUIRE(plan);
-    CHECK(plan->get_routes().size()==1);
-    CHECK(plan->get_routes().front().trajectory().size()==0);
+    CHECK(plan->get_itinerary().size()==1);
+    CHECK(plan->get_itinerary().front().trajectory().size()==0);
   }
 
   WHEN("initial and goal waypoints are same but goal_orientation is different")
@@ -590,9 +601,9 @@ SCENARIO("Test planning")
       std::cout << "Per run: " << sec/N << std::endl;
     }
 
-    CHECK(plan->get_routes().size()==1);
-    REQUIRE(plan->get_routes().front().trajectory().size() > 0);
-    const auto t = plan->get_routes().front().trajectory();
+    CHECK(plan->get_itinerary().size()==1);
+    REQUIRE(plan->get_itinerary().front().trajectory().size() > 0);
+    const auto t = plan->get_itinerary().front().trajectory();
     const auto final_p = t.front().position().block<2,1>(0,0);
     const auto err = (final_p - Eigen::Vector2d(10, -5)).norm();
     CHECK(err == Approx(0.0) );
@@ -627,8 +638,8 @@ SCENARIO("Test planning")
     const auto expected_t = rmf_traffic::agv::Interpolate::positions(
           traits, start_time, {{10.0, -5.0, M_PI}, {5.0, -5.0, M_PI}});
 
-    REQUIRE(plan->get_routes().size()==1);
-    const rmf_traffic::Trajectory t = plan->get_routes().front().trajectory();
+    REQUIRE(plan->get_itinerary().size()==1);
+    const rmf_traffic::Trajectory t = plan->get_itinerary().front().trajectory();
     REQUIRE(t.size() == expected_t.size());
 
     const Eigen::Vector2d initial_p = t.front().position().block<2,1>(0, 0);
@@ -693,8 +704,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan->get_routes().size() == 1);
-      const auto t = plan->get_routes().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto t = plan->get_itinerary().front().trajectory();
 
       const Eigen::Vector2d initial_p = t.front().position().block<2,1>(0, 0);
       CHECK( (initial_p - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
@@ -740,8 +751,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan->get_routes().size() == 1);
-      const auto& t = plan->get_routes().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto& t = plan->get_itinerary().front().trajectory();
 
       const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
@@ -812,8 +823,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan->get_routes().size() == 1);
-      const auto t = plan->get_routes().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto t = plan->get_itinerary().front().trajectory();
 
       const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
@@ -859,8 +870,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan->get_routes().size() == 1);
-      const auto& t = plan->get_routes().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto& t = plan->get_itinerary().front().trajectory();
 
       const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
@@ -906,8 +917,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan->get_routes().size() == 1);
-      const auto& t = plan->get_routes().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto& t = plan->get_itinerary().front().trajectory();
 
       const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
       CHECK( (p_initial - Eigen::Vector2d(5, -5)).norm() == Approx(0.0) );
@@ -985,8 +996,8 @@ SCENARIO("Test planning")
         std::cout << "Per run: " << sec/N << std::endl;
       }
 
-      REQUIRE(plan->get_routes().size() == 1);
-      const auto t = plan->get_routes().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto t = plan->get_itinerary().front().trajectory();
 
       const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
       const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1166,7 +1177,7 @@ SCENARIO("DP1 Graph")
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
   bool interrupt_flag = false;
   const rmf_traffic::agv::Planner::Options default_options{
-      database,
+      make_test_schedule_validator(database, profile),
       std::chrono::seconds(5),
       &interrupt_flag};
 
@@ -1192,8 +1203,8 @@ SCENARIO("DP1 Graph")
     REQUIRE(plan);
     print_timing(start_time);
 
-    CHECK(plan->get_routes().size() == 1);
-    const auto t= plan->get_routes().front().trajectory();
+    CHECK(plan->get_itinerary().size() == 1);
+    const auto t= plan->get_itinerary().front().trajectory();
 
     const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
     const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1377,8 +1388,8 @@ SCENARIO("DP1 Graph")
     REQUIRE(plan);
     print_timing(start_time);
 
-    CHECK(plan->get_routes().size()==1);
-    auto t = plan->get_routes().front().trajectory();
+    CHECK(plan->get_itinerary().size()==1);
+    auto t = plan->get_itinerary().front().trajectory();
 
     const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
     const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1560,8 +1571,8 @@ SCENARIO("DP1 Graph")
     REQUIRE(plan);
     print_timing(start_time);
 
-    CHECK(plan->get_routes().size() == 1);
-    const auto t = plan->get_routes().front().trajectory();
+    CHECK(plan->get_itinerary().size() == 1);
+    const auto t = plan->get_itinerary().front().trajectory();
 
     const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
     const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1610,8 +1621,8 @@ SCENARIO("DP1 Graph")
     CHECK(plan);
     print_timing(start_time);
 
-    CHECK(plan->get_routes().size()==1);
-    auto t = plan->get_routes().front().trajectory();
+    CHECK(plan->get_itinerary().size()==1);
+    auto t = plan->get_itinerary().front().trajectory();
 
     const Eigen::Vector2d p_initial = t.front().position().block<2,1>(0,0);
     const Eigen::Vector2d p_initial_g = graph.get_waypoint(start_index).get_location();
@@ -1847,7 +1858,9 @@ SCENARIO("Graph with door", "[door]")
 
   rmf_traffic::schedule::Database database;
 
-  const auto default_options = rmf_traffic::agv::Planner::Options{database};
+  const auto default_options = rmf_traffic::agv::Planner::Options{
+      make_test_schedule_validator(database, traits.profile())};
+
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
     default_options
@@ -1859,21 +1872,21 @@ SCENARIO("Graph with door", "[door]")
         rmf_traffic::agv::Planner::Start(start_time, 0, 0.0),
         rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_no_door);
-  REQUIRE(plan_no_door->get_routes().size() == 1);
+  REQUIRE(plan_no_door->get_itinerary().size() == 1);
   CHECK(count_events(*plan_no_door) == 0);
 
   const auto plan_with_door_open = planner.plan(
         rmf_traffic::agv::Planner::Start(start_time, 1, 0.0),
         rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_with_door_open);
-  REQUIRE(plan_with_door_open->get_routes().size() == 1);
+  REQUIRE(plan_with_door_open->get_itinerary().size() == 1);
   CHECK(count_events(*plan_with_door_open) == 1);
   CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open));
 
   const auto t_with_door_open =
-      plan_with_door_open->get_routes().front().trajectory().duration();
+      plan_with_door_open->get_itinerary().front().trajectory().duration();
   const auto t_no_door =
-      plan_no_door->get_routes().front().trajectory().duration();
+      plan_no_door->get_itinerary().front().trajectory().duration();
   CHECK(rmf_traffic::time::to_seconds(t_with_door_open - t_no_door)
         == Approx(5.0).margin(1e-12));
 
@@ -1881,11 +1894,11 @@ SCENARIO("Graph with door", "[door]")
         rmf_traffic::agv::Planner::Start(start_time, 2, 0.0),
         rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_with_door_open_close);
-  REQUIRE(plan_with_door_open_close->get_routes().size() == 1);
+  REQUIRE(plan_with_door_open_close->get_itinerary().size() == 1);
   CHECK(count_events(*plan_with_door_open_close) == 2);
 
   const auto t_with_door_open_close =
-      plan_with_door_open_close->get_routes().front().trajectory().duration();
+      plan_with_door_open_close->get_itinerary().front().trajectory().duration();
   CHECK(rmf_traffic::time::to_seconds(t_with_door_open_close - t_no_door)
         > rmf_traffic::time::to_seconds(8s));
   CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open_close));
@@ -1941,7 +1954,7 @@ SCENARIO("Test planner with various start conditions")
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(6);
   const rmf_traffic::agv::Planner::Options default_options{
-      database,
+      make_test_schedule_validator(database, profile),
       hold_time,
       &interrupt_flag};
 
@@ -1977,21 +1990,21 @@ SCENARIO("Test planner with various start conditions")
     const auto plan1 = planner.plan(start1, goal);
     REQUIRE(plan1);
     CHECK_PLAN(plan1, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
-    const auto duration1 = plan1->get_routes().front().trajectory().duration();
+    const auto duration1 = plan1->get_itinerary().front().trajectory().duration();
     const auto plan2 = plan1->replan(start2);
     REQUIRE(plan2);
     CHECK_PLAN(plan2, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
-    const auto duration2 = plan2->get_routes().front().trajectory().duration();
+    const auto duration2 = plan2->get_itinerary().front().trajectory().duration();
     CHECK((duration1 - duration2).count() == Approx(0.0));
-    CHECK(plan1->get_routes().size() == plan2->get_routes().size());
+    CHECK(plan1->get_itinerary().size() == plan2->get_itinerary().size());
 
     // Test with startset
     std::vector<Planner::Start> starts{start1, start2};
     const auto plan = plan1->replan(starts);
     REQUIRE(plan);
     CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
-    CHECK((plan->get_routes().front().trajectory().duration() - duration1).count() == Approx(0.));
-    CHECK(plan->get_routes().size() == plan1->get_routes().size());
+    CHECK((plan->get_itinerary().front().trajectory().duration() - duration1).count() == Approx(0.));
+    CHECK(plan->get_itinerary().size() == plan1->get_itinerary().size());
   }
 
   WHEN("Start initial_location is not on an initial_waypoint")
@@ -2041,7 +2054,7 @@ SCENARIO("Test planner with various start conditions")
 
       CHECK(DetectConflict::between(
                 profile, obstacle, profile,
-                plan->get_routes().front().trajectory()));
+                plan->get_itinerary().front().trajectory()));
       obstacles.push_back(obstacle);
 
       test_with_obstacle(
@@ -2154,7 +2167,7 @@ SCENARIO("Test planner with various start conditions")
           initial_time + 60s,
           Eigen::Vector3d{0, 0, 0},
           Eigen::Vector3d{0, 0, 0});
-      auto t = plan->get_routes().front().trajectory();
+      auto t = plan->get_itinerary().front().trajectory();
       REQUIRE(DetectConflict::between(profile, obstacle, profile, t));
       obstacles.push_back(obstacle);
 
@@ -2166,9 +2179,9 @@ SCENARIO("Test planner with various start conditions")
       }
 
       const auto result1 = plan->replan(start1);
-      const auto duration1 = result1->get_routes().front().trajectory().duration();
+      const auto duration1 = result1->get_itinerary().front().trajectory().duration();
       const auto result2 = plan->replan(start2);
-      const auto duration2 = result2->get_routes().front().trajectory().duration();
+      const auto duration2 = result2->get_itinerary().front().trajectory().duration();
 
       const auto best_start = duration1 < duration2?
             result1->get_start() : result2->get_start();
@@ -2196,12 +2209,12 @@ SCENARIO("Test planner with various start conditions")
     auto plan = planner.plan(starts, goal);
     //we expect the starting condition with initial_waypoint = 2 to be shortest
     CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
-    const auto duration = plan->get_routes().front().trajectory().duration();
+    const auto duration = plan->get_itinerary().front().trajectory().duration();
 
     const auto result1 = plan->replan(start1);
-    const auto duration1 = result1->get_routes().front().trajectory().duration();
+    const auto duration1 = result1->get_itinerary().front().trajectory().duration();
     const auto result2 = plan->replan(start2);
-    const auto duration2 = result2->get_routes().front().trajectory().duration();
+    const auto duration2 = result2->get_itinerary().front().trajectory().duration();
     CHECK(duration2 < duration1);
     CHECK(duration < duration1);
     CHECK((duration - duration2).count() ==Approx(0.0).margin(1e-9));
@@ -2227,11 +2240,11 @@ SCENARIO("Test planner with various start conditions")
 
     auto plan = planner.plan(starts, goal);
     CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
-    const auto duration = plan->get_routes().front().trajectory().duration();
+    const auto duration = plan->get_itinerary().front().trajectory().duration();
     const auto result1 = plan->replan(start1);
-    const auto duration1 = result1->get_routes().front().trajectory().duration();
+    const auto duration1 = result1->get_itinerary().front().trajectory().duration();
     const auto result2 = plan->replan(start2);
-    const auto duration2 = result2->get_routes().front().trajectory().duration();
+    const auto duration2 = result2->get_itinerary().front().trajectory().duration();
 
 //    print_trajectory_info(*result1, initial_time);
 //    print_trajectory_info(*result2, initial_time);
@@ -2276,7 +2289,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   bool interrupt_flag = false;
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
-      database,
+      make_test_schedule_validator(database, traits.profile()),
       hold_time,
       &interrupt_flag};
 
@@ -2316,13 +2329,13 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     REQUIRE(starts.size() == 4);
 
     auto result1 = planner.plan(start1, goal);
-    const auto duration1 = result1->get_routes().front().trajectory().duration();
+    const auto duration1 = result1->get_itinerary().front().trajectory().duration();
     auto result2 = result1->replan(start2);
-    const auto duration2 = result2->get_routes().front().trajectory().duration();
+    const auto duration2 = result2->get_itinerary().front().trajectory().duration();
     auto result3 = result2->replan(start3);
-    const auto duration3 = result3->get_routes().front().trajectory().duration();
+    const auto duration3 = result3->get_itinerary().front().trajectory().duration();
     auto result4 = result3->replan(start4);
-    const auto duration4 = result3->get_routes().front().trajectory().duration();
+    const auto duration4 = result3->get_itinerary().front().trajectory().duration();
 
     std::vector<rmf_traffic::Duration> durations{
           duration1, duration2, duration3, duration4};
@@ -2341,7 +2354,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     Planner::Start best_start = starts[best_index];
 
     const auto plan = planner.plan(starts, goal);
-    const auto plan_duration = plan->get_routes().front().trajectory().duration();
+    const auto plan_duration = plan->get_itinerary().front().trajectory().duration();
     const auto start_position = best_start.location() ? best_start.location().value()
         : graph.get_waypoint(best_start.waypoint()).get_location();
     CHECK_PLAN(

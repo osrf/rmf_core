@@ -78,12 +78,15 @@ public:
       ItineraryVersion version) final;
 
   // Documentation inherited from Writer
-  ParticipantId register_participant(ParticipantDescription participant_info) final;
+  ParticipantId register_participant(
+      ParticipantDescription participant_info) final;
 
-  // Documentation inherited from Writer
+  /// Before calling this function on a Database, you should set the current
+  /// time for the database by calling set_current_time(). This will allow the
+  /// database to cull this participant after a reasonable amount of time has
+  /// passed.
   void unregister_participant(
-      ParticipantId participant,
-      Time time) final;
+      ParticipantId participant) final;
 
 
   //============================================================================
@@ -97,7 +100,7 @@ public:
   const std::unordered_set<ParticipantId>& participant_ids() const final;
 
   // Documentation inherited from Viewer
-  const ParticipantDescription* get_participant(
+  std::shared_ptr<const ParticipantDescription> get_participant(
       std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
@@ -147,6 +150,25 @@ public:
       const Query& parameters,
       rmf_utils::optional<Version> after) const;
 
+  /// View the routes that match the parameters and have changed (been added or
+  /// delayed) since the specified version. This is useful for viewing
+  /// incremental changes.
+  ///
+  /// \param[in] parameters
+  ///   The parameters describing what types of schedule entries are relevant.
+  ///
+  /// \param[in] after
+  ///   Specify that only routes which changed after this version number are
+  ///   desired.
+  ///
+  /// \return a view of the routes that are different since the specified
+  /// version.
+  ///
+  // TODO(MXG): Consider adding this function to the Viewer class.
+  View query(
+      const Query& parameters,
+      Version after) const;
+
   /// Throw away all itineraries up to the specified time.
   ///
   /// \param[in] time
@@ -157,6 +179,12 @@ public:
   /// \return The new version of the schedule database. If nothing was culled,
   /// this version number will remain the same.
   Version cull(Time time);
+
+  /// Set the current time on the database. This should be used immediately
+  /// before calling unregister_participant() so that the database can cull the
+  /// existence of the participant at an appropriate time. There's no need to
+  /// call this function for any other purpose.
+  void set_current_time(Time time);
 
   class Implementation;
   class Debug;

@@ -192,12 +192,28 @@ public:
   /// \param[in] time
   ///   The time of interest.
   ///
-  /// \return the Waypoint that is active during the given time, or
-  /// Trajectory::end() if the time falls outside the range of the Trajectory.
+  /// \return an iterator to the Waypoint that is active during the given time,
+  /// or Trajectory::end() if the time falls outside the range of the Trajectory
   iterator find(Time time);
 
   /// const-qualified version of find()
   const_iterator find(Time time) const;
+
+  /// Get the first waypoint of this Trajectory that occurs at a time greater
+  /// than or equal to the specified time. This is effectively the same as
+  /// find(Time), except it will return Trajectory::begin() if the time comes
+  /// before the start of the Trajectory.
+  ///
+  /// \param[in] time
+  ///   The lower bound on the time of interest.
+  ///
+  /// \return an iterator to the first Waypoint that occurs at a time on or
+  /// after the given time, or Trajectory::end() if the time is after the end
+  /// of the Trajectory.
+  iterator lower_bound(Time time);
+
+  /// const-qualified version of lower_bound()
+  const_iterator lower_bound(Time time) const;
 
   /// Erase the specified waypoint.
   ///

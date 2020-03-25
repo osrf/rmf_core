@@ -611,12 +611,11 @@ struct DifferentialDriveExpander
     const Profile& profile;
     const Duration holding_time;
     const agv::Interpolate::Options::Implementation& interpolate;
-    const schedule::Viewer& viewer;
+    const agv::RouteValidator* const validator;
     const std::size_t final_waypoint;
     const double* const final_orientation;
     const rmf_traffic::Time initial_time;
     const bool* const interrupt_flag;
-    const std::unordered_set<schedule::Version> ignore_participant_ids;
     Heuristic& heuristic;
   };
 
@@ -837,56 +836,8 @@ struct DifferentialDriveExpander
 
   bool is_valid(const RouteData& route)
   {
-    const Trajectory& trajectory = route.trajectory;
-    assert(trajectory.size() > 1);
-    _query.spacetime().timespan()->set_lower_time_bound(
-          *trajectory.start_time());
-    _query.spacetime().timespan()->set_upper_time_bound(
-          *trajectory.finish_time());
-    _query.spacetime().timespan()->clear_maps().add_map(route.map);
-
-    // TODO(MXG): When we start generating plans across multiple maps, we should
-    // account for the trajectory's map name(s) here.
-    const auto view = _context.viewer.query(_query);
-
-    const auto& ignore_participant_ids = _context.ignore_participant_ids;
-    if (ignore_participant_ids.empty())
-    {
-      for (const auto& check : view)
-      {
-        const Trajectory& check_trajectory = check.route.trajectory();
-        assert(check_trajectory.size() > 1);
-
-        const schedule::ParticipantDescription* description =
-            _context.viewer.get_participant(check.participant);
-        assert(description);
-
-        if(DetectConflict::between(
-             _context.profile, trajectory,
-             description->profile(), check_trajectory))
-          return false;
-      }
-    }
-    else
-    {
-      for (const auto& check : view)
-      {
-        const Trajectory& check_trajectory = check.route.trajectory();
-        assert(trajectory.size() > 1);
-        assert(check_trajectory.size() > 1);
-        if (ignore_participant_ids.count(check.participant) > 0)
-          continue;
-
-        const schedule::ParticipantDescription* description =
-            _context.viewer.get_participant(check.participant);
-        assert(description);
-
-        if(DetectConflict::between(
-             _context.profile, trajectory,
-             description->profile(), check_trajectory))
-          return false;
-      }
-    }
+    if (_context.validator)
+      return _context.validator->valid(Route::Implementation::make(route));
 
     return true;
   }
@@ -1380,12 +1331,11 @@ public:
             _profile,
             options.minimum_holding_time(),
             _interpolate,
-            options.schedule_viewer(),
+            options.validator().get(),
             goal_waypoint,
             goal.orientation(),
             starts.front().time(),
             interrupt_flag,
-            options.ignore_schedule_ids(),
             h
           },
           DifferentialDriveExpander::InitialNodeArgs{starts},

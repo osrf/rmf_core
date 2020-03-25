@@ -46,16 +46,19 @@ public:
       std::string map,
       Trajectory trajectory);
 
-  /// Set the map for this itinerary element
+  /// Set the map for this route
   Route& map(std::string value);
 
-  /// Get the map for this itinerary element
+  /// Get the map for this route
   const std::string& map() const;
 
-  /// Set the trajectory for this itinerary element
+  /// Set the trajectory for this route
   Route& trajectory(Trajectory value);
 
-  /// Get the trajectory for this itinerary element
+  /// Get the trajectory for this route
+  Trajectory& trajectory();
+
+  /// Get the trajectory for this route
   const Trajectory& trajectory() const;
 
   class Implementation;

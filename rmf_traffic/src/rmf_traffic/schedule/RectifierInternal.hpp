@@ -31,12 +31,7 @@ public:
 
   Participant::Implementation& participant;
 
-  static Rectifier make(Participant::Implementation& participant)
-  {
-
-  }
-
-
+  static Rectifier make(Participant::Implementation& participant);
 
 };
 

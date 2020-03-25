@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (C) 2019 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +22,8 @@
 
 #include <rmf_traffic/agv/Graph.hpp>
 #include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
-
-#include <rmf_traffic/schedule/Viewer.hpp>
 
 #include <rmf_utils/optional.hpp>
 
@@ -105,14 +104,12 @@ public:
   {
   public:
 
+    static constexpr Duration DefaultMinHoldingTime = std::chrono::seconds(5);
+
     /// Constructor
     ///
-    /// \warning You are expected to maintain the lifetime of the schedule
-    /// viewer for as long as this Options instance is alive. The Options
-    /// instance will only retain a reference to the viewer, not a copy of it.
-    ///
-    /// \param[in] viewer
-    ///   The schedule viewer which will be used to check for conflicts
+    /// \param[in] validator
+    ///   A validator to check the validity of the planner's branching options.
     ///
     /// \param[in] min_hold_time
     ///   The minimum amount of time that the planner should spend waiting at
@@ -127,36 +124,21 @@ public:
     ///   has been running for too long. If the planner should run indefinitely,
     ///   then pass in a nullptr. It is the user's responsibility to make sure
     ///   that this flag remains valid.
-    ///
-    /// \param[in] ignore_schedule_ids
-    ///   A set of schedule IDs to ignore while planning. The plan will be
-    ///   allowed to conflict with any trajectory in this set. This is useful
-    ///   for planning trajectories that are meant to replace some trajectories
-    ///   that are already in the schedule.
     Options(
-        const schedule::Viewer& viewer,
-        Duration min_hold_time = std::chrono::seconds(5),
-        const bool* interrupt_flag = nullptr,
-        std::unordered_set<schedule::Version> ignore_schedule_ids = {});
+        rmf_utils::clone_ptr<RouteValidator> validator,
+        Duration min_hold_time = DefaultMinHoldingTime,
+        const bool* interrupt_flag = nullptr);
 
-    /// Change the schedule viewer to use for planning.
-    ///
-    /// \warning The Options instance will store a reference to the viewer; it
-    /// will not store a copy. Therefore you are responsible for keeping the
-    /// schedule viewer alive while this Options class is being used.
-    // TODO(MXG): Make this a pointer instead of a reference. When this is a
-    // nullptr, then the schedule will be ignored.
-    Options& schedule_viewer(const schedule::Viewer& viewer);
+    /// Set the route validator
+    Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
 
-    /// Get a const reference to the schedule viewer that will be used for
-    /// planning. It is undefined behavior to call this function is called after
-    /// the schedule viewer has been destroyed.
-    const schedule::Viewer& schedule_viewer() const;
+    /// Get the route validator
+    const rmf_utils::clone_ptr<RouteValidator>& validator() const;
 
-    /// Set the minimal amount of time to spend waiting at holding points
+    /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);
 
-    /// Get the minimal amount of time to spend waiting at holding points
+    /// Get the minimum amount of time to spend waiting at holding points
     Duration minimum_holding_time() const;
 
     /// Set an interrupt flag to stop this planner if it has run for too long.
@@ -165,13 +147,6 @@ public:
     /// Get the interrupt flag that will stop this planner if it has run for too
     /// long.
     const bool* interrupt_flag() const;
-
-    /// Specify a set of schedule IDs to ignore when collision checking. This is
-    /// useful for planning a schedule replacement.
-    Options& ignore_schedule_ids(std::unordered_set<schedule::Version> ids);
-
-    /// Get the set of schedule IDs that should be ignored.
-    std::unordered_set<schedule::Version> ignore_schedule_ids() const;
 
     class Implementation;
   private:
@@ -463,7 +438,7 @@ public:
   /// \warning If this plan is not valid, this will have undefined behavior, and
   /// will cause a segmentation fault if this Plan is uninitialized
   /// (default-constructed).
-  const std::vector<Route>& get_routes() const;
+  const std::vector<Route>& get_itinerary() const;
 
   /// If this plan is valid, this will return the waypoints of the successful
   /// plan.
