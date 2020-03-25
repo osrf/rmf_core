@@ -35,11 +35,11 @@
 namespace rmf_traffic_schedule {
 
 //==============================================================================
-std::vector<ScheduleNode::ConflictPair> get_conflicts(
+std::vector<ScheduleNode::ConflictSet> get_conflicts(
     const rmf_traffic::schedule::Viewer::View& view_changes,
     const rmf_traffic::schedule::Viewer& viewer)
 {
-  std::vector<ScheduleNode::ConflictPair> conflicts;
+  std::vector<ScheduleNode::ConflictSet> conflicts;
   const auto& participants = viewer.participant_ids();
   for (const auto participant : participants)
   {
@@ -65,8 +65,7 @@ std::vector<ScheduleNode::ConflictPair> get_conflicts(
               description.profile(),
               route->trajectory()))
         {
-          conflicts.emplace_back(
-                ScheduleNode::ConflictPair{participant, vc->participant});
+          conflicts.push_back({participant, vc->participant});
         }
       }
     }
@@ -258,18 +257,24 @@ ScheduleNode::ScheduleNode()
       }
 
       const auto conflicts = get_conflicts(view_changes, mirror);
+      std::unordered_set<const Negotiation*> new_negotiations;
       for (const auto& conflict : conflicts)
       {
         std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-        const Version* new_conflict = active_conflicts.insert(conflict);
-        if (new_conflict)
-        {
-          ConflictNotice msg;
-          msg.conflict_version = *new_conflict;
-          msg.participants = {conflict.p1, conflict.p2};
+        const Negotiation* new_negotiation =
+            active_conflicts.insert(conflict);
 
-          conflict_notice_pub->publish(msg);
-        }
+        if (new_negotiation)
+          new_negotiations.insert(new_negotiation);
+      }
+
+      for (const auto* n : new_negotiations)
+      {
+        ConflictNotice msg;
+        msg.conflict_version = *new_conflict;
+        msg.participants = {conflict.p1, conflict.p2};
+
+        conflict_notice_pub->publish(msg);
       }
     }
   });

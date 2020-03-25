@@ -227,7 +227,24 @@ public:
     auto plans = find_plan(start_delay);
     if (!plans.empty())
       return execute_plan(std::move(plans));
-    cancel(std::chrono::seconds(1));
+
+    plans = find_plan(start_delay, nullptr);
+    if (plans.empty())
+    {
+      const auto it = _node->get_waypoint_names().find(_goal_wp_index);
+      std::string wp_name = std::to_string(_goal_wp_index);
+      if (it != _node->get_waypoint_names().end())
+        wp_name = it->second;
+
+      RCLCPP_ERROR(
+            _node->get_logger(),
+            "Unable to find a feasible plan for [" + _context->robot_name()
+            + "] to reach waypoint [" + wp_name
+            + "]. This is a critical error.");
+      return;
+    }
+
+    return execute_plan(std::move(plans));
   }
 
   void respond(
@@ -499,6 +516,7 @@ public:
 
     publish_command();
     _command_time = _node->get_clock()->now();
+    _reported_excessive_delay = false;
     _task->report_status();
   }
 
@@ -527,9 +545,6 @@ public:
       if (_parent->handle_docking(msg))
         return;
 
-      if (_parent->handle_retry())
-        return;
-
       if (!_parent->verify_task_id(msg))
         return;
 
@@ -552,15 +567,14 @@ public:
       const auto now = _node->get_clock()->now();
 
       // Recompute a plan if the fleet driver has a huge delay.
-      if (now - _command_time > _node->get_delay_threshold())
+      if (!_reported_excessive_delay
+          && now - _command_time > _node->get_delay_threshold())
       {
         RCLCPP_ERROR(
               _node->get_logger(),
               "The fleet driver is being unresponsive to task plan ["
-              + task_id() + "]. Recomputing plan!");
-
-        retry();
-        return false;
+              + task_id() + "]");
+        _reported_excessive_delay = true;
       }
 
       // Attempt to resend the command if the robot has not received it yet.
@@ -628,17 +642,6 @@ public:
       event_wp.event()->execute(_event_executor);
   }
 
-  void retry()
-  {
-    if (_emergency_active)
-    {
-      find_and_execute_emergency_plan();
-      return;
-    }
-
-    find_and_execute_plan(_node->get_retry_wait());
-  }
-
   bool handle_docking(const RobotState& msg)
   {
     if (!_waiting_on_docking)
@@ -664,24 +667,6 @@ public:
     return true;
   }
 
-  bool handle_retry()
-  {
-    if (!_retry_time)
-      return false;
-
-    if (_node->now() < *_retry_time)
-    {
-      // We are supposed to retry eventually, but not yet. Therefore we return
-      // true to short circuit the other update checks.
-      return true;
-    }
-
-    _retry_time = rmf_utils::nullopt;
-
-    retry();
-    return true;
-  }
-
   void handle_delay(const RobotState& msg)
   {
     if (!_command)
@@ -694,19 +679,6 @@ public:
     const auto new_finish_estimate = *trajectory_estimate.finish_time();
 
     const auto total_delay = new_finish_estimate - _original_finish_estimate;
-    if (total_delay > _node->get_delay_threshold())
-    {
-      RCLCPP_WARN(
-            _node->get_logger(),
-            "Attempting to replan the movement for [" + _context->robot_name()
-            + "] because the delay has been too long ["
-            + std::to_string(rmf_traffic::time::to_seconds(_node->get_delay_threshold()))
-            + "]. Retrying in ["
-            + std::to_string(rmf_traffic::time::to_seconds(_node->get_retry_wait()))
-            + "] seconds.");
-      // If the dealys have piled up, then consider just restarting altogether.
-      return retry();
-    }
 
     const auto new_delay = new_finish_estimate - _finish_estimate;
     // TODO(MXG): Make this threshold configurable
@@ -719,30 +691,14 @@ public:
 
     if (new_delay < std::chrono::seconds(0))
     {
-      if (new_delay < std::chrono::seconds(-5))
-      {
-//        RCLCPP_WARN(
-//              _node->get_logger(),
-//              "Ignoring big negative delay ["
-//              + std::to_string(rmf_traffic::time::to_seconds(new_delay)) + "]");
-      }
       return;
     }
-
-//    std::cout << "Adding delay: ["
-//              << rmf_traffic::time::to_seconds(new_delay)
-//              << "] total: "
-//              << rmf_traffic::time::to_seconds(
-//                   new_finish_estimate - _original_finish_estimate)
-//              << std::endl;
-//    if (new_delay < std::chrono::milliseconds(500))
-//      return;
 
     const auto from_time =
         rmf_traffic_ros2::convert(msg.location.t) - new_delay;
     _finish_estimate = new_finish_estimate;
 
-    if (total_delay < std::chrono::seconds(30))
+    if (total_delay < std::chrono::seconds(5))
     {
       _context->schedule.push_delay(new_delay, from_time);
     }
@@ -1136,6 +1092,12 @@ public:
 
   std::vector<rmf_traffic::agv::Plan> find_emergency_plan()
   {
+    return find_emergency_plan(_validator);
+  }
+
+  std::vector<rmf_traffic::agv::Plan> find_emergency_plan(
+      const rmf_utils::clone_ptr<rmf_traffic::agv::RouteValidator> validator)
+  {
     _emergency_active = true;
 
     const auto& planner = _node->get_planner();
@@ -1163,6 +1125,7 @@ public:
 
     bool interrupt_flag = false;
     _planner_options.interrupt_flag(&interrupt_flag);
+    _planner_options.validator(std::move(validator));
 
     std::vector<std::thread> plan_threads;
     std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> candidate_plans;
@@ -1233,44 +1196,17 @@ public:
     if (!plans.empty())
       return execute_plan(std::move(plans));
 
-    cancel(std::chrono::seconds(1));
-  }
+    plans = find_emergency_plan(nullptr);
+    if (plans.empty())
+    {
+      RCLCPP_ERROR(
+            _node->get_logger(),
+            "Unable to find a feasible emergency plan for ["
+            + _context->robot_name() + "]. This is a critical error.");
+      return;
+    }
 
-  void cancel(std::chrono::nanoseconds duration)
-  {
-    _issued_waypoints.clear();
-    _remaining_waypoints.clear();
-    _event_executor.cancel();
-
-    _command = rmf_utils::nullopt;
-    const auto now = _node->now();
-//    _retry_time = now + duration;
-    _retry_time = now;
-
-    RCLCPP_WARN(
-          _node->get_logger(),
-          "Putting movement for [" + _context->robot_name()
-          + "] on hold because we are encountering difficulties.");
-    using ModeRequest = rmf_fleet_msgs::msg::ModeRequest;
-    using RobotMode = rmf_fleet_msgs::msg::RobotMode;
-    ModeRequest request;
-    request.mode.mode = RobotMode::MODE_PAUSED;
-    // TODO(MXG): Make this part of the task_id() function?
-    request.task_id =
-        task_id() + " - pause";
-    request.fleet_name = _node->get_fleet_name();
-    request.robot_name = _context->robot_name();
-
-    auto hold = make_hold(
-          _context->location,
-          rmf_traffic_ros2::convert(now),
-          std::chrono::seconds(2));
-    // TODO(MXG): This is fragile. Robots ought to correctly report their level
-    // name, but we can't rely on that for right now.
-    const std::string& map_name = _node->get_graph().get_waypoint(0).get_map_name();
-    _context->schedule.push_routes({{map_name, hold}}, [](){});
-
-    _node->mode_request_publisher->publish(std::move(request));
+    return execute_plan(std::move(plans));
   }
 
   void interrupt() final
@@ -1350,6 +1286,7 @@ private:
   EventListener _event_listener;
 
   rclcpp::Time _command_time;
+  bool _reported_excessive_delay = true;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _remaining_waypoints;
   std::vector<rmf_traffic::agv::Plan::Waypoint> _issued_waypoints;
   rmf_traffic::Time _finish_estimate = rmf_traffic::Time(std::chrono::seconds(0));
