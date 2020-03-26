@@ -32,6 +32,8 @@
 
 #include <rmf_utils/optional.hpp>
 
+#include <unordered_map>
+
 namespace rmf_traffic_schedule {
 
 //==============================================================================
@@ -257,22 +259,24 @@ ScheduleNode::ScheduleNode()
       }
 
       const auto conflicts = get_conflicts(view_changes, mirror);
-      std::unordered_set<const Negotiation*> new_negotiations;
+      std::unordered_map<Version, const Negotiation*> new_negotiations;
       for (const auto& conflict : conflicts)
       {
         std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-        const Negotiation* new_negotiation =
-            active_conflicts.insert(conflict);
+        const auto new_negotiation = active_conflicts.insert(conflict);
 
         if (new_negotiation)
-          new_negotiations.insert(new_negotiation);
+          new_negotiations[new_negotiation->first] = new_negotiation->second;
       }
 
-      for (const auto* n : new_negotiations)
+      for (const auto& n : new_negotiations)
       {
         ConflictNotice msg;
-        msg.conflict_version = *new_conflict;
-        msg.participants = {conflict.p1, conflict.p2};
+        msg.conflict_version = n.first;
+
+        const auto& participants = n.second->participants();
+        msg.participants = ConflictNotice::_participants_type(
+              participants.begin(), participants.end());
 
         conflict_notice_pub->publish(msg);
       }

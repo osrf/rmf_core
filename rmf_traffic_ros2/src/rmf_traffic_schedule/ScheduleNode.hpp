@@ -182,13 +182,15 @@ public:
   {
   public:
 
+    using Entry = std::pair<Version, const Negotiation*>;
+
     ConflictRecord(const rmf_traffic::schedule::Viewer& viewer)
       : _viewer(viewer)
     {
       // Do nothing
     }
 
-    const Negotiation* insert(const ConflictSet& conflicts)
+    rmf_utils::optional<Entry> insert(const ConflictSet& conflicts)
     {
       ConflictSet add_to_negotiation;
       const Version* existing_negotiation = nullptr;
@@ -210,7 +212,7 @@ public:
       }
 
       if (add_to_negotiation.empty())
-        return nullptr;
+        return rmf_utils::nullopt;
 
       const Version negotiation_version = existing_negotiation ?
             *existing_negotiation : _next_negotiation_version++;
@@ -231,7 +233,8 @@ public:
           update_negotiation->add_participant(p);
       }
 
-      return &(*update_negotiation);
+      return Entry(std::make_pair<const Version, const Negotiation*>(
+            negotiation_version, &(*update_negotiation)));
     }
 
     rmf_traffic::schedule::Negotiation* negotiation(const Version version)
