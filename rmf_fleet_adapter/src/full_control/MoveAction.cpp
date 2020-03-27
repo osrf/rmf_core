@@ -290,8 +290,8 @@ public:
     {
       RCLCPP_WARN(
             _node->get_logger(),
-            "Robot [" + _context->robot_name() + "] is stuck! We will try to "
-            "find a path again soon.");
+            "Robot [" + _context->robot_name() + "] is stuck! We will submit a "
+            "conflict to open a negotiation.");
 
       return plans;
     }

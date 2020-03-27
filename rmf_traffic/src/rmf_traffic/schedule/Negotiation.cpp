@@ -702,6 +702,24 @@ auto Negotiation::Table::parent() const -> ConstTablePtr
 }
 
 //==============================================================================
+auto Negotiation::Table::children() -> std::vector<TablePtr>
+{
+  std::vector<TablePtr> children_;
+  for (const auto& c : _pimpl->descendants)
+    children_.push_back(c.second);
+  return children_;
+}
+
+//==============================================================================
+auto Negotiation::Table::children() const -> std::vector<ConstTablePtr>
+{
+  std::vector<ConstTablePtr> children_;
+  for (const auto& c : _pimpl->descendants)
+    children_.push_back(c.second);
+  return children_;
+}
+
+//==============================================================================
 bool Negotiation::Table::ongoing() const
 {
   return static_cast<bool>(_pimpl->weak_negotiation_data.lock());

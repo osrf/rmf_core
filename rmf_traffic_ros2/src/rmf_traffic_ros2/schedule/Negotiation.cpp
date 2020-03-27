@@ -133,10 +133,16 @@ public:
 
   using Version = rmf_traffic::schedule::Version;
   using Negotiation = rmf_traffic::schedule::Negotiation;
-  using NegotiationMap = std::unordered_map<Version, Negotiation>;
-  NegotiationMap negotiations;
+  struct Entry
+  {
+    bool participating;
+    Negotiation negotiation;
+  };
 
-  std::unordered_set<Version> ignore_negotiations;
+  using NegotiationMap = std::unordered_map<Version, Entry>;
+
+  // The negotiations that this Negotiation class is involved in
+  NegotiationMap negotiations;
 
   using TablePtr = rmf_traffic::schedule::Negotiation::TablePtr;
   using ApprovalCallbackMap = std::unordered_map<TablePtr, std::function<void()>>;
@@ -210,9 +216,13 @@ public:
     if (msg.table.empty())
       return;
 
-    // Ignore if we aren't involved in this negotiation
+    // Ignore if we haven't heard of this negotiation
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
+      return;
+
+    // Ignore if we aren't participating in this negotiation
+    if (!negotiate_it->second.participating)
       return;
 
     // Ignore if we aren't managing the relevant negotiator
@@ -224,7 +234,7 @@ public:
     auto to_accommodate = msg.table;
     to_accommodate.pop_back();
 
-    const auto table = negotiate_it->second.table(
+    const auto table = negotiate_it->second.negotiation.table(
           for_participant, to_accommodate);
     if (!table)
     {
@@ -255,19 +265,32 @@ public:
       }
     }
 
-    if (!relevant)
+    const auto insertion = negotiations.insert(
+        {msg.conflict_version,
+         Entry{relevant, Negotiation(viewer, msg.participants)}});
+
+    const bool is_new = insertion.second;
+    bool& participating = insertion.first->second.participating;
+    Negotiation& negotiation = insertion.first->second.negotiation;
+
+    if (!is_new)
     {
-      ignore_negotiations.insert(msg.conflict_version);
-      return;
+      const auto& old_participants = negotiation.participants();
+      for (const auto p : msg.participants)
+      {
+        if (old_participants.count(p) == 0)
+          negotiation.add_participant(p);
+      }
     }
 
-    const auto insertion = negotiations.insert(
-        {msg.conflict_version, Negotiation(viewer, msg.participants)});
+    // If this is a new negotation and it's relevant to us, then we should
+    // respond to it. Or if it is relevant to us and we aren't currently
+    // participating, then we should also respond.
+    const bool need_response =
+        (is_new && relevant) || (relevant && !participating);
 
-    if (!insertion.second)
+    if (!need_response)
       return;
-
-    auto& negotiation = insertion.first->second;
 
     std::vector<TablePtr> queue;
     for (const auto p : msg.participants)
@@ -276,8 +299,12 @@ public:
       if (it != negotiators->end())
       {
         const auto table = negotiation.table(p, {});
-        it->second->respond(
-              table, Responder(this, msg.conflict_version, table));
+        if (!table->submission())
+        {
+          it->second->respond(
+                table, Responder(this, msg.conflict_version, table));
+        }
+
         queue.push_back(table);
       }
     }
@@ -290,12 +317,16 @@ public:
       for (const auto& n : *negotiators)
       {
         const auto respond_to = top->respond(n.first);
-        if (respond_to)
+        if (!respond_to)
+          continue;
+
+        if (!respond_to->submission())
         {
           n.second->respond(
                 respond_to, Responder(this, msg.conflict_version, respond_to));
-          queue.push_back(respond_to);
         }
+
+        queue.push_back(respond_to);
       }
     }
   }
@@ -305,23 +336,16 @@ public:
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
-      const auto ignore_it = ignore_negotiations.find(msg.conflict_version);
-      if (ignore_it == ignore_negotiations.end())
-      {
-        // TODO(MXG): Work out a scheme for caching undetermined proposals
-        // so that the negotiation can be reconstructed after requesting some
-        // repeats.
-        RCLCPP_WARN(
-              node.get_logger(),
-              "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
-              "Received a proposal for an unknown negotiation: "
-              + std::to_string(msg.conflict_version));
-      }
-
+      RCLCPP_WARN(
+            node.get_logger(),
+            "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
+            "Received a proposal for an unknown negotiation: "
+            + std::to_string(msg.conflict_version));
       return;
     }
 
-    Negotiation& negotiation = negotiate_it->second;
+    const bool participating = negotiate_it->second.participating;
+    Negotiation& negotiation = negotiate_it->second.negotiation;
     const auto table =
         negotiation.table(msg.for_participant, msg.to_accommodate);
 
@@ -337,10 +361,15 @@ public:
       return;
     }
 
+    // We'll keep track of these negotiations whether or not we're participating
+    // in them, because
     const bool updated =
         table->submit(convert(msg.itinerary), msg.proposal_version);
 
     if (!updated)
+      return;
+
+    if (!participating)
       return;
 
     for (const auto& n : *negotiators)
@@ -368,7 +397,7 @@ public:
       return;
     }
 
-    Negotiation& negotiation = negotiate_it->second;
+    Negotiation& negotiation = negotiate_it->second.negotiation;
     const auto table = negotiation.table(msg.table);
     if (!table)
     {
@@ -387,49 +416,55 @@ public:
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
-      ignore_negotiations.erase(msg.conflict_version);
+      // We don't need to worry about concluding unknown negotiations
       return;
     }
 
-    const auto approval_callback_it = approvals.find(msg.conflict_version);
-    if (msg.resolved)
+    const bool participating = negotiate_it->second.participating;
+    Negotiation& negotiation = negotiate_it->second.negotiation;
+
+    if (participating)
     {
-      assert(approval_callback_it != approvals.end());
-      const auto& approval_callbacks = approval_callback_it->second;
-
-      auto result = negotiate_it->second.table(msg.table);
-
-      while (result)
+      const auto approval_callback_it = approvals.find(msg.conflict_version);
+      if (msg.resolved)
       {
-        const auto approve_it = approval_callbacks.find(result);
-        if (approve_it != approval_callbacks.end())
-          approve_it->second();
+        assert(approval_callback_it != approvals.end());
+        const auto& approval_callbacks = approval_callback_it->second;
 
-        result = result->parent();
+        auto result = negotiation.table(msg.table);
+
+        while (result)
+        {
+          const auto approve_it = approval_callbacks.find(result);
+          if (approve_it != approval_callbacks.end())
+            approve_it->second();
+
+          result = result->parent();
+        }
       }
-    }
 
-    if (approval_callback_it != approvals.end())
-      approvals.erase(approval_callback_it);
+      if (approval_callback_it != approvals.end())
+        approvals.erase(approval_callback_it);
 
-    std::vector<ParticipantId> participants;
-    participants.reserve(negotiators->size());
-    for (const auto p : negotiate_it->second.participants())
-    {
-      const auto n_it = negotiators->find(p);
-      if (n_it != negotiators->end())
-        participants.push_back(n_it->first);
+      std::vector<ParticipantId> participants;
+      participants.reserve(negotiators->size());
+      for (const auto p : negotiation.participants())
+      {
+        const auto n_it = negotiators->find(p);
+        if (n_it != negotiators->end())
+          participants.push_back(n_it->first);
+      }
+
+      // Acknowledge that we know about this conclusion
+      Ack ack;
+      ack.conflict_version = msg.conflict_version;
+      ack.participants = std::move(participants);
+      ack_pub->publish(ack);
+      // TODO(MXG): Should we consider a more robust cache cleanup strategy?
     }
 
     // Erase these entries because the negotiation has concluded
     negotiations.erase(negotiate_it);
-
-    // Acknowledge that we know about this conclusion
-    Ack ack;
-    ack.conflict_version = msg.conflict_version;
-    ack.participants = std::move(participants);
-    ack_pub->publish(ack);
-    // TODO(MXG): Should we consider a more robust cache cleanup strategy?
   }
 
   void publish_proposal(

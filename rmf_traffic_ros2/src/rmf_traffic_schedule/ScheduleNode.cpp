@@ -280,6 +280,25 @@ ScheduleNode::ScheduleNode()
 
         conflict_notice_pub->publish(msg);
       }
+
+      if (!new_negotiations.empty())
+      {
+        std::unique_lock<std::mutex> lock(active_conflicts_mutex);
+        std::cout << "\n --- Current negotiations: ";
+        for (const auto& c : active_conflicts._negotiations)
+        {
+          std::cout << "\n   - [" << c.first << "]:";
+          if (c.second)
+          {
+            for (const auto p : c.second->participants())
+              std::cout << " " << p;
+          }
+          else
+            std::cout << " defunct";
+        }
+
+        std::cout << "\n" << std::endl;
+      }
     }
   });
 }
@@ -545,12 +564,29 @@ void ScheduleNode::wakeup_mirrors()
 }
 
 //==============================================================================
+void print_conclusion(
+    const std::unordered_map<
+        ScheduleNode::Version, ScheduleNode::ConflictSet>& _awaiting)
+{
+  std::cout << "\n --- Awaiting acknowledgment of conclusion:";
+  for (const auto& entry : _awaiting)
+  {
+    std::cout << "\n   - [" << entry.first << "]:";
+    for (const auto p : entry.second)
+      std::cout << " " << p;
+  }
+  std::cout << "\n" << std::endl;
+}
+
+//==============================================================================
 void ScheduleNode::receive_conclusion_ack(const ConflictAck& msg)
 {
   std::unique_lock<std::mutex> lock(active_conflicts_mutex);
 
   for (const auto p : msg.participants)
     active_conflicts.acknowledge(msg.conflict_version, p);
+
+  print_conclusion(active_conflicts._awaiting_acknowledgment);
 }
 
 //==============================================================================
@@ -586,6 +622,9 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   }
 
   table->submit(rmf_traffic_ros2::convert(msg.itinerary), msg.proposal_version);
+
+  print the proposals so far
+
   if (negotiation->ready())
   {
     // TODO(MXG): If the negotiation is not complete yet, give some time for
@@ -602,7 +641,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     conclusion.table = choose->sequence();
 
     conflict_conclusion_pub->publish(std::move(conclusion));
-    return;
+    print_conclusion(active_conflicts._awaiting_acknowledgment);
   }
   else if (negotiation->complete())
   {
@@ -614,6 +653,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     conclusion.resolved = false;
 
     conflict_conclusion_pub->publish(conclusion);
+    print_conclusion(active_conflicts._awaiting_acknowledgment);
   }
 }
 

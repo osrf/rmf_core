@@ -161,6 +161,12 @@ public:
     // const-qualified parent()
     ConstTablePtr parent() const;
 
+    /// Get the children of this Table if any children exist.
+    std::vector<TablePtr> children();
+
+    // const-qualified children()
+    std::vector<ConstTablePtr> children() const;
+
     /// Return true if the negotiation is ongoing (i.e. the Negotiation instance
     /// that created this table is still alive). When the Negotiation instance
     /// that this Table belongs to has destructed, this will begin to return

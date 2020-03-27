@@ -220,6 +220,9 @@ public:
       const auto insertion = _negotiations.insert(
             std::make_pair(negotiation_version, rmf_utils::nullopt));
 
+      for (const auto p : add_to_negotiation)
+        _version[p] = negotiation_version;
+
       auto& update_negotiation = insertion.first->second;
       if (!update_negotiation)
       {
@@ -233,8 +236,7 @@ public:
           update_negotiation->add_participant(p);
       }
 
-      return Entry(std::make_pair<const Version, const Negotiation*>(
-            negotiation_version, &(*update_negotiation)));
+      return Entry{negotiation_version, &(*update_negotiation)};
     }
 
     rmf_traffic::schedule::Negotiation* negotiation(const Version version)
@@ -254,8 +256,11 @@ public:
       if (negotiation_it == _negotiations.end())
         return;
 
-      _awaiting_acknowledgment[version] =
-          negotiation_it->second->participants();
+      const auto& participants = negotiation_it->second->participants();
+      _awaiting_acknowledgment[version] = participants;
+
+      for (const auto p : participants)
+        _version.erase(p);
 
       _negotiations.erase(negotiation_it);
     }
@@ -277,7 +282,7 @@ public:
         _awaiting_acknowledgment.erase(wait_it);
     }
 
-  private:
+//  private:
     std::unordered_map<ParticipantId, Version> _version;
     std::unordered_map<Version, rmf_utils::optional<Negotiation>> _negotiations;
     std::unordered_map<Version, ConflictSet> _awaiting_acknowledgment;
