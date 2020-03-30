@@ -26,8 +26,7 @@ class SimpleResponder::Implementation
 public:
 
   std::shared_ptr<schedule::Negotiation> negotiation;
-  schedule::ParticipantId for_participant;
-  std::vector<schedule::ParticipantId> to_accommodate;
+  std::vector<schedule::ParticipantId> sequence;
 
 };
 
@@ -37,11 +36,18 @@ SimpleResponder::SimpleResponder(
     schedule::ParticipantId for_participant,
     std::vector<schedule::ParticipantId> to_accommodate)
   : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(negotiation),
-               for_participant,
-               std::move(to_accommodate)
-             }))
+             Implementation{std::move(negotiation), {}}))
+{
+  _pimpl->sequence = std::move(to_accommodate);
+  _pimpl->sequence.push_back(for_participant);
+}
+
+//==============================================================================
+SimpleResponder::SimpleResponder(
+    std::shared_ptr<schedule::Negotiation> negotiation,
+    std::vector<schedule::ParticipantId> sequence)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{std::move(negotiation), std::move(sequence)}))
 {
   // Do nothing
 }
@@ -51,8 +57,7 @@ void SimpleResponder::submit(
     std::vector<Route> itinerary,
     std::function<void()> /*approval_callback*/) const
 {
-  const auto table = _pimpl->negotiation->table(
-        _pimpl->for_participant, _pimpl->to_accommodate);
+  const auto table = _pimpl->negotiation->table(_pimpl->sequence);
 
   table->submit(
         std::move(itinerary),
@@ -62,7 +67,7 @@ void SimpleResponder::submit(
 //==============================================================================
 void SimpleResponder::reject() const
 {
-  _pimpl->negotiation->table(_pimpl->to_accommodate)->reject();
+  _pimpl->negotiation->table(_pimpl->sequence)->reject();
 }
 
 } // namespace schedule
