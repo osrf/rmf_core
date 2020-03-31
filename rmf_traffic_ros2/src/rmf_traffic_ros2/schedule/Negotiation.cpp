@@ -33,6 +33,15 @@
 namespace rmf_traffic_ros2 {
 namespace schedule {
 
+std::string table_to_string(
+    const std::vector<rmf_traffic::schedule::ParticipantId>& table)
+{
+  std::string output;
+  for (const auto p : table)
+    output += " " + std::to_string(p);
+  return output;
+}
+
 //==============================================================================
 class Negotiation::Implementation
 {
@@ -55,6 +64,8 @@ public:
         table(table_)
     {
       // Do nothing
+      std::cout << " -- Requesting response for ["
+                << table_to_string(table->sequence()) << " ]" << std::endl;
     }
 
     void submit(
@@ -241,10 +252,8 @@ public:
       std::string error =
           "[rmf_traffic_ros2::schedule::Negotiation] A repeat was requested "
           "for a table that does not exist. Negotiation ["
-          + std::to_string(msg.conflict_version) + "], table [";
-      for (const auto p : msg.table)
-        error += " " + std::to_string(p) + " ";
-      error += "]";
+          + std::to_string(msg.conflict_version) + "], table ["
+          + table_to_string(msg.table) + " ]";
 
       RCLCPP_WARN(node.get_logger(), error);
       return;
@@ -255,6 +264,12 @@ public:
 
   void receive_notice(const Notice& msg)
   {
+    std::cout << "\nReceived notice for negotation [" << msg.conflict_version
+              << "]:";
+    for (const auto p : msg.participants)
+      std::cout << " " << p;
+    std::cout << std::endl;
+
     bool relevant = false;
     for (const auto p : msg.participants)
     {
@@ -279,18 +294,23 @@ public:
       for (const auto p : msg.participants)
       {
         if (old_participants.count(p) == 0)
+        {
+          std::cout << " -- Adding [" << p << "] to the negotiation" << std::endl;
           negotiation.add_participant(p);
+        }
       }
     }
 
-    // If this is a new negotation and it's relevant to us, then we should
-    // respond to it. Or if it is relevant to us and we aren't currently
-    // participating, then we should also respond.
-    const bool need_response =
-        (is_new && relevant) || (relevant && !participating);
-
-    if (!need_response)
+    if (!relevant)
+    {
+      std::cout << " -- No initial response needed ["
+                << is_new << " | " << relevant << " | " << participating
+                << "]" << std::endl;
       return;
+    }
+
+    // TODO(MXG): Is the participating flag even relevant?
+    participating = true;
 
     std::vector<TablePtr> queue;
     for (const auto p : msg.participants)
@@ -360,6 +380,10 @@ public:
             "Receieved a proposal that builds on an unknown table");
       return;
     }
+
+    std::cout << "Received proposal for ["
+              << table_to_string(msg.to_accommodate) << " "
+              << msg.for_participant << " ]" << std::endl;
 
     // We'll keep track of these negotiations whether or not we're participating
     // in them, because
@@ -471,6 +495,9 @@ public:
       const Version conflict_version,
       const Negotiation::Table& table)
   {
+    std::cout << " -- Publishing proposal for ["
+              << table_to_string(table.sequence()) << " ]" << std::endl;
+
     Proposal msg;
     msg.conflict_version = conflict_version;
     assert(table.version());
@@ -492,6 +519,9 @@ public:
       const Version conflict_version,
       const Negotiation::Table& table)
   {
+    std::cout << " -- Publishing rejection for ["
+              << table_to_string(table.sequence()) << " ]" << std::endl;
+
     Rejection msg;
     msg.conflict_version = conflict_version;
     msg.table = table.sequence();

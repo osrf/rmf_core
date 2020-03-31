@@ -525,6 +525,12 @@ public:
         queue.push_back(&Table::Implementation::get(*entry).descendants);
       }
     }
+
+    tables[new_participant] = Table::Implementation::make_root(
+          *viewer, data, new_participant,
+          std::vector<ParticipantId>(
+            data->participants.begin(),
+            data->participants.end()));
   }
 };
 

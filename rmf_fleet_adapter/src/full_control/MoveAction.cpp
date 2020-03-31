@@ -228,6 +228,10 @@ public:
     if (!plans.empty())
       return execute_plan(std::move(plans));
 
+    RCLCPP_INFO(
+          _node->get_logger(),
+          "Looking for a plan to open a schedule conflict for ["
+          + _context->robot_name() + "]");
     plans = find_plan(start_delay, nullptr);
     if (plans.empty())
     {

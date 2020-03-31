@@ -39,6 +39,7 @@ public:
     {
       add<rmf_traffic::geometry::Box>(rmf_traffic_msgs::msg::ConvexShape::BOX);
       add<rmf_traffic::geometry::Circle>(rmf_traffic_msgs::msg::ConvexShape::CIRCLE);
+      shapes.resize(num_shape_types);
     }
   }
 

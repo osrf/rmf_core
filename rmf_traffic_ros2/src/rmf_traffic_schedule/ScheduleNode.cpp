@@ -568,7 +568,7 @@ void print_conclusion(
     const std::unordered_map<
         ScheduleNode::Version, ScheduleNode::ConflictSet>& _awaiting)
 {
-  std::cout << "\n --- Awaiting acknowledgment of conclusion:";
+  std::cout << "\n --- Awaiting acknowledgment of conclusions:";
   for (const auto& entry : _awaiting)
   {
     std::cout << "\n   - [" << entry.first << "]:";
@@ -623,10 +623,19 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
 
   table->submit(rmf_traffic_ros2::convert(msg.itinerary), msg.proposal_version);
 
+  std::cout << "\n[" << msg.conflict_version << "] Active negotiation:";
+  for (const auto p : negotiation->participants())
+    std::cout << " " << p;
+  std::cout << std::endl;
+
   std::vector<Negotiation::ConstTablePtr> terminal;
   std::vector<Negotiation::ConstTablePtr> queue;
   for (const auto p : negotiation->participants())
-    queue.push_back(negotiation->table(p, {}));
+  {
+    const auto p_table = negotiation->table(p, {});
+    assert(p_table);
+    queue.push_back(p_table);
+  }
 
   while (!queue.empty())
   {
@@ -641,11 +650,14 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     else
     {
       for (const auto& child : children)
+      {
+        assert(child);
         queue.push_back(child);
+      }
     }
   }
 
-  std::cout << "\nCurrent negotiation state:";
+  std::cout << "    Current negotiation state";
   for (const auto& t : terminal)
   {
     std::cout << "\n --";
