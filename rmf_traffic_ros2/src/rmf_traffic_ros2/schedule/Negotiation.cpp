@@ -73,7 +73,9 @@ public:
         std::function<void()> approval_callback) const final
     {
       const auto* last_version = table->version();
-      table->submit(itinerary, last_version? *last_version+1 : 0);
+      const bool accepted = table->submit(itinerary, last_version? *last_version+1 : 0);
+      assert(accepted);
+      (void)(accepted);
       impl->approvals[conflict_version][table] = std::move(approval_callback);
       impl->publish_proposal(conflict_version, *table);
     }
@@ -374,10 +376,16 @@ public:
       // TODO(MXG): Work out a scheme for caching inconsistent proposals
       // so that the negotiation can be reconstructed after requesting some
       // repeats.
-      RCLCPP_WARN(
-            node.get_logger(),
-            "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
-            "Receieved a proposal that builds on an unknown table");
+      std::string error =
+          "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
+          "Receieved a proposal for negotiation ["
+          + std::to_string(msg.conflict_version) + "] that builds on an "
+          "unknown table: [";
+      for (const auto p : msg.to_accommodate)
+        error += " " + std::to_string(p);
+      error += " " + std::to_string(msg.for_participant) + " ]";
+
+      RCLCPP_WARN(node.get_logger(), error);
       return;
     }
 

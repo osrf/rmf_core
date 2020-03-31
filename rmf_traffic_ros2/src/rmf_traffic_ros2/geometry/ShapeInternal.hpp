@@ -21,6 +21,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -49,6 +50,7 @@ public:
   EntryMap entry_map;
 
   using Caster = std::function<std::size_t(const ShapeTypePtr&)>;
+  static std::mutex initialization_mutex;
   static bool initialized;
   static std::vector<Caster> casters;
   static std::size_t num_shape_types;
@@ -136,6 +138,10 @@ public:
   }
 
 };
+
+//==============================================================================
+template<class T, class M, class C>
+std::mutex ShapeContextImpl<T, M, C>::initialization_mutex;
 
 //==============================================================================
 template<class T, class M, class C>
