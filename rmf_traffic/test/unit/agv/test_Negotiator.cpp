@@ -703,7 +703,7 @@ SCENARIO("A Single Lane")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
 
-    WHEN("Negotiate moving A->D")
+    WHEN("Empty Schedule, p0(A->D)")
     {
       const auto time = std::chrono::steady_clock::now();
       rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a0_config.traits};
@@ -728,7 +728,7 @@ SCENARIO("A Single Lane")
       }
     }
 
-    WHEN("Negotiate moving A->D, D->B")
+    WHEN("Empty Schedule, p(A->D, D->B)")
     {
       const auto time = std::chrono::steady_clock::now();
       rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
@@ -767,7 +767,7 @@ SCENARIO("A Single Lane")
     }
 
     // TODO(BH): This test will not be valid until 'A->D, D->B is resolved.'
-    WHEN("Negotiate moving from A->D, C->B")
+    WHEN("Empty Schedule, p(A->D, C->B)")
     {
       const auto time = std::chrono::steady_clock::now();
       rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
@@ -805,6 +805,11 @@ SCENARIO("A Single Lane")
     // Identical entities
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+  }
+
+  WHEN("Negotiate p0(A->B), p1(D->C)")
+  {
+
   }
 }
 
