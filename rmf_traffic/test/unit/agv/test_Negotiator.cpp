@@ -534,8 +534,163 @@ SCENARIO("Multi-participant negotiation")
   intentions.insert({2, NegotiationRoom::Intention{
                        {time, 3, 0.0}, 1, configuration}});
 
+
   auto proposal = NegotiationRoom(database, intentions).solve();
   REQUIRE(proposal);
 
-  print_proposal(*proposal);
+  //print_proposal(*proposal);
 }
+
+
+
+
+
+
+// (BH): Proposed Test Additions
+//==============================================================================
+
+// Helper Definitions
+//==============================================================================
+using VertexId = std::string;
+using IsParkingSpot = bool;
+using VertexMap = std::vector<std::tuple<VertexId, Eigen::Vector2d, IsParkingSpot>>;
+
+using EdgeVertices = std::pair<VertexId, VertexId>;
+using IsBidirectional = bool;
+using EdgeMap = std::vector<std::pair<EdgeVertices, IsBidirectional>>;
+
+using VertexIdtoIdxMap = std::unordered_map<VertexId, size_t>;
+
+using ParticipantId = std::string;
+using ParticipantIndex = size_t;
+
+struct ParticipantConfig
+{
+  const rmf_traffic::Profile profile;
+  const rmf_traffic::agv::VehicleTraits traits; 
+  const rmf_traffic::schedule::ParticipantDescription description;
+};
+
+// Helper Functions
+//==============================================================================
+// Makes graph using text ids, and returns bookkeeping that maps ids to indices
+std::pair<rmf_traffic::agv::Graph, VertexIdtoIdxMap> 
+generate_test_graph_data(std::string map_name, VertexMap vertices, EdgeMap edges)
+{
+  rmf_traffic::agv::Graph graph;
+  // Maps vertex id to its corresponding id in the rmf_traffic::agv::Graph
+  VertexIdtoIdxMap vertex_id_to_idx;
+  size_t current_idx = 0; // vertex idxes are added in monotonic increments
+
+  for(auto it = vertices.cbegin(); it != vertices.cend(); it++)
+  {
+    // Adding to rmf_traffic::agv::Graph
+    graph.add_waypoint(map_name, std::get<1>(*it), std::get<2>(*it));
+    // Book keeping
+    vertex_id_to_idx.insert({std::get<0>(*it), current_idx});
+    current_idx++;
+  }
+
+  for(auto it = edges.cbegin(); it != edges.cend(); it++)
+  {
+    auto source_vtx = vertex_id_to_idx[it->first.first];
+    auto sink_vtx = vertex_id_to_idx[it->first.second];
+    graph.add_lane(source_vtx, sink_vtx);
+    if (it->second)
+    {
+      graph.add_lane(sink_vtx, source_vtx);
+    }
+  }
+  return std::pair<rmf_traffic::agv::Graph, VertexIdtoIdxMap>(graph, vertex_id_to_idx);
+}
+
+// Makes participant, but also appends to a bookkeeping data structure to map ids to indices
+rmf_traffic::schedule::Participant 
+generate_test_participant(
+    ParticipantConfig config, 
+    rmf_traffic::schedule::Database& database,
+    std::unordered_map<ParticipantId, ParticipantIndex>& participant_ids)
+{
+  participant_ids.insert({config.description.name(), participant_ids.size()});
+  return rmf_traffic::schedule::make_participant(config.description, database);
+}
+
+// Preset Robot Configurations
+//==============================================================================
+// P1
+const rmf_traffic::Profile a1_profile{
+  rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Circle>(1.0)
+};
+
+const rmf_traffic::agv::VehicleTraits a1_traits{
+  {0.7, 0.3},
+  {1.0, 0.45},
+  a1_profile
+};
+
+const rmf_traffic::schedule::ParticipantDescription a1_description = {
+  "p1",
+  "test_Negotiator",
+  rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+  a1_profile
+};
+
+const ParticipantConfig p1_config = {
+ a1_profile, a1_traits, a1_description
+};
+
+// Tests
+//==============================================================================
+SCENARIO("A Single Lane")
+{
+  using namespace std::chrono_literals;
+  rmf_traffic::schedule::Database database; 
+  const std::string test_map_name = "test_single_lane";
+  VertexMap vertices;
+  EdgeMap edges;
+
+  /*    single_lane_map
+   *
+   *    A(p) <-> B(p) <-> C(p)
+   */
+
+  vertices.push_back({"A", {-1.0, 0.0}, IsParkingSpot(true)});
+  vertices.push_back({"B", {0.0, 0.0}, IsParkingSpot(true)});
+  vertices.push_back({"C", {1.0, 0.0}, IsParkingSpot(true)});
+
+  edges.push_back({{"A", "B"}, IsBidirectional(true)});
+  edges.push_back({{"B", "C"}, IsBidirectional(true)});
+
+  auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
+  auto graph = graph_data.first;
+  auto vertex_id_to_idx = graph_data.second;
+  std::unordered_map<ParticipantId, ParticipantIndex> participant_ids;
+
+  GIVEN("1 Participant")
+  {
+    auto p1 = generate_test_participant(p1_config, database, participant_ids);
+  }
+  WHEN("Negotiation")
+  {
+    const auto time = std::chrono::steady_clock::now();
+    rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, p1_config.traits};
+
+    NegotiationRoom::Intentions intentions;
+    intentions.insert({
+        participant_ids[p1_config.description.name()],
+        NegotiationRoom::Intention{
+          {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+          vertex_id_to_idx["C"], // Goal Vertex
+          p1_planner_config // Planner Configuration ( Preset )
+        }
+        });
+
+    THEN("Proposal is found")
+    {
+      auto proposal = NegotiationRoom(database, intentions).solve();
+      REQUIRE(proposal);
+    }
+  }
+}
+
