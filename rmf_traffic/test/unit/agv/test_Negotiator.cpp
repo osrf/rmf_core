@@ -704,7 +704,7 @@ SCENARIO("A Single Lane")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
 
-    WHEN("Empty Schedule, p0(A->D)")
+    WHEN("Schedule:[], Negotiation:[p0(A->D)]")
     {
       const auto time = std::chrono::steady_clock::now();
       rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
@@ -729,7 +729,7 @@ SCENARIO("A Single Lane")
       }
     }
 
-    WHEN("Empty Schedule, p(A->D, D->B)")
+    WHEN("Schedule:[], Negotiation:[p(A->D, D->B)]")
     {
       const auto time = std::chrono::steady_clock::now();
       rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
@@ -768,7 +768,7 @@ SCENARIO("A Single Lane")
     }
 
     // TODO(BH): This test will not be valid until 'A->D, D->B is resolved.'
-    WHEN("Empty Schedule, p(A->D, C->B)")
+    WHEN("Schedule:[], Negotiation:[p(A->D, C->B)]")
     {
       const auto time = std::chrono::steady_clock::now();
       rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
@@ -807,7 +807,7 @@ SCENARIO("A Single Lane")
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
 
     // No conflicts expected
-    WHEN("Empty Schedule, p0(A->B), p1(D->C)")
+    WHEN("Schedule:[], Negotiation:[p0(A->B), p1(D->C)]")
     {
         const auto time = std::chrono::steady_clock::now();
         rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
@@ -845,7 +845,7 @@ SCENARIO("A Single Lane")
     }
 
     // Identical Start Points, expected failure
-    WHEN("Empty Schedule, p0(A->B), p1(A->C)")
+    WHEN("Schedule:[], Negotiation:[p0(A->B), p1(A->C)]")
     {
         const auto time = std::chrono::steady_clock::now();
         rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
