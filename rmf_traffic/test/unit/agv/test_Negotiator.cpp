@@ -625,7 +625,7 @@ rmf_utils::optional<rmf_traffic::schedule::Itinerary> get_participant_itinerary(
 // Preset Robot Configurations
 // Agent a(i) generates participant p(i), instantiated in tests
 //==============================================================================
-// a1
+// a0
 const rmf_traffic::Profile a0_profile{
   rmf_traffic::geometry::make_final_convex<
     rmf_traffic::geometry::Circle>(1.0)
@@ -638,7 +638,7 @@ const rmf_traffic::agv::VehicleTraits a0_traits{
 };
 
 const rmf_traffic::schedule::ParticipantDescription a0_description = {
-  "p1",
+  "p0",
   "test_Negotiator",
   rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
   a0_profile
@@ -646,6 +646,29 @@ const rmf_traffic::schedule::ParticipantDescription a0_description = {
 
 const ParticipantConfig a0_config = {
  a0_profile, a0_traits, a0_description
+};
+
+// a1
+const rmf_traffic::Profile a1_profile{
+  rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Circle>(1.0)
+};
+
+const rmf_traffic::agv::VehicleTraits a1_traits{
+  {0.7, 0.3},
+  {1.0, 0.45},
+  a1_profile
+};
+
+const rmf_traffic::schedule::ParticipantDescription a1_description = {
+  "p1",
+  "test_Negotiator",
+  rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+  a1_profile
+};
+
+const ParticipantConfig a1_config = {
+ a1_profile, a1_traits, a1_description
 };
 
 // Tests
@@ -678,7 +701,7 @@ SCENARIO("A Single Lane")
 
   GIVEN("1 Participant")
   {
-    auto p1 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
 
     WHEN("Negotiate moving A->D")
     {
@@ -687,7 +710,7 @@ SCENARIO("A Single Lane")
 
       NegotiationRoom::Intentions intentions;
       intentions.insert({
-          p1.id(),
+          p0.id(),
           NegotiationRoom::Intention{
             {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["D"], // Goal Vertex
@@ -700,34 +723,34 @@ SCENARIO("A Single Lane")
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
 
-        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
       }
     }
 
     WHEN("Negotiate moving A->D, D->B")
     {
       const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a0_config.traits};
+      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
 
       NegotiationRoom::Intentions intentions;
       // A -> D
       intentions.insert({
-          p1.id(),
+          p0.id(),
           NegotiationRoom::Intention{
             {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["D"], // Goal Vertex
-            p1_planner_config // Planner Configuration ( Preset )
+            p0_planner_config // Planner Configuration ( Preset )
           }
           });
 
       // D -> C
       intentions.insert({
-          p1.id(),
+          p0.id(),
           NegotiationRoom::Intention{
             {time + 10s, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["B"], // Goal Vertex
-            p1_planner_config // Planner Configuration ( Preset )
+            p0_planner_config // Planner Configuration ( Preset )
           }
           });
 
@@ -737,8 +760,8 @@ SCENARIO("A Single Lane")
         REQUIRE(proposal);
 
         // TODO(BH): Consecutive intentions don't seem to result in an 'extended' proposal
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B"].first);
+        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B"].first);
       }
 
     }
@@ -747,24 +770,24 @@ SCENARIO("A Single Lane")
     WHEN("Negotiate moving from A->D, C->B")
     {
       const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a0_config.traits};
+      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
 
       NegotiationRoom::Intentions intentions;
       intentions.insert({
-          p1.id(),
+          p0.id(),
           NegotiationRoom::Intention{
             {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["D"], // Goal Vertex
-            p1_planner_config // Planner Configuration ( Preset )
+            p0_planner_config // Planner Configuration ( Preset )
           }
           });
 
       intentions.insert({
-          p1.id(),
+          p0.id(),
           NegotiationRoom::Intention{
             {time + 10s, vertex_id_to_idx["C"], 0.0},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["B"], // Goal Vertex
-            p1_planner_config // Planner Configuration ( Preset )
+            p0_planner_config // Planner Configuration ( Preset )
           }
         });
 
@@ -775,6 +798,13 @@ SCENARIO("A Single Lane")
         //REQUIRE(proposal);
       //}
     }
+  }
+
+  GIVEN("2 Participants")
+  {
+    // Identical entities
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
   }
 }
 
