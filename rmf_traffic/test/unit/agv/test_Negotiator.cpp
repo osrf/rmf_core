@@ -553,11 +553,12 @@ SCENARIO("Multi-participant negotiation")
 //==============================================================================
 using VertexId = std::string;
 using IsParkingSpot = bool;
-using VertexMap = std::vector<std::tuple<VertexId, Eigen::Vector2d, IsParkingSpot>>;
+using VertexMap = std::unordered_map<VertexId, std::pair<Eigen::Vector2d, IsParkingSpot>>;
 
+using EdgeId = std::string;
 using EdgeVertices = std::pair<VertexId, VertexId>;
 using IsBidirectional = bool;
-using EdgeMap = std::vector<std::pair<EdgeVertices, IsBidirectional>>;
+using EdgeMap = std::unordered_map<EdgeId, std::pair<EdgeVertices, IsBidirectional>>;
 
 using VertexIdtoIdxMap = std::unordered_map<VertexId, size_t>;
 
@@ -586,18 +587,19 @@ generate_test_graph_data(std::string map_name, VertexMap vertices, EdgeMap edges
   for(auto it = vertices.cbegin(); it != vertices.cend(); it++)
   {
     // Adding to rmf_traffic::agv::Graph
-    graph.add_waypoint(map_name, std::get<1>(*it), std::get<2>(*it));
+    graph.add_waypoint(map_name, it->second.first, it->second.second);
+
     // Book keeping
-    vertex_id_to_idx.insert({std::get<0>(*it), current_idx});
+    vertex_id_to_idx.insert({it->first, current_idx});
     current_idx++;
   }
 
   for(auto it = edges.cbegin(); it != edges.cend(); it++)
   {
-    auto source_vtx = vertex_id_to_idx[it->first.first];
-    auto sink_vtx = vertex_id_to_idx[it->first.second];
+    auto source_vtx = vertex_id_to_idx[it->second.first.first];
+    auto sink_vtx = vertex_id_to_idx[it->second.first.second];
     graph.add_lane(source_vtx, sink_vtx);
-    if (it->second)
+    if (it->second.second)
     {
       graph.add_lane(sink_vtx, source_vtx);
     }
@@ -605,30 +607,45 @@ generate_test_graph_data(std::string map_name, VertexMap vertices, EdgeMap edges
   return std::pair<rmf_traffic::agv::Graph, VertexIdtoIdxMap>(graph, vertex_id_to_idx);
 }
 
+// TODO(BH): Might consider changing Proposal to include a getter function?
+rmf_utils::optional<rmf_traffic::schedule::Itinerary> get_participant_itinerary(
+    rmf_traffic::schedule::Negotiation::Proposal proposal, 
+    rmf_traffic::schedule::ParticipantId participant_id)
+{
+  for (auto submission : proposal)
+  {
+    if (submission.participant == participant_id)
+    {
+      return submission.itinerary;
+    }
+  }
+  return rmf_utils::nullopt;
+}
+
 // Preset Robot Configurations
 // Agent a(i) generates participant p(i), instantiated in tests
 //==============================================================================
 // a1
-const rmf_traffic::Profile a1_profile{
+const rmf_traffic::Profile a0_profile{
   rmf_traffic::geometry::make_final_convex<
     rmf_traffic::geometry::Circle>(1.0)
 };
 
-const rmf_traffic::agv::VehicleTraits a1_traits{
+const rmf_traffic::agv::VehicleTraits a0_traits{
   {0.7, 0.3},
   {1.0, 0.45},
-  a1_profile
+  a0_profile
 };
 
-const rmf_traffic::schedule::ParticipantDescription a1_description = {
+const rmf_traffic::schedule::ParticipantDescription a0_description = {
   "p1",
   "test_Negotiator",
   rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-  a1_profile
+  a0_profile
 };
 
-const ParticipantConfig a1_config = {
- a1_profile, a1_traits, a1_description
+const ParticipantConfig a0_config = {
+ a0_profile, a0_traits, a0_description
 };
 
 // Tests
@@ -643,15 +660,17 @@ SCENARIO("A Single Lane")
 
   /*    single_lane_map
    *
-   *    A(p) <-> B(p) <-> C(p)
+   *    A(p) <-> B(p) <-> C(p) <-> D(p)
    */
 
-  vertices.push_back({"A", {-1.0, 0.0}, IsParkingSpot(true)});
-  vertices.push_back({"B", {0.0, 0.0}, IsParkingSpot(true)});
-  vertices.push_back({"C", {1.0, 0.0}, IsParkingSpot(true)});
+  vertices.insert({"A", {{-1.0, 0.0}, IsParkingSpot(true)}});
+  vertices.insert({"B", {{0.0, 0.0}, IsParkingSpot(true)}});
+  vertices.insert({"C", {{1.0, 0.0}, IsParkingSpot(true)}});
+  vertices.insert({"D", {{2.0, 0.0}, IsParkingSpot(true)}});
 
-  edges.push_back({{"A", "B"}, IsBidirectional(true)});
-  edges.push_back({{"B", "C"}, IsBidirectional(true)});
+  edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
+  edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
+  edges.insert({"CD", {{"C", "D"}, IsBidirectional(true)}});
 
   auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
   auto graph = graph_data.first;
@@ -659,19 +678,19 @@ SCENARIO("A Single Lane")
 
   GIVEN("1 Participant")
   {
-    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a0_config.description, database);
 
-    WHEN("Negotiate moving from A to C")
+    WHEN("Negotiate moving A->D")
     {
       const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a0_config.traits};
 
       NegotiationRoom::Intentions intentions;
       intentions.insert({
           p1.id(),
           NegotiationRoom::Intention{
             {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["C"], // Goal Vertex
+            vertex_id_to_idx["D"], // Goal Vertex
             p1_planner_config // Planner Configuration ( Preset )
           }
           });
@@ -680,7 +699,81 @@ SCENARIO("A Single Lane")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
+
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
       }
+    }
+
+    WHEN("Negotiate moving A->D, D->B")
+    {
+      const auto time = std::chrono::steady_clock::now();
+      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a0_config.traits};
+
+      NegotiationRoom::Intentions intentions;
+      // A -> D
+      intentions.insert({
+          p1.id(),
+          NegotiationRoom::Intention{
+            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            vertex_id_to_idx["D"], // Goal Vertex
+            p1_planner_config // Planner Configuration ( Preset )
+          }
+          });
+
+      // D -> C
+      intentions.insert({
+          p1.id(),
+          NegotiationRoom::Intention{
+            {time + 10s, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
+            vertex_id_to_idx["B"], // Goal Vertex
+            p1_planner_config // Planner Configuration ( Preset )
+          }
+          });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        // TODO(BH): Consecutive intentions don't seem to result in an 'extended' proposal
+        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B"].first);
+      }
+
+    }
+
+    // TODO(BH): This test will not be valid until 'A->D, D->B is resolved.'
+    WHEN("Negotiate moving from A->D, C->B")
+    {
+      const auto time = std::chrono::steady_clock::now();
+      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a0_config.traits};
+
+      NegotiationRoom::Intentions intentions;
+      intentions.insert({
+          p1.id(),
+          NegotiationRoom::Intention{
+            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            vertex_id_to_idx["D"], // Goal Vertex
+            p1_planner_config // Planner Configuration ( Preset )
+          }
+          });
+
+      intentions.insert({
+          p1.id(),
+          NegotiationRoom::Intention{
+            {time + 10s, vertex_id_to_idx["C"], 0.0},  // Time, Start Vertex, Initial Orientation
+            vertex_id_to_idx["B"], // Goal Vertex
+            p1_planner_config // Planner Configuration ( Preset )
+          }
+        });
+
+      // TODO(BH): What should we expect in such a situation? I expect this to be invalid.
+      //THEN("Valid Proposal is found")
+      //{
+        //auto proposal = NegotiationRoom(database, intentions).solve();
+        //REQUIRE(proposal);
+      //}
     }
   }
 }
