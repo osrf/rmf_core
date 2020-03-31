@@ -145,6 +145,9 @@ public:
     // codes as well for maximum consistency.
     void reject();
 
+    /// Returns true if a proposal put on this table has been rejected.
+    bool rejected() const;
+
     /// If by_participant can respond to this table, then this will return a
     /// TablePtr that by_participant can submit a proposal to.
     ///

@@ -62,7 +62,17 @@ void SimpleResponder::submit(
 //==============================================================================
 void SimpleResponder::reject() const
 {
-  _pimpl->negotiation->table(_pimpl->to_accommodate)->reject();
+  const auto parent = _pimpl->negotiation->table(_pimpl->to_accommodate);
+  if (parent)
+  {
+    parent->reject();
+    return;
+  }
+
+  // TODO(MXG): This implies that the negotiation is completely impossible.
+  // Maybe this should be escalated to some kind of critical error for a human
+  // operator to resolve.
+  _pimpl->negotiation->table(_pimpl->for_participant, {})->reject();
 }
 
 } // namespace schedule

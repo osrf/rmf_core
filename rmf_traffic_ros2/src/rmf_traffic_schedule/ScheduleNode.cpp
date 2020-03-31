@@ -662,10 +662,13 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   {
     std::cout << "\n --";
     const bool finished = static_cast<bool>(t->submission());
+    const bool rejected = t->rejected();
     const auto sequence = t->sequence();
     for (std::size_t i=0; i < sequence.size(); ++i)
     {
-      if (i == t->sequence().size()-1 && !finished)
+      if (i == t->sequence().size()-1 && rejected)
+        std::cout << " <" << sequence[i] << ">";
+      else if (i == t->sequence().size()-1 && !finished)
         std::cout << " [" << sequence[i] << "]";
       else
         std::cout << " " << sequence[i];

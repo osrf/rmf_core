@@ -186,13 +186,17 @@ public:
     const auto it = std::remove_if(unsubmitted.begin(), unsubmitted.end(),
                    [&](const ParticipantId p) { return p == participant; });
     assert(it != unsubmitted.end());
-    unsubmitted.erase(it);
+    unsubmitted.erase(it, unsubmitted.end());
+
+    assert(std::find(unsubmitted.begin(), unsubmitted.end(), participant) == unsubmitted.end());
   }
 
   Viewer::View query(const Query::Spacetime& spacetime) const;
 
   void add_participant(const ParticipantId new_participant)
   {
+    assert(std::find(unsubmitted.begin(), unsubmitted.end(), new_participant) == unsubmitted.end());
+    assert(std::find(sequence.begin(), sequence.end(), new_participant) == sequence.end());
     unsubmitted.push_back(new_participant);
 
     if (itinerary)
@@ -207,6 +211,8 @@ public:
   {
     assert(itinerary);
     assert(proposal.size() == depth);
+
+    assert(std::find(unsubmitted.begin(), unsubmitted.end(), participant) == unsubmitted.end());
 
     std::unordered_map<ParticipantId, Table> descendants;
     for (const auto u : unsubmitted)
@@ -511,6 +517,7 @@ public:
       data->num_terminated_tables += termination_factor(rejected->depth, N);
 
     std::vector<TableMap*> queue;
+    std::vector<Table::Implementation*> current_tables;
     queue.push_back(&tables);
     while (!queue.empty())
     {
@@ -520,11 +527,17 @@ public:
       for (auto& element : *next)
       {
         const auto& entry = element.second;
-        Table::Implementation::get(*entry).add_participant(new_participant);
-
+        current_tables.push_back(&Table::Implementation::get(*entry));
         queue.push_back(&Table::Implementation::get(*entry).descendants);
       }
     }
+
+    // We collect all the current tables before adding the new participant to
+    // any of them, because if we try to traverse the tables and add the
+    // participant at the same time, we might accidentally traverse over tables
+    // that are being freshly created for the new participant.
+    for (auto* t : current_tables)
+      t->add_participant(new_participant);
 
     tables[new_participant] = Table::Implementation::make_root(
           *viewer, data, new_participant,
@@ -676,6 +689,12 @@ bool Negotiation::Table::submit(
 void Negotiation::Table::reject()
 {
   _pimpl->reject();
+}
+
+//==============================================================================
+bool Negotiation::Table::rejected() const
+{
+  return _pimpl->rejected;
 }
 
 //==============================================================================
