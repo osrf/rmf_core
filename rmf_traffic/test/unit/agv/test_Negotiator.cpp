@@ -561,7 +561,7 @@ using EdgeMap = std::vector<std::pair<EdgeVertices, IsBidirectional>>;
 
 using VertexIdtoIdxMap = std::unordered_map<VertexId, size_t>;
 
-using ParticipantId = std::string;
+using ParticipantName = std::string;
 using ParticipantIndex = size_t;
 
 struct ParticipantConfig
@@ -574,6 +574,7 @@ struct ParticipantConfig
 // Helper Functions
 //==============================================================================
 // Makes graph using text ids, and returns bookkeeping that maps ids to indices
+// TODO(BH): Perhaps some sort of book keeping can be introduced in Graph itself?
 std::pair<rmf_traffic::agv::Graph, VertexIdtoIdxMap> 
 generate_test_graph_data(std::string map_name, VertexMap vertices, EdgeMap edges)
 {
@@ -604,20 +605,10 @@ generate_test_graph_data(std::string map_name, VertexMap vertices, EdgeMap edges
   return std::pair<rmf_traffic::agv::Graph, VertexIdtoIdxMap>(graph, vertex_id_to_idx);
 }
 
-// Makes participant, but also appends to a bookkeeping data structure to map ids to indices
-rmf_traffic::schedule::Participant 
-generate_test_participant(
-    ParticipantConfig config, 
-    rmf_traffic::schedule::Database& database,
-    std::unordered_map<ParticipantId, ParticipantIndex>& participant_ids)
-{
-  participant_ids.insert({config.description.name(), participant_ids.size()});
-  return rmf_traffic::schedule::make_participant(config.description, database);
-}
-
 // Preset Robot Configurations
+// Agent a(i) generates participant p(i), instantiated in tests
 //==============================================================================
-// P1
+// a1
 const rmf_traffic::Profile a1_profile{
   rmf_traffic::geometry::make_final_convex<
     rmf_traffic::geometry::Circle>(1.0)
@@ -636,7 +627,7 @@ const rmf_traffic::schedule::ParticipantDescription a1_description = {
   a1_profile
 };
 
-const ParticipantConfig p1_config = {
+const ParticipantConfig a1_config = {
  a1_profile, a1_traits, a1_description
 };
 
@@ -665,31 +656,31 @@ SCENARIO("A Single Lane")
   auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
   auto graph = graph_data.first;
   auto vertex_id_to_idx = graph_data.second;
-  std::unordered_map<ParticipantId, ParticipantIndex> participant_ids;
 
   GIVEN("1 Participant")
   {
-    auto p1 = generate_test_participant(p1_config, database, participant_ids);
-  }
-  WHEN("Negotiation")
-  {
-    const auto time = std::chrono::steady_clock::now();
-    rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, p1_config.traits};
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
 
-    NegotiationRoom::Intentions intentions;
-    intentions.insert({
-        participant_ids[p1_config.description.name()],
-        NegotiationRoom::Intention{
-          {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
-          vertex_id_to_idx["C"], // Goal Vertex
-          p1_planner_config // Planner Configuration ( Preset )
-        }
-        });
-
-    THEN("Proposal is found")
+    WHEN("Negotiate moving from A to C")
     {
-      auto proposal = NegotiationRoom(database, intentions).solve();
-      REQUIRE(proposal);
+      const auto time = std::chrono::steady_clock::now();
+      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+      NegotiationRoom::Intentions intentions;
+      intentions.insert({
+          p1.id(),
+          NegotiationRoom::Intention{
+            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            vertex_id_to_idx["C"], // Goal Vertex
+            p1_planner_config // Planner Configuration ( Preset )
+          }
+          });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+      }
     }
   }
 }
