@@ -64,7 +64,7 @@ public:
         table(table_)
     {
       // Do nothing
-      std::cout << " -- Requesting response for ["
+      std::cout << " -- [" << conflict_version << "] Requesting response for ["
                 << table_to_string(table->sequence()) << " ]" << std::endl;
     }
 
@@ -381,7 +381,7 @@ public:
       return;
     }
 
-    std::cout << "Received proposal for ["
+    std::cout << "[" << msg.conflict_version << "] Received proposal for ["
               << table_to_string(msg.to_accommodate) << " "
               << msg.for_participant << " ]" << std::endl;
 
@@ -391,10 +391,16 @@ public:
         table->submit(convert(msg.itinerary), msg.proposal_version);
 
     if (!updated)
+    {
+      std::cout << " -- Ignoring: Not an update" << std::endl;
       return;
+    }
 
     if (!participating)
+    {
+      std::cout << " -- Ignoring: Not participating" << std::endl;
       return;
+    }
 
     for (const auto& n : *negotiators)
     {
@@ -403,9 +409,14 @@ public:
 
       if (const auto can_respond = table->respond(participant))
       {
+        std::cout << " -- [" << participant << "] is responding" << std::endl;
         negotiator->respond(
               can_respond,
               Responder(this, msg.conflict_version, can_respond));
+      }
+      else
+      {
+        std::cout << " -- [" << participant << "] does not need to respond" << std::endl;
       }
     }
   }
@@ -495,7 +506,7 @@ public:
       const Version conflict_version,
       const Negotiation::Table& table)
   {
-    std::cout << " -- Publishing proposal for ["
+    std::cout << " -- [" << conflict_version << "] Publishing proposal for ["
               << table_to_string(table.sequence()) << " ]" << std::endl;
 
     Proposal msg;
@@ -519,7 +530,7 @@ public:
       const Version conflict_version,
       const Negotiation::Table& table)
   {
-    std::cout << " -- Publishing rejection for ["
+    std::cout << " -- [" << conflict_version << "] Publishing rejection for ["
               << table_to_string(table.sequence()) << " ]" << std::endl;
 
     Rejection msg;
