@@ -133,3 +133,79 @@ SCENARIO("Identify a failed negotiation")
 
   CHECK(negotiation->complete());
 }
+
+//==============================================================================
+SCENARIO("Submit after a rejection")
+{
+  class MockResponder : public rmf_traffic::schedule::Negotiator::Responder
+  {
+  public:
+
+    rmf_traffic::schedule::Negotiation::TablePtr table;
+    bool* accepted;
+    rmf_utils::optional<rmf_traffic::schedule::Version>* version;
+
+    MockResponder(
+          rmf_traffic::schedule::Negotiation::TablePtr table_,
+          bool* accepted_,
+          rmf_utils::optional<rmf_traffic::schedule::Version>* version_)
+      : table(table_),
+        accepted(accepted_),
+        version(version_)
+    {
+      // Do nothing
+    }
+
+    void submit(
+          std::vector<rmf_traffic::Route> itinerary,
+          std::function<void()> /*approval_callback*/) const final
+    {
+      *version = table->version()? *table->version() + 1 : 0;
+      *accepted = table->submit(std::move(itinerary), **version);
+    }
+
+    void reject() const
+    {
+      const auto parent = table->parent();
+      if (parent)
+        parent->reject();
+      else
+        table->reject();
+    }
+
+  };
+
+  rmf_traffic::schedule::Database database;
+  auto negotiation =
+      std::make_shared<rmf_traffic::schedule::Negotiation>(
+        database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 1});
+
+  bool accepted = false;
+  rmf_utils::optional<rmf_traffic::schedule::Version> version;
+
+  MockResponder responder(negotiation->table(0, {}), &accepted, &version);
+  MockNegotiator().submit().respond(responder.table, responder);
+
+  CHECK(accepted);
+  REQUIRE(version);
+  CHECK(*version == 0);
+  const auto last_version = *version;
+
+  accepted = false;
+  version = rmf_utils::nullopt;
+  MockResponder child_responder(negotiation->table(1, {0}), &accepted, &version);
+  MockNegotiator().reject().respond(child_responder.table, child_responder);
+
+  CHECK_FALSE(version);
+  CHECK_FALSE(accepted);
+
+  accepted = false;
+  version = rmf_utils::nullopt;
+  MockResponder reresponder(responder.table, &accepted, &version);
+  MockNegotiator().submit().respond(reresponder.table, reresponder);
+
+  CHECK(accepted);
+  REQUIRE(version);
+  CHECK(last_version < *version);
+  CHECK(*version == 1);
+}

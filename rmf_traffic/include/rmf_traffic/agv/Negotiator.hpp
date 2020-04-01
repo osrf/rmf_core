@@ -77,8 +77,7 @@ public:
       const Options& options = Options());
 
   // Documentation inherited
-  void respond(
-      std::shared_ptr<const schedule::Negotiation::Table> table,
+  void respond(std::shared_ptr<const schedule::Negotiation::Table> table,
       const Responder& responder,
       const bool* interrupt_flag = nullptr) final;
 

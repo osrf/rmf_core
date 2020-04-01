@@ -124,7 +124,7 @@ public:
   const ParticipantId participant;
   const std::size_t depth;
   rmf_utils::optional<Itinerary> itinerary;
-  Version version = std::numeric_limits<Version>::max();
+  rmf_utils::optional<Version> version;
   bool rejected = false;
   TableMap descendants;
 
@@ -258,7 +258,7 @@ public:
       std::vector<Route> new_itinerary,
       const Version new_version)
   {
-    if (!modular(version).less_than(new_version))
+    if (version && modular(new_version).less_than_or_equal(*version))
       return false;
 
     bool formerly_successful = false;
@@ -321,8 +321,13 @@ public:
       negotiation_data->num_terminated_tables -= 1;
     }
 
+    if (itinerary)
+    {
+      itinerary = rmf_utils::nullopt;
+      proposal.pop_back();
+    }
+
     rejected = true;
-    itinerary = rmf_utils::nullopt;
     clear_descendants();
 
     if (negotiation_data)
@@ -653,8 +658,8 @@ const Itinerary* Negotiation::Table::submission() const
 //==============================================================================
 const Version* Negotiation::Table::version() const
 {
-  if (_pimpl->itinerary)
-    return &_pimpl->version;
+  if (_pimpl->version)
+    return &(*_pimpl->version);
 
   return nullptr;
 }

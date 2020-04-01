@@ -368,10 +368,10 @@ public:
 
     const bool participating = negotiate_it->second.participating;
     Negotiation& negotiation = negotiate_it->second.negotiation;
-    const auto table =
+    const auto received_table =
         negotiation.table(msg.for_participant, msg.to_accommodate);
 
-    if (!table)
+    if (!received_table)
     {
       // TODO(MXG): Work out a scheme for caching inconsistent proposals
       // so that the negotiation can be reconstructed after requesting some
@@ -396,7 +396,7 @@ public:
     // We'll keep track of these negotiations whether or not we're participating
     // in them, because
     const bool updated =
-        table->submit(convert(msg.itinerary), msg.proposal_version);
+        received_table->submit(convert(msg.itinerary), msg.proposal_version);
 
     if (!updated)
     {
@@ -410,21 +410,35 @@ public:
       return;
     }
 
-    for (const auto& n : *negotiators)
+    std::vector<TablePtr> queue;
+    queue.push_back(received_table);
+    while (!queue.empty())
     {
-      const ParticipantId participant = n.first;
-      const auto& negotiator = n.second;
+      const auto top = queue.back();
+      queue.pop_back();
 
-      if (const auto can_respond = table->respond(participant))
+      for (const auto& n : *negotiators)
       {
-        std::cout << " -- [" << participant << "] is responding" << std::endl;
-        negotiator->respond(
-              can_respond,
-              Responder(this, msg.conflict_version, can_respond));
-      }
-      else
-      {
-        std::cout << " -- [" << participant << "] does not need to respond" << std::endl;
+        const ParticipantId participant = n.first;
+        const auto& negotiator = n.second;
+
+        if (const auto respond_to = top->respond(participant))
+        {
+          std::cout << " -- [" << participant << "] is responding to ["
+                    << table_to_string(respond_to->sequence()) << " ]"
+                    << std::endl;
+
+          negotiator->respond(
+                respond_to,
+                Responder(this, msg.conflict_version, respond_to));
+
+          if (respond_to->submission())
+            queue.push_back(respond_to);
+        }
+        else
+        {
+          std::cout << " -- [" << participant << "] does not need to respond" << std::endl;
+        }
       }
     }
   }
