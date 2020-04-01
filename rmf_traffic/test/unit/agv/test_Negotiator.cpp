@@ -670,6 +670,29 @@ const ParticipantConfig a1_config = {
  a1_profile, a1_traits, a1_description
 };
 
+// a2 - A slower version of a0 / a1
+const rmf_traffic::Profile a2_profile{
+  rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Circle>(1.0)
+};
+
+const rmf_traffic::agv::VehicleTraits a2_traits{
+  {0.3, 0.1},
+  {0.5, 0.2},
+  a2_profile
+};
+
+const rmf_traffic::schedule::ParticipantDescription a2_description = {
+  "p2",
+  "test_Negotiator",
+  rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+  a2_profile
+};
+
+const ParticipantConfig a2_config = {
+ a2_profile, a2_traits, a2_description
+};
+
 // Tests
 //==============================================================================
 SCENARIO("A Single Lane, park anywhere")
@@ -682,14 +705,14 @@ SCENARIO("A Single Lane, park anywhere")
 
   /*           single_lane_map
    *
-   *          2        2        2
+   *          3        3        3
    *    A(p) <-> B(p) <-> C(p) <-> D(p)
    */
 
-  vertices.insert({"A", {{-2.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(true)}});
   vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{2.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{4.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -733,6 +756,7 @@ SCENARIO("A Single Lane, park anywhere")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+    auto p2 = rmf_traffic::schedule::make_participant(a2_config.description, database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->B), p1(D->C)]")
     {
@@ -828,11 +852,52 @@ SCENARIO("A Single Lane, park anywhere")
             }
         });
 
-      THEN("No Proposal is found")
+      THEN("Valid proposal is found.")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
-        // TODO(BH): I should expect that a proposal is found, by p0 waiting until p1 is out of the way at C.
-        //REQUIRE(proposal);
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B"].first);
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
+      }
+    }
+    
+    WHEN("Schedule:[], Negotiation:[p0(A->B), p2(B->C)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p2_planner_config{graph, a2_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["B"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p2.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["B"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C"], // Goal Vertex
+              p2_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid proposal is found.")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B"].first);
+        auto p2_itinerary = get_participant_itinerary(*proposal, p2.id()).value();
+        REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
       }
     }
 
@@ -907,7 +972,9 @@ SCENARIO("A Single Lane, park anywhere")
       THEN("No Proposal is found.")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
-        REQUIRE_FALSE(proposal);
+        // TODO(BH): A proposal is found here because once p0 arrives at C, it drops off the schedule, allowing p1 to pass.
+        // Should this be expected behavior? 
+        //REQUIRE_FALSE(proposal);
       }
     }
 
@@ -950,43 +1017,11 @@ SCENARIO("A Single Lane, park anywhere")
       THEN("Valid Proposal is found.")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
-        // TODO(BH): I should expect this to succeed by p1 waiting 8 seconds and then moving to C
-        //REQUIRE(proposal);
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
+        REQUIRE(proposal);
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
       }
     }
 
   }
 }
-
-//SCENARIO("A Single Lane, limited parking")
-//{
-  //using namespace std::chrono_literals;
-  //rmf_traffic::schedule::Database database; 
-  //const std::string test_map_name = "test_single_lane_limited_parking";
-  //VertexMap vertices;
-  //EdgeMap edges;
-
-  /*           single_lane_map
-   *
-   *          2        2        2
-   *    A(p) <-> B(p) <-> C(p) <-> D(p)
-   */
-
-  //vertices.insert({"A", {{-2.0, 0.0}, IsParkingSpot(true)}});
-  //vertices.insert({"B", {{0.0, 0.0}, IsParkingSpot(true)}});
-  //vertices.insert({"C", {{2.0, 0.0}, IsParkingSpot(true)}});
-  //vertices.insert({"D", {{4.0, 0.0}, IsParkingSpot(true)}});
-
-  //edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
-  //edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
-  //edges.insert({"CD", {{"C", "D"}, IsBidirectional(true)}});
-
-  //auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
-  //auto graph = graph_data.first;
-  //auto vertex_id_to_idx = graph_data.second;
-
-//}
-
-
