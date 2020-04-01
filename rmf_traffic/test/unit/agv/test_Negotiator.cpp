@@ -703,32 +703,6 @@ SCENARIO("A Single Lane")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
 
-    WHEN("Schedule:[], Negotiation:[p0(A->A)]")
-    {
-      const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
-
-      NegotiationRoom::Intentions intentions;
-      intentions.insert({
-          p0.id(),
-          NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["A"], // Goal Vertex
-            p0_planner_config // Planner Configuration ( Preset )
-          }
-      });
-
-      // TODO(BH): Segfault happens here
-      //THEN("Valid Proposal is found")
-      //{
-        //auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
-
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
-      //}
-    }
-
     WHEN("Schedule:[], Negotiation:[p0(A->D)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -753,77 +727,6 @@ SCENARIO("A Single Lane")
         REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
       }
     }
-
-    WHEN("Schedule:[], Negotiation:[p(A->D, D->B)]")
-    {
-      const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
-
-      NegotiationRoom::Intentions intentions;
-      // A -> D
-      intentions.insert({
-          p0.id(),
-          NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["D"], // Goal Vertex
-            p0_planner_config // Planner Configuration ( Preset )
-          }
-          });
-
-      // D -> C
-      intentions.insert({
-          p0.id(),
-          NegotiationRoom::Intention{
-            {time + 10s, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["B"], // Goal Vertex
-            p0_planner_config // Planner Configuration ( Preset )
-          }
-          });
-
-      THEN("Valid Proposal is found")
-      {
-        auto proposal = NegotiationRoom(database, intentions).solve();
-        REQUIRE(proposal);
-
-        // TODO(BH): Consecutive intentions don't seem to result in an 'extended' proposal
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B"].first);
-      }
-
-    }
-
-    // TODO(BH): This test will not be valid until 'A->D, D->B is resolved.'
-    WHEN("Schedule:[], Negotiation:[p(A->D, C->B)]")
-    {
-      const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
-
-      NegotiationRoom::Intentions intentions;
-      intentions.insert({
-          p0.id(),
-          NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["D"], // Goal Vertex
-            p0_planner_config // Planner Configuration ( Preset )
-          }
-          });
-
-      intentions.insert({
-          p0.id(),
-          NegotiationRoom::Intention{
-            {time + 10s, vertex_id_to_idx["C"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["B"], // Goal Vertex
-            p0_planner_config // Planner Configuration ( Preset )
-          }
-        });
-
-      // TODO(BH): What should we expect in such a situation where D->B is unintended?
-      //THEN("Valid Proposal is found")
-      //{
-        //auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE_FALSE(proposal);
-      //}
-    }
   }
 
   GIVEN("2 Participants")
@@ -831,7 +734,6 @@ SCENARIO("A Single Lane")
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
 
-    // No conflicts expected
     WHEN("Schedule:[], Negotiation:[p0(A->B), p1(D->C)]")
     {
         const auto time = std::chrono::steady_clock::now();
@@ -869,7 +771,6 @@ SCENARIO("A Single Lane")
       }
     }
 
-    // Identical Start Points, expect failure
     WHEN("Schedule:[], Negotiation:[p0(A->B), p1(A->C)]")
     {
         const auto time = std::chrono::steady_clock::now();
@@ -900,44 +801,6 @@ SCENARIO("A Single Lane")
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE_FALSE(proposal);
       }
-    }
-
-    // TODO(BH): This test is invalid until p0(A->A) is resolved.
-    WHEN("Schedule:[p0(A->C)], Negotiation:[p1(D->D)]")
-    {
-        const auto time = std::chrono::steady_clock::now();
-        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
-        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
-
-        rmf_traffic::agv::Planner a0_planner{
-          p0_planner_config, 
-          rmf_traffic::agv::Planner::Options{nullptr, 1s} // No route validator, holding time 1s
-        };
-
-        const auto a0_plan_0 = a0_planner.plan(
-            {time, vertex_id_to_idx["A"], 0.0},
-            {vertex_id_to_idx["C"]}
-            );
-
-        p0.set(a0_plan_0->get_itinerary());
-
-        NegotiationRoom::Intentions intentions;
-        
-        intentions.insert({
-            p1.id(),
-            NegotiationRoom::Intention{
-              {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
-              vertex_id_to_idx["D"], // Goal Vertex
-              p1_planner_config // Planner Configuration ( Preset )
-            }
-        });
-
-      //THEN("Valid Proposal is found.")
-      //{
-        //auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
-        //print_proposal(*proposal);
-      //}
     }
 
     WHEN("Schedule:[p0(A->B)], Negotiation:[p1(D->C)]")
