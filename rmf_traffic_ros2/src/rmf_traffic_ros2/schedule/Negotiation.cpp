@@ -314,7 +314,6 @@ public:
     // TODO(MXG): Is the participating flag even relevant?
     participating = true;
 
-    std::vector<TablePtr> queue;
     for (const auto p : msg.participants)
     {
       const auto it = negotiators->find(p);
@@ -326,15 +325,28 @@ public:
           it->second->respond(
                 table, Responder(this, msg.conflict_version, table));
         }
-
-        queue.push_back(table);
       }
     }
 
-    while (!queue.empty())
+    std::vector<TablePtr> respond_queue;
+    std::vector<TablePtr> traverse_queue;
+    for (const auto p : negotiation.participants())
+      traverse_queue.push_back(negotiation.table(p, {}));
+
+    while (!traverse_queue.empty())
     {
-      const auto top = queue.back();
-      queue.pop_back();
+      const auto top = traverse_queue.back();
+      traverse_queue.pop_back();
+      respond_queue.push_back(top);
+
+      for (const auto& child : top->children())
+        traverse_queue.push_back(child);
+    }
+
+    while (!respond_queue.empty())
+    {
+      const auto top = respond_queue.back();
+      respond_queue.pop_back();
 
       for (const auto& n : *negotiators)
       {
@@ -348,7 +360,7 @@ public:
                 respond_to, Responder(this, msg.conflict_version, respond_to));
         }
 
-        queue.push_back(respond_to);
+        respond_queue.push_back(respond_to);
       }
     }
   }
