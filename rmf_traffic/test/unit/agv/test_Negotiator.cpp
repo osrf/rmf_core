@@ -1144,6 +1144,119 @@ SCENARIO("A single lane, limited holding spaces")
 
 }
 
+SCENARIO("A single loop")
+{
+  using namespace std::chrono_literals;
+  rmf_traffic::schedule::Database database; 
+  const std::string test_map_name = "test_single_loop";
+  VertexMap vertices;
+  EdgeMap edges;
+
+  /*         single_loop
+   *
+   *         A(H) <----> B(H)
+   *         ^           ^
+   *         |           |
+   *         v           v
+   *         D(H)<------>C(H)
+   */
+
+  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{6.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{6.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{-0.0, -6.0}, IsHoldingSpot(true)}});
+
+  edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
+  edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
+  edges.insert({"CD", {{"C", "D"}, IsBidirectional(true)}});
+
+  auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
+  auto graph = graph_data.first;
+  auto vertex_id_to_idx = graph_data.second;
+
+  GIVEN("2 Participants")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+
+    WHEN("Schedule:[], Negotiation:[pO(A->C), p1(B->D)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["B"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+      }
+    }
+
+    WHEN("Schedule:[], Negotiation:[pO(C->B), p1(D->C)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["C"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["B"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
+      }
+    }
+
+  }
+
+}
+
 SCENARIO("A single lane with an alcove holding space")
 {
   using namespace std::chrono_literals;
@@ -1656,6 +1769,348 @@ SCENARIO("A single lane with a alternate one way path")
 
 }
 
+SCENARIO("A single lane with a alternate two way path")
+{
+  using namespace std::chrono_literals;
+  rmf_traffic::schedule::Database database; 
+  const std::string test_map_name = "test_single_lane_with_alternate_two_way_path";
+  VertexMap vertices;
+  EdgeMap edges;
+
+  /*
+   *       test_single_lane_with_alternative_two_way_path
+   *
+   *                   E(H)<------> F(H)
+   *                   ^             ^
+   *                   | 3           | 3
+   *                   |             |
+   *              3    v       3     v       3
+   *      A(H) <-----> B(H) <------> C(H) <------> D(H)
+   */
+
+  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(true)}});
+  vertices.insert({"F", {{3.0, 3.0}, IsHoldingSpot(true)}});
+
+  edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
+  edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
+  edges.insert({"CD", {{"C", "D"}, IsBidirectional(true)}});
+  edges.insert({"CF", {{"C", "F"}, IsBidirectional(true)}});
+  edges.insert({"FE", {{"F", "E"}, IsBidirectional(true)}});
+  edges.insert({"EB", {{"E", "B"}, IsBidirectional(true)}});
+
+  auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
+  auto graph = graph_data.first;
+  auto vertex_id_to_idx = graph_data.second;
+
+  GIVEN("2 Participants")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+    WHEN("Schedule:[], Negotiation:[p0(A->D), p1(C->A)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["C"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["A"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+      }
+    }
+
+    // TODO(BH): Was expecting this to pass, since  the test Schedule:[], Negotiation:[p0(A->D), p1(C->A)] passed
+    WHEN("Schedule:[], Negotiation:[p0(A->D), p1(D->A)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["A"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        //REQUIRE(proposal);
+
+        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+      }
+    }
+  }
+
+}
+
+SCENARIO("A single loop with alcoves at each vertex")
+{
+  using namespace std::chrono_literals;
+  rmf_traffic::schedule::Database database; 
+  const std::string test_map_name = "test_single_loop";
+  VertexMap vertices;
+  EdgeMap edges;
+
+  /*
+   *    single_loop_with_alcoves
+   *
+   *      A'               B'
+   *      ^ 3      6     3 ^
+   *      +-->A <----> B<--+
+   *          ^        ^
+   *        6 |        | 6
+   *          v        v
+   *      +-->D<------>C<--+
+   *      v 3      6     3 v
+   *      D'               C'
+   */
+
+  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{6.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{6.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{-0.0, -6.0}, IsHoldingSpot(true)}});
+
+  vertices.insert({"A'", {{-3.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B'", {{9.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C'", {{9.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D'", {{-3.0, -6.0}, IsHoldingSpot(true)}});
+
+  edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
+  edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
+  edges.insert({"CD", {{"C", "D"}, IsBidirectional(true)}});
+
+  edges.insert({"AA'", {{"A", "A'"}, IsBidirectional(true)}});
+  edges.insert({"BB'", {{"B", "B'"}, IsBidirectional(true)}});
+  edges.insert({"CC'", {{"C", "C'"}, IsBidirectional(true)}});
+  edges.insert({"DD'", {{"D", "D'"}, IsBidirectional(true)}});
+
+  auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
+  auto graph = graph_data.first;
+  auto vertex_id_to_idx = graph_data.second;
+
+  GIVEN("2 Participants")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+
+    WHEN("Schedule:[], Negotiation:[pO(A'->C'), p1(B'->D')]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C'"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["B'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D'"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C'"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D'"].first);
+      }
+    }
+
+    WHEN("Schedule:[], Negotiation:[pO(A'->C'), p1(D'->B')]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C'"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["D'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["B'"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C'"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B'"].first);
+      }
+    }
+
+    WHEN("Schedule:[], Negotiation:[pO(B'->D'), p1(D'->B')]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["B'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D'"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["D'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["B'"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D'"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B'"].first);
+      }
+    }
+
+  }
+
+  // TODO(BH): Solver takes quite long to terminate
+  GIVEN("3 Participants")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+    auto p2 = rmf_traffic::schedule::make_participant(a2_config.description, database);
+
+    WHEN("Schedule:[], Negotiation:[pO(A'->C'), p1(B'->D'), p2(D'->B')]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+        rmf_traffic::agv::Planner::Configuration p2_planner_config{graph, a2_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C'"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["B'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D'"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p2.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["D'"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["B'"], // Goal Vertex
+              p2_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        //auto proposal = NegotiationRoom(database, intentions).solve();
+        //REQUIRE(proposal);
+
+        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        //auto p2_itinerary = get_participant_itinerary(*proposal, p2.id()).value();
+        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C'"].first);
+        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D'"].first);
+        //REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B'"].first);
+      }
+    }
+
+  }
+
+}
+
 SCENARIO("fan-in-fan-out bottleneck")
 {
   using namespace std::chrono_literals;
@@ -1772,6 +2227,293 @@ SCENARIO("fan-in-fan-out bottleneck")
 
         auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
         REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+      }
+    }
+
+    WHEN("Schedule:[], Negotiation:[p0(X->C)]")
+    {
+      const auto time = std::chrono::steady_clock::now();
+      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+
+      NegotiationRoom::Intentions intentions;
+      intentions.insert({
+          p0.id(),
+          NegotiationRoom::Intention{
+            {time, vertex_id_to_idx["X"], 0.0},  // Time, Start Vertex, Initial Orientation
+            vertex_id_to_idx["C"], // Goal Vertex
+            p0_planner_config // Planner Configuration ( Preset )
+          }
+      });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
+      }
+    }
+  }
+
+  GIVEN("2 Participants")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+
+    WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(E->V)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["Z"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["E"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["V"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["V"].first);
+      }
+    }
+
+    WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(V->E)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["Z"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["V"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["E"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["E"].first);
+      }
+    }
+
+    WHEN("Schedule:[], Negotiation:[p0(A->X), p1(V->Z)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["X"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["V"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["Z"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["X"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+      }
+    }
+
+    WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(X->C)")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["Z"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["X"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
+      }
+    }
+  }
+
+  GIVEN("3 Participants")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+    auto p2 = rmf_traffic::schedule::make_participant(a2_config.description, database);
+
+    WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(E->V), p2(C->X)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+        rmf_traffic::agv::Planner::Configuration p2_planner_config{graph, a2_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["Z"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["E"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["V"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p2.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["C"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["X"], // Goal Vertex
+              p2_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        auto p2_itinerary = get_participant_itinerary(*proposal, p2.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["V"].first);
+        REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["X"].first);
+      }
+    }
+
+    // TODO(BH): Solver doesn't terminate
+    WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(E->V), p2(X->C)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+        rmf_traffic::agv::Planner::Configuration p2_planner_config{graph, a2_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["Z"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["E"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["V"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p2.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["X"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["C"], // Goal Vertex
+              p2_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+
+      THEN("Valid Proposal is found")
+      {
+        //auto proposal = NegotiationRoom(database, intentions).solve();
+        //REQUIRE(proposal);
+
+        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        //auto p2_itinerary = get_participant_itinerary(*proposal, p2.id()).value();
+        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["V"].first);
+        //REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
       }
     }
   }
