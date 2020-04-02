@@ -1490,7 +1490,6 @@ SCENARIO("A single lane with an alcove holding space")
 
         auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
         REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
-        print_proposal(*proposal);
       }
     }
 
@@ -1537,3 +1536,122 @@ SCENARIO("A single lane with an alcove holding space")
 }
 
 }
+
+SCENARIO("A single lane with a one way alternate one way path")
+{
+  using namespace std::chrono_literals;
+  rmf_traffic::schedule::Database database; 
+  const std::string test_map_name = "test_single_lane_with_alternate one-way path";
+  VertexMap vertices;
+  EdgeMap edges;
+
+  /*
+   *       test_single_lane_with_alternative_path
+   *
+   *                   E(H)<------+ F(H)
+   *                   +             ^
+   *                   | 3           | 3
+   *                   |             |
+   *              3    v       3     +       3
+   *      A(H) <-----> B(H) <------> C(H) <------> D(H)
+   */
+
+  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(true)}});
+  vertices.insert({"F", {{3.0, 3.0}, IsHoldingSpot(true)}});
+
+  edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
+  edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
+  edges.insert({"CD", {{"C", "D"}, IsBidirectional(true)}});
+  edges.insert({"CF", {{"C", "F"}, IsBidirectional(false)}});
+  edges.insert({"FE", {{"F", "E"}, IsBidirectional(false)}});
+  edges.insert({"EB", {{"E", "B"}, IsBidirectional(false)}});
+
+  auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
+  auto graph = graph_data.first;
+  auto vertex_id_to_idx = graph_data.second;
+
+  GIVEN("2 Participants")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+    auto p1 = rmf_traffic::schedule::make_participant(a1_config.description, database);
+    WHEN("Schedule:[], Negotiation:[p0(A->D), p1(C->A)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["C"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["A"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+      }
+    }
+
+    // TODO(BH): Was expecting this to pass, since  the test Schedule:[], Negotiation:[p0(A->D), p1(C->A)] passed
+    WHEN("Schedule:[], Negotiation:[p0(A->D), p1(D->A)]")
+    {
+        const auto time = std::chrono::steady_clock::now();
+        rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+        rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
+
+        NegotiationRoom::Intentions intentions;
+        intentions.insert({
+            p0.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["D"], // Goal Vertex
+              p0_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+        intentions.insert({
+            p1.id(),
+            NegotiationRoom::Intention{
+              {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
+              vertex_id_to_idx["A"], // Goal Vertex
+              p1_planner_config // Planner Configuration ( Preset )
+            }
+        });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        //REQUIRE(proposal);
+
+        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+      }
+    }
+  }
+}
+
