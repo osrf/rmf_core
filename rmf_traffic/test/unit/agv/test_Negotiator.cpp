@@ -1537,7 +1537,7 @@ SCENARIO("A single lane with an alcove holding space")
 
 }
 
-SCENARIO("A single lane with a one way alternate one way path")
+SCENARIO("A single lane with a alternate one way path")
 {
   using namespace std::chrono_literals;
   rmf_traffic::schedule::Database database; 
@@ -1653,5 +1653,126 @@ SCENARIO("A single lane with a one way alternate one way path")
       }
     }
   }
+
 }
 
+SCENARIO("fan-in-fan-out bottleneck")
+{
+  using namespace std::chrono_literals;
+  rmf_traffic::schedule::Database database; 
+  const std::string test_map_name = "test_fan_in_fan_out";
+  VertexMap vertices;
+  EdgeMap edges;
+
+  /*
+   *        fan_in_fan_out (All lengths are 3)
+   *
+   *        A(H)    B(H)    C(H)   D(H)    E(H)
+   *        ^       ^       ^      ^       ^
+   *        |       |       |      |       |
+   *        v       v       v      v       v
+   *        A'<---> B'<---> C'<--->D'<---> E'
+   *                        ^
+   *                        |
+   *                        v
+   *                        F
+   *                        ^
+   *                        |
+   *                        v
+   *        V'<---> W'<---> X'<--->Y'<---> Z'
+   *        ^       ^       ^      ^       ^
+   *        |       |       |      |       |
+   *        v       v       v      v       v
+   *        V(H)    W(H)    X(H)   Y(H)    Z(H)
+   *
+   *
+   *
+   */
+
+  // Vertices
+  vertices.insert({"A", {{-6.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{3.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{0.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{3.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"E", {{6.0, 6.0}, IsHoldingSpot(true)}});
+
+  vertices.insert({"A'", {{-6.0, 3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B'", {{3.0, 3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C'", {{0.0, 3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D'", {{3.0, 3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"E'", {{6.0, 3.0}, IsHoldingSpot(false)}});
+
+  vertices.insert({"F", {{0.0, 0.0}, IsHoldingSpot(false)}});
+
+  vertices.insert({"V'", {{-6.0, -3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"W'", {{3.0, -3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"X'", {{0.0, -3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"Y'", {{3.0, -3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"Z'", {{6.0, -3.0}, IsHoldingSpot(false)}});
+
+  vertices.insert({"V", {{-6.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"W", {{3.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"X", {{0.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"Y", {{3.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"Z", {{6.0, -6.0}, IsHoldingSpot(true)}});
+
+  // Edges
+  edges.insert({"AA'", {{"A", "A'"}, IsBidirectional(true)}});
+  edges.insert({"BB'", {{"B", "B'"}, IsBidirectional(true)}});
+  edges.insert({"CC'", {{"C", "C'"}, IsBidirectional(true)}});
+  edges.insert({"DD'", {{"D", "D'"}, IsBidirectional(true)}});
+  edges.insert({"EE'", {{"E", "E'"}, IsBidirectional(true)}});
+
+  edges.insert({"A'B'", {{"A'", "B'"}, IsBidirectional(true)}});
+  edges.insert({"B'C'", {{"B'", "C'"}, IsBidirectional(true)}});
+  edges.insert({"C'D'", {{"C'", "D'"}, IsBidirectional(true)}});
+  edges.insert({"D'E'", {{"D'", "E'"}, IsBidirectional(true)}});
+
+  edges.insert({"VV'", {{"V", "V'"}, IsBidirectional(true)}});
+  edges.insert({"WW'", {{"W", "W'"}, IsBidirectional(true)}});
+  edges.insert({"XX'", {{"X", "X'"}, IsBidirectional(true)}});
+  edges.insert({"YY'", {{"Y", "Y'"}, IsBidirectional(true)}});
+  edges.insert({"ZZ'", {{"Z", "Z'"}, IsBidirectional(true)}});
+
+  edges.insert({"V'W'", {{"V'", "W'"}, IsBidirectional(true)}});
+  edges.insert({"W'X'", {{"W'", "X'"}, IsBidirectional(true)}});
+  edges.insert({"X'Y'", {{"X'", "Y'"}, IsBidirectional(true)}});
+  edges.insert({"Y'Z'", {{"Y'", "Z'"}, IsBidirectional(true)}});
+
+  edges.insert({"C'F", {{"C'", "F"}, IsBidirectional(true)}});
+  edges.insert({"X'F", {{"X'", "F"}, IsBidirectional(true)}});
+
+  auto graph_data = generate_test_graph_data(test_map_name, vertices, edges);
+  auto graph = graph_data.first;
+  auto vertex_id_to_idx = graph_data.second;
+
+  GIVEN("1 Participant")
+  {
+    auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
+
+    WHEN("Schedule:[], Negotiation:[p0(A->Z)]")
+    {
+      const auto time = std::chrono::steady_clock::now();
+      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+
+      NegotiationRoom::Intentions intentions;
+      intentions.insert({
+          p0.id(),
+          NegotiationRoom::Intention{
+            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            vertex_id_to_idx["Z"], // Goal Vertex
+            p0_planner_config // Planner Configuration ( Preset )
+          }
+      });
+
+      THEN("Valid Proposal is found")
+      {
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
+
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
+      }
+    }
+  }
+}
