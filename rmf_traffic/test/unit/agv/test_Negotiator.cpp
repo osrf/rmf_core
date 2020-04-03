@@ -2527,15 +2527,15 @@ SCENARIO("Fully connected graph of 10 vertices")
   EdgeMap edges;
 
   vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{1.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{2.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"E", {{4.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"F", {{5.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"G", {{6.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"H", {{7.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"I", {{8.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"J", {{9.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{3.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{6.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{9.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"E", {{12.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"F", {{15.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"G", {{18.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"H", {{21.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"I", {{24.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"J", {{27.0, 0.0}, IsHoldingSpot(true)}});
 
   std::string vtxs = "ABCDEFGHIJ";
   for(char&v_source : vtxs)
@@ -2584,7 +2584,7 @@ SCENARIO("Fully connected graph of 10 vertices")
     }
   }
 
-  // TODO(BH): Valid proposal not found.
+  // Proposal not found.
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description, database);
@@ -2594,6 +2594,7 @@ SCENARIO("Fully connected graph of 10 vertices")
     {
       const auto time = std::chrono::steady_clock::now();
       rmf_traffic::agv::Planner::Configuration p0_planner_config{graph, a0_config.traits};
+      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph, a1_config.traits};
 
       NegotiationRoom::Intentions intentions;
       intentions.insert({
@@ -2610,7 +2611,7 @@ SCENARIO("Fully connected graph of 10 vertices")
           NegotiationRoom::Intention{
             {time, vertex_id_to_idx["J"], 0.0},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["A"], // Goal Vertex
-            p0_planner_config // Planner Configuration ( Preset )
+            p1_planner_config // Planner Configuration ( Preset )
           }
       });
 
