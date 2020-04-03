@@ -228,7 +228,7 @@ void FleetAdapterNode::RobotContext::respond(
     std::cerr << "[FleetAdatperNode::RobotContext::respond] "
               << "Responding to a negotiation while not performing a task"
               << std::endl;
-    responder.submit({}, [](){});
+    responder.submit({});
   }
 }
 

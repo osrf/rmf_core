@@ -55,16 +55,11 @@ public:
   static std::vector<Caster> casters;
   static std::size_t num_shape_types;
 
-  ShapeContextImpl()
-  {
-    shapes.resize(num_shape_types);
-  }
+  ShapeContextImpl() { }
 
   template<typename DerivedShape>
   void add(const std::size_t type_index)
   {
-    initialized = true;
-
     casters.push_back(
           [=](const ShapeTypePtr& shape) -> std::size_t
     {

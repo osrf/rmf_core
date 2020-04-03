@@ -139,11 +139,13 @@ public:
     /// Reject the proposals that underlie this Negotiation::Table. This
     /// indicates that the underlying proposals are infeasible for the
     /// Participant of this Table to accommodate.
-    //
-    // TODO(MXG): Versioning should be added to rejections as well as
-    // submissions. In fact, version numbers should be added to table sequence
-    // codes as well for maximum consistency.
-    void reject();
+    ///
+    /// \param[in] version
+    ///   A version number assigned to the submission. If this is equal to or
+    ///   greater than the last version number given, then this table will be
+    ///   put into a rejected state until a higher proposal version is
+    ///   submitted.
+    void reject(Version version);
 
     /// Returns true if a proposal put on this table has been rejected.
     bool rejected() const;

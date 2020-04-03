@@ -15,6 +15,8 @@
  *
 */
 
+#include "NegotiationRoom.hpp"
+
 #include <rmf_traffic_ros2/Route.hpp>
 #include <rmf_traffic_ros2/schedule/Itinerary.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
@@ -70,7 +72,7 @@ public:
 
     void submit(
         std::vector<rmf_traffic::Route> itinerary,
-        std::function<void()> approval_callback) const final
+        std::function<UpdateVersion()> approval_callback) const final
     {
       const auto* last_version = table->version();
       const bool accepted = table->submit(itinerary, last_version? *last_version+1 : 0);
@@ -87,7 +89,8 @@ public:
       {
         // We will reject the parent to communicate that this whole branch is
         // infeasible
-        parent->reject();
+        assert(parent->version());
+        parent->reject(*parent->version());
         impl->publish_rejection(conflict_version, *parent);
       }
       else if (table->ongoing())
@@ -95,7 +98,7 @@ public:
         // This means that the whole negotiation is completely impossible.
         // TODO(MXG): Improve this by having the planner reveal what vehicle is
         // blocking progress so we can add it to the negotiation
-        table->reject();
+        table->reject(table->version()? *table->version() : 0);
         impl->publish_rejection(conflict_version, *table);
       }
     }
@@ -133,6 +136,7 @@ public:
   using ConclusionSub = rclcpp::Subscription<Conclusion>;
   ConclusionSub::SharedPtr conclusion_sub;
 
+  using ParticipantAck = rmf_traffic_msgs::msg::ScheduleConflictParticipantAck;
   using Ack = rmf_traffic_msgs::msg::ScheduleConflictAck;
   using AckPub = rclcpp::Publisher<Ack>;
   AckPub::SharedPtr ack_pub;
@@ -149,7 +153,7 @@ public:
   struct Entry
   {
     bool participating;
-    Negotiation negotiation;
+    NegotiationRoom room;
   };
 
   using NegotiationMap = std::unordered_map<Version, Entry>;
@@ -158,7 +162,9 @@ public:
   NegotiationMap negotiations;
 
   using TablePtr = rmf_traffic::schedule::Negotiation::TablePtr;
-  using ApprovalCallbackMap = std::unordered_map<TablePtr, std::function<void()>>;
+  using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
+  using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
+  using ApprovalCallbackMap = std::unordered_map<TablePtr, std::function<UpdateVersion()>>;
   using Approvals = std::unordered_map<Version, ApprovalCallbackMap>;
   Approvals approvals;
 
@@ -170,7 +176,7 @@ public:
       negotiators(std::make_shared<NegotiatorMap>())
   {
     // TODO(MXG): Make the QoS configurable
-    const auto qos = rclcpp::ServicesQoS();
+    const auto qos = rclcpp::ServicesQoS().reliable();
 
     repeat_sub = node.create_subscription<Repeat>(
           ScheduleConflictRepeatTopicName, qos,
@@ -247,7 +253,7 @@ public:
     auto to_accommodate = msg.table;
     to_accommodate.pop_back();
 
-    const auto table = negotiate_it->second.negotiation.table(
+    const auto table = negotiate_it->second.room.negotiation.table(
           for_participant, to_accommodate);
     if (!table)
     {
@@ -258,6 +264,7 @@ public:
           + table_to_string(msg.table) + " ]";
 
       RCLCPP_WARN(node.get_logger(), error);
+
       return;
     }
 
@@ -288,7 +295,8 @@ public:
 
     const bool is_new = insertion.second;
     bool& participating = insertion.first->second.participating;
-    Negotiation& negotiation = insertion.first->second.negotiation;
+    auto& room = insertion.first->second.room;
+    Negotiation& negotiation = room.negotiation;
 
     if (!is_new)
     {
@@ -379,7 +387,8 @@ public:
     }
 
     const bool participating = negotiate_it->second.participating;
-    Negotiation& negotiation = negotiate_it->second.negotiation;
+    auto& room = negotiate_it->second.room;
+    Negotiation& negotiation = room.negotiation;
     const auto received_table =
         negotiation.table(msg.for_participant, msg.to_accommodate);
 
@@ -398,6 +407,7 @@ public:
       error += " " + std::to_string(msg.for_participant) + " ]";
 
       RCLCPP_WARN(node.get_logger(), error);
+      room.cached_proposals.push_back(msg);
       return;
     }
 
@@ -406,7 +416,8 @@ public:
               << msg.for_participant << " ]" << std::endl;
 
     // We'll keep track of these negotiations whether or not we're participating
-    // in them, because
+    // in them, because one of our negotiators might get added to it in the
+    // future
     const bool updated =
         received_table->submit(convert(msg.itinerary), msg.proposal_version);
 
@@ -416,13 +427,14 @@ public:
       return;
     }
 
+    std::vector<TablePtr> queue = room.check_cache();
+
     if (!participating)
     {
       std::cout << " -- Ignoring: Not participating" << std::endl;
       return;
     }
 
-    std::vector<TablePtr> queue;
     queue.push_back(received_table);
     while (!queue.empty())
     {
@@ -466,17 +478,17 @@ public:
       return;
     }
 
-    Negotiation& negotiation = negotiate_it->second.negotiation;
+    auto& room = negotiate_it->second.room;
+    Negotiation& negotiation = room.negotiation;
     const auto table = negotiation.table(msg.table);
     if (!table)
     {
-      // TODO(MXG): Work out a scheme for caching inconsistent rejections so
-      // that the negotiation can be reconstructed after requesting some
-      // repeats.
+      room.cached_rejections.push_back(msg);
       return;
     }
 
-    table->reject();
+    table->reject(msg.proposal_version);
+    room.check_cache();
     // TODO(MXG): Give the negotiator a chance to offer a new proposal.
   }
 
@@ -490,44 +502,108 @@ public:
     }
 
     const bool participating = negotiate_it->second.participating;
-    Negotiation& negotiation = negotiate_it->second.negotiation;
+    auto& room = negotiate_it->second.room;
+    Negotiation& negotiation = room.negotiation;
 
     if (participating)
     {
+      std::string print_creating = " --- Creating acknowledgment of ["
+          + std::to_string(msg.conflict_version) + "]:";
+      for (const auto t : msg.table)
+        print_creating += " " + std::to_string(t);
+      std::cout << print_creating << std::endl;
+
+      std::vector<ParticipantAck> acknowledgments;
+
       const auto approval_callback_it = approvals.find(msg.conflict_version);
       if (msg.resolved)
       {
         assert(approval_callback_it != approvals.end());
         const auto& approval_callbacks = approval_callback_it->second;
 
-        auto result = negotiation.table(msg.table);
-
-        while (result)
+        for (std::size_t i=1; i <= msg.table.size(); ++i)
         {
-          const auto approve_it = approval_callbacks.find(result);
-          if (approve_it != approval_callbacks.end())
-            approve_it->second();
+          const auto table = negotiation.table(
+                std::vector<ParticipantId>(
+                  msg.table.begin(), msg.table.begin()+i));
 
-          result = result->parent();
+          if (!table)
+            break;
+
+          const auto approve_it = approval_callbacks.find(table);
+          std::cout << " == Checking on [" << table->participant() << "]" << std::endl;
+          if (approve_it != approval_callbacks.end())
+          {
+            ParticipantAck p_ack;
+            p_ack.participant = table->participant();
+            p_ack.updating = false;
+            const auto& approval_cb = approve_it->second;
+            if (approval_cb)
+            {
+              std::cout << " == indicating approval" << std::endl;
+              const auto update_version = approval_cb();
+              std::cout << " == done with approval" << std::endl;
+              if (update_version)
+              {
+                p_ack.updating = true;
+                p_ack.itinerary_version = *update_version;
+              }
+            }
+
+            std::cout << " -- adding accepted acknowledgment of ["
+                      << msg.conflict_version << "] for [" << table->participant()
+                      << "]" << std::endl;
+            acknowledgments.emplace_back(std::move(p_ack));
+          }
+          else
+          {
+            std::cout << " -- ignoring accepted acknowledgment of ["
+                      << msg.conflict_version << "] for [" << table->participant()
+                      << "]" << std::endl;
+          }
+        }
+      }
+      else
+      {
+        ParticipantAck p_ack;
+        p_ack.updating = false;
+        for (const auto p : negotiation.participants())
+        {
+          if (negotiators->count(p) !=0)
+          {
+            p_ack.participant = p;
+            std::cout << " -- adding rejection acknowledgment of ["
+                      << msg.conflict_version << "] for [" << p << "]" << std::endl;
+            acknowledgments.push_back(p_ack);
+          }
+          else
+          {
+            std::cout << " -- ignoring rejection acknowledgment of ["
+                      << msg.conflict_version << "] for [" << p << "]" << std::endl;
+          }
         }
       }
 
       if (approval_callback_it != approvals.end())
         approvals.erase(approval_callback_it);
 
-      std::vector<ParticipantId> participants;
-      participants.reserve(negotiators->size());
-      for (const auto p : negotiation.participants())
-      {
-        const auto n_it = negotiators->find(p);
-        if (n_it != negotiators->end())
-          participants.push_back(n_it->first);
-      }
-
       // Acknowledge that we know about this conclusion
       Ack ack;
       ack.conflict_version = msg.conflict_version;
-      ack.participants = std::move(participants);
+      ack.acknowledgments = std::move(acknowledgments);
+
+      // If we are participating in this negotiation, then the acknowledgments
+      // must not be empty, or else there is a bug somewhere.
+      assert(!ack.acknowledgments.empty());
+
+      std::string print_ack = "\n -- Publishing acknowledgment for ["
+                + std::to_string(ack.conflict_version) + "]:";
+      for (const auto& p : ack.acknowledgments)
+        print_ack += " [" + std::to_string(p.participant) + ":"
+            + std::to_string(p.updating) + ":"
+            + std::to_string(p.itinerary_version);
+      std::cout << print_ack << "\n" << std::endl;
+
       ack_pub->publish(ack);
       // TODO(MXG): Should we consider a more robust cache cleanup strategy?
     }
@@ -569,6 +645,7 @@ public:
 
     Rejection msg;
     msg.conflict_version = conflict_version;
+    msg.proposal_version = table.version()? *table.version() : 0;
     msg.table = table.sequence();
     rejection_pub->publish(msg);
   }

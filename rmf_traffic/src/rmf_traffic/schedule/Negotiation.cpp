@@ -17,9 +17,10 @@
 
 #include <rmf_traffic/schedule/Negotiation.hpp>
 
-#include "Modular.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
+
+#include <rmf_utils/Modular.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -124,7 +125,7 @@ public:
   const ParticipantId participant;
   const std::size_t depth;
   rmf_utils::optional<Itinerary> itinerary;
-  rmf_utils::optional<Version> version;
+  rmf_utils::optional<Version> version = rmf_utils::nullopt;
   bool rejected = false;
   TableMap descendants;
 
@@ -258,8 +259,10 @@ public:
       std::vector<Route> new_itinerary,
       const Version new_version)
   {
-    if (version && modular(new_version).less_than_or_equal(*version))
+    if (version && rmf_utils::modular(new_version).less_than_or_equal(*version))
       return false;
+
+    version = new_version;
 
     bool formerly_successful = false;
     const auto negotiation_data = weak_negotiation_data.lock();
@@ -278,7 +281,6 @@ public:
 
     const bool had_itinerary = itinerary.has_value();
 
-    version = new_version;
     itinerary = convert_itinerary(new_itinerary);
     rejected = false;
 
@@ -306,8 +308,13 @@ public:
     return true;
   }
 
-  void reject()
+  void reject(const Version rejected_version)
   {
+    if (version && rmf_utils::modular(rejected_version).less_than(*version))
+      return;
+
+    version = rejected_version;
+
     if (rejected)
       return;
 
@@ -691,9 +698,9 @@ bool Negotiation::Table::submit(
 }
 
 //==============================================================================
-void Negotiation::Table::reject()
+void Negotiation::Table::reject(const Version version)
 {
-  _pimpl->reject();
+  _pimpl->reject(version);
 }
 
 //==============================================================================

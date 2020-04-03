@@ -45,9 +45,11 @@ public:
       {
         add<rmf_traffic::geometry::Box>(rmf_traffic_msgs::msg::Shape::BOX);
         add<rmf_traffic::geometry::Circle>(rmf_traffic_msgs::msg::Shape::CIRCLE);
-        shapes.resize(num_shape_types);
+        initialized = true;
       }
     }
+
+    shapes.resize(num_shape_types);
   }
 
   static const Implementation& get(const ShapeContext& parent)

@@ -20,6 +20,8 @@
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_traffic_ros2/Trajectory.hpp>
 
+#include <rmf_traffic/DetectConflict.hpp>
+
 #include <rmf_utils/math.hpp>
 
 #include "../rmf_fleet_adapter/make_trajectory.hpp"
@@ -116,7 +118,7 @@ public:
 
     const auto& planner = _node->get_planner();
 
-    Eigen::Vector3d pose = 
+    Eigen::Vector3d pose =
         {_context->location.x, _context->location.y, _context->location.yaw};
     const auto start_time = 
         rmf_traffic_ros2::convert(_node->get_clock()->now()) + start_delay;
@@ -256,6 +258,55 @@ public:
       const Responder& responder,
       const bool* interrupt_flag) final
   {
+    if (_event_executor.do_not_negotiate())
+    {
+      const auto& itinerary = _context->schedule.participant().itinerary();
+
+      const auto proposal = table->proposal();
+      const auto& profile = _context->schedule.description().profile();
+      for (const auto& p : proposal)
+      {
+        const auto other_participant =
+            _node->get_fields().mirror.viewer().get_participant(p.participant);
+        if (!other_participant)
+        {
+          // TODO(MXG): This is lazy and sloppy. For now we just reject the
+          // negotiation if we don't know about the other participant. In the
+          // future, we should have a way to wait until the participant
+          // information is available.
+          assert(false);
+          return responder.reject();
+        }
+
+        const auto& other_profile = other_participant->profile();
+
+        for (const auto& other_route : p.itinerary)
+        {
+          for (const auto& item : itinerary)
+          {
+            if (item.route->map() != other_route->map())
+              continue;
+
+            if (rmf_traffic::DetectConflict::between(
+                  profile,
+                  item.route->trajectory(),
+                  other_profile,
+                  other_route->trajectory()))
+            {
+              return responder.reject();
+            }
+          }
+        }
+      }
+
+      std::vector<rmf_traffic::Route> submission;
+      for (const auto& item : itinerary)
+        submission.push_back(*item.route);
+
+      responder.submit(std::move(submission));
+      return;
+    }
+
     // TODO(MXG): Do something with the interrupt flag
     std::vector<rmf_traffic::agv::Plan> plans =
         find_plan(
@@ -275,12 +326,17 @@ public:
           std::move(itinerary),
           [this, table, plans = std::move(plans),
            weak_handle = std::move(weak_handle)]()
+          -> rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
     {
       auto handle = weak_handle.lock();
       if (!handle)
-        return;
+        return rmf_utils::nullopt;
 
+      std::cout << " ====== INTENDED STARTING TIME: "
+                << rmf_traffic::time::to_seconds(plans.front().get_itinerary().front().trajectory().start_time()->time_since_epoch())
+                << std::endl;
       execute_plan(std::move(plans));
+      return _context->schedule.participant().version();
     });
   }
 
@@ -413,13 +469,10 @@ public:
     return routes;
   }
 
-
   void execute_plan(std::vector<rmf_traffic::agv::Plan> plans)
   {
     assert(!plans.empty());
-    _context->schedule.push_routes(
-          collect_routes(plans),
-          [&, plans](){ command_plans(plans); });
+    command_plans(plans);
   }
 
   void command_plans(std::vector<rmf_traffic::agv::Plan> plans)
@@ -511,10 +564,24 @@ public:
                 _remaining_waypoints.begin(),
                 _remaining_waypoints.begin()+i);
 
-    const auto previous_delay = _finish_estimate - _original_finish_estimate;
-    std::cout << "Noting previous delay: " << rmf_traffic::time::to_seconds(previous_delay)
+    if (_issued_waypoints.empty())
+    {
+      _context->schedule.push_routes({});
+      return;
+    }
+
+    const std::string& map_name = _node->get_graph().get_waypoint(0).get_map_name();
+    const auto trajectory = make_trajectory(
+          _issued_waypoints.front().time(),
+          _command->path,
+          _node->get_fields().traits);
+    _context->schedule.push_routes({{map_name, trajectory}});
+
+    std::cout << " ====== USING STARTING TIME: "
+              << rmf_traffic::time::to_seconds(_issued_waypoints.front().time().time_since_epoch())
               << std::endl;
 
+    const auto previous_delay = _finish_estimate - _original_finish_estimate;
     _finish_estimate = _issued_waypoints.back().time() + previous_delay;
     _original_finish_estimate = _finish_estimate;
 
@@ -522,6 +589,22 @@ public:
     _command_time = _node->get_clock()->now();
     _reported_excessive_delay = false;
     _task->report_status();
+  }
+
+  void report_holding()
+  {
+    const std::string& map_name = _node->get_graph().get_waypoint(0).get_map_name();
+    // NOTE(MXG): 10 minutes is a crazy estimate, but it should help keep other
+    // vehicles from disrupting the traversal.
+    _context->schedule.push_routes({
+          rmf_traffic::Route{
+            map_name,
+            make_hold(
+              _context->location,
+              rmf_traffic_ros2::convert(_node->now()),
+              std::chrono::minutes(10))
+          }
+    });
   }
 
   void publish_command()
@@ -709,7 +792,7 @@ public:
     else
     {
       const std::string& map_name = _node->get_graph().get_waypoint(0).get_map_name();
-      _context->schedule.push_routes({{map_name, trajectory_estimate}}, [](){});
+      _context->schedule.push_routes({{map_name, trajectory_estimate}});
       _finish_estimate = new_finish_estimate;
       _original_finish_estimate = _finish_estimate;
     }
@@ -737,7 +820,7 @@ public:
 
       const std::string& map_name =
           _node->get_graph().get_waypoint(0).get_map_name();
-      _context->schedule.push_routes({{map_name, wait_trajectory}}, [](){});
+      _context->schedule.push_routes({{map_name, wait_trajectory}});
     }
     else
     {
@@ -821,6 +904,11 @@ public:
       return _is_active;
     }
 
+    bool do_not_negotiate() const
+    {
+      return _is_active || _is_using_door;
+    }
+
     void request_docking(const std::string& dock_name)
     {
       ModeRequest request;
@@ -856,8 +944,9 @@ public:
       ++_parent->_command_id;
       _parent->_task->report_status();
       request_docking(_parent->_current_dock_name);
+      // NOTE: We do not report a holding here, because the vehicle is moving
+      // while docking
     }
-
 
     void request_door_mode(
         const std::string& door_name,
@@ -892,6 +981,9 @@ public:
       {
         _parent->_event_listener.door = nullptr;
         _is_active = false;
+        if (mode == DoorMode::MODE_CLOSED)
+          _is_using_door = false;
+
         _parent->send_next_command();
         return;
       }
@@ -909,6 +1001,7 @@ public:
         return;
 
       _is_active = true;
+      _is_using_door = true;
 
       const std::string door_name = open.name();
       const auto initial_time = _parent->_node->get_clock()->now();
@@ -948,6 +1041,7 @@ public:
 
       _parent->_task->report_status();
       request_door_mode(door_name, DoorMode::MODE_CLOSED);
+      _parent->report_holding();
     }
 
     void request_lift_mode(
@@ -1028,6 +1122,7 @@ public:
             lift_name, floor_name,
             LiftRequest::REQUEST_AGV_MODE,
             LiftRequest::DOOR_OPEN);
+      _parent->report_holding();
     }
 
     void execute(const Lane::LiftDoorClose& close) final
@@ -1071,6 +1166,8 @@ public:
               LiftRequest::REQUEST_AGV_MODE,
               LiftRequest::DOOR_OPEN);
       };
+
+      _parent->report_holding();
     }
 
     void cancel()
@@ -1086,6 +1183,7 @@ public:
     rclcpp::Time _command_time;
     MoveAction* const _parent;
     bool _is_active;
+    bool _is_using_door = false;
   };
 
   void execute() final

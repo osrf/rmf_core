@@ -158,7 +158,7 @@ SCENARIO("Submit after a rejection")
 
     void submit(
           std::vector<rmf_traffic::Route> itinerary,
-          std::function<void()> /*approval_callback*/) const final
+          std::function<UpdateVersion()>) const final
     {
       *version = table->version()? *table->version() + 1 : 0;
       *accepted = table->submit(std::move(itinerary), **version);
@@ -168,9 +168,9 @@ SCENARIO("Submit after a rejection")
     {
       const auto parent = table->parent();
       if (parent)
-        parent->reject();
+        parent->reject(*parent->version());
       else
-        table->reject();
+        table->reject(table->version()? *table->version() : 0);
     }
 
   };
