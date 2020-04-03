@@ -328,13 +328,15 @@ public:
            weak_handle = std::move(weak_handle)]()
           -> rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
     {
+      std::cout << " == locking handle" << std::endl;
       auto handle = weak_handle.lock();
       if (!handle)
+      {
+        std::cout << " == lock expired" << std::endl;
         return rmf_utils::nullopt;
+      }
 
-      std::cout << " ====== INTENDED STARTING TIME: "
-                << rmf_traffic::time::to_seconds(plans.front().get_itinerary().front().trajectory().start_time()->time_since_epoch())
-                << std::endl;
+      std::cout << " == handle locked. plan size: " << plans.size() << std::endl;
       execute_plan(std::move(plans));
       return _context->schedule.participant().version();
     });
