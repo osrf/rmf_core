@@ -776,7 +776,8 @@ public:
     const auto new_finish_estimate = *trajectory_estimate.finish_time();
 
     const auto total_delay = new_finish_estimate - _original_finish_estimate;
-    if (std::chrono::seconds(10) < total_delay)
+    if (!_event_executor.do_not_negotiate()
+        && std::chrono::seconds(10) < total_delay)
     {
       RCLCPP_INFO(
             _node->get_logger(),
