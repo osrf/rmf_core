@@ -17,7 +17,6 @@
 
 #include "ChangeInternal.hpp"
 #include "InconsistenciesInternal.hpp"
-#include "Modular.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
 #include "debug_Database.hpp"
@@ -25,6 +24,8 @@
 #include "../detail/internal_bidirectional_iterator.hpp"
 
 #include <rmf_traffic/schedule/Database.hpp>
+
+#include <rmf_utils/Modular.hpp>
 
 #include <algorithm>
 #include <list>
@@ -402,7 +403,7 @@ void Database::set(
 
   Implementation::ParticipantState& state = p_it->second;
 
-  if (modular(version).less_than(state.tracker->expected_version()))
+  if (rmf_utils::modular(version).less_than(state.tracker->expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
@@ -450,7 +451,7 @@ void Database::extend(
   Implementation::ParticipantState& state = p_it->second;
 
   assert(state.tracker);
-  if (modular(version).less_than(state.tracker->expected_version()))
+  if (rmf_utils::modular(version).less_than(state.tracker->expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
@@ -493,7 +494,7 @@ void Database::delay(
   Implementation::ParticipantState& state = p_it->second;
 
   assert(state.tracker);
-  if (modular(version).less_than(state.tracker->expected_version()))
+  if (rmf_utils::modular(version).less_than(state.tracker->expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
@@ -527,7 +528,7 @@ void Database::erase(
   Implementation::ParticipantState& state = p_it->second;
 
   assert(state.tracker);
-  if (modular(version).less_than(state.tracker->expected_version()))
+  if (rmf_utils::modular(version).less_than(state.tracker->expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
@@ -563,7 +564,7 @@ void Database::erase(
   Implementation::ParticipantState& state = p_it->second;
 
   assert(state.tracker);
-  if (modular(version).less_than(state.tracker->expected_version()))
+  if (rmf_utils::modular(version).less_than(state.tracker->expected_version()))
   {
     // This is an old change, possibly a retransmission requested by a different
     // database tracker, so we will ignore it.
@@ -708,7 +709,7 @@ public:
   const RouteEntry* get_last_known_ancestor(const RouteEntry* from) const
   {
     assert(from);
-    while (from && modular(_after).less_than(from->schedule_version))
+    while (from && rmf_utils::modular(_after).less_than(from->schedule_version))
     {
       if (from->transition)
         from = from->transition->predecessor.get();
@@ -717,7 +718,7 @@ public:
     }
 
     while (from->successor
-           && modular(from->successor->schedule_version)
+           && rmf_utils::modular(from->successor->schedule_version)
                 .less_than_or_equal(_after))
     {
       from = from->successor;
@@ -887,7 +888,7 @@ public:
       const std::function<bool(const RouteEntry&)>& relevant) final
   {
     entry = get_most_recent(entry);
-    if (modular(after).less_than(entry->schedule_version)
+    if (rmf_utils::modular(after).less_than(entry->schedule_version)
         && entry->route && relevant(*entry))
     {
       routes.emplace_back(
@@ -1157,6 +1158,20 @@ Version Database::cull(Time time)
 void Database::set_current_time(Time time)
 {
   _pimpl->current_time = time;
+}
+
+//==============================================================================
+ItineraryVersion Database::itinerary_version(ParticipantId participant) const
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+          "[Database::itinerary_version] No participant with ID ["
+          + std::to_string(participant) + "]");
+  }
+
+  return p_it->second.tracker->last_known_version();
 }
 
 } // namespace schedule

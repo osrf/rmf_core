@@ -17,7 +17,8 @@
 
 #include "InconsistencyTracker.hpp"
 #include "InconsistenciesInternal.hpp"
-#include "Modular.hpp"
+
+#include <rmf_utils/Modular.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -75,7 +76,7 @@ auto InconsistencyTracker::check(
   using Range = Inconsistencies::Ranges::Range;
 
   // Check if this is the lastest itinerary version for this trajectory
-  if (modular(_last_known_version).less_than(version))
+  if (rmf_utils::modular(_last_known_version).less_than(version))
     _last_known_version = version;
 
   if (_ranges.empty())
@@ -98,7 +99,7 @@ auto InconsistencyTracker::check(
 
     // This should have been checked earlier by the caller, but we will assert
     // it here just to make sure.
-    assert(!modular(version).less_than(_expected_version));
+    assert(!rmf_utils::modular(version).less_than(_expected_version));
 
     // This is the only inconsistency, so it should be easy to fill in the set:
     _ranges.insert(Range{_expected_version, version-1});
@@ -197,7 +198,7 @@ auto InconsistencyTracker::check(
         const ItineraryVersion lower = (++_changes.rbegin())->first + 1;
         const ItineraryVersion upper = version - 1;
 
-        if (modular(lower).less_than_or_equal(upper))
+        if (rmf_utils::modular(lower).less_than_or_equal(upper))
         {
           // Less than:
           // x x o x x x o _ _ _
@@ -300,7 +301,7 @@ auto InconsistencyTracker::check(
           // The lower end of a range must be less than or equal to the upper
           // end of the range. We already confirmed that it is not equal, so it
           // must be less.
-          assert(modular(lower).less_than(version));
+          assert(rmf_utils::modular(lower).less_than(version));
 
           _ranges.insert(range_it, Range{lower, version-1});
           _ranges.erase(range_it);
@@ -310,7 +311,7 @@ auto InconsistencyTracker::check(
       }
       else
       {
-        assert(modular(version).less_than(upper));
+        assert(rmf_utils::modular(version).less_than(upper));
         if (lower == version)
         {
           // x x o x x x o
@@ -328,7 +329,7 @@ auto InconsistencyTracker::check(
           // be a change that was already received (so we should have exited
           // this function already) or the call to ranges.lower_bound(version)
           // should have returned a different iterator.
-          assert(modular(lower).less_than(version));
+          assert(rmf_utils::modular(lower).less_than(version));
 
           // x x o x x x o
           //         ^

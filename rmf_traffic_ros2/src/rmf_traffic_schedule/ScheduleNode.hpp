@@ -18,6 +18,8 @@
 #ifndef SRC__RMF_TRAFFIC_SCHEDULE__SCHEDULENODE_HPP
 #define SRC__RMF_TRAFFIC_SCHEDULE__SCHEDULENODE_HPP
 
+#include "../rmf_traffic_ros2/schedule/NegotiationRoom.hpp"
+
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 
@@ -48,6 +50,8 @@
 #include <rmf_traffic_msgs/srv/unregister_participant.hpp>
 
 #include <rmf_traffic_msgs/msg/schedule_conflict_notice.hpp>
+
+#include <rmf_utils/Modular.hpp>
 
 #include <set>
 #include <unordered_map>
@@ -172,7 +176,31 @@ public:
   std::condition_variable conflict_check_cv;
   std::atomic_bool conflict_check_quit;
 
+  using ConflictAck = rmf_traffic_msgs::msg::ScheduleConflictAck;
+  using ConflictAckSub = rclcpp::Subscription<ConflictAck>;
+  ConflictAckSub::SharedPtr conflict_ack_sub;
+  void receive_conclusion_ack(const ConflictAck& msg);
+
+  using ConflictNotice = rmf_traffic_msgs::msg::ScheduleConflictNotice;
+  using ConflictNoticePub = rclcpp::Publisher<ConflictNotice>;
+  ConflictNoticePub::SharedPtr conflict_notice_pub;
+
+  using ConflictProposal = rmf_traffic_msgs::msg::ScheduleConflictProposal;
+  using ConflictProposalSub = rclcpp::Subscription<ConflictProposal>;
+  ConflictProposalSub::SharedPtr conflict_proposal_sub;
+  void receive_proposal(const ConflictProposal& msg);
+
+  using ConflictRejection = rmf_traffic_msgs::msg::ScheduleConflictRejection;
+  using ConflictRejectionSub = rclcpp::Subscription<ConflictRejection>;
+  ConflictRejectionSub::SharedPtr conflict_rejection_sub;
+  void receive_rejection(const ConflictRejection& msg);
+
+  using ConflictConclusion = rmf_traffic_msgs::msg::ScheduleConflictConclusion;
+  using ConflictConclusionPub = rclcpp::Publisher<ConflictConclusion>;
+  ConflictConclusionPub::SharedPtr conflict_conclusion_pub;
+
   using Version = rmf_traffic::schedule::Version;
+  using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
   using ParticipantId = rmf_traffic::schedule::ParticipantId;
   using ConflictSet = std::unordered_set<ParticipantId>;
 
@@ -182,7 +210,13 @@ public:
   {
   public:
 
+    using NegotiationRoom = rmf_traffic_ros2::schedule::NegotiationRoom;
     using Entry = std::pair<Version, const Negotiation*>;
+    struct Wait
+    {
+      Version negotiation_version;
+      rmf_utils::optional<ItineraryVersion> itinerary_update_version;
+    };
 
     ConflictRecord(const rmf_traffic::schedule::Viewer& viewer)
       : _viewer(viewer)
@@ -196,6 +230,15 @@ public:
       const Version* existing_negotiation = nullptr;
       for (const auto c : conflicts)
       {
+        const auto wait_it = _waiting.find(c);
+        if (wait_it != _waiting.end())
+        {
+          // Ignore conflicts with participants that we're waiting for an update
+          // from. Otherwise we might announce conflicts for them faster than
+          // they can respond to them.
+          return rmf_utils::nullopt;
+        }
+
         const auto it = _version.find(c);
         if (it != _version.end())
         {
@@ -233,13 +276,13 @@ public:
       else
       {
         for (const auto p : add_to_negotiation)
-          update_negotiation->add_participant(p);
+          update_negotiation->negotiation.add_participant(p);
       }
 
-      return Entry{negotiation_version, &(*update_negotiation)};
+      return Entry{negotiation_version, &update_negotiation->negotiation};
     }
 
-    rmf_traffic::schedule::Negotiation* negotiation(const Version version)
+    NegotiationRoom* negotiation(const Version version)
     {
       const auto it = _negotiations.find(version);
       if (it == _negotiations.end())
@@ -256,65 +299,87 @@ public:
       if (negotiation_it == _negotiations.end())
         return;
 
-      const auto& participants = negotiation_it->second->participants();
-      _awaiting_acknowledgment[version] = participants;
+      const auto& participants =
+          negotiation_it->second->negotiation.participants();
 
       for (const auto p : participants)
+      {
+        const auto insertion =
+            _waiting.insert({p, Wait{version, rmf_utils::nullopt}});
+
+        assert(insertion.second);
+        (void)(insertion);
         _version.erase(p);
+      }
 
       _negotiations.erase(negotiation_it);
     }
 
-    void acknowledge(const Version version, const ParticipantId p)
+    // Tell the ConflictRecord what ItineraryVersion will resolve this
+    // negotiation.
+    void acknowledge(
+        const Version negotiation_version,
+        const ParticipantId p,
+        const rmf_utils::optional<ItineraryVersion> update_version)
     {
-      const auto wait_it = _awaiting_acknowledgment.find(version);
-      if (wait_it == _awaiting_acknowledgment.end())
+      const auto wait_it = _waiting.find(p);
+      if (wait_it == _waiting.end())
+      {
+        assert(false);
+        // TODO(MXG): We should probably output some warning here using
+        // RCLCPP_WARN
+        std::cout << "[ScheduleNode::ConflictRecord::acknowledge] We are NOT "
+                  << "waiting for an acknowledgment from participant [" << p
+                  << "]" << std::endl;
+        return;
+      }
+
+      const auto expected_negotiation = wait_it->second.negotiation_version;
+      if (expected_negotiation != negotiation_version)
+      {
+        assert(false);
+        // TODO(MXG): We should probably output some warning here using
+        // RCLCPP_WARN
+        std::cout << "[ScheduleNode::ConflictRecord::acknowledge] We are "
+                  << "waiting for an acknowledgment from participant ["
+                  << p << "] regarding negotiation [" << expected_negotiation
+                  << "] but received an acknowledgment for negotiation ["
+                  << negotiation_version << "] instead." << std::endl;
+        return;
+      }
+
+      if (update_version)
+        wait_it->second.itinerary_update_version = *update_version;
+      else
+        _waiting.erase(wait_it);
+    }
+
+    void check(const ParticipantId p, const ItineraryVersion version)
+    {
+      const auto wait_it = _waiting.find(p);
+      if (wait_it == _waiting.end())
         return;
 
-      auto& awaiting = wait_it->second;
-      assert(!awaiting.empty());
+      const auto expected_version = wait_it->second.itinerary_update_version;
+      if (!expected_version)
+        return;
 
-      // TODO(MXG): I should check to make sure that p is actually a member of
-      // this conflict
-      awaiting.erase(p);
-
-      if (awaiting.empty())
-        _awaiting_acknowledgment.erase(wait_it);
+      if (rmf_utils::modular(*expected_version).less_than_or_equal(version))
+      {
+        _waiting.erase(wait_it);
+      }
     }
 
 //  private:
     std::unordered_map<ParticipantId, Version> _version;
-    std::unordered_map<Version, rmf_utils::optional<Negotiation>> _negotiations;
-    std::unordered_map<Version, ConflictSet> _awaiting_acknowledgment;
+    std::unordered_map<Version, rmf_utils::optional<NegotiationRoom>> _negotiations;
+    std::unordered_map<ParticipantId, Wait> _waiting;
     const rmf_traffic::schedule::Viewer& _viewer;
     Version _next_negotiation_version = 0;
   };
 
   ConflictRecord active_conflicts;
   std::mutex active_conflicts_mutex;
-
-  using ConflictAck = rmf_traffic_msgs::msg::ScheduleConflictAck;
-  using ConflictAckSub = rclcpp::Subscription<ConflictAck>;
-  ConflictAckSub::SharedPtr conflict_ack_sub;
-  void receive_conclusion_ack(const ConflictAck& msg);
-
-  using ConflictNotice = rmf_traffic_msgs::msg::ScheduleConflictNotice;
-  using ConflictNoticePub = rclcpp::Publisher<ConflictNotice>;
-  ConflictNoticePub::SharedPtr conflict_notice_pub;
-
-  using ConflictProposal = rmf_traffic_msgs::msg::ScheduleConflictProposal;
-  using ConflictProposalSub = rclcpp::Subscription<ConflictProposal>;
-  ConflictProposalSub::SharedPtr conflict_proposal_sub;
-  void receive_proposal(const ConflictProposal& msg);
-
-  using ConflictRejection = rmf_traffic_msgs::msg::ScheduleConflictRejection;
-  using ConflictRejectionSub = rclcpp::Subscription<ConflictRejection>;
-  ConflictRejectionSub::SharedPtr conflict_rejection_sub;
-  void receive_rejection(const ConflictRejection& msg);
-
-  using ConflictConclusion = rmf_traffic_msgs::msg::ScheduleConflictConclusion;
-  using ConflictConclusionPub = rclcpp::Publisher<ConflictConclusion>;
-  ConflictConclusionPub::SharedPtr conflict_conclusion_pub;
 };
 
 } // namespace rmf_traffic_schedule

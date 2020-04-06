@@ -81,12 +81,17 @@ public:
   /// Get the current itinerary of the participant.
   //
   // TODO(MXG): The implementation of this class could be simpler and more
-  // efficient if we did not provide this function. But it would might also hurt
+  // efficient if we did not provide this function. But not having it might hurt
   // usability if end users want some verification or reflection of the changes
   // that they are making to the schedule. Perhaps we can create a second class
   // that extends the functionality of this one, where it will both make the
   // changes to the schedule and reflect the changes locally.
   const Writer::Input& itinerary() const;
+
+  /// Get the current itinerary version for this participant.
+  //
+  // TODO(MXG): This function needs to be unit tested.
+  ItineraryVersion version() const;
 
   /// Get the description of this participant.
   const ParticipantDescription& description() const;

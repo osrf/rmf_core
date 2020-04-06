@@ -37,6 +37,9 @@ public:
   {
   public:
 
+    using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
+    using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
+
     /// The negotiator will call this function when it has an itinerary to
     /// submit in response to a negotiation.
     ///
@@ -45,10 +48,13 @@ public:
     ///
     /// \param[in] approval_callback
     ///   This callback will get triggered if this submission gets approved.
-    ///   Pass in a nullptr if a callback is not necessary.
+    ///   The return value of the callback should be the itinerary version of
+    ///   the participant update that will follow the resolution of this
+    ///   negotiation (or a nullopt if no update will be performed). Pass in a
+    ///   nullptr if an approval callback is not necessary.
     virtual void submit(
         std::vector<Route> itinerary,
-        std::function<void()> approval_callback = nullptr) const = 0;
+        std::function<UpdateVersion()> approval_callback = nullptr) const = 0;
 
     /// The negotiator will call this function if it has decided to reject an
     /// attempt to negotiate.
@@ -105,7 +111,7 @@ public:
   // NOTE: approval_callback does not get used
   void submit(
       std::vector<Route> itinerary,
-      std::function<void()> approval_callback = nullptr) const final;
+      std::function<UpdateVersion()> approval_callback=nullptr) const final;
 
   // Documentation inherited
   void reject() const final;

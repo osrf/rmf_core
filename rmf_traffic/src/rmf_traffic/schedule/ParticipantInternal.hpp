@@ -18,9 +18,9 @@
 #ifndef SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
 #define SRC__RMF_TRAFFIC__SCHEDULE__PARTICIPANTINTERNAL_HPP
 
-#include "Modular.hpp"
-
 #include <rmf_traffic/schedule/Participant.hpp>
+
+#include <rmf_utils/Modular.hpp>
 
 #include <map>
 
@@ -64,7 +64,7 @@ private:
   std::unique_ptr<RectificationRequester> _rectification;
 
   using ChangeHistory =
-      std::map<RouteId, std::function<void()>, ModularLess<RouteId>>;
+      std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
 
   Writer::Input _current_itinerary;
 

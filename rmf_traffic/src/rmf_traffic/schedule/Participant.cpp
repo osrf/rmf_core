@@ -57,7 +57,7 @@ void Participant::Implementation::retransmit(
 {
   for (const auto& range : ranges)
   {
-    assert(modular(range.lower).less_than_or_equal(range.upper));
+    assert(rmf_utils::modular(range.lower).less_than_or_equal(range.upper));
 
     // We use lower_bound because it is possible that some of this range has
     // been truncated because of a nullifying change. Therefore we should accept
@@ -302,6 +302,12 @@ RouteId Participant::last_route_id() const
 const Writer::Input& Participant::itinerary() const
 {
   return _pimpl->_current_itinerary;
+}
+
+//==============================================================================
+ItineraryVersion Participant::version() const
+{
+  return _pimpl->_version;
 }
 
 //==============================================================================
