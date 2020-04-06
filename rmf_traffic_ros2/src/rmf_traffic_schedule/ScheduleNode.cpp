@@ -280,25 +280,6 @@ ScheduleNode::ScheduleNode()
 
         conflict_notice_pub->publish(msg);
       }
-
-      if (!new_negotiations.empty())
-      {
-        std::unique_lock<std::mutex> lock(active_conflicts_mutex);
-        std::cout << "\n --- Current negotiations: ";
-        for (const auto& c : active_conflicts._negotiations)
-        {
-          std::cout << "\n   - [" << c.first << "]:";
-          if (c.second)
-          {
-            for (const auto p : c.second->negotiation.participants())
-              std::cout << " " << p;
-          }
-          else
-            std::cout << " defunct";
-        }
-
-        std::cout << "\n" << std::endl;
-      }
     }
   });
 }
@@ -587,6 +568,10 @@ void print_conclusion(
     const std::unordered_map<
         ScheduleNode::Version, ScheduleNode::ConflictRecord::Wait>& _awaiting)
 {
+  // TODO(MXG): Instead of printing this conclusion information to the terminal,
+  // we should periodically output a heartbeat with metadata on the current
+  // negotiation status so that other systems can keep their negotiation caches
+  // clean.
   struct Status
   {
     rmf_traffic::schedule::ParticipantId participant;
@@ -626,22 +611,17 @@ void ScheduleNode::receive_conclusion_ack(const ConflictAck& msg)
   {
     if (ack.updating)
     {
-      std::cout << " -- Ack from [" << ack.participant << "] for ["
-                << msg.conflict_version << "] with update at ["
-                << ack.itinerary_version << "]" << std::endl;
       active_conflicts.acknowledge(
             msg.conflict_version, ack.participant, ack.itinerary_version);
     }
     else
     {
-      std::cout << " -- Ack from [" << ack.participant << "] for ["
-                << msg.conflict_version << "] with no update" << std::endl;
       active_conflicts.acknowledge(
             msg.conflict_version, ack.participant, rmf_utils::nullopt);
     }
   }
 
-  print_conclusion(active_conflicts._waiting);
+//  print_conclusion(active_conflicts._waiting);
 }
 
 //==============================================================================
@@ -682,6 +662,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   table->submit(rmf_traffic_ros2::convert(msg.itinerary), msg.proposal_version);
   negotiation_room->check_cache();
 
+  // TODO(MXG): This should be removed once we have a negotiation visualizer
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version, negotiation);
 
   if (negotiation.ready())
@@ -699,13 +680,15 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     conclusion.resolved = true;
     conclusion.table = choose->sequence();
 
-    std::string output = " -- Resolved:";
+    std::string output = "Resolved negotiation ["
+        + std::to_string(msg.conflict_version) + ":";
+
     for (const auto p : conclusion.table)
       output += " " + std::to_string(p);
-    std::cout << output << std::endl;
+    RCLCPP_INFO(get_logger(), output);
 
     conflict_conclusion_pub->publish(std::move(conclusion));
-    print_conclusion(active_conflicts._waiting);
+//    print_conclusion(active_conflicts._waiting);
   }
   else if (negotiation.complete())
   {
@@ -719,7 +702,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     conclusion.resolved = false;
 
     conflict_conclusion_pub->publish(conclusion);
-    print_conclusion(active_conflicts._waiting);
+//    print_conclusion(active_conflicts._waiting);
   }
 }
 
@@ -757,6 +740,7 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
   table->reject(msg.proposal_version);
   negotiation_room->check_cache();
 
+  // TODO(MXG): This should be removed once we have a negotiation visualizer
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version, negotiation);
 
   if (negotiation.complete())
@@ -768,7 +752,7 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
     conclusion.resolved = false;
 
     conflict_conclusion_pub->publish(conclusion);
-    print_conclusion(active_conflicts._waiting);
+//    print_conclusion(active_conflicts._waiting);
   }
 }
 

@@ -366,17 +366,7 @@ public:
 
       if (rmf_utils::modular(*expected_version).less_than_or_equal(version))
       {
-        std::cout << "\n -- Received update of participant [" << p
-                  << "] for negotiation ["
-                  << wait_it->second.negotiation_version << "]\n" << std::endl;
         _waiting.erase(wait_it);
-      }
-      else
-      {
-        std::cout << "\n --- Participant [" << p << "] itinerary version ["
-                  << version << "] is too low for update of ["
-                  << wait_it->second.negotiation_version << "]. Requires ["
-                  << expected_version << "]\n" << std::endl;
       }
     }
 

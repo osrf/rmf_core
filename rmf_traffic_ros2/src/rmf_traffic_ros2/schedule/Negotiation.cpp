@@ -66,8 +66,6 @@ public:
         table(table_)
     {
       // Do nothing
-      std::cout << " -- [" << conflict_version << "] Requesting response for ["
-                << table_to_string(table->sequence()) << " ]" << std::endl;
     }
 
     void submit(
@@ -273,12 +271,6 @@ public:
 
   void receive_notice(const Notice& msg)
   {
-    std::cout << "\nReceived notice for negotation [" << msg.conflict_version
-              << "]:";
-    for (const auto p : msg.participants)
-      std::cout << " " << p;
-    std::cout << std::endl;
-
     bool relevant = false;
     for (const auto p : msg.participants)
     {
@@ -305,7 +297,6 @@ public:
       {
         if (old_participants.count(p) == 0)
         {
-          std::cout << " -- Adding [" << p << "] to the negotiation" << std::endl;
           negotiation.add_participant(p);
         }
       }
@@ -313,9 +304,7 @@ public:
 
     if (!relevant)
     {
-      std::cout << " -- No initial response needed ["
-                << is_new << " | " << relevant << " | " << participating
-                << "]" << std::endl;
+      // No response needed
       return;
     }
 
@@ -411,10 +400,6 @@ public:
       return;
     }
 
-    std::cout << "[" << msg.conflict_version << "] Received proposal for ["
-              << table_to_string(msg.to_accommodate) << " "
-              << msg.for_participant << " ]" << std::endl;
-
     // We'll keep track of these negotiations whether or not we're participating
     // in them, because one of our negotiators might get added to it in the
     // future
@@ -422,18 +407,12 @@ public:
         received_table->submit(convert(msg.itinerary), msg.proposal_version);
 
     if (!updated)
-    {
-      std::cout << " -- Ignoring: Not an update" << std::endl;
       return;
-    }
 
     std::vector<TablePtr> queue = room.check_cache();
 
     if (!participating)
-    {
-      std::cout << " -- Ignoring: Not participating" << std::endl;
       return;
-    }
 
     queue.push_back(received_table);
     while (!queue.empty())
@@ -448,20 +427,12 @@ public:
 
         if (const auto respond_to = top->respond(participant))
         {
-          std::cout << " -- [" << participant << "] is responding to ["
-                    << table_to_string(respond_to->sequence()) << " ]"
-                    << std::endl;
-
           negotiator->respond(
                 respond_to,
                 Responder(this, msg.conflict_version, respond_to));
 
           if (respond_to->submission())
             queue.push_back(respond_to);
-        }
-        else
-        {
-          std::cout << " -- [" << participant << "] does not need to respond" << std::endl;
         }
       }
     }
@@ -507,12 +478,6 @@ public:
 
     if (participating)
     {
-      std::string print_creating = " --- Creating acknowledgment of ["
-          + std::to_string(msg.conflict_version) + "]:";
-      for (const auto t : msg.table)
-        print_creating += " " + std::to_string(t);
-      std::cout << print_creating << std::endl;
-
       std::vector<ParticipantAck> acknowledgments;
 
       const auto approval_callback_it = approvals.find(msg.conflict_version);
@@ -531,7 +496,6 @@ public:
             break;
 
           const auto approve_it = approval_callbacks.find(table);
-          std::cout << " == Checking on [" << table->participant() << "]" << std::endl;
           if (approve_it != approval_callbacks.end())
           {
             ParticipantAck p_ack;
@@ -540,9 +504,7 @@ public:
             const auto& approval_cb = approve_it->second;
             if (approval_cb)
             {
-              std::cout << " == indicating approval" << std::endl;
               const auto update_version = approval_cb();
-              std::cout << " == done with approval" << std::endl;
               if (update_version)
               {
                 p_ack.updating = true;
@@ -550,16 +512,7 @@ public:
               }
             }
 
-            std::cout << " -- adding accepted acknowledgment of ["
-                      << msg.conflict_version << "] for [" << table->participant()
-                      << "]" << std::endl;
             acknowledgments.emplace_back(std::move(p_ack));
-          }
-          else
-          {
-            std::cout << " -- ignoring accepted acknowledgment of ["
-                      << msg.conflict_version << "] for [" << table->participant()
-                      << "]" << std::endl;
           }
         }
       }
@@ -572,14 +525,7 @@ public:
           if (negotiators->count(p) !=0)
           {
             p_ack.participant = p;
-            std::cout << " -- adding rejection acknowledgment of ["
-                      << msg.conflict_version << "] for [" << p << "]" << std::endl;
             acknowledgments.push_back(p_ack);
-          }
-          else
-          {
-            std::cout << " -- ignoring rejection acknowledgment of ["
-                      << msg.conflict_version << "] for [" << p << "]" << std::endl;
           }
         }
       }
@@ -596,14 +542,6 @@ public:
       // must not be empty, or else there is a bug somewhere.
       assert(!ack.acknowledgments.empty());
 
-      std::string print_ack = "\n -- Publishing acknowledgment for ["
-                + std::to_string(ack.conflict_version) + "]:";
-      for (const auto& p : ack.acknowledgments)
-        print_ack += " [" + std::to_string(p.participant) + ":"
-            + std::to_string(p.updating) + ":"
-            + std::to_string(p.itinerary_version);
-      std::cout << print_ack << "\n" << std::endl;
-
       ack_pub->publish(ack);
       // TODO(MXG): Should we consider a more robust cache cleanup strategy?
     }
@@ -616,9 +554,6 @@ public:
       const Version conflict_version,
       const Negotiation::Table& table)
   {
-    std::cout << " -- [" << conflict_version << "] Publishing proposal for ["
-              << table_to_string(table.sequence()) << " ]" << std::endl;
-
     Proposal msg;
     msg.conflict_version = conflict_version;
     assert(table.version());
@@ -640,9 +575,6 @@ public:
       const Version conflict_version,
       const Negotiation::Table& table)
   {
-    std::cout << " -- [" << conflict_version << "] Publishing rejection for ["
-              << table_to_string(table.sequence()) << " ]" << std::endl;
-
     Rejection msg;
     msg.conflict_version = conflict_version;
     msg.proposal_version = table.version()? *table.version() : 0;

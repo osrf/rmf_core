@@ -328,15 +328,12 @@ public:
            weak_handle = std::move(weak_handle)]()
           -> rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
     {
-      std::cout << " == locking handle" << std::endl;
       auto handle = weak_handle.lock();
       if (!handle)
       {
-        std::cout << " == lock expired" << std::endl;
         return rmf_utils::nullopt;
       }
 
-      std::cout << " == handle locked. plan size: " << plans.size() << std::endl;
       execute_plan(std::move(plans));
       return _context->schedule.participant().version();
     });
@@ -578,10 +575,6 @@ public:
           _command->path,
           _node->get_fields().traits);
     _context->schedule.push_routes({{map_name, trajectory}});
-
-    std::cout << " ====== USING STARTING TIME: "
-              << rmf_traffic::time::to_seconds(_issued_waypoints.front().time().time_since_epoch())
-              << std::endl;
 
     const auto previous_delay = _finish_estimate - _original_finish_estimate;
     _finish_estimate = _issued_waypoints.back().time() + previous_delay;
