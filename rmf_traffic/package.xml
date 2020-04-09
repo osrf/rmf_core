@@ -15,6 +15,9 @@
 
   <build_depend>libccd-dev</build_depend>
   <build_depend>libfcl-dev</build_depend>
+  <build_depend>eigen</build_depend>
+
+  <depend>rclcpp</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
