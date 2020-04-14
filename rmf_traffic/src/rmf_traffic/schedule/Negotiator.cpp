@@ -47,9 +47,8 @@ SimpleResponder::SimpleResponder(
 }
 
 //==============================================================================
-void SimpleResponder::submit(
-    std::vector<Route> itinerary,
-    std::function<void()> /*approval_callback*/) const
+void SimpleResponder::submit(std::vector<Route> itinerary,
+    std::function<UpdateVersion()> /*approval_callback*/) const
 {
   const auto table = _pimpl->negotiation->table(
         _pimpl->for_participant, _pimpl->to_accommodate);
@@ -62,7 +61,18 @@ void SimpleResponder::submit(
 //==============================================================================
 void SimpleResponder::reject() const
 {
-  _pimpl->negotiation->table(_pimpl->to_accommodate)->reject();
+  const auto parent = _pimpl->negotiation->table(_pimpl->to_accommodate);
+  if (parent)
+  {
+    parent->reject(*parent->version());
+    return;
+  }
+
+  // TODO(MXG): This implies that the negotiation is completely impossible.
+  // Maybe this should be escalated to some kind of critical error for a human
+  // operator to resolve.
+  const auto table = _pimpl->negotiation->table(_pimpl->for_participant, {});
+  table->reject(table->version()? *table->version() : 0);
 }
 
 } // namespace schedule
