@@ -49,44 +49,44 @@ public:
 
   // Documentation inherited from Writer
   void set(
-      ParticipantId participant,
-      const Input& itinerary,
-      ItineraryVersion version) final;
+    ParticipantId participant,
+    const Input& itinerary,
+    ItineraryVersion version) final;
 
   // Documentation inherited from Writer
   void extend(
-      ParticipantId participant,
-      const Input& routes,
-      ItineraryVersion version) final;
+    ParticipantId participant,
+    const Input& routes,
+    ItineraryVersion version) final;
 
   // Documentation inherited from Writer
   void delay(
-      ParticipantId participant,
-      Time from,
-      Duration delay,
-      ItineraryVersion version) final;
+    ParticipantId participant,
+    Time from,
+    Duration delay,
+    ItineraryVersion version) final;
 
   // Documentation inherited from Writer
   void erase(
-      ParticipantId participant,
-      ItineraryVersion version) final;
+    ParticipantId participant,
+    ItineraryVersion version) final;
 
   // Documentation inherited from Writer
   void erase(
-      ParticipantId participant,
-      const std::vector<RouteId>& routes,
-      ItineraryVersion version) final;
+    ParticipantId participant,
+    const std::vector<RouteId>& routes,
+    ItineraryVersion version) final;
 
   // Documentation inherited from Writer
   ParticipantId register_participant(
-      ParticipantDescription participant_info) final;
+    ParticipantDescription participant_info) final;
 
   /// Before calling this function on a Database, you should set the current
   /// time for the database by calling set_current_time(). This will allow the
   /// database to cull this participant after a reasonable amount of time has
   /// passed.
   void unregister_participant(
-      ParticipantId participant) final;
+    ParticipantId participant) final;
 
 
   //============================================================================
@@ -101,11 +101,11 @@ public:
 
   // Documentation inherited from Viewer
   std::shared_ptr<const ParticipantDescription> get_participant(
-      std::size_t participant_id) const final;
+    std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
   rmf_utils::optional<Itinerary> get_itinerary(
-      std::size_t participant_id) const final;
+    std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
   Version latest_version() const final;
@@ -147,8 +147,8 @@ public:
   /// \return A Patch of schedule changes that are relevant to the specified
   /// query parameters.
   Patch changes(
-      const Query& parameters,
-      rmf_utils::optional<Version> after) const;
+    const Query& parameters,
+    rmf_utils::optional<Version> after) const;
 
   /// View the routes that match the parameters and have changed (been added or
   /// delayed) since the specified version. This is useful for viewing
@@ -166,8 +166,8 @@ public:
   ///
   // TODO(MXG): Consider adding this function to the Viewer class.
   View query(
-      const Query& parameters,
-      Version after) const;
+    const Query& parameters,
+    Version after) const;
 
   /// Throw away all itineraries up to the specified time.
   ///

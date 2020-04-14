@@ -41,8 +41,8 @@ public:
   ///   this, the footprint shape will be used as the vicinity.
   ///
   Profile(
-      geometry::ConstFinalConvexShapePtr footprint,
-      geometry::ConstFinalConvexShapePtr vicinity = nullptr);
+    geometry::ConstFinalConvexShapePtr footprint,
+    geometry::ConstFinalConvexShapePtr vicinity = nullptr);
 
   /// Set the footprint of the participant.
   Profile& footprint(geometry::ConstFinalConvexShapePtr shape);

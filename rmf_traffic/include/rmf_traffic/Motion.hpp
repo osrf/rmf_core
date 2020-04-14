@@ -75,12 +75,12 @@ public:
   ///   include all the way to the end of the trajectory, pass in
   ///   Trajectory::end(). An exception will be thrown if begin == end.
   static std::unique_ptr<Motion> compute_cubic_splines(
-      const Trajectory::const_iterator& begin,
-      const Trajectory::const_iterator& end);
+    const Trajectory::const_iterator& begin,
+    const Trajectory::const_iterator& end);
 
   /// Compute a piecewise cubic spline motion object for an entire Trajectory.
   static std::unique_ptr<Motion> compute_cubic_splines(
-      const Trajectory& trajectory);
+    const Trajectory& trajectory);
 };
 
 } // namespace rmf_traffic

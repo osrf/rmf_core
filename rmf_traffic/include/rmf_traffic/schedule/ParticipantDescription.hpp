@@ -67,10 +67,10 @@ public:
   ///   participant might be able to react to a conflict or a request for
   ///   accommodations.
   ParticipantDescription(
-      std::string name,
-      std::string owner,
-      Rx responsiveness,
-      Profile profile);
+    std::string name,
+    std::string owner,
+    Rx responsiveness,
+    Profile profile);
 
   /// Set the name of the participant.
   ParticipantDescription& name(std::string value);

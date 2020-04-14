@@ -54,9 +54,9 @@ public:
   ///   The version for this itinerary change
   ///
   virtual void set(
-      ParticipantId participant,
-      const Input& itinerary,
-      ItineraryVersion version) = 0;
+    ParticipantId participant,
+    const Input& itinerary,
+    ItineraryVersion version) = 0;
 
   /// Add a set of routes to the itinerary of this participant.
   ///
@@ -70,9 +70,9 @@ public:
   ///   The version for this itinerary change
   ///
   virtual void extend(
-      ParticipantId participant,
-      const Input& routes,
-      ItineraryVersion version) = 0;
+    ParticipantId participant,
+    const Input& routes,
+    ItineraryVersion version) = 0;
 
   /// Add a delay to the itinerary from the specified Time.
   ///
@@ -99,10 +99,10 @@ public:
   ///   The version for this itinerary change
   ///
   virtual void delay(
-      ParticipantId participant,
-      Time from,
-      Duration delay,
-      ItineraryVersion version) = 0;
+    ParticipantId participant,
+    Time from,
+    Duration delay,
+    ItineraryVersion version) = 0;
 
   /// Erase an itinerary from this database.
   ///
@@ -113,8 +113,8 @@ public:
   ///   The version for this itinerary change
   ///
   virtual void erase(
-      ParticipantId participant,
-      ItineraryVersion version) = 0;
+    ParticipantId participant,
+    ItineraryVersion version) = 0;
 
   /// Erase a route from an itinerary.
   ///
@@ -128,9 +128,9 @@ public:
   ///   The version for this itinerary change
   ///
   virtual void erase(
-      ParticipantId participant,
-      const std::vector<RouteId>& routes,
-      ItineraryVersion version) = 0;
+    ParticipantId participant,
+    const std::vector<RouteId>& routes,
+    ItineraryVersion version) = 0;
 
   // TODO(MXG): Consider saying "add" instead of "register" and "remove" instead
   // of "unregister".
@@ -145,7 +145,7 @@ public:
   ///
   /// \return result of registering the new participant.
   virtual ParticipantId register_participant(
-      ParticipantDescription participant_info) = 0;
+    ParticipantDescription participant_info) = 0;
 
   /// Unregister an existing participant.
   ///
@@ -154,7 +154,7 @@ public:
   ///
   /// \return the new version of the schedule.
   virtual void unregister_participant(
-      ParticipantId participant) = 0;
+    ParticipantId participant) = 0;
 
   // virtual destructor
   virtual ~Writer() = default;

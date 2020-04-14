@@ -38,11 +38,11 @@ public:
   bool holding_point;
 
   template<typename... Args>
-  static Waypoint make(Args&&... args)
+  static Waypoint make(Args&& ... args)
   {
     Waypoint result;
     result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::forward<Args>(args)...});
+      Implementation{std::forward<Args>(args)...});
 
     return result;
   }
@@ -106,7 +106,7 @@ class AcceptableOrientationConstraint : public Graph::OrientationConstraint
 public:
 
   AcceptableOrientationConstraint(std::vector<double> acceptable)
-    : orientations(std::move(acceptable))
+  : orientations(std::move(acceptable))
   {
     // Do nothing
   }
@@ -114,21 +114,21 @@ public:
   std::vector<double> orientations;
 
   bool apply(Eigen::Vector3d& position,
-             const Eigen::Vector2d& /*course_vector*/) const final
+    const Eigen::Vector2d& /*course_vector*/) const final
   {
     assert(!orientations.empty());
     // This constraint can never be satisfied if there are no acceptable
     // orientations.
-    if(orientations.empty())
+    if (orientations.empty())
       return false;
 
     const double p = position[2];
     double closest = p;
     double best_diff = std::numeric_limits<double>::infinity();
-    for(const double theta : orientations)
+    for (const double theta : orientations)
     {
       const double diff = std::abs(rmf_utils::wrap_to_pi(theta - p));
-      if(diff < best_diff)
+      if (diff < best_diff)
       {
         closest = theta;
         best_diff = diff;
@@ -156,7 +156,7 @@ class DirectionConstraint : public Graph::OrientationConstraint
 public:
 
   static Eigen::Rotation2Dd compute_forward_offset(
-      const Eigen::Vector2d& forward)
+    const Eigen::Vector2d& forward)
   {
     return Eigen::Rotation2Dd(std::atan2(forward[1], forward[0]));
   }
@@ -164,11 +164,11 @@ public:
   static const Eigen::Rotation2Dd R_pi;
 
   DirectionConstraint(
-      Direction _direction,
-      const Eigen::Vector2d& _forward_vector)
-    : R_f(compute_forward_offset(_forward_vector)),
-      R_f_inv(R_f.inverse()),
-      direction(_direction)
+    Direction _direction,
+    const Eigen::Vector2d& _forward_vector)
+  : R_f(compute_forward_offset(_forward_vector)),
+    R_f_inv(R_f.inverse()),
+    direction(_direction)
   {
     // Do nothing
   }
@@ -178,20 +178,20 @@ public:
   Direction direction;
 
   Eigen::Rotation2Dd compute_R_final(
-      const Eigen::Vector2d& course_vector) const
+    const Eigen::Vector2d& course_vector) const
   {
     const Eigen::Rotation2Dd R_c(
-          std::atan2(course_vector[1], course_vector[0]));
+      std::atan2(course_vector[1], course_vector[0]));
 
-    if(Direction::Backward == direction)
+    if (Direction::Backward == direction)
       return R_pi * R_c * R_f_inv;
 
     return R_c * R_f_inv;
   }
 
   bool apply(
-      Eigen::Vector3d& position,
-      const Eigen::Vector2d& course_vector) const final
+    Eigen::Vector3d& position,
+    const Eigen::Vector2d& course_vector) const final
   {
     position[2] = rmf_utils::wrap_to_pi(compute_R_final(course_vector).angle());
     return true;
@@ -213,14 +213,14 @@ rmf_utils::clone_ptr<Graph::OrientationConstraint>
 Graph::OrientationConstraint::make(std::vector<double> acceptable_orientations)
 {
   return rmf_utils::make_clone<AcceptableOrientationConstraint>(
-        std::move(acceptable_orientations));
+    std::move(acceptable_orientations));
 }
 
 //==============================================================================
 rmf_utils::clone_ptr<Graph::OrientationConstraint>
 Graph::OrientationConstraint::make(
-    Direction direction,
-    const Eigen::Vector2d& forward)
+  Direction direction,
+  const Eigen::Vector2d& forward)
 {
   return rmf_utils::make_clone<DirectionConstraint>(direction, forward);
 }
@@ -237,13 +237,13 @@ public:
 
 //==============================================================================
 Graph::Lane::Door::Door(
-    std::string name,
-    Duration duration)
+  std::string name,
+  Duration duration)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{
-             std::move(name),
-             duration
-           }))
+      Implementation{
+        std::move(name),
+        duration
+      }))
 {
   // Do nothing
 }
@@ -287,15 +287,15 @@ public:
 
 //==============================================================================
 Graph::Lane::LiftDoor::LiftDoor(
-    std::string lift_name,
-    std::string floor_name,
-    Duration duration)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(lift_name),
-               std::move(floor_name),
-               duration
-             }))
+  std::string lift_name,
+  std::string floor_name,
+  Duration duration)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(lift_name),
+        std::move(floor_name),
+        duration
+      }))
 {
   // Do nothing
 }
@@ -354,15 +354,15 @@ public:
 
 //==============================================================================
 Graph::Lane::LiftMove::LiftMove(
-    std::string lift_name,
-    std::string destination_floor_name,
-    Duration duration)
+  std::string lift_name,
+  std::string destination_floor_name,
+  Duration duration)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{
-             std::move(lift_name),
-             std::move(destination_floor_name),
-             duration
-           }))
+      Implementation{
+        std::move(lift_name),
+        std::move(destination_floor_name),
+        duration
+      }))
 {
   // Do nothing
 }
@@ -418,13 +418,13 @@ public:
 
 //==============================================================================
 Graph::Lane::Dock::Dock(
-    std::string dock_name,
-    Duration duration)
+  std::string dock_name,
+  Duration duration)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{
-             std::move(dock_name),
-             duration
-           }))
+      Implementation{
+        std::move(dock_name),
+        duration
+      }))
 {
   // Do nothing
 }
@@ -551,32 +551,32 @@ public:
 
 //==============================================================================
 Graph::Lane::Node::Node(
-    std::size_t waypoint_index,
-    rmf_utils::clone_ptr<Event> event,
-    rmf_utils::clone_ptr<OrientationConstraint> orientation,
-    rmf_utils::clone_ptr<VelocityConstraint> velocity)
+  std::size_t waypoint_index,
+  rmf_utils::clone_ptr<Event> event,
+  rmf_utils::clone_ptr<OrientationConstraint> orientation,
+  rmf_utils::clone_ptr<VelocityConstraint> velocity)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               waypoint_index,
-               std::move(event),
-               std::move(orientation),
-               std::move(velocity)
-             }))
+      Implementation{
+        waypoint_index,
+        std::move(event),
+        std::move(orientation),
+        std::move(velocity)
+      }))
 {
   // Do nothing
 }
 
 //==============================================================================
 Graph::Lane::Node::Node(
-    std::size_t waypoint_index,
-    rmf_utils::clone_ptr<OrientationConstraint> orientation)
+  std::size_t waypoint_index,
+  rmf_utils::clone_ptr<OrientationConstraint> orientation)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{
-             waypoint_index,
-             nullptr,
-             std::move(orientation),
-             nullptr
-           }))
+      Implementation{
+        waypoint_index,
+        nullptr,
+        std::move(orientation),
+        nullptr
+      }))
 {
   // Do nothing
 }
@@ -622,11 +622,11 @@ public:
   std::size_t door_index;
 
   template<typename... Args>
-  static Lane make(Args&&... args)
+  static Lane make(Args&& ... args)
   {
     Lane lane;
     lane._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::forward<Args>(args)...});
+      Implementation{std::forward<Args>(args)...});
 
     return lane;
   }
@@ -658,21 +658,21 @@ Graph::Lane::Lane()
 
 //==============================================================================
 Graph::Graph()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
+: _pimpl(rmf_utils::make_impl<Implementation>())
 {
   // Do nothing
 }
 
 //==============================================================================
 auto Graph::add_waypoint(
-    std::string map_name,
-    Eigen::Vector2d location,
-    const bool is_holding_point) -> Waypoint&
+  std::string map_name,
+  Eigen::Vector2d location,
+  const bool is_holding_point) -> Waypoint&
 {
   _pimpl->waypoints.emplace_back(
-        Waypoint::Implementation::make(
-          _pimpl->waypoints.size(),
-          std::move(map_name), std::move(location), is_holding_point));
+    Waypoint::Implementation::make(
+      _pimpl->waypoints.size(),
+      std::move(map_name), std::move(location), is_holding_point));
 
   _pimpl->lanes_from.push_back({});
 
@@ -707,11 +707,11 @@ auto Graph::add_lane(Lane::Node entry, Lane::Node exit) -> Lane&
   _pimpl->lanes_from[entry.waypoint_index()].push_back(lane_id);
 
   _pimpl->lanes.emplace_back(
-        Lane::Implementation::make(
-          _pimpl->lanes.size(),
-          std::move(entry),
-          std::move(exit),
-          false, std::size_t()));
+    Lane::Implementation::make(
+      _pimpl->lanes.size(),
+      std::move(entry),
+      std::move(exit),
+      false, std::size_t()));
 
   return _pimpl->lanes.back();
 }

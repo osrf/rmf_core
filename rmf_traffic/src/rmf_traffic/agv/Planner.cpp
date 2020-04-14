@@ -41,15 +41,15 @@ public:
 
 //==============================================================================
 Planner::Configuration::Configuration(
-    Graph graph,
-    VehicleTraits traits,
-    Interpolate::Options interpolation)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(graph),
-               std::move(traits),
-               std::move(interpolation)
-             }))
+  Graph graph,
+  VehicleTraits traits,
+  Interpolate::Options interpolation)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(graph),
+        std::move(traits),
+        std::move(interpolation)
+      }))
 {
   // Do nothing
 }
@@ -126,15 +126,15 @@ public:
 
 //==============================================================================
 Planner::Options::Options(
-    rmf_utils::clone_ptr<RouteValidator> validator,
-    const Duration min_hold_time,
-    const bool* interrupt_flag)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(validator),
-               min_hold_time,
-               interrupt_flag
-             }))
+  rmf_utils::clone_ptr<RouteValidator> validator,
+  const Duration min_hold_time,
+  const bool* interrupt_flag)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(validator),
+        min_hold_time,
+        interrupt_flag
+      }))
 {
   // Do nothing
 }
@@ -195,19 +195,19 @@ public:
 
 //==============================================================================
 Planner::Start::Start(
-    const Time initial_time,
-    const std::size_t initial_waypoint,
-    const double initial_orientation,
-    rmf_utils::optional<Eigen::Vector2d> initial_location,
-    rmf_utils::optional<std::size_t> initial_lane)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               initial_time,
-               initial_waypoint,
-               initial_orientation,
-               std::move(initial_location),
-               std::move(initial_lane)
-             }))
+  const Time initial_time,
+  const std::size_t initial_waypoint,
+  const double initial_orientation,
+  rmf_utils::optional<Eigen::Vector2d> initial_location,
+  rmf_utils::optional<std::size_t> initial_lane)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        initial_time,
+        initial_waypoint,
+        initial_orientation,
+        std::move(initial_location),
+        std::move(initial_lane)
+      }))
 {
   // Do nothing
 }
@@ -259,7 +259,7 @@ const rmf_utils::optional<Eigen::Vector2d>& Planner::Start::location() const
 
 //==============================================================================
 auto Planner::Start::location(
-    rmf_utils::optional<Eigen::Vector2d> initial_location) -> Start&
+  rmf_utils::optional<Eigen::Vector2d> initial_location) -> Start&
 {
   _pimpl->location = std::move(initial_location);
   return *this;
@@ -273,7 +273,7 @@ const rmf_utils::optional<std::size_t>& Planner::Start::lane() const
 
 //==============================================================================
 auto Planner::Start::lane(
-    rmf_utils::optional<std::size_t> initial_lane) -> Start&
+  rmf_utils::optional<std::size_t> initial_lane) -> Start&
 {
   _pimpl->lane = initial_lane;
   return *this;
@@ -292,24 +292,24 @@ public:
 
 //==============================================================================
 Planner::Goal::Goal(const std::size_t waypoint)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               waypoint,
-               rmf_utils::nullopt
-             }))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        waypoint,
+        rmf_utils::nullopt
+      }))
 {
   // Do nothing
 }
 
 //==============================================================================
 Planner::Goal::Goal(
-    const std::size_t waypoint,
-    const double goal_orientation)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               waypoint,
-               goal_orientation
-             }))
+  const std::size_t waypoint,
+  const double goal_orientation)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        waypoint,
+        goal_orientation
+      }))
 {
   // Do nothing
 }
@@ -344,7 +344,7 @@ auto Planner::Goal::any_orientation() -> Goal&
 //==============================================================================
 const double* Planner::Goal::orientation() const
 {
-  if(_pimpl->orientation)
+  if (_pimpl->orientation)
     return &(*_pimpl->orientation);
 
   return nullptr;
@@ -374,20 +374,20 @@ public:
 
 
   static rmf_utils::optional<Plan> generate(
-      internal::planning::CacheManager cache_mgr,
-      const std::vector<Planner::Start>& starts,
-      Planner::Goal goal,
-      Planner::Options options)
+    internal::planning::CacheManager cache_mgr,
+    const std::vector<Planner::Start>& starts,
+    Planner::Goal goal,
+    Planner::Options options)
   {
     auto result = cache_mgr.get().plan(
-        {starts}, std::move(goal), std::move(options));
+      {starts}, std::move(goal), std::move(options));
 
     if (!result)
       return rmf_utils::nullopt;
 
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(*result), std::move(cache_mgr)});
+      Implementation{std::move(*result), std::move(cache_mgr)});
 
     return std::move(plan);
   }
@@ -396,14 +396,14 @@ public:
 
 //==============================================================================
 Planner::Planner(
-    Configuration config,
-    Options default_options)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               internal::planning::make_cache(config),
-               std::move(default_options),
-               config
-             }))
+  Configuration config,
+  Options default_options)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        internal::planning::make_cache(config),
+        std::move(default_options),
+        config
+      }))
 {
   // Do nothing
 }
@@ -437,46 +437,46 @@ auto Planner::get_default_options() const -> const Options&
 rmf_utils::optional<Plan> Planner::plan(const Start& start, Goal goal) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {start},
-        std::move(goal),
-        _pimpl->default_options);
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    _pimpl->default_options);
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Planner::plan(
-    const Start& start,
-    Goal goal,
-    Options options) const
+  const Start& start,
+  Goal goal,
+  Options options) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {start},
-        std::move(goal),
-        std::move(options));
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    std::move(options));
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Planner::plan(const StartSet& starts, Goal goal) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        starts,
-        std::move(goal),
-        _pimpl->default_options);
+    _pimpl->cache_mgr,
+    starts,
+    std::move(goal),
+    _pimpl->default_options);
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Planner::plan(
-    const StartSet& starts,
-    Goal goal,
-    Options options) const
+  const StartSet& starts,
+  Goal goal,
+  Options options) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        starts,
-        std::move(goal),
-        std::move(options));
+    _pimpl->cache_mgr,
+    starts,
+    std::move(goal),
+    std::move(options));
 }
 
 //==============================================================================
@@ -525,44 +525,44 @@ const std::vector<Plan::Waypoint>& Plan::get_waypoints() const
 rmf_utils::optional<Plan> Plan::replan(const Start& new_start) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {new_start},
-        _pimpl->result.goal,
-        _pimpl->result.options);
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->result.goal,
+    _pimpl->result.options);
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Plan::replan(
-    const Planner::Start& new_start,
-    Planner::Options new_options) const
+  const Planner::Start& new_start,
+  Planner::Options new_options) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {new_start},
-        _pimpl->result.goal,
-        std::move(new_options));
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->result.goal,
+    std::move(new_options));
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Plan::replan(const StartSet& new_starts) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        new_starts,
-        _pimpl->result.goal,
-        _pimpl->result.options);
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->result.goal,
+    _pimpl->result.options);
 }
 
 //==============================================================================
 rmf_utils::optional<Plan> Plan::replan(
-    const StartSet& new_starts,
-    Options new_options) const
+  const StartSet& new_starts,
+  Options new_options) const
 {
   return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        new_starts,
-        _pimpl->result.goal,
-        std::move(new_options));
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->result.goal,
+    std::move(new_options));
 }
 
 //==============================================================================
@@ -592,18 +592,18 @@ const Planner::Configuration& Plan::get_configuration() const
 //==============================================================================
 
 std::vector<Plan::Start> compute_plan_starts(
-    const rmf_traffic::agv::Graph& graph,
-    const Eigen::Vector3d pose,
-    const rmf_traffic::Time start_time,
-    const double max_merge_waypoint_distance,
-    const double max_merge_lane_distance,
-    const double min_lane_length)
+  const rmf_traffic::agv::Graph& graph,
+  const Eigen::Vector3d pose,
+  const rmf_traffic::Time start_time,
+  const double max_merge_waypoint_distance,
+  const double max_merge_lane_distance,
+  const double min_lane_length)
 {
   const Eigen::Vector2d p_location = {pose[0], pose[1]};
   const double start_yaw = pose[2];
 
   // If there are waypoints which are very close, take that as the only Start
-  for (std::size_t i=0; i < graph.num_waypoints() ; ++i)
+  for (std::size_t i = 0; i < graph.num_waypoints(); ++i)
   {
     const auto& wp = graph.get_waypoint(i);
     const Eigen::Vector2d wp_location = wp.get_location();
@@ -619,14 +619,14 @@ std::vector<Plan::Start> compute_plan_starts(
   std::vector<Plan::Start> starts;
   std::unordered_set<std::size_t> raw_starts;
 
-  for (std::size_t i=0; i < graph.num_lanes(); ++i)
+  for (std::size_t i = 0; i < graph.num_lanes(); ++i)
   {
     const auto& lane = graph.get_lane(i);
-    const Eigen::Vector2d p0 = 
-        graph.get_waypoint(lane.entry().waypoint_index()).get_location();
+    const Eigen::Vector2d p0 =
+      graph.get_waypoint(lane.entry().waypoint_index()).get_location();
     const Eigen::Vector2d p1 =
-        graph.get_waypoint(lane.exit().waypoint_index()).get_location();
-    
+      graph.get_waypoint(lane.exit().waypoint_index()).get_location();
+
     const double lane_length = (p1 - p0).norm();
 
     // This "lane" is effectively a single point, so we'll skip it
@@ -649,8 +649,8 @@ std::vector<Plan::Start> compute_plan_starts(
           continue;
 
         starts.emplace_back(
-            Plan::Start(
-                start_time, entry_waypoint_index, start_yaw, p_location));
+          Plan::Start(
+            start_time, entry_waypoint_index, start_yaw, p_location));
       }
     }
     // If it's larger than the lane length, then its closest point on the lane
@@ -666,8 +666,8 @@ std::vector<Plan::Start> compute_plan_starts(
           continue;
 
         starts.emplace_back(
-            Plan::Start(
-                start_time, exit_waypoint_index, start_yaw, p_location));
+          Plan::Start(
+            start_time, exit_waypoint_index, start_yaw, p_location));
       }
     }
     // If its between the entry and the exit waypoints, then we should
@@ -680,8 +680,8 @@ std::vector<Plan::Start> compute_plan_starts(
       if (lane_dist < max_merge_lane_distance)
       {
         starts.emplace_back(
-            Plan::Start(
-                start_time, exit_waypoint_index, start_yaw, p_location, i));
+          Plan::Start(
+            start_time, exit_waypoint_index, start_yaw, p_location, i));
       }
     }
   }

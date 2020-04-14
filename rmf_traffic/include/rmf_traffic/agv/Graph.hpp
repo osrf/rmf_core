@@ -111,8 +111,8 @@ public:
     /// \return True if the constraint is satisfied with the new value of
     /// position. False if the constraint could not be satisfied.
     virtual bool apply(
-        Eigen::Vector3d& position,
-        const Eigen::Vector2d& course_vector) const = 0;
+      Eigen::Vector3d& position,
+      const Eigen::Vector2d& course_vector) const = 0;
 
     /// Clone this OrientationConstraint.
     virtual rmf_utils::clone_ptr<OrientationConstraint> clone() const = 0;
@@ -142,8 +142,8 @@ public:
     /// \return True if the constraint is satisfied with the new value of
     /// velocity. False if the constraint could not be satisfied.
     virtual bool apply(
-        Eigen::Vector3d& velocity,
-        const Eigen::Vector2d& course_vector) const = 0;
+      Eigen::Vector3d& velocity,
+      const Eigen::Vector2d& course_vector) const = 0;
 
     /// Clone this VelocityConstraint.
     virtual std::unique_ptr<VelocityConstraint> clone() const = 0;
@@ -209,9 +209,9 @@ public:
       /// \param[in] duration
       ///   How long the door takes to open or close.
       LiftDoor(
-          std::string lift_name,
-          std::string floor_name,
-          Duration duration);
+        std::string lift_name,
+        std::string floor_name,
+        Duration duration);
 
       /// Get the name of the lift that the door belongs to
       const std::string& lift_name() const;
@@ -254,9 +254,9 @@ public:
       /// \param[in] duration
       ///   How long the lift will take to move.
       LiftMove(
-          std::string lift_name,
-          std::string destination_floor_name,
-          Duration duration);
+        std::string lift_name,
+        std::string destination_floor_name,
+        Duration duration);
 
       /// Get the name of the lift that needs to move
       const std::string& lift_name() const;
@@ -293,7 +293,7 @@ public:
       /// \param[in]
       ///   How long the robot will take to dock
       Dock(std::string dock_name,
-           Duration duration);
+        Duration duration);
 
       /// Get the name of the dock
       const std::string& dock_name() const;
@@ -343,7 +343,7 @@ public:
       DerivedExecutor& execute(DerivedExecutor& executor) const
       {
         return static_cast<DerivedExecutor&>(execute(
-              static_cast<Executor&>(executor)));
+            static_cast<Executor&>(executor)));
       }
 
       /// Execute this event
@@ -387,9 +387,9 @@ public:
       ///   Any velocity constraints for moving to/from this Node (depending on
       ///   whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
-           rmf_utils::clone_ptr<Event> event = nullptr,
-           rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr,
-           rmf_utils::clone_ptr<VelocityConstraint> velocity = nullptr);
+        rmf_utils::clone_ptr<Event> event = nullptr,
+        rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr,
+        rmf_utils::clone_ptr<VelocityConstraint> velocity = nullptr);
 
       /// Constructor, event and velocity_constraint parameters will be nullptr
       ///
@@ -400,7 +400,7 @@ public:
       ///   Any orientation constraints for moving to/from this Node (depending
       ///   on whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
-           rmf_utils::clone_ptr<OrientationConstraint> orientation);
+        rmf_utils::clone_ptr<OrientationConstraint> orientation);
 
       /// Get the index of the waypoint that this Node is wrapped around.
       std::size_t waypoint_index() const;
@@ -454,9 +454,9 @@ public:
   /// this version, it is not supported. This is to avoid confusion for Lanes if
   /// a Waypoint that they depend on is erased.
   Waypoint& add_waypoint(
-      std::string map_name,
-      Eigen::Vector2d location,
-      bool is_holding_point = false);
+    std::string map_name,
+    Eigen::Vector2d location,
+    bool is_holding_point = false);
 
   // TODO(MXG): Allow waypoints to have keynames so that they can be gotten by
   // a string value instead of an index value.
@@ -473,8 +473,8 @@ public:
   /// Make a lane for this graph. Lanes connect waypoints together, allowing the
   /// graph to know how the robot is allowed to traverse between waypoints.
   Lane& add_lane(
-      Lane::Node entry,
-      Lane::Node exit);
+    Lane::Node entry,
+    Lane::Node exit);
 
   /// Get the lane at the specified index
   Lane& get_lane(std::size_t index);

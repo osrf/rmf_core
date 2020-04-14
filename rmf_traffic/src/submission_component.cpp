@@ -30,9 +30,7 @@ class SubmissionComponent : public rclcpp::Node
 public:
 
 
-
 private:
-
 
 
 };

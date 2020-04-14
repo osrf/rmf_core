@@ -35,23 +35,23 @@ public:
 
 //==============================================================================
 ScheduleRouteValidator::ScheduleRouteValidator(
-    const schedule::Viewer& viewer,
-    schedule::ParticipantId participant_id,
-    Profile profile)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               &viewer,
-               participant_id,
-               std::move(profile),
-               rmf_traffic::schedule::query_all()
-             }))
+  const schedule::Viewer& viewer,
+  schedule::ParticipantId participant_id,
+  Profile profile)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        &viewer,
+        participant_id,
+        std::move(profile),
+        rmf_traffic::schedule::query_all()
+      }))
 {
   _pimpl->query.spacetime().query_timespan({});
 }
 
 //==============================================================================
 ScheduleRouteValidator& ScheduleRouteValidator::schedule_viewer(
-    const schedule::Viewer& viewer)
+  const schedule::Viewer& viewer)
 {
   _pimpl->viewer = &viewer;
   return *this;
@@ -65,7 +65,7 @@ const schedule::Viewer& ScheduleRouteValidator::schedule_viewer() const
 
 //==============================================================================
 ScheduleRouteValidator& ScheduleRouteValidator::participant(
-    const schedule::ParticipantId p)
+  const schedule::ParticipantId p)
 {
   _pimpl->participant = p;
   return *this;
@@ -84,10 +84,10 @@ bool ScheduleRouteValidator::valid(const Route& route) const
   _pimpl->query.spacetime().timespan()->add_map(route.map());
 
   _pimpl->query.spacetime().timespan()->set_lower_time_bound(
-        *route.trajectory().start_time());
+    *route.trajectory().start_time());
 
   _pimpl->query.spacetime().timespan()->set_upper_time_bound(
-        *route.trajectory().finish_time());
+    *route.trajectory().finish_time());
 
   const auto view = _pimpl->viewer->query(_pimpl->query);
   for (const auto& v : view)
@@ -96,10 +96,10 @@ bool ScheduleRouteValidator::valid(const Route& route) const
       continue;
 
     if (rmf_traffic::DetectConflict::between(
-          _pimpl->profile,
-          route.trajectory(),
-          v.description.profile(),
-          v.route.trajectory()))
+        _pimpl->profile,
+        route.trajectory(),
+        v.description.profile(),
+        v.route.trajectory()))
       return false;
   }
 
@@ -125,14 +125,14 @@ public:
 
 //==============================================================================
 NegotiatingRouteValidator::NegotiatingRouteValidator(
-    const schedule::Negotiation::Table& table,
-    Profile profile)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               &table,
-               std::move(profile),
-               schedule::query_all()
-             }))
+  const schedule::Negotiation::Table& table,
+  Profile profile)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        &table,
+        std::move(profile),
+        schedule::query_all()
+      }))
 {
   _pimpl->query.spacetime().query_timespan({});
 }
@@ -144,19 +144,19 @@ bool NegotiatingRouteValidator::valid(const Route& route) const
   _pimpl->query.spacetime().timespan()->add_map(route.map());
 
   _pimpl->query.spacetime().timespan()->set_lower_time_bound(
-        *route.trajectory().start_time());
+    *route.trajectory().start_time());
 
   _pimpl->query.spacetime().timespan()->set_upper_time_bound(
-        *route.trajectory().finish_time());
+    *route.trajectory().finish_time());
 
   const auto view = _pimpl->table->query(_pimpl->query.spacetime());
   for (const auto& v : view)
   {
     if (rmf_traffic::DetectConflict::between(
-          _pimpl->profile,
-          route.trajectory(),
-          v.description.profile(),
-          v.route.trajectory()))
+        _pimpl->profile,
+        route.trajectory(),
+        v.description.profile(),
+        v.route.trajectory()))
     {
       return false;
     }

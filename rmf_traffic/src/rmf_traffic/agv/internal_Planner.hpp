@@ -37,11 +37,11 @@ public:
   Graph::Lane::EventPtr event;
 
   template<typename... Args>
-  static Waypoint make(Args&&... args)
+  static Waypoint make(Args&& ... args)
   {
     Waypoint wp;
     wp._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::forward<Args>(args)...});
+      Implementation{std::forward<Args>(args)...});
 
     return wp;
   }

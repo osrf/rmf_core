@@ -62,11 +62,11 @@ public:
   virtual void update(const Cache& other) = 0;
 
   virtual rmf_utils::optional<Result> plan(
-      const std::vector<agv::Planner::Start>& starts,
-      agv::Planner::Goal goal,
-      agv::Planner::Options options) = 0;
+    const std::vector<agv::Planner::Start>& starts,
+    agv::Planner::Goal goal,
+    agv::Planner::Options options) = 0;
 
-  virtual const agv::Planner::Configuration& get_configuration() const =0;
+  virtual const agv::Planner::Configuration& get_configuration() const = 0;
 
   virtual ~Cache() = default;
 };
@@ -85,9 +85,9 @@ public:
   CacheHandle(CacheHandle&&) = default;
 
   rmf_utils::optional<Result> plan(
-      const std::vector<agv::Planner::Start>& starts,
-      agv::Planner::Goal goal,
-      agv::Planner::Options options);
+    const std::vector<agv::Planner::Start>& starts,
+    agv::Planner::Goal goal,
+    agv::Planner::Options options);
 
   ~CacheHandle();
 

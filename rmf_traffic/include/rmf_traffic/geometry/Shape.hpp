@@ -78,7 +78,7 @@ public:
 
   /// Look at the source of this FinalShape to inspect its parameters.
   const Shape& source() const;
-  
+
   /// Get the characteristic length of this FinalShape
   double get_characteristic_length() const;
 
@@ -95,10 +95,10 @@ using ConstFinalShapePtr = std::shared_ptr<const FinalShape>;
 
 //==============================================================================
 template<typename T, typename... Args>
-FinalShapePtr make_final(Args&&... args)
+FinalShapePtr make_final(Args&& ... args)
 {
   return std::make_shared<FinalShape>(
-        T(std::forward<Args>(args)...).finalize());
+    T(std::forward<Args>(args)...).finalize());
 }
 
 //==============================================================================

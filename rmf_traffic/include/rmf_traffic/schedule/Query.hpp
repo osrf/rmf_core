@@ -214,8 +214,8 @@ public:
     /// \param[in] lower_bound
     ///   The lower bound on time
     Spacetime(
-        std::vector<std::string> maps,
-        Time lower_bound);
+      std::vector<std::string> maps,
+      Time lower_bound);
 
     /// Timespan mode constructor.
     ///
@@ -231,9 +231,9 @@ public:
     /// \param[in] upper_bound
     ///   The upper bound on time
     Spacetime(
-        std::vector<std::string> maps,
-        Time lower_bound,
-        Time upper_bound);
+      std::vector<std::string> maps,
+      Time lower_bound,
+      Time upper_bound);
 
     /// Get the current Spacetime Mode of this query.
     Mode get_mode() const;
@@ -257,14 +257,14 @@ public:
 
     /// Query a timespan between two bounds for a set of maps
     Timespan& query_timespan(
-        std::vector<std::string> maps,
-        Time lower_bound,
-        Time upper_bound);
+      std::vector<std::string> maps,
+      Time lower_bound,
+      Time upper_bound);
 
     /// Query from a lower bound in time for a set of maps
     Timespan& query_timespan(
-        std::vector<std::string> maps,
-        Time lower_bound);
+      std::vector<std::string> maps,
+      Time lower_bound);
 
     /// Query for all trajectories on a set of maps
     Timespan& query_timespan(std::vector<std::string> maps);
@@ -448,7 +448,7 @@ Query query_all();
 /// \param[in] regions
 ///   Only query Trajectories that intersect with the specified regions.
 Query make_query(
-    std::vector<Region> regions);
+  std::vector<Region> regions);
 
 //==============================================================================
 /// Query for all Trajectories that fall within a time range.
@@ -461,9 +461,9 @@ Query make_query(
 ///   A pointer to the upper bound for the time range. Pass in a nullptr to
 ///   indicate that there is no upper bound.
 Query make_query(
-    std::vector<std::string> maps,
-    const Time* start_time,
-    const Time* finish_time);
+  std::vector<std::string> maps,
+  const Time* start_time,
+  const Time* finish_time);
 
 } // namespace schedule
 

@@ -135,9 +135,9 @@ private:
 ///   For example, if the \code{writer} argument refers to a Database instance,
 ///   then there is no need for a RectifierRequesterFactory.
 Participant make_participant(
-    ParticipantDescription description,
-    Writer& writer,
-    RectificationRequesterFactory* rectifier_factory = nullptr);
+  ParticipantDescription description,
+  Writer& writer,
+  RectificationRequesterFactory* rectifier_factory = nullptr);
 
 // TODO(MXG): Consider creating an overload of make_participant() that accepts
 // a std::shared_ptr<Writer> to ensure that the writer's lifecycle is long

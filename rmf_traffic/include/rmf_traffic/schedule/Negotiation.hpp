@@ -46,8 +46,8 @@ public:
   ///   The participants who are involved in the schedule negotiation.
   ///
   Negotiation(
-      const Viewer& viewer,
-      std::vector<ParticipantId> participants);
+    const Viewer& viewer,
+    std::vector<ParticipantId> participants);
 
   /// Get the participants that are currently involved in this negotiation.
   const std::unordered_set<ParticipantId>& participants() const;
@@ -133,8 +133,8 @@ public:
     /// \return True if the submission was accepted. False if the version was
     /// out of date and nothing changed in the negotiation.
     bool submit(
-        std::vector<Route> itinerary,
-        Version version);
+      std::vector<Route> itinerary,
+      Version version);
 
     /// Reject the proposals that underlie this Negotiation::Table. This
     /// indicates that the underlying proposals are infeasible for the
@@ -197,13 +197,13 @@ public:
   ///   participant is accommodating all of the participants that come before
   ///   it.
   TablePtr table(
-      ParticipantId for_participant,
-      const std::vector<ParticipantId>& to_accommodate);
+    ParticipantId for_participant,
+    const std::vector<ParticipantId>& to_accommodate);
 
   // const-qualified table()
   ConstTablePtr table(
-      ParticipantId for_participant,
-      const std::vector<ParticipantId>& to_accommodate) const;
+    ParticipantId for_participant,
+    const std::vector<ParticipantId>& to_accommodate) const;
 
   /// Get a Negotiation::Table that corresponds to the given participant
   /// sequence. For a table in terms of for_participant and to_accomodate, you
@@ -226,7 +226,7 @@ public:
     /// Given a set of proposals, choose the one that is the "best". It is up to
     /// the implementation of the Evaluator to decide how to rank proposals.
     virtual std::size_t choose(
-        const std::vector<const Proposal*>& proposals) const = 0;
+      const std::vector<const Proposal*>& proposals) const = 0;
 
     virtual ~Evaluator() = default;
   };
@@ -252,7 +252,7 @@ public:
 
   // Documentation inherited
   std::size_t choose(
-      const std::vector<const Negotiation::Proposal*>& proposals) const final;
+    const std::vector<const Negotiation::Proposal*>& proposals) const final;
 
 };
 

@@ -43,7 +43,7 @@ public:
     ///   The minimum amount of time that the planner should spend waiting at
     ///   holding points. See Planner::Options for more information.
     Options(
-        Duration min_hold_time = Planner::Options::DefaultMinHoldingTime);
+      Duration min_hold_time = Planner::Options::DefaultMinHoldingTime);
 
     /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);
@@ -71,15 +71,15 @@ public:
   /// \param[in] options
   ///   Additional options that will be used by the Negotiator.
   SimpleNegotiator(
-      Planner::Start start,
-      Planner::Goal goal,
-      Planner::Configuration planner_configuration,
-      const Options& options = Options());
+    Planner::Start start,
+    Planner::Goal goal,
+    Planner::Configuration planner_configuration,
+    const Options& options = Options());
 
   // Documentation inherited
   void respond(std::shared_ptr<const schedule::Negotiation::Table> table,
-      const Responder& responder,
-      const bool* interrupt_flag = nullptr) final;
+    const Responder& responder,
+    const bool* interrupt_flag = nullptr) final;
 
   // TODO(MXG): How should we implement fallback behaviors when a different
   // negotiator rejects our proposal?
