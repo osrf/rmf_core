@@ -15,15 +15,14 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__SCHEDULE__MODULAR_HPP
-#define SRC__RMF_TRAFFIC__SCHEDULE__MODULAR_HPP
+#ifndef RMF_UTILS__MODULAR_HPP
+#define RMF_UTILS__MODULAR_HPP
 
 #include <stdexcept>
 #include <limits>
 #include <type_traits>
 
-namespace rmf_traffic {
-namespace schedule {
+namespace rmf_utils {
 
 //==============================================================================
 /// This class allows us to correctly handle version number overflow. Since the
@@ -139,7 +138,6 @@ struct ModularLess
   }
 };
 
-} // namespace schedule
-} // namespace rmf_traffic
+} // namespace rmf_utils
 
-#endif // SRC__RMF_TRAFFIC__SCHEDULE__MODULAR_HPP
+#endif // RMF_UTILS__MODULAR_HPP

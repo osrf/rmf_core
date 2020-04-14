@@ -17,9 +17,10 @@
 
 #include <rmf_traffic/schedule/Negotiation.hpp>
 
-#include "Modular.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
+
+#include <rmf_utils/Modular.hpp>
 
 namespace rmf_traffic {
 namespace schedule {
@@ -124,7 +125,7 @@ public:
   const ParticipantId participant;
   const std::size_t depth;
   rmf_utils::optional<Itinerary> itinerary;
-  Version version = std::numeric_limits<Version>::max();
+  rmf_utils::optional<Version> version = rmf_utils::nullopt;
   bool rejected = false;
   TableMap descendants;
 
@@ -186,13 +187,17 @@ public:
     const auto it = std::remove_if(unsubmitted.begin(), unsubmitted.end(),
                    [&](const ParticipantId p) { return p == participant; });
     assert(it != unsubmitted.end());
-    unsubmitted.erase(it);
+    unsubmitted.erase(it, unsubmitted.end());
+
+    assert(std::find(unsubmitted.begin(), unsubmitted.end(), participant) == unsubmitted.end());
   }
 
   Viewer::View query(const Query::Spacetime& spacetime) const;
 
   void add_participant(const ParticipantId new_participant)
   {
+    assert(std::find(unsubmitted.begin(), unsubmitted.end(), new_participant) == unsubmitted.end());
+    assert(std::find(sequence.begin(), sequence.end(), new_participant) == sequence.end());
     unsubmitted.push_back(new_participant);
 
     if (itinerary)
@@ -207,6 +212,8 @@ public:
   {
     assert(itinerary);
     assert(proposal.size() == depth);
+
+    assert(std::find(unsubmitted.begin(), unsubmitted.end(), participant) == unsubmitted.end());
 
     std::unordered_map<ParticipantId, Table> descendants;
     for (const auto u : unsubmitted)
@@ -252,8 +259,10 @@ public:
       std::vector<Route> new_itinerary,
       const Version new_version)
   {
-    if (!modular(version).less_than(new_version))
+    if (version && rmf_utils::modular(new_version).less_than_or_equal(*version))
       return false;
+
+    version = new_version;
 
     bool formerly_successful = false;
     const auto negotiation_data = weak_negotiation_data.lock();
@@ -272,7 +281,6 @@ public:
 
     const bool had_itinerary = itinerary.has_value();
 
-    version = new_version;
     itinerary = convert_itinerary(new_itinerary);
     rejected = false;
 
@@ -300,8 +308,13 @@ public:
     return true;
   }
 
-  void reject()
+  void reject(const Version rejected_version)
   {
+    if (version && rmf_utils::modular(rejected_version).less_than(*version))
+      return;
+
+    version = rejected_version;
+
     if (rejected)
       return;
 
@@ -315,8 +328,13 @@ public:
       negotiation_data->num_terminated_tables -= 1;
     }
 
+    if (itinerary)
+    {
+      itinerary = rmf_utils::nullopt;
+      proposal.pop_back();
+    }
+
     rejected = true;
-    itinerary = rmf_utils::nullopt;
     clear_descendants();
 
     if (negotiation_data)
@@ -511,6 +529,7 @@ public:
       data->num_terminated_tables += termination_factor(rejected->depth, N);
 
     std::vector<TableMap*> queue;
+    std::vector<Table::Implementation*> current_tables;
     queue.push_back(&tables);
     while (!queue.empty())
     {
@@ -520,11 +539,23 @@ public:
       for (auto& element : *next)
       {
         const auto& entry = element.second;
-        Table::Implementation::get(*entry).add_participant(new_participant);
-
+        current_tables.push_back(&Table::Implementation::get(*entry));
         queue.push_back(&Table::Implementation::get(*entry).descendants);
       }
     }
+
+    // We collect all the current tables before adding the new participant to
+    // any of them, because if we try to traverse the tables and add the
+    // participant at the same time, we might accidentally traverse over tables
+    // that are being freshly created for the new participant.
+    for (auto* t : current_tables)
+      t->add_participant(new_participant);
+
+    tables[new_participant] = Table::Implementation::make_root(
+          *viewer, data, new_participant,
+          std::vector<ParticipantId>(
+            data->participants.begin(),
+            data->participants.end()));
   }
 };
 
@@ -634,8 +665,8 @@ const Itinerary* Negotiation::Table::submission() const
 //==============================================================================
 const Version* Negotiation::Table::version() const
 {
-  if (_pimpl->itinerary)
-    return &_pimpl->version;
+  if (_pimpl->version)
+    return &(*_pimpl->version);
 
   return nullptr;
 }
@@ -667,9 +698,15 @@ bool Negotiation::Table::submit(
 }
 
 //==============================================================================
-void Negotiation::Table::reject()
+void Negotiation::Table::reject(const Version version)
 {
-  _pimpl->reject();
+  _pimpl->reject(version);
+}
+
+//==============================================================================
+bool Negotiation::Table::rejected() const
+{
+  return _pimpl->rejected;
 }
 
 //==============================================================================
@@ -699,6 +736,24 @@ auto Negotiation::Table::parent() -> TablePtr
 auto Negotiation::Table::parent() const -> ConstTablePtr
 {
   return _pimpl->weak_parent.lock();
+}
+
+//==============================================================================
+auto Negotiation::Table::children() -> std::vector<TablePtr>
+{
+  std::vector<TablePtr> children_;
+  for (const auto& c : _pimpl->descendants)
+    children_.push_back(c.second);
+  return children_;
+}
+
+//==============================================================================
+auto Negotiation::Table::children() const -> std::vector<ConstTablePtr>
+{
+  std::vector<ConstTablePtr> children_;
+  for (const auto& c : _pimpl->descendants)
+    children_.push_back(c.second);
+  return children_;
 }
 
 //==============================================================================

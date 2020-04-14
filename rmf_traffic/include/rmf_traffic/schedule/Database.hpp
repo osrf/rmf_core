@@ -186,6 +186,11 @@ public:
   /// call this function for any other purpose.
   void set_current_time(Time time);
 
+  /// Get the curret itinerary version for the specified participant.
+  //
+  // TODO(MXG): This function needs unit testing
+  ItineraryVersion itinerary_version(ParticipantId participant) const;
+
   class Implementation;
   class Debug;
 private:

@@ -18,13 +18,12 @@
 #ifndef SRC__RMF_TRAFFIC__SCHEDULE__INCONSISTENCYTRACKER_HPP
 #define SRC__RMF_TRAFFIC__SCHEDULE__INCONSISTENCYTRACKER_HPP
 
-#include "Modular.hpp"
-
 #include <rmf_traffic/schedule/Inconsistencies.hpp>
 #include <rmf_traffic/schedule/Itinerary.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 
 #include <rmf_utils/optional.hpp>
+#include <rmf_utils/Modular.hpp>
 
 #include <set>
 #include <map>
@@ -40,7 +39,7 @@ struct RangeLess
 
   bool operator()(const Range& lhs, const Range& rhs)
   {
-    return modular(lhs.upper).less_than(rhs.upper);
+    return rmf_utils::modular(lhs.upper).less_than(rhs.upper);
   }
 };
 
@@ -119,6 +118,11 @@ public:
   ItineraryVersion expected_version() const
   {
     return _expected_version;
+  }
+
+  ItineraryVersion last_known_version() const
+  {
+    return _last_known_version;
   }
 
 private:

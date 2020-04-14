@@ -4,4 +4,4 @@ uint64 conflict_version
 
 # The participants who are acknowledging the conclusion of the conflict
 # negotiation
-uint64[] participants
+ScheduleConflictParticipantAck[] acknowledgments
