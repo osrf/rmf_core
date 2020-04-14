@@ -26,7 +26,8 @@ class SimpleResponder::Implementation
 public:
 
   std::shared_ptr<schedule::Negotiation> negotiation;
-  std::vector<schedule::ParticipantId> sequence;
+  schedule::ParticipantId for_participant;
+  std::vector<schedule::ParticipantId> to_accommodate;
 
 };
 
@@ -36,10 +37,13 @@ SimpleResponder::SimpleResponder(
     schedule::ParticipantId for_participant,
     std::vector<schedule::ParticipantId> to_accommodate)
   : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{std::move(negotiation), {}}))
+             Implementation{
+               std::move(negotiation),
+               for_participant,
+               std::move(to_accommodate)
+             }))
 {
-  _pimpl->sequence = std::move(to_accommodate);
-  _pimpl->sequence.push_back(for_participant);
+  // Do nothing
 }
 
 //==============================================================================
@@ -47,20 +51,28 @@ SimpleResponder::SimpleResponder(
     std::shared_ptr<schedule::Negotiation> negotiation,
     std::vector<schedule::ParticipantId> sequence)
   : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{std::move(negotiation), std::move(sequence)}))
+             Implementation{
+               std::move(negotiation),
+               sequence.back(),
+               std::move(sequence)
+             }))
 {
-  // Do nothing
+  _pimpl->to_accommodate.pop_back();
 }
 
 //==============================================================================
 void SimpleResponder::submit(std::vector<Route> itinerary,
     std::function<UpdateVersion()> /*approval_callback*/) const
 {
-  const auto table = _pimpl->negotiation->table(_pimpl->sequence);
+  const auto table = _pimpl->negotiation->table(
+        _pimpl->for_participant, _pimpl->to_accommodate);
 
-  table->submit(
-        std::move(itinerary),
-        table->version()? *table->version()+1 : 0);
+  if (table)
+  {
+    table->submit(
+          std::move(itinerary),
+          table->version()? *table->version()+1 : 0);
+  }
 }
 
 //==============================================================================
@@ -73,11 +85,15 @@ void SimpleResponder::reject() const
     return;
   }
 
-  // TODO(MXG): This implies that the negotiation is completely impossible.
-  // Maybe this should be escalated to some kind of critical error for a human
-  // operator to resolve.
-  const auto table = _pimpl->negotiation->table(_pimpl->for_participant, {});
-  table->reject(table->version()? *table->version() : 0);
+  const auto table = _pimpl->negotiation->table(
+        _pimpl->for_participant, _pimpl->to_accommodate);
+  if (table)
+  {
+    table->reject(table->version()? *table->version() : 0);
+    return;
+  }
+
+  // This may imply that a grand parent in the negotiation was rejected.
 }
 
 } // namespace schedule
