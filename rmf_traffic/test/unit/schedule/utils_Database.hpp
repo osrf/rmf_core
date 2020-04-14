@@ -28,12 +28,13 @@
 
 #include <rmf_utils/catch.hpp>
 
-inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory *t, rmf_traffic::Trajectory t2)
+inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory* t,
+  rmf_traffic::Trajectory t2)
 {
-  rmf_traffic::Trajectory t1= *t;
-  REQUIRE(t1.size()==t2.size());
+  rmf_traffic::Trajectory t1 = *t;
+  REQUIRE(t1.size() == t2.size());
 
-  for(auto it1=t1.begin(),it2=t2.begin();it1!=t1.end();it1++,it2++)
+  for (auto it1 = t1.begin(), it2 = t2.begin(); it1 != t1.end(); it1++, it2++)
   {
     CHECK(it1->position() == it2->position());
     CHECK(it1->velocity() == it2->velocity());
@@ -42,9 +43,9 @@ inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory *t, rmf_traffic
 }
 
 inline void CHECK_TRAJECTORY_COUNT(
-    const rmf_traffic::schedule::Viewer& d,
-    const std::size_t expected_participant_num,
-    const std::size_t expected_trajectory_num)
+  const rmf_traffic::schedule::Viewer& d,
+  const std::size_t expected_participant_num,
+  const std::size_t expected_trajectory_num)
 {
   const auto view = d.query(rmf_traffic::schedule::query_all());
   CHECK(view.size() == expected_trajectory_num);
@@ -52,16 +53,16 @@ inline void CHECK_TRAJECTORY_COUNT(
 }
 
 inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
-    const rmf_traffic::schedule::Viewer::View& view,
-    const rmf_traffic::Profile& p,
-    const rmf_traffic::Trajectory& t)
+  const rmf_traffic::schedule::Viewer::View& view,
+  const rmf_traffic::Profile& p,
+  const rmf_traffic::Trajectory& t)
 {
   std::vector<rmf_traffic::Trajectory> collision_trajectories;
-  for(const auto& v : view)
+  for (const auto& v : view)
   {
     const auto& v_p = v.description.profile();
     const auto& v_t = v.route.trajectory();
-    if(rmf_traffic::DetectConflict::between(v_p, v_t, p, t))
+    if (rmf_traffic::DetectConflict::between(v_p, v_t, p, t))
       collision_trajectories.push_back(v_t);
   }
 
@@ -69,7 +70,7 @@ inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
 }
 
 inline rmf_traffic::schedule::Writer::Input create_test_input(
-    rmf_traffic::RouteId id, const rmf_traffic::Trajectory& t)
+  rmf_traffic::RouteId id, const rmf_traffic::Trajectory& t)
 {
   return rmf_traffic::schedule::Writer::Input{
     {
@@ -77,7 +78,6 @@ inline rmf_traffic::schedule::Writer::Input create_test_input(
     }
   };
 }
-
 
 
 #endif //RMF_TRAFFIC__TEST__UNIT__SCHEDULE__UTILS_TRAJECTORY_HPP

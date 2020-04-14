@@ -49,10 +49,12 @@ TEMPLATE_TEST_CASE("Test Modular", "[modular]", uint8_t, uint16_t, uint64_t)
   CHECK(rmf_utils::modular(max_value).less_than(min_value, min_value+1));
 
   // Check the noncommutativity
-  CHECK_FALSE(rmf_utils::modular(max_value-2).less_than(max_value, max_value-1));
+  CHECK_FALSE(rmf_utils::modular(max_value-2).less_than(max_value,
+    max_value-1));
   CHECK_FALSE(rmf_utils::modular(max_value).less_than(min_value+1, min_value));
 
   // Here we check lhs = rhs when basis < lhs
-  CHECK(rmf_utils::modular(max_value-1).less_than_or_equal(max_value, max_value));
+  CHECK(rmf_utils::modular(max_value-1).less_than_or_equal(max_value,
+    max_value));
   CHECK(rmf_utils::modular(max_value).less_than_or_equal(min_value, min_value));
 }

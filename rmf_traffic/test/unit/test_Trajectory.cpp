@@ -36,12 +36,13 @@ SCENARIO("Waypoint Unit Tests")
     const Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
     const Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
 
-    WHEN("Attemping to construct Waypoint using rmf_traffic::Trajectory::insert()")
+    WHEN(
+      "Attemping to construct Waypoint using rmf_traffic::Trajectory::insert()")
     {
       rmf_traffic::Trajectory trajectory;
       auto result = trajectory.insert(time, pos, vel);
 
-      const rmf_traffic::Trajectory::Waypoint &waypoint = *(result.it);
+      const rmf_traffic::Trajectory::Waypoint& waypoint = *(result.it);
 
       THEN("Waypoint is constructed according to specifications.")
       {
@@ -59,9 +60,14 @@ SCENARIO("Waypoint Unit Tests")
   {
     std::vector<TrajectoryInsertInput> inputs;
     rmf_traffic::Time time = std::chrono::steady_clock::now();
-    inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0)});
-    inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(1, 1, 1), Eigen::Vector3d(1, 1, 1)});
-    inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(0, 0, 0)});
+    inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0),
+        Eigen::Vector3d(0, 0, 0)});
+    inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(1, 1,
+        1),
+        Eigen::Vector3d(1, 1, 1)});
+    inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(2, 2,
+        2),
+        Eigen::Vector3d(0, 0, 0)});
     rmf_traffic::Trajectory trajectory = create_test_trajectory(inputs);
     rmf_traffic::Trajectory::iterator trajectory_it = trajectory.begin();
     rmf_traffic::Trajectory::Waypoint& waypoint = *trajectory_it;
@@ -110,7 +116,8 @@ SCENARIO("Waypoint Unit Tests")
       }
     }
 
-    WHEN("Setting a new finish time that causes a rearrangement of adjacent waypoints")
+    WHEN(
+      "Setting a new finish time that causes a rearrangement of adjacent waypoints")
     {
       const rmf_traffic::Time new_time = time + 12s;
       waypoint.change_time(new_time);
@@ -119,12 +126,14 @@ SCENARIO("Waypoint Unit Tests")
       {
         int new_order[3] = {1, 0, 2};
         int i = 0;
-        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin();
+          it != trajectory.end(); it++, i++)
           CHECK(it->position() == Eigen::Vector3d::Constant(new_order[i]));
       }
     }
 
-    WHEN("Setting a new finish time that causes a rearrangement of non-adjacent waypoints")
+    WHEN(
+      "Setting a new finish time that causes a rearrangement of non-adjacent waypoints")
     {
       const rmf_traffic::Time new_time = time + 22s;
       waypoint.change_time(new_time);
@@ -133,30 +142,35 @@ SCENARIO("Waypoint Unit Tests")
       {
         int new_order[3] = {1, 2, 0};
         int i = 0;
-        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin();
+          it != trajectory.end(); it++, i++)
         {
           CHECK(it->position() == Eigen::Vector3d::Constant(new_order[i]));
         }
       }
     }
 
-    WHEN("Positively adjusting all finish times using adjust_finish_times function, using first waypoint")
+    WHEN(
+      "Positively adjusting all finish times using adjust_finish_times function, using first waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(5);
       waypoint.adjust_times(delta_t);
       int i = 0;
-      const rmf_traffic::Time new_order[3] = {time + 5s, time + 15s, time + 25s};
+      const rmf_traffic::Time new_order[3] =
+      {time + 5s, time + 15s, time + 25s};
 
       THEN("All finish times are adjusted correctly.")
       {
-        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin();
+          it != trajectory.end(); it++, i++)
         {
           CHECK(it->time() == new_order[i]);
         }
       }
     }
 
-    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using first waypoint")
+    WHEN(
+      "Negatively adjusting all finish times using adjust_finish_times function, using first waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-5);
       waypoint.adjust_times(delta_t);
@@ -165,30 +179,36 @@ SCENARIO("Waypoint Unit Tests")
 
       THEN("All finish times are adjusted correctly.")
       {
-        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin();
+          it != trajectory.end(); it++, i++)
         {
           CHECK(it->time() == new_order[i]);
         }
       }
     }
 
-    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using first waypoint")
+    WHEN(
+      "Large negative adjustment all finish times using adjust_finish_times function, using first waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-50);
       waypoint.adjust_times(delta_t);
       int i = 0;
-      const rmf_traffic::Time new_order[3] = {time - 50s, time - 40s, time - 30s};
+      const rmf_traffic::Time new_order[3] =
+      {time - 50s, time - 40s, time - 30s};
 
-      THEN("All finish times are adjusted correctly, as there is no waypoint preceding first waypoint")
+      THEN(
+        "All finish times are adjusted correctly, as there is no waypoint preceding first waypoint")
       {
-        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin();
+          it != trajectory.end(); it++, i++)
         {
           CHECK(it->time() == new_order[i]);
         }
       }
     }
 
-    WHEN("Positively adjusting all finish times using adjust_finish_times function, using second waypoint")
+    WHEN(
+      "Positively adjusting all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(5);
       waypoint_10s.adjust_times(delta_t);
@@ -197,14 +217,16 @@ SCENARIO("Waypoint Unit Tests")
       THEN("Finish times from the second waypoint on are adjusted correctly.")
       {
         const rmf_traffic::Time new_order[3] = {time, time + 15s, time + 25s};
-        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin();
+          it != trajectory.end(); it++, i++)
         {
           CHECK(it->time() == new_order[i]);
         }
       }
     }
 
-    WHEN("Negatively adjusting all finish times using adjust_finish_times function, using second waypoint")
+    WHEN(
+      "Negatively adjusting all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-5);
       waypoint_10s.adjust_times(delta_t);
@@ -213,18 +235,21 @@ SCENARIO("Waypoint Unit Tests")
       THEN("All finish times are adjusted correctly.")
       {
         const rmf_traffic::Time new_order[3] = {time, time + 5s, time + 15s};
-        for (rmf_traffic::Trajectory::iterator it = trajectory.begin(); it != trajectory.end(); it++, i++)
+        for (rmf_traffic::Trajectory::iterator it = trajectory.begin();
+          it != trajectory.end(); it++, i++)
         {
           CHECK(it->time() == new_order[i]);
         }
       }
     }
 
-    WHEN("Large negative adjustment all finish times using adjust_finish_times function, using second waypoint")
+    WHEN(
+      "Large negative adjustment all finish times using adjust_finish_times function, using second waypoint")
     {
       const std::chrono::seconds delta_t = std::chrono::seconds(-50);
 
-      THEN("std::invalid_argument exception thrown due to violation of previous waypoint time boundary")
+      THEN(
+        "std::invalid_argument exception thrown due to violation of previous waypoint time boundary")
       {
         CHECK_THROWS(waypoint_10s.adjust_times(delta_t));
       }
@@ -360,7 +385,8 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
       THEN("New iterator is created")
       {
-        const rmf_traffic::Trajectory::iterator &&rvalue_it = std::move(zeroth_it);
+        const rmf_traffic::Trajectory::iterator&& rvalue_it = std::move(
+          zeroth_it);
         const rmf_traffic::Trajectory::iterator copied_zeroth_it(rvalue_it);
         CHECK(&zeroth_it != &copied_zeroth_it);
       }
@@ -377,7 +403,8 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("New iterator is created")
       {
         const rmf_traffic::Trajectory::iterator copied_zeroth_it(zeroth_it);
-        const rmf_traffic::Trajectory::iterator moved_zeroth_it(std::move(copied_zeroth_it));
+        const rmf_traffic::Trajectory::iterator moved_zeroth_it(std::move(
+            copied_zeroth_it));
         CHECK(&zeroth_it != &moved_zeroth_it);
         CHECK(zeroth_it == moved_zeroth_it);
       }
@@ -385,7 +412,8 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Copy Construction of Trajectory from another trajectory")
     {
-      const rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      const rmf_traffic::Trajectory trajectory = create_test_trajectory(
+        param_inputs);
       const rmf_traffic::Trajectory trajectory_copy = trajectory;
 
       THEN("Elements of trajectories are consistent")
@@ -405,7 +433,8 @@ SCENARIO("Trajectory and base_iterator unit tests")
 
     WHEN("Copy Construction of Trajectory followed by move of source trajectory")
     {
-      const rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
+      const rmf_traffic::Trajectory trajectory = create_test_trajectory(
+        param_inputs);
       rmf_traffic::Trajectory trajectory_copy = trajectory;
       const rmf_traffic::Trajectory trajectory_moved = std::move(trajectory);
 
@@ -413,7 +442,8 @@ SCENARIO("Trajectory and base_iterator unit tests")
       {
         rmf_traffic::Trajectory::const_iterator ct = trajectory_copy.begin();
         rmf_traffic::Trajectory::const_iterator mt = trajectory_moved.begin();
-        for (; ct != trajectory_copy.end() && mt != trajectory_moved.end(); ++ct, ++mt)
+        for (; ct != trajectory_copy.end() && mt != trajectory_moved.end();
+          ++ct, ++mt)
         {
           CHECK(ct->position() == mt->position());
           CHECK(ct->velocity() == mt->velocity());
@@ -507,9 +537,15 @@ SCENARIO("Trajectory and base_iterator unit tests")
   {
     std::vector<TrajectoryInsertInput> param_inputs;
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
-    param_inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(1, 1, 1)});
-    param_inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(2, 2, 2), Eigen::Vector3d(3, 3, 3)});
-    param_inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(4, 4, 4), Eigen::Vector3d(5, 5, 5)});
+    param_inputs.push_back({time, UnitBox, Eigen::Vector3d(0, 0,
+        0),
+        Eigen::Vector3d(1, 1, 1)});
+    param_inputs.push_back({time + 10s, UnitBox, Eigen::Vector3d(2, 2,
+        2), Eigen::Vector3d(
+          3, 3, 3)});
+    param_inputs.push_back({time + 20s, UnitBox, Eigen::Vector3d(4, 4,
+        4), Eigen::Vector3d(
+          5, 5, 5)});
     rmf_traffic::Trajectory trajectory = create_test_trajectory(param_inputs);
     const rmf_traffic::Trajectory empty_trajectory = create_test_trajectory();
 
@@ -518,8 +554,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Waypoint is retreieved successfully")
       {
         CHECK(trajectory.find(time)->position() == Eigen::Vector3d(0, 0, 0));
-        CHECK(trajectory.find(time + 10s)->position() == Eigen::Vector3d(2, 2, 2));
-        CHECK(trajectory.find(time + 20s)->position() == Eigen::Vector3d(4, 4, 4));
+        CHECK(trajectory.find(time + 10s)->position() == Eigen::Vector3d(2, 2,
+          2));
+        CHECK(trajectory.find(time + 20s)->position() == Eigen::Vector3d(4, 4,
+          4));
       }
     }
 
@@ -528,10 +566,14 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Waypoints currently active are retrieved successfully")
       {
         CHECK(trajectory.find(time)->position() == Eigen::Vector3d(0, 0, 0));
-        CHECK(trajectory.find(time + 2s)->position() == Eigen::Vector3d(2, 2, 2));
-        CHECK(trajectory.find(time + 8s)->position() == Eigen::Vector3d(2, 2, 2));
-        CHECK(trajectory.find(time + 12s)->position() == Eigen::Vector3d(4, 4, 4));
-        CHECK(trajectory.find(time + 20s)->position() == Eigen::Vector3d(4, 4, 4));
+        CHECK(trajectory.find(time + 2s)->position() ==
+          Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 8s)->position() ==
+          Eigen::Vector3d(2, 2, 2));
+        CHECK(trajectory.find(time + 12s)->position() == Eigen::Vector3d(4, 4,
+          4));
+        CHECK(trajectory.find(time + 20s)->position() == Eigen::Vector3d(4, 4,
+          4));
       }
     }
 
@@ -549,8 +591,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Waypoint is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_target = trajectory.begin();
-        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_target);
+        const rmf_traffic::Trajectory::iterator erase_target =
+          trajectory.begin();
+        rmf_traffic::Trajectory::iterator next_it = trajectory.erase(
+          erase_target);
         CHECK(next_it->time() == time + 10s);
         CHECK(trajectory.size() == 2);
       }
@@ -563,8 +607,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_target = trajectory_copy.begin();
-        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        const rmf_traffic::Trajectory::iterator erase_target =
+          trajectory_copy.begin();
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(
+          erase_target);
         CHECK(next_it->time() == time + 10s);
         CHECK(trajectory_copy.size() == 2);
         CHECK(trajectory.size() == 3);
@@ -576,8 +622,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Waypoint is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_target = ++(trajectory.begin());
-        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_target);
+        const rmf_traffic::Trajectory::iterator erase_target =
+          ++(trajectory.begin());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(
+          erase_target);
         CHECK(next_it->time() == time + 20s);
         CHECK(trajectory.size() == 2);
       }
@@ -590,8 +638,10 @@ SCENARIO("Trajectory and base_iterator unit tests")
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_target = ++(trajectory_copy.begin());
-        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_target);
+        const rmf_traffic::Trajectory::iterator erase_target =
+          ++(trajectory_copy.begin());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(
+          erase_target);
         CHECK(next_it->time() == time + 20s);
         CHECK(trajectory_copy.size() == 2);
         CHECK(trajectory.size() == 3);
@@ -603,9 +653,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("Nothing is erased and current iterator is returned")
       {
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
         const rmf_traffic::Trajectory::iterator erase_last = erase_first;
-        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(
+          erase_first, erase_last);
         CHECK(trajectory.size() == 3);
         CHECK(next_it->time() == time);
       }
@@ -618,9 +670,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
         const rmf_traffic::Trajectory::iterator erase_last = erase_first;
-        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(
+          erase_first, erase_last);
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
         CHECK(next_it->time() == time);
@@ -632,9 +686,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("1 Waypoint is erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
-        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 10s);
-        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(
+          time + 10s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(
+          erase_first, erase_last);
         CHECK(trajectory.size() == 2);
         CHECK(next_it->time() == time + 10s);
       }
@@ -647,9 +704,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
-        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 10s);
-        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(
+          time + 10s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(
+          erase_first, erase_last);
         CHECK(trajectory_copy.size() == 2);
         CHECK(next_it->time() == time + 10s);
       }
@@ -660,9 +720,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("2 Waypoints are erased and trajectory is rearranged")
       {
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
-        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 20s);
-        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(
+          time + 20s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(
+          erase_first, erase_last);
         CHECK(trajectory.size() == 1);
         CHECK(next_it->time() == time + 20s);
       }
@@ -675,9 +738,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
-        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(time + 20s);
-        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last = trajectory.find(
+          time + 20s);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(
+          erase_first, erase_last);
         CHECK(trajectory_copy.size() == 1);
         CHECK(next_it->time() == time + 20s);
       }
@@ -688,9 +754,11 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("All Waypoints are erased and trajectory is empty")
       {
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
         const rmf_traffic::Trajectory::iterator erase_last = trajectory.end();
-        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(
+          erase_first, erase_last);
         CHECK(trajectory.size() == 0);
         CHECK(next_it == trajectory.end());
       }
@@ -701,9 +769,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
       THEN("All but one Waypoint is erased")
       {
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory.begin();
-        const rmf_traffic::Trajectory::iterator erase_last = --(trajectory.end());
-        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory.begin();
+        const rmf_traffic::Trajectory::iterator erase_last =
+          --(trajectory.end());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory.erase(
+          erase_first, erase_last);
         CHECK(trajectory.size() == 1);
         CHECK(next_it == trajectory.begin());
         CHECK(next_it == --trajectory.end());
@@ -717,9 +788,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory_copy.begin();
-        const rmf_traffic::Trajectory::iterator erase_last = trajectory_copy.end();
-        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory_copy.begin();
+        const rmf_traffic::Trajectory::iterator erase_last =
+          trajectory_copy.end();
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(
+          erase_first, erase_last);
         CHECK(trajectory_copy.size() == 0);
         CHECK(next_it == trajectory_copy.end());
       }
@@ -732,9 +806,12 @@ SCENARIO("Trajectory and base_iterator unit tests")
         rmf_traffic::Trajectory trajectory_copy = trajectory;
         CHECK(trajectory_copy.size() == 3);
         CHECK(trajectory.size() == 3);
-        const rmf_traffic::Trajectory::iterator erase_first = trajectory_copy.begin();
-        const rmf_traffic::Trajectory::iterator erase_last = --(trajectory_copy.end());
-        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(erase_first, erase_last);
+        const rmf_traffic::Trajectory::iterator erase_first =
+          trajectory_copy.begin();
+        const rmf_traffic::Trajectory::iterator erase_last =
+          --(trajectory_copy.end());
+        const rmf_traffic::Trajectory::iterator next_it = trajectory_copy.erase(
+          erase_first, erase_last);
         CHECK(trajectory_copy.size() == 1);
         CHECK(next_it == trajectory_copy.begin());
         CHECK(next_it == --trajectory_copy.end());

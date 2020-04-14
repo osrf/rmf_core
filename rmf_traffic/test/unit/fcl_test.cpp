@@ -25,10 +25,10 @@ TEST_CASE("Verify that FCL can handle continuous collisions")
 {
   // Make sphere
   std::shared_ptr<fcl::CollisionGeometry> sphere_geom =
-      std::make_shared<fcl::Sphere>(0.5);
+    std::make_shared<fcl::Sphere>(0.5);
 
   std::shared_ptr<fcl::CollisionObject> object_1 =
-      std::make_shared<fcl::CollisionObject>(sphere_geom);
+    std::make_shared<fcl::CollisionObject>(sphere_geom);
 
   fcl::Transform3f tf_sphere_start;
   tf_sphere_start.setTranslation(fcl::Vec3f(1.0, 0.0, 0.0));
@@ -38,10 +38,10 @@ TEST_CASE("Verify that FCL can handle continuous collisions")
 
   // Make box
   std::shared_ptr<fcl::CollisionGeometry> box_geom =
-      std::make_shared<fcl::Box>(1.0, 1.0, 1.0);
+    std::make_shared<fcl::Box>(1.0, 1.0, 1.0);
 
   std::shared_ptr<fcl::CollisionObject> object_2 =
-      std::make_shared<fcl::CollisionObject>(box_geom);
+    std::make_shared<fcl::CollisionObject>(box_geom);
 
   fcl::Transform3f tf_box_start;
   tf_box_start.setTranslation(fcl::Vec3f(0.0, 5.0, 0.0));
@@ -60,9 +60,9 @@ TEST_CASE("Verify that FCL can handle continuous collisions")
   fcl::ContinuousCollisionResult result;
 
   fcl::continuousCollide(
-        object_1.get(), tf_sphere_final,
-        object_2.get(), tf_box_final,
-        request, result);
+    object_1.get(), tf_sphere_final,
+    object_2.get(), tf_box_final,
+    request, result);
 
   CHECK(result.is_collide);
 }

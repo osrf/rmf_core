@@ -31,9 +31,9 @@ SCENARIO("Testing Construction")
   WHEN("Vicinity is not passed into the constructor")
   {
     const auto circle_1 = rmf_traffic::geometry::make_final_convex<
-        rmf_traffic::geometry::Circle>(1.0);
+      rmf_traffic::geometry::Circle>(1.0);
     const auto circle_2 = rmf_traffic::geometry::make_final_convex<
-        rmf_traffic::geometry::Circle>(2.0);
+      rmf_traffic::geometry::Circle>(2.0);
 
     auto profile = Profile{circle_1};
 
@@ -76,12 +76,12 @@ SCENARIO("Testing Construction")
     }
   }
 
-  WHEN ("Vicinity is passed into the constructor")
+  WHEN("Vicinity is passed into the constructor")
   {
     const auto circle_1 = rmf_traffic::geometry::make_final_convex<
-        rmf_traffic::geometry::Circle>(1.0);
+      rmf_traffic::geometry::Circle>(1.0);
     const auto circle_2 = rmf_traffic::geometry::make_final_convex<
-        rmf_traffic::geometry::Circle>(2.0);
+      rmf_traffic::geometry::Circle>(2.0);
 
     auto profile = Profile{circle_1, circle_2};
 
@@ -123,22 +123,22 @@ SCENARIO("Testing Construction")
   }
 }
 
-SCENARIO ("Testing conflicts")
+SCENARIO("Testing conflicts")
 {
   using Trajecotry = rmf_traffic::Trajectory;
 
   const auto start_time = std::chrono::steady_clock::now();
 
   const auto circle_1 = rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Circle>(1.0);
+    rmf_traffic::geometry::Circle>(1.0);
   const auto circle_2 = rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Circle>(2.0);
+    rmf_traffic::geometry::Circle>(2.0);
   const auto box_1 = rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Box>(1.0, 1.0);
+    rmf_traffic::geometry::Box>(1.0, 1.0);
   const auto box_2 = rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Box>(2.0, 2.0);
+    rmf_traffic::geometry::Box>(2.0, 2.0);
   const auto box_3 = rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Box>(3.0, 3.0);
+    rmf_traffic::geometry::Box>(3.0, 3.0);
 
   GIVEN("Two stationary trajectories with non-overlapping vicinities")
   {
