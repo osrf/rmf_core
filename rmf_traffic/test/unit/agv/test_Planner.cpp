@@ -152,8 +152,7 @@ rmf_traffic::Trajectory test_with_obstacle(
 
   REQUIRE(plan->get_itinerary().size() == 1);
   t_obs = plan->get_itinerary().front().trajectory();
-  const Eigen::Vector2d initial_position =
-    [&]() -> Eigen::Vector2d
+  const Eigen::Vector2d initial_position = [&]() -> Eigen::Vector2d
     {
       if (original_plan.get_start().location())
         return *original_plan.get_start().location();
@@ -523,8 +522,7 @@ SCENARIO("Test planning")
   graph.add_waypoint(test_map_name, {12, 12}); // 12
   REQUIRE(graph.num_waypoints() == 13);
 
-  auto add_bidir_lane =
-    [&](const std::size_t w0, const std::size_t w1)
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
     {
       graph.add_lane(w0, w1);
       graph.add_lane(w1, w0);
@@ -1123,8 +1121,7 @@ SCENARIO("DP1 Graph")
 
   REQUIRE(graph.num_waypoints() == 33);
 
-  auto add_bidir_lane =
-    [&](const std::size_t w0, const std::size_t w1)
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
     {
       graph.add_lane(w0, w1);
       graph.add_lane(w1, w0);
@@ -1382,8 +1379,7 @@ SCENARIO("DP1 Graph")
   }
 
   WHEN(
-    "Robot moves from 1->30 given multiple non-conflicting obstacles
-    that fully overlap in time")
+    "Robot moves from 1->30 given multiple non-conflicting obstacles that fully overlap in time")
   {
     const auto time = std::chrono::steady_clock::now();
     const std::size_t start_index = 1;
@@ -2248,8 +2244,7 @@ SCENARIO("Test planner with various start conditions")
   }
 
   WHEN(
-    "Startset with same initial_location and initial_waypoints but different
-    initial_orientations")
+    "Startset with same initial_location and initial_waypoints but different initial_orientations")
   {
     // lane with exit orientation constraint
     graph.add_lane(1, {2, Graph::OrientationConstraint::make({0})}); // 6

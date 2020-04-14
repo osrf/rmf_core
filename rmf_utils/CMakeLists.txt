@@ -39,6 +39,11 @@ install(
   EXPORT  rmf_utils
 )
 
+install(
+  FILES test/format/rmf_code_style.cfg
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/format
+)
+
 add_subdirectory(test/unit)
 add_subdirectory(cmake/ament_cmake_catch2)
 add_subdirectory(cmake/rmf_cmake_uncrustify)
