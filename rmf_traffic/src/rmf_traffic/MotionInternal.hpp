@@ -30,9 +30,9 @@ class SinglePointMotion : public Motion
 public:
 
   SinglePointMotion(
-      const Time t,
-      Eigen::Vector3d p,
-      Eigen::Vector3d v);
+    const Time t,
+    Eigen::Vector3d p,
+    Eigen::Vector3d v);
 
   Time start_time() const final;
   Time finish_time() const final;

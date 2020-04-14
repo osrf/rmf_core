@@ -48,7 +48,7 @@ public:
   /// Compute the knots for the motion of this spline from start_time to
   /// finish_time, scaled to a "time" range of [0, 1].
   std::array<Eigen::Vector3d, 4> compute_knots(
-      const Time start_time, const Time finish_time) const;
+    const Time start_time, const Time finish_time) const;
 
   fcl::SplineMotion to_fcl(const Time start_time, const Time finish_time) const;
 

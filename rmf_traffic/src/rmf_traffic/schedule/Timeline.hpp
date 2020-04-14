@@ -46,7 +46,7 @@ const Duration PartialBucketDuration = std::chrono::seconds(50);
 struct ParticipantFilter
 {
   static std::unordered_set<ParticipantId> convert(
-      const std::vector<ParticipantId>& ids)
+    const std::vector<ParticipantId>& ids)
   {
     std::unordered_set<ParticipantId> output;
     for (const auto id : ids)
@@ -114,7 +114,7 @@ public:
   using Bucket = std::vector<const Entry*>;
   using BucketPtr = std::shared_ptr<Bucket>;
   using Checked =
-      std::unordered_map<ParticipantId, std::unordered_set<RouteId>>;
+    std::unordered_map<ParticipantId, std::unordered_set<RouteId>>;
 
   // TODO(MXG): Come up with a better name for this data structure than Entries
   using Entries = std::map<Time, BucketPtr>;
@@ -125,8 +125,8 @@ public:
   struct Handle
   {
     Handle(
-        const Entry* entry,
-        std::vector<std::weak_ptr<Bucket>> buckets)
+      const Entry* entry,
+      std::vector<std::weak_ptr<Bucket>> buckets)
     : _entry(entry),
       _buckets(std::move(buckets))
     {
@@ -154,7 +154,7 @@ public:
 
   /// Constructor
   Timeline()
-    : _all_bucket(std::make_shared<Bucket>())
+  : _all_bucket(std::make_shared<Bucket>())
   {
     // Do nothing
   }
@@ -173,7 +173,7 @@ public:
       const std::string& map_name = entry.route->map();
 
       const auto map_it = _timelines.insert(
-            std::make_pair(map_name, Entries())).first;
+        std::make_pair(map_name, Entries())).first;
 
       Entries& timeline = map_it->second;
 
@@ -188,14 +188,14 @@ public:
     }
 
     entry.timeline_handle = std::make_shared<Handle>(
-          &entry, std::move(buckets));
+      &entry, std::move(buckets));
   }
 
   /// Inspect the timeline for entries that match the query
   template<typename Inspector>
   void inspect(
-      const Query& query,
-      Inspector& inspector) const
+    const Query& query,
+    Inspector& inspector) const
   {
     const Query::Participants& participants = query.participants();
     const Query::Participants::Mode mode = participants.get_mode();
@@ -203,29 +203,29 @@ public:
     if (Query::Participants::Mode::All == mode)
     {
       inspect_spacetime(
-            query.spacetime(),
-            ParticipantFilter::AllowAll(),
-            inspector);
+        query.spacetime(),
+        ParticipantFilter::AllowAll(),
+        inspector);
     }
     else if (Query::Participants::Mode::Include == mode)
     {
       inspect_spacetime(
-            query.spacetime(),
-            ParticipantFilter::Include(participants.include()->get_ids()),
-            inspector);
+        query.spacetime(),
+        ParticipantFilter::Include(participants.include()->get_ids()),
+        inspector);
     }
     else if (Query::Participants::Mode::Exclude == mode)
     {
       inspect_spacetime(
-            query.spacetime(),
-            ParticipantFilter::Exclude(participants.exclude()->get_ids()),
-            inspector);
+        query.spacetime(),
+        ParticipantFilter::Exclude(participants.exclude()->get_ids()),
+        inspector);
     }
     else
     {
       throw std::runtime_error(
-            "Unexpected Query::Participants mode: "
-            + std::to_string(static_cast<uint16_t>(mode)));
+              "Unexpected Query::Participants mode: "
+              + std::to_string(static_cast<uint16_t>(mode)));
     }
   }
 
@@ -249,9 +249,9 @@ private:
 
   template<typename Inspector, typename ParticipantFilter>
   void inspect_spacetime(
-      const Query::Spacetime& spacetime,
-      const ParticipantFilter& participant_filter,
-      Inspector& inspector) const
+    const Query::Spacetime& spacetime,
+    const ParticipantFilter& participant_filter,
+    Inspector& inspector) const
   {
     const Query::Spacetime::Mode mode = spacetime.get_mode();
 
@@ -262,19 +262,19 @@ private:
     else if (Query::Spacetime::Mode::Regions == mode)
     {
       inspect_spacetime_regions(
-            *spacetime.regions(), participant_filter, inspector);
+        *spacetime.regions(), participant_filter, inspector);
     }
     else if (Query::Spacetime::Mode::Timespan == mode)
     {
       inspect_spacetime_timespan(
-            *spacetime.timespan(), participant_filter, inspector);
+        *spacetime.timespan(), participant_filter, inspector);
     }
   }
 
   template<typename Inspector, typename ParticipantFilter>
   void inspect_all_spacetime(
-      const ParticipantFilter& participant_filter,
-      Inspector& inspector) const
+    const ParticipantFilter& participant_filter,
+    Inspector& inspector) const
   {
     Checked checked;
 
@@ -293,19 +293,21 @@ private:
 
   template<typename Inspector, typename ParticipantFilter>
   void inspect_spacetime_regions(
-      const Query::Spacetime::Regions& regions,
-      const ParticipantFilter& participant_filter,
-      Inspector& inspector) const
+    const Query::Spacetime::Regions& regions,
+    const ParticipantFilter& participant_filter,
+    Inspector& inspector) const
   {
     Checked checked;
 
     rmf_traffic::internal::Spacetime spacetime_data;
-    const auto relevant = [&spacetime_data](const Entry& entry) -> bool {
-      return rmf_traffic::internal::detect_conflicts(
-            entry.description->profile(),
-            entry.route->trajectory(),
-            spacetime_data);
-    };
+    const auto relevant =
+      [&spacetime_data](const Entry& entry) -> bool
+      {
+        return rmf_traffic::internal::detect_conflicts(
+          entry.description->profile(),
+          entry.route->trajectory(),
+          spacetime_data);
+      };
 
     for (const Region& region : regions)
     {
@@ -322,10 +324,10 @@ private:
       spacetime_data.upper_time_bound = upper_time_bound;
 
       const auto timeline_begin =
-          get_timeline_begin(timeline, lower_time_bound);
+        get_timeline_begin(timeline, lower_time_bound);
 
       const auto timeline_end =
-          get_timeline_end(timeline, upper_time_bound);
+        get_timeline_end(timeline, upper_time_bound);
 
       if (timeline_begin == timeline_end)
       {
@@ -340,21 +342,21 @@ private:
         spacetime_data.shape = space_it->get_shape();
 
         inspect_entries(
-              relevant,
-              participant_filter,
-              inspector,
-              timeline_begin,
-              timeline_end,
-              checked);
+          relevant,
+          participant_filter,
+          inspector,
+          timeline_begin,
+          timeline_end,
+          checked);
       }
     }
   }
 
   template<typename Inspector, typename ParticipantFilter>
   void inspect_spacetime_timespan(
-      const Query::Spacetime::Timespan& timespan,
-      const ParticipantFilter& participant_filter,
-      Inspector& inspector) const
+    const Query::Spacetime::Timespan& timespan,
+    const ParticipantFilter& participant_filter,
+    Inspector& inspector) const
   {
     Checked checked;
 
@@ -362,18 +364,18 @@ private:
     const Time* const upper_time_bound = timespan.get_upper_time_bound();
 
     const auto relevant = [&lower_time_bound, &upper_time_bound](
-        const Entry& entry) -> bool
-    {
-      const Trajectory& trajectory = entry.route->trajectory();
-      assert(trajectory.start_time());
-      if (lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
-        return false;
+      const Entry& entry) -> bool
+      {
+        const Trajectory& trajectory = entry.route->trajectory();
+        assert(trajectory.start_time());
+        if (lower_time_bound && *trajectory.finish_time() < *lower_time_bound)
+          return false;
 
-      if (upper_time_bound && *upper_time_bound < *trajectory.start_time())
-        return false;
+        if (upper_time_bound && *upper_time_bound < *trajectory.start_time())
+          return false;
 
-      return true;
-    };
+        return true;
+      };
 
     if (timespan.all_maps())
     {
@@ -381,12 +383,12 @@ private:
       {
         const Entries& timeline = timeline_it.second;
         inspect_entries(
-              relevant,
-              participant_filter,
-              inspector,
-              get_timeline_begin(timeline, lower_time_bound),
-              get_timeline_end(timeline, upper_time_bound),
-              checked);
+          relevant,
+          participant_filter,
+          inspector,
+          get_timeline_begin(timeline, lower_time_bound),
+          get_timeline_end(timeline, upper_time_bound),
+          checked);
       }
     }
     else
@@ -400,24 +402,24 @@ private:
 
         const Entries& timeline = map_it->second;
         inspect_entries(
-              relevant,
-              participant_filter,
-              inspector,
-              get_timeline_begin(timeline, lower_time_bound),
-              get_timeline_end(timeline, upper_time_bound),
-              checked);
+          relevant,
+          participant_filter,
+          inspector,
+          get_timeline_begin(timeline, lower_time_bound),
+          get_timeline_end(timeline, upper_time_bound),
+          checked);
       }
     }
   }
 
   template<typename Inspector, typename ParticipantFilter>
   void inspect_entries(
-      const std::function<bool(const Entry&)>& relevant,
-      const ParticipantFilter& participant_filter,
-      Inspector& inspector,
-      const typename Entries::const_iterator& timeline_begin,
-      const typename Entries::const_iterator& timeline_end,
-      Checked& checked) const
+    const std::function<bool(const Entry&)>& relevant,
+    const ParticipantFilter& participant_filter,
+    Inspector& inspector,
+    const typename Entries::const_iterator& timeline_begin,
+    const typename Entries::const_iterator& timeline_end,
+    Checked& checked) const
   {
     auto timeline_it = timeline_begin;
     for (; timeline_it != timeline_end; ++timeline_it)
@@ -442,65 +444,65 @@ private:
 
   //============================================================================
   static typename Entries::iterator get_timeline_iterator(
-      Entries& timeline, const Time time)
+    Entries& timeline, const Time time)
   {
     auto start_it = timeline.lower_bound(time);
 
-    if(start_it == timeline.end())
+    if (start_it == timeline.end())
     {
-      if(timeline.empty())
+      if (timeline.empty())
       {
         // This timeline is completely empty, so we'll begin creating buckets
         // starting from the time of this trajectory.
         return timeline.insert(
-              timeline.end(),
-              std::make_pair(
-                time + PartialBucketDuration,
-                std::make_shared<Bucket>()));
+          timeline.end(),
+          std::make_pair(
+            time + PartialBucketDuration,
+            std::make_shared<Bucket>()));
       }
 
       auto last_it = --timeline.end();
-      while(last_it->first < time)
+      while (last_it->first < time)
       {
         last_it = timeline.insert(
-              timeline.end(),
-              std::make_pair(
-                last_it->first + BucketDuration,
-                std::make_shared<Bucket>()));
+          timeline.end(),
+          std::make_pair(
+            last_it->first + BucketDuration,
+            std::make_shared<Bucket>()));
       }
 
       return last_it;
     }
 
-    while(time + BucketDuration < start_it->first)
+    while (time + BucketDuration < start_it->first)
     {
       start_it = timeline.insert(
-            start_it,
-            std::make_pair(
-              start_it->first - BucketDuration,
-              std::make_shared<Bucket>()));
+        start_it,
+        std::make_pair(
+          start_it->first - BucketDuration,
+          std::make_shared<Bucket>()));
     }
 
     return start_it;
   }
 
   static typename Entries::const_iterator get_timeline_begin(
-      const Entries& timeline,
-      const Time* const lower_time_bound)
+    const Entries& timeline,
+    const Time* const lower_time_bound)
   {
-    return (lower_time_bound == nullptr)?
-          timeline.begin() : timeline.lower_bound(*lower_time_bound);
+    return (lower_time_bound == nullptr) ?
+      timeline.begin() : timeline.lower_bound(*lower_time_bound);
   }
 
   static typename Entries::const_iterator get_timeline_end(
-      const Entries& timeline,
-      const Time* upper_time_bound)
+    const Entries& timeline,
+    const Time* upper_time_bound)
   {
-    if(upper_time_bound == nullptr)
+    if (upper_time_bound == nullptr)
       return timeline.end();
 
     auto end = timeline.upper_bound(*upper_time_bound);
-    if(end == timeline.end())
+    if (end == timeline.end())
       return end;
 
     return ++end;
@@ -518,8 +520,8 @@ class TimelineInspector
 public:
 
   virtual void inspect(
-      const Entry* entry,
-      const std::function<bool(const Entry& entry)>& relevant) = 0;
+    const Entry* entry,
+    const std::function<bool(const Entry& entry)>& relevant) = 0;
 
   virtual ~TimelineInspector() = default;
 };

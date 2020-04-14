@@ -24,7 +24,7 @@ namespace geometry {
 
 //==============================================================================
 ConvexShape::ConvexShape(std::unique_ptr<Shape::Internal> internal)
-  : Shape(std::move(internal))
+: Shape(std::move(internal))
 {
   // Do nothing
 }

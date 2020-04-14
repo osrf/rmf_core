@@ -50,13 +50,13 @@ struct WaypointElement
   std::unique_ptr<Trajectory::Waypoint> myself;
 
   WaypointElement(Data input_data)
-    : data(std::move(input_data))
+  : data(std::move(input_data))
   {
     // Do nothing
   }
 
   WaypointElement(const WaypointElement& other)
-    : data(other.data)
+  : data(other.data)
   {
     // Do nothing
   }
@@ -73,7 +73,7 @@ struct WaypointElement
 
 //==============================================================================
 WaypointList::const_iterator get_raw_iterator(
-    const Trajectory::const_iterator& iterator);
+  const Trajectory::const_iterator& iterator);
 
 } // namespace internal
 } // namespace rmf_traffic

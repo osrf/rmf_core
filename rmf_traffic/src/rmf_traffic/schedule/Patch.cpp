@@ -35,17 +35,17 @@ public:
 
 //==============================================================================
 Patch::Participant::Participant(
-    ParticipantId id,
-    Change::Erase erasures,
-    std::vector<Change::Delay> delays,
-    Change::Add additions)
+  ParticipantId id,
+  Change::Erase erasures,
+  std::vector<Change::Delay> delays,
+  Change::Add additions)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{
-             id,
-             std::move(erasures),
-             std::move(delays),
-             std::move(additions)
-           }))
+      Implementation{
+        id,
+        std::move(erasures),
+        std::move(delays),
+        std::move(additions)
+      }))
 {
   // Do nothing
 }
@@ -98,19 +98,19 @@ public:
 
 //==============================================================================
 Patch::Patch(
-    std::vector<Change::UnregisterParticipant> removed_participants,
-    std::vector<Change::RegisterParticipant> new_participants,
-    std::vector<Participant> changes,
-    rmf_utils::optional<Change::Cull> cull,
-    Version latest_version)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(removed_participants),
-               std::move(new_participants),
-               std::move(changes),
-               cull,
-               latest_version
-             }))
+  std::vector<Change::UnregisterParticipant> removed_participants,
+  std::vector<Change::RegisterParticipant> new_participants,
+  std::vector<Participant> changes,
+  rmf_utils::optional<Change::Cull> cull,
+  Version latest_version)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(removed_participants),
+        std::move(new_participants),
+        std::move(changes),
+        cull,
+        latest_version
+      }))
 {
   // Do nothing
 }

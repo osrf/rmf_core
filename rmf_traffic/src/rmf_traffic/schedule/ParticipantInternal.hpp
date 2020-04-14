@@ -33,22 +33,22 @@ class Participant::Implementation
 public:
 
   static Participant make(
-      ParticipantDescription description,
-      Writer& writer,
-      RectificationRequesterFactory* rectifier_factory);
+    ParticipantDescription description,
+    Writer& writer,
+    RectificationRequesterFactory* rectifier_factory);
 
   void retransmit(
-      const std::vector<Rectifier::Range>& from,
-      ItineraryVersion last_known);
+    const std::vector<Rectifier::Range>& from,
+    ItineraryVersion last_known);
 
   ItineraryVersion current_version() const;
 
   // Note: It would be better if this constructor were private, but we need to
   // make it public so it can be used by rmf_utils::make_unique_impl
   Implementation(
-      ParticipantId id,
-      ParticipantDescription description,
-      Writer& writer);
+    ParticipantId id,
+    ParticipantDescription description,
+    Writer& writer);
 
   ~Implementation();
 
@@ -64,7 +64,7 @@ private:
   std::unique_ptr<RectificationRequester> _rectification;
 
   using ChangeHistory =
-      std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
+    std::map<RouteId, std::function<void()>, rmf_utils::ModularLess<RouteId>>;
 
   Writer::Input _current_itinerary;
 

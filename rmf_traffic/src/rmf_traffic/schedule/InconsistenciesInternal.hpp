@@ -34,8 +34,8 @@ class Inconsistencies::Implementation
 public:
 
   static std::unique_ptr<InconsistencyTracker> register_participant(
-      Inconsistencies& inconsistencies,
-      ParticipantId id);
+    Inconsistencies& inconsistencies,
+    ParticipantId id);
 
   void unregister_participant(ParticipantId id);
 
@@ -56,7 +56,6 @@ private:
   static const_iterator make_iterator(raw_iterator it);
 
 };
-
 
 
 } // namespace schedule

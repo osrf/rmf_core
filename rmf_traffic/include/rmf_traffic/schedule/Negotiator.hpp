@@ -115,8 +115,8 @@ public:
   /// \param[in] table_sequence
   ///   The sequence that identifies what table this responder should submit to
   SimpleResponder(
-      std::shared_ptr<schedule::Negotiation> negotiation,
-      std::vector<schedule::ParticipantId> table_sequence);
+    std::shared_ptr<schedule::Negotiation> negotiation,
+    std::vector<schedule::ParticipantId> table_sequence);
 
   // Documentation inherited
   // NOTE: approval_callback does not get used
