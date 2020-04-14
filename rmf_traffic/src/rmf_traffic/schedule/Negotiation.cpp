@@ -506,11 +506,13 @@ public:
   {
     if (!data->participants.insert(new_participant).second)
     {
+      // *INDENT-OFF*
       throw std::runtime_error(
-              "[rmf_traffic::schedule::Negotiation::add_participant] "
-              "Participant [" + std::to_string(
-                new_participant) + "] is already "
-              "present in the Negotiation");
+        "[rmf_traffic::schedule::Negotiation::add_participant] "
+        "Participant [" + std::to_string(
+          new_participant) + "] is already "
+        "present in the Negotiation");
+      // *INDENT-ON*
     }
 
     // We can update the maximum number of terminating tables by just

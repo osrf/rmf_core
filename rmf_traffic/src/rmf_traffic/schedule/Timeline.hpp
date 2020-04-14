@@ -223,9 +223,11 @@ public:
     }
     else
     {
+      // *INDENT-OFF*
       throw std::runtime_error(
-              "Unexpected Query::Participants mode: "
-              + std::to_string(static_cast<uint16_t>(mode)));
+        "Unexpected Query::Participants mode: "
+        + std::to_string(static_cast<uint16_t>(mode)));
+      // *INDENT-ON*
     }
   }
 

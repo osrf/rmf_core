@@ -303,9 +303,11 @@ public:
         const auto response = response_future.get();
         if (!response->error.empty())
         {
+          // *INDENT-OFF*
           throw std::runtime_error(
             "[rmf_traffic_ros2::schedule::Writer] Error while attempting to "
             "unregister a participant: " + response->error);
+          // *INDENT-ON*
         }
       });
   }
