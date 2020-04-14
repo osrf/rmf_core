@@ -21,8 +21,6 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <iostream>
-
 namespace {
 //==============================================================================
 struct MockNegotiator : public rmf_traffic::schedule::Negotiator
