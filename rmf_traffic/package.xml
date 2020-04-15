@@ -15,7 +15,8 @@
 
   <build_depend>libccd-dev</build_depend>
   <build_depend>libfcl-dev</build_depend>
-  <build_depend>eigen</build_depend>
+
+  <depend>eigen</depend>
 
   <depend>rclcpp</depend>
 
