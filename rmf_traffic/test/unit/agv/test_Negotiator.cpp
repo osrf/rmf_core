@@ -25,8 +25,8 @@
 
 #include <rmf_utils/catch.hpp>
 
+#include <future>
 #include <unordered_map>
-
 #include <iostream>
 
 //==============================================================================
@@ -118,8 +118,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
    *                   0
    **/
 
-  auto add_bidir_lane =
-    [&](const std::size_t w0, const std::size_t w1)
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
     {
       graph.add_lane(w0, w1);
       graph.add_lane(w1, w0);
@@ -391,9 +390,24 @@ public:
         const auto respond_to = top->respond(participant);
         if (respond_to)
         {
-          negotiator.respond(
-            respond_to,
-            Responder(negotiation, respond_to->sequence()));
+          bool interrupt = false;
+          auto result = std::async(
+            std::launch::async,
+            [&]()
+            {
+              negotiator.respond(
+                respond_to,
+                Responder(negotiation, respond_to->sequence()),
+                &interrupt);
+            });
+
+          using namespace std::chrono_literals;
+          // Give up if a solution is not found within 10 seconds.
+          if (result.wait_for(10s) != std::future_status::ready)
+            interrupt = true;
+
+          result.wait();
+
           if (print_failures && !respond_to->submission())
           {
             std::cout << "Failed to make a submission for [";
@@ -506,8 +520,7 @@ SCENARIO("Multi-participant negotiation")
    *         0
    */
 
-  auto add_bidir_lane =
-    [&](const std::size_t w0, const std::size_t w1)
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
     {
       graph.add_lane(w0, w1);
       graph.add_lane(w1, w0);
@@ -542,10 +555,6 @@ SCENARIO("Multi-participant negotiation")
 
   //print_proposal(*proposal);
 }
-
-
-// (BH): Proposed Test Additions
-//==============================================================================
 
 // Helper Definitions
 //==============================================================================
@@ -978,46 +987,6 @@ SCENARIO("A Single Lane, hold anywhere")
         REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
           2) ==
           vertices["C"].first);
-      }
-    }
-
-    // TODO(BH): A proposal is found here because once p0 arrives at C, it drops off the schedule, allowing p1 to pass.
-    // Should this be expected behavior?
-    WHEN("Schedule:[p0(A->C)], Negotiation:[p1(D->B)]")
-    {
-      const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph,
-        a0_config.traits};
-      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph,
-        a1_config.traits};
-
-      rmf_traffic::agv::Planner a0_planner{
-        p0_planner_config,
-        rmf_traffic::agv::Planner::Options{nullptr, 1s} // No route validator, holding time 1s
-      };
-
-      const auto a0_plan_0 = a0_planner.plan(
-        {time, vertex_id_to_idx["A"], 0.0},
-        {vertex_id_to_idx["C"]}
-      );
-
-      p0.set(a0_plan_0->get_itinerary());
-
-      NegotiationRoom::Intentions intentions;
-
-      intentions.insert({
-          p1.id(),
-          NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["B"], // Goal Vertex
-            p1_planner_config // Planner Configuration ( Preset )
-          }
-        });
-
-      THEN("No Proposal is found.")
-      {
-        auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE_FALSE(proposal);
       }
     }
 
@@ -1516,9 +1485,6 @@ SCENARIO("A single lane with an alcove holding space")
       }
     }
 
-    // TODO(BH): I would expect that p0(A->E), holds at E while p1(D->A), then p0(E->D).
-    // Previous tests show that individually, the plans are feasible, but
-    // When not when expressed directly as in this test.
     WHEN("Schedule:[], Negotiation:[p0(A->D), p1(D->A)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -1549,6 +1515,10 @@ SCENARIO("A single lane with an alcove holding space")
       THEN("Valid Proposal is found")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
+        // TODO(MXG): This test current fails because it is an edge case where
+        // participant 0 cannot move fast enough to accommodate the ideal
+        // itinerary of participant 1, and participant 1 cannot move fast enough
+        // to accommodate the ideal itinerary of participant 0.
         //REQUIRE(proposal);
 
         //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
@@ -1739,9 +1709,6 @@ SCENARIO("A single lane with an alcove holding space")
       }
     }
 
-    // TODO(BH): I would expect that p0(A->E), holds at E while p1(D->A), then p0(E->D).
-    // Previous tests show that individually, the plans are feasible, but
-    // When not when expressed directly as in this test.
     WHEN("Schedule:[p1(A->D)], Negotiation:[p0(D->A)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -1774,6 +1741,10 @@ SCENARIO("A single lane with an alcove holding space")
 
       THEN("Valid Proposal is found")
       {
+        // TODO(MXG): This test current fails because it is an edge case where
+        // participant 0 cannot move fast enough to accommodate the ideal
+        // itinerary of participant 1, and participant 1 cannot move fast enough
+        // to accommodate the ideal itinerary of participant 0.
         auto proposal = NegotiationRoom(database, intentions).solve();
         //REQUIRE(proposal);
 
@@ -1874,7 +1845,6 @@ SCENARIO("A single lane with a alternate one way path")
       }
     }
 
-    // TODO(BH): Was expecting this to pass, since  the test Schedule:[], Negotiation:[p0(A->D), p1(C->A)] passed
     WHEN("Schedule:[], Negotiation:[p0(A->D), p1(D->A)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -1904,6 +1874,10 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
+        // TODO(MXG): This test current fails because it is an edge case where
+        // participant 0 cannot move fast enough to accommodate the ideal
+        // itinerary of participant 1, and participant 1 cannot move fast enough
+        // to accommodate the ideal itinerary of participant 0.
         auto proposal = NegotiationRoom(database, intentions).solve();
         //REQUIRE(proposal);
 
@@ -2006,7 +1980,6 @@ SCENARIO("A single lane with a alternate two way path")
       }
     }
 
-    // TODO(BH): Was expecting this to pass, since  the test Schedule:[], Negotiation:[p0(A->D), p1(C->A)] passed
     WHEN("Schedule:[], Negotiation:[p0(A->D), p1(D->A)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -2036,6 +2009,10 @@ SCENARIO("A single lane with a alternate two way path")
 
       THEN("Valid Proposal is found")
       {
+        // TODO(MXG): This test current fails because it is an edge case where
+        // participant 0 cannot move fast enough to accommodate the ideal
+        // itinerary of participant 1, and participant 1 cannot move fast enough
+        // to accommodate the ideal itinerary of participant 0.
         auto proposal = NegotiationRoom(database, intentions).solve();
         //REQUIRE(proposal);
 
@@ -2238,7 +2215,6 @@ SCENARIO("A single loop with alcoves at each vertex")
 
   }
 
-  // TODO(BH): Solver takes quite long to terminate
   GIVEN("3 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
@@ -2288,15 +2264,24 @@ SCENARIO("A single loop with alcoves at each vertex")
 
       THEN("Valid Proposal is found")
       {
-        //auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
 
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //auto p2_itinerary = get_participant_itinerary(*proposal, p2.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C'"].first);
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D'"].first);
-        //REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["B'"].first);
+        auto p0_itinerary =
+          get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary =
+          get_participant_itinerary(*proposal, p1.id()).value();
+        auto p2_itinerary =
+          get_participant_itinerary(*proposal, p2.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
+          2) ==
+          vertices["C'"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
+          2) ==
+          vertices["D'"].first);
+        REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0,
+          2) ==
+          vertices["B'"].first);
       }
     }
 
@@ -2693,7 +2678,6 @@ SCENARIO("fan-in-fan-out bottleneck")
           }
         });
 
-
       THEN("Valid Proposal is found")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
@@ -2717,7 +2701,6 @@ SCENARIO("fan-in-fan-out bottleneck")
       }
     }
 
-    // TODO(BH): Solver doesn't terminate
     WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(E->V), p2(X->C)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -2759,15 +2742,24 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        //auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
+        auto proposal = NegotiationRoom(database, intentions).solve();
+        REQUIRE(proposal);
 
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //auto p2_itinerary = get_participant_itinerary(*proposal, p2.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["Z"].first);
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["V"].first);
-        //REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["C"].first);
+        auto p0_itinerary =
+          get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary =
+          get_participant_itinerary(*proposal, p1.id()).value();
+        auto p2_itinerary =
+          get_participant_itinerary(*proposal, p2.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
+          2) ==
+          vertices["Z"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
+          2) ==
+          vertices["V"].first);
+        REQUIRE(p2_itinerary.back()->trajectory().back().position().segment(0,
+          2) ==
+          vertices["C"].first);
       }
     }
   }
@@ -2798,6 +2790,7 @@ SCENARIO("Fully connected graph of 10 vertices")
     {
       if (v_source == v_dest)
         continue;
+
       std::string v_source_str(1, v_source);
       std::string v_dest_str(1, v_dest);
       // Bidirectional is set to false since we double add anyway
@@ -2880,15 +2873,13 @@ SCENARIO("Fully connected graph of 10 vertices")
           }
         });
 
-      THEN("Valid Proposal is found")
+      THEN("No valid proposal is found")
       {
+        // The AGV planner assumes that waypoints are connected with simple
+        // straight lines. Since all waypoints are colinear, it is impossible
+        // for two vehicles to cross over each other.
         auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
-
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["J"].first);
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+        CHECK_FALSE(proposal);
       }
     }
   }
