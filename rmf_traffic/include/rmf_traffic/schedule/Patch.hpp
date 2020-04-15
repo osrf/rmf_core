@@ -54,10 +54,10 @@ public:
     /// \param[in] additions
     ///   The information about which routes to add
     Participant(
-        ParticipantId id,
-        Change::Erase erasures,
-        std::vector<Change::Delay> delays,
-        Change::Add additions);
+      ParticipantId id,
+      Change::Erase erasures,
+      std::vector<Change::Delay> delays,
+      Change::Add additions);
 
     /// The ID of the participant that this set of changes will patch.
     ParticipantId participant_id() const;
@@ -108,11 +108,11 @@ public:
   /// \param[in] latest_version
   ///   The lastest version of the database that this Patch represents.
   Patch(
-      std::vector<Change::UnregisterParticipant> removed_participants,
-      std::vector<Change::RegisterParticipant> new_participants,
-      std::vector<Participant> changes,
-      rmf_utils::optional<Change::Cull> cull,
-      Version latest_version);
+    std::vector<Change::UnregisterParticipant> removed_participants,
+    std::vector<Change::RegisterParticipant> new_participants,
+    std::vector<Participant> changes,
+    rmf_utils::optional<Change::Cull> cull,
+    Version latest_version);
 
   // TODO(MXG): Consider using a persistent reliable topic to broadcast the
   // active participant information instead of making it part of the patch.

@@ -30,7 +30,7 @@ class CircleInternal : public Shape::Internal
 public:
 
   CircleInternal(double radius)
-    : _radius(radius)
+  : _radius(radius)
   {
     // Do nothing
   }
@@ -45,15 +45,15 @@ public:
 
 //==============================================================================
 Circle::Circle(double radius)
-  : ConvexShape(std::make_unique<CircleInternal>(radius))
+: ConvexShape(std::make_unique<CircleInternal>(radius))
 {
   // Do nothing
 }
 
 //==============================================================================
 Circle::Circle(const Circle& other)
-  : ConvexShape(std::make_unique<CircleInternal>(
-                  static_cast<const CircleInternal&>(*other._get_internal())))
+: ConvexShape(std::make_unique<CircleInternal>(
+      static_cast<const CircleInternal&>(*other._get_internal())))
 {
   // Do nothing
 }
@@ -62,7 +62,7 @@ Circle::Circle(const Circle& other)
 Circle& Circle::operator=(const Circle& other)
 {
   static_cast<CircleInternal&>(*_get_internal()) =
-      static_cast<const CircleInternal&>(*other._get_internal());
+    static_cast<const CircleInternal&>(*other._get_internal());
 
   return *this;
 }
@@ -83,16 +83,16 @@ double Circle::get_radius() const
 FinalShape Circle::finalize() const
 {
   return FinalShape::Implementation::make_final_shape(
-        rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
-        _get_internal()->make_fcl(), this->get_radius());
+    rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
+    _get_internal()->make_fcl(), this->get_radius());
 }
 
 //==============================================================================
 FinalConvexShape Circle::finalize_convex() const
 {
   return FinalConvexShape::Implementation::make_final_shape(
-        rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
-        _get_internal()->make_fcl(), this->get_radius());
+    rmf_utils::make_derived_impl<const Shape, const Circle>(*this),
+    _get_internal()->make_fcl(), this->get_radius());
 }
 
 } // namespace geometry

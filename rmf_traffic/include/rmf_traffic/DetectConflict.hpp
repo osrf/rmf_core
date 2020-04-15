@@ -52,11 +52,11 @@ public:
   /// \return true if a conflict exists between the trajectories, false
   /// otherwise.
   static bool between(
-      const Profile& profile_a,
-      const Trajectory& trajectory_a,
-      const Profile& profile_b,
-      const Trajectory& trajectory_b,
-      Interpolate interpolation = Interpolate::CubicSpline);
+    const Profile& profile_a,
+    const Trajectory& trajectory_a,
+    const Profile& profile_b,
+    const Trajectory& trajectory_b,
+    Interpolate interpolation = Interpolate::CubicSpline);
 
   class Implementation;
 };

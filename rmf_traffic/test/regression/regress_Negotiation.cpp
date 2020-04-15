@@ -26,9 +26,9 @@ namespace {
 struct MockNegotiator : public rmf_traffic::schedule::Negotiator
 {
   virtual void respond(
-      std::shared_ptr<const rmf_traffic::schedule::Negotiation::Table>,
-      const Responder& responder,
-      const bool* = nullptr) final
+    std::shared_ptr<const rmf_traffic::schedule::Negotiation::Table>,
+    const Responder& responder,
+    const bool* = nullptr) final
   {
     if (_submit)
       responder.submit({});
@@ -60,29 +60,29 @@ struct Table
 
 //==============================================================================
 void apply_submissions(
-    const std::shared_ptr<rmf_traffic::schedule::Negotiation>& negotiation,
-    const std::vector<Table>& submitted)
+  const std::shared_ptr<rmf_traffic::schedule::Negotiation>& negotiation,
+  const std::vector<Table>& submitted)
 {
   using Responder = rmf_traffic::schedule::SimpleResponder;
   for (const auto& table : submitted)
   {
     MockNegotiator().submit().respond(
-          negotiation->table(table.for_participant, table.to_accommodate),
-          Responder(negotiation, table.for_participant, table.to_accommodate));
+      negotiation->table(table.for_participant, table.to_accommodate),
+      Responder(negotiation, table.for_participant, table.to_accommodate));
   }
 }
 
 //==============================================================================
 void apply_rejection(
-    const std::shared_ptr<rmf_traffic::schedule::Negotiation>& negotiation,
-    const std::vector<Table>& rejected)
+  const std::shared_ptr<rmf_traffic::schedule::Negotiation>& negotiation,
+  const std::vector<Table>& rejected)
 {
   using Responder = rmf_traffic::schedule::SimpleResponder;
   for (const auto& table : rejected)
   {
     MockNegotiator().reject().respond(
-          negotiation->table(table.for_participant, table.to_accommodate),
-          Responder(negotiation, table.for_participant, table.to_accommodate));
+      negotiation->table(table.for_participant, table.to_accommodate),
+      Responder(negotiation, table.for_participant, table.to_accommodate));
   }
 }
 
@@ -95,8 +95,8 @@ SCENARIO("Identify a failed negotiation")
   // while adding participants.
   rmf_traffic::schedule::Database database;
   auto negotiation =
-      std::make_shared<rmf_traffic::schedule::Negotiation>(
-        database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 2});
+    std::make_shared<rmf_traffic::schedule::Negotiation>(
+    database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 2});
 
   std::vector<Table> submitted =
   {
@@ -144,21 +144,21 @@ SCENARIO("Submit after a rejection")
     rmf_utils::optional<rmf_traffic::schedule::Version>* version;
 
     MockResponder(
-          rmf_traffic::schedule::Negotiation::TablePtr table_,
-          bool* accepted_,
-          rmf_utils::optional<rmf_traffic::schedule::Version>* version_)
-      : table(table_),
-        accepted(accepted_),
-        version(version_)
+      rmf_traffic::schedule::Negotiation::TablePtr table_,
+      bool* accepted_,
+      rmf_utils::optional<rmf_traffic::schedule::Version>* version_)
+    : table(table_),
+      accepted(accepted_),
+      version(version_)
     {
       // Do nothing
     }
 
     void submit(
-          std::vector<rmf_traffic::Route> itinerary,
-          std::function<UpdateVersion()>) const final
+      std::vector<rmf_traffic::Route> itinerary,
+      std::function<UpdateVersion()>) const final
     {
-      *version = table->version()? *table->version() + 1 : 0;
+      *version = table->version() ? *table->version() + 1 : 0;
       *accepted = table->submit(std::move(itinerary), **version);
     }
 
@@ -168,15 +168,15 @@ SCENARIO("Submit after a rejection")
       if (parent)
         parent->reject(*parent->version());
       else
-        table->reject(table->version()? *table->version() : 0);
+        table->reject(table->version() ? *table->version() : 0);
     }
 
   };
 
   rmf_traffic::schedule::Database database;
   auto negotiation =
-      std::make_shared<rmf_traffic::schedule::Negotiation>(
-        database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 1});
+    std::make_shared<rmf_traffic::schedule::Negotiation>(
+    database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 1});
 
   bool accepted = false;
   rmf_utils::optional<rmf_traffic::schedule::Version> version;
@@ -191,7 +191,8 @@ SCENARIO("Submit after a rejection")
 
   accepted = false;
   version = rmf_utils::nullopt;
-  MockResponder child_responder(negotiation->table(1, {0}), &accepted, &version);
+  MockResponder child_responder(negotiation->table(1, {0}), &accepted,
+    &version);
   MockNegotiator().reject().respond(child_responder.table, child_responder);
 
   CHECK_FALSE(version);

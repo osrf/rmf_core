@@ -27,51 +27,51 @@ SCENARIO("Test Query API")
 
   rmf_traffic::schedule::Query query = rmf_traffic::schedule::make_query({});
 
-    auto now = std::chrono::steady_clock::now();
+  auto now = std::chrono::steady_clock::now();
 
-    const auto box = rmf_traffic::geometry::Box(10.0, 1.0);
-    const auto final_box = rmf_traffic::geometry::make_final_convex(box);
-    Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
+  const auto box = rmf_traffic::geometry::Box(10.0, 1.0);
+  const auto final_box = rmf_traffic::geometry::make_final_convex(box);
+  Eigen::Isometry2d tf = Eigen::Isometry2d::Identity();
 
-    REQUIRE(query.spacetime().regions() != nullptr);
+  REQUIRE(query.spacetime().regions() != nullptr);
 
-    query.spacetime().regions()->push_back(
-        rmf_traffic::Region{"test_map", now, now+10s, {}});
+  query.spacetime().regions()->push_back(
+    rmf_traffic::Region{"test_map", now, now+10s, {}});
 
-    REQUIRE(query.spacetime().regions()->begin()
-            != query.spacetime().regions()->end());
+  REQUIRE(query.spacetime().regions()->begin()
+    != query.spacetime().regions()->end());
 
-    auto& region = *query.spacetime().regions()->begin();
+  auto& region = *query.spacetime().regions()->begin();
 
-    REQUIRE(region.get_lower_time_bound() != nullptr);
-    CHECK(*region.get_lower_time_bound() == now);
-    REQUIRE(region.get_upper_time_bound() != nullptr);
-    CHECK(*region.get_upper_time_bound() == now+10s);
+  REQUIRE(region.get_lower_time_bound() != nullptr);
+  CHECK(*region.get_lower_time_bound() == now);
+  REQUIRE(region.get_upper_time_bound() != nullptr);
+  CHECK(*region.get_upper_time_bound() == now+10s);
 
-    region.push_back(rmf_traffic::geometry::Space{final_box, tf});
+  region.push_back(rmf_traffic::geometry::Space{final_box, tf});
 
-    tf.rotate(Eigen::Rotation2Dd(90.0*M_PI/180.0));
-    region.push_back(rmf_traffic::geometry::Space{final_box, tf});
-    tf.rotate(Eigen::Rotation2Dd(180.0*M_PI/180.0));
-    region.push_back(rmf_traffic::geometry::Space{final_box, tf});
+  tf.rotate(Eigen::Rotation2Dd(90.0*M_PI/180.0));
+  region.push_back(rmf_traffic::geometry::Space{final_box, tf});
+  tf.rotate(Eigen::Rotation2Dd(180.0*M_PI/180.0));
+  region.push_back(rmf_traffic::geometry::Space{final_box, tf});
 
-    std::size_t regions = 0;
-    std::size_t spaces = 0;
-    for(const auto& region : *query.spacetime().regions())
+  std::size_t regions = 0;
+  std::size_t spaces = 0;
+  for (const auto& region : *query.spacetime().regions())
+  {
+    ++regions;
+    for (const auto& space : region)
     {
-      ++regions;
-      for(const auto& space : region)
-      {
-        ++spaces;
+      ++spaces;
 
-        // TODO(MXG): replace this with [[maybe_unused]] when we can use C++17
-        (void)space;
-      }
+      // TODO(MXG): replace this with [[maybe_unused]] when we can use C++17
+      (void)space;
     }
+  }
 
-    CHECK(regions == 1);
-    CHECK(spaces == 3);
+  CHECK(regions == 1);
+  CHECK(spaces == 3);
 
-    // TODO(MXG): Write tests for every function to confirm that the
-    // Query API works as intended
+  // TODO(MXG): Write tests for every function to confirm that the
+  // Query API works as intended
 }

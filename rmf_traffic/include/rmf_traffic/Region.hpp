@@ -63,10 +63,10 @@ public:
   ///   A vector of geometry::Space objects to define the desired regions
   ///   in space.
   Region(
-      std::string map,
-      Time lower_bound,
-      Time upper_bound,
-      std::vector<Space> spaces);
+    std::string map,
+    Time lower_bound,
+    Time upper_bound,
+    std::vector<Space> spaces);
 
   /// Construct a region with no time constraints.
   ///
@@ -78,8 +78,8 @@ public:
   ///   A vector of geometry::Space objects to define the desired regions
   ///   in space.
   Region(
-      std::string map,
-      std::vector<Space> spaces);
+    std::string map,
+    std::vector<Space> spaces);
 
   /// Get the name of the map that this Spacetime refers to.
   const std::string& get_map() const;

@@ -27,7 +27,7 @@ class Trajectory::Debug
 public:
 
   static bool check_iterator_time_consistency(
-      const Trajectory& trajectory, bool print_inconsistency);
+    const Trajectory& trajectory, bool print_inconsistency);
 };
 
 

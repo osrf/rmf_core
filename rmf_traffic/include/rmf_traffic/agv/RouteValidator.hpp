@@ -63,9 +63,9 @@ public:
   ///   viewer because the viewer might not be synced with the schedule by the
   ///   time this validator is being used.
   ScheduleRouteValidator(
-      const schedule::Viewer& viewer,
-      schedule::ParticipantId participant_id,
-      Profile profile);
+    const schedule::Viewer& viewer,
+    schedule::ParticipantId participant_id,
+    Profile profile);
 
   /// Change the schedule viewer to use for planning.
   ///
@@ -111,8 +111,8 @@ public:
   /// \param[in] profile
   ///   The profile of the participant that is being planned for.
   NegotiatingRouteValidator(
-      const schedule::Negotiation::Table& table,
-      rmf_traffic::Profile profile);
+    const schedule::Negotiation::Table& table,
+    rmf_traffic::Profile profile);
 
   // Documentation inherited
   bool valid(const Route& route) const final;

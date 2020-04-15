@@ -43,8 +43,8 @@ public:
   ///   The scheduled trajectory
   ///
   Route(
-      std::string map,
-      Trajectory trajectory);
+    std::string map,
+    Trajectory trajectory);
 
   /// Set the map for this route
   Route& map(std::string value);

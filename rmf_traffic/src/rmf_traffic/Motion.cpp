@@ -21,14 +21,16 @@ namespace rmf_traffic {
 
 //==============================================================================
 std::unique_ptr<Motion> Motion::compute_cubic_splines(
-    const Trajectory::const_iterator& input_begin,
-    const Trajectory::const_iterator& input_end)
+  const Trajectory::const_iterator& input_begin,
+  const Trajectory::const_iterator& input_end)
 {
   if (input_begin == input_end)
   {
+    // *INDENT-OFF*
     throw std::runtime_error(
-          "[rmf_traffic::Motion::compute_cubic_spline] invalid waypoint range: "
-          "begin == end");
+      "[rmf_traffic::Motion::compute_cubic_spline] invalid waypoint range: "
+      "begin == end");
+    // *INDENT-ON*
   }
 
   using const_iterator = internal::WaypointList::const_iterator;
@@ -39,7 +41,7 @@ std::unique_ptr<Motion> Motion::compute_cubic_splines(
   {
     const auto& point = *begin;
     return std::make_unique<SinglePointMotion>(
-          point.data.time, point.data.position, point.data.velocity);
+      point.data.time, point.data.position, point.data.velocity);
   }
 
   std::vector<Spline> splines;
@@ -54,19 +56,19 @@ std::unique_ptr<Motion> Motion::compute_cubic_splines(
 
 //==============================================================================
 std::unique_ptr<Motion> Motion::compute_cubic_splines(
-    const Trajectory& trajectory)
+  const Trajectory& trajectory)
 {
   return compute_cubic_splines(trajectory.begin(), trajectory.end());
 }
 
 //==============================================================================
 SinglePointMotion::SinglePointMotion(
-    const Time t,
-    Eigen::Vector3d p,
-    Eigen::Vector3d v)
-  : _t(t),
-    _p(std::move(p)),
-    _v(std::move(v))
+  const Time t,
+  Eigen::Vector3d p,
+  Eigen::Vector3d v)
+: _t(t),
+  _p(std::move(p)),
+  _v(std::move(v))
 {
   // Do nothing
 }
@@ -103,7 +105,7 @@ Eigen::Vector3d SinglePointMotion::compute_acceleration(Time /*t*/) const
 
 //==============================================================================
 SplineMotion::SplineMotion(Spline spline)
-  : _spline(std::move(spline))
+: _spline(std::move(spline))
 {
   // Do nothing
 }

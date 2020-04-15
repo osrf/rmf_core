@@ -95,13 +95,13 @@ public:
   /// If a participant with the specified ID is not registered with the
   /// schedule, then this will return a nullptr.
   virtual std::shared_ptr<const ParticipantDescription> get_participant(
-      ParticipantId participant_id) const = 0;
+    ParticipantId participant_id) const = 0;
 
   /// Get the itinerary of a specific participant if it is available. If a
   /// participant with the specified ID is not registered with the schedule or
   /// has never submitted an itinerary, then this will return a nullopt.
   virtual rmf_utils::optional<Itinerary> get_itinerary(
-      std::size_t participant_id) const = 0;
+    std::size_t participant_id) const = 0;
 
   /// Get the latest version number of this Database.
   virtual Version latest_version() const = 0;

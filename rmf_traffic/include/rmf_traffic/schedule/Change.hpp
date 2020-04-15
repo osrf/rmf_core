@@ -74,8 +74,8 @@ public:
     /// \param[in] duration
     ///   The duration of that delay.
     Delay(
-        Time from,
-        Duration duration);
+      Time from,
+      Duration duration);
 
     /// The time that the delay began.
     Time from() const;
@@ -121,8 +121,8 @@ public:
     /// \param[in] description
     ///   The description of the participant
     RegisterParticipant(
-        ParticipantId id,
-        ParticipantDescription description);
+      ParticipantId id,
+      ParticipantDescription description);
 
     /// The ID for the participant
     ParticipantId id() const;

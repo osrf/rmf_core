@@ -43,12 +43,12 @@ public:
   using Conflicts = std::vector<Conflict>;
 
   static bool between(
-      const Profile& profile_a,
-      const Trajectory& trajectory_a,
-      const Profile& profile_b,
-      const Trajectory& trajectory_b,
-      Interpolate interpolation,
-      std::vector<Conflict>* output_conflicts = nullptr);
+    const Profile& profile_a,
+    const Trajectory& trajectory_a,
+    const Profile& profile_b,
+    const Trajectory& trajectory_b,
+    Interpolate interpolation,
+    std::vector<Conflict>* output_conflicts = nullptr);
 
 };
 
@@ -66,10 +66,10 @@ struct Spacetime
 
 //==============================================================================
 bool detect_conflicts(
-    const Profile& profile,
-    const Trajectory& trajectory,
-    const Spacetime& region,
-    DetectConflict::Implementation::Conflicts* output_conflicts = nullptr);
+  const Profile& profile,
+  const Trajectory& trajectory,
+  const Spacetime& region,
+  DetectConflict::Implementation::Conflicts* output_conflicts = nullptr);
 
 } // namespace internal
 

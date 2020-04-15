@@ -57,7 +57,7 @@ auto forward_iterator<E, I, F>::operator++(int) -> forward_iterator
 //==============================================================================
 template<typename E, typename I, typename F>
 bool forward_iterator<E, I, F>::operator==(
-    const forward_iterator& other) const
+  const forward_iterator& other) const
 {
   return _pimpl->iter == other._pimpl->iter;
 }
@@ -65,7 +65,7 @@ bool forward_iterator<E, I, F>::operator==(
 //==============================================================================
 template<typename E, typename I, typename F>
 bool forward_iterator<E, I, F>::operator!=(
-    const forward_iterator& other) const
+  const forward_iterator& other) const
 {
   return _pimpl->iter != other._pimpl->iter;
 }
@@ -80,8 +80,8 @@ forward_iterator<E, I, F>::forward_iterator()
 //==============================================================================
 template<typename E, typename I, typename F>
 forward_iterator<E, I, F>::forward_iterator(I impl)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{std::move(impl)}))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{std::move(impl)}))
 {
   // Do nothing
 }

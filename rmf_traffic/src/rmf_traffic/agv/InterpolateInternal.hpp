@@ -29,20 +29,20 @@ class Interpolate::Options::Implementation
 public:
 
   Implementation(
-      const bool always_stop,
-      const double translation_thresh,
-      const double rotation_thresh,
-      const double corner_angle_thresh)
-    : always_stop(always_stop),
-      translation_thresh(translation_thresh),
-      rotation_thresh(rotation_thresh),
-      corner_angle_thresh(corner_angle_thresh)
+    const bool always_stop,
+    const double translation_thresh,
+    const double rotation_thresh,
+    const double corner_angle_thresh)
+  : always_stop(always_stop),
+    translation_thresh(translation_thresh),
+    rotation_thresh(rotation_thresh),
+    corner_angle_thresh(corner_angle_thresh)
   {
     // Do nothing
   }
 
   Implementation(const Options& options)
-    : Implementation(*options._pimpl)
+  : Implementation(*options._pimpl)
   {
     // Do nothing
   }
@@ -63,30 +63,30 @@ namespace internal {
 
 //==============================================================================
 bool can_skip_interpolation(
-    const Eigen::Vector3d& last_position,
-    const Eigen::Vector3d& next_position,
-    const Eigen::Vector3d& future_position,
-    const Interpolate::Options::Implementation& options);
+  const Eigen::Vector3d& last_position,
+  const Eigen::Vector3d& next_position,
+  const Eigen::Vector3d& future_position,
+  const Interpolate::Options::Implementation& options);
 
 //==============================================================================
 void interpolate_translation(
-    Trajectory& trajectory,
-    const double v_nom,
-    const double a_nom,
-    const Time start_time,
-    const Eigen::Vector3d& start,
-    const Eigen::Vector3d& finish,
-    const double threshold);
+  Trajectory& trajectory,
+  const double v_nom,
+  const double a_nom,
+  const Time start_time,
+  const Eigen::Vector3d& start,
+  const Eigen::Vector3d& finish,
+  const double threshold);
 
 //==============================================================================
 void interpolate_rotation(
-    Trajectory& trajectory,
-    const double w_nom,
-    const double alpha_nom,
-    const Time start_time,
-    const Eigen::Vector3d& start,
-    const Eigen::Vector3d& finish,
-    const double threshold);
+  Trajectory& trajectory,
+  const double w_nom,
+  const double alpha_nom,
+  const Time start_time,
+  const Eigen::Vector3d& start,
+  const Eigen::Vector3d& finish,
+  const double threshold);
 
 } // namespace internal
 } // namespace agv

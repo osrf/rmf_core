@@ -66,8 +66,8 @@ public:
   /// \param[in] last_known_version
   ///   The last ItineraryVersion known upstream.
   void retransmit(
-      const std::vector<Range>& ranges,
-      ItineraryVersion last_known_version);
+    const std::vector<Range>& ranges,
+    ItineraryVersion last_known_version);
 
   /// Get the current ItineraryVersion of the Participant.
   ItineraryVersion current_version() const;
@@ -119,8 +119,8 @@ public:
   ///   RectificationRequester. This is the same participant that the rectifier
   ///   will request retransmissions to.
   virtual std::unique_ptr<RectificationRequester> make(
-      Rectifier rectifier,
-      ParticipantId participant_id) = 0;
+    Rectifier rectifier,
+    ParticipantId participant_id) = 0;
 
   // virtual destructor
   virtual ~RectificationRequesterFactory() = default;
@@ -137,7 +137,7 @@ class Database;
 /// instance and issues rectification requests when told to based on the current
 /// inconsistencies in the Database.
 class DatabaseRectificationRequesterFactory
-    : public RectificationRequesterFactory
+  : public RectificationRequesterFactory
 {
 public:
 
@@ -149,8 +149,8 @@ public:
   DatabaseRectificationRequesterFactory(const Database& database);
 
   std::unique_ptr<RectificationRequester> make(
-      Rectifier rectifier,
-      ParticipantId participant_id) final;
+    Rectifier rectifier,
+    ParticipantId participant_id) final;
 
   /// Call this function to instruct all the RectificationRequestors produced
   /// by this factory to perform their rectifications.

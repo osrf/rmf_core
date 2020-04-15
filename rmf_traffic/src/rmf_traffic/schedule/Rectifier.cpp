@@ -24,19 +24,19 @@ namespace schedule {
 
 //==============================================================================
 Rectifier Rectifier::Implementation::make(
-    Participant::Implementation& participant)
+  Participant::Implementation& participant)
 {
   Rectifier rectifier;
   rectifier._pimpl = rmf_utils::make_unique_impl<Implementation>(
-        Implementation{participant});
+    Implementation{participant});
 
   return rectifier;
 }
 
 //==============================================================================
 void Rectifier::retransmit(
-    const std::vector<Range>& ranges,
-    ItineraryVersion last_known_version)
+  const std::vector<Range>& ranges,
+  ItineraryVersion last_known_version)
 {
   _pimpl->participant.retransmit(ranges, last_known_version);
 }
@@ -64,13 +64,13 @@ public:
   };
 
   DatabaseRectificationRequester(
-      const Database& database,
-      Rectifier rectifier,
-      ParticipantId id)
-    : _database(database),
-      _handle(std::make_shared<Handle>(Handle{*this})),
-      _rectifier(std::move(rectifier)),
-      _participant_id(id)
+    const Database& database,
+    Rectifier rectifier,
+    ParticipantId id)
+  : _database(database),
+    _handle(std::make_shared<Handle>(Handle{*this})),
+    _rectifier(std::move(rectifier)),
+    _participant_id(id)
   {
     // Do nothing
   }
@@ -116,9 +116,9 @@ public:
 
 //==============================================================================
 DatabaseRectificationRequesterFactory::DatabaseRectificationRequesterFactory(
-    const Database& database)
-  : _pimpl(rmf_utils::make_unique_impl<Implementation>(
-             Implementation{database, {}}))
+  const Database& database)
+: _pimpl(rmf_utils::make_unique_impl<Implementation>(
+      Implementation{database, {}}))
 {
   // Do nothing
 }
@@ -126,11 +126,11 @@ DatabaseRectificationRequesterFactory::DatabaseRectificationRequesterFactory(
 //==============================================================================
 std::unique_ptr<RectificationRequester>
 DatabaseRectificationRequesterFactory::make(
-    Rectifier rectifier,
-    ParticipantId participant_id)
+  Rectifier rectifier,
+  ParticipantId participant_id)
 {
   auto requester = std::make_unique<DatabaseRectificationRequester>(
-        _pimpl->_database, std::move(rectifier), participant_id);
+    _pimpl->_database, std::move(rectifier), participant_id);
 
   _pimpl->_handles.push_back(requester->_handle);
   return std::move(requester);
@@ -151,10 +151,10 @@ void DatabaseRectificationRequesterFactory::rectify()
 
   // If any handles have expired, remove them
   handles.erase(std::remove_if(
-                  handles.begin(),
-                  handles.end(),
-                  [](const WeakHandlePtr& h){ return h.expired(); }),
-                handles.end());
+      handles.begin(),
+      handles.end(),
+      [](const WeakHandlePtr& h) { return h.expired(); }),
+    handles.end());
 }
 
 } // namespace schedule

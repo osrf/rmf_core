@@ -25,10 +25,10 @@ namespace {
 Eigen::Matrix4d make_M_inv()
 {
   Eigen::Matrix4d M;
-  M.block<1,4>(0,0) <<  1.0/6.0, 2.0/3.0,  1.0/6.0,     0.0;
-  M.block<1,4>(1,0) << -1.0/2.0,     0.0,  1.0/2.0,     0.0;
-  M.block<1,4>(2,0) <<  1.0/2.0,    -1.0,  1.0/2.0,     0.0;
-  M.block<1,4>(3,0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
+  M.block<1, 4>(0, 0) <<  1.0/6.0, 2.0/3.0, 1.0/6.0, 0.0;
+  M.block<1, 4>(1, 0) << -1.0/2.0, 0.0, 1.0/2.0, 0.0;
+  M.block<1, 4>(2, 0) <<  1.0/2.0, -1.0, 1.0/2.0, 0.0;
+  M.block<1, 4>(3, 0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
 
   return M.inverse();
 }
@@ -42,19 +42,21 @@ double compute_delta_t(const Time& finish_time, const Time& start_time)
 
 //==============================================================================
 std::array<Eigen::Vector4d, 3> compute_coefficients(
-    const Eigen::Vector3d& x0,
-    const Eigen::Vector3d& x1,
-    const Eigen::Vector3d& v0,
-    const Eigen::Vector3d& v1)
+  const Eigen::Vector3d& x0,
+  const Eigen::Vector3d& x1,
+  const Eigen::Vector3d& v0,
+  const Eigen::Vector3d& v1)
 {
   std::array<Eigen::Vector4d, 3> coeffs;
-  for(int i=0; i < 3; ++i)
+  for (int i = 0; i < 3; ++i)
   {
+    // *INDENT-OFF*
     std::size_t si = static_cast<std::size_t>(i);
     coeffs[si][0] =                                x0[i]; // = d
     coeffs[si][1] =            v0[i];                     // = c
     coeffs[si][2] = -v1[i] - 2*v0[i] + 3*x1[i] - 3*x0[i]; // = b
     coeffs[si][3] =  v1[i] +   v0[i] - 2*x1[i] + 2*x0[i]; // = a
+    // *INDENT-ON*
   }
 
   return coeffs;
@@ -62,10 +64,10 @@ std::array<Eigen::Vector4d, 3> compute_coefficients(
 
 //==============================================================================
 Spline::Parameters compute_parameters(
-    const Trajectory::const_iterator& finish_it)
+  const Trajectory::const_iterator& finish_it)
 {
   const Trajectory::const_iterator start_it =
-      --Trajectory::const_iterator(finish_it);
+    --Trajectory::const_iterator(finish_it);
 
   const Trajectory::Waypoint& start = *start_it;
   const Trajectory::Waypoint& finish = *finish_it;
@@ -89,10 +91,10 @@ Spline::Parameters compute_parameters(
 
 //==============================================================================
 Spline::Parameters compute_parameters(
-    const internal::WaypointList::const_iterator& finish_it)
+  const internal::WaypointList::const_iterator& finish_it)
 {
   const internal::WaypointList::const_iterator start_it =
-      --internal::WaypointList::const_iterator(finish_it);
+    --internal::WaypointList::const_iterator(finish_it);
 
   const internal::WaypointElement::Data& start = start_it->data;
   const internal::WaypointElement::Data& finish = finish_it->data;
@@ -119,7 +121,7 @@ double compute_scaled_time(const Time& time, const Spline::Parameters& params)
 {
   using Sec64 = std::chrono::duration<double>;
   const double relative_time =
-      std::chrono::duration_cast<Sec64>(time - params.time_range[0]).count();
+    std::chrono::duration_cast<Sec64>(time - params.time_range[0]).count();
 
   const double scaled_time = relative_time / params.delta_t;
   assert(0.0 - 1.0e-8 <= scaled_time);
@@ -130,14 +132,14 @@ double compute_scaled_time(const Time& time, const Spline::Parameters& params)
 
 //==============================================================================
 Eigen::Vector3d compute_position(
-    const Spline::Parameters& params,
-    const double time)
+  const Spline::Parameters& params,
+  const double time)
 {
   Eigen::Vector3d result = Eigen::Vector3d::Zero();
-  for(int i=0; i < 3; ++i)
+  for (int i = 0; i < 3; ++i)
   {
     const Eigen::Vector4d coeffs = params.coeffs[i];
-    for(int j=0; j < 4; ++j)
+    for (int j = 0; j < 4; ++j)
       result[i] += coeffs[j] * pow(time, j);
   }
 
@@ -146,15 +148,15 @@ Eigen::Vector3d compute_position(
 
 //==============================================================================
 Eigen::Vector3d compute_velocity(
-    const Spline::Parameters& params,
-    const double time)
+  const Spline::Parameters& params,
+  const double time)
 {
   Eigen::Vector3d result = Eigen::Vector3d::Zero();
-  for(int i=0; i < 3; ++i)
+  for (int i = 0; i < 3; ++i)
   {
     const Eigen::Vector4d coeffs = params.coeffs[i];
     // Note: This is computing the derivative of the polynomial w.r.t. time
-    for(int j=1; j < 4; ++j)
+    for (int j = 1; j < 4; ++j)
       result[i] += j * coeffs[j] * pow(time, j-1);
   }
 
@@ -163,15 +165,15 @@ Eigen::Vector3d compute_velocity(
 
 //==============================================================================
 Eigen::Vector3d compute_acceleration(
-    const Spline::Parameters& params,
-    const double time)
+  const Spline::Parameters& params,
+  const double time)
 {
   Eigen::Vector3d result = Eigen::Vector3d::Zero();
-  for(int i=0; i < 3; ++i)
+  for (int i = 0; i < 3; ++i)
   {
     const Eigen::Vector4d coeffs = params.coeffs[i];
     // Note: This is computing the second derivative w.r.t. time
-    for(int j=2; j < 4; ++j)
+    for (int j = 2; j < 4; ++j)
       result[i] += j * (j-1) * coeffs[j] * pow(time, j-2);
   }
 
@@ -185,27 +187,27 @@ const Eigen::Matrix4d M_inv = make_M_inv();
 
 //==============================================================================
 Spline::Spline(const Trajectory::const_iterator& it)
-  : params(compute_parameters(it))
+: params(compute_parameters(it))
 {
   // Do nothing
 }
 
 //==============================================================================
 Spline::Spline(const internal::WaypointList::const_iterator& it)
-  : params(compute_parameters(it))
+: params(compute_parameters(it))
 {
   // Do nothing
 }
 
 //==============================================================================
 std::array<Eigen::Vector3d, 4> Spline::compute_knots(
-    const Time start_time, const Time finish_time) const
+  const Time start_time, const Time finish_time) const
 {
   assert(params.time_range[0] <= start_time);
   assert(finish_time <= params.time_range[1]);
 
   const double scaled_delta_t =
-      compute_delta_t(finish_time, start_time) / params.delta_t;
+    compute_delta_t(finish_time, start_time) / params.delta_t;
 
   const double scaled_start_time = compute_scaled_time(start_time, params);
   const double scaled_finish_time = compute_scaled_time(finish_time, params);
@@ -220,13 +222,13 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
     scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_finish_time);
 
   const std::array<Eigen::Vector4d, 3> subspline_coeffs =
-      compute_coefficients(x0, x1, v0, v1);
+    compute_coefficients(x0, x1, v0, v1);
 
   std::array<Eigen::Vector3d, 4> result;
-  for(std::size_t i=0; i < 3; ++i)
+  for (std::size_t i = 0; i < 3; ++i)
   {
     const Eigen::Vector4d p = M_inv * subspline_coeffs[i];
-    for(int j=0; j < 4; ++j)
+    for (int j = 0; j < 4; ++j)
       result[j][i] = p[j];
   }
 
@@ -235,14 +237,14 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
 
 //==============================================================================
 fcl::SplineMotion Spline::to_fcl(
-    const Time start_time, const Time finish_time) const
+  const Time start_time, const Time finish_time) const
 {
   std::array<Eigen::Vector3d, 4> knots = compute_knots(start_time, finish_time);
 
   std::array<fcl::Vec3f, 4> Td;
   std::array<fcl::Vec3f, 4> Rd;
 
-  for(std::size_t i=0; i < 4; ++i)
+  for (std::size_t i = 0; i < 4; ++i)
   {
     const Eigen::Vector3d p = knots[i];
     Td[i] = fcl::Vec3f(p[0], p[1], 0.0);
@@ -250,8 +252,8 @@ fcl::SplineMotion Spline::to_fcl(
   }
 
   return fcl::SplineMotion(
-      Td[0], Td[1], Td[2], Td[3],
-      Rd[0], Rd[1], Rd[2], Rd[3]);
+    Td[0], Td[1], Td[2], Td[3],
+    Rd[0], Rd[1], Rd[2], Rd[3]);
 }
 
 //==============================================================================
@@ -270,7 +272,7 @@ Time Spline::finish_time() const
 Eigen::Vector3d Spline::compute_position(const Time at_time) const
 {
   return rmf_traffic::compute_position(
-        params, compute_scaled_time(at_time, params));
+    params, compute_scaled_time(at_time, params));
 }
 
 //==============================================================================
@@ -278,15 +280,15 @@ Eigen::Vector3d Spline::compute_velocity(const Time at_time) const
 {
   const double delta_t_inv = 1.0/params.delta_t;
   return delta_t_inv * rmf_traffic::compute_velocity(
-        params, compute_scaled_time(at_time, params));
+    params, compute_scaled_time(at_time, params));
 }
 
 //==============================================================================
 Eigen::Vector3d Spline::compute_acceleration(const Time at_time) const
 {
   const double delta_t_inv = 1.0/params.delta_t;
-  return pow(delta_t_inv, 2 ) * rmf_traffic::compute_acceleration(
-        params, compute_scaled_time(at_time, params));
+  return pow(delta_t_inv, 2) * rmf_traffic::compute_acceleration(
+    params, compute_scaled_time(at_time, params));
 }
 
 //==============================================================================

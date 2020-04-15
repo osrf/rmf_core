@@ -38,10 +38,10 @@ inline rmf_traffic::Profile create_test_profile(TestProfileType shape_type)
 
   if (UnitBox == shape_type)
     shape = rmf_traffic::geometry::make_final_convex<
-        rmf_traffic::geometry::Box>(1.0, 1.0);
+      rmf_traffic::geometry::Box>(1.0, 1.0);
   else if (UnitCircle == shape_type)
     shape = rmf_traffic::geometry::make_final_convex<
-        rmf_traffic::geometry::Circle>(1.0);
+      rmf_traffic::geometry::Circle>(1.0);
 
   return rmf_traffic::Profile(shape, shape);
 }
@@ -64,7 +64,7 @@ inline rmf_traffic::Trajectory create_test_trajectory()
 
 //==============================================================================
 inline rmf_traffic::Trajectory create_test_trajectory(
-    std::vector<TrajectoryInsertInput> param_list)
+  std::vector<TrajectoryInsertInput> param_list)
 {
   rmf_traffic::Trajectory trajectory;
   for (auto x : param_list)
