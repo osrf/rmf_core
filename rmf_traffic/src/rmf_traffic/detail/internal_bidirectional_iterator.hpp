@@ -74,7 +74,7 @@ auto bidirectional_iterator<E, I, F>::operator--(int) -> bidirectional_iterator
 //==============================================================================
 template<typename E, typename I, typename F>
 bool bidirectional_iterator<E, I, F>::operator==(
-    const bidirectional_iterator& other) const
+  const bidirectional_iterator& other) const
 {
   return _pimpl->iter == other._pimpl->iter;
 }
@@ -82,7 +82,7 @@ bool bidirectional_iterator<E, I, F>::operator==(
 //==============================================================================
 template<typename E, typename I, typename F>
 bool bidirectional_iterator<E, I, F>::operator!=(
-    const bidirectional_iterator& other) const
+  const bidirectional_iterator& other) const
 {
   return _pimpl->iter != other._pimpl->iter;
 }
@@ -97,8 +97,8 @@ bidirectional_iterator<E, I, F>::bidirectional_iterator()
 //==============================================================================
 template<typename E, typename I, typename F>
 bidirectional_iterator<E, I, F>::bidirectional_iterator(I impl)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{std::move(impl)}))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{std::move(impl)}))
 {
   // Do nothing
 }

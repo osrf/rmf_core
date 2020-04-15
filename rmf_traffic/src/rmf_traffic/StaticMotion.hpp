@@ -37,10 +37,10 @@ public:
   bool integrate(double dt) const final;
 
   fcl::FCL_REAL computeMotionBound(
-      const fcl::BVMotionBoundVisitor&) const final;
+    const fcl::BVMotionBoundVisitor&) const final;
 
   fcl::FCL_REAL computeMotionBound(
-      const fcl::TriangleMotionBoundVisitor&) const final;
+    const fcl::TriangleMotionBoundVisitor&) const final;
 
   void getCurrentTransform(fcl::Transform3f& tf) const final;
 

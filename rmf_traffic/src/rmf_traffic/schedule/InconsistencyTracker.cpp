@@ -24,8 +24,8 @@ namespace rmf_traffic {
 namespace schedule {
 
 InconsistencyTracker::InconsistencyTracker(
-    RangesSet& ranges,
-    ItineraryVersion& last_known_version)
+  RangesSet& ranges,
+  ItineraryVersion& last_known_version)
 : _ranges(ranges),
   _last_known_version(last_known_version)
 {
@@ -33,7 +33,7 @@ InconsistencyTracker::InconsistencyTracker(
 }
 
 //==============================================================================
-void InconsistencyTracker::Ticket::set(std::function<void ()> change)
+void InconsistencyTracker::Ticket::set(std::function<void()> change)
 {
   _set = true;
   _callback = change;
@@ -41,8 +41,8 @@ void InconsistencyTracker::Ticket::set(std::function<void ()> change)
 
 //==============================================================================
 InconsistencyTracker::Ticket::Ticket(
-    InconsistencyTracker& parent,
-    std::function<void()>& callback)
+  InconsistencyTracker& parent,
+  std::function<void()>& callback)
 : _parent(parent),
   _callback(callback)
 {
@@ -69,8 +69,8 @@ InconsistencyTracker::Ticket::~Ticket()
 
 //==============================================================================
 auto InconsistencyTracker::check(
-    const ItineraryVersion version,
-    const bool nullifying)
+  const ItineraryVersion version,
+  const bool nullifying)
 -> std::unique_ptr<Ticket>
 {
   using Range = Inconsistencies::Ranges::Range;
@@ -238,7 +238,7 @@ auto InconsistencyTracker::check(
         // Since this is a nullifying change, it eliminates all ranges of
         // inconsistencies that come before it.
         const auto hint_it =
-            _ranges.erase(_ranges.begin(), ++RangesSet::iterator(range_it));
+          _ranges.erase(_ranges.begin(), ++RangesSet::iterator(range_it));
 
         if (version == upper)
         {

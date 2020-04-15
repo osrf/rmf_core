@@ -46,11 +46,11 @@ public:
 
   // Documentation inherited from Viewer
   std::shared_ptr<const ParticipantDescription> get_participant(
-      std::size_t participant_id) const final;
+    std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
   rmf_utils::optional<Itinerary> get_itinerary(
-      std::size_t participant_id) const final;
+    std::size_t participant_id) const final;
 
   // Documentation inherited from Viewer
   Version latest_version() const final;

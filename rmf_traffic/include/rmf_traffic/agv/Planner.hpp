@@ -1,4 +1,4 @@
- /*
+/*
  * Copyright (C) 2019 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,9 +57,9 @@ public:
     /// \param[in] graph
     ///   The graph which is being planned over
     Configuration(
-        Graph graph,
-        VehicleTraits traits,
-        Interpolate::Options interpolation = Interpolate::Options());
+      Graph graph,
+      VehicleTraits traits,
+      Interpolate::Options interpolation = Interpolate::Options());
 
     /// Set the graph to use for planning
     Configuration& graph(Graph graph);
@@ -125,9 +125,9 @@ public:
     ///   then pass in a nullptr. It is the user's responsibility to make sure
     ///   that this flag remains valid.
     Options(
-        rmf_utils::clone_ptr<RouteValidator> validator,
-        Duration min_hold_time = DefaultMinHoldingTime,
-        const bool* interrupt_flag = nullptr);
+      rmf_utils::clone_ptr<RouteValidator> validator,
+      Duration min_hold_time = DefaultMinHoldingTime,
+      const bool* interrupt_flag = nullptr);
 
     /// Set the route validator
     Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
@@ -179,11 +179,11 @@ public:
     ///   Optional field to specify if the robot is starting in a certain lane.
     ///   This will only be used if an initial_location is specified.
     Start(
-        Time initial_time,
-        std::size_t initial_waypoint,
-        double initial_orientation,
-        rmf_utils::optional<Eigen::Vector2d> location = rmf_utils::nullopt,
-        rmf_utils::optional<std::size_t> initial_lane = rmf_utils::nullopt);
+      Time initial_time,
+      std::size_t initial_waypoint,
+      double initial_orientation,
+      rmf_utils::optional<Eigen::Vector2d> location = rmf_utils::nullopt,
+      rmf_utils::optional<std::size_t> initial_lane = rmf_utils::nullopt);
 
     /// Set the starting time of a plan
     Start& time(Time initial_time);
@@ -286,8 +286,8 @@ public:
   ///   set them here and then forget about them. These options can be overriden
   ///   each time you request a plan.
   Planner(
-      Configuration config,
-      Options default_options);
+    Configuration config,
+    Options default_options);
 
   /// Get a const reference to the configuration for this Planner. Note that the
   /// configuration of a planner cannot be changed once it is set.
@@ -333,9 +333,9 @@ public:
   ///   The Options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
   rmf_utils::optional<Plan> plan(
-      const Start& start,
-      Goal goal,
-      Options options) const;
+    const Start& start,
+    Goal goal,
+    Options options) const;
 
 
   /// Produces a plan for the given set of starting conditions and goal. The
@@ -373,9 +373,9 @@ public:
   ///   The options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
   rmf_utils::optional<Plan> plan(
-      const StartSet& starts,
-      Goal goal,
-      Options options) const;
+    const StartSet& starts,
+    Goal goal,
+    Options options) const;
 
   class Implementation;
 private:
@@ -464,8 +464,8 @@ public:
   /// \param[in] new_options
   ///   The options that should be used for replanning.
   rmf_utils::optional<Plan> replan(
-      const Planner::Start& new_start,
-      Options new_options) const;
+    const Planner::Start& new_start,
+    Options new_options) const;
 
   /// Replan to the same goal from a new set of start locations using the same
   /// options.
@@ -483,8 +483,8 @@ public:
   /// \param[in] new_options
   ///   The options that should be used for replanning.
   rmf_utils::optional<Plan> replan(
-      const StartSet& new_starts,
-      Options new_options) const;
+    const StartSet& new_starts,
+    Options new_options) const;
 
   /// If this Plan is valid, this will return the Planner::Start that was used
   /// to produce it.
@@ -540,7 +540,7 @@ private:
 ///   network delays.
 ///
 /// \param[in] max_merge_waypoint_distance
-///   The maximum distance allowed to automatically merge onto a waypoint in 
+///   The maximum distance allowed to automatically merge onto a waypoint in
 ///   the graph. Default value as 0.1 meters.
 ///
 /// \param[in] max_merge_lane_distance
@@ -553,12 +553,12 @@ private:
 ///   any lanes shorter than this value will not be evaluated. Default value as
 ///   1e-8 meters.
 std::vector<Plan::Start> compute_plan_starts(
-    const rmf_traffic::agv::Graph& graph,
-    const Eigen::Vector3d pose,
-    const rmf_traffic::Time start_time,
-    const double max_merge_waypoint_distance = 0.1,
-    const double max_merge_lane_distance = 1.0,
-    const double min_lane_length = 1e-8);
+  const rmf_traffic::agv::Graph& graph,
+  const Eigen::Vector3d pose,
+  const rmf_traffic::Time start_time,
+  const double max_merge_waypoint_distance = 0.1,
+  const double max_merge_lane_distance = 1.0,
+  const double min_lane_length = 1e-8);
 
 } // namespace agv
 } // namespace rmf_traffic

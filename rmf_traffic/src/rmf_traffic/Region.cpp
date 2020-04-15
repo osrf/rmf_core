@@ -49,7 +49,7 @@ public:
   {
     iterator result;
     result._pimpl = rmf_utils::make_impl<iterator::Implementation>(
-          iterator::Implementation{it});
+      iterator::Implementation{it});
     return result;
   }
 
@@ -57,30 +57,30 @@ public:
 
 //==============================================================================
 Region::Region(
-    std::string map,
-    Time lower_bound,
-    Time upper_bound,
-    std::vector<geometry::Space> spaces)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(map),
-               lower_bound,
-               upper_bound,
-               std::move(spaces)}))
+  std::string map,
+  Time lower_bound,
+  Time upper_bound,
+  std::vector<geometry::Space> spaces)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(map),
+        lower_bound,
+        upper_bound,
+        std::move(spaces)}))
 {
   // Do nothing
 }
 
 //==============================================================================
 Region::Region(
-    std::string map,
-    std::vector<Space> spaces)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(map),
-               rmf_utils::nullopt,
-               rmf_utils::nullopt,
-               std::move(spaces)}))
+  std::string map,
+  std::vector<Space> spaces)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(map),
+        rmf_utils::nullopt,
+        rmf_utils::nullopt,
+        std::move(spaces)}))
 {
   // Do nothing
 }
@@ -101,7 +101,7 @@ auto Region::set_map(std::string map) -> Region&
 //==============================================================================
 const Time* Region::get_lower_time_bound() const
 {
-  if(_pimpl->lower_bound)
+  if (_pimpl->lower_bound)
     return &(*_pimpl->lower_bound);
 
   return nullptr;
@@ -124,7 +124,7 @@ auto Region::remove_lower_time_bound() -> Region&
 //==============================================================================
 const Time* Region::get_upper_time_bound() const
 {
-  if(_pimpl->upper_bound)
+  if (_pimpl->upper_bound)
     return &(*_pimpl->upper_bound);
 
   return nullptr;
@@ -160,14 +160,14 @@ void Region::pop_back()
 auto Region::erase(iterator it) -> iterator
 {
   return Implementation::make_iterator(
-        _pimpl->spaces.erase(it._pimpl->iter));
+    _pimpl->spaces.erase(it._pimpl->iter));
 }
 
 //==============================================================================
 auto Region::erase(iterator first, iterator last) -> iterator
 {
   return Implementation::make_iterator(
-        _pimpl->spaces.erase(first._pimpl->iter, last._pimpl->iter));
+    _pimpl->spaces.erase(first._pimpl->iter, last._pimpl->iter));
 }
 
 //==============================================================================
@@ -180,7 +180,7 @@ auto Region::begin() -> iterator
 auto Region::begin() const -> const_iterator
 {
   return Implementation::make_iterator(
-        const_cast<Implementation::Spaces&>(_pimpl->spaces).begin());
+    const_cast<Implementation::Spaces&>(_pimpl->spaces).begin());
 }
 
 //==============================================================================
@@ -199,7 +199,7 @@ auto Region::end() -> iterator
 auto Region::end() const -> const_iterator
 {
   return Implementation::make_iterator(
-        const_cast<Implementation::Spaces&>(_pimpl->spaces).end());
+    const_cast<Implementation::Spaces&>(_pimpl->spaces).end());
 }
 
 //==============================================================================

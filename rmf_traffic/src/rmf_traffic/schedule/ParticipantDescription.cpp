@@ -34,17 +34,17 @@ public:
 
 //==============================================================================
 ParticipantDescription::ParticipantDescription(
-    std::string name,
-    std::string owner,
-    Rx responsiveness,
-    Profile profile)
+  std::string name,
+  std::string owner,
+  Rx responsiveness,
+  Profile profile)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{
-             std::move(name),
-             std::move(owner),
-             std::move(responsiveness),
-             std::move(profile)
-           }))
+      Implementation{
+        std::move(name),
+        std::move(owner),
+        std::move(responsiveness),
+        std::move(profile)
+      }))
 {
   // Do nothing
 }

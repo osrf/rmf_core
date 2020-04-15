@@ -77,7 +77,8 @@ public:
   bool operator!=(const bidirectional_iterator& other) const;
 
   // Allow implicit conversion to const_iterator type
-  operator bidirectional_iterator<const Element, Implementation, Friend>() const;
+  operator bidirectional_iterator<const Element, Implementation,
+    Friend>() const;
 
   // Allow typical copying and moving
   bidirectional_iterator(const bidirectional_iterator&) = default;

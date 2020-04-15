@@ -32,14 +32,14 @@ public:
 
 //==============================================================================
 Space::Space(ConstFinalShapePtr shape, Eigen::Isometry2d tf)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{std::move(shape), std::move(tf)}))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{std::move(shape), std::move(tf)}))
 {
   // Do nothing
 }
 
 //==============================================================================
-const ConstFinalShapePtr &Space::get_shape() const
+const ConstFinalShapePtr& Space::get_shape() const
 {
   return _pimpl->shape;
 }

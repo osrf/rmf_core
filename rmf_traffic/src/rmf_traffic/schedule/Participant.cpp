@@ -30,21 +30,21 @@ ItineraryVersion Participant::Debug::get_itinerary_version(const Participant& p)
 
 //==============================================================================
 Participant Participant::Implementation::make(
-    ParticipantDescription description,
-    Writer& writer,
-    RectificationRequesterFactory* rectifier_factory)
+  ParticipantDescription description,
+  Writer& writer,
+  RectificationRequesterFactory* rectifier_factory)
 {
   const ParticipantId id = writer.register_participant(description);
 
   Participant participant;
   participant._pimpl = rmf_utils::make_unique_impl<Implementation>(
-        id, std::move(description), writer);
+    id, std::move(description), writer);
 
   if (rectifier_factory)
   {
     participant._pimpl->_rectification =
-        rectifier_factory->make(
-          Rectifier::Implementation::make(*participant._pimpl), id);
+      rectifier_factory->make(
+      Rectifier::Implementation::make(*participant._pimpl), id);
   }
 
   return participant;
@@ -52,8 +52,8 @@ Participant Participant::Implementation::make(
 
 //==============================================================================
 void Participant::Implementation::retransmit(
-    const std::vector<Rectifier::Range>& ranges,
-    const ItineraryVersion last_known_version)
+  const std::vector<Rectifier::Range>& ranges,
+  const ItineraryVersion last_known_version)
 {
   for (const auto& range : ranges)
   {
@@ -97,9 +97,9 @@ ItineraryVersion Participant::Implementation::current_version() const
 
 //==============================================================================
 Participant::Implementation::Implementation(
-    ParticipantId id,
-    ParticipantDescription description,
-    Writer& writer)
+  ParticipantId id,
+  ParticipantDescription description,
+  Writer& writer)
 : _id(id),
   _description(std::move(description)),
   _writer(writer)
@@ -116,18 +116,18 @@ Participant::Implementation::~Implementation()
 
 //==============================================================================
 Writer::Input Participant::Implementation::make_input(
-    std::vector<Route> itinerary)
+  std::vector<Route> itinerary)
 {
   Writer::Input input;
   input.reserve(itinerary.size());
 
-  for (std::size_t i=0; i < itinerary.size(); ++i)
+  for (std::size_t i = 0; i < itinerary.size(); ++i)
   {
     input.emplace_back(
-          Writer::Item{
-            ++_last_route_id,
-            std::make_shared<Route>(std::move(itinerary[i]))
-          });
+      Writer::Item{
+        ++_last_route_id,
+        std::make_shared<Route>(std::move(itinerary[i]))
+      });
   }
 
   return input;
@@ -158,10 +158,11 @@ RouteId Participant::set(std::vector<Route> itinerary)
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
-  auto change = [this, input = std::move(input), itinerary_version, id]()
-  {
-    this->_pimpl->_writer.set(id, input, itinerary_version);
-  };
+  auto change =
+    [this, input = std::move(input), itinerary_version, id]()
+    {
+      this->_pimpl->_writer.set(id, input, itinerary_version);
+    };
 
   _pimpl->_change_history[itinerary_version] = change;
   change();
@@ -179,17 +180,18 @@ RouteId Participant::extend(const std::vector<Route>& additional_routes)
   auto input = _pimpl->make_input(std::move(additional_routes));
 
   _pimpl->_current_itinerary.reserve(
-        _pimpl->_current_itinerary.size() + input.size());
+    _pimpl->_current_itinerary.size() + input.size());
 
   for (const auto& item : input)
     _pimpl->_current_itinerary.push_back(item);
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
-  auto change = [this, input = std::move(input), itinerary_version, id]()
-  {
-    this->_pimpl->_writer.extend(id, input, itinerary_version);
-  };
+  auto change =
+    [this, input = std::move(input), itinerary_version, id]()
+    {
+      this->_pimpl->_writer.extend(id, input, itinerary_version);
+    };
 
   _pimpl->_change_history[itinerary_version] = change;
   change();
@@ -225,10 +227,11 @@ void Participant::delay(Time from, Duration delay)
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
-  auto change = [this, from, delay, itinerary_version, id]()
-  {
-    this->_pimpl->_writer.delay(id, from, delay, itinerary_version);
-  };
+  auto change =
+    [this, from, delay, itinerary_version, id]()
+    {
+      this->_pimpl->_writer.delay(id, from, delay, itinerary_version);
+    };
 
   _pimpl->_change_history[itinerary_version] = change;
   change();
@@ -238,12 +241,12 @@ void Participant::delay(Time from, Duration delay)
 void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 {
   const auto remove_it = std::remove_if(
-        _pimpl->_current_itinerary.begin(),
-        _pimpl->_current_itinerary.end(),
-        [&](const Writer::Item& item)
-  {
-    return input_routes.count(item.id) > 0;
-  });
+    _pimpl->_current_itinerary.begin(),
+    _pimpl->_current_itinerary.end(),
+    [&](const Writer::Item& item)
+    {
+      return input_routes.count(item.id) > 0;
+    });
 
   if (remove_it == _pimpl->_current_itinerary.end())
   {
@@ -261,10 +264,11 @@ void Participant::erase(const std::unordered_set<RouteId>& input_routes)
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
-  auto change = [this, routes = std::move(routes), itinerary_version, id]()
-  {
-    this->_pimpl->_writer.erase(id, routes, itinerary_version);
-  };
+  auto change =
+    [this, routes = std::move(routes), itinerary_version, id]()
+    {
+      this->_pimpl->_writer.erase(id, routes, itinerary_version);
+    };
 
   _pimpl->_change_history[itinerary_version] = change;
   change();
@@ -283,10 +287,11 @@ void Participant::clear()
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
-  auto change = [this, itinerary_version, id]()
-  {
-    this->_pimpl->_writer.erase(id, itinerary_version);
-  };
+  auto change =
+    [this, itinerary_version, id]()
+    {
+      this->_pimpl->_writer.erase(id, itinerary_version);
+    };
 
   _pimpl->_change_history[itinerary_version] = change;
   change();
@@ -330,14 +335,14 @@ Participant::Participant()
 
 //==============================================================================
 Participant make_participant(
-    ParticipantDescription description,
-    Writer& writer,
-    RectificationRequesterFactory* rectifier_factory)
+  ParticipantDescription description,
+  Writer& writer,
+  RectificationRequesterFactory* rectifier_factory)
 {
   return Participant::Implementation::make(
-        std::move(description),
-        writer,
-        rectifier_factory);
+    std::move(description),
+    writer,
+    rectifier_factory);
 }
 
 } // namespace schedule

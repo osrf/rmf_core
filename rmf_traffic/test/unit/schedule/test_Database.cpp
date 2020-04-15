@@ -36,36 +36,36 @@ SCENARIO("Test Database Conflicts")
 
     //check for empty instantiation
     const rmf_traffic::schedule::Query query_all =
-        rmf_traffic::schedule::query_all();
+      rmf_traffic::schedule::query_all();
 
-    rmf_traffic::schedule::Patch changes=
-        db.changes(query_all, rmf_utils::nullopt);
+    rmf_traffic::schedule::Patch changes =
+      db.changes(query_all, rmf_utils::nullopt);
 
-    REQUIRE(changes.size()==0);
+    REQUIRE(changes.size() == 0);
     CHECK(changes.latest_version() == 0);
 
     //adding simple two-point trajecotry
     const double profile_scale = 1.0;
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
-    rmf_traffic::geometry::Box shape(profile_scale,profile_scale);
+    rmf_traffic::geometry::Box shape(profile_scale, profile_scale);
     rmf_traffic::geometry::FinalConvexShapePtr final_shape =
-        rmf_traffic::geometry::make_final_convex(shape);
+      rmf_traffic::geometry::make_final_convex(shape);
 
     const rmf_traffic::Profile profile{final_shape};
 
     const auto p1 = db.register_participant(
-          rmf_traffic::schedule::ParticipantDescription{
-            "test_participant",
-            "test_Database",
-            rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-            profile
-          });
+      rmf_traffic::schedule::ParticipantDescription{
+        "test_participant",
+        "test_Database",
+        rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+        profile
+      });
     CHECK(db.latest_version() == ++dbv);
 
     rmf_traffic::Trajectory t1;
-    t1.insert(time, Eigen::Vector3d{-5,0,0}, Eigen::Vector3d{0,0,0});
-    t1.insert(time + 10s, Eigen::Vector3d{5,0,0}, Eigen::Vector3d{0,0,0});
-    REQUIRE(t1.size()==2);
+    t1.insert(time, Eigen::Vector3d{-5, 0, 0}, Eigen::Vector3d{0, 0, 0});
+    t1.insert(time + 10s, Eigen::Vector3d{5, 0, 0}, Eigen::Vector3d{0, 0, 0});
+    REQUIRE(t1.size() == 2);
 
     rmf_traffic::schedule::ItineraryVersion iv1 = 0;
     rmf_traffic::RouteId rv1 = 0;
@@ -88,8 +88,8 @@ SCENARIO("Test Database Conflicts")
     // WHEN("Another Trajectory is inserted")
     {
       rmf_traffic::Trajectory t2;
-      t2.insert(time, Eigen::Vector3d{0,-5,0}, Eigen::Vector3d{0,0,0});
-      t2.insert(time+10min, Eigen::Vector3d{0,5,0}, Eigen::Vector3d{0,0,0});
+      t2.insert(time, Eigen::Vector3d{0, -5, 0}, Eigen::Vector3d{0, 0, 0});
+      t2.insert(time+10min, Eigen::Vector3d{0, 5, 0}, Eigen::Vector3d{0, 0, 0});
       REQUIRE(t2.size() == 2);
 
       db.extend(p1, create_test_input(rv1++, t2), iv1++);
@@ -109,7 +109,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      changes=db.changes(query_all, db.latest_version()-1);
+      changes = db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
@@ -143,7 +143,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.latest_version() == db.latest_version());
 
       // query the diff
-      changes=db.changes(query_all, db.latest_version()-1);
+      changes = db.changes(query_all, db.latest_version()-1);
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
@@ -221,15 +221,17 @@ SCENARIO("Test Database Conflicts")
     // WHEN("Schedule is culled")
     {
       const auto cull_time = time + 5min;
-      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 2);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(
+          db) == 2);
       const auto v = db.cull(cull_time);
-      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(db) == 1);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_entry_history_count(
+          db) == 1);
       CHECK(db.latest_version() == ++dbv);
       CHECK(v == db.latest_version());
       CHECK_TRAJECTORY_COUNT(db, 1, 0);
 
       // query from the start
-      changes=db.changes(query_all, rmf_utils::nullopt);
+      changes = db.changes(query_all, rmf_utils::nullopt);
       CHECK(changes.registered().size() == 1);
       CHECK(changes.unregistered().size() == 0);
       CHECK(changes.size() == 0);
@@ -252,7 +254,8 @@ SCENARIO("Test Database Conflicts")
       db.set_current_time(current_time);
       db.unregister_participant(p1);
       CHECK(db.latest_version() == ++dbv);
-      CHECK(rmf_traffic::schedule::Database::Debug::current_removed_participant_count(db) == 1);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_removed_participant_count(
+          db) == 1);
 
       // query from the start
       changes = db.changes(query_all, rmf_utils::nullopt);
@@ -274,7 +277,8 @@ SCENARIO("Test Database Conflicts")
       const auto cull_time = current_time + 10min;
       db.cull(cull_time);
       CHECK(db.latest_version() == ++dbv);
-      CHECK(rmf_traffic::schedule::Database::Debug::current_removed_participant_count(db) == 0);
+      CHECK(rmf_traffic::schedule::Database::Debug::current_removed_participant_count(
+          db) == 0);
 
       // query the diff
       changes = db.changes(query_all, db.latest_version()-1);
@@ -296,4 +300,3 @@ SCENARIO("Test Database Conflicts")
     }
   }
 }
-

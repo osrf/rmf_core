@@ -45,15 +45,15 @@ public:
   Holonomic _holonomic;
 
   Implementation(
-      Limits linear,
-      Limits rotation,
-      Profile profile,
-      Differential differential)
-    : _linear(std::move(linear)),
-      _rotation(std::move(rotation)),
-      _profile(std::move(profile)),
-      _steering_mode(Steering::Differential),
-      _differential(differential)
+    Limits linear,
+    Limits rotation,
+    Profile profile,
+    Differential differential)
+  : _linear(std::move(linear)),
+    _rotation(std::move(rotation)),
+    _profile(std::move(profile)),
+    _steering_mode(Steering::Differential),
+    _differential(differential)
   {
     // Do nothing
   }
@@ -61,8 +61,8 @@ public:
 
 //==============================================================================
 VehicleTraits::Limits::Limits(const double velocity, const double acceleration)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{velocity, acceleration}))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{velocity, acceleration}))
 {
   // Do nothing
 }
@@ -112,9 +112,9 @@ public:
 
 //==============================================================================
 VehicleTraits::Differential::Differential(
-    Eigen::Vector2d forward,
-    const bool reversible)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
+  Eigen::Vector2d forward,
+  const bool reversible)
+: _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{std::move(forward), reversible}))
 {
   // Do nothing
@@ -162,15 +162,15 @@ VehicleTraits::Holonomic::Holonomic()
 
 //==============================================================================
 VehicleTraits::VehicleTraits(
-    Limits linear,
-    Limits rotational,
-    Profile profile,
-    Differential steering)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             std::move(linear),
-             std::move(rotational),
-             std::move(profile),
-             std::move(steering)))
+  Limits linear,
+  Limits rotational,
+  Profile profile,
+  Differential steering)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      std::move(linear),
+      std::move(rotational),
+      std::move(profile),
+      std::move(steering)))
 {
   // Do nothing
 }
@@ -228,7 +228,7 @@ auto VehicleTraits::set_differential(Differential parameters) -> Differential&
 //==============================================================================
 auto VehicleTraits::get_differential() -> Differential*
 {
-  if(_pimpl->_steering_mode == Steering::Differential)
+  if (_pimpl->_steering_mode == Steering::Differential)
     return &_pimpl->_differential;
 
   return nullptr;
@@ -237,7 +237,7 @@ auto VehicleTraits::get_differential() -> Differential*
 //==============================================================================
 auto VehicleTraits::get_differential() const -> const Differential*
 {
-  if(_pimpl->_steering_mode == Steering::Differential)
+  if (_pimpl->_steering_mode == Steering::Differential)
     return &_pimpl->_differential;
 
   return nullptr;
@@ -254,7 +254,7 @@ auto VehicleTraits::set_holonomic(Holonomic parameters) -> Holonomic&
 //==============================================================================
 auto VehicleTraits::get_holonomic() -> Holonomic*
 {
-  if(_pimpl->_steering_mode == Steering::Holonomic)
+  if (_pimpl->_steering_mode == Steering::Holonomic)
     return &_pimpl->_holonomic;
 
   return nullptr;
@@ -263,7 +263,7 @@ auto VehicleTraits::get_holonomic() -> Holonomic*
 //==============================================================================
 auto VehicleTraits::get_holonomic() const -> const Holonomic*
 {
-  if(_pimpl->_steering_mode == Steering::Holonomic)
+  if (_pimpl->_steering_mode == Steering::Holonomic)
     return &_pimpl->_holonomic;
 
   return nullptr;
@@ -272,13 +272,14 @@ auto VehicleTraits::get_holonomic() const -> const Holonomic*
 //==============================================================================
 bool VehicleTraits::valid() const
 {
-  const bool steering_valid = [&]() -> bool
-  {
-    if(_pimpl->_steering_mode == Steering::Differential)
-      return get_differential()->valid();
+  const bool steering_valid =
+    [&]() -> bool
+    {
+      if (_pimpl->_steering_mode == Steering::Differential)
+        return get_differential()->valid();
 
-    return true;
-  }();
+      return true;
+    } ();
 
   return linear().valid() && rotational().valid() && steering_valid;
 }

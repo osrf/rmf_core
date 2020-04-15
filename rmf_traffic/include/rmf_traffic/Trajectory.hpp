@@ -173,9 +173,9 @@ public:
   /// The Waypoint will be inserted into the Trajectory according to its time,
   /// ensuring correct ordering of all Waypoints.
   InsertionResult insert(
-      Time time,
-      Eigen::Vector3d position,
-      Eigen::Vector3d velocity);
+    Time time,
+    Eigen::Vector3d position,
+    Eigen::Vector3d velocity);
 
   /// Insert a copy of another Trajectory's Waypoint into this one.
   InsertionResult insert(const Waypoint& other);

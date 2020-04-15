@@ -53,8 +53,8 @@ public:
     ///   negotiation (or a nullopt if no update will be performed). Pass in a
     ///   nullptr if an approval callback is not necessary.
     virtual void submit(
-        std::vector<Route> itinerary,
-        std::function<UpdateVersion()> approval_callback = nullptr) const = 0;
+      std::vector<Route> itinerary,
+      std::function<UpdateVersion()> approval_callback = nullptr) const = 0;
 
     /// The negotiator will call this function if it has decided to reject an
     /// attempt to negotiate.
@@ -78,9 +78,9 @@ public:
   ///   has been running for too long. If the planner should run indefinitely,
   ///   then pass a nullptr.
   virtual void respond(
-      std::shared_ptr<const schedule::Negotiation::Table> table,
-      const Responder& responder,
-      const bool* interrupt_flag = nullptr) = 0;
+    std::shared_ptr<const schedule::Negotiation::Table> table,
+    const Responder& responder,
+    const bool* interrupt_flag = nullptr) = 0;
 
   virtual ~Negotiator() = default;
 };
@@ -103,9 +103,9 @@ public:
   /// \param[in] to_accommodate
   ///   The participants that will be accommodated by the response
   SimpleResponder(
-      std::shared_ptr<schedule::Negotiation> negotiation,
-      schedule::ParticipantId for_participant,
-      std::vector<schedule::ParticipantId> to_accommodate);
+    std::shared_ptr<schedule::Negotiation> negotiation,
+    schedule::ParticipantId for_participant,
+    std::vector<schedule::ParticipantId> to_accommodate);
 
   /// Constructor
   ///
@@ -115,14 +115,14 @@ public:
   /// \param[in] table_sequence
   ///   The sequence that identifies what table this responder should submit to
   SimpleResponder(
-      std::shared_ptr<schedule::Negotiation> negotiation,
-      std::vector<schedule::ParticipantId> table_sequence);
+    std::shared_ptr<schedule::Negotiation> negotiation,
+    std::vector<schedule::ParticipantId> table_sequence);
 
   // Documentation inherited
   // NOTE: approval_callback does not get used
   void submit(
-      std::vector<Route> itinerary,
-      std::function<UpdateVersion()> approval_callback=nullptr) const final;
+    std::vector<Route> itinerary,
+    std::function<UpdateVersion()> approval_callback = nullptr) const final;
 
   // Documentation inherited
   void reject() const final;

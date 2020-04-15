@@ -31,7 +31,7 @@ public:
 
 //==============================================================================
 SimpleNegotiator::Options::Options(Duration min_hold_time)
-  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{min_hold_time}))
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{min_hold_time}))
 {
   // Do nothing
 }
@@ -60,14 +60,14 @@ public:
   Planner planner;
 
   Implementation(
-      Planner::Start start_,
-      Planner::Goal goal_,
-      Planner::Configuration configuration_,
-      Planner::Options options_)
-    : start(std::move(start_)),
-      goal(std::move(goal_)),
-      options(std::move(options_)),
-      planner(std::move(configuration_), options)
+    Planner::Start start_,
+    Planner::Goal goal_,
+    Planner::Configuration configuration_,
+    Planner::Options options_)
+  : start(std::move(start_)),
+    goal(std::move(goal_)),
+    options(std::move(options_)),
+    planner(std::move(configuration_), options)
   {
     // Do nothing
   }
@@ -76,32 +76,32 @@ public:
 
 //==============================================================================
 SimpleNegotiator::SimpleNegotiator(
-    Planner::Start start,
-    Planner::Goal goal,
-    Planner::Configuration planner_configuration,
-    const Options& options)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             std::move(start),
-             std::move(goal),
-             std::move(planner_configuration),
-             Planner::Options(nullptr, options.minimum_holding_time())))
+  Planner::Start start,
+  Planner::Goal goal,
+  Planner::Configuration planner_configuration,
+  const Options& options)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      std::move(start),
+      std::move(goal),
+      std::move(planner_configuration),
+      Planner::Options(nullptr, options.minimum_holding_time())))
 {
   // Do nothing
 }
 
 //==============================================================================
 void SimpleNegotiator::respond(
-    std::shared_ptr<const schedule::Negotiation::Table> table,
-    const Responder& responder,
-    const bool* interrupt_flag)
+  std::shared_ptr<const schedule::Negotiation::Table> table,
+  const Responder& responder,
+  const bool* interrupt_flag)
 {
   const auto& profile =
-      _pimpl->planner.get_configuration().vehicle_traits().profile();
+    _pimpl->planner.get_configuration().vehicle_traits().profile();
 
   auto options = _pimpl->options;
 
   options.validator(
-        rmf_utils::make_clone<NegotiatingRouteValidator>(*table, profile));
+    rmf_utils::make_clone<NegotiatingRouteValidator>(*table, profile));
 
   options.interrupt_flag(interrupt_flag);
 

@@ -24,9 +24,9 @@ namespace schedule {
 
 //==============================================================================
 rmf_utils::optional<Trajectory> apply_delay(
-    const Trajectory& old_trajectory,
-    Time from,
-    Duration delay)
+  const Trajectory& old_trajectory,
+  Time from,
+  Duration delay)
 {
   if (*old_trajectory.finish_time() < from)
     return rmf_utils::nullopt;
@@ -57,7 +57,7 @@ public:
 //==============================================================================
 Change::Add::Add(std::vector<Item> additions)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           Implementation{std::move(additions)}))
+      Implementation{std::move(additions)}))
 {
   // Do nothing
 }
@@ -121,10 +121,10 @@ public:
 
 //==============================================================================
 Change::RegisterParticipant::RegisterParticipant(
-    ParticipantId id,
-    ParticipantDescription description)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{id, description}))
+  ParticipantId id,
+  ParticipantDescription description)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{id, description}))
 {
   // Do nothing
 }

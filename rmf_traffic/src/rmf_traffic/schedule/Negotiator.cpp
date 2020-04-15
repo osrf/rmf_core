@@ -33,45 +33,45 @@ public:
 
 //==============================================================================
 SimpleResponder::SimpleResponder(
-    std::shared_ptr<schedule::Negotiation> negotiation,
-    schedule::ParticipantId for_participant,
-    std::vector<schedule::ParticipantId> to_accommodate)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(negotiation),
-               for_participant,
-               std::move(to_accommodate)
-             }))
+  std::shared_ptr<schedule::Negotiation> negotiation,
+  schedule::ParticipantId for_participant,
+  std::vector<schedule::ParticipantId> to_accommodate)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(negotiation),
+        for_participant,
+        std::move(to_accommodate)
+      }))
 {
   // Do nothing
 }
 
 //==============================================================================
 SimpleResponder::SimpleResponder(
-    std::shared_ptr<schedule::Negotiation> negotiation,
-    std::vector<schedule::ParticipantId> sequence)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(negotiation),
-               sequence.back(),
-               std::move(sequence)
-             }))
+  std::shared_ptr<schedule::Negotiation> negotiation,
+  std::vector<schedule::ParticipantId> sequence)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(negotiation),
+        sequence.back(),
+        std::move(sequence)
+      }))
 {
   _pimpl->to_accommodate.pop_back();
 }
 
 //==============================================================================
 void SimpleResponder::submit(std::vector<Route> itinerary,
-    std::function<UpdateVersion()> /*approval_callback*/) const
+  std::function<UpdateVersion()> /*approval_callback*/) const
 {
   const auto table = _pimpl->negotiation->table(
-        _pimpl->for_participant, _pimpl->to_accommodate);
+    _pimpl->for_participant, _pimpl->to_accommodate);
 
   if (table)
   {
     table->submit(
-          std::move(itinerary),
-          table->version()? *table->version()+1 : 0);
+      std::move(itinerary),
+      table->version() ? *table->version()+1 : 0);
   }
 }
 
@@ -86,10 +86,10 @@ void SimpleResponder::reject() const
   }
 
   const auto table = _pimpl->negotiation->table(
-        _pimpl->for_participant, _pimpl->to_accommodate);
+    _pimpl->for_participant, _pimpl->to_accommodate);
   if (table)
   {
-    table->reject(table->version()? *table->version() : 0);
+    table->reject(table->version() ? *table->version() : 0);
     return;
   }
 
