@@ -19,6 +19,7 @@
 #define SRC__RMF_TRAFFIC__AGV__PLANNINGINTERNAL_HPP
 
 #include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/agv/debug/Planner.hpp>
 
 #include <memory>
 #include <mutex>
@@ -65,6 +66,25 @@ public:
     const std::vector<agv::Planner::Start>& starts,
     agv::Planner::Goal goal,
     agv::Planner::Options options) = 0;
+
+  class Debugger
+  {
+  public:
+
+    virtual const agv::Planner::Debug::Node::SearchQueue& queue() const = 0;
+
+    virtual const std::vector<agv::Planner::Debug::ConstNodePtr>&
+    expanded_nodes() const = 0;
+
+    virtual ~Debugger() = default;
+  };
+
+  virtual std::unique_ptr<Debugger> debug_begin(
+    const std::vector<agv::Planner::Start>& starts,
+    agv::Planner::Goal goal,
+    agv::Planner::Options options) = 0;
+
+  virtual rmf_utils::optional<Result> debug_step(Debugger& debugger);
 
   virtual const agv::Planner::Configuration& get_configuration() const = 0;
 

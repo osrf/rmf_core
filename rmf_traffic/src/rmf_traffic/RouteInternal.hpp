@@ -34,6 +34,11 @@ public:
   {
     return Route(std::move(data.map), std::move(data.trajectory));
   }
+
+  static const Route::Implementation& get(const Route& route)
+  {
+    return *route._pimpl;
+  }
 };
 
 using RouteData = Route::Implementation;

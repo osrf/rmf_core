@@ -613,7 +613,7 @@ struct DifferentialDriveExpander
     const agv::Interpolate::Options::Implementation& interpolate;
     const agv::RouteValidator* const validator;
     const std::size_t final_waypoint;
-    const double* const final_orientation;
+    const rmf_utils::optional<double> final_orientation;
     const rmf_traffic::Time initial_time;
     const bool* const interrupt_flag;
     Heuristic& heuristic;
@@ -1268,7 +1268,6 @@ struct DifferentialDriveExpander
       expand_holding(parent_waypoint, parent_node, queue);
   }
 
-
 private:
 
   Context& _context;
@@ -1324,31 +1323,156 @@ public:
     if (starts.empty())
       return rmf_utils::nullopt;
 
-    const std::size_t goal_waypoint = goal.waypoint();
-    Heuristic& h = _heuristics.insert(
-      std::make_pair(goal_waypoint, Heuristic{})).first->second;
-    const bool* const interrupt_flag = options.interrupt_flag();
-
     const NodePtr solution = search<DifferentialDriveExpander>(
-      DifferentialDriveExpander::Context{
-        _graph,
-        _traits,
-        _profile,
-        options.minimum_holding_time(),
-        _interpolate,
-        options.validator().get(),
-        goal_waypoint,
-        goal.orientation(),
-        starts.front().time(),
-        interrupt_flag,
-        h
-      },
+      make_context(goal, options, starts.back().time()),
       DifferentialDriveExpander::InitialNodeArgs{starts},
-      interrupt_flag);
+      options.interrupt_flag());
 
     if (!solution)
       return rmf_utils::nullopt;
 
+    return make_result(starts, std::move(goal), std::move(options), solution);
+  }
+
+  const agv::Planner::Configuration& get_configuration() const final
+  {
+    return _config;
+  }
+
+  class Debugger : public Cache::Debugger
+  {
+  public:
+    const agv::Planner::Debug::Node::SearchQueue& queue() const override
+    {
+      return queue_;
+    }
+
+    const std::vector<agv::Planner::Debug::ConstNodePtr>&
+    expanded_nodes() const override
+    {
+      return expanded_nodes_;
+    }
+
+    DifferentialDriveExpander::NodePtr convert(
+        agv::Planner::Debug::ConstNodePtr from)
+    {
+      auto output = _from_debug[from];
+      assert(output);
+
+      return output;
+    }
+
+    agv::Planner::Debug::ConstNodePtr convert(
+        DifferentialDriveExpander::NodePtr from)
+    {
+      const auto it = _to_debug.find(from);
+      if (it != _to_debug.end())
+        return it->second;
+
+      std::vector<DifferentialDriveExpander::NodePtr> queue;
+      queue.push_back(from);
+      while (!queue.empty())
+      {
+        const auto node = queue.back();
+
+        const auto parent = node->parent;
+        agv::Planner::Debug::ConstNodePtr debug_parent = nullptr;
+        if (parent)
+        {
+          const auto parent_it = _to_debug.find(parent);
+          if (parent_it == _to_debug.end())
+          {
+            queue.push_back(parent);
+            continue;
+          }
+
+          debug_parent = parent_it->second;
+        }
+
+        auto new_debug_node = std::make_shared<agv::Planner::Debug::Node>(
+              agv::Planner::Debug::Node{
+                debug_parent,
+                RouteData::make(node->route_from_parent),
+                node->remaining_cost_estimate,
+                node->current_cost,
+                node->waypoint,
+                node->orientation,
+                node->event,
+                node->start_set_index
+              });
+
+        _to_debug[node] = new_debug_node;
+        _from_debug[new_debug_node] = node;
+      }
+
+      return _to_debug[from];
+    }
+
+    DifferentialDriveExpander::Context context_;
+    agv::Planner::Debug::Node::SearchQueue queue_;
+    std::vector<agv::Planner::Debug::ConstNodePtr> expanded_nodes_;
+
+    Debugger(DifferentialDriveExpander::Context context)
+    : context_(std::move(context))
+    {
+      // Do nothing
+    }
+
+  private:
+    std::unordered_map<
+        agv::Planner::Debug::ConstNodePtr,
+        DifferentialDriveExpander::NodePtr> _from_debug;
+
+    std::unordered_map<
+        DifferentialDriveExpander::NodePtr,
+        agv::Planner::Debug::ConstNodePtr> _to_debug;
+  };
+
+  std::unique_ptr<Cache::Debugger> debug_begin(
+    const std::vector<agv::Planner::Start>& starts,
+    agv::Planner::Goal goal,
+    agv::Planner::Options options) final
+  {
+    auto debugger = std::make_unique<Debugger>(
+          make_context(goal, options, starts.back().time()));
+
+    DifferentialDriveExpander expander(debugger->context_);
+
+    DifferentialDriveExpander::SearchQueue queue;
+    expander.make_initial_nodes(
+          DifferentialDriveExpander::InitialNodeArgs{starts}, queue);
+
+    while (!queue.empty())
+    {
+      debugger->queue_.push(debugger->convert(queue.top()));
+      queue.pop();
+    }
+
+    return debugger;
+  }
+
+  rmf_utils::optional<Result> debug_step(Cache::Debugger& input_debugger) final
+  {
+    Debugger& debugger = static_cast<Debugger&>(input_debugger);
+
+    auto top = debugger.convert(debugger.queue_.top());
+    debugger.queue_.pop();
+
+    DifferentialDriveExpander expander(debugger.context_);
+    if (expander.is_finished(top))
+    {
+
+    }
+  }
+
+private:
+
+  Result make_result(
+      const std::vector<agv::Planner::Start>& starts,
+      agv::Planner::Goal goal,
+      agv::Planner::Options options,
+      const NodePtr& solution) const
+  {
     auto routes = reconstruct_routes(solution);
     auto waypoints = reconstruct_waypoints(solution, _graph);
     auto start_index = find_start_index(solution);
@@ -1362,12 +1486,34 @@ public:
     };
   }
 
-  const agv::Planner::Configuration& get_configuration() const final
+  DifferentialDriveExpander::Context make_context(
+      const agv::Planner::Goal& goal,
+      const agv::Planner::Options& options,
+      const rmf_traffic::Time start_time)
   {
-    return _config;
-  }
+    const std::size_t goal_waypoint = goal.waypoint();
+    rmf_utils::optional<double> goal_orientation;
+    if (goal.orientation())
+      goal_orientation = *goal.orientation();
 
-private:
+    Heuristic& h = _heuristics.insert(
+          std::make_pair(goal_waypoint, Heuristic{})).first->second;
+    const bool* const interrupt_flag = options.interrupt_flag();
+
+    return DifferentialDriveExpander::Context{
+      _graph,
+      _traits,
+      _profile,
+      options.minimum_holding_time(),
+      _interpolate,
+      options.validator().get(),
+      goal_waypoint,
+      goal_orientation,
+      start_time,
+      interrupt_flag,
+      h
+    };
+  }
 
   agv::Planner::Configuration _config;
 

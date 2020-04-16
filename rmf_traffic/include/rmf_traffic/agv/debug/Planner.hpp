@@ -96,16 +96,16 @@ public:
     /// be the optimal one.
     operator bool() const
     {
-      return !queue.empty();
+      return !queue().empty();
     }
 
     /// A priority queue of unexpanded Nodes. They are sorted based on g(n)+h(n)
     /// in ascending order (see Node::Compare).
-    Node::SearchQueue queue;
+    const Node::SearchQueue& queue() const;
 
     /// The set of Nodes that have been expanded. They are sorted in the order
     /// that they were chosen for expansion.
-    std::vector<ConstNodePtr> expanded_nodes;
+    const std::vector<ConstNodePtr>& expanded_nodes() const;
 
     class Implementation;
   private:
