@@ -76,6 +76,26 @@ public:
     Planner::Configuration planner_configuration,
     const Options& options = Options());
 
+  /// Constructor
+  ///
+  /// \param[in] start
+  ///   A set of starts that can be used.
+  ///
+  /// \param[in] goal
+  ///   The desired goal for the plan.
+  ///
+  /// \param[in] planner_configuration
+  ///   The configuration that will be used by the planner underlying this
+  ///   Negotiator.
+  ///
+  /// \param[in] options
+  ///   Additional options that will be used by the Negotiator.
+  SimpleNegotiator(
+    std::vector<Planner::Start> starts,
+    Planner::Goal goal,
+    Planner::Configuration planner_configuration,
+    const Options& options = Options());
+
   // Documentation inherited
   void respond(std::shared_ptr<const schedule::Negotiation::Table> table,
     const Responder& responder,

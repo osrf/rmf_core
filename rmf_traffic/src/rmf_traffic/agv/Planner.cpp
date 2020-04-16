@@ -16,6 +16,7 @@
 */
 
 #include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/agv/debug/Planner.hpp>
 
 #include "internal_Planner.hpp"
 #include "internal_planning.hpp"
@@ -590,7 +591,6 @@ const Planner::Configuration& Plan::get_configuration() const
 }
 
 //==============================================================================
-
 std::vector<Plan::Start> compute_plan_starts(
   const rmf_traffic::agv::Graph& graph,
   const Eigen::Vector3d pose,
@@ -687,6 +687,30 @@ std::vector<Plan::Start> compute_plan_starts(
   }
 
   return starts;
+}
+
+//==============================================================================
+class Planner::Debug::Implementation
+{
+public:
+
+  internal::planning::CacheManager cache_mgr;
+
+};
+
+//==============================================================================
+class Planner::Debug::Progress::Implementation
+{
+  internal::planning::CacheManager cache_mgr;
+
+};
+
+//==============================================================================
+Planner::Debug::Debug(const Planner& planner)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{planner._pimpl->cache_mgr}))
+{
+  // Do nothing
 }
 
 } // namespace agv

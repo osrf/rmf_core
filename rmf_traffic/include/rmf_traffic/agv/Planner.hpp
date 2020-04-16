@@ -378,6 +378,7 @@ public:
     Options options) const;
 
   class Implementation;
+  class Debug;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 

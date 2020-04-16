@@ -15,6 +15,8 @@
  *
 */
 
+#include "utils_NegotiationRoom.hpp"
+
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
 #include <rmf_traffic/agv/Negotiator.hpp>
@@ -22,12 +24,6 @@
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
-
-#include <rmf_utils/catch.hpp>
-
-#include <future>
-#include <unordered_map>
-#include <iostream>
 
 //==============================================================================
 void print_proposal(
@@ -338,131 +334,6 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 }
 
 //==============================================================================
-class NegotiationRoom
-{
-public:
-
-  using ParticipantId = rmf_traffic::schedule::ParticipantId;
-  using Negotiator = rmf_traffic::agv::SimpleNegotiator;
-  using Negotiation = rmf_traffic::schedule::Negotiation;
-  using Responder = rmf_traffic::schedule::SimpleResponder;
-
-  struct Intention
-  {
-    rmf_traffic::agv::Planner::Start start;
-    rmf_traffic::agv::Planner::Goal goal;
-    rmf_traffic::agv::Planner::Configuration configuration;
-  };
-
-  using Intentions = std::unordered_map<ParticipantId, Intention>;
-
-  NegotiationRoom(
-    const rmf_traffic::schedule::Viewer& viewer,
-    Intentions intentions,
-    const bool print_failures_ = false)
-  : negotiators(make_negotiations(intentions)),
-    negotiation(std::make_shared<Negotiation>(
-        viewer, get_participants(intentions))),
-    print_failures(print_failures_)
-  {
-    // Do nothing
-  }
-
-  rmf_utils::optional<Negotiation::Proposal> solve()
-  {
-    std::vector<Negotiation::TablePtr> queue;
-    for (const auto& p : negotiation->participants())
-    {
-      const auto table = negotiation->table(p, {});
-      negotiators.at(p).respond(table, Responder(negotiation, p, {}));
-      queue.push_back(table);
-    }
-
-    while (!queue.empty())
-    {
-      const auto top = queue.back();
-      queue.pop_back();
-
-      for (auto& n : negotiators)
-      {
-        const auto participant = n.first;
-        auto& negotiator = n.second;
-        const auto respond_to = top->respond(participant);
-        if (respond_to)
-        {
-          bool interrupt = false;
-          auto result = std::async(
-            std::launch::async,
-            [&]()
-            {
-              negotiator.respond(
-                respond_to,
-                Responder(negotiation, respond_to->sequence()),
-                &interrupt);
-            });
-
-          using namespace std::chrono_literals;
-          // Give up if a solution is not found within 10 seconds.
-          if (result.wait_for(10s) != std::future_status::ready)
-            interrupt = true;
-
-          result.wait();
-
-          if (print_failures && !respond_to->submission())
-          {
-            std::cout << "Failed to make a submission for [";
-            for (const auto p : respond_to->sequence())
-              std::cout << " " << p;
-            std::cout << " ]" << std::endl;
-          }
-          queue.push_back(respond_to);
-        }
-      }
-    }
-
-    CHECK(negotiation->complete());
-    if (!negotiation->ready())
-      return rmf_utils::nullopt;
-
-    return negotiation->evaluate(
-      rmf_traffic::schedule::QuickestFinishEvaluator())->proposal();
-  }
-
-  static std::unordered_map<ParticipantId, Negotiator> make_negotiations(
-    const std::unordered_map<ParticipantId, Intention>& intentions)
-  {
-    std::unordered_map<ParticipantId, Negotiator> negotiators;
-    for (const auto& entry : intentions)
-    {
-      const auto participant = entry.first;
-      const auto& intention = entry.second;
-      negotiators.insert(
-        std::make_pair(
-          participant,
-          rmf_traffic::agv::SimpleNegotiator(
-            intention.start, intention.goal, intention.configuration)));
-    }
-
-    return negotiators;
-  }
-
-  static std::vector<ParticipantId> get_participants(
-    const std::unordered_map<ParticipantId, Intention>& intentions)
-  {
-    std::vector<ParticipantId> participants;
-    participants.reserve(intentions.size());
-    for (const auto& entry : intentions)
-      participants.push_back(entry.first);
-
-    return participants;
-  }
-
-  std::unordered_map<ParticipantId, Negotiator> negotiators;
-  std::shared_ptr<rmf_traffic::schedule::Negotiation> negotiation;
-  bool print_failures = false;
-};
-
-//==============================================================================
 SCENARIO("Multi-participant negotiation")
 {
   using namespace std::chrono_literals;
@@ -748,7 +619,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p0.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["A"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["D"], // Goal Vertex
             p0_planner_config // Planner Configuration ( Preset )
           }
@@ -789,7 +660,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p0.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["A"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["B"], // Goal Vertex
             p0_planner_config // Planner Configuration ( Preset )
           }
@@ -798,7 +669,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p1.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["D"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["C"], // Goal Vertex
             p1_planner_config // Planner Configuration ( Preset )
           }
@@ -834,7 +705,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p0.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["A"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["B"], // Goal Vertex
             p0_planner_config // Planner Configuration ( Preset )
           }
@@ -843,7 +714,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p1.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["A"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["C"], // Goal Vertex
             p1_planner_config // Planner Configuration ( Preset )
           }
@@ -868,7 +739,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p0.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["A"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["B"], // Goal Vertex
             p0_planner_config // Planner Configuration ( Preset )
           }
@@ -877,7 +748,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p1.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["B"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["B"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["C"], // Goal Vertex
             p1_planner_config // Planner Configuration ( Preset )
           }
@@ -913,7 +784,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p0.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["A"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["A"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["B"], // Goal Vertex
             p0_planner_config // Planner Configuration ( Preset )
           }
@@ -922,7 +793,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p2.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["B"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["B"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["C"], // Goal Vertex
             p2_planner_config // Planner Configuration ( Preset )
           }
@@ -960,7 +831,7 @@ SCENARIO("A Single Lane, hold anywhere")
       };
 
       const auto a0_plan_0 = a0_planner.plan(
-        {time, vertex_id_to_idx["A"], 0.0},
+        {{time, vertex_id_to_idx["A"], 0.0}},
         {vertex_id_to_idx["B"]}
       );
 
@@ -971,7 +842,7 @@ SCENARIO("A Single Lane, hold anywhere")
       intentions.insert({
           p1.id(),
           NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
+            {{time, vertex_id_to_idx["D"], 0.0}},  // Time, Start Vertex, Initial Orientation
             vertex_id_to_idx["C"], // Goal Vertex
             p1_planner_config // Planner Configuration ( Preset )
           }

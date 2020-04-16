@@ -54,17 +54,17 @@ class SimpleNegotiator::Implementation
 {
 public:
 
-  Planner::Start start;
+  std::vector<Planner::Start> starts;
   Planner::Goal goal;
   Planner::Options options;
   Planner planner;
 
   Implementation(
-    Planner::Start start_,
+    std::vector<Planner::Start> starts_,
     Planner::Goal goal_,
     Planner::Configuration configuration_,
     Planner::Options options_)
-  : start(std::move(start_)),
+  : starts(std::move(starts_)),
     goal(std::move(goal_)),
     options(std::move(options_)),
     planner(std::move(configuration_), options)
@@ -81,10 +81,26 @@ SimpleNegotiator::SimpleNegotiator(
   Planner::Configuration planner_configuration,
   const Options& options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      std::move(start),
+    Implementation(
+      {std::move(start)},
       std::move(goal),
       std::move(planner_configuration),
-      Planner::Options(nullptr, options.minimum_holding_time())))
+      Planner::Options(nullptr, options.minimum_holding_time()))))
+{
+  // Do nothing
+}
+
+//==============================================================================
+SimpleNegotiator::SimpleNegotiator(
+  std::vector<Planner::Start> starts,
+  Planner::Goal goal,
+  Planner::Configuration planner_configuration,
+  const Options& options)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           std::move(starts),
+           std::move(goal),
+           std::move(planner_configuration),
+           Planner::Options(nullptr, options.minimum_holding_time())))
 {
   // Do nothing
 }
@@ -105,7 +121,7 @@ void SimpleNegotiator::respond(
 
   options.interrupt_flag(interrupt_flag);
 
-  const auto plan = _pimpl->planner.plan(_pimpl->start, _pimpl->goal, options);
+  const auto plan = _pimpl->planner.plan(_pimpl->starts, _pimpl->goal, options);
   if (!plan)
   {
     // If we failed to produce a plan, then we should send a rejection
