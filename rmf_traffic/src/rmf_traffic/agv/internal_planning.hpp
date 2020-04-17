@@ -67,6 +67,8 @@ public:
     agv::Planner::Goal goal,
     agv::Planner::Options options) = 0;
 
+  virtual const agv::Planner::Configuration& get_configuration() const = 0;
+
   class Debugger
   {
   public:
@@ -76,6 +78,9 @@ public:
     virtual const std::vector<agv::Planner::Debug::ConstNodePtr>&
     expanded_nodes() const = 0;
 
+    virtual const std::vector<agv::Planner::Debug::ConstNodePtr>&
+    terminal_nodes() const = 0;
+
     virtual ~Debugger() = default;
   };
 
@@ -84,9 +89,7 @@ public:
     agv::Planner::Goal goal,
     agv::Planner::Options options) = 0;
 
-  virtual rmf_utils::optional<Result> debug_step(Debugger& debugger);
-
-  virtual const agv::Planner::Configuration& get_configuration() const = 0;
+  virtual rmf_utils::optional<Result> debug_step(Debugger& debugger) = 0;
 
   virtual ~Cache() = default;
 };
@@ -104,10 +107,13 @@ public:
   // Moving it is okay
   CacheHandle(CacheHandle&&) = default;
 
-  rmf_utils::optional<Result> plan(
-    const std::vector<agv::Planner::Start>& starts,
-    agv::Planner::Goal goal,
-    agv::Planner::Options options);
+  Cache* operator->();
+
+  const Cache* operator->() const;
+
+  Cache& operator*() &;
+
+  const Cache& operator*() const&;
 
   ~CacheHandle();
 

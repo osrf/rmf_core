@@ -21,6 +21,8 @@
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 
+#include <rmf_traffic/agv/debug/Planner.hpp>
+
 SCENARIO("Test difficult 3-way scenarios")
 {
   const std::string test_map_name = "test_map";
@@ -191,7 +193,7 @@ SCENARIO("Test difficult 3-way scenarios")
     REQUIRE(!a0_starts.empty());
     auto plan_a0 = planner_a.plan(a0_starts, {1});
     REQUIRE(plan_a0);
-    a0.set(plan_a0->get_itinerary());
+//    a0.set(plan_a0->get_itinerary());
 
     rmf_traffic::agv::Planner planner_b(
           config_b,
@@ -200,20 +202,81 @@ SCENARIO("Test difficult 3-way scenarios")
               database, b1.id(), profile_b)
           ));
 
-    auto plan = planner_b.plan(b1_starts, {11});
-    REQUIRE(plan);
+//    std::cout << " ==== Beginning plan" << std::endl;
+//    auto plan = planner_b.plan(b1_starts, {11});
+//    std::cout << " ==== Finished with plan" << std::endl;
+//    REQUIRE(plan);
 
-    intentions.insert({
-      a0.id(),
-      NegotiationRoom::Intention{std::move(a0_starts), {1}, config_a} });
+    std::cout << "Creating debug" << std::endl;
+    rmf_traffic::agv::Planner::Debug debug(planner_b);
 
-    intentions.insert({
-      b1.id(),
-      NegotiationRoom::Intention{std::move(b1_starts), {11}, config_b}});
+    std::cout << "Beginning debug" << std::endl;
+    auto progress = debug.begin(
+          b1_starts, {11}, planner_b.get_default_options());
 
-    intentions.insert({
-      b2.id(),
-      NegotiationRoom::Intention{std::move(b2_starts), {13}, config_b}});
+    std::cout << "Beginning steps..." << std::endl;
+    rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+    std::size_t i=0;
+    while (progress && !plan)
+    {
+      ++i;
+      if (i % 10 == 0)
+        std::cout << "Step: " << i << std::endl;
+      plan = progress.step();
+    }
+
+    std::cout << " === Finished" << std::endl;
+
+    CHECK_FALSE(plan);
+    CHECK(!progress.terminal_nodes().empty());
+    CHECK(!progress.expanded_nodes().empty());
+    std::cout << "Terminal: " << progress.terminal_nodes().size() << std::endl;
+    std::cout << "Expanded: " << progress.expanded_nodes().size() << std::endl;
+    for (const auto& node : progress.expanded_nodes())
+    {
+      std::vector<rmf_traffic::agv::Planner::Debug::ConstNodePtr> sequence;
+      auto next_node = node;
+      while (next_node)
+      {
+        sequence.push_back(next_node);
+        next_node = next_node->parent;
+      }
+
+      while (!sequence.empty())
+      {
+        auto back = sequence.back();
+        sequence.pop_back();
+
+        if (back->route_from_parent.trajectory().size() > 0)
+        {
+          std::cout << " (" << back->route_from_parent.trajectory().front().position().transpose()
+                    << ") -> (" << back->route_from_parent.trajectory().back().position().transpose()
+                    << ")";
+        }
+
+        if (back->waypoint)
+        {
+          std::cout << " [" << *back->waypoint << "]";
+        }
+
+        if (!sequence.empty())
+          std::cout << "  -> ";
+      }
+
+      std::cout << "\n" << std::endl;
+    }
+
+//    intentions.insert({
+//      a0.id(),
+//      NegotiationRoom::Intention{std::move(a0_starts), {1}, config_a} });
+
+//    intentions.insert({
+//      b1.id(),
+//      NegotiationRoom::Intention{std::move(b1_starts), {11}, config_b}});
+
+//    intentions.insert({
+//      b2.id(),
+//      NegotiationRoom::Intention{std::move(b2_starts), {13}, config_b}});
 
 //    auto room = NegotiationRoom(database, intentions);
 //    room.print_failures = true;

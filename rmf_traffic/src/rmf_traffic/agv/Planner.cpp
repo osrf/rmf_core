@@ -373,6 +373,16 @@ public:
 
   internal::planning::CacheManager cache_mgr;
 
+  static Plan make(
+      internal::planning::Result result,
+      internal::planning::CacheManager cache_mgr)
+  {
+    Plan plan;
+    plan._pimpl = rmf_utils::make_impl<Implementation>(
+      Implementation{std::move(result), std::move(cache_mgr)});
+
+    return plan;
+  }
 
   static rmf_utils::optional<Plan> generate(
     internal::planning::CacheManager cache_mgr,
@@ -380,17 +390,13 @@ public:
     Planner::Goal goal,
     Planner::Options options)
   {
-    auto result = cache_mgr.get().plan(
+    auto result = cache_mgr.get()->plan(
       {starts}, std::move(goal), std::move(options));
 
     if (!result)
       return rmf_utils::nullopt;
 
-    Plan plan;
-    plan._pimpl = rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(*result), std::move(cache_mgr)});
-
-    return std::move(plan);
+    return make(std::move(*result), std::move(cache_mgr));
   }
 
 };
@@ -701,9 +707,72 @@ public:
 //==============================================================================
 class Planner::Debug::Progress::Implementation
 {
+public:
   internal::planning::CacheManager cache_mgr;
+  internal::planning::CacheHandle cache_handle;
+  std::unique_ptr<internal::planning::Cache::Debugger> debugger;
 
+  Implementation(
+      internal::planning::CacheManager cache_mgr_,
+      const std::vector<Start>& starts,
+      Goal goal,
+      Options options)
+    : cache_mgr(std::move(cache_mgr_)),
+      cache_handle(cache_mgr.get()),
+      debugger(cache_handle->debug_begin(
+                 starts, std::move(goal), std::move(options)))
+  {
+    // Do nothing
+  }
+
+  static Progress make(
+      internal::planning::CacheManager mgr,
+      const std::vector<Start>& starts,
+      Goal goal,
+      Options options)
+  {
+    Progress progress;
+    progress._pimpl = rmf_utils::make_unique_impl<Implementation>(
+          Implementation{mgr, starts, std::move(goal), std::move(options)});
+
+    return progress;
+  }
 };
+
+//==============================================================================
+rmf_utils::optional<Plan> Planner::Debug::Progress::step()
+{
+  auto result = _pimpl->cache_mgr.get()->debug_step(*_pimpl->debugger);
+
+  if (!result)
+    return rmf_utils::nullopt;
+
+  return Plan::Implementation::make(std::move(*result), _pimpl->cache_mgr);
+}
+
+//==============================================================================
+auto Planner::Debug::Progress::queue() const -> const Node::SearchQueue&
+{
+  return _pimpl->debugger->queue();
+}
+
+//==============================================================================
+auto Planner::Debug::Progress::expanded_nodes() const -> const Node::Vector&
+{
+  return _pimpl->debugger->expanded_nodes();
+}
+
+//==============================================================================
+auto Planner::Debug::Progress::terminal_nodes() const -> const Node::Vector&
+{
+  return _pimpl->debugger->terminal_nodes();
+}
+
+//==============================================================================
+Planner::Debug::Progress::Progress()
+{
+  // Do nothing
+}
 
 //==============================================================================
 Planner::Debug::Debug(const Planner& planner)
@@ -711,6 +780,19 @@ Planner::Debug::Debug(const Planner& planner)
            Implementation{planner._pimpl->cache_mgr}))
 {
   // Do nothing
+}
+
+//==============================================================================
+auto Planner::Debug::begin(
+    const std::vector<Start>& starts,
+    Goal goal,
+    Options options) const -> Progress
+{
+  return Progress::Implementation::make(
+        _pimpl->cache_mgr,
+        starts,
+        std::move(goal),
+        std::move(options));
 }
 
 } // namespace agv

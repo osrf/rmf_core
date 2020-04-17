@@ -76,6 +76,8 @@ public:
 
     using SearchQueue =
         std::priority_queue<ConstNodePtr, std::vector<ConstNodePtr>, Compare>;
+
+    using Vector = std::vector<ConstNodePtr>;
   };
 
   class Progress
@@ -105,10 +107,15 @@ public:
 
     /// The set of Nodes that have been expanded. They are sorted in the order
     /// that they were chosen for expansion.
-    const std::vector<ConstNodePtr>& expanded_nodes() const;
+    const Node::Vector& expanded_nodes() const;
+
+    /// The set of Nodes which terminated, meaning it was not possible to expand
+    /// from them.
+    const Node::Vector& terminal_nodes() const;
 
     class Implementation;
   private:
+    Progress();
     rmf_utils::unique_impl_ptr<Implementation> _pimpl;
   };
 
@@ -119,7 +126,7 @@ public:
   /// returns a plan or until the queue is empty (the Progress object can be
   /// treated as a boolean for this purpose).
   Progress begin(
-      std::vector<Start> starts,
+      const std::vector<Start>& starts,
       Goal goal,
       Options options) const;
 

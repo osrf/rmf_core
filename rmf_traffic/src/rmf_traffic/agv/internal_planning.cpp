@@ -85,17 +85,35 @@ CacheHandle::CacheHandle(CachePtr original)
 }
 
 //==============================================================================
-rmf_utils::optional<Result> CacheHandle::plan(
-  const std::vector<agv::Planner::Start>& starts,
-  agv::Planner::Goal goal,
-  agv::Planner::Options options)
+Cache* CacheHandle::operator->()
 {
-  return _copy->plan(starts, std::move(goal), std::move(options));
+  return _copy.get();
+}
+
+//==============================================================================
+const Cache* CacheHandle::operator->() const
+{
+  return _copy.get();
+}
+
+//==============================================================================
+Cache& CacheHandle::operator*() &
+{
+  return *_copy.get();
+}
+
+//==============================================================================
+const Cache& CacheHandle::operator*() const&
+{
+  return *_copy.get();
 }
 
 //==============================================================================
 CacheHandle::~CacheHandle()
 {
+  if (!_original)
+    return;
+
   // We are now done with the copy, so we will update the original cache with
   // whatever new searches have been accomplished by the copy.
   std::unique_lock<std::mutex> lock(_original->mutex);
@@ -638,10 +656,6 @@ struct DifferentialDriveExpander
 
       const std::size_t initial_waypoint = start.waypoint();
 
-      const double cost_estimate =
-        _context.heuristic.estimate_remaining_cost(
-        _context, initial_waypoint);
-
       const double initial_orientation = start.orientation();
       const std::string& map_name =
         _context.graph.waypoints[initial_waypoint].get_map_name();
@@ -785,6 +799,10 @@ struct DifferentialDriveExpander
             rmf_traffic::time::to_seconds(approach_trajectory.duration())
             + rotated_initial_node->current_cost;
 
+          const double cost_estimate =
+            _context.heuristic.estimate_remaining_cost(
+            _context, initial_waypoint);
+
           queue.push(std::make_shared<Node>(
               Node{
                 cost_estimate,
@@ -806,6 +824,10 @@ struct DifferentialDriveExpander
           initial_time,
           to_3d(wp_location, initial_orientation),
           Eigen::Vector3d::Zero());
+
+        const double cost_estimate =
+          _context.heuristic.estimate_remaining_cost(
+          _context, initial_waypoint);
 
         queue.push(std::make_shared<Node>(
             Node{
@@ -1342,15 +1364,21 @@ public:
   class Debugger : public Cache::Debugger
   {
   public:
-    const agv::Planner::Debug::Node::SearchQueue& queue() const override
+    const agv::Planner::Debug::Node::SearchQueue& queue() const final
     {
       return queue_;
     }
 
     const std::vector<agv::Planner::Debug::ConstNodePtr>&
-    expanded_nodes() const override
+    expanded_nodes() const final
     {
       return expanded_nodes_;
+    }
+
+    const std::vector<agv::Planner::Debug::ConstNodePtr>&
+    terminal_nodes() const final
+    {
+      return terminal_nodes_;
     }
 
     DifferentialDriveExpander::NodePtr convert(
@@ -1403,6 +1431,7 @@ public:
 
         _to_debug[node] = new_debug_node;
         _from_debug[new_debug_node] = node;
+        queue.pop_back();
       }
 
       return _to_debug[from];
@@ -1411,9 +1440,21 @@ public:
     DifferentialDriveExpander::Context context_;
     agv::Planner::Debug::Node::SearchQueue queue_;
     std::vector<agv::Planner::Debug::ConstNodePtr> expanded_nodes_;
+    std::vector<agv::Planner::Debug::ConstNodePtr> terminal_nodes_;
 
-    Debugger(DifferentialDriveExpander::Context context)
-    : context_(std::move(context))
+    std::vector<agv::Planner::Start> starts_;
+    agv::Planner::Goal goal_;
+    agv::Planner::Options options_;
+
+    Debugger(
+        DifferentialDriveExpander::Context context,
+        std::vector<agv::Planner::Start> starts,
+        agv::Planner::Goal goal,
+        agv::Planner::Options options)
+    : context_(std::move(context)),
+      starts_(std::move(starts)),
+      goal_(std::move(goal)),
+      options_(std::move(options))
     {
       // Do nothing
     }
@@ -1434,7 +1475,10 @@ public:
     agv::Planner::Options options) final
   {
     auto debugger = std::make_unique<Debugger>(
-          make_context(goal, options, starts.back().time()));
+          make_context(goal, options, starts.back().time()),
+          starts,
+          std::move(goal),
+          std::move(options));
 
     DifferentialDriveExpander expander(debugger->context_);
 
@@ -1457,12 +1501,32 @@ public:
 
     auto top = debugger.convert(debugger.queue_.top());
     debugger.queue_.pop();
+    debugger.expanded_nodes_.push_back(debugger.convert(top));
 
     DifferentialDriveExpander expander(debugger.context_);
     if (expander.is_finished(top))
     {
-
+      return make_result(
+            debugger.starts_,
+            debugger.goal_,
+            debugger.options_,
+            top);
     }
+
+    DifferentialDriveExpander::SearchQueue queue;
+    expander.expand(top, queue);
+    if (queue.empty())
+      debugger.terminal_nodes_.push_back(debugger.convert(top));
+    else
+    {
+      while (!queue.empty())
+      {
+        debugger.queue_.push(debugger.convert(queue.top()));
+        queue.pop();
+      }
+    }
+
+    return rmf_utils::nullopt;
   }
 
 private:
