@@ -63,7 +63,7 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
     node->get_logger(),
     "Launching fleet adapter for " + fleet_name);
 
-  auto traits = get_traits_or_default(*node, 0.7, 0.3, 0.5, 1.5, 0.6);
+  auto traits = get_traits_or_default(*node, 0.7, 0.3, 0.5, 1.5, 0.5, 1.5);
 
   node->_delay_threshold =
     get_parameter_or_default_time(*node, "delay_threshold", 5.0);

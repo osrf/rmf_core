@@ -84,50 +84,58 @@ ScheduleNode::ScheduleNode()
   // TODO(MXG): As soon as possible, all of these services should be made
   // multi-threaded so they can be parallel processed.
 
-  register_query_service = create_service<RegisterQuery>(
+  register_query_service =
+    create_service<RegisterQuery>(
     rmf_traffic_ros2::RegisterQueryServiceName,
     [=](const std::shared_ptr<rmw_request_id_t> request_header,
     const RegisterQuery::Request::SharedPtr request,
     const RegisterQuery::Response::SharedPtr response)
     { this->register_query(request_header, request, response); });
 
-  unregister_query_service = create_service<UnregisterQuery>(
+  unregister_query_service =
+    create_service<UnregisterQuery>(
     rmf_traffic_ros2::UnregisterQueryServiceName,
     [=](const std::shared_ptr<rmw_request_id_t> request_header,
     const UnregisterQuery::Request::SharedPtr request,
     const UnregisterQuery::Response::SharedPtr response)
     { this->unregister_query(request_header, request, response); });
 
-  register_participant_service = create_service<RegisterParticipant>(
+  register_participant_service =
+    create_service<RegisterParticipant>(
     rmf_traffic_ros2::RegisterParticipantSrvName,
     [=](const request_id_ptr request_header,
     const RegisterParticipant::Request::SharedPtr request,
     const RegisterParticipant::Response::SharedPtr response)
     { this->register_participant(request_header, request, response); });
 
-  unregister_participant_service = create_service<UnregisterParticipant>(
+  unregister_participant_service =
+    create_service<UnregisterParticipant>(
     rmf_traffic_ros2::UnregisterParticipantSrvName,
     [=](const request_id_ptr request_header,
     const UnregisterParticipant::Request::SharedPtr request,
     const UnregisterParticipant::Response::SharedPtr response)
     { this->unregister_participant(request_header, request, response); });
 
-  mirror_update_service = create_service<MirrorUpdate>(
+  mirror_update_service =
+    create_service<MirrorUpdate>(
     rmf_traffic_ros2::MirrorUpdateServiceName,
     [=](const std::shared_ptr<rmw_request_id_t> request_header,
     const MirrorUpdate::Request::SharedPtr request,
     const MirrorUpdate::Response::SharedPtr response)
     { this->mirror_update(request_header, request, response); });
 
-  mirror_wakeup_publisher = create_publisher<MirrorWakeup>(
+  mirror_wakeup_publisher =
+    create_publisher<MirrorWakeup>(
     rmf_traffic_ros2::MirrorWakeupTopicName,
     rclcpp::SystemDefaultsQoS());
 
-  conflict_publisher = create_publisher<ScheduleConflictNotice>(
+  conflict_publisher =
+    create_publisher<ScheduleConflictNotice>(
     rmf_traffic_ros2::ScheduleConflictNoticeTopicName,
     rclcpp::SystemDefaultsQoS());
 
-  itinerary_set_sub = create_subscription<ItinerarySet>(
+  itinerary_set_sub =
+    create_subscription<ItinerarySet>(
     rmf_traffic_ros2::ItinerarySetTopicName,
     rclcpp::SystemDefaultsQoS().best_effort(),
     [=](const ItinerarySet::UniquePtr msg)
@@ -135,7 +143,8 @@ ScheduleNode::ScheduleNode()
       this->itinerary_set(*msg);
     });
 
-  itinerary_extend_sub = create_subscription<ItineraryExtend>(
+  itinerary_extend_sub =
+    create_subscription<ItineraryExtend>(
     rmf_traffic_ros2::ItineraryExtendTopicName,
     rclcpp::SystemDefaultsQoS().best_effort(),
     [=](const ItineraryExtend::UniquePtr msg)
@@ -143,7 +152,8 @@ ScheduleNode::ScheduleNode()
       this->itinerary_extend(*msg);
     });
 
-  itinerary_delay_sub = create_subscription<ItineraryDelay>(
+  itinerary_delay_sub =
+    create_subscription<ItineraryDelay>(
     rmf_traffic_ros2::ItineraryDelayTopicName,
     rclcpp::SystemDefaultsQoS().best_effort(),
     [=](const ItineraryDelay::UniquePtr msg)
@@ -151,7 +161,8 @@ ScheduleNode::ScheduleNode()
       this->itinerary_delay(*msg);
     });
 
-  itinerary_erase_sub = create_subscription<ItineraryErase>(
+  itinerary_erase_sub =
+    create_subscription<ItineraryErase>(
     rmf_traffic_ros2::ItineraryEraseTopicName,
     rclcpp::SystemDefaultsQoS().best_effort(),
     [=](const ItineraryErase::UniquePtr msg)
@@ -159,7 +170,8 @@ ScheduleNode::ScheduleNode()
       this->itinerary_erase(*msg);
     });
 
-  itinerary_clear_sub = create_subscription<ItineraryClear>(
+  itinerary_clear_sub =
+    create_subscription<ItineraryClear>(
     rmf_traffic_ros2::ItineraryClearTopicName,
     rclcpp::SystemDefaultsQoS().best_effort(),
     [=](const ItineraryClear::UniquePtr msg)
@@ -167,7 +179,8 @@ ScheduleNode::ScheduleNode()
       this->itinerary_clear(*msg);
     });
 
-  inconsistency_pub = create_publisher<InconsistencyMsg>(
+  inconsistency_pub =
+    create_publisher<InconsistencyMsg>(
     rmf_traffic_ros2::ScheduleInconsistencyTopicName,
     rclcpp::SystemDefaultsQoS().reliable());
 
@@ -670,7 +683,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     conclusion.table = choose->sequence();
 
     std::string output = "Resolved negotiation ["
-      + std::to_string(msg.conflict_version) + ":";
+      + std::to_string(msg.conflict_version) + "]:";
 
     for (const auto p : conclusion.table)
       output += " " + std::to_string(p);
@@ -681,7 +694,9 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   }
   else if (negotiation.complete())
   {
-    std::cout << " -- REJECTED" << std::endl;
+    std::string output = "Rejected negotiation ["
+      + std::to_string(msg.conflict_version) + "]";
+    RCLCPP_INFO(get_logger(), output);
 
     active_conflicts.conclude(msg.conflict_version);
 
@@ -735,6 +750,10 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
 
   if (negotiation.complete())
   {
+    std::string output = "Rejected negotiation ["
+      + std::to_string(msg.conflict_version) + "]";
+    RCLCPP_INFO(get_logger(), output);
+
     active_conflicts.conclude(msg.conflict_version);
 
     ConflictConclusion conclusion;

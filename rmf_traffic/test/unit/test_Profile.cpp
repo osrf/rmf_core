@@ -208,7 +208,7 @@ SCENARIO("Testing conflicts")
         t2));
   }
 
-  GIVEN("Footprint overlaps with vicinity")
+  GIVEN("Footprint overlaps with vicinity from the start")
   {
     Trajecotry t1;
     t1.insert(start_time, {0, 0, 0}, {0, 0, 0});
@@ -218,6 +218,46 @@ SCENARIO("Testing conflicts")
     t2.insert(start_time, {2.8, 0, 0}, {0, 0, 0});
     t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
 
+    // A conflict only exists if the footprint entered the vicinity after the
+    // start of the trajectory
+    CHECK_FALSE(rmf_traffic::DetectConflict::between(
+        {circle_1, circle_2},
+        t1,
+        {circle_1},
+        t2));
+  }
+
+  GIVEN("Footprint overlaps with vicinity and then leaves")
+  {
+    Trajecotry t1;
+    t1.insert(start_time, {0, 0, 0}, {0, 0, 0});
+    t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
+
+    Trajecotry t2;
+    t2.insert(start_time, {2.8, 0, 0}, {0, 0, 0});
+    t2.insert(start_time + 10s, {5.0, 0, 0}, {0, 0, 0});
+
+    // A conflict only exists if the footprint entered the vicinity after the
+    // start of the trajectory
+    CHECK_FALSE(rmf_traffic::DetectConflict::between(
+        {circle_1, circle_2},
+        t1,
+        {circle_1},
+        t2));
+  }
+
+  GIVEN("Footprint overlaps with vicinity at the end, but not at the start")
+  {
+    Trajecotry t1;
+    t1.insert(start_time, {0, 0, 0}, {0, 0, 0});
+    t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
+
+    Trajecotry t2;
+    t2.insert(start_time, {5.0, 0, 0}, {0, 0, 0});
+    t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
+
+    // Since the footprint started outside the other's vicinity, it will trigger
+    // a conflict when it enters.
     CHECK(rmf_traffic::DetectConflict::between(
         {circle_1, circle_2},
         t1,
@@ -242,7 +282,7 @@ SCENARIO("Testing conflicts")
         t2));
   }
 
-  GIVEN("Overlapping box vicinity and circle footprint")
+  GIVEN("Overlapping box vicinity and circle footprint from the start")
   {
     Trajecotry t1;
     t1.insert(start_time, {0, 0, 0}, {0, 0, 0});
@@ -252,14 +292,14 @@ SCENARIO("Testing conflicts")
     t2.insert(start_time, {2.3, 0, 0}, {0, 0, 0});
     t2.insert(start_time + 10s, {2.3, 0, 0}, {0, 0, 0});
 
-    CHECK(rmf_traffic::DetectConflict::between(
+    CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {circle_1, box_3},
         t1,
         {circle_1, circle_1},
         t2));
   }
 
-  GIVEN("Overlapping circle vicinity and box footprint")
+  GIVEN("Overlapping circle vicinity and box footprint from the start")
   {
     Trajecotry t1;
     t1.insert(start_time, {0, 0, 0}, {0, 0, 0});
@@ -269,7 +309,7 @@ SCENARIO("Testing conflicts")
     t2.insert(start_time, {2.8, 0, 0}, {0, 0, 0});
     t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
 
-    CHECK(rmf_traffic::DetectConflict::between(
+    CHECK_FALSE(rmf_traffic::DetectConflict::between(
         {box_1, circle_2},
         t1,
         {box_2, box_2},

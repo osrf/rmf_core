@@ -103,14 +103,22 @@ public:
     // Do nothing
   }
 
-  std::vector<rmf_traffic::agv::Plan> find_plan(
-    const std::chrono::nanoseconds start_delay)
+  std::vector<rmf_traffic::agv::Plan> find_plan()
   {
-    return find_plan(start_delay, _validator);
+    return find_plan(
+      rmf_traffic_ros2::convert(_node->get_clock()->now()),
+      _validator);
   }
 
   std::vector<rmf_traffic::agv::Plan> find_plan(
-    const std::chrono::nanoseconds start_delay,
+    const rmf_utils::clone_ptr<rmf_traffic::agv::RouteValidator> validator)
+  {
+    return find_plan(
+      rmf_traffic_ros2::convert(_node->get_clock()->now()), validator);
+  }
+
+  std::vector<rmf_traffic::agv::Plan> find_plan(
+    const rmf_traffic::Time start_time,
     const rmf_utils::clone_ptr<rmf_traffic::agv::RouteValidator> validator)
   {
     _emergency_active = false;
@@ -121,8 +129,6 @@ public:
 
     Eigen::Vector3d pose =
     {_context->location.x, _context->location.y, _context->location.yaw};
-    const auto start_time =
-      rmf_traffic_ros2::convert(_node->get_clock()->now()) + start_delay;
 
     // TODO: further parameterize waypoint and lane merging distance
     const auto plan_starts =
@@ -168,32 +174,33 @@ public:
         }
       });
 
-    std::vector<std::thread> fallback_plan_threads;
-    std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans;
-    std::mutex fallback_plan_mutex;
-    for (const std::size_t goal_wp : _fallback_wps)
-    {
-      fallback_plan_threads.emplace_back(
-        std::thread([&, goal_wp]()
-        {
-          auto fallback_plan =
-          planner.plan(
-            plan_starts,
-            rmf_traffic::agv::Plan::Goal(goal_wp),
-            _planner_options);
+//    std::vector<std::thread> fallback_plan_threads;
+//    std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans;
+//    std::mutex fallback_plan_mutex;
+//    for (const std::size_t goal_wp : _fallback_wps)
+//    {
+//      fallback_plan_threads.emplace_back(std::thread([&, goal_wp]()
+//      {
+//        auto fallback_plan =
+//            planner.plan(
+//              plan_starts,
+//              rmf_traffic::agv::Plan::Goal(goal_wp),
+//              _planner_options);
 
-          std::unique_lock<std::mutex> lock(fallback_plan_mutex);
-          if (fallback_plan)
-          {
-            fallback_plan_solved = true;
-            plan_solved_cv.notify_all();
-          }
-          fallback_plans.emplace_back(std::move(fallback_plan));
-        }));
-    }
+//        std::unique_lock<std::mutex> lock(fallback_plan_mutex);
+//        if (fallback_plan)
+//        {
+//          fallback_plan_solved = true;
+//          plan_solved_cv.notify_all();
+//        }
+//        fallback_plans.emplace_back(std::move(fallback_plan));
+//      }));
+//    }
 
+    using namespace std::chrono_literals;
     const auto giveup_time =
-      std::chrono::steady_clock::now() + _node->get_plan_time();
+//        std::chrono::steady_clock::now() + _node->get_plan_time();
+      std::chrono::steady_clock::now() + 10s;
 
     const auto done_searching = [&]() -> bool
       {
@@ -214,8 +221,8 @@ public:
 
     interrupt_flag = true;
     main_plan_thread.join();
-    for (auto& fallback_thread : fallback_plan_threads)
-      fallback_thread.join();
+//    for (auto& fallback_thread : fallback_plan_threads)
+//      fallback_thread.join();
 
     if (main_plan)
     {
@@ -223,12 +230,13 @@ public:
       return plans;
     }
 
-    return use_fallback(std::move(fallback_plans));
+//    return use_fallback(std::move(fallback_plans));
+    return {};
   }
 
-  void find_and_execute_plan(const std::chrono::nanoseconds start_delay)
+  void find_and_execute_plan()
   {
-    auto plans = find_plan(start_delay);
+    auto plans = find_plan();
     if (!plans.empty())
       return execute_plan(std::move(plans));
 
@@ -236,7 +244,7 @@ public:
       _node->get_logger(),
       "Looking for a plan to open a schedule conflict for ["
       + _context->robot_name() + "]");
-    plans = find_plan(start_delay, nullptr);
+    plans = find_plan(nullptr);
     if (plans.empty())
     {
       const auto it = _node->get_waypoint_names().find(_goal_wp_index);
@@ -309,10 +317,28 @@ public:
       return;
     }
 
+    auto start_time = rmf_traffic_ros2::convert(_node->get_clock()->now());
+    const auto parent = table->parent();
+    if (parent)
+    {
+      // Use the same start time as the parent so that we don't accidentally
+      // phase through the plans of the others.
+      assert(parent->submission());
+      if (!parent->submission()->empty())
+      {
+        // TODO(MXG): We should really look through all the routes to find the
+        // one that starts earliest.
+        const auto& r = parent->submission()->front();
+        const auto* t = r->trajectory().start_time();
+        if (t)
+          start_time = *t;
+      }
+    }
+
     // TODO(MXG): Do something with the interrupt flag
     std::vector<rmf_traffic::agv::Plan> plans =
       find_plan(
-      std::chrono::seconds(0),
+      start_time,
       rmf_utils::make_clone<rmf_traffic::agv::NegotiatingRouteValidator>(
         *table, _context->schedule.description().profile()));
 
@@ -682,7 +708,7 @@ public:
       if (_emergency_active)
         find_and_execute_emergency_plan();
       else
-        find_and_execute_plan(std::chrono::seconds(0));
+        find_and_execute_plan();
 
       return false;
     }
@@ -792,7 +818,7 @@ public:
       if (_emergency_active)
         find_and_execute_emergency_plan();
       else
-        find_and_execute_plan(std::chrono::seconds(0));
+        find_and_execute_plan();
       return;
     }
 
@@ -1225,7 +1251,7 @@ public:
   void execute() final
   {
     _context->insert_listener(&_state_listener);
-    find_and_execute_plan(std::chrono::seconds(0));
+    find_and_execute_plan();
   }
 
   std::vector<rmf_traffic::agv::Plan> find_emergency_plan()
@@ -1366,7 +1392,7 @@ public:
     RCLCPP_INFO(
       _node->get_logger(),
       "Resuming normal operations for [" + _context->robot_name() + "]");
-    find_and_execute_plan(std::chrono::seconds(0));
+    find_and_execute_plan();
   }
 
   Status get_status() const final
@@ -1375,8 +1401,7 @@ public:
 
     const auto& waypoint_names = _node->get_waypoint_names();
 
-    auto name_of =
-      [&](std::size_t wp_index) -> std::string
+    auto name_of = [&](std::size_t wp_index) -> std::string
       {
         const auto wp_it = waypoint_names.find(wp_index);
         return wp_it == waypoint_names.end() ?
