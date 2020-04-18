@@ -21,6 +21,8 @@
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <unordered_map>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -76,6 +78,8 @@ public:
 
   using Proposal = std::vector<Submission>;
 
+  using Alternatives = std::vector<std::vector<ConstRoutePtr>>;
+
   class Table;
   using TablePtr = std::shared_ptr<Table>;
   using ConstTablePtr = std::shared_ptr<const Table>;
@@ -96,8 +100,23 @@ public:
   {
   public:
 
+    struct Rollout
+    {
+      ParticipantId participant;
+      std::size_t alternative;
+    };
+
     /// View this table with the given parameters.
-    Viewer::View query(const Query::Spacetime& parameters) const;
+    ///
+    /// \param[in] parameters
+    ///   The spacetime parameters to filter irrelevant routes out of the view
+    ///
+    /// \param[in] rollouts
+    ///   The selection of which rollout alternatives should be viewed for the
+    ///   participants who have rejected this proposal in the past.
+    Viewer::View query(
+        const Query::Spacetime& parameters,
+        const std::vector<Rollout>& rollouts) const;
 
     /// Return the submission on this Negotiation Table if it has one.
     const Itinerary* submission() const;
@@ -145,7 +164,25 @@ public:
     ///   greater than the last version number given, then this table will be
     ///   put into a rejected state until a higher proposal version is
     ///   submitted.
-    void reject(Version version);
+    ///
+    /// \param[in] rejected_by
+    ///   The participant who is rejecting this proposal
+    ///
+    /// \param[in] rollouts
+    ///   A set of rollouts that could be used by the participant that is
+    ///   rejecting this proposal. The proposer should use this information to
+    ///   offer a proposal that can accommodate at least one of these rollouts.
+    void reject(
+        Version version,
+        ParticipantId rejected_by,
+        Alternatives rollouts);
+
+    /// When a Negotiation::Table is rejected by one of the participants who is
+    /// supposed to respond, they can offer a set of rollout alternatives. If
+    /// the proposer can accommodate one of the rollouts, then the negotiation
+    /// might be able to proceed. This map gives the rollout alternatives for
+    /// each participant that has provided them.
+    const std::unordered_map<ParticipantId, Alternatives>& rollouts() const;
 
     /// Returns true if a proposal put on this table has been rejected.
     bool rejected() const;

@@ -753,6 +753,7 @@ struct DifferentialDriveExpander
 
             if (rotation_trajectory.size() != 1 && !is_valid(rotation_route))
             {
+              std::cout << " == 1. Invalid rotation" << std::endl;
               // The rotation trajectory is not feasible, so we cannot use this
               // orientation to start.
               continue;
@@ -790,6 +791,7 @@ struct DifferentialDriveExpander
 
           if (approach_trajectory.size() != 1 && !is_valid(approach_route))
           {
+            std::cout << " == 2. Invalid approach" << std::endl;
             // The approach trajectory is not feasible, so we cannot use this
             // orientation to start.
             continue;

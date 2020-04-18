@@ -103,16 +103,13 @@ class NegotiatingRouteValidator : public RouteValidator
 {
 public:
 
-  /// Constructor
-  ///
-  /// \param[in] table
-  ///   The Negotiation::Table that the route must be valid on.
-  ///
-  /// \param[in] profile
-  ///   The profile of the participant that is being planned for.
-  NegotiatingRouteValidator(
-    const schedule::Negotiation::Table& table,
-    rmf_traffic::Profile profile);
+  /// Create a NegotiatingRouteValidator
+  static NegotiatingRouteValidator begin(
+      const schedule::Negotiation::Table& table,
+      rmf_traffic::Profile profile);
+
+  /// Move on to the next rollout alternative offered by the given participant
+  NegotiatingRouteValidator& next(schedule::ParticipantId id);
 
   // Documentation inherited
   bool valid(const Route& route) const final;
@@ -120,8 +117,11 @@ public:
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;
 
+
+
   class Implementation;
 private:
+  NegotiatingRouteValidator();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

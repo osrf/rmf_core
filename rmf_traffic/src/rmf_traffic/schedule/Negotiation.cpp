@@ -655,7 +655,7 @@ Viewer::View Negotiation::Table::Implementation::query(
 }
 
 //==============================================================================
-Viewer::View Negotiation::Table::query(const Query::Spacetime& parameters) const
+Viewer::View Negotiation::Table::query(const Query::Spacetime& parameters, const std::vector<Rollout>& rollouts) const
 {
   return _pimpl->query(parameters);
 }

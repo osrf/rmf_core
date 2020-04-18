@@ -123,7 +123,9 @@ SCENARIO("Test difficult 3-way scenarios")
 
   const auto profile_a = rmf_traffic::Profile{
     rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Circle>(1.5)
+      rmf_traffic::geometry::Circle>(0.5),
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(2.0)
   };
 
   const auto traits_a = rmf_traffic::agv::VehicleTraits{
@@ -132,7 +134,9 @@ SCENARIO("Test difficult 3-way scenarios")
 
   const auto profile_b = rmf_traffic::Profile{
     rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Circle>(0.3)
+      rmf_traffic::geometry::Circle>(0.3),
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(1.5)
   };
 
   const auto traits_b = rmf_traffic::agv::VehicleTraits{
@@ -193,26 +197,37 @@ SCENARIO("Test difficult 3-way scenarios")
     REQUIRE(!a0_starts.empty());
     auto plan_a0 = planner_a.plan(a0_starts, {1});
     REQUIRE(plan_a0);
-//    a0.set(plan_a0->get_itinerary());
+    a0.set(plan_a0->get_itinerary());
 
-    rmf_traffic::agv::Planner planner_b(
+    rmf_traffic::agv::Planner planner_b1(
           config_b,
           rmf_traffic::agv::Planner::Options(
             rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
               database, b1.id(), profile_b)
           ));
 
-//    std::cout << " ==== Beginning plan" << std::endl;
-//    auto plan = planner_b.plan(b1_starts, {11});
-//    std::cout << " ==== Finished with plan" << std::endl;
-//    REQUIRE(plan);
+    REQUIRE(!b1_starts.empty());
+    auto plan_b1 = planner_b1.plan(b1_starts, {11});
+    REQUIRE(plan_b1);
+    b1.set(plan_b1->get_itinerary());
+
+    rmf_traffic::agv::Planner planner_b2(
+          config_b,
+          rmf_traffic::agv::Planner::Options(
+            rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+              database, b2.id(), profile_b)
+          ));
+
+//    REQUIRE(!b2_starts.empty());
+//    auto plan_b2 = planner_b2.plan(b2_starts, {13});
+//    REQUIRE(plan_b2);
 
     std::cout << "Creating debug" << std::endl;
-    rmf_traffic::agv::Planner::Debug debug(planner_b);
+    rmf_traffic::agv::Planner::Debug debug(planner_b2);
 
     std::cout << "Beginning debug" << std::endl;
     auto progress = debug.begin(
-          b1_starts, {11}, planner_b.get_default_options());
+          b1_starts, {13}, planner_b2.get_default_options());
 
     std::cout << "Beginning steps..." << std::endl;
     rmf_utils::optional<rmf_traffic::agv::Plan> plan;
@@ -227,7 +242,7 @@ SCENARIO("Test difficult 3-way scenarios")
 
     std::cout << " === Finished" << std::endl;
 
-    CHECK_FALSE(plan);
+    CHECK(plan);
     CHECK(!progress.terminal_nodes().empty());
     CHECK(!progress.expanded_nodes().empty());
     std::cout << "Terminal: " << progress.terminal_nodes().size() << std::endl;
@@ -266,6 +281,8 @@ SCENARIO("Test difficult 3-way scenarios")
       std::cout << "\n" << std::endl;
     }
 
+
+//    // =======================================================================
 //    intentions.insert({
 //      a0.id(),
 //      NegotiationRoom::Intention{std::move(a0_starts), {1}, config_a} });
