@@ -118,6 +118,16 @@ public:
   std::vector<RouteEntryPtr> entries;
   Timeline<RouteEntry> timeline;
 
+  struct Rollout
+  {
+    std::vector<RouteEntryPtr> entries;
+    Timeline<RouteEntry> timeline;
+  };
+
+  using AlternativesMap = std::vector<Rollout>;
+  using RolloutsMap = std::unordered_map<ParticipantId, AlternativesMap>;
+  RolloutsMap rollouts;
+
   Query::Participants participant_query;
 
   Proposal proposal;
@@ -170,7 +180,7 @@ public:
           });
 
         timeline.insert(*entry);
-        entries.push_back(std::move(entry));
+        entries.emplace_back(std::move(entry));
       }
     }
 
@@ -193,7 +203,9 @@ public:
       unsubmitted.end(), participant) == unsubmitted.end());
   }
 
-  Viewer::View query(const Query::Spacetime& spacetime) const;
+  Viewer::View query(
+      const Query::Spacetime& spacetime,
+      const std::vector<Table::Rollout>& rollouts) const;
 
   void add_participant(const ParticipantId new_participant)
   {
@@ -312,8 +324,44 @@ public:
     return true;
   }
 
-  void reject(const Version rejected_version)
+  std::vector<Rollout> to_rollouts(
+      const ParticipantId participant,
+      const Alternatives& alternatives) const
   {
+    std::vector<Rollout> output;
+    const auto& description = viewer->get_participant(participant);
+    for (const auto& alternative : alternatives)
+    {
+      Rollout rollout;
+      std::size_t id = 0;
+      for (const auto& route : alternative)
+      {
+        auto entry = std::make_unique<RouteEntry>(
+              RouteEntry{
+                route,
+                participant,
+                id,
+                description,
+                nullptr
+              });
+
+        rollout.timeline.insert(*entry);
+        rollout.entries.emplace_back(std::move(entry));
+      }
+
+      output.emplace_back(std::move(rollout));
+    }
+
+    return output;
+  }
+
+  void reject(
+      const Version rejected_version,
+      ParticipantId rejected_by,
+      const Alternatives& alternatives)
+  {
+    rollouts[rejected_by] = to_rollouts(rejected_by, alternatives);
+
     if (version && rmf_utils::modular(rejected_version).less_than(*version))
       return;
 
@@ -634,7 +682,8 @@ public:
 
 //==============================================================================
 Viewer::View Negotiation::Table::Implementation::query(
-  const Query::Spacetime& spacetime) const
+  const Query::Spacetime& spacetime,
+  const std::vector<Table::Rollout>& chosen_rollouts) const
 {
   Query query = query_all();
   query.spacetime() = spacetime;
@@ -646,6 +695,13 @@ Viewer::View Negotiation::Table::Implementation::query(
   // Query for the relevant routes that are outside of the negotiation
   query.participants() = participant_query;
   Viewer::View view = viewer->query(query);
+
+  for (const auto& rollout : chosen_rollouts)
+  {
+    rollouts.at(rollout.participant)
+      .at(rollout.alternative)
+      .timeline.inspect(query, inspector);
+  }
 
   // Merge them together into a single view
   Viewer::View::Implementation::append_to_view(
@@ -659,7 +715,7 @@ Viewer::View Negotiation::Table::query(
     const Query::Spacetime& parameters,
     const std::vector<Rollout>& rollouts) const
 {
-  return _pimpl->query(parameters);
+  return _pimpl->query(parameters, rollouts);
 }
 
 //==============================================================================
@@ -707,9 +763,12 @@ bool Negotiation::Table::submit(
 }
 
 //==============================================================================
-void Negotiation::Table::reject(const Version version)
+void Negotiation::Table::reject(
+    const Version version,
+    ParticipantId rejected_by,
+    const Alternatives& rollouts)
 {
-  _pimpl->reject(version);
+  _pimpl->reject(version, rejected_by, rollouts);
 }
 
 //==============================================================================

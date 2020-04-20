@@ -58,7 +58,8 @@ public:
 
     /// The negotiator will call this function if it has decided to reject an
     /// attempt to negotiate.
-    virtual void reject() const = 0;
+    virtual void reject(
+      const Negotiation::Alternatives& alternatives) const = 0;
 
     // Virtual destructor
     virtual ~Responder() = default;
@@ -125,7 +126,8 @@ public:
     std::function<UpdateVersion()> approval_callback = nullptr) const final;
 
   // Documentation inherited
-  void reject() const final;
+  void reject(
+      const Negotiation::Alternatives& alternatives) const final;
 
   class Implementation;
 private:

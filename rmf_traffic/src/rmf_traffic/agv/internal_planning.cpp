@@ -635,6 +635,7 @@ struct DifferentialDriveExpander
     const rmf_traffic::Time initial_time;
     const bool* const interrupt_flag;
     Heuristic& heuristic;
+    std::unordered_set<schedule::ParticipantId> conflicters = {};
   };
 
   DifferentialDriveExpander(Context& context)
@@ -864,7 +865,16 @@ struct DifferentialDriveExpander
   bool is_valid(const RouteData& route)
   {
     if (_context.validator)
-      return _context.validator->valid(Route::Implementation::make(route));
+    {
+      auto conflict = _context.validator->find_conflict(
+            Route::Implementation::make(route));
+
+      if (conflict)
+      {
+        _context.conflicters.insert(*conflict);
+        return false;
+      }
+    }
 
     return true;
   }

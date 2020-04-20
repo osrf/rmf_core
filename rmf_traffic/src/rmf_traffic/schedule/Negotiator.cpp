@@ -76,12 +76,13 @@ void SimpleResponder::submit(std::vector<Route> itinerary,
 }
 
 //==============================================================================
-void SimpleResponder::reject() const
+void SimpleResponder::reject(
+    const Negotiation::Alternatives& alternatives) const
 {
   const auto parent = _pimpl->negotiation->table(_pimpl->to_accommodate);
   if (parent)
   {
-    parent->reject(*parent->version());
+    parent->reject(*parent->version(), _pimpl->for_participant, alternatives);
     return;
   }
 

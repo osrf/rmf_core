@@ -173,10 +173,9 @@ public:
     ///   A set of rollouts that could be used by the participant that is
     ///   rejecting this proposal. The proposer should use this information to
     ///   offer a proposal that can accommodate at least one of these rollouts.
-    void reject(
-        Version version,
+    void reject(Version version,
         ParticipantId rejected_by,
-        Alternatives rollouts);
+        const Alternatives& rollouts);
 
     /// When a Negotiation::Table is rejected by one of the participants who is
     /// supposed to respond, they can offer a set of rollout alternatives. If
