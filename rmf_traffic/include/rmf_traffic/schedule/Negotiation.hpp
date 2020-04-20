@@ -100,6 +100,7 @@ public:
   {
   public:
 
+    /// A struct used to specify the rollout for a participant.
     struct Rollout
     {
       ParticipantId participant;

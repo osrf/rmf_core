@@ -78,7 +78,8 @@ schedule::ParticipantId ScheduleRouteValidator::participant() const
 }
 
 //==============================================================================
-bool ScheduleRouteValidator::valid(const Route& route) const
+rmf_utils::optional<schedule::ParticipantId>
+ScheduleRouteValidator::find_conflict(const Route& route) const
 {
   _pimpl->query.spacetime().timespan()->clear_maps();
   _pimpl->query.spacetime().timespan()->add_map(route.map());
@@ -100,10 +101,10 @@ bool ScheduleRouteValidator::valid(const Route& route) const
         route.trajectory(),
         v.description.profile(),
         v.route.trajectory()))
-      return false;
+      return v.participant;
   }
 
-  return true;
+  return rmf_utils::nullopt;
 }
 
 //==============================================================================
@@ -113,56 +114,71 @@ std::unique_ptr<RouteValidator> ScheduleRouteValidator::clone() const
 }
 
 //==============================================================================
-class NegotiatingRouteValidator::Implementation
+class NegotiatingRouteValidator::Generator::Implementation
 {
 public:
+  struct Data
+  {
+    const schedule::Negotiation::Table* table;
+    Profile profile;
+  };
 
-  const schedule::Negotiation::Table* table;
-  Profile profile;
-
-  mutable schedule::Query query;
+  std::shared_ptr<Data> data;
 };
 
 //==============================================================================
-NegotiatingRouteValidator::NegotiatingRouteValidator(
+NegotiatingRouteValidator::Generator::Generator(
   const schedule::Negotiation::Table& table,
   Profile profile)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        &table,
-        std::move(profile),
-        schedule::query_all()
+        std::make_shared<Implementation::Data>(
+         Implementation::Data{
+           &table,
+           std::move(profile)
+         })
       }))
 {
-  _pimpl->query.spacetime().query_timespan({});
+  // Do nothing
 }
 
 //==============================================================================
-bool NegotiatingRouteValidator::valid(const Route& route) const
+class NegotiatingRouteValidator::Implementation
 {
-  _pimpl->query.spacetime().timespan()->clear_maps();
-  _pimpl->query.spacetime().timespan()->add_map(route.map());
+public:
 
-  _pimpl->query.spacetime().timespan()->set_lower_time_bound(
-    *route.trajectory().start_time());
+  std::shared_ptr<Generator::Implementation::Data> data;
+  std::vector<schedule::Negotiation::Table::Rollout> rollouts;
 
-  _pimpl->query.spacetime().timespan()->set_upper_time_bound(
-    *route.trajectory().finish_time());
+};
 
-  const auto view = _pimpl->table->query(_pimpl->query.spacetime());
+//==============================================================================
+rmf_utils::optional<schedule::ParticipantId>
+NegotiatingRouteValidator::find_conflict(const Route& route) const
+{
+  // TODO(MXG): Consider if we can reduce the amount of heap allocation that's
+  // needed here.
+  auto query = schedule::make_query(
+    {route.map()},
+    route.trajectory().start_time(),
+    route.trajectory().finish_time());
+
+  const auto view = _pimpl->data->table->query(
+        query.spacetime(), _pimpl->rollouts);
+
   for (const auto& v : view)
   {
     if (rmf_traffic::DetectConflict::between(
-        _pimpl->profile,
+        _pimpl->data->profile,
         route.trajectory(),
         v.description.profile(),
         v.route.trajectory()))
     {
-      return false;
+      return v.participant;
     }
   }
 
-  return true;
+  return rmf_utils::nullopt;
 }
 
 //==============================================================================

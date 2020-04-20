@@ -31,8 +31,22 @@ class RouteValidator
 {
 public:
 
-  /// Returns true if the given route can be considered valid, false otherwise.
-  virtual bool valid(const Route& route) const = 0;
+  /// If the specified route has a conflict with another participant, this will
+  /// return the participant ID for the first conflict that gets identified.
+  /// Otherwise it will return a nullopt.
+  ///
+  /// \param[in] route
+  ///   The route that is being checked.
+  //
+  // TODO(MXG): It would be better to implement this as a coroutine generator so
+  // that clients of this interface can decide whether they only care about the
+  // first conflict or if they want to know all of the conflicts. This is not a
+  // high priority because in the vast majority of cases when a conflict happens
+  // it will only be with one participant. And since this is only meant to
+  // provide a hint about which participant is causing conflicts, it is okay if
+  // other participants are ignored.
+  virtual rmf_utils::optional<schedule::ParticipantId> find_conflict(
+      const Route& route) const = 0;
 
   /// Create a clone of the underlying RouteValidator object.
   virtual std::unique_ptr<RouteValidator> clone() const = 0;
@@ -88,7 +102,8 @@ public:
   // TODO(MXG): Make profile setters and getters
 
   // Documentation inherited
-  bool valid(const Route& route) const final;
+  rmf_utils::optional<schedule::ParticipantId> find_conflict(
+      const Route& route) const final;
 
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;
@@ -103,21 +118,60 @@ class NegotiatingRouteValidator : public RouteValidator
 {
 public:
 
-  /// Create a NegotiatingRouteValidator
-  static NegotiatingRouteValidator begin(
-      const schedule::Negotiation::Table& table,
-      rmf_traffic::Profile profile);
+  /// The Generator class begins the creation of NegotiatingRouteValidator
+  /// instances. NegotiatingRouteValidator may be able to brach in multiple
+  /// dimensions because of the rollout alternatives that are provided during a
+  /// rejection.
+  class Generator
+  {
+  public:
 
-  /// Move on to the next rollout alternative offered by the given participant
-  NegotiatingRouteValidator& next(schedule::ParticipantId id);
+    /// Constructor
+    ///
+    /// \param[in] table
+    ///   The Negotiating Table that the generated validators are concerned with
+    ///
+    /// \param[in] profile
+    ///   The profile of the participant whose routes are being validated.
+    Generator(
+        const schedule::Negotiation::Table& table,
+        rmf_traffic::Profile profile);
+
+    /// Start with a NegotiatingRouteValidator that will use all the most
+    /// preferred alternatives from every participant.
+    NegotiatingRouteValidator begin() const;
+
+    /// Get the set of participants who have specified what their available
+    /// rollouts are.
+    const std::vector<schedule::ParticipantId>& alternative_sets() const;
+
+    /// Get the number of alternative rollouts for the specified participant.
+    std::size_t alternative_count(schedule::ParticipantId participant) const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  /// Get a NegotiatingRouteValidator for the next rollout alternative offered
+  /// by the given participant.
+  NegotiatingRouteValidator next(schedule::ParticipantId id) const;
+
+  /// Implicitly cast this validator instance to true if it can be used as a
+  /// validator. If it cannot be used as a validator, return false. This will
+  /// have the opposite value of end().
+  operator bool() const;
+
+  /// Return true if this validator object has gone past the end of its limits.
+  /// Return false if it can still be used as a validator.
+  bool end() const;
 
   // Documentation inherited
-  bool valid(const Route& route) const final;
+  rmf_utils::optional<schedule::ParticipantId> find_conflict(
+      const Route& route) const final;
 
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;
-
-
 
   class Implementation;
 private:
