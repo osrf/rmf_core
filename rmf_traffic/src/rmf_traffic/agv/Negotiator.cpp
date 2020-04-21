@@ -117,7 +117,8 @@ void SimpleNegotiator::respond(
   auto options = _pimpl->options;
 
   options.validator(
-    rmf_utils::make_clone<NegotiatingRouteValidator>(*table, profile));
+    rmf_utils::make_clone<NegotiatingRouteValidator>(
+          NegotiatingRouteValidator::Generator(*table, profile).begin()));
 
   options.interrupt_flag(interrupt_flag);
 

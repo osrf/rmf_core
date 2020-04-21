@@ -126,7 +126,9 @@ public:
 
   using AlternativesMap = std::vector<Rollout>;
   using RolloutsMap = std::unordered_map<ParticipantId, AlternativesMap>;
-  RolloutsMap rollouts;
+  RolloutsMap rollout_timelines;
+
+  std::unordered_map<ParticipantId, Alternatives> rollouts;
 
   Query::Participants participant_query;
 
@@ -360,7 +362,8 @@ public:
       ParticipantId rejected_by,
       const Alternatives& alternatives)
   {
-    rollouts[rejected_by] = to_rollouts(rejected_by, alternatives);
+    rollout_timelines[rejected_by] = to_rollouts(rejected_by, alternatives);
+    rollouts[rejected_by] = alternatives;
 
     if (version && rmf_utils::modular(rejected_version).less_than(*version))
       return;
@@ -698,7 +701,7 @@ Viewer::View Negotiation::Table::Implementation::query(
 
   for (const auto& rollout : chosen_rollouts)
   {
-    rollouts.at(rollout.participant)
+    rollout_timelines.at(rollout.participant)
       .at(rollout.alternative)
       .timeline.inspect(query, inspector);
   }
@@ -769,6 +772,13 @@ void Negotiation::Table::reject(
     const Alternatives& rollouts)
 {
   _pimpl->reject(version, rejected_by, rollouts);
+}
+
+//==============================================================================
+auto Negotiation::Table::rollouts() const
+-> const std::unordered_map<ParticipantId, Alternatives>&
+{
+  return _pimpl->rollouts;
 }
 
 //==============================================================================

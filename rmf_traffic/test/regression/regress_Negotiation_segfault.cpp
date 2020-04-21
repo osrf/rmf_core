@@ -170,7 +170,6 @@ SCENARIO("Submit after a rejection")
       else
         table->reject(table->version() ? *table->version() : 0);
     }
-
   };
 
   rmf_traffic::schedule::Database database;

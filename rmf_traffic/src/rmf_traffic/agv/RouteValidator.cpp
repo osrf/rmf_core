@@ -150,7 +150,31 @@ public:
   std::shared_ptr<Generator::Implementation::Data> data;
   std::vector<schedule::Negotiation::Table::Rollout> rollouts;
 
+  static NegotiatingRouteValidator make(
+    std::shared_ptr<Generator::Implementation::Data> data,
+    std::vector<schedule::Negotiation::Table::Rollout> rollouts)
+  {
+    NegotiatingRouteValidator output;
+    output._pimpl = rmf_utils::make_impl<Implementation>(
+          Implementation{
+            std::move(data),
+            std::move(rollouts)
+          });
+
+    return output;
+  }
 };
+
+//==============================================================================
+NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
+{
+  std::vector<schedule::Negotiation::Table::Rollout> rollouts;
+  for (const auto& r : _pimpl->data->table->rollouts())
+    rollouts.push_back({r.first, 0});
+
+  return NegotiatingRouteValidator::Implementation::make(
+        _pimpl->data, std::move(rollouts));
+}
 
 //==============================================================================
 rmf_utils::optional<schedule::ParticipantId>
@@ -185,6 +209,12 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 std::unique_ptr<RouteValidator> NegotiatingRouteValidator::clone() const
 {
   return std::make_unique<NegotiatingRouteValidator>(*this);
+}
+
+//==============================================================================
+NegotiatingRouteValidator::NegotiatingRouteValidator()
+{
+  // Do nothing
 }
 
 } // namespace agv

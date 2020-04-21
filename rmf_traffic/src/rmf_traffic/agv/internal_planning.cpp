@@ -841,43 +841,45 @@ struct DifferentialDriveExpander
       const auto& start = args.starts[start_index];
       const std::size_t initial_waypoint = start.waypoint();
       auto initial_routes = make_start_approach_routes(start);
-      if (initial_routes.empty())
-      {
-        // TODO(MXG): Should this throw an exception instead?
-        continue;
-      }
-
       const double remaining_cost_estimate =
           _context.heuristic.estimate_remaining_cost(
             _context, initial_waypoint);
 
-      rmf_utils::optional<double> shortest_route_cost;
+      double shortest_route_cost = initial_routes.empty()?
+            0.0 : std::numeric_limits<double>::infinity();
       for (const auto& initial_route : initial_routes)
       {
-        const double current_cost =
+        const double route_cost =
             rmf_traffic::time::to_seconds(initial_route.trajectory.duration());
-
-        if (shortest_route_cost)
-          shortest_route_cost = std::min(*shortest_route_cost, current_cost);
-        else
-          shortest_route_cost = current_cost;
+        shortest_route_cost = std::min(shortest_route_cost, route_cost);
       }
 
-      if (!shortest_route_cost)
-        shortest_route_cost = 0.0;
-
+      const auto& wp = _context.graph.waypoints[initial_waypoint];
       RouteData starting_point;
-      starting_point.map = initial_routes.back().map;
+      starting_point.map = wp.get_map_name();
+      Eigen::Vector3d location;
+      if (start.location())
+      {
+        location.block<2,1>(0,0) = *start.location();
+      }
+      else
+      {
+        location.block<2,1>(0,0) = wp.get_location();
+      }
+      location[2] = start.orientation();
+
       starting_point.trajectory.insert(
-            initial_routes.back().trajectory.front());
+          start.time(),
+          location,
+          Eigen::Vector3d::Zero());
 
       rmf_utils::optional<std::size_t> start_node_wp = rmf_utils::nullopt;
-      if (start.location())
+      if (!start.location())
         start_node_wp = initial_waypoint;
 
-      const auto start_node = std::make_shared<Node>(
+      queue.push(std::make_shared<Node>(
         Node{
-          *shortest_route_cost + remaining_cost_estimate,
+          shortest_route_cost + remaining_cost_estimate,
           0.0,
           start_node_wp,
           start.orientation(),
@@ -886,14 +888,15 @@ struct DifferentialDriveExpander
           nullptr,
           start,
           start_index
-        });
-
-      expand_start_routes(start_node, std::move(initial_routes), queue);
+        }));
     }
   }
 
   bool is_finished(const NodePtr& node) const
   {
+    if (!node->waypoint)
+      return false;
+
     if (*node->waypoint != _context.final_waypoint)
       return false;
 
@@ -1305,45 +1308,52 @@ struct DifferentialDriveExpander
 
   void expand(const NodePtr& parent_node, SearchQueue& queue)
   {
-    const std::size_t parent_waypoint = *parent_node->waypoint;
-    if (parent_waypoint == _context.final_waypoint)
+    const bool has_waypoint = parent_node->waypoint.has_value();
+    if (has_waypoint)
     {
-      if (!_context.final_orientation)
+      const std::size_t parent_waypoint = *parent_node->waypoint;
+      if (parent_waypoint == _context.final_waypoint)
       {
-        // We have already arrived at the solution, because the user does not
-        // care about the final orientation.
-        //
-        // This should have been recognized by the is_finished() function, so
-        // this is indicative of a bug.
-        std::cerr << "[rmf_traffic::agv::DifferentialDriveExpander::expand] "
-                  << "A bug has occurred. Please report this to the RMF "
-                  << "developers." << std::endl;
-        assert(false);
-      }
+        if (!_context.final_orientation)
+        {
+          // We have already arrived at the solution, because the user does not
+          // care about the final orientation.
+          //
+          // This should have been recognized by the is_finished() function, so
+          // this is indicative of a bug.
+          std::cerr << "[rmf_traffic::agv::DifferentialDriveExpander::expand] "
+                    << "A bug has occurred. Please report this to the RMF "
+                    << "developers." << std::endl;
+          assert(false);
+        }
 
-      const double final_orientation =
-        rmf_utils::wrap_to_pi(*_context.final_orientation);
-      const auto final_node =
-        expand_rotation(parent_node, final_orientation);
-      if (final_node)
-      {
-        queue.push(final_node);
-        return;
-      }
+        const double final_orientation =
+          rmf_utils::wrap_to_pi(*_context.final_orientation);
+        const auto final_node =
+          expand_rotation(parent_node, final_orientation);
+        if (final_node)
+        {
+          queue.push(final_node);
+          return;
+        }
 
-      // Note: If the rotation was not valid, then some other trajectory is
-      // blocking us from rotating, so we should keep expanding as usual.
-      // If the rotation was valid, then the node that was added is a solution
-      // node, so we should not expand anything else from this parent node.
-      // We should, however, continue to expand other nodes, because a more
-      // optimal solution could still exist.
+        // Note: If the rotation was not valid, then some other trajectory is
+        // blocking us from rotating, so we should keep expanding as usual.
+        // If the rotation was valid, then the node that was added is a solution
+        // node, so we should not expand anything else from this parent node.
+        // We should, however, continue to expand other nodes, because a more
+        // optimal solution could still exist.
+      }
     }
 
-    if (parent_node->start)
+    if (parent_node->start && !has_waypoint)
     {
       expand_start_node(parent_node, queue);
       return;
     }
+
+    assert(has_waypoint);
+    const std::size_t parent_waypoint = *parent_node->waypoint;
 
     const std::vector<std::size_t>& lanes =
       _context.graph.lanes_from[parent_waypoint];
