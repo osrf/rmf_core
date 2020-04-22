@@ -77,8 +77,7 @@ public:
   };
 
   using Proposal = std::vector<Submission>;
-
-  using Alternatives = std::vector<std::vector<ConstRoutePtr>>;
+  using Alternatives = std::vector<Itinerary>;
 
   class Table;
   using TablePtr = std::shared_ptr<Table>;

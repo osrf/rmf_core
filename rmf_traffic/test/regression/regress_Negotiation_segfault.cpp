@@ -32,8 +32,8 @@ struct MockNegotiator : public rmf_traffic::schedule::Negotiator
   {
     if (_submit)
       responder.submit({});
-    else
-      responder.reject();
+//    else
+//      responder.reject();
   }
 
   MockNegotiator& submit()
@@ -162,13 +162,19 @@ SCENARIO("Submit after a rejection")
       *accepted = table->submit(std::move(itinerary), **version);
     }
 
-    void reject() const
+//    void reject() const
+//    {
+//      const auto parent = table->parent();
+//      if (parent)
+//        parent->reject(*parent->version());
+//      else
+//        table->reject(table->version() ? *table->version() : 0);
+//    }
+
+    void reject(
+          const rmf_traffic::schedule::Negotiation::Alternatives& ) const final
     {
-      const auto parent = table->parent();
-      if (parent)
-        parent->reject(*parent->version());
-      else
-        table->reject(table->version() ? *table->version() : 0);
+
     }
   };
 

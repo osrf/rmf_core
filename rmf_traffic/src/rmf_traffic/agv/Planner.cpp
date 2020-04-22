@@ -369,34 +369,15 @@ class Plan::Implementation
 {
 public:
 
-  internal::planning::Result result;
+  internal::planning::Plan plan;
 
-  internal::planning::CacheManager cache_mgr;
-
-  static Plan make(
-      internal::planning::Result result,
-      internal::planning::CacheManager cache_mgr)
+  static Plan make(internal::planning::Plan result)
   {
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(result), std::move(cache_mgr)});
+      Implementation{std::move(result)});
 
     return plan;
-  }
-
-  static rmf_utils::optional<Plan> generate(
-    internal::planning::CacheManager cache_mgr,
-    const std::vector<Planner::Start>& starts,
-    Planner::Goal goal,
-    Planner::Options options)
-  {
-    auto result = cache_mgr.get()->plan(
-      {starts}, std::move(goal), std::move(options));
-
-    if (!result)
-      return rmf_utils::nullopt;
-
-    return make(std::move(*result), std::move(cache_mgr));
   }
 
 };
@@ -413,6 +394,39 @@ Planner::Planner(
       }))
 {
   // Do nothing
+}
+
+//==============================================================================
+Planner::Result Planner::Result::Implementation::generate(
+    internal::planning::CacheManager cache_mgr,
+    const std::vector<Planner::Start>& starts,
+    Planner::Goal goal,
+    Planner::Options options)
+{
+  auto outcome = cache_mgr.get()->plan(
+    {starts}, std::move(goal), std::move(options));
+
+  rmf_utils::optional<Plan> plan;
+  if (outcome.plan)
+    plan = Plan::Implementation::make(*std::move(outcome.plan));
+
+  Planner::Result result;
+  result._pimpl = rmf_utils::make_impl<Implementation>(
+    Implementation{
+      std::move(cache_mgr),
+      std::move(outcome.conditions),
+      std::move(outcome.issues),
+      std::move(plan)
+    });
+
+  return result;
+}
+
+//==============================================================================
+auto Planner::Result::Implementation::get(const Result& r)
+-> const Implementation&
+{
+  return *r._pimpl;
 }
 
 //==============================================================================
@@ -441,9 +455,9 @@ auto Planner::get_default_options() const -> const Options&
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(const Start& start, Goal goal) const
+Planner::Result Planner::plan(const Start& start, Goal goal) const
 {
-  return Plan::Implementation::generate(
+  return Result::Implementation::generate(
     _pimpl->cache_mgr,
     {start},
     std::move(goal),
@@ -451,12 +465,12 @@ rmf_utils::optional<Plan> Planner::plan(const Start& start, Goal goal) const
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(
+Planner::Result Planner::plan(
   const Start& start,
   Goal goal,
   Options options) const
 {
-  return Plan::Implementation::generate(
+  return Result::Implementation::generate(
     _pimpl->cache_mgr,
     {start},
     std::move(goal),
@@ -464,9 +478,9 @@ rmf_utils::optional<Plan> Planner::plan(
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(const StartSet& starts, Goal goal) const
+Planner::Result Planner::plan(const StartSet& starts, Goal goal) const
 {
-  return Plan::Implementation::generate(
+  return Result::Implementation::generate(
     _pimpl->cache_mgr,
     starts,
     std::move(goal),
@@ -474,16 +488,138 @@ rmf_utils::optional<Plan> Planner::plan(const StartSet& starts, Goal goal) const
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(
+Planner::Result Planner::plan(
   const StartSet& starts,
   Goal goal,
   Options options) const
 {
-  return Plan::Implementation::generate(
+  return Result::Implementation::generate(
     _pimpl->cache_mgr,
     starts,
     std::move(goal),
     std::move(options));
+}
+
+//==============================================================================
+bool Planner::Result::success() const
+{
+  return _pimpl->plan.has_value();
+}
+
+//==============================================================================
+Planner::Result::operator bool() const
+{
+  return _pimpl->plan.has_value();
+}
+
+//==============================================================================
+const Plan* Planner::Result::operator->() const
+{
+  return &(*_pimpl->plan);
+}
+
+//==============================================================================
+const Plan& Planner::Result::operator*() const&
+{
+  return *_pimpl->plan;
+}
+
+//==============================================================================
+Plan&& Planner::Result::operator*() &&
+{
+  return std::move(*std::move(_pimpl->plan));
+}
+
+//==============================================================================
+const Plan&& Planner::Result::operator*() const&&
+{
+  return std::move(*_pimpl->plan);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(const Start& new_start) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->conditions.goal,
+    _pimpl->conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(
+  const Planner::Start& new_start,
+  Planner::Options new_options) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(const StartSet& new_starts) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->conditions.goal,
+    _pimpl->conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(
+  const StartSet& new_starts,
+  Options new_options) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
+const std::vector<Planner::Start>& Planner::Result::get_starts() const
+{
+  return _pimpl->conditions.starts;
+}
+
+//==============================================================================
+const Planner::Goal& Planner::Result::get_goal() const
+{
+  return _pimpl->conditions.goal;
+}
+
+//==============================================================================
+const Planner::Options& Planner::Result::get_options() const
+{
+  return _pimpl->conditions.options;
+}
+
+//==============================================================================
+const Planner::Configuration& Planner::Result::get_configuration() const
+{
+  return _pimpl->cache_mgr.get_configuration();
+}
+
+//==============================================================================
+bool Planner::Result::interrupted() const
+{
+  return _pimpl->issues.interrupted;
+}
+
+//==============================================================================
+const std::vector<schedule::ParticipantId>& Planner::Result::blockers() const
+{
+  return _pimpl->issues.blockers;
+}
+
+//==============================================================================
+Planner::Result::Result()
+{
+  // Do nothing
 }
 
 //==============================================================================
@@ -519,81 +655,25 @@ Plan::Waypoint::Waypoint()
 //==============================================================================
 const std::vector<Route>& Plan::get_itinerary() const
 {
-  return _pimpl->result.routes;
+  return _pimpl->plan.routes;
 }
 
 //==============================================================================
 const std::vector<Plan::Waypoint>& Plan::get_waypoints() const
 {
-  return _pimpl->result.waypoints;
+  return _pimpl->plan.waypoints;
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Plan::replan(const Start& new_start) const
+const Plan::Start& Plan::get_start() const
 {
-  return Plan::Implementation::generate(
-    _pimpl->cache_mgr,
-    {new_start},
-    _pimpl->result.goal,
-    _pimpl->result.options);
+  return _pimpl->plan.start;
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Plan::replan(
-  const Planner::Start& new_start,
-  Planner::Options new_options) const
+Plan::Plan()
 {
-  return Plan::Implementation::generate(
-    _pimpl->cache_mgr,
-    {new_start},
-    _pimpl->result.goal,
-    std::move(new_options));
-}
-
-//==============================================================================
-rmf_utils::optional<Plan> Plan::replan(const StartSet& new_starts) const
-{
-  return Plan::Implementation::generate(
-    _pimpl->cache_mgr,
-    new_starts,
-    _pimpl->result.goal,
-    _pimpl->result.options);
-}
-
-//==============================================================================
-rmf_utils::optional<Plan> Plan::replan(
-  const StartSet& new_starts,
-  Options new_options) const
-{
-  return Plan::Implementation::generate(
-    _pimpl->cache_mgr,
-    new_starts,
-    _pimpl->result.goal,
-    std::move(new_options));
-}
-
-//==============================================================================
-const Planner::Start& Plan::get_start() const
-{
-  return _pimpl->result.start;
-}
-
-//==============================================================================
-const Planner::Goal& Plan::get_goal() const
-{
-  return _pimpl->result.goal;
-}
-
-//==============================================================================
-const Planner::Options& Plan::get_options() const
-{
-  return _pimpl->result.options;
-}
-
-//==============================================================================
-const Planner::Configuration& Plan::get_configuration() const
-{
-  return _pimpl->cache_mgr.get_configuration();
+  // Do nothing
 }
 
 //==============================================================================
@@ -747,7 +827,7 @@ rmf_utils::optional<Plan> Planner::Debug::Progress::step()
   if (!result)
     return rmf_utils::nullopt;
 
-  return Plan::Implementation::make(std::move(*result), _pimpl->cache_mgr);
+  return Plan::Implementation::make(std::move(*result));
 }
 
 //==============================================================================

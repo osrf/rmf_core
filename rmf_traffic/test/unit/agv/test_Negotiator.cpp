@@ -198,14 +198,14 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
     rmf_traffic::agv::SimpleNegotiator negotiator_1{
       plan_1->get_start(),
-      plan_1->get_goal(),
+      plan_1.get_goal(),
       configuration,
       rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
     };
 
     rmf_traffic::agv::SimpleNegotiator negotiator_2{
       plan_2->get_start(),
-      plan_2->get_goal(),
+      plan_2.get_goal(),
       configuration,
       rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
     };

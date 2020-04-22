@@ -636,9 +636,7 @@ struct DifferentialDriveExpander
     const rmf_traffic::Time initial_time;
     const bool* const interrupt_flag;
     Heuristic& heuristic;
-    std::unordered_map<
-      schedule::ParticipantId,
-      std::unordered_set<NodePtr>> conflicts = {};
+    Issues::BlockerMap blockers = {};
   };
 
   DifferentialDriveExpander(Context& context)
@@ -921,7 +919,7 @@ struct DifferentialDriveExpander
 
       if (conflict)
       {
-        _context.conflicts[*conflict].insert(parent);
+        _context.blockers[*conflict].insert(parent);
         return false;
       }
     }
@@ -1381,6 +1379,7 @@ public:
 
   using Heuristic = DifferentialDriveExpander::Heuristic;
   using NodePtr = DifferentialDriveExpander::NodePtr;
+  using Node = DifferentialDriveExpander::Node;
 
   DifferentialDriveCache(agv::Planner::Configuration config)
   : _config(std::move(config)),
@@ -1404,7 +1403,6 @@ public:
 
     for (const auto& h : newer._heuristics)
     {
-
       auto& heuristic = _heuristics.insert(
         std::make_pair(h.first, Heuristic{})).first->second;
 
@@ -1412,23 +1410,130 @@ public:
     }
   }
 
-  rmf_utils::optional<Result> plan(
+  Outcome plan(
     const std::vector<agv::Planner::Start>& starts,
     agv::Planner::Goal goal,
     agv::Planner::Options options) final
   {
     if (starts.empty())
-      return rmf_utils::nullopt;
+    {
+      return Outcome{
+        Conditions{starts, std::move(goal), std::move(options)},
+        Issues::empty(),
+        rmf_utils::nullopt
+      };
+    }
 
+    auto context = make_context(goal, options, starts.back().time());
     const NodePtr solution = search<DifferentialDriveExpander>(
-      make_context(goal, options, starts.back().time()),
+      context,
       DifferentialDriveExpander::InitialNodeArgs{starts},
       options.interrupt_flag());
 
     if (!solution)
-      return rmf_utils::nullopt;
+    {
+      return Outcome{
+        Conditions{starts, std::move(goal), std::move(options)},
+        Issues(true, std::move(context.blockers)),
+        rmf_utils::nullopt
+      };
+    }
 
-    return make_result(starts, std::move(goal), std::move(options), solution);
+    return make_outcome(
+          starts,
+          std::move(goal),
+          std::move(options),
+          solution,
+          context.blockers);
+  }
+
+  struct RolloutEntry
+  {
+    Time initial_time;
+    NodePtr node;
+  };
+
+  std::vector<schedule::Itinerary> rollout(
+      const Duration max_span,
+      const Issues::BlockedNodes& nodes,
+      const agv::Planner::Goal& goal,
+      const agv::Planner::Options& options) final
+  {
+    std::vector<RolloutEntry> rollout_queue;
+    for (const auto& void_node : nodes)
+    {
+      const auto node = std::static_pointer_cast<Node>(void_node);
+      rollout_queue.emplace_back(
+            RolloutEntry{
+              node->route_from_parent.trajectory.back().time(),
+              node
+            });
+    }
+
+    DifferentialDriveExpander::SearchQueue search_queue;
+    std::vector<NodePtr> finished_rollouts;
+
+    auto context =
+        make_context(goal, options, rollout_queue.back().initial_time);
+    DifferentialDriveExpander expander(context);
+
+    while (!rollout_queue.empty())
+    {
+      const auto top = rollout_queue.back();
+      rollout_queue.pop_back();
+
+      const auto current_span =
+          top.node->route_from_parent.trajectory.back().time()
+          - top.initial_time;
+
+      if (max_span < current_span)
+      {
+        finished_rollouts.push_back(top.node);
+        continue;
+      }
+
+      if (expander.is_finished(top.node))
+      {
+        finished_rollouts.push_back(top.node);
+        continue;
+      }
+
+      expander.expand(top.node, search_queue);
+      while (!search_queue.empty())
+      {
+        rollout_queue.push_back(
+          RolloutEntry{
+            top.initial_time,
+            search_queue.top()
+          });
+
+        search_queue.pop();
+      }
+    }
+
+    std::unordered_map<NodePtr, ConstRoutePtr> route_map;
+    std::vector<schedule::Itinerary> alternatives;
+    for (const auto& rollout_node : finished_rollouts)
+    {
+      auto node = rollout_node;
+      schedule::Itinerary itinerary;
+      while (node)
+      {
+        const auto route_it = route_map.insert({node, nullptr}).first;
+        if (!route_it->second)
+        {
+          route_it->second = std::make_shared<Route>(
+                Route::Implementation::make(node->route_from_parent));
+        }
+
+        itinerary.push_back(route_it->second);
+      }
+
+      std::reverse(itinerary.begin(), itinerary.end());
+      alternatives.emplace_back(std::move(itinerary));
+    }
+
+    return alternatives;
   }
 
   const agv::Planner::Configuration& get_configuration() const final
@@ -1570,7 +1675,7 @@ public:
     return debugger;
   }
 
-  rmf_utils::optional<Result> debug_step(Cache::Debugger& input_debugger) final
+  rmf_utils::optional<Plan> debug_step(Cache::Debugger& input_debugger) final
   {
     Debugger& debugger = static_cast<Debugger&>(input_debugger);
 
@@ -1580,13 +1685,7 @@ public:
 
     DifferentialDriveExpander expander(debugger.context_);
     if (expander.is_finished(top))
-    {
-      return make_result(
-            debugger.starts_,
-            debugger.goal_,
-            debugger.options_,
-            top);
-    }
+      return make_plan(debugger.starts_, top);
 
     DifferentialDriveExpander::SearchQueue queue;
     expander.expand(top, queue);
@@ -1606,22 +1705,36 @@ public:
 
 private:
 
-  Result make_result(
+  Outcome make_outcome(
       const std::vector<agv::Planner::Start>& starts,
       agv::Planner::Goal goal,
       agv::Planner::Options options,
+      const NodePtr& solution,
+      Issues::BlockerMap blocked_nodes) const
+  {
+    return Outcome{
+      Conditions{
+        starts,
+        std::move(goal),
+        std::move(options)
+      },
+      Issues(false, std::move(blocked_nodes)),
+      make_plan(starts, solution)
+    };
+  }
+
+  Plan make_plan(
+      const std::vector<agv::Planner::Start>& starts,
       const NodePtr& solution) const
   {
     auto routes = reconstruct_routes(solution);
     auto waypoints = reconstruct_waypoints(solution, _graph);
     auto start_index = find_start_index(solution);
 
-    return Result{
+    return Plan{
       std::move(routes),
       std::move(waypoints),
-      starts[start_index],
-      std::move(goal),
-      std::move(options)
+      starts[start_index]
     };
   }
 

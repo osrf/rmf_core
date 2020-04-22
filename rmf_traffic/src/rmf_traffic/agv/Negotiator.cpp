@@ -126,7 +126,7 @@ void SimpleNegotiator::respond(
   if (!plan)
   {
     // If we failed to produce a plan, then we should send a rejection
-    responder.reject();
+//    responder.reject();
     return;
   }
 

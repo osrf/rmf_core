@@ -90,7 +90,7 @@ void SimpleResponder::reject(
     _pimpl->for_participant, _pimpl->to_accommodate);
   if (table)
   {
-    table->reject(table->version() ? *table->version() : 0);
+//    table->reject(table->version() ? *table->version() : 0);
     return;
   }
 

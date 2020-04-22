@@ -268,6 +268,8 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  class Result;
+
   /// Constructor
   ///
   /// \param[in] config
@@ -318,7 +320,7 @@ public:
   ///
   /// \param[in] goal
   ///   The goal conditions
-  rmf_utils::optional<Plan> plan(const Start& start, Goal goal) const;
+  Result plan(const Start& start, Goal goal) const;
 
   /// Product a plan for the given start and goal conditions. Override the
   /// default options.
@@ -332,7 +334,7 @@ public:
   /// \param[in] options
   ///   The Options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
-  rmf_utils::optional<Plan> plan(
+  Result plan(
     const Start& start,
     Goal goal,
     Options options) const;
@@ -352,7 +354,7 @@ public:
   ///
   /// \param[in] goal
   ///   The goal conditions
-  rmf_utils::optional<Plan> plan(const StartSet& starts, Goal goal) const;
+  Result plan(const StartSet& starts, Goal goal) const;
 
   /// Produces a plan for the given set of starting conditions and goal.
   /// Override the default options.
@@ -372,7 +374,7 @@ public:
   /// \param[in] options
   ///   The options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
-  rmf_utils::optional<Plan> plan(
+  Result plan(
     const StartSet& starts,
     Goal goal,
     Options options) const;
@@ -385,6 +387,108 @@ private:
 };
 
 //==============================================================================
+class Planner::Result
+{
+public:
+
+  /// True if a plan was found and this Result can be dereferenced to obtain a
+  /// plan.
+  bool success() const;
+
+  /// Implicitly cast the result to a boolean. It will return true if a plan
+  /// was found, otherwise it will return false.
+  operator bool() const;
+
+  /// If the Result was successful, drill into the plan.
+  const Plan* operator->() const;
+
+  /// If the Result was successful, get a reference to the plan.
+  const Plan& operator*() const&;
+
+  /// If the Result was successful, move the plan.
+  Plan&& operator*() &&;
+
+  /// If the Result was successful, get a reference to the plan.
+  const Plan&& operator*() const&&;
+
+  /// Replan to the same goal from a new start location using the same options
+  /// as before.
+  ///
+  /// \param[in] new_start
+  ///   The starting conditions that should be used for replanning.
+  Result replan(const Start& new_start) const;
+
+  /// Replan to the same goal from a new start location using a new set of
+  /// options.
+  ///
+  /// \param[in] new_start
+  ///   The starting conditions that should be used for replanning.
+  ///
+  /// \param[in] new_options
+  ///   The options that should be used for replanning.
+  Result replan(
+    const Planner::Start& new_start,
+    Options new_options) const;
+
+  /// Replan to the same goal from a new set of start locations using the same
+  /// options.
+  ///
+  /// \param[in] new_starts
+  ///   The set of starting conditions that should be used for replanning.
+  Result replan(const StartSet& new_starts) const;
+
+  /// Replan to the same goal from a new set of start locations using a new set
+  /// of options.
+  ///
+  /// \param[in] new_starts
+  ///   The set of starting conditions that should be used for replanning.
+  ///
+  /// \param[in] new_options
+  ///   The options that should be used for replanning.
+  Result replan(
+    const StartSet& new_starts,
+    Options new_options) const;
+
+  /// If this Plan is valid, this will return the Planner::Start that was used
+  /// to produce it.
+  const std::vector<Start>& get_starts() const;
+
+  /// If this Plan is valid, this will return the Planner::Goal that was used
+  /// to produce it.
+  ///
+  /// If replan() is called, this goal will be used to produce the new Plan.
+  const Goal& get_goal() const;
+
+  /// If this Plan is valid, this will return the Planner::Options that were
+  /// used to produce it.
+  ///
+  /// If replan(Planner::Start) is called, these Planner::Options will be used
+  /// to produce the new Plan.
+  const Options& get_options() const;
+
+  /// If this Plan is valid, this will return the Planner::Configuration that
+  /// was used to produce it.
+  ///
+  /// If replan() is called, this Planner::Configuration will be used to produce
+  /// the new Plan.
+  const Configuration& get_configuration() const;
+
+  /// This will return true if the planning failed because it was interrupted.
+  /// Otherwise it will return false.
+  bool interrupted() const;
+
+  /// This is a list of schedule Participants who blocked the planning effort.
+  /// Blockers do not necessarily prevent a solution from being found, but they
+  /// do prevent the optimal solution from being available.
+  const std::vector<schedule::ParticipantId>& blockers() const;
+
+  class Implementation;
+private:
+  Result();
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+};
+
+//==============================================================================
 class Plan
 {
 public:
@@ -394,6 +498,7 @@ public:
   using Goal = Planner::Goal;
   using Options = Planner::Options;
   using Configuration = Planner::Configuration;
+  using Result = Planner::Result;
 
   /// A Waypoint within a Plan.
   ///
@@ -449,67 +554,8 @@ public:
   /// (default-constructed).
   const std::vector<Waypoint>& get_waypoints() const;
 
-  /// Replan to the same goal from a new start location using the same options
-  /// as before.
-  ///
-  /// \param[in] new_start
-  ///   The starting conditions that should be used for replanning.
-  rmf_utils::optional<Plan> replan(const Start& new_start) const;
-
-  /// Replan to the same goal from a new start location using a new set of
-  /// options.
-  ///
-  /// \param[in] new_start
-  ///   The starting conditions that should be used for replanning.
-  ///
-  /// \param[in] new_options
-  ///   The options that should be used for replanning.
-  rmf_utils::optional<Plan> replan(
-    const Planner::Start& new_start,
-    Options new_options) const;
-
-  /// Replan to the same goal from a new set of start locations using the same
-  /// options.
-  ///
-  /// \param[in] new_starts
-  ///   The set of starting conditions that should be used for replanning.
-  rmf_utils::optional<Plan> replan(const StartSet& new_starts) const;
-
-  /// Replan to the same goal from a new set of start locations using a new set
-  /// of options.
-  ///
-  /// \param[in] new_starts
-  ///   The set of starting conditions that should be used for replanning.
-  ///
-  /// \param[in] new_options
-  ///   The options that should be used for replanning.
-  rmf_utils::optional<Plan> replan(
-    const StartSet& new_starts,
-    Options new_options) const;
-
-  /// If this Plan is valid, this will return the Planner::Start that was used
-  /// to produce it.
+  /// Get the start condition that was used for this plan.
   const Start& get_start() const;
-
-  /// If this Plan is valid, this will return the Planner::Goal that was used
-  /// to produce it.
-  ///
-  /// If replan() is called, this goal will be used to produce the new Plan.
-  const Goal& get_goal() const;
-
-  /// If this Plan is valid, this will return the Planner::Options that were
-  /// used to produce it.
-  ///
-  /// If replan(Planner::Start) is called, these Planner::Options will be used
-  /// to produce the new Plan.
-  const Options& get_options() const;
-
-  /// If this Plan is valid, this will return the Planner::Configuration that
-  /// was used to produce it.
-  ///
-  /// If replan() is called, this Planner::Configuration will be used to produce
-  /// the new Plan.
-  const Configuration& get_configuration() const;
 
   // TODO(MXG): Create a feature that can diff two plans to produce the most
   // efficient schedule::Database::Change to get from the original plan to the
@@ -517,6 +563,7 @@ public:
 
   class Implementation;
 private:
+  Plan();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
