@@ -46,11 +46,6 @@ public:
   ///   participant wasn't actually blocking, then the returned vector will be
   ///   empty.
   ///
-  /// \param[in] span
-  ///   The maximum span of time to expand past each blockage. The rollouts will
-  ///   generally go past this span by some amount, but they will stop expanding
-  ///   once they do so.
-  ///
   /// \param[in] options
   ///   The options to use while expanding. NOTE: It is important to provide a
   ///   RouteValidator that will ignore the blocker, otherwise the expansion

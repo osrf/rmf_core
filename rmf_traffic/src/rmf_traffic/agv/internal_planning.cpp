@@ -634,6 +634,7 @@ struct DifferentialDriveExpander
     const std::size_t final_waypoint;
     const rmf_utils::optional<double> final_orientation;
     const rmf_traffic::Time initial_time;
+    const bool simple_lane_expansion; // reduces branching factor when true
     const bool* const interrupt_flag;
     Heuristic& heuristic;
     Issues::BlockerMap blockers = {};
@@ -779,6 +780,7 @@ struct DifferentialDriveExpander
       if (!is_valid(route, start_node))
         continue;
 
+//      std::cout << "Expanding down lane from start" << std::endl;
       queue.push(std::make_shared<Node>(
         Node{
           remaining_cost_estimate,
@@ -807,6 +809,7 @@ struct DifferentialDriveExpander
 
     if (is_valid(wait_route, start_node))
     {
+//      std::cout << "Expanding hold from start" << std::endl;
       queue.push(std::make_shared<Node>(
         Node{
           start_node->remaining_cost_estimate,
@@ -1195,6 +1198,19 @@ struct DifferentialDriveExpander
         continue;
       }
 
+//      std::cout << "Expanded down a lane" << std::endl;
+      if (_context.simple_lane_expansion)
+      {
+        // This indicates that we do not want to spend time exploring every
+        // possible way that a vehicle may move down a corridor. The planner
+        // will assume that the vehicle always comes to a complete stop at every
+        // waypoint that it passes over. This results in a plan that is not as
+        // close to optimal, but it significantly reduces the branching factor.
+        // This is currently only used for the Rollout feature to avoid
+        // needlessly enormous sets of itinerary alternatives.
+        continue;
+      }
+
       // If this lane was successfully added, we can try to find more lanes to
       // continue down, as a single expansion from the original parent.
       const std::vector<std::size_t>& lanes =
@@ -1293,7 +1309,10 @@ struct DifferentialDriveExpander
       waypoint, parent_node, delay, std::move(event));
 
     if (node)
+    {
+//      std::cout << "Expand holding" << std::endl;
       queue.push(node);
+    }
   }
 
   void expand_holding(
@@ -1424,7 +1443,7 @@ public:
       };
     }
 
-    auto context = make_context(goal, options, starts.back().time());
+    auto context = make_context(goal, options, starts.back().time(), false);
     const NodePtr solution = search<DifferentialDriveExpander>(
       context,
       DifferentialDriveExpander::InitialNodeArgs{starts},
@@ -1462,23 +1481,67 @@ public:
     std::vector<RolloutEntry> rollout_queue;
     for (const auto& void_node : nodes)
     {
-      const auto node = std::static_pointer_cast<Node>(void_node);
+      bool skip = false;
+      const auto original_node = std::static_pointer_cast<Node>(void_node);
+      const auto original_t =
+          *original_node->route_from_parent.trajectory.finish_time();
+
+      // TODO(MXG): This filtering approach is not reliable as it could be.
+      // Certain blockages will only be expanded half as far past the blockage
+      // as the API implies. It would be better if each type of node expansion
+      // could have a unique identifier so we could both avoid redundant
+      // expansions while still expanding a blockage out as far as the API
+      // says that it will.
+      const auto merge_span = max_span/2.0;
+
+      auto ancestor = original_node->parent;
+      while (ancestor)
+      {
+        if (nodes.count(ancestor) > 0)
+        {
+          const auto t = *ancestor->route_from_parent.trajectory.finish_time();
+          if (t - original_t < merge_span)
+          {
+            skip = true;
+          }
+
+          break;
+        }
+
+        ancestor = ancestor->parent;
+      }
+
+      if (skip)
+        continue;
+
+//      std::cout << "Adding (" << original_node->current_cost
+//                << " : " << *original_node->waypoint
+//                << " : " << original_node->orientation << ")" << std::endl;
       rollout_queue.emplace_back(
             RolloutEntry{
-              node->route_from_parent.trajectory.back().time(),
-              node
+              original_t,
+              original_node
             });
     }
 
-    DifferentialDriveExpander::SearchQueue search_queue;
-    std::vector<NodePtr> finished_rollouts;
+    std::unordered_map<NodePtr, ConstRoutePtr> route_map;
+    std::vector<schedule::Itinerary> alternatives;
 
     auto context =
-        make_context(goal, options, rollout_queue.back().initial_time);
+        make_context(goal, options, rmf_traffic::Time(rmf_traffic::Duration(0)), true);
     DifferentialDriveExpander expander(context);
 
-    while (!rollout_queue.empty())
+    const bool* interrupt_flag = options.interrupt_flag();
+
+    DifferentialDriveExpander::SearchQueue search_queue;
+    DifferentialDriveExpander::SearchQueue finished_rollouts;
+
+    std::size_t expansion_count = 0;
+    while (!rollout_queue.empty() && !(interrupt_flag && *interrupt_flag))
     {
+//        std::cout << "Expansion count: "
+//                  << ++expansion_count
+//                  << " | Queue size: " << rollout_queue.size() << std::endl;
       const auto top = rollout_queue.back();
       rollout_queue.pop_back();
 
@@ -1488,13 +1551,13 @@ public:
 
       if (max_span < current_span)
       {
-        finished_rollouts.push_back(top.node);
+        finished_rollouts.push(top.node);
         continue;
       }
 
       if (expander.is_finished(top.node))
       {
-        finished_rollouts.push_back(top.node);
+        finished_rollouts.push(top.node);
         continue;
       }
 
@@ -1511,11 +1574,12 @@ public:
       }
     }
 
-    std::unordered_map<NodePtr, ConstRoutePtr> route_map;
-    std::vector<schedule::Itinerary> alternatives;
-    for (const auto& rollout_node : finished_rollouts)
+//    std::cout << "Num alternatives: " << finished_rollouts.size() << std::endl;
+    while (!finished_rollouts.empty())
     {
-      auto node = rollout_node;
+      auto node = finished_rollouts.top();
+      finished_rollouts.pop();
+
       schedule::Itinerary itinerary;
       while (node)
       {
@@ -1527,11 +1591,14 @@ public:
         }
 
         itinerary.push_back(route_it->second);
+        node = node->parent;
       }
 
       std::reverse(itinerary.begin(), itinerary.end());
       alternatives.emplace_back(std::move(itinerary));
     }
+
+//    std::cout << "Unique routes: " << route_map.size() << std::endl;
 
     return alternatives;
   }
@@ -1655,7 +1722,7 @@ public:
     agv::Planner::Options options) final
   {
     auto debugger = std::make_unique<Debugger>(
-          make_context(goal, options, starts.back().time()),
+          make_context(goal, options, starts.back().time(), false),
           starts,
           std::move(goal),
           std::move(options));
@@ -1741,7 +1808,8 @@ private:
   DifferentialDriveExpander::Context make_context(
       const agv::Planner::Goal& goal,
       const agv::Planner::Options& options,
-      const rmf_traffic::Time start_time)
+      const rmf_traffic::Time start_time,
+      const bool simple_lane_expansion)
   {
     const std::size_t goal_waypoint = goal.waypoint();
     rmf_utils::optional<double> goal_orientation;
@@ -1762,6 +1830,7 @@ private:
       goal_waypoint,
       goal_orientation,
       start_time,
+      simple_lane_expansion,
       interrupt_flag,
       h
     };

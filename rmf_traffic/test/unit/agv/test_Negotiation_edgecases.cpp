@@ -176,8 +176,6 @@ SCENARIO("Test difficult 3-way scenarios")
   {
     const auto time = std::chrono::steady_clock::now();
 
-    NegotiationRoom::Intentions intentions;
-
     auto a0_starts = rmf_traffic::agv::compute_plan_starts(
       graph_a, {18.012, -15.53, -M_PI}, time);
 
@@ -283,6 +281,7 @@ SCENARIO("Test difficult 3-way scenarios")
 
 
 //    // =======================================================================
+//    NegotiationRoom::Intentions intentions;
 //    intentions.insert({
 //      a0.id(),
 //      NegotiationRoom::Intention{std::move(a0_starts), {1}, config_a} });
