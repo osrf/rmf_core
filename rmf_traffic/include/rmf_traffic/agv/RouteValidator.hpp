@@ -31,6 +31,9 @@ class RouteValidator
 {
 public:
 
+  using ParticipantId = schedule::ParticipantId;
+  using Route = rmf_traffic::Route;
+
   /// If the specified route has a conflict with another participant, this will
   /// return the participant ID for the first conflict that gets identified.
   /// Otherwise it will return a nullopt.
@@ -45,7 +48,7 @@ public:
   // it will only be with one participant. And since this is only meant to
   // provide a hint about which participant is causing conflicts, it is okay if
   // other participants are ignored.
-  virtual rmf_utils::optional<schedule::ParticipantId> find_conflict(
+  virtual rmf_utils::optional<ParticipantId> find_conflict(
       const Route& route) const = 0;
 
   /// Create a clone of the underlying RouteValidator object.
