@@ -90,7 +90,27 @@ struct NegotiationData
   /// successfully finished or rejected)
   std::size_t num_terminated_tables = 0;
 
-  std::unordered_set<Negotiation::Table::Implementation*> rejected_tables;
+  std::unordered_set<Negotiation::Table::Implementation*> forfeited_tables;
+
+  void clear_successful_descendants_of(
+      const std::vector<ParticipantId>& sequence)
+  {
+    const auto erase_it = std::remove_if(
+      successful_tables.begin(),
+      successful_tables.end(),
+      [&](const std::vector<ParticipantId>& table)
+      {
+        for (std::size_t i = 0; i < sequence.size(); ++i)
+        {
+          if (table[i] != sequence[i])
+            return false;
+        }
+
+        return true;
+      });
+
+    successful_tables.erase(erase_it, successful_tables.end());
+  }
 };
 
 } // anonymous namespace
@@ -139,6 +159,7 @@ public:
   rmf_utils::optional<Itinerary> itinerary;
   rmf_utils::optional<Version> version = rmf_utils::nullopt;
   bool rejected = false;
+  bool forfeited = false;
   TableMap descendants;
 
   std::weak_ptr<NegotiationData> weak_negotiation_data;
@@ -284,9 +305,9 @@ public:
 
     bool formerly_successful = false;
     const auto negotiation_data = weak_negotiation_data.lock();
-    if (rejected && negotiation_data)
+    if (forfeited && negotiation_data)
     {
-      negotiation_data->rejected_tables.erase(this);
+      negotiation_data->forfeited_tables.erase(this);
       negotiation_data->num_terminated_tables -=
         termination_factor(depth, negotiation_data->participants.size());
     }
@@ -394,27 +415,49 @@ public:
 
     if (negotiation_data)
     {
+      // Erase any successful tables that branched off of this rejected table
+      negotiation_data->clear_successful_descendants_of(sequence);
+    }
+  }
+
+  void forfeit(const Version forfeited_version)
+  {
+    // TODO(MXG): Consider if this function's implementation can be refactored
+    // with reject()
+    if (version && rmf_utils::modular(forfeited_version).less_than(*version))
+      return;
+
+    version = forfeited_version;
+
+    if (forfeited)
+      return;
+
+    const auto negotiation_data = weak_negotiation_data.lock();
+    if (itinerary && descendants.empty() && negotiation_data)
+    {
+      // This used to be a successfully completed negotiation table.
+      // TODO(MXG): It's a bit suspicious that a successfully completed
+      // negotiation table would get forfeited. Maybe we should put an
+      // assertion here.
+      negotiation_data->num_terminated_tables -= 1;
+    }
+
+    if (itinerary)
+    {
+      itinerary = rmf_utils::nullopt;
+      proposal.pop_back();
+    }
+
+    forfeited = true;
+    clear_descendants();
+
+    if (negotiation_data)
+    {
       negotiation_data->num_terminated_tables += termination_factor(
         depth, negotiation_data->participants.size());
-      negotiation_data->rejected_tables.insert(this);
+      negotiation_data->forfeited_tables.insert(this);
 
-      // Erase any successful tables that branched off of this rejected table
-      const auto erase_it = std::remove_if(
-        negotiation_data->successful_tables.begin(),
-        negotiation_data->successful_tables.end(),
-        [&](const std::vector<ParticipantId>& table)
-        {
-          for (std::size_t i = 0; i < sequence.size(); ++i)
-          {
-            if (table[i] != sequence[i])
-              return false;
-          }
-
-          return true;
-        });
-
-      negotiation_data->successful_tables.erase(
-        erase_it, negotiation_data->successful_tables.end());
+      negotiation_data->clear_successful_descendants_of(sequence);
     }
   }
 
@@ -425,7 +468,7 @@ public:
     // TODO(MXG): Instead of clearing all the descendants during a submission,
     // we could simply clear the ones whose proposals are in conflict with the
     // new submission. However, all descendants must always be cleared during a
-    // rejection.
+    // forfeit.
 
     const auto negotiation_data = weak_negotiation_data.lock();
 
@@ -445,7 +488,7 @@ public:
             termination_factor(
             table->_pimpl->depth, negotiation_data->participants.size());
 
-          negotiation_data->rejected_tables.erase(table->_pimpl.get());
+          negotiation_data->forfeited_tables.erase(table->_pimpl.get());
         }
 
         table->_pimpl->weak_negotiation_data.reset();
@@ -583,7 +626,7 @@ public:
     // are terminated due to rejection will be higher now, so we need to
     // recalculate it.
     const std::size_t N = data->participants.size();
-    for (const auto rejected : data->rejected_tables)
+    for (const auto rejected : data->forfeited_tables)
       data->num_terminated_tables += termination_factor(rejected->depth, N);
 
     std::vector<TableMap*> queue;
@@ -775,6 +818,12 @@ void Negotiation::Table::reject(
 }
 
 //==============================================================================
+bool Negotiation::Table::rejected() const
+{
+  return _pimpl->rejected;
+}
+
+//==============================================================================
 auto Negotiation::Table::rollouts() const
 -> const std::unordered_map<ParticipantId, Alternatives>&
 {
@@ -782,9 +831,15 @@ auto Negotiation::Table::rollouts() const
 }
 
 //==============================================================================
-bool Negotiation::Table::rejected() const
+void Negotiation::Table::forfeit(Version version)
 {
-  return _pimpl->rejected;
+  _pimpl->forfeit(version);
+}
+
+//==============================================================================
+bool Negotiation::Table::forfeited() const
+{
+  return _pimpl->forfeited;
 }
 
 //==============================================================================

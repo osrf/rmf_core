@@ -106,6 +106,8 @@ public:
       std::size_t alternative;
     };
 
+    // TODO(MXG): This function should be put into a view class that remains
+    // immutable so it can be used across different threads.
     /// View this table with the given parameters.
     ///
     /// \param[in] parameters
@@ -155,9 +157,11 @@ public:
       std::vector<Route> itinerary,
       Version version);
 
-    /// Reject the proposals that underlie this Negotiation::Table. This
+    /// Reject the submission of this Negotiation::Table. This
     /// indicates that the underlying proposals are infeasible for the
-    /// Participant of this Table to accommodate.
+    /// Participant of this Table to accommodate. The rejecter should give a
+    /// set of alternative rollouts that it is capable of. That way the proposer
+    /// for this Table can submit an itinerary that accommodates it.
     ///
     /// \param[in] version
     ///   A version number assigned to the submission. If this is equal to or
@@ -172,9 +176,13 @@ public:
     ///   A set of rollouts that could be used by the participant that is
     ///   rejecting this proposal. The proposer should use this information to
     ///   offer a proposal that can accommodate at least one of these rollouts.
-    void reject(Version version,
+    void reject(
+        Version version,
         ParticipantId rejected_by,
         const Alternatives& rollouts);
+
+    /// Returns true if the proposal put on this Table has been rejected.
+    bool rejected() const;
 
     /// When a Negotiation::Table is rejected by one of the participants who is
     /// supposed to respond, they can offer a set of rollout alternatives. If
@@ -183,8 +191,13 @@ public:
     /// each participant that has provided them.
     const std::unordered_map<ParticipantId, Alternatives>& rollouts() const;
 
-    /// Returns true if a proposal put on this table has been rejected.
-    bool rejected() const;
+    /// Give up on this Negotiation Table. This should be called when the
+    /// participant that is supposed to submit to this Table is unable to find
+    /// a feasible proposal.
+    void forfeit(Version version);
+
+    /// Returns true if the proposer for this Table has forfeited.
+    bool forfeited() const;
 
     /// If by_participant can respond to this table, then this will return a
     /// TablePtr that by_participant can submit a proposal to.

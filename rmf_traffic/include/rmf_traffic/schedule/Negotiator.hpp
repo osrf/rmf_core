@@ -37,6 +37,7 @@ public:
   {
   public:
 
+    using ParticipantId = rmf_traffic::schedule::ParticipantId;
     using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
     using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
 
@@ -57,9 +58,18 @@ public:
       std::function<UpdateVersion()> approval_callback = nullptr) const = 0;
 
     /// The negotiator will call this function if it has decided to reject an
-    /// attempt to negotiate.
+    /// attempt to negotiate. It must supply a set of alternatives for the
+    /// parent negotiator to consider for its next proposal.
     virtual void reject(
       const Negotiation::Alternatives& alternatives) const = 0;
+
+    /// The negotiator will call this function if it cannot find any feasible
+    /// proposal or alternative that can be accommodated by the parent.
+    ///
+    /// \param[in] blockers
+    ///   Give the set of schedule participants that are blocking a solution
+    ///   from being found.
+    virtual void forfeit(const std::vector<ParticipantId>& blockers) const = 0;
 
     // Virtual destructor
     virtual ~Responder() = default;
