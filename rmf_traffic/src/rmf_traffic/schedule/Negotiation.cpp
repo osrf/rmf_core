@@ -492,7 +492,7 @@ public:
         }
 
         table->_pimpl->weak_negotiation_data.reset();
-        table->_pimpl->weak_parent.reset();
+//        table->_pimpl->weak_parent.reset();
         queue.push_back(entry.second->_pimpl.get());
       }
     }
@@ -738,16 +738,17 @@ Viewer::View Negotiation::Table::Implementation::query(
   NegotiationRelevanceInspector inspector;
   timeline.inspect(query, inspector);
 
-  // Query for the relevant routes that are outside of the negotiation
-  query.participants() = participant_query;
-  Viewer::View view = viewer->query(query);
-
+  // Query for the routes in the child rollouts that are being considered
   for (const auto& rollout : chosen_rollouts)
   {
     rollout_timelines.at(rollout.participant)
       .at(rollout.alternative)
       .timeline.inspect(query, inspector);
   }
+
+  // Query for the relevant routes that are outside of the negotiation
+  query.participants() = participant_query;
+  Viewer::View view = viewer->query(query);
 
   // Merge them together into a single view
   Viewer::View::Implementation::append_to_view(

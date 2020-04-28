@@ -106,8 +106,9 @@ public:
       std::size_t alternative;
     };
 
-    // TODO(MXG): This function should be put into a view class that remains
-    // immutable so it can be used across different threads.
+    // TODO(MXG): This function should be put into a Table::Viewer class that
+    // remains immutable so it can be used across different threads.
+    //
     /// View this table with the given parameters.
     ///
     /// \param[in] parameters

@@ -18,6 +18,10 @@
 #include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
+
+#include <iostream>
+
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -119,25 +123,35 @@ class NegotiatingRouteValidator::Generator::Implementation
 public:
   struct Data
   {
+    // TODO(MXG): This should be changed to a Table::View
     const schedule::Negotiation::Table* table;
     Profile profile;
   };
 
   std::shared_ptr<Data> data;
+  std::vector<schedule::ParticipantId> alternative_sets;
+
+  Implementation(
+      const schedule::Negotiation::Table& table,
+      Profile profile)
+  : data(std::make_shared<Data>(
+           Data{
+             &table,
+             std::move(profile)
+           }))
+  {
+    const auto& rollouts = table.rollouts();
+    alternative_sets.reserve(rollouts.size());
+    for (const auto& r : rollouts)
+      alternative_sets.push_back(r.first);
+  }
 };
 
 //==============================================================================
 NegotiatingRouteValidator::Generator::Generator(
   const schedule::Negotiation::Table& table,
   Profile profile)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        std::make_shared<Implementation::Data>(
-         Implementation::Data{
-           &table,
-           std::move(profile)
-         })
-      }))
+: _pimpl(rmf_utils::make_impl<Implementation>(table, std::move(profile)))
 {
   // Do nothing
 }
@@ -149,6 +163,7 @@ public:
 
   std::shared_ptr<Generator::Implementation::Data> data;
   std::vector<schedule::Negotiation::Table::Rollout> rollouts;
+  rmf_utils::optional<schedule::ParticipantId> masked = rmf_utils::nullopt;
 
   static NegotiatingRouteValidator make(
     std::shared_ptr<Generator::Implementation::Data> data,
@@ -177,6 +192,93 @@ NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
 }
 
 //==============================================================================
+const std::vector<schedule::ParticipantId>&
+NegotiatingRouteValidator::Generator::alternative_sets() const
+{
+  return _pimpl->alternative_sets;
+}
+
+//==============================================================================
+std::size_t NegotiatingRouteValidator::Generator::alternative_count(
+    schedule::ParticipantId participant) const
+{
+  return _pimpl->data->table->rollouts().at(participant).size();
+}
+
+//==============================================================================
+NegotiatingRouteValidator& NegotiatingRouteValidator::mask(
+    schedule::ParticipantId id)
+{
+  _pimpl->masked = id;
+  return *this;
+}
+
+//==============================================================================
+NegotiatingRouteValidator& NegotiatingRouteValidator::remove_mask()
+{
+  _pimpl->masked = rmf_utils::nullopt;
+  return *this;
+}
+
+//==============================================================================
+NegotiatingRouteValidator NegotiatingRouteValidator::next(
+    schedule::ParticipantId id) const
+{
+  auto rollouts = _pimpl->rollouts;
+  const auto it = std::find_if(
+        rollouts.begin(), rollouts.end(), [&](
+        const schedule::Negotiation::Table::Rollout& r)
+  {
+    return r.participant == id;
+  });
+
+  if (it == rollouts.end())
+  {
+    std::string error = "[NegotiatingRouteValidator::next] Requested next "
+        "alternative for " + std::to_string(id) + " but the only options are [";
+
+    for (const auto r : rollouts)
+      error += " " + std::to_string(r.participant);
+
+    error += " ]";
+
+    throw std::runtime_error(error);
+  }
+
+  it->alternative += 1;
+
+  return _pimpl->make(_pimpl->data, std::move(rollouts));
+}
+
+//==============================================================================
+const std::vector<schedule::Negotiation::Table::Rollout>&
+NegotiatingRouteValidator::rollouts() const
+{
+  return _pimpl->rollouts;
+}
+
+//==============================================================================
+NegotiatingRouteValidator::operator bool() const
+{
+  return !end();
+}
+
+//==============================================================================
+bool NegotiatingRouteValidator::end() const
+{
+  for (const auto& r : _pimpl->rollouts)
+  {
+    const auto num_alternatives =
+        _pimpl->data->table->rollouts().at(r.participant).size();
+
+    if (num_alternatives <= r.alternative)
+      return true;
+  }
+
+  return false;
+}
+
+//==============================================================================
 rmf_utils::optional<schedule::ParticipantId>
 NegotiatingRouteValidator::find_conflict(const Route& route) const
 {
@@ -192,6 +294,12 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 
   for (const auto& v : view)
   {
+    if (_pimpl->masked && (*_pimpl->masked == v.participant))
+      continue;
+
+    // NOTE(MXG): There is no need to check the map, because the query will
+    // filter out all itineraries that are not on this map.
+
     if (rmf_traffic::DetectConflict::between(
         _pimpl->data->profile,
         route.trajectory(),

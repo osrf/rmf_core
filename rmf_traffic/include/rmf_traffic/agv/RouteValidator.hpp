@@ -149,6 +149,8 @@ public:
     const std::vector<schedule::ParticipantId>& alternative_sets() const;
 
     /// Get the number of alternative rollouts for the specified participant.
+    /// This function will throw an excpetion if participant does not offer an
+    /// alternative set.
     std::size_t alternative_count(schedule::ParticipantId participant) const;
 
     class Implementation;
@@ -156,9 +158,23 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  /// Mask the given Participant so that conflicts with it will be ignored. In
+  /// the current implementation, only one participant can be masked at a time.
+  ///
+  /// \param[in] id
+  ///   The ID of a participant whose conflicts should be ignored when checking
+  ///   for collisions.
+  NegotiatingRouteValidator& mask(schedule::ParticipantId id);
+
+  /// Remove any mask that has been applied using the mask() function.
+  NegotiatingRouteValidator& remove_mask();
+
   /// Get a NegotiatingRouteValidator for the next rollout alternative offered
   /// by the given participant.
   NegotiatingRouteValidator next(schedule::ParticipantId id) const;
+
+  /// Get the set of rollouts used by this NegotiatingRouteValidator.
+  const std::vector<schedule::Negotiation::Table::Rollout>& rollouts() const;
 
   /// Implicitly cast this validator instance to true if it can be used as a
   /// validator. If it cannot be used as a validator, return false. This will

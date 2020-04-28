@@ -27,6 +27,7 @@
 #include <unordered_map>
 #include <future>
 #include <iostream>
+#include <deque>
 
 //==============================================================================
 class NegotiationRoom
@@ -76,64 +77,132 @@ public:
   : negotiators(make_negotiations(intentions)),
     negotiation(std::make_shared<Negotiation>(
         viewer, get_participants(intentions))),
-    print_failures(print_failures_)
+    _print(print_failures_)
   {
     // Do nothing
   }
 
+  static bool skip(const Negotiation::TablePtr& table)
+  {
+    if (table->submission() && !table->rejected())
+      return true;
+
+    auto ancestor = table->parent();
+    while (ancestor)
+    {
+      if (ancestor->rejected() || ancestor->forfeited())
+        return true;
+
+      ancestor = ancestor->parent();
+    }
+
+    return false;
+  }
+
   rmf_utils::optional<Negotiation::Proposal> solve()
   {
-    std::vector<Negotiation::TablePtr> queue;
+    std::deque<Negotiation::TablePtr> queue;
+
     for (const auto& p : negotiation->participants())
     {
       const auto table = negotiation->table(p, {});
-      negotiators.at(p).respond(table, Responder(negotiation, p, {}));
       queue.push_back(table);
     }
 
-    while (!queue.empty())
+    while (!queue.empty() && !negotiation->ready())
     {
+      std::cout << "Queue size: " << queue.size() << std::endl;
       const auto top = queue.back();
       queue.pop_back();
 
-      for (auto& n : negotiators)
+      if (skip(top))
       {
-        const auto participant = n.first;
-        auto& negotiator = n.second;
-        const auto respond_to = top->respond(participant);
-        if (respond_to)
+        // An ancestor has been rejected since this table was originally made,
+        // so we should pass to let the parent be fixed.
+        if (_print)
         {
-          bool interrupt = false;
-          auto result = std::async(
+          std::cout << "Skipping [";
+          for (const auto p : top->sequence())
+            std::cout << " " << p;
+          std::cout << " ]" << std::endl;
+        }
+        continue;
+      }
+
+      if (_print)
+      {
+        std::cout << "Responding to [";
+        for (const auto p : top->sequence())
+          std::cout << " " << p;
+        std::cout << " ]" << std::endl;
+      }
+
+      auto& negotiator = negotiators.at(top->participant());
+
+      bool interrupt = false;
+      auto result = std::async(
             std::launch::async,
             [&]()
-            {
-              negotiator.respond(
-                respond_to,
-                Responder(negotiation, respond_to->sequence()),
-                &interrupt);
-            });
+      {
+        negotiator.respond(
+              top, Responder(negotiation, top->sequence()), &interrupt);
+      });
 
-          using namespace std::chrono_literals;
-          // Give up if a solution is not found within 10 seconds.
-          if (result.wait_for(10s) != std::future_status::ready)
-            interrupt = true;
+      using namespace std::chrono_literals;
+      // Give up if the solution is not found within a time limit
+      if (result.wait_for(10s) != std::future_status::ready)
+        interrupt = true;
 
-          result.wait();
+      result.wait();
 
-          if (print_failures && !respond_to->submission())
-          {
-            std::cout << "Failed to make a submission for [";
-            for (const auto p : respond_to->sequence())
-              std::cout << " " << p;
-            std::cout << " ]" << std::endl;
-          }
-          queue.push_back(respond_to);
+      if (top->submission())
+      {
+        if (_print)
+        {
+          std::cout << "Submission given for [";
+          for (const auto p : top->sequence())
+            std::cout << " " << p;
+          std::cout << " ]" << std::endl;
+        }
+
+        for (const auto& n : negotiators)
+        {
+          const auto participant = n.first;
+          const auto respond_to = top->respond(participant);
+          if (respond_to)
+            queue.push_back(respond_to);
+        }
+
+        continue;
+      }
+
+      const auto parent = top->parent();
+      if (parent && parent->rejected())
+      {
+        if (_print)
+        {
+          std::cout << "[" << std::to_string(top->participant())
+                    << "] rejected [";
+          for (const auto p : parent->sequence())
+            std::cout << " " << p;
+          std::cout << " ]" << std::endl;
+        }
+        queue.push_back(parent);
+      }
+
+      if (top->forfeited())
+      {
+        if (_print)
+        {
+          std::cout << "Forfeit given for [";
+          for (const auto p : top->sequence())
+            std::cout << " " << p;
+          std::cout << " ]" << std::endl;
         }
       }
     }
 
-    CHECK(negotiation->complete());
+//    CHECK(negotiation->complete());
     if (!negotiation->ready())
       return rmf_utils::nullopt;
 
@@ -172,7 +241,14 @@ public:
 
   std::unordered_map<ParticipantId, Negotiator> negotiators;
   std::shared_ptr<rmf_traffic::schedule::Negotiation> negotiation;
-  bool print_failures = false;
+
+  NegotiationRoom& print()
+  {
+    _print = true;
+    return *this;
+  }
+
+  bool _print = false;
 };
 
 #endif // UTILS_NEGOTIATIONROOM_HPP

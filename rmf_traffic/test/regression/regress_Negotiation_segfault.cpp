@@ -25,30 +25,44 @@ namespace {
 //==============================================================================
 struct MockNegotiator : public rmf_traffic::schedule::Negotiator
 {
+  enum Choice {
+    Submit,
+    Reject,
+    Forfeit
+  };
+
   virtual void respond(
     std::shared_ptr<const rmf_traffic::schedule::Negotiation::Table>,
     const Responder& responder,
     const bool* = nullptr) final
   {
-    if (_submit)
+    if (Submit == _choice)
       responder.submit({});
-//    else
-//      responder.reject();
+    else if (Reject == _choice)
+      responder.reject({});
+    else
+      responder.forfeit({});
   }
 
   MockNegotiator& submit()
   {
-    _submit = true;
+    _choice = Submit;
     return *this;
   }
 
   MockNegotiator& reject()
   {
-    _submit = false;
+    _choice = Reject;
     return *this;
   }
 
-  bool _submit = true;
+  MockNegotiator& forfeit()
+  {
+    _choice = Forfeit;
+    return *this;
+  }
+
+  Choice _choice = Submit;
 };
 
 //==============================================================================
@@ -73,14 +87,14 @@ void apply_submissions(
 }
 
 //==============================================================================
-void apply_rejection(
+void apply_forfeit(
   const std::shared_ptr<rmf_traffic::schedule::Negotiation>& negotiation,
-  const std::vector<Table>& rejected)
+  const std::vector<Table>& forfeited)
 {
   using Responder = rmf_traffic::schedule::SimpleResponder;
-  for (const auto& table : rejected)
+  for (const auto& table : forfeited)
   {
-    MockNegotiator().reject().respond(
+    MockNegotiator().forfeit().respond(
       negotiation->table(table.for_participant, table.to_accommodate),
       Responder(negotiation, table.for_participant, table.to_accommodate));
   }
@@ -122,12 +136,12 @@ SCENARIO("Identify a failed negotiation")
 
   CHECK_FALSE(negotiation->table(1, {2})->respond(1));
 
-  std::vector<Table> rejected =
+  std::vector<Table> forfeited =
   {
     {{2}, 1}, {{2}, 0}, {{}, 1}, {{2}, 1}, {{0, 2}, 1}, {{0}, 1}
   };
 
-  apply_rejection(negotiation, rejected);
+  apply_forfeit(negotiation, forfeited);
 
   CHECK(negotiation->complete());
 }
@@ -162,19 +176,21 @@ SCENARIO("Submit after a rejection")
       *accepted = table->submit(std::move(itinerary), **version);
     }
 
-//    void reject() const
-//    {
-//      const auto parent = table->parent();
-//      if (parent)
-//        parent->reject(*parent->version());
-//      else
-//        table->reject(table->version() ? *table->version() : 0);
-//    }
-
-    void reject(
-          const rmf_traffic::schedule::Negotiation::Alternatives& ) const final
+    void reject(const Alternatives& alternatives) const final
     {
+      const auto parent = table->parent();
+      if (parent)
+      {
+        parent->reject(
+              *parent->version(),
+              table->sequence().back(),
+              alternatives);
+      }
+    }
 
+    void forfeit(const std::vector<ParticipantId>& /*blockers*/) const final
+    {
+      table->forfeit(table->version()? *table->version() : 0);
     }
   };
 
@@ -198,7 +214,7 @@ SCENARIO("Submit after a rejection")
   version = rmf_utils::nullopt;
   MockResponder child_responder(negotiation->table(1, {0}), &accepted,
     &version);
-  MockNegotiator().reject().respond(child_responder.table, child_responder);
+  MockNegotiator().forfeit().respond(child_responder.table, child_responder);
 
   CHECK_FALSE(version);
   CHECK_FALSE(accepted);

@@ -17,6 +17,8 @@
 
 #include <rmf_traffic/schedule/Negotiator.hpp>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -82,19 +84,19 @@ void SimpleResponder::reject(
   const auto parent = _pimpl->negotiation->table(_pimpl->to_accommodate);
   if (parent)
   {
+    std::cout << " ====== Sending rejection" << std::endl;
     parent->reject(*parent->version(), _pimpl->for_participant, alternatives);
-    return;
   }
+}
 
+//==============================================================================
+void SimpleResponder::forfeit(const std::vector<ParticipantId>&) const
+{
   const auto table = _pimpl->negotiation->table(
-    _pimpl->for_participant, _pimpl->to_accommodate);
-  if (table)
-  {
-//    table->reject(table->version() ? *table->version() : 0);
-    return;
-  }
+        _pimpl->for_participant, _pimpl->to_accommodate);
 
-  // This may imply that a grand parent in the negotiation was rejected.
+  if (table)
+    table->forfeit(table->version()? *table->version() : 0);
 }
 
 } // namespace schedule
