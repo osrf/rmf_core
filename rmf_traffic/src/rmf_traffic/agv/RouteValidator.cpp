@@ -309,6 +309,52 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     }
   }
 
+  for (const auto& r : _pimpl->rollouts)
+  {
+    if (_pimpl->masked && (*_pimpl->masked == r.participant))
+      continue;
+
+    const auto& last_route =
+        _pimpl->data->table->rollouts()
+        .at(r.participant)
+        .at(r.alternative).back();
+
+    if (route.map() != last_route->map())
+      continue;
+
+    const auto& last_wp = last_route->trajectory().back();
+
+    if (*route.trajectory().finish_time() < last_wp.time())
+      continue;
+
+    const auto& description =
+        _pimpl->data->table->viewer()->get_participant(r.participant);
+    assert(description);
+
+    // The end_cap trajectory represents the last known position of the
+    // rollout's alternative. This prevents the negotiator from using a
+    // pathological strategy like waiting until the other participant vanishes.
+    Trajectory end_cap;
+    end_cap.insert(
+          last_wp.time(),
+          last_wp.position(),
+          Eigen::Vector3d::Zero());
+
+    end_cap.insert(
+          *route.trajectory().finish_time() + std::chrono::seconds(10),
+          last_wp.position(),
+          Eigen::Vector3d::Zero());
+
+    if (rmf_traffic::DetectConflict::between(
+          _pimpl->data->profile,
+          route.trajectory(),
+          description->profile(),
+          end_cap))
+    {
+      return r.participant;
+    }
+  }
+
   return rmf_utils::nullopt;
 }
 

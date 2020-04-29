@@ -121,6 +121,9 @@ public:
         const Query::Spacetime& parameters,
         const std::vector<Rollout>& rollouts) const;
 
+    // TODO(MXG): Replace this with a more meaningful Table::Viewer class
+    const Viewer* viewer() const;
+
     /// Return the submission on this Negotiation Table if it has one.
     const Itinerary* submission() const;
 

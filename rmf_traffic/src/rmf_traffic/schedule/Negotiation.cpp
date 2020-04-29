@@ -766,6 +766,12 @@ Viewer::View Negotiation::Table::query(
 }
 
 //==============================================================================
+const Viewer* Negotiation::Table::viewer() const
+{
+  return _pimpl->viewer;
+}
+
+//==============================================================================
 const Itinerary* Negotiation::Table::submission() const
 {
   if (_pimpl->itinerary)
