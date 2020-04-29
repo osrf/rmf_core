@@ -30,6 +30,52 @@
 #include <deque>
 
 //==============================================================================
+inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
+{
+  std::cout << "(start) --> ";
+  std::cout << "(" << 0.0 << "; "
+            << route.trajectory().front().position().transpose()
+            << ") --> ";
+
+  return *route.trajectory().start_time();
+}
+
+//==============================================================================
+inline void print_route(
+    const rmf_traffic::Route& route,
+    const rmf_traffic::Time start_time)
+{
+  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
+  {
+    const auto& wp = *it;
+    const auto rel_time = wp.time() - start_time;
+    std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
+              << wp.position().transpose() << ") --> ";
+  }
+}
+
+//==============================================================================
+inline void print_itinerary(
+    const rmf_traffic::schedule::Itinerary& itinerary)
+{
+  auto start_time = print_start(*itinerary.front());
+  for (const auto& r : itinerary)
+    print_route(*r, start_time);
+
+  std::cout << "(end)\n" << std::endl;
+}
+
+//==============================================================================
+inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
+{
+  auto start_time = print_start(itinerary.front());
+  for (const auto& r : itinerary)
+    print_route(r, start_time);
+
+  std::cout << "(end)\n" << std::endl;
+}
+
+//==============================================================================
 class NegotiationRoom
 {
 public:
@@ -87,6 +133,10 @@ public:
     if (table->submission() && !table->rejected())
       return true;
 
+    // Give up we have already attempted more than 3 submissions
+    if (table->version() && (*table->version() > 2))
+      return true;
+
     auto ancestor = table->parent();
     while (ancestor)
     {
@@ -109,9 +159,11 @@ public:
       queue.push_back(table);
     }
 
-    while (!queue.empty() && !negotiation->ready())
+    while (!queue.empty() && !negotiation->ready() && !negotiation->complete())
     {
-      std::cout << "Queue size: " << queue.size() << std::endl;
+      if (_print)
+        std::cout << "Queue size: " << queue.size() << std::endl;
+
       const auto top = queue.back();
       queue.pop_back();
 
@@ -187,7 +239,9 @@ public:
             std::cout << " " << p;
           std::cout << " ]" << std::endl;
         }
-        queue.push_back(parent);
+        // We push front so that we revisit the rejected tables only if
+        // everything else fails.
+        queue.push_front(parent);
       }
 
       if (top->forfeited())

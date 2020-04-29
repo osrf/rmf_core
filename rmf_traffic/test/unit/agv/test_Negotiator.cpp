@@ -421,7 +421,7 @@ SCENARIO("Multi-participant negotiation")
         {time, 3, 0.0}, 1, configuration}});
 
 
-  auto proposal = NegotiationRoom(database, intentions).print().solve();
+  auto proposal = NegotiationRoom(database, intentions).solve();
   REQUIRE(proposal);
 
   //print_proposal(*proposal);
@@ -2135,9 +2135,7 @@ SCENARIO("A single loop with alcoves at each vertex")
 
       THEN("Valid Proposal is found")
       {
-        std::cout << " ============== Begin tough case" << std::endl;
-        auto proposal = NegotiationRoom(database, intentions).print().solve();
-        std::cout << " ============== End tough case" << std::endl;
+        auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =

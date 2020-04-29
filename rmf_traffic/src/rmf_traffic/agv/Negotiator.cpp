@@ -148,50 +148,13 @@ void SimpleNegotiator::respond(
     validators.pop_front();
 
     if (!validator)
-    {
-      std::cout << " ==== VALIDATOR ENDED" << std::endl;
       continue;
-    }
-
-    std::cout << " ==== Examining for rollouts: ";
-    for (const auto& r : validator->rollouts())
-      std::cout << "(" << r.participant << ": " << r.alternative << ") ";
-    std::cout << std::endl;
 
     options.validator(validator);
-
-    std::cout << " ==== About to start planning" << std::endl;
-
-    if (validator->rollouts().size() > 0)
-    {
-      std::cout << "ARE WE ABOUT TO RETURN??" << std::endl;
-    }
-
     const auto plan = _pimpl->planner.plan(
           _pimpl->starts, _pimpl->goal, options);
-    std::cout << " ==== Finished planning" << std::endl;
-
     if (plan)
-    {
-      std::cout << " ==== Submitting:" << std::endl;
-
-      const auto start_time = *plan->get_itinerary().front().trajectory().start_time();
-      std::cout << "(start) --> ";
-      for (const auto& r : plan->get_itinerary())
-      {
-        const auto rel_time = r.trajectory().front().time() - start_time;
-        std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
-                  << r.trajectory().front().position().transpose() << ") --> ";
-      }
-      const auto rel_time = plan->get_itinerary().back().trajectory().back().time() - start_time;
-      std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
-                << plan->get_itinerary().back().trajectory().back().position().transpose()
-                << ") --> (end)\n" << std::endl;
-
       return responder.submit(plan->get_itinerary());
-    }
-
-    std::cout << " ==== Attempt failed" << std::endl;
 
     const auto& blockers = plan.blockers();
     if (!best_blockers)
@@ -201,7 +164,6 @@ void SimpleNegotiator::respond(
     {
       if (contains(blockers, r))
       {
-        std::cout << " ==== Pushing back validator for next [" << r << "] alternative" << std::endl;
         validators.push_back(
               rmf_utils::make_clone<NegotiatingRouteValidator>(
                 validator->next(r)));
@@ -231,52 +193,26 @@ void SimpleNegotiator::respond(
     options.validator(validator);
 
     Rollout rollout(plan);
-    // TODO(MXG): Make the 30 seconds configurable
-    alternatives = rollout.expand(parent_id, std::chrono::seconds(15), options);
+    // TODO(MXG): Make the span configurable
+    alternatives = rollout.expand(parent_id, std::chrono::seconds(5), options);
     if (alternatives->empty())
     {
-      std::cout << " ====== Empty rollout" << std::endl;
-      // If there weren't actually any alternatives produced, then reset it.
       alternatives = rmf_utils::nullopt;
     }
     else
     {
-      std::cout << " ====== [" << alternatives->size() << "] rollouts" << std::endl;
       if (alternatives->size() > 10)
         alternatives->resize(10);
-
-      for (const auto& itinerary : *alternatives)
-      {
-        const auto start_time = *itinerary.front()->trajectory().start_time();
-        std::cout << "(start) --> ";
-        for (const auto& r : itinerary)
-        {
-          const auto rel_time = r->trajectory().front().time() - start_time;
-          std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
-                    << r->trajectory().front().position().transpose() << ") --> ";
-        }
-
-        const auto rel_time = itinerary.back()->trajectory().back().time() - start_time;
-        std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
-                  << itinerary.back()->trajectory().back().position().transpose()
-                  << ") --> (end)\n" << std::endl;
-      }
     }
 
     options.interrupt_flag(interrupt_flag);
   }
 
-  std::cout << " ==== No plan found" << std::endl;
-
   if (alternatives)
     return responder.reject(*alternatives);
 
-  std::cout << " ==== No alternatives found" << std::endl;
-
   if (best_blockers)
     return responder.forfeit(*best_blockers);
-
-  std::cout << " ==== No blockers found" << std::endl;
 
   // This would be suspicious. How could the planning fail without any blockers?
   responder.forfeit({});

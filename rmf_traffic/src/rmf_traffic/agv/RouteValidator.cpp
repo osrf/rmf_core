@@ -299,7 +299,6 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 
     // NOTE(MXG): There is no need to check the map, because the query will
     // filter out all itineraries that are not on this map.
-
     if (rmf_traffic::DetectConflict::between(
         _pimpl->data->profile,
         route.trajectory(),

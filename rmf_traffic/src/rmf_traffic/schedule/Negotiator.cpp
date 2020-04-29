@@ -17,8 +17,6 @@
 
 #include <rmf_traffic/schedule/Negotiator.hpp>
 
-#include <iostream>
-
 namespace rmf_traffic {
 namespace schedule {
 
@@ -83,10 +81,7 @@ void SimpleResponder::reject(
 {
   const auto parent = _pimpl->negotiation->table(_pimpl->to_accommodate);
   if (parent)
-  {
-    std::cout << " ====== Sending rejection" << std::endl;
     parent->reject(*parent->version(), _pimpl->for_participant, alternatives);
-  }
 }
 
 //==============================================================================

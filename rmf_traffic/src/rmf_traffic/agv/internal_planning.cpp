@@ -1536,12 +1536,8 @@ public:
     DifferentialDriveExpander::SearchQueue search_queue;
     DifferentialDriveExpander::SearchQueue finished_rollouts;
 
-    std::size_t expansion_count = 0;
     while (!rollout_queue.empty() && !(interrupt_flag && *interrupt_flag))
     {
-//        std::cout << "Expansion count: "
-//                  << ++expansion_count
-//                  << " | Queue size: " << rollout_queue.size() << std::endl;
       const auto top = rollout_queue.back();
       rollout_queue.pop_back();
 
@@ -1574,31 +1570,18 @@ public:
       }
     }
 
-//    std::cout << "Num alternatives: " << finished_rollouts.size() << std::endl;
     while (!finished_rollouts.empty())
     {
       auto node = finished_rollouts.top();
       finished_rollouts.pop();
 
       schedule::Itinerary itinerary;
-      while (node)
-      {
-        const auto route_it = route_map.insert({node, nullptr}).first;
-        if (!route_it->second)
-        {
-          route_it->second = std::make_shared<Route>(
-                Route::Implementation::make(node->route_from_parent));
-        }
+      auto routes = reconstruct_routes(node);
+      for (auto& r : routes)
+        itinerary.emplace_back(std::make_shared<Route>(std::move(r)));
 
-        itinerary.push_back(route_it->second);
-        node = node->parent;
-      }
-
-      std::reverse(itinerary.begin(), itinerary.end());
       alternatives.emplace_back(std::move(itinerary));
     }
-
-//    std::cout << "Unique routes: " << route_map.size() << std::endl;
 
     return alternatives;
   }
