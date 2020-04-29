@@ -1694,6 +1694,13 @@ SCENARIO("DP1 Graph")
       plan_thread.join();
       CHECK_FALSE(*result);
       CHECK(result->interrupted());
+
+      THEN("Plan can resume and find a solution")
+      {
+        interrupt_flag = false;
+        result->resume();
+        CHECK(*result);
+      }
     }
 
     WHEN("Obstacle 28->2")
