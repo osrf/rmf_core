@@ -45,25 +45,26 @@ struct Issues
   using BlockedNodes = std::unordered_set<std::shared_ptr<void>>;
   using BlockerMap = std::unordered_map<schedule::ParticipantId, BlockedNodes>;
 
-  static Issues empty()
-  {
-    return Issues(false, {});
-  }
-
-  Issues(
-    bool interrupted_,
-    BlockerMap blocked_nodes_)
-  : interrupted(interrupted_),
-    blocked_nodes(std::move(blocked_nodes_))
-  {
-    blockers.reserve(blocked_nodes.size());
-    for (const auto& b : blocked_nodes)
-      blockers.push_back(b.first);
-  }
-
-  bool interrupted;
   BlockerMap blocked_nodes;
-  std::vector<schedule::ParticipantId> blockers;
+  bool interrupted = false;
+};
+
+//==============================================================================
+struct State
+{
+  Conditions conditions;
+  Issues issues;
+
+  class Internal
+  {
+  public:
+
+    virtual rmf_utils::optional<double> cost_estimate() const = 0;
+
+    virtual ~Internal() = default;
+  };
+
+  rmf_utils::impl_ptr<Internal> internal;
 };
 
 //==============================================================================
@@ -72,14 +73,6 @@ struct Plan
   std::vector<Route> routes;
   std::vector<agv::Plan::Waypoint> waypoints;
   agv::Planner::Start start;
-};
-
-//==============================================================================
-struct Outcome
-{
-  Conditions conditions;
-  Issues issues;
-  rmf_utils::optional<Plan> plan;
 };
 
 //==============================================================================
@@ -102,10 +95,12 @@ public:
 
   virtual void update(const Cache& other) = 0;
 
-  virtual Outcome plan(
+  virtual State initiate(
     const std::vector<agv::Planner::Start>& starts,
     agv::Planner::Goal goal,
     agv::Planner::Options options) = 0;
+
+  virtual rmf_utils::optional<Plan> plan(State& state) = 0;
 
   virtual std::vector<schedule::Itinerary> rollout(
     const Duration span,

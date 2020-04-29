@@ -449,6 +449,25 @@ public:
     const StartSet& new_starts,
     Options new_options) const;
 
+  /// Resume planning if the planner was interrupted.
+  ///
+  /// \return true if a plan has been found, false otherwise.
+  bool resume();
+
+  /// Resume planning if the planner was interrupted.
+  ///
+  /// \param[in] interrupt_flag
+  ///   A new interrupt flag to listen to while planning.
+  ///
+  /// \return true if a plan has been found, false otherwise.
+  bool resume(const bool* interrupt_flag);
+
+  /// Get the best cost estimate of the current state of this planner result.
+  /// This is the value of the lowest f(n)=g(n)+h(n) in the planner's queue.
+  /// If the node queue of this planner result is empty, this will return a
+  /// nullopt.
+  rmf_utils::optional<double> cost_estimate() const;
+
   /// If this Plan is valid, this will return the Planner::Start that was used
   /// to produce it.
   const std::vector<Start>& get_starts() const;
@@ -480,7 +499,7 @@ public:
   /// This is a list of schedule Participants who blocked the planning effort.
   /// Blockers do not necessarily prevent a solution from being found, but they
   /// do prevent the optimal solution from being available.
-  const std::vector<schedule::ParticipantId>& blockers() const;
+  std::vector<schedule::ParticipantId> blockers() const;
 
   class Implementation;
 private:

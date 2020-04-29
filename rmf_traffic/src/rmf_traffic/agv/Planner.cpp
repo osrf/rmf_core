@@ -371,11 +371,15 @@ public:
 
   internal::planning::Plan plan;
 
-  static Plan make(internal::planning::Plan result)
+  static rmf_utils::optional<Plan> make(
+      rmf_utils::optional<internal::planning::Plan> result)
   {
+    if (!result)
+      return rmf_utils::nullopt;
+
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(result)});
+      Implementation{*std::move(result)});
 
     return plan;
   }
@@ -403,19 +407,15 @@ Planner::Result Planner::Result::Implementation::generate(
     Planner::Goal goal,
     Planner::Options options)
 {
-  auto outcome = cache_mgr.get()->plan(
-    {starts}, std::move(goal), std::move(options));
-
-  rmf_utils::optional<Plan> plan;
-  if (outcome.plan)
-    plan = Plan::Implementation::make(*std::move(outcome.plan));
+  auto cache_handle = cache_mgr.get();
+  auto state = cache_handle->initiate(starts, goal, options);
+  auto plan = Plan::Implementation::make(cache_handle->plan(state));
 
   Planner::Result result;
   result._pimpl = rmf_utils::make_impl<Implementation>(
     Implementation{
       std::move(cache_mgr),
-      std::move(outcome.conditions),
-      std::move(outcome.issues),
+      std::move(state),
       std::move(plan)
     });
 
@@ -542,8 +542,8 @@ Planner::Result Planner::Result::replan(const Start& new_start) const
   return Result::Implementation::generate(
     _pimpl->cache_mgr,
     {new_start},
-    _pimpl->conditions.goal,
-    _pimpl->conditions.options);
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
 }
 
 //==============================================================================
@@ -554,7 +554,7 @@ Planner::Result Planner::Result::replan(
   return Result::Implementation::generate(
     _pimpl->cache_mgr,
     {new_start},
-    _pimpl->conditions.goal,
+    _pimpl->state.conditions.goal,
     std::move(new_options));
 }
 
@@ -564,8 +564,8 @@ Planner::Result Planner::Result::replan(const StartSet& new_starts) const
   return Result::Implementation::generate(
     _pimpl->cache_mgr,
     new_starts,
-    _pimpl->conditions.goal,
-    _pimpl->conditions.options);
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
 }
 
 //==============================================================================
@@ -576,26 +576,51 @@ Planner::Result Planner::Result::replan(
   return Result::Implementation::generate(
     _pimpl->cache_mgr,
     new_starts,
-    _pimpl->conditions.goal,
+    _pimpl->state.conditions.goal,
     std::move(new_options));
+}
+
+//==============================================================================
+bool Planner::Result::resume()
+{
+  if (_pimpl->plan)
+    return true;
+
+  _pimpl->plan = Plan::Implementation::make(
+        _pimpl->cache_mgr.get()->plan(_pimpl->state));
+
+  return _pimpl->plan.has_value();
+}
+
+//==============================================================================
+bool Planner::Result::resume(const bool* interrupt_flag)
+{
+  _pimpl->state.conditions.options.interrupt_flag(interrupt_flag);
+  return resume();
+}
+
+//==============================================================================
+rmf_utils::optional<double> Planner::Result::cost_estimate() const
+{
+  return _pimpl->state.internal->cost_estimate();
 }
 
 //==============================================================================
 const std::vector<Planner::Start>& Planner::Result::get_starts() const
 {
-  return _pimpl->conditions.starts;
+  return _pimpl->state.conditions.starts;
 }
 
 //==============================================================================
 const Planner::Goal& Planner::Result::get_goal() const
 {
-  return _pimpl->conditions.goal;
+  return _pimpl->state.conditions.goal;
 }
 
 //==============================================================================
 const Planner::Options& Planner::Result::get_options() const
 {
-  return _pimpl->conditions.options;
+  return _pimpl->state.conditions.options;
 }
 
 //==============================================================================
@@ -607,13 +632,18 @@ const Planner::Configuration& Planner::Result::get_configuration() const
 //==============================================================================
 bool Planner::Result::interrupted() const
 {
-  return _pimpl->issues.interrupted;
+  return _pimpl->state.issues.interrupted;
 }
 
 //==============================================================================
-const std::vector<schedule::ParticipantId>& Planner::Result::blockers() const
+std::vector<schedule::ParticipantId> Planner::Result::blockers() const
 {
-  return _pimpl->issues.blockers;
+  std::vector<schedule::ParticipantId> blockers;
+  blockers.reserve(_pimpl->state.issues.blocked_nodes.size());
+  for (const auto& b : _pimpl->state.issues.blocked_nodes)
+    blockers.push_back(b.first);
+
+  return blockers;
 }
 
 //==============================================================================

@@ -56,8 +56,7 @@ class Planner::Result::Implementation
 public:
 
   rmf_traffic::internal::planning::CacheManager cache_mgr;
-  rmf_traffic::internal::planning::Conditions conditions;
-  rmf_traffic::internal::planning::Issues issues;
+  rmf_traffic::internal::planning::State state;
   rmf_utils::optional<Plan> plan;
 
   static Result generate(

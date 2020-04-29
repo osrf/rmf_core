@@ -48,7 +48,7 @@ std::vector<schedule::Itinerary> Rollout::expand(
     const Planner::Options& options) const
 {
   const auto& result = Planner::Result::Implementation::get(_pimpl->result);
-  const auto& blocker_map = result.issues.blocked_nodes;
+  const auto& blocker_map = result.state.issues.blocked_nodes;
 
   const auto block_it = blocker_map.find(blocker);
   if (block_it == blocker_map.end())
@@ -60,7 +60,7 @@ std::vector<schedule::Itinerary> Rollout::expand(
   return result.cache_mgr.get()->rollout(
         span,
         block_it->second,
-        result.conditions.goal,
+        result.state.conditions.goal,
         options);
 }
 
