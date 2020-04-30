@@ -218,35 +218,46 @@ int main()
   const rmf_traffic::agv::VehicleTraits traits(
       {0.7, 0.3}, {1.0, 0.45}, profile);
 
+  rmf_traffic::schedule::Database master_schedule;
+  auto p_A = rmf_traffic::schedule::make_participant(
+        description, master_schedule);
+
+  auto p_B = rmf_traffic::schedule::make_participant(
+        description, master_schedule);
+
   rmf_traffic::agv::Planner::Configuration config(graph, traits);
   auto start_time = std::chrono::steady_clock::now();
 
-  const auto start_1 = rmf_traffic::agv::Plan::Start(start_time, 5, 0.0);
-  const auto goal_1 = rmf_traffic::agv::Plan::Goal(3);
-  rmf_traffic::agv::Planner initial_planner(config, {nullptr});
-  const auto initial_plan = initial_planner.plan(start_1, goal_1);
-  assert(initial_plan);
-
-  rmf_traffic::schedule::Database db0;
-  auto p0 = rmf_traffic::schedule::make_participant(description, db0);
-
-  p0.set(initial_plan->get_itinerary());
-
-  rmf_traffic::agv::Planner responding_planner(
+  const auto start_B = rmf_traffic::agv::Plan::Start(start_time, 5, 0.0);
+  const auto goal_B = rmf_traffic::agv::Plan::Goal(3);
+  rmf_traffic::agv::Planner planner_B(
         config,
         {
           rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
-            db0, 10, profile)
+            master_schedule, p_B.id(), profile)
+        });
+
+  const auto initial_plan = planner_B.plan(start_B, goal_B);
+  assert(initial_plan);
+
+  p_B.set(initial_plan->get_itinerary());
+
+  rmf_traffic::agv::Planner planner_A(
+        config,
+        {
+          rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+            master_schedule, p_A.id(), profile)
         });
 
   // This will fail because the other participant is blocking it.
-  const auto start_2 = rmf_traffic::agv::Plan::Start(start_time, 3, 0.0);
-  const auto goal_2 = rmf_traffic::agv::Plan::Goal(7);
-  auto result = responding_planner.plan(start_2, goal_2);
-  assert(!result);
+  const auto start_A = rmf_traffic::agv::Plan::Start(start_time, 3, 0.0);
+  const auto goal_A = rmf_traffic::agv::Plan::Goal(7);
+  auto result_A = planner_A.plan(start_A, goal_A);
+  assert(!result_A);
 
-  rmf_traffic::agv::Rollout rollout(result);
-  auto alternatives = rollout.expand(0, std::chrono::seconds(30), {nullptr});
+  rmf_traffic::agv::Rollout rollout_A(result_A);
+  auto alternatives = rollout_A.expand(
+        p_B.id(), std::chrono::seconds(30), {nullptr});
 
   using JobQueue =
     std::priority_queue<
@@ -255,7 +266,7 @@ int main()
       PlannerJob::Compare
     >;
 
-  JobQueue job_queue;
+  JobQueue planning_job_queue;
 
   std::cout << "Alternatives:" << std::endl;
   for (const auto& alternative : alternatives)
@@ -268,14 +279,17 @@ int main()
     for (const auto& route : alternative)
       database.extend(p, {{r, route}}, v++);
 
-    job_queue.push(std::make_shared<PlannerJob>(
-                     std::move(database), config, start_1, goal_1));
+    planning_job_queue.push(std::make_shared<PlannerJob>(
+                     std::move(database), config, start_B, goal_B));
   }
 
   //^^^^^^^^^^^^^^^^^^^^ Done setting up the problem ^^^^^^^^^^^^^^^^^^^^^^^^^^^
   //============================================================================
 
-  std::cout << "Jobs: " << job_queue.size() << std::endl;
+
+  //============================================================================
+  //vvvvvvvvvvvvvvvvvvvvv TODO: Make this parallel vvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  std::cout << "Jobs: " << planning_job_queue.size() << std::endl;
 
   struct JobResult
   {
@@ -283,16 +297,15 @@ int main()
     rmf_traffic::agv::Plan plan;
   };
 
+  // Task 1: Find the best_result for the planning_job_queue
   rmf_utils::optional<JobResult> best_result;
 
   std::size_t finished_count = 0;
 
-  //============================================================================
-  //vvvvvvvvvvvvvvvvvvvvv TODO: Make this parallel vvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-  while (!job_queue.empty())
+  while (!planning_job_queue.empty())
   {
-    const auto top = job_queue.top();
-    job_queue.pop();
+    const auto top = planning_job_queue.top();
+    planning_job_queue.pop();
 
     bool interrupt_flag = false;
     auto future =
@@ -333,16 +346,22 @@ int main()
     {
       // This job could still produce a better plan than the current best, so
       // put it back in the job queue.
-      job_queue.push(top);
+      planning_job_queue.push(top);
     }
     else
     {
       std::cout << "(Discarded) Finished: " << ++finished_count << std::endl;
     }
   }
-  //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  //============================================================================
 
-  std::cout <<"\nBest plan:" << std::endl;
+  std::cout <<"\nBest plan for B:" << std::endl;
   print_itinerary(best_result->plan.get_itinerary());
+
+  // Task 2: Given the best_result from the planning_job_queue, add it to the
+  // schedule and find an itinerary for the other participant
+  p_B.set(best_result->plan.get_itinerary());
+  auto final_result_A = planner_A.plan(start_A, goal_A);
+  assert(final_result_A);
+  std::cout << "\nBest plan for A:" << std::endl;
+  print_itinerary(final_result_A->get_itinerary());
 }
