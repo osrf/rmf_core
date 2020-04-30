@@ -364,4 +364,5 @@ int main()
   assert(final_result_A);
   std::cout << "\nBest plan for A:" << std::endl;
   print_itinerary(final_result_A->get_itinerary());
+  p_A.set(final_result_A->get_itinerary());
 }
