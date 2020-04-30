@@ -303,7 +303,9 @@ public:
 
     version = new_version;
 
+    const bool had_itinerary = itinerary.has_value();
     bool formerly_successful = false;
+
     const auto negotiation_data = weak_negotiation_data.lock();
     if (forfeited && negotiation_data)
     {
@@ -311,17 +313,16 @@ public:
       negotiation_data->num_terminated_tables -=
         termination_factor(depth, negotiation_data->participants.size());
     }
-    else if (itinerary && descendants.empty())
+    else if (had_itinerary && descendants.empty())
     {
       // This means that this was a successful terminating node, so we should
       // make note of that to keep our bookkeeping correct.
       formerly_successful = true;
     }
 
-    const bool had_itinerary = itinerary.has_value();
-
     itinerary = convert_itinerary(new_itinerary);
     rejected = false;
+    forfeited = false;
 
     if (had_itinerary)
     {

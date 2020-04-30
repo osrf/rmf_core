@@ -1561,15 +1561,17 @@ public:
       // could have a unique identifier so we could both avoid redundant
       // expansions while still expanding a blockage out as far as the API
       // says that it will.
-      const auto merge_span = max_span/2.0;
+//      const auto merge_span = max_span/2.0;
 
       auto ancestor = original_node->parent;
       while (ancestor)
       {
         if (nodes.count(ancestor) > 0)
         {
-          const auto t = *ancestor->route_from_parent.trajectory.finish_time();
-          if (t - original_t < merge_span)
+          // TODO(MXG): Consider if we should account for the time difference
+          // between these conflicts so that we get a broader rollout.
+//          const auto t = *ancestor->route_from_parent.trajectory.finish_time();
+//          if (t - original_t < merge_span)
           {
             skip = true;
           }
@@ -1583,20 +1585,19 @@ public:
       if (skip)
         continue;
 
-//      std::cout << "Adding (" << original_node->current_cost
-//                << " : " << *original_node->waypoint
-//                << " : " << original_node->orientation << ")" << std::endl;
-//      rollout_queue.emplace(
       rollout_queue.emplace_back(
             RolloutEntry{
               original_t,
               original_node
             });
+
+      // TODO(MXG): Consider making this configurable, or making a more
+      // meaningful decision on how to prune the initial rollout queue.
+      if (rollout_queue.size() > 5)
+        break;
     }
 
     auto initial_rollout_queue = rollout_queue;
-    std::cout << "initial_rollout_queue: " << initial_rollout_queue.size()
-              << std::endl;
 
     std::unordered_map<NodePtr, ConstRoutePtr> route_map;
     std::vector<schedule::Itinerary> alternatives;

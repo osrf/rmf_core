@@ -162,7 +162,9 @@ public:
       queue.push_back(table);
     }
 
-    while (!queue.empty() && !negotiation->ready() && !negotiation->complete())
+    while (!queue.empty()
+           && !negotiation->ready()) // Use this to allow a quick Negotiation
+//           && !negotiation->complete()) // Use this to force a complete Negotiation
     {
       if (_print)
         std::cout << "Queue size: " << queue.size() << std::endl;
@@ -247,9 +249,9 @@ public:
           std::cout << " ]" << std::endl;
         }
         // We push front so that we revisit the rejected tables only if
-        // everything else fails.
-//        queue.push_front(parent);
-        queue.push_back(parent);
+        // everything else fails, or if we are forcing the Negotiation to
+        // completion.
+        queue.push_front(parent);
       }
 
       if (top->forfeited())
@@ -266,7 +268,6 @@ public:
       }
     }
 
-//    CHECK(negotiation->complete());
     if (!negotiation->ready())
       return rmf_utils::nullopt;
 

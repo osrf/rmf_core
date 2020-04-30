@@ -1933,6 +1933,7 @@ SCENARIO("A single loop with alcoves at each vertex")
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
   edges.insert({"CD", {{"C", "D"}, IsBidirectional(true)}});
+  edges.insert({"AD", {{"A", "D"}, IsBidirectional(true)}});
 
   edges.insert({"AA'", {{"A", "A'"}, IsBidirectional(true)}});
   edges.insert({"BB'", {{"B", "B'"}, IsBidirectional(true)}});
@@ -2136,7 +2137,7 @@ SCENARIO("A single loop with alcoves at each vertex")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).print().solve();
+        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2196,13 +2197,13 @@ SCENARIO("fan-in-fan-out bottleneck")
 
   // Vertices
   vertices.insert({"A", {{-6.0, 6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{3.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{-3.0, 6.0}, IsHoldingSpot(true)}});
   vertices.insert({"C", {{0.0, 6.0}, IsHoldingSpot(true)}});
   vertices.insert({"D", {{3.0, 6.0}, IsHoldingSpot(true)}});
   vertices.insert({"E", {{6.0, 6.0}, IsHoldingSpot(true)}});
 
   vertices.insert({"A'", {{-6.0, 3.0}, IsHoldingSpot(false)}});
-  vertices.insert({"B'", {{3.0, 3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B'", {{-3.0, 3.0}, IsHoldingSpot(false)}});
   vertices.insert({"C'", {{0.0, 3.0}, IsHoldingSpot(false)}});
   vertices.insert({"D'", {{3.0, 3.0}, IsHoldingSpot(false)}});
   vertices.insert({"E'", {{6.0, 3.0}, IsHoldingSpot(false)}});
@@ -2210,13 +2211,13 @@ SCENARIO("fan-in-fan-out bottleneck")
   vertices.insert({"F", {{0.0, 0.0}, IsHoldingSpot(false)}});
 
   vertices.insert({"V'", {{-6.0, -3.0}, IsHoldingSpot(false)}});
-  vertices.insert({"W'", {{3.0, -3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"W'", {{-3.0, -3.0}, IsHoldingSpot(false)}});
   vertices.insert({"X'", {{0.0, -3.0}, IsHoldingSpot(false)}});
   vertices.insert({"Y'", {{3.0, -3.0}, IsHoldingSpot(false)}});
   vertices.insert({"Z'", {{6.0, -3.0}, IsHoldingSpot(false)}});
 
   vertices.insert({"V", {{-6.0, -6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"W", {{3.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"W", {{-3.0, -6.0}, IsHoldingSpot(true)}});
   vertices.insert({"X", {{0.0, -6.0}, IsHoldingSpot(true)}});
   vertices.insert({"Y", {{3.0, -6.0}, IsHoldingSpot(true)}});
   vertices.insert({"Z", {{6.0, -6.0}, IsHoldingSpot(true)}});
@@ -2396,7 +2397,7 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2552,7 +2553,7 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2614,7 +2615,7 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
