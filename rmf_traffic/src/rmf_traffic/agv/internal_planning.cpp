@@ -1595,9 +1595,6 @@ public:
     }
 
     auto initial_rollout_queue = rollout_queue;
-    std::cout << "initial_rollout_queue: " << initial_rollout_queue.size()
-              << std::endl;
-
     std::unordered_map<NodePtr, ConstRoutePtr> route_map;
     std::vector<schedule::Itinerary> alternatives;
 

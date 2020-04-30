@@ -1697,8 +1697,8 @@ SCENARIO("DP1 Graph")
 
       THEN("Plan can resume and find a solution")
       {
-        interrupt_flag = false;
-        result->resume();
+        bool new_interrupt_flag = false;
+        result->resume(&new_interrupt_flag);
         CHECK(*result);
       }
     }
