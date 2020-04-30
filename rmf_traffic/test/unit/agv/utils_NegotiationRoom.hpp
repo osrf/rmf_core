@@ -48,6 +48,9 @@ inline void print_route(
   for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
   {
     const auto& wp = *it;
+    if (wp.velocity().norm() > 1e-3)
+      continue;
+
     const auto rel_time = wp.time() - start_time;
     std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
               << wp.position().transpose() << ") --> ";
@@ -120,7 +123,7 @@ public:
     const rmf_traffic::schedule::Viewer& viewer,
     Intentions intentions,
     const bool print_failures_ = false)
-  : negotiators(make_negotiations(intentions)),
+  : negotiators(make_negotiators(intentions)),
     negotiation(std::make_shared<Negotiation>(
         viewer, get_participants(intentions))),
     _print(print_failures_)
@@ -134,8 +137,8 @@ public:
       return true;
 
     // Give up we have already attempted more than 3 submissions
-    if (table->version() && (*table->version() > 2))
-      return true;
+//    if (table->version() && (*table->version() > 2))
+//      return true;
 
     auto ancestor = table->parent();
     while (ancestor)
@@ -181,15 +184,18 @@ public:
         continue;
       }
 
+      auto& negotiator = negotiators.at(top->participant());
+      std::vector<rmf_traffic::schedule::ParticipantId> blockers;
+
       if (_print)
       {
         std::cout << "Responding to [";
         for (const auto p : top->sequence())
           std::cout << " " << p;
         std::cout << " ]" << std::endl;
-      }
 
-      auto& negotiator = negotiators.at(top->participant());
+        negotiator.debug_print = true;
+      }
 
       bool interrupt = false;
       auto result = std::async(
@@ -197,7 +203,8 @@ public:
             [&]()
       {
         negotiator.respond(
-              top, Responder(negotiation, top->sequence()), &interrupt);
+              top, Responder(negotiation, top->sequence(), &blockers),
+              &interrupt);
       });
 
       using namespace std::chrono_literals;
@@ -241,7 +248,8 @@ public:
         }
         // We push front so that we revisit the rejected tables only if
         // everything else fails.
-        queue.push_front(parent);
+//        queue.push_front(parent);
+        queue.push_back(parent);
       }
 
       if (top->forfeited())
@@ -251,7 +259,9 @@ public:
           std::cout << "Forfeit given for [";
           for (const auto p : top->sequence())
             std::cout << " " << p;
-          std::cout << " ]" << std::endl;
+          std::cout << " ] with the following blockers:";
+          for (const auto p : blockers)
+            std::cout << " " << p << std::endl;
         }
       }
     }
@@ -264,7 +274,7 @@ public:
       rmf_traffic::schedule::QuickestFinishEvaluator())->proposal();
   }
 
-  static std::unordered_map<ParticipantId, Negotiator> make_negotiations(
+  static std::unordered_map<ParticipantId, Negotiator> make_negotiators(
     const std::unordered_map<ParticipantId, Intention>& intentions)
   {
     std::unordered_map<ParticipantId, Negotiator> negotiators;

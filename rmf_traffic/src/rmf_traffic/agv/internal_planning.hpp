@@ -42,7 +42,7 @@ struct Conditions
 //==============================================================================
 struct Issues
 {
-  using BlockedNodes = std::unordered_set<std::shared_ptr<void>>;
+  using BlockedNodes = std::unordered_map<std::shared_ptr<void>, Time>;
   using BlockerMap = std::unordered_map<schedule::ParticipantId, BlockedNodes>;
 
   BlockerMap blocked_nodes;

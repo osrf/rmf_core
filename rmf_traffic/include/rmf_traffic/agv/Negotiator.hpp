@@ -32,6 +32,8 @@ class SimpleNegotiator : public schedule::Negotiator
 {
 public:
 
+  bool debug_print = false;
+
   /// A class to specify user-defined options for the Negotiator.
   class Options
   {

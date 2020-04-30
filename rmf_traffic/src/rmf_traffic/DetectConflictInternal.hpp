@@ -42,7 +42,7 @@ public:
 
   using Conflicts = std::vector<Conflict>;
 
-  static bool between(
+  static rmf_utils::optional<Time> between(
     const Profile& profile_a,
     const Trajectory& trajectory_a,
     const Profile& profile_b,

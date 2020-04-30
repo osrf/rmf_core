@@ -51,7 +51,7 @@ public:
   ///
   /// \return true if a conflict exists between the trajectories, false
   /// otherwise.
-  static bool between(
+  static rmf_utils::optional<rmf_traffic::Time> between(
     const Profile& profile_a,
     const Trajectory& trajectory_a,
     const Profile& profile_b,

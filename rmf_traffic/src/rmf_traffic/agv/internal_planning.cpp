@@ -923,7 +923,16 @@ struct DifferentialDriveExpander
 
       if (conflict)
       {
-        _context.blockers[*conflict].insert(parent);
+        auto time_it =
+            _context.blockers[conflict->participant]
+            .insert({parent, conflict->time});
+
+        if (!time_it.second)
+        {
+          time_it.first->second =
+              std::max(time_it.first->second, conflict->time);
+        }
+
         return false;
       }
     }
@@ -1508,6 +1517,19 @@ public:
   {
     Time initial_time;
     NodePtr node;
+
+    rmf_traffic::Duration span() const
+    {
+      return *node->route_from_parent.trajectory.finish_time() - initial_time;
+    }
+
+    struct Compare
+    {
+      bool operator()(const RolloutEntry& a, const RolloutEntry& b)
+      {
+        return b.span() < a.span();
+      }
+    };
   };
 
   std::vector<schedule::Itinerary> rollout(
@@ -1516,13 +1538,22 @@ public:
       const agv::Planner::Goal& goal,
       const agv::Planner::Options& options) final
   {
+//    using RolloutQueue =
+//      std::priority_queue<
+//        RolloutEntry,
+//        std::vector<RolloutEntry>,
+//        RolloutEntry::Compare
+//      >;
+
+//    RolloutQueue rollout_queue;
     std::vector<RolloutEntry> rollout_queue;
     for (const auto& void_node : nodes)
     {
       bool skip = false;
-      const auto original_node = std::static_pointer_cast<Node>(void_node);
-      const auto original_t =
-          *original_node->route_from_parent.trajectory.finish_time();
+      const auto original_node =
+          std::static_pointer_cast<Node>(void_node.first);
+
+      const auto original_t = void_node.second;
 
       // TODO(MXG): This filtering approach is not reliable as it could be.
       // Certain blockages will only be expanded half as far past the blockage
@@ -1555,12 +1586,17 @@ public:
 //      std::cout << "Adding (" << original_node->current_cost
 //                << " : " << *original_node->waypoint
 //                << " : " << original_node->orientation << ")" << std::endl;
+//      rollout_queue.emplace(
       rollout_queue.emplace_back(
             RolloutEntry{
               original_t,
               original_node
             });
     }
+
+    auto initial_rollout_queue = rollout_queue;
+    std::cout << "initial_rollout_queue: " << initial_rollout_queue.size()
+              << std::endl;
 
     std::unordered_map<NodePtr, ConstRoutePtr> route_map;
     std::vector<schedule::Itinerary> alternatives;
@@ -1576,6 +1612,8 @@ public:
 
     while (!rollout_queue.empty() && !(interrupt_flag && *interrupt_flag))
     {
+//      const auto top = rollout_queue.top();
+//      rollout_queue.pop();
       const auto top = rollout_queue.back();
       rollout_queue.pop_back();
 
@@ -1598,7 +1636,8 @@ public:
       expander.expand(top.node, search_queue);
       while (!search_queue.empty())
       {
-        rollout_queue.push_back(
+//        rollout_queue.emplace(
+        rollout_queue.emplace_back(
           RolloutEntry{
             top.initial_time,
             search_queue.top()
@@ -1746,7 +1785,7 @@ public:
           std::move(options));
 
     auto context = make_context(
-          debugger->goal_, debugger->options_, debugger->blocked_nodes_, true);
+          debugger->goal_, debugger->options_, debugger->blocked_nodes_, false);
 
     DifferentialDriveExpander expander(context);
 
@@ -1772,7 +1811,7 @@ public:
     debugger.expanded_nodes_.push_back(debugger.convert(top));
 
     auto context = make_context(
-          debugger.goal_, debugger.options_, debugger.blocked_nodes_, true);
+          debugger.goal_, debugger.options_, debugger.blocked_nodes_, false);
 
     DifferentialDriveExpander expander(context);
     if (expander.is_finished(top))

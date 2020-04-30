@@ -118,6 +118,60 @@ bool contains(
 {
   return std::find(ids.begin(), ids.end(), id) != ids.end();
 }
+
+//==============================================================================
+inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
+{
+  std::cout << "(start) --> ";
+  std::cout << "(" << 0.0 << "; "
+            << route.trajectory().front().position().transpose()
+            << ") --> ";
+
+  return *route.trajectory().start_time();
+}
+
+//==============================================================================
+inline void print_route(
+    const rmf_traffic::Route& route,
+    const rmf_traffic::Time start_time)
+{
+  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
+  {
+    const auto& wp = *it;
+    if (wp.velocity().norm() > 1e-3)
+      continue;
+
+    const auto rel_time = wp.time() - start_time;
+    std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
+              << wp.position().transpose() << ") --> ";
+  }
+}
+
+//==============================================================================
+inline void print_itinerary(
+    const rmf_traffic::schedule::Itinerary& itinerary)
+{
+  auto start_time = print_start(*itinerary.front());
+  for (const auto& r : itinerary)
+    print_route(*r, start_time);
+
+  std::cout << "(end)\n" << std::endl;
+}
+
+//==============================================================================
+inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
+{
+  auto start_time = print_start(itinerary.front());
+  for (const auto& r : itinerary)
+    print_route(r, start_time);
+
+  std::cout << "(end)\n" << std::endl;
+}
+
+
+////==============================================================================
+//struct
+
 } // anonymous namespace
 
 //==============================================================================
@@ -153,8 +207,24 @@ void SimpleNegotiator::respond(
     options.validator(validator);
     const auto plan = _pimpl->planner.plan(
           _pimpl->starts, _pimpl->goal, options);
+
     if (plan)
+    {
+      if (debug_print)
+      {
+        std::cout << "Submitting:\n";
+        print_itinerary(plan->get_itinerary());
+      }
       return responder.submit(plan->get_itinerary());
+    }
+
+    if (debug_print)
+    {
+      std::cout << "Failed to find a plan. Blocked by:";
+      for (const auto p : plan.blockers())
+        std::cout << " " << p;
+      std::cout << std::endl;
+    }
 
     const auto& blockers = plan.blockers();
     if (!best_blockers)
@@ -188,24 +258,46 @@ void SimpleNegotiator::respond(
       continue;
     }
 
+    if (debug_print)
+    {
+      std::cout << "Negotiation parent ["
+                << parent_id << "] is a blocker" << std::endl;
+    }
+
     validator->mask(parent_id);
     options.interrupt_flag(nullptr);
     options.validator(validator);
+    const auto old_holding_time = options.minimum_holding_time();
+    options.minimum_holding_time(std::chrono::seconds(5));
 
     Rollout rollout(plan);
     // TODO(MXG): Make the span configurable
-    alternatives = rollout.expand(parent_id, std::chrono::seconds(5), options);
+//    alternatives = rollout.expand(parent_id, std::chrono::seconds(30), options);
+    alternatives = rollout.expand(parent_id, std::chrono::seconds(15), options);
     if (alternatives->empty())
     {
       alternatives = rmf_utils::nullopt;
     }
     else
     {
+      if (debug_print)
+      {
+        std::cout << "Rolled out [" << alternatives->size() << "] alternatives"
+                  << std::endl;
+      }
+
       if (alternatives->size() > 10)
         alternatives->resize(10);
+
+      if (debug_print)
+      {
+        for (const auto& itinerary : *alternatives)
+          print_itinerary(itinerary);
+      }
     }
 
     options.interrupt_flag(interrupt_flag);
+    options.minimum_holding_time(old_holding_time);
   }
 
   if (alternatives)

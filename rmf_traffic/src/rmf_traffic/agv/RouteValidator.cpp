@@ -18,10 +18,6 @@
 #include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
-
-#include <iostream>
-
-
 namespace rmf_traffic {
 namespace agv {
 
@@ -82,7 +78,7 @@ schedule::ParticipantId ScheduleRouteValidator::participant() const
 }
 
 //==============================================================================
-rmf_utils::optional<schedule::ParticipantId>
+rmf_utils::optional<RouteValidator::Conflict>
 ScheduleRouteValidator::find_conflict(const Route& route) const
 {
   _pimpl->query.spacetime().timespan()->clear_maps();
@@ -100,12 +96,14 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
     if (v.participant == _pimpl->participant)
       continue;
 
-    if (rmf_traffic::DetectConflict::between(
+    if (const auto time = rmf_traffic::DetectConflict::between(
         _pimpl->profile,
         route.trajectory(),
         v.description.profile(),
         v.route.trajectory()))
-      return v.participant;
+    {
+      return Conflict{v.participant, *time};
+    }
   }
 
   return rmf_utils::nullopt;
@@ -279,7 +277,7 @@ bool NegotiatingRouteValidator::end() const
 }
 
 //==============================================================================
-rmf_utils::optional<schedule::ParticipantId>
+rmf_utils::optional<RouteValidator::Conflict>
 NegotiatingRouteValidator::find_conflict(const Route& route) const
 {
   // TODO(MXG): Consider if we can reduce the amount of heap allocation that's
@@ -299,13 +297,13 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 
     // NOTE(MXG): There is no need to check the map, because the query will
     // filter out all itineraries that are not on this map.
-    if (rmf_traffic::DetectConflict::between(
+    if (const auto time = rmf_traffic::DetectConflict::between(
         _pimpl->data->profile,
         route.trajectory(),
         v.description.profile(),
         v.route.trajectory()))
     {
-      return v.participant;
+      return Conflict{v.participant, *time};
     }
   }
 
@@ -345,13 +343,13 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
           last_wp.position(),
           Eigen::Vector3d::Zero());
 
-    if (rmf_traffic::DetectConflict::between(
+    if (const auto time = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
           description->profile(),
           end_cap))
     {
-      return r.participant;
+      return Conflict{r.participant, *time};
     }
   }
 

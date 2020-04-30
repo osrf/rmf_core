@@ -406,7 +406,7 @@ Time compute_time(
 } // anonymous namespace
 
 //==============================================================================
-bool DetectConflict::between(
+rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
   const Profile& profile_a,
   const Trajectory& trajectory_a,
   const Profile& profile_b,
@@ -481,7 +481,7 @@ bool close_start(
 } // anonymous namespace
 
 //==============================================================================
-bool DetectConflict::Implementation::between(
+rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   const Profile& input_profile_a,
   const Trajectory& trajectory_a,
   const Profile& input_profile_b,
@@ -503,7 +503,7 @@ bool DetectConflict::Implementation::between(
   // Return early if there is no geometry in the profiles
   // TODO(MXG): Should this produce an exception? Is this an okay scenario?
   if (!profile_a.footprint && !profile_b.footprint)
-    return false;
+    return rmf_utils::nullopt;
 
   // Return early if either profile is missing both a vicinity and a footprint.
   // NOTE(MXG): Since convert_profile will promote the vicinity to have the same
@@ -511,11 +511,11 @@ bool DetectConflict::Implementation::between(
   // a vicinity doesn't exist is the same as checking that both the vicinity and
   // footprint doesn't exist.
   if (!profile_a.vicinity || !profile_b.vicinity)
-    return false;
+    return rmf_utils::nullopt;
 
   // Return early if there is no time overlap between the trajectories
   if (!have_time_overlap(trajectory_a, trajectory_b))
-    return false;
+    return rmf_utils::nullopt;
 
   Trajectory::const_iterator a_it;
   Trajectory::const_iterator b_it;
@@ -572,13 +572,11 @@ bool DetectConflict::Implementation::between(
             *profile_a.footprint, motion_a,
             *profile_b.footprint, motion_b, request))
         {
+          const auto time = compute_time(*collision, start_time, finish_time);
           if (!output_conflicts)
-            return true;
+            return time;
 
-          output_conflicts->emplace_back(
-            Conflict{
-              a_it, b_it, compute_time(*collision, start_time, finish_time)
-            });
+          output_conflicts->emplace_back(Conflict{a_it, b_it, time});
         }
       }
     }
@@ -593,13 +591,11 @@ bool DetectConflict::Implementation::between(
             *profile_a.footprint, motion_a,
             *profile_b.vicinity, motion_b, request))
         {
+          const auto time = compute_time(*collision, start_time, finish_time);
           if (!output_conflicts)
-            return true;
+            return time;
 
-          output_conflicts->emplace_back(
-            Conflict{
-              a_it, b_it, compute_time(*collision, start_time, finish_time)
-            });
+          output_conflicts->emplace_back(Conflict{a_it, b_it, time});
         }
       }
 
@@ -609,13 +605,11 @@ bool DetectConflict::Implementation::between(
             *profile_a.vicinity, motion_a,
             *profile_b.footprint, motion_b, request))
         {
+          const auto time = compute_time(*collision, start_time, finish_time);
           if (!output_conflicts)
-            return true;
+            return time;
 
-          output_conflicts->emplace_back(
-            Conflict{
-              a_it, b_it, compute_time(*collision, start_time, finish_time)
-            });
+          output_conflicts->emplace_back(Conflict{a_it, b_it, time});
         }
       }
     }
@@ -641,9 +635,9 @@ bool DetectConflict::Implementation::between(
   }
 
   if (!output_conflicts)
-    return false;
+    return rmf_utils::nullopt;
 
-  return !output_conflicts->empty();
+  return output_conflicts->front().time;
 }
 
 namespace internal {

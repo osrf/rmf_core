@@ -41,7 +41,7 @@ public:
     // Do nothing
   }
 
-  rmf_utils::optional<ParticipantId> find_conflict(
+  rmf_utils::optional<Conflict> find_conflict(
       const Route& route) const final
   {
     for (const auto& blocking_route : _other_itinerary)
@@ -52,12 +52,12 @@ public:
       if (blocking_route->trajectory().size() < 2)
         continue;
 
-      if (rmf_traffic::DetectConflict::between(
+      if (const auto time = rmf_traffic::DetectConflict::between(
             _profile,
             route.trajectory(),
             _other_profile,
             blocking_route->trajectory()))
-        return _other_participant;
+        return Conflict{_other_participant, *time};
     }
 
     return rmf_utils::nullopt;

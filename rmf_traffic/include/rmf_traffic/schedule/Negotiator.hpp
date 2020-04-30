@@ -113,10 +113,15 @@ public:
   ///
   /// \param[in] to_accommodate
   ///   The participants that will be accommodated by the response
+  ///
+  /// \param[in] report_blockers
+  ///   If the blockers should be reported when a forfeit is given, provide a
+  ///   pointer to a vector of ParticipantIds.
   SimpleResponder(
     std::shared_ptr<schedule::Negotiation> negotiation,
     schedule::ParticipantId for_participant,
-    std::vector<schedule::ParticipantId> to_accommodate);
+    std::vector<schedule::ParticipantId> to_accommodate,
+    std::vector<schedule::ParticipantId>* report_blockers = nullptr);
 
   /// Constructor
   ///
@@ -125,9 +130,14 @@ public:
   ///
   /// \param[in] table_sequence
   ///   The sequence that identifies what table this responder should submit to
+  ///
+  /// \param[in] report_blockers
+  ///   If the blockers should be reported when a forfeit is given, provide a
+  ///   pointer to a vector of ParticipantIds.
   SimpleResponder(
     std::shared_ptr<schedule::Negotiation> negotiation,
-    std::vector<schedule::ParticipantId> table_sequence);
+    std::vector<schedule::ParticipantId> table_sequence,
+    std::vector<schedule::ParticipantId>* report_blockers = nullptr);
 
   // Documentation inherited
   // NOTE: approval_callback does not get used
@@ -141,6 +151,10 @@ public:
 
   // Documentation inherited
   void forfeit(const std::vector<ParticipantId>& blockers) const final;
+
+  /// Get the blockers that were reported by the Negotiator, if a forfeit
+  /// was given.
+  const std::vector<ParticipantId>& blockers() const;
 
   class Implementation;
 private:

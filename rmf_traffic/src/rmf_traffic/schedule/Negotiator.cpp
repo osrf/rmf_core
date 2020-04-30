@@ -29,18 +29,21 @@ public:
   schedule::ParticipantId for_participant;
   std::vector<schedule::ParticipantId> to_accommodate;
 
+  std::vector<schedule::ParticipantId>* report_blockers;
 };
 
 //==============================================================================
 SimpleResponder::SimpleResponder(
   std::shared_ptr<schedule::Negotiation> negotiation,
   schedule::ParticipantId for_participant,
-  std::vector<schedule::ParticipantId> to_accommodate)
+  std::vector<schedule::ParticipantId> to_accommodate,
+  std::vector<schedule::ParticipantId>* report_blockers)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(negotiation),
         for_participant,
-        std::move(to_accommodate)
+        std::move(to_accommodate),
+        report_blockers
       }))
 {
   // Do nothing
@@ -49,12 +52,14 @@ SimpleResponder::SimpleResponder(
 //==============================================================================
 SimpleResponder::SimpleResponder(
   std::shared_ptr<schedule::Negotiation> negotiation,
-  std::vector<schedule::ParticipantId> sequence)
+  std::vector<schedule::ParticipantId> sequence,
+  std::vector<schedule::ParticipantId>* report_blockers)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(negotiation),
         sequence.back(),
-        std::move(sequence)
+        std::move(sequence),
+        report_blockers
       }))
 {
   _pimpl->to_accommodate.pop_back();
@@ -85,8 +90,11 @@ void SimpleResponder::reject(
 }
 
 //==============================================================================
-void SimpleResponder::forfeit(const std::vector<ParticipantId>&) const
+void SimpleResponder::forfeit(const std::vector<ParticipantId>& blockers) const
 {
+  if (_pimpl->report_blockers)
+    *_pimpl->report_blockers = blockers;
+
   const auto table = _pimpl->negotiation->table(
         _pimpl->for_participant, _pimpl->to_accommodate);
 

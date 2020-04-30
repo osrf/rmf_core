@@ -416,12 +416,11 @@ SCENARIO("Multi-participant negotiation")
   intentions.insert({0, NegotiationRoom::Intention{
         {time, 1, 0.0}, 3, configuration}});
   intentions.insert({1, NegotiationRoom::Intention{
-        {time, 4, M_PI/2.0}, 0, configuration}});
+        {time, 0, M_PI/2.0}, 4, configuration}});
   intentions.insert({2, NegotiationRoom::Intention{
         {time, 3, 0.0}, 1, configuration}});
 
-
-  auto proposal = NegotiationRoom(database, intentions).solve();
+  auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
   REQUIRE(proposal);
 
   //print_proposal(*proposal);
@@ -429,6 +428,7 @@ SCENARIO("Multi-participant negotiation")
 
 // Helper Definitions
 //==============================================================================
+namespace {
 using VertexId = std::string;
 using IsHoldingSpot = bool;
 using VertexMap = std::unordered_map<VertexId, std::pair<Eigen::Vector2d,
@@ -451,12 +451,13 @@ struct ParticipantConfig
   const rmf_traffic::agv::VehicleTraits traits;
   const rmf_traffic::schedule::ParticipantDescription description;
 };
+}
 
 // Helper Functions
 //==============================================================================
 // Makes graph using text ids, and returns bookkeeping that maps ids to indices
 // TODO(BH): Perhaps some sort of book keeping can be introduced in Graph itself?
-std::pair<rmf_traffic::agv::Graph, VertexIdtoIdxMap>
+inline std::pair<rmf_traffic::agv::Graph, VertexIdtoIdxMap>
 generate_test_graph_data(std::string map_name, VertexMap vertices,
   EdgeMap edges)
 {
@@ -489,7 +490,7 @@ generate_test_graph_data(std::string map_name, VertexMap vertices,
       vertex_id_to_idx);
 }
 
-rmf_utils::optional<rmf_traffic::schedule::Itinerary> get_participant_itinerary(
+inline rmf_utils::optional<rmf_traffic::schedule::Itinerary> get_participant_itinerary(
   rmf_traffic::schedule::Negotiation::Proposal proposal,
   rmf_traffic::schedule::ParticipantId participant_id)
 {
@@ -2135,7 +2136,7 @@ SCENARIO("A single loop with alcoves at each vertex")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions).print().solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
