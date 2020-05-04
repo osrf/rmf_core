@@ -377,15 +377,14 @@ SCENARIO("Multi-participant negotiation")
   graph.add_waypoint(test_map_name, { 0.0, -5.0}, true); // 0
   graph.add_waypoint(test_map_name, {-5.0, 0.0}, true); // 1
   graph.add_waypoint(test_map_name, { 0.0, 0.0}, true); // 2
-//  graph.add_waypoint(test_map_name, { 5.0,  0.0}, true); // 3 // TODO(MXG): This edge case needs to be dealt with
-  graph.add_waypoint(test_map_name, { 14.0, 0.0}, true); // 3
+  graph.add_waypoint(test_map_name, { 5.0,  0.0}, true); // 3
   graph.add_waypoint(test_map_name, { 0.0, 5.0}, true); // 4
 
   /*
    *         4
    *         |
    *         |
-   *   1-----2-------3
+   *   1-----2-----3
    *         |
    *         |
    *         0
@@ -1387,16 +1386,12 @@ SCENARIO("A single lane with an alcove holding space")
       THEN("Valid Proposal is found")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
-        // TODO(MXG): This test current fails because it is an edge case where
-        // participant 0 cannot move fast enough to accommodate the ideal
-        // itinerary of participant 1, and participant 1 cannot move fast enough
-        // to accommodate the ideal itinerary of participant 0.
-        //REQUIRE(proposal);
+        REQUIRE(proposal);
 
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
       }
     }
 
@@ -1580,52 +1575,7 @@ SCENARIO("A single lane with an alcove holding space")
           vertices["C"].first);
       }
     }
-
-    WHEN("Schedule:[p1(A->D)], Negotiation:[p0(D->A)]")
-    {
-      const auto time = std::chrono::steady_clock::now();
-      rmf_traffic::agv::Planner::Configuration p0_planner_config{graph,
-        a0_config.traits};
-      rmf_traffic::agv::Planner::Configuration p1_planner_config{graph,
-        a1_config.traits};
-
-      rmf_traffic::agv::Planner a1_planner{
-        p1_planner_config,
-        rmf_traffic::agv::Planner::Options{nullptr, 1s} // No route validator, holding time 1s
-      };
-
-      const auto a1_plan = a1_planner.plan(
-        {time, vertex_id_to_idx["A"], 0.0},
-        {vertex_id_to_idx["D"]}
-      );
-
-      p1.set(a1_plan->get_itinerary());
-
-      NegotiationRoom::Intentions intentions;
-      intentions.insert({
-          p0.id(),
-          NegotiationRoom::Intention{
-            {time, vertex_id_to_idx["D"], 0.0},  // Time, Start Vertex, Initial Orientation
-            vertex_id_to_idx["A"], // Goal Vertex
-            p0_planner_config // Planner Configuration ( Preset )
-          }
-        });
-
-      THEN("Valid Proposal is found")
-      {
-        // TODO(MXG): This test current fails because it is an edge case where
-        // participant 0 cannot move fast enough to accommodate the ideal
-        // itinerary of participant 1, and participant 1 cannot move fast enough
-        // to accommodate the ideal itinerary of participant 0.
-        auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
-
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
-      }
-    }
   }
-
 }
 
 SCENARIO("A single lane with a alternate one way path")
@@ -1750,13 +1700,15 @@ SCENARIO("A single lane with a alternate one way path")
         // participant 0 cannot move fast enough to accommodate the ideal
         // itinerary of participant 1, and participant 1 cannot move fast enough
         // to accommodate the ideal itinerary of participant 0.
+        std::cout << " %%%%% beggining tough case" << std::endl;
         auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
+        std::cout << " %%%%% finished tough case" << std::endl;
+        REQUIRE(proposal);
 
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
       }
     }
   }
@@ -1775,7 +1727,7 @@ SCENARIO("A single lane with a alternate two way path")
   /*
    *       test_single_lane_with_alternative_two_way_path
    *
-   *                   E(H)<------> F(H)
+   *                   E(H) <------> F(H)
    *                   ^             ^
    *                   | 3           | 3
    *                   |             |
@@ -1881,17 +1833,13 @@ SCENARIO("A single lane with a alternate two way path")
 
       THEN("Valid Proposal is found")
       {
-        // TODO(MXG): This test current fails because it is an edge case where
-        // participant 0 cannot move fast enough to accommodate the ideal
-        // itinerary of participant 1, and participant 1 cannot move fast enough
-        // to accommodate the ideal itinerary of participant 0.
         auto proposal = NegotiationRoom(database, intentions).solve();
-        //REQUIRE(proposal);
+        REQUIRE(proposal);
 
-        //auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        //auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        //REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
-        //REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
       }
     }
   }
