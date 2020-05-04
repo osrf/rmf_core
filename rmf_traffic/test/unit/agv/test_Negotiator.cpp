@@ -949,9 +949,6 @@ SCENARIO("A single lane, limited holding spaces")
     auto p2 = rmf_traffic::schedule::make_participant(a2_config.description,
         database);
 
-    // TODO(BH): A is not a holding area, however, 3 seconds after start time, the p0 is still in A
-    // It is technically spinning in place and thus not "holding": but is this cheating?
-    // I would expect p0 to move to B and wait there instead.
     WHEN("Schedule:[], Negotiation:[pO(A->C), p2(B->D)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -1696,13 +1693,7 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
-        // TODO(MXG): This test current fails because it is an edge case where
-        // participant 0 cannot move fast enough to accommodate the ideal
-        // itinerary of participant 1, and participant 1 cannot move fast enough
-        // to accommodate the ideal itinerary of participant 0.
-        std::cout << " %%%%% beggining tough case" << std::endl;
         auto proposal = NegotiationRoom(database, intentions).solve();
-        std::cout << " %%%%% finished tough case" << std::endl;
         REQUIRE(proposal);
 
         auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
