@@ -32,8 +32,6 @@ class SimpleNegotiator : public schedule::Negotiator
 {
 public:
 
-  bool debug_print = false;
-
   /// A class to specify user-defined options for the Negotiator.
   class Options
   {
@@ -108,6 +106,7 @@ public:
   // negotiator rejects our proposal?
 
   class Implementation;
+  class Debug;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };

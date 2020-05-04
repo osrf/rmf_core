@@ -20,8 +20,63 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
 
 #include <rmf_traffic/agv/debug/Planner.hpp>
+
+Eigen::Vector3d get_location(
+    const rmf_traffic::agv::Plan::Start& start,
+    const rmf_traffic::agv::Graph& graph)
+{
+  if (start.location())
+  {
+    const auto& p = *start.location();
+    return {p[0], p[1], start.orientation()};
+  }
+
+  const auto& p = graph.get_waypoint(start.waypoint()).get_location();
+  return {p[0], p[1], start.orientation()};
+}
+
+void check_start_compatibility(
+    const rmf_traffic::agv::Graph& graph_a,
+    const rmf_traffic::Profile& profile_a,
+    const std::vector<rmf_traffic::agv::Plan::Start>& a_starts,
+    const rmf_traffic::agv::Graph& graph_b,
+    const rmf_traffic::Profile& profile_b,
+    const std::vector<rmf_traffic::agv::Plan::Start>& b_starts)
+{
+  std::cout << "a_starts: " << a_starts.size()
+            << " | b_starts: " << b_starts.size()
+            << std::endl;
+
+  using namespace std::chrono_literals;
+  const auto zero = Eigen::Vector3d::Zero();
+
+  for (const auto& a : a_starts)
+  {
+    rmf_traffic::Trajectory a_traj;
+    const auto p_a = get_location(a, graph_a);
+    a_traj.insert(a.time(), p_a, zero);
+    a_traj.insert(a.time() + 10s, p_a, zero);
+
+    for (const auto& b : b_starts)
+    {
+      rmf_traffic::Trajectory b_traj;
+      const auto p_b = get_location(b, graph_b);
+      b_traj.insert(b.time(), p_b, zero);
+      b_traj.insert(b.time() + 10s, p_b, zero);
+
+      if (const auto time = rmf_traffic::DetectConflict::between(
+            profile_a, a_traj,
+            profile_b, b_traj))
+      {
+        std::cout << "CONFLICT FOUND" << std::endl;
+      }
+    }
+  }
+
+}
 
 SCENARIO("Test difficult 3-way scenarios")
 {
@@ -178,49 +233,66 @@ SCENARIO("Test difficult 3-way scenarios")
 
     auto a0_starts = rmf_traffic::agv::compute_plan_starts(
       graph_a, {18.012, -15.53, -M_PI}, time);
+    auto a0_goal = rmf_traffic::agv::Plan::Goal(1);
 
     auto b1_starts = rmf_traffic::agv::compute_plan_starts(
           graph_b, {16.858, -15.758, -M_PI/2.0}, time);
+    auto b1_goal = rmf_traffic::agv::Plan::Goal(11);
 
     auto b2_starts = rmf_traffic::agv::compute_plan_starts(
           graph_b, {16.83, -17.26, -M_PI/2.0}, time);
+    auto b2_goal = rmf_traffic::agv::Plan::Goal(13);
 
-    rmf_traffic::agv::Planner planner_a(
-          config_a,
-          rmf_traffic::agv::Planner::Options{
-            rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
-              database, a0.id(), profile_a)
-          });
+//    std::cout << "Checking a0, b1" << std::endl;
+//    check_start_compatibility(
+//          graph_a, profile_a, a0_starts, graph_b, profile_b, b1_starts);
 
-    REQUIRE(!a0_starts.empty());
-    auto plan_a0 = planner_a.plan(a0_starts, {1});
-    REQUIRE(plan_a0);
-    a0.set(plan_a0->get_itinerary());
+//    std::cout << "Checking a0, b2" << std::endl;
+//    check_start_compatibility(
+//          graph_a, profile_a, a0_starts, graph_b, profile_b, b2_starts);
 
-    rmf_traffic::agv::Planner planner_b1(
-          config_b,
-          rmf_traffic::agv::Planner::Options(
-            rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
-              database, b1.id(), profile_b)
-          ));
+//    std::cout << "Checking b1, b2" << std::endl;
+//    check_start_compatibility(
+//          graph_b, profile_b, b1_starts, graph_b, profile_b, b2_starts);
 
-    REQUIRE(!b1_starts.empty());
-    auto plan_b1 = planner_b1.plan(b1_starts, {11});
-    REQUIRE(plan_b1);
-    b1.set(plan_b1->get_itinerary());
+//    rmf_traffic::agv::Planner planner_a(
+//          config_a,
+//          rmf_traffic::agv::Planner::Options{
+//            rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+//              database, a0.id(), profile_a)
+//          });
 
-    rmf_traffic::agv::Planner planner_b2(
-          config_b,
-          rmf_traffic::agv::Planner::Options(
-            rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
-              database, b2.id(), profile_b)
-          ));
+//    REQUIRE(!a0_starts.empty());
+//    auto plan_a0 = planner_a.plan(a0_starts, {1});
+//    REQUIRE(plan_a0);
+//    a0.set(plan_a0->get_itinerary());
 
-    // TODO(MXG): Identify why this hasn't been feasible to negotiate
+//    rmf_traffic::agv::Planner planner_b1(
+//          config_b,
+//          rmf_traffic::agv::Planner::Options(
+//            rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+//              database, b1.id(), profile_b)
+//          ));
+
+//    REQUIRE(!b1_starts.empty());
+//    auto plan_b1 = planner_b1.plan(b1_starts, {11});
+//    REQUIRE(plan_b1);
+//    b1.set(plan_b1->get_itinerary());
+
+//    rmf_traffic::agv::Planner planner_b2(
+//          config_b,
+//          rmf_traffic::agv::Planner::Options(
+//            rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
+//              database, b2.id(), profile_b)
+//          ));
+
+//    // TODO(MXG): Identify why this hasn't been feasible to negotiate
 
 //    REQUIRE(!b2_starts.empty());
 //    auto plan_b2 = planner_b2.plan(b2_starts, {13});
-//    REQUIRE(plan_b2);
+
+
+////    REQUIRE(plan_b2);
 
 //    std::cout << "Creating debug" << std::endl;
 //    rmf_traffic::agv::Planner::Debug debug(planner_b2);
@@ -282,22 +354,22 @@ SCENARIO("Test difficult 3-way scenarios")
 //    }
 
 
-//    // =======================================================================
-//    NegotiationRoom::Intentions intentions;
-//    intentions.insert({
-//      a0.id(),
-//      NegotiationRoom::Intention{std::move(a0_starts), {1}, config_a} });
+    // =======================================================================
+    NegotiationRoom::Intentions intentions;
+    intentions.insert({
+      a0.id(),
+      NegotiationRoom::Intention{std::move(a0_starts), a0_goal, config_a} });
 
-//    intentions.insert({
-//      b1.id(),
-//      NegotiationRoom::Intention{std::move(b1_starts), {11}, config_b}});
+    intentions.insert({
+      b1.id(),
+      NegotiationRoom::Intention{std::move(b1_starts), b1_goal, config_b}});
 
-//    intentions.insert({
-//      b2.id(),
-//      NegotiationRoom::Intention{std::move(b2_starts), {13}, config_b}});
+    intentions.insert({
+      b2.id(),
+      NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
 
-//    auto room = NegotiationRoom(database, intentions);
-//    auto proposal = room.print().solve();
+    auto room = NegotiationRoom(database, intentions);
+    auto proposal = room/*.print()*/.solve();
 //    REQUIRE(proposal);
   }
 

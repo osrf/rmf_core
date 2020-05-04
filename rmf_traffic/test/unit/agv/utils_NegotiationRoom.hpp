@@ -19,6 +19,7 @@
 #define RMF_TRAFFIC__TEST__UNIT__AGV__UTILS_NEGOTIATIONROOM_HPP
 
 #include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 
@@ -137,8 +138,8 @@ public:
       return true;
 
     // Give up we have already attempted more than 3 submissions
-//    if (table->version() && (*table->version() > 2))
-//      return true;
+    if (table->version() && (*table->version() > 2))
+      return true;
 
     auto ancestor = table->parent();
     while (ancestor)
@@ -196,7 +197,8 @@ public:
           std::cout << " " << p;
         std::cout << " ]" << std::endl;
 
-        negotiator.debug_print = true;
+        rmf_traffic::agv::SimpleNegotiator::Debug
+            ::enable_debug_print(negotiator);
       }
 
       bool interrupt = false;

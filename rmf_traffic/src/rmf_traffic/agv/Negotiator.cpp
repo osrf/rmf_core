@@ -17,6 +17,7 @@
 
 #include <rmf_traffic/agv/Negotiator.hpp>
 #include <rmf_traffic/agv/Rollout.hpp>
+#include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 
 #include <deque>
 
@@ -63,6 +64,8 @@ public:
   Planner::Goal goal;
   Planner::Options options;
   Planner planner;
+
+  bool debug_print = false;
 
   Implementation(
     std::vector<Planner::Start> starts_,
@@ -210,7 +213,7 @@ void SimpleNegotiator::respond(
 
     if (plan)
     {
-      if (debug_print)
+      if (_pimpl->debug_print)
       {
         std::cout << "Submitting:\n";
         print_itinerary(plan->get_itinerary());
@@ -218,7 +221,7 @@ void SimpleNegotiator::respond(
       return responder.submit(plan->get_itinerary());
     }
 
-    if (debug_print)
+    if (_pimpl->debug_print)
     {
       std::cout << "Failed to find a plan. Blocked by:";
       for (const auto p : plan.blockers())
@@ -258,7 +261,7 @@ void SimpleNegotiator::respond(
       continue;
     }
 
-    if (debug_print)
+    if (_pimpl->debug_print)
     {
       std::cout << "Negotiation parent ["
                 << parent_id << "] is a blocker" << std::endl;
@@ -277,10 +280,14 @@ void SimpleNegotiator::respond(
     if (alternatives->empty())
     {
       alternatives = rmf_utils::nullopt;
+      if (_pimpl->debug_print)
+      {
+        std::cout << "Could not roll out any alternatives" << std::endl;
+      }
     }
     else
     {
-      if (debug_print)
+      if (_pimpl->debug_print)
       {
         std::cout << "Rolled out [" << alternatives->size() << "] alternatives"
                   << std::endl;
@@ -289,7 +296,7 @@ void SimpleNegotiator::respond(
       if (alternatives->size() > 10)
         alternatives->resize(10);
 
-      if (debug_print)
+      if (_pimpl->debug_print)
       {
         for (const auto& itinerary : *alternatives)
           print_itinerary(itinerary);
@@ -308,6 +315,14 @@ void SimpleNegotiator::respond(
 
   // This would be suspicious. How could the planning fail without any blockers?
   responder.forfeit({});
+}
+
+//==============================================================================
+SimpleNegotiator& SimpleNegotiator::Debug::enable_debug_print(
+    SimpleNegotiator& negotiator)
+{
+  negotiator._pimpl->debug_print = true;
+  return negotiator;
 }
 
 } // namespace agv
