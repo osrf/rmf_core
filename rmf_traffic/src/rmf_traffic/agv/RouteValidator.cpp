@@ -138,7 +138,7 @@ public:
              std::move(profile)
            }))
   {
-    const auto& alternatives = viewer->alternatives();
+    const auto& alternatives = data->viewer->alternatives();
     alternative_sets.reserve(alternatives.size());
     for (const auto& r : alternatives)
       alternative_sets.push_back(r.first);

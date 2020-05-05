@@ -212,25 +212,29 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
     auto next_table = negotiation->table(p1.id(), {});
     negotiator_1.respond(
-          next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
     REQUIRE(negotiation->table(p2.id(), {p1.id()}));
 
     next_table = negotiation->table(p2.id(), {});
     negotiator_2.respond(
-      next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
     REQUIRE(negotiation->table(p1.id(), {p2.id()}));
 
     next_table = negotiation->table(p1.id(), {p2.id()});
     negotiator_1.respond(
-      next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
     CHECK(negotiation->ready());
 
     next_table = negotiation->table(p2.id(), {p1.id()});
     negotiator_2.respond(
-      next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
     CHECK(negotiation->complete());
 
@@ -289,18 +293,21 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
     auto next_table = negotiation->table(p1.id(), {});
     negotiator_1.respond(
-      next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
     next_table = negotiation->table(p2.id(), {});
     negotiator_2.respond(
-      next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
     CHECK_FALSE(negotiation->ready());
     CHECK_FALSE(negotiation->complete());
 
     next_table = negotiation->table(p1.id(), {p2.id()});
     negotiator_1.respond(
-      next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
     // ready() will be false here, because the ideal itinerary for
     // participant 2 makes it impossible for participant 1 to get out of the
@@ -309,7 +316,8 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
 
     next_table = negotiation->table(p2.id(), {p1.id()});
     negotiator_2.respond(
-      next_table, rmf_traffic::schedule::SimpleResponder(next_table));
+      next_table->viewer(),
+      rmf_traffic::schedule::SimpleResponder(next_table));
 
 //    CHECK(negotiation->complete());
 

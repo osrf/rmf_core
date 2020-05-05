@@ -201,12 +201,13 @@ public:
             ::enable_debug_print(negotiator);
       }
 
+      auto viewer = top->viewer();
       bool interrupt = false;
       auto result = std::async(
             std::launch::async,
             [&]()
       {
-        negotiator.respond(top, Responder(top, &blockers), &interrupt);
+        negotiator.respond(viewer, Responder(top, &blockers), &interrupt);
       });
 
       using namespace std::chrono_literals;

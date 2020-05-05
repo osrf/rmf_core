@@ -32,7 +32,7 @@ struct MockNegotiator : public rmf_traffic::schedule::Negotiator
   };
 
   virtual void respond(
-    std::shared_ptr<const rmf_traffic::schedule::Negotiation::Table>,
+    const rmf_traffic::schedule::Negotiation::Table::ViewerPtr&,
     const Responder& responder,
     const bool* = nullptr) final
   {
@@ -83,7 +83,8 @@ void apply_submissions(
     const auto& table_ptr = negotiation->table(
           table.for_participant, table.to_accommodate);
 
-    MockNegotiator().submit().respond(table_ptr, Responder(table_ptr));
+    MockNegotiator().submit().respond(
+          table_ptr->viewer(), Responder(table_ptr));
   }
 }
 
@@ -98,7 +99,8 @@ void apply_forfeit(
     const auto& table_ptr = negotiation->table(
           table.for_participant, table.to_accommodate);
 
-    MockNegotiator().forfeit().respond(table_ptr, Responder(table_ptr));
+    MockNegotiator().forfeit().respond(
+          table_ptr->viewer(), Responder(table_ptr));
   }
 }
 
@@ -207,7 +209,7 @@ SCENARIO("Submit after a rejection")
   rmf_utils::optional<rmf_traffic::schedule::Version> version;
 
   MockResponder responder(negotiation->table(0, {}), &accepted, &version);
-  MockNegotiator().submit().respond(responder.table, responder);
+  MockNegotiator().submit().respond(responder.table->viewer(), responder);
 
   CHECK(accepted);
   REQUIRE(version);
@@ -218,7 +220,8 @@ SCENARIO("Submit after a rejection")
   version = rmf_utils::nullopt;
   MockResponder child_responder(negotiation->table(1, {0}), &accepted,
     &version);
-  MockNegotiator().forfeit().respond(child_responder.table, child_responder);
+  MockNegotiator().forfeit().respond(
+        child_responder.table->viewer(), child_responder);
 
   CHECK_FALSE(version);
   CHECK_FALSE(accepted);
@@ -226,7 +229,7 @@ SCENARIO("Submit after a rejection")
   accepted = false;
   version = rmf_utils::nullopt;
   MockResponder reresponder(responder.table, &accepted, &version);
-  MockNegotiator().submit().respond(reresponder.table, reresponder);
+  MockNegotiator().submit().respond(reresponder.table->viewer(), reresponder);
 
   CHECK(accepted);
   REQUIRE(version);

@@ -141,6 +141,7 @@ public:
   AlternativeMap alternatives;
   std::shared_ptr<Query::Participants> participant_query;
   std::shared_ptr<const schedule::Viewer> schedule_viewer;
+  rmf_utils::optional<ParticipantId> parent_id;
 
   Viewer::View query(
       const Query::Spacetime& spacetime,
@@ -810,6 +811,12 @@ Negotiation::Table::Viewer::get_participant(ParticipantId participant_id) const
 }
 
 //==============================================================================
+rmf_utils::optional<ParticipantId> Negotiation::Table::Viewer::parent_id() const
+{
+  return _pimpl->parent_id;
+}
+
+//==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
   // Do nothing
@@ -821,13 +828,18 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
   if (_pimpl->cached_table_viewer)
     return _pimpl->cached_table_viewer;
 
+  rmf_utils::optional<ParticipantId> parent_id;
+  if (const auto p = parent())
+    parent_id = p->participant();
+
   _pimpl->cached_table_viewer = std::make_shared<Viewer>(
         Viewer::Implementation::make(
           _pimpl->proposed_timeline,
           _pimpl->alternatives_timelines,
           _pimpl->alternatives,
           _pimpl->participant_query,
-          _pimpl->schedule_viewer));
+          _pimpl->schedule_viewer,
+          parent_id));
 
   return _pimpl->cached_table_viewer;
 }
