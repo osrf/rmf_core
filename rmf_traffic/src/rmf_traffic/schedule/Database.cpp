@@ -65,7 +65,13 @@ public:
   using ConstTransitionPtr = std::unique_ptr<const Transition>;
 
   struct RouteEntry;
-  using RouteEntryPtr = std::unique_ptr<RouteEntry>;
+  using RouteEntryPtr = std::shared_ptr<RouteEntry>;
+
+  struct RouteStorage
+  {
+    RouteEntryPtr entry;
+    std::shared_ptr<void> timeline_handle;
+  };
 
   struct Transition
   {
@@ -74,7 +80,7 @@ public:
     rmf_utils::optional<Change::Delay::Implementation> delay;
 
     // The previous route entry that this transition is based on.
-    RouteEntryPtr predecessor;
+    RouteStorage predecessor;
   };
 
   struct RouteEntry
@@ -84,7 +90,6 @@ public:
     ParticipantId participant;
     RouteId route_id;
     std::shared_ptr<const ParticipantDescription> description;
-    std::shared_ptr<void> timeline_handle;
 
     // ===== Additional fields for this timeline entry =====
     // TODO(MXG): Consider defining a base Timeline::Entry class, and then use
@@ -92,13 +97,13 @@ public:
     // fields of the base Entry
     Version schedule_version;
     TransitionPtr transition;
-    RouteEntry* successor;
+    std::weak_ptr<RouteEntry> successor;
   };
 
   Timeline<RouteEntry> timeline;
 
   // TODO(MXG): Should storage be merged with state?
-  using ParticipantStorage = std::unordered_map<RouteId, RouteEntryPtr>;
+  using ParticipantStorage = std::unordered_map<RouteId, RouteStorage>;
 
   struct ParticipantState
   {
@@ -165,7 +170,7 @@ public:
   /// This returns a vector of pointers to RouteEntryPtr objects. The entries in
   /// that vector can be used to efficiently populate the route information,
   /// saving us the cost of a second map lookup later on.
-  std::vector<RouteEntryPtr*> check_route_ids(
+  std::vector<RouteStorage*> check_route_ids(
     ParticipantState& state,
     const Input& input)
   {
@@ -174,7 +179,7 @@ public:
     // insertions, but pointers and references to the values inside the
     // container to do not get invalidated by inserstion. Source:
     // https://en.cppreference.com/w/cpp/container/unordered_map#Iterator_invalidation
-    std::vector<RouteEntryPtr*> entries;
+    std::vector<RouteStorage*> entries;
     entries.reserve(input.size());
 
     ParticipantStorage& storage = state.storage;
@@ -183,12 +188,12 @@ public:
     // database
     for (const Item& item : input)
     {
-      const auto insertion = storage.insert(std::make_pair(item.id, nullptr));
+      const auto insertion = storage.insert({item.id, RouteStorage()});
 
       // If the result of this insertion attempt was anything besides a nullptr,
       // then that means this route ID was already taken, so we should reject
       // this itinerary change.
-      if (insertion.first->second)
+      if (insertion.first->second.entry)
       {
         // *INDENT-OFF*
         throw std::runtime_error(
@@ -209,7 +214,7 @@ public:
   void insert_items(
     ParticipantId participant,
     ParticipantState& state,
-    const std::vector<RouteEntryPtr*>& entries,
+    const std::vector<RouteStorage*>& entries,
     const Input& input)
   {
     assert(entries.size() == input.size());
@@ -220,20 +225,19 @@ public:
       const RouteId route_id = item.id;
       state.active_routes.insert(route_id);
 
-      RouteEntryPtr& entry = *entries[i];
-      entry = std::make_unique<RouteEntry>(
+      RouteStorage& entry_storage = *entries[i];
+      entry_storage.entry = std::make_unique<RouteEntry>(
         RouteEntry{
           item.route,
           participant,
           route_id,
           state.description,
-          nullptr,
           schedule_version,
           nullptr,
-          nullptr
+          RouteEntryPtr()
         });
 
-      timeline.insert(*entry);
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
   }
 
@@ -247,8 +251,10 @@ public:
     for (const RouteId id : state.active_routes)
     {
       assert(storage.find(id) != storage.end());
-      auto& entry = storage.at(id);
-      const Trajectory& old_trajectory = entry->route->trajectory();
+      auto& entry_storage = storage.at(id);
+      const Trajectory& old_trajectory =
+          entry_storage.entry->route->trajectory();
+
       assert(old_trajectory.start_time());
 
       auto delayed = schedule::apply_delay(old_trajectory, from, delay);
@@ -256,31 +262,32 @@ public:
         continue;
 
       auto new_route = std::make_shared<Route>(
-        entry->route->map(), std::move(*delayed));
+        entry_storage.entry->route->map(), std::move(*delayed));
 
       auto transition = std::make_unique<Transition>(
         Transition{
           Change::Delay::Implementation{from, delay},
-          std::move(entry)
+          std::move(entry_storage)
         });
 
       // NOTE(MXG): The previous contents of entry have been moved into the
       // predecessor field of transition, so we are free to refill entry with
       // the newly created data.
-      entry = std::make_unique<RouteEntry>(
+      entry_storage.entry = std::make_unique<RouteEntry>(
         RouteEntry{
           std::move(new_route),
           participant,
           id,
           state.description,
-          nullptr,
           schedule_version,
           std::move(transition),
-          nullptr
+          RouteEntryPtr()
         });
 
-      entry->transition->predecessor->successor = entry.get();
-      timeline.insert(*entry);
+      entry_storage.entry->transition->predecessor.entry->successor =
+          entry_storage.entry;
+
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
   }
 
@@ -293,28 +300,29 @@ public:
     for (const RouteId id : routes)
     {
       assert(storage.find(id) != storage.end());
-      auto& entry = storage.at(id);
+      auto& entry_storage = storage.at(id);
 
       auto transition = std::make_unique<Transition>(
         Transition{
           rmf_utils::nullopt,
-          std::move(entry)
+          std::move(entry_storage)
         });
 
-      entry = std::make_unique<RouteEntry>(
+      entry_storage.entry = std::make_unique<RouteEntry>(
         RouteEntry{
           nullptr,
           participant,
           id,
           state.description,
-          nullptr,
           schedule_version,
           std::move(transition),
-          nullptr
+          RouteEntryPtr()
         });
 
-      entry->transition->predecessor->successor = entry.get();
-      timeline.insert(*entry);
+      entry_storage.entry->transition->predecessor.entry->successor =
+          entry_storage.entry;
+
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
 
     // TODO(MXG): Consider erasing the routes from the active_routes field of
@@ -383,7 +391,7 @@ rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
   Writer::Input itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back({route, state.storage.at(route)->route});
+    itinerary.push_back({route, state.storage.at(route).entry->route});
 
   return std::move(itinerary);
 }
@@ -422,7 +430,7 @@ void Database::set(
     return;
   }
 
-  std::vector<Implementation::RouteEntryPtr*> entries =
+  std::vector<Implementation::RouteStorage*> entries =
     _pimpl->check_route_ids(state, itinerary);
 
   //======== All validation is complete ===========
@@ -475,7 +483,7 @@ void Database::extend(
     return;
   }
 
-  std::vector<Implementation::RouteEntryPtr*> entries =
+  std::vector<Implementation::RouteStorage*> entries =
     _pimpl->check_route_ids(state, routes);
 
   //======== All validation is complete ===========
@@ -689,8 +697,8 @@ const Database::Implementation::RouteEntry* get_most_recent(
   const Database::Implementation::RouteEntry* from)
 {
   assert(from);
-  while (from->successor)
-    from = from->successor;
+  while (const auto successor = from->successor.lock())
+    from = successor.get();
 
   return from;
 }
@@ -732,16 +740,17 @@ public:
     while (from && rmf_utils::modular(_after).less_than(from->schedule_version))
     {
       if (from->transition)
-        from = from->transition->predecessor.get();
+        from = from->transition->predecessor.entry.get();
       else
         return nullptr;
     }
 
-    while (from->successor
-      && rmf_utils::modular(from->successor->schedule_version)
-      .less_than_or_equal(_after))
+    while (const auto successor = from->successor.lock())
     {
-      from = from->successor;
+      if (rmf_utils::modular(_after).less_than(successor->schedule_version))
+        break;
+
+      from = successor.get();
     }
 
     return from;
@@ -796,7 +805,7 @@ public:
           // suppress compiler warnings.
           (void)(insertion);
 #endif // NDEBUG
-          traverse = traverse->transition->predecessor.get();
+          traverse = traverse->transition->predecessor.entry.get();
         }
       }
       else
@@ -948,8 +957,13 @@ public:
     const RouteEntry* entry,
     const std::function<bool(const RouteEntry&)>& /*relevant*/) final
   {
-    while (entry->successor && entry->successor->route)
-      entry = entry->successor;
+    while (const auto successor = entry->successor.lock())
+    {
+      if (!successor->route)
+        break;
+
+      entry = successor.get();
+    }
 
     assert(entry->route->trajectory().finish_time());
     if (*entry->route->trajectory().finish_time() < _cull_time)
@@ -967,8 +981,16 @@ private:
 //==============================================================================
 Viewer::View Database::query(const Query& parameters) const
 {
+  return query(parameters.spacetime(), parameters.participants());
+}
+
+//==============================================================================
+Viewer::View Database::query(
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const
+{
   ViewRelevanceInspector inspector;
-  _pimpl->timeline.inspect(parameters, inspector);
+  _pimpl->timeline.inspect(spacetime, participants, inspector);
   return Viewer::View::Implementation::make_view(std::move(inspector.routes));
 }
 
@@ -1002,7 +1024,7 @@ rmf_utils::optional<Itinerary> Database::get_itinerary(
   Itinerary itinerary;
   itinerary.reserve(state.active_routes.size());
   for (const RouteId route : state.active_routes)
-    itinerary.push_back(state.storage.at(route)->route);
+    itinerary.push_back(state.storage.at(route).entry->route);
 
   return std::move(itinerary);
 }
@@ -1035,13 +1057,17 @@ auto Database::changes(
   if (after)
   {
     PatchRelevanceInspector inspector(*after);
-    _pimpl->timeline.inspect(parameters, inspector);
+    _pimpl->timeline.inspect(
+          parameters.spacetime(), parameters.participants(), inspector);
+
     changes = inspector.changes;
   }
   else
   {
     FirstPatchRelevanceInspector inspector;
-    _pimpl->timeline.inspect(parameters, inspector);
+    _pimpl->timeline.inspect(
+          parameters.spacetime(), parameters.participants(), inspector);
+
     changes = inspector.changes;
   }
 
@@ -1118,18 +1144,21 @@ auto Database::changes(
 Viewer::View Database::query(const Query& parameters, const Version after) const
 {
   ViewerAfterRelevanceInspector inspector{after};
-  _pimpl->timeline.inspect(parameters, inspector);
+  _pimpl->timeline.inspect(
+        parameters.spacetime(), parameters.participants(), inspector);
+
   return Viewer::View::Implementation::make_view(std::move(inspector.routes));
 }
 
 //==============================================================================
 Version Database::cull(Time time)
 {
-  Query query = query_all();
-  query.spacetime().query_timespan().set_upper_time_bound(time);
+  Query::Spacetime spacetime;
+  spacetime.query_timespan().set_upper_time_bound(time);
 
   CullRelevanceInspector inspector(time);
-  _pimpl->timeline.inspect(query, inspector);
+  _pimpl->timeline.inspect(
+        spacetime, Query::Participants::make_all(), inspector);
 
   // TODO(MXG) This iterating could probably be made more efficient by grouping
   // together the culls of each participant.

@@ -48,7 +48,7 @@ public:
   ///   The participants who are involved in the schedule negotiation.
   ///
   Negotiation(
-    const Viewer& viewer,
+    std::shared_ptr<const Viewer> schedule_viewer,
     std::vector<ParticipantId> participants);
 
   /// Get the participants that are currently involved in this negotiation.
@@ -106,23 +106,53 @@ public:
       std::size_t alternative;
     };
 
-    // TODO(MXG): This function should be put into a Table::Viewer class that
-    // remains immutable so it can be used across different threads.
-    //
-    /// View this table with the given parameters.
-    ///
-    /// \param[in] parameters
-    ///   The spacetime parameters to filter irrelevant routes out of the view
-    ///
-    /// \param[in] rollouts
-    ///   The selection of which rollout alternatives should be viewed for the
-    ///   participants who have rejected this proposal in the past.
-    Viewer::View query(
-        const Query::Spacetime& parameters,
-        const std::vector<Rollout>& rollouts) const;
+    class Viewer
+    {
+    public:
 
-    // TODO(MXG): Replace this with a more meaningful Table::Viewer class
-    const Viewer* viewer() const;
+      using View = schedule::Viewer::View;
+
+      /// View this table with the given parameters.
+      ///
+      /// \param[in] parameters
+      ///   The spacetime parameters to filter irrelevant routes out of the view
+      ///
+      /// \param[in] rollouts
+      ///   The selection of which rollout alternatives should be viewed for the
+      ///   participants who have rejected this proposal in the past.
+      View query(
+          const Query::Spacetime& parameters,
+          const std::vector<Rollout>& rollouts) const;
+
+      using AlternativeMap =
+        std::unordered_map<ParticipantId, std::shared_ptr<Alternatives>>;
+
+      /// When a Negotiation::Table is rejected by one of the participants who
+      /// is supposed to respond, they can offer a set of rollout alternatives.
+      /// If the proposer can accommodate one of the alternatives for each
+      /// responding participant, then the negotiation might be able to proceed.
+      /// This map gives the alternatives for each participant that has provided
+      /// them.
+      const AlternativeMap& alternatives() const;
+
+      /// Get the description of a participant in this Viewer
+      std::shared_ptr<const ParticipantDescription> get_participant(
+          ParticipantId participant_id) const;
+
+      /// If the Table has a parent, get its Participant ID
+      rmf_utils::optional<ParticipantId> parent_id() const;
+
+      class Implementation;
+    private:
+      Viewer();
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    using ViewerPtr = std::shared_ptr<const Viewer>;
+
+    /// Get a viewer for this Table. The Viewer can be safely used across
+    /// multiple threads.
+    ViewerPtr viewer() const;
 
     /// Return the submission on this Negotiation Table if it has one.
     const Itinerary* submission() const;
@@ -176,24 +206,17 @@ public:
     /// \param[in] rejected_by
     ///   The participant who is rejecting this proposal
     ///
-    /// \param[in] rollouts
+    /// \param[in] alternatives
     ///   A set of rollouts that could be used by the participant that is
     ///   rejecting this proposal. The proposer should use this information to
     ///   offer a proposal that can accommodate at least one of these rollouts.
     void reject(
         Version version,
         ParticipantId rejected_by,
-        const Alternatives& rollouts);
+        Alternatives alternatives);
 
     /// Returns true if the proposal put on this Table has been rejected.
     bool rejected() const;
-
-    /// When a Negotiation::Table is rejected by one of the participants who is
-    /// supposed to respond, they can offer a set of rollout alternatives. If
-    /// the proposer can accommodate one of the rollouts, then the negotiation
-    /// might be able to proceed. This map gives the rollout alternatives for
-    /// each participant that has provided them.
-    const std::unordered_map<ParticipantId, Alternatives>& rollouts() const;
 
     /// Give up on this Negotiation Table. This should be called when the
     /// participant that is supposed to submit to this Table is unable to find

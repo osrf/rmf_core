@@ -366,7 +366,7 @@ public:
     Participants();
 
     /// Constructor to use All mode.
-    static Participants make_all();
+    static const Participants& make_all();
 
     /// Constructor to use Include mode.
     ///

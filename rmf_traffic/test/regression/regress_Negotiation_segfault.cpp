@@ -80,9 +80,10 @@ void apply_submissions(
   using Responder = rmf_traffic::schedule::SimpleResponder;
   for (const auto& table : submitted)
   {
-    MockNegotiator().submit().respond(
-      negotiation->table(table.for_participant, table.to_accommodate),
-      Responder(negotiation, table.for_participant, table.to_accommodate));
+    const auto& table_ptr = negotiation->table(
+          table.for_participant, table.to_accommodate);
+
+    MockNegotiator().submit().respond(table_ptr, Responder(table_ptr));
   }
 }
 
@@ -94,9 +95,10 @@ void apply_forfeit(
   using Responder = rmf_traffic::schedule::SimpleResponder;
   for (const auto& table : forfeited)
   {
-    MockNegotiator().forfeit().respond(
-      negotiation->table(table.for_participant, table.to_accommodate),
-      Responder(negotiation, table.for_participant, table.to_accommodate));
+    const auto& table_ptr = negotiation->table(
+          table.for_participant, table.to_accommodate);
+
+    MockNegotiator().forfeit().respond(table_ptr, Responder(table_ptr));
   }
 }
 
@@ -107,7 +109,8 @@ SCENARIO("Identify a failed negotiation")
 {
   // This situation emerged during testing and revealed some bugs that can occur
   // while adding participants.
-  rmf_traffic::schedule::Database database;
+  auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
   auto negotiation =
     std::make_shared<rmf_traffic::schedule::Negotiation>(
     database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 2});
@@ -194,7 +197,8 @@ SCENARIO("Submit after a rejection")
     }
   };
 
-  rmf_traffic::schedule::Database database;
+  auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
   auto negotiation =
     std::make_shared<rmf_traffic::schedule::Negotiation>(
     database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 1});

@@ -201,7 +201,7 @@ SCENARIO("Test difficult 3-way scenarios")
   const rmf_traffic::agv::Planner::Configuration config_a{graph_a, traits_a};
   const rmf_traffic::agv::Planner::Configuration config_b{graph_b, traits_b};
 
-  rmf_traffic::schedule::Database database;
+  auto database = std::make_shared<rmf_traffic::schedule::Database>();
 
   auto a0 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -209,7 +209,7 @@ SCENARIO("Test difficult 3-way scenarios")
       "fleet_a",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile_a
-    }, database);
+    }, *database);
 
   auto b1 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -217,7 +217,7 @@ SCENARIO("Test difficult 3-way scenarios")
       "fleet_b",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile_b
-    }, database);
+    }, *database);
 
   auto b2 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -225,7 +225,7 @@ SCENARIO("Test difficult 3-way scenarios")
       "fleet_b",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile_b
-    }, database);
+    }, *database);
 
   GIVEN("Case 1")
   {

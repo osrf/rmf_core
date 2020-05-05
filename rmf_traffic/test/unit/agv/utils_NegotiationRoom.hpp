@@ -121,12 +121,12 @@ public:
   using Intentions = std::unordered_map<ParticipantId, Intention>;
 
   NegotiationRoom(
-    const rmf_traffic::schedule::Viewer& viewer,
+    std::shared_ptr<const rmf_traffic::schedule::Viewer> viewer,
     Intentions intentions,
     const bool print_failures_ = false)
   : negotiators(make_negotiators(intentions)),
     negotiation(std::make_shared<Negotiation>(
-        viewer, get_participants(intentions))),
+        std::move(viewer), get_participants(intentions))),
     _print(print_failures_)
   {
     // Do nothing
@@ -206,9 +206,7 @@ public:
             std::launch::async,
             [&]()
       {
-        negotiator.respond(
-              top, Responder(negotiation, top->sequence(), &blockers),
-              &interrupt);
+        negotiator.respond(top, Responder(top, &blockers), &interrupt);
       });
 
       using namespace std::chrono_literals;

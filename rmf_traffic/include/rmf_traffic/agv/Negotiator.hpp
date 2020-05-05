@@ -98,7 +98,7 @@ public:
 
   // Documentation inherited
   void respond(
-    std::shared_ptr<const schedule::Negotiation::Table> table,
+    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const Responder& responder,
     const bool* interrupt_flag = nullptr) final;
 

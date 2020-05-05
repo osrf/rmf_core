@@ -142,7 +142,7 @@ public:
     /// \param[in] profile
     ///   The profile of the participant whose routes are being validated.
     Generator(
-        const schedule::Negotiation::Table& table,
+        schedule::Negotiation::Table::ViewerPtr viewer,
         rmf_traffic::Profile profile);
 
     /// Start with a NegotiatingRouteValidator that will use all the most

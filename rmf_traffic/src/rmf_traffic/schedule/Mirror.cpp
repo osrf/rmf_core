@@ -35,15 +35,20 @@ public:
     ParticipantId participant;
     RouteId route_id;
     std::shared_ptr<const ParticipantDescription> description;
+  };
+  using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
+
+  struct RouteStorage
+  {
+    ConstRouteEntryPtr entry;
     std::shared_ptr<void> timeline_handle;
   };
-  using RouteEntryPtr = std::shared_ptr<RouteEntry>;
 
-  Timeline<RouteEntry> timeline;
+  Timeline<const RouteEntry> timeline;
 
   struct ParticipantState
   {
-    std::unordered_map<RouteId, RouteEntryPtr> storage;
+    std::unordered_map<RouteId, RouteStorage> storage;
     std::shared_ptr<const ParticipantDescription> description;
   };
 
@@ -80,20 +85,24 @@ public:
   {
     for (auto& s : state.storage)
     {
-      RouteEntryPtr& entry = s.second;
-      assert(entry);
-      assert(entry->route);
+      RouteStorage& entry_storage = s.second;
+      assert(entry_storage.entry);
+      assert(entry_storage.entry->route);
       auto delayed = schedule::apply_delay(
-        entry->route->trajectory(), delay.from(), delay.duration());
+        entry_storage.entry->route->trajectory(),
+        delay.from(), delay.duration());
+
       if (!delayed)
         continue;
 
       auto new_route = std::make_shared<Route>(
-        entry->route->map(), std::move(*delayed));
+        entry_storage.entry->route->map(), std::move(*delayed));
 
-      entry = std::make_unique<RouteEntry>(*entry);
-      entry->route = std::move(new_route);
-      timeline.insert(*entry);
+      // We create a new entry because
+      auto new_entry = std::make_shared<RouteEntry>(*entry_storage.entry);
+      new_entry->route = std::move(new_route);
+      entry_storage.entry = new_entry;
+      entry_storage.timeline_handle = timeline.insert(new_entry);
     }
   }
 
@@ -105,7 +114,7 @@ public:
     for (const auto& item : add.items())
     {
       const RouteId route_id = item.id;
-      auto insertion = state.storage.insert(std::make_pair(route_id, nullptr));
+      auto insertion = state.storage.insert({route_id, RouteStorage()});
       const bool inserted = insertion.second;
       assert(inserted);
       if (!inserted)
@@ -119,17 +128,16 @@ public:
 
       auto route = std::make_shared<Route>(*item.route);
 
-      auto& entry = insertion.first->second;
-      entry = std::make_unique<RouteEntry>(
+      auto& entry_storage = insertion.first->second;
+      entry_storage.entry = std::make_shared<RouteEntry>(
         RouteEntry{
           std::move(route),
           participant,
           route_id,
-          state.description,
-          nullptr
+          state.description
         });
 
-      timeline.insert(*entry);
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
   }
 };
@@ -198,8 +206,16 @@ public:
 //==============================================================================
 Viewer::View Mirror::query(const Query& parameters) const
 {
+  return query(parameters.spacetime(), parameters.participants());
+}
+
+//==============================================================================
+Viewer::View Mirror::query(
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const
+{
   MirrorViewRelevanceInspector inspector;
-  _pimpl->timeline.inspect(parameters, inspector);
+  _pimpl->timeline.inspect(spacetime, participants, inspector);
   return Viewer::View::Implementation::make_view(std::move(inspector.routes));
 }
 
@@ -232,7 +248,7 @@ rmf_utils::optional<Itinerary> Mirror::get_itinerary(
   Itinerary itinerary;
   itinerary.reserve(state.storage.size());
   for (const auto& s : state.storage)
-    itinerary.push_back(s.second->route);
+    itinerary.push_back(s.second.entry->route);
 
   return std::move(itinerary);
 }
@@ -311,7 +327,8 @@ Version Mirror::update(const Patch& patch)
     query.spacetime().query_timespan().set_upper_time_bound(time);
 
     MirrorCullRelevanceInspector inspector;
-    _pimpl->timeline.inspect(query, inspector);
+    _pimpl->timeline.inspect(
+          query.spacetime(), query.participants(), inspector);
 
     for (const auto& route : inspector.info)
     {

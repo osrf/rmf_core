@@ -89,7 +89,7 @@ public:
   ///   has been running for too long. If the planner should run indefinitely,
   ///   then pass a nullptr.
   virtual void respond(
-    std::shared_ptr<const schedule::Negotiation::Table> table,
+    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const Responder& responder,
     const bool* interrupt_flag = nullptr) = 0;
 
@@ -108,35 +108,14 @@ public:
   /// \param[in] negotiation
   ///   The Negotiation that this SimpleResponder is tied to
   ///
-  /// \param[in] for_participant
-  ///   The participant that will respond using this SimpleResponder
-  ///
-  /// \param[in] to_accommodate
-  ///   The participants that will be accommodated by the response
+  /// \param[in] table
+  ///   The table
   ///
   /// \param[in] report_blockers
   ///   If the blockers should be reported when a forfeit is given, provide a
   ///   pointer to a vector of ParticipantIds.
   SimpleResponder(
-    std::shared_ptr<schedule::Negotiation> negotiation,
-    schedule::ParticipantId for_participant,
-    std::vector<schedule::ParticipantId> to_accommodate,
-    std::vector<schedule::ParticipantId>* report_blockers = nullptr);
-
-  /// Constructor
-  ///
-  /// \param[in] negotiation
-  ///   The Negotiation that this SimpleResponder is tied to
-  ///
-  /// \param[in] table_sequence
-  ///   The sequence that identifies what table this responder should submit to
-  ///
-  /// \param[in] report_blockers
-  ///   If the blockers should be reported when a forfeit is given, provide a
-  ///   pointer to a vector of ParticipantIds.
-  SimpleResponder(
-    std::shared_ptr<schedule::Negotiation> negotiation,
-    std::vector<schedule::ParticipantId> table_sequence,
+    const Negotiation::TablePtr& table,
     std::vector<schedule::ParticipantId>* report_blockers = nullptr);
 
   // Documentation inherited

@@ -179,13 +179,13 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
 
 //==============================================================================
 void SimpleNegotiator::respond(
-  std::shared_ptr<const schedule::Negotiation::Table> table,
+  const schedule::Negotiation::Table::ViewerPtr& table_viewer,
   const Responder& responder,
   const bool* interrupt_flag)
 {
   const auto& profile =
     _pimpl->planner.get_configuration().vehicle_traits().profile();
-  NegotiatingRouteValidator::Generator rv_generator(*table, profile);
+  NegotiatingRouteValidator::Generator rv_generator(table_viewer, profile);
 
   const auto& alternative_sets = rv_generator.alternative_sets();
 
@@ -243,11 +243,11 @@ void SimpleNegotiator::respond(
       }
     }
 
-    const auto parent = table->parent();
-    if (!parent)
+    const auto has_parent = table_viewer->parent_id();
+    if (!has_parent)
       continue;
 
-    const auto parent_id = parent->participant();
+    const auto parent_id = *has_parent;
     if (!contains(blockers, parent_id))
     {
       // If the parent participant is not a blocker, then there is no point in

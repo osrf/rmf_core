@@ -29,7 +29,6 @@ public:
   const schedule::Viewer* viewer;
   schedule::ParticipantId participant;
   Profile profile;
-  mutable rmf_traffic::schedule::Query query;
 
 };
 
@@ -42,11 +41,10 @@ ScheduleRouteValidator::ScheduleRouteValidator(
       Implementation{
         &viewer,
         participant_id,
-        std::move(profile),
-        rmf_traffic::schedule::query_all()
+        std::move(profile)
       }))
 {
-  _pimpl->query.spacetime().query_timespan({});
+  // Do nothing
 }
 
 //==============================================================================
@@ -81,16 +79,18 @@ schedule::ParticipantId ScheduleRouteValidator::participant() const
 rmf_utils::optional<RouteValidator::Conflict>
 ScheduleRouteValidator::find_conflict(const Route& route) const
 {
-  _pimpl->query.spacetime().timespan()->clear_maps();
-  _pimpl->query.spacetime().timespan()->add_map(route.map());
+  // TODO(MXG): Should we use a mutable Spacetime instance to avoid the
+  // allocation here?
+  schedule::Query::Spacetime spacetime;
+  spacetime.query_timespan()
+      .all_maps(false)
+      .add_map(route.map())
+      .set_lower_time_bound(*route.trajectory().start_time())
+      .set_upper_time_bound(*route.trajectory().finish_time());
 
-  _pimpl->query.spacetime().timespan()->set_lower_time_bound(
-    *route.trajectory().start_time());
+  const auto view = _pimpl->viewer->query(
+        spacetime, schedule::Query::Participants::make_all());
 
-  _pimpl->query.spacetime().timespan()->set_upper_time_bound(
-    *route.trajectory().finish_time());
-
-  const auto view = _pimpl->viewer->query(_pimpl->query);
   for (const auto& v : view)
   {
     if (v.participant == _pimpl->participant)
@@ -122,34 +122,35 @@ public:
   struct Data
   {
     // TODO(MXG): This should be changed to a Table::View
-    const schedule::Negotiation::Table* table;
+    schedule::Negotiation::Table::ViewerPtr viewer;
     Profile profile;
   };
 
-  std::shared_ptr<Data> data;
+  std::shared_ptr<const Data> data;
   std::vector<schedule::ParticipantId> alternative_sets;
 
   Implementation(
-      const schedule::Negotiation::Table& table,
+      schedule::Negotiation::Table::ViewerPtr viewer,
       Profile profile)
   : data(std::make_shared<Data>(
            Data{
-             &table,
+             std::move(viewer),
              std::move(profile)
            }))
   {
-    const auto& rollouts = table.rollouts();
-    alternative_sets.reserve(rollouts.size());
-    for (const auto& r : rollouts)
+    const auto& alternatives = viewer->alternatives();
+    alternative_sets.reserve(alternatives.size());
+    for (const auto& r : alternatives)
       alternative_sets.push_back(r.first);
   }
 };
 
 //==============================================================================
 NegotiatingRouteValidator::Generator::Generator(
-  const schedule::Negotiation::Table& table,
+  schedule::Negotiation::Table::ViewerPtr viewer,
   Profile profile)
-: _pimpl(rmf_utils::make_impl<Implementation>(table, std::move(profile)))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           std::move(viewer), std::move(profile)))
 {
   // Do nothing
 }
@@ -159,12 +160,12 @@ class NegotiatingRouteValidator::Implementation
 {
 public:
 
-  std::shared_ptr<Generator::Implementation::Data> data;
+  std::shared_ptr<const Generator::Implementation::Data> data;
   std::vector<schedule::Negotiation::Table::Rollout> rollouts;
   rmf_utils::optional<schedule::ParticipantId> masked = rmf_utils::nullopt;
 
   static NegotiatingRouteValidator make(
-    std::shared_ptr<Generator::Implementation::Data> data,
+    std::shared_ptr<const Generator::Implementation::Data> data,
     std::vector<schedule::Negotiation::Table::Rollout> rollouts)
   {
     NegotiatingRouteValidator output;
@@ -182,7 +183,7 @@ public:
 NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
 {
   std::vector<schedule::Negotiation::Table::Rollout> rollouts;
-  for (const auto& r : _pimpl->data->table->rollouts())
+  for (const auto& r : _pimpl->data->viewer->alternatives())
     rollouts.push_back({r.first, 0});
 
   return NegotiatingRouteValidator::Implementation::make(
@@ -200,7 +201,7 @@ NegotiatingRouteValidator::Generator::alternative_sets() const
 std::size_t NegotiatingRouteValidator::Generator::alternative_count(
     schedule::ParticipantId participant) const
 {
-  return _pimpl->data->table->rollouts().at(participant).size();
+  return _pimpl->data->viewer->alternatives().at(participant)->size();
 }
 
 //==============================================================================
@@ -267,7 +268,7 @@ bool NegotiatingRouteValidator::end() const
   for (const auto& r : _pimpl->rollouts)
   {
     const auto num_alternatives =
-        _pimpl->data->table->rollouts().at(r.participant).size();
+        _pimpl->data->viewer->alternatives().at(r.participant)->size();
 
     if (num_alternatives <= r.alternative)
       return true;
@@ -282,13 +283,14 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
 {
   // TODO(MXG): Consider if we can reduce the amount of heap allocation that's
   // needed here.
-  auto query = schedule::make_query(
-    {route.map()},
-    route.trajectory().start_time(),
-    route.trajectory().finish_time());
+  schedule::Query::Spacetime spacetime;
+  spacetime.query_timespan()
+      .all_maps(false)
+      .add_map(route.map())
+      .set_lower_time_bound(*route.trajectory().start_time())
+      .set_upper_time_bound(*route.trajectory().finish_time());
 
-  const auto view = _pimpl->data->table->query(
-        query.spacetime(), _pimpl->rollouts);
+  const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
 
   for (const auto& v : view)
   {
@@ -313,9 +315,9 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       continue;
 
     const auto& last_route =
-        _pimpl->data->table->rollouts()
+        _pimpl->data->viewer->alternatives()
         .at(r.participant)
-        .at(r.alternative).back();
+        ->at(r.alternative).back();
 
     if (route.map() != last_route->map())
       continue;
@@ -326,7 +328,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       continue;
 
     const auto& description =
-        _pimpl->data->table->viewer()->get_participant(r.participant);
+        _pimpl->data->viewer->get_participant(r.participant);
     assert(description);
 
     // The end_cap trajectory represents the last known position of the

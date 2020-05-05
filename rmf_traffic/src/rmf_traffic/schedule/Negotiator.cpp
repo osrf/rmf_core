@@ -25,68 +25,63 @@ class SimpleResponder::Implementation
 {
 public:
 
-  std::shared_ptr<schedule::Negotiation> negotiation;
-  schedule::ParticipantId for_participant;
-  std::vector<schedule::ParticipantId> to_accommodate;
+  schedule::Negotiation::TablePtr table;
+  rmf_utils::optional<schedule::Version> table_version;
+  schedule::Negotiation::TablePtr parent;
+  rmf_utils::optional<schedule::Version> parent_version;
 
   std::vector<schedule::ParticipantId>* report_blockers;
+
+  Implementation(
+      schedule::Negotiation::TablePtr table_,
+      std::vector<schedule::ParticipantId>* report_blockers_)
+    : table(std::move(table_)),
+      report_blockers(report_blockers_)
+  {
+    if (table->version())
+      table_version = *table->version();
+
+    parent = table->parent();
+    if (parent)
+    {
+      assert(parent->version());
+      parent_version = *parent->version();
+    }
+  }
 };
 
 //==============================================================================
 SimpleResponder::SimpleResponder(
-  std::shared_ptr<schedule::Negotiation> negotiation,
-  schedule::ParticipantId for_participant,
-  std::vector<schedule::ParticipantId> to_accommodate,
+  const Negotiation::TablePtr& table,
   std::vector<schedule::ParticipantId>* report_blockers)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        std::move(negotiation),
-        for_participant,
-        std::move(to_accommodate),
-        report_blockers
-      }))
+      Implementation(table, report_blockers)))
 {
   // Do nothing
-}
-
-//==============================================================================
-SimpleResponder::SimpleResponder(
-  std::shared_ptr<schedule::Negotiation> negotiation,
-  std::vector<schedule::ParticipantId> sequence,
-  std::vector<schedule::ParticipantId>* report_blockers)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        std::move(negotiation),
-        sequence.back(),
-        std::move(sequence),
-        report_blockers
-      }))
-{
-  _pimpl->to_accommodate.pop_back();
 }
 
 //==============================================================================
 void SimpleResponder::submit(std::vector<Route> itinerary,
   std::function<UpdateVersion()> /*approval_callback*/) const
 {
-  const auto table = _pimpl->negotiation->table(
-    _pimpl->for_participant, _pimpl->to_accommodate);
-
-  if (table)
-  {
-    table->submit(
-      std::move(itinerary),
-      table->version() ? *table->version()+1 : 0);
-  }
+  _pimpl->table->submit(
+    std::move(itinerary),
+    _pimpl->table_version ? _pimpl->table_version+1 : 0);
 }
 
 //==============================================================================
 void SimpleResponder::reject(
     const Negotiation::Alternatives& alternatives) const
 {
-  const auto parent = _pimpl->negotiation->table(_pimpl->to_accommodate);
-  if (parent)
-    parent->reject(*parent->version(), _pimpl->for_participant, alternatives);
+  if (_pimpl->parent)
+  {
+    _pimpl->parent->reject(
+          *_pimpl->parent_version,
+          _pimpl->table->participant(),
+          alternatives);
+  }
+
+  // TODO(MXG): Should we throw an exception if the if-statement fails?
 }
 
 //==============================================================================
@@ -95,11 +90,7 @@ void SimpleResponder::forfeit(const std::vector<ParticipantId>& blockers) const
   if (_pimpl->report_blockers)
     *_pimpl->report_blockers = blockers;
 
-  const auto table = _pimpl->negotiation->table(
-        _pimpl->for_participant, _pimpl->to_accommodate);
-
-  if (table)
-    table->forfeit(table->version()? *table->version() : 0);
+  _pimpl->table->forfeit(_pimpl->table_version);
 }
 
 } // namespace schedule

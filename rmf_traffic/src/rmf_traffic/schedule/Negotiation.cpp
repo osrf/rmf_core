@@ -113,7 +113,49 @@ struct NegotiationData
   }
 };
 
+struct RouteEntry
+{
+  ConstRoutePtr route;
+  ParticipantId participant;
+  RouteId route_id;
+  std::shared_ptr<const ParticipantDescription> description;
+};
+using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
+
+using AlternativeTimelinePtr =
+  std::shared_ptr<const TimelineView<const RouteEntry>>;
+
+using AlternativesTimelineMap = std::vector<AlternativeTimelinePtr>;
+using ParticipantToAlternativesMap =
+  std::unordered_map<ParticipantId, AlternativesTimelineMap>;
+
 } // anonymous namespace
+
+//==============================================================================
+class Negotiation::Table::Viewer::Implementation
+{
+public:
+
+  AlternativeTimelinePtr proposed_timeline;
+  ParticipantToAlternativesMap alternatives_timelines;
+  AlternativeMap alternatives;
+  std::shared_ptr<Query::Participants> participant_query;
+  std::shared_ptr<const schedule::Viewer> schedule_viewer;
+
+  Viewer::View query(
+      const Query::Spacetime& spacetime,
+      const std::vector<Table::Rollout>& rollouts) const;
+
+  template<typename... Args>
+  static Viewer make(Args&&... args)
+  {
+    Viewer output;
+    output._pimpl = rmf_utils::make_impl<Implementation>(
+          Implementation{std::forward<Args>(args)...});
+
+    return output;
+  }
+};
 
 //==============================================================================
 class Negotiation::Table::Implementation
@@ -122,35 +164,20 @@ public:
 
   using TableMap = std::unordered_map<ParticipantId, std::shared_ptr<Table>>;
 
-  struct RouteEntry
-  {
-    ConstRoutePtr route;
-    ParticipantId participant;
-    RouteId route_id;
-    std::shared_ptr<const ParticipantDescription> description;
-    std::shared_ptr<void> timeline_handle;
-  };
-  using RouteEntryPtr = std::shared_ptr<RouteEntry>;
-
-  const Viewer* const viewer;
+  std::shared_ptr<const schedule::Viewer> const schedule_viewer;
   std::vector<ParticipantId> sequence;
   std::vector<ParticipantId> unsubmitted;
-  std::vector<RouteEntryPtr> entries;
-  Timeline<RouteEntry> timeline;
 
-  struct Rollout
-  {
-    std::vector<RouteEntryPtr> entries;
-    Timeline<RouteEntry> timeline;
-  };
+  // ===== Fields that get copied into a Viewer =====
+  AlternativeTimelinePtr proposed_timeline;
+  ParticipantToAlternativesMap alternatives_timelines;
+  Viewer::AlternativeMap alternatives;
+  std::shared_ptr<Query::Participants> participant_query;
+  // ================================================
 
-  using AlternativesMap = std::vector<Rollout>;
-  using RolloutsMap = std::unordered_map<ParticipantId, AlternativesMap>;
-  RolloutsMap rollout_timelines;
-
-  std::unordered_map<ParticipantId, Alternatives> rollouts;
-
-  Query::Participants participant_query;
+  // Lazy evaluation on this viewer allows us to minimize pointless copy
+  // operations
+  mutable ViewerPtr cached_table_viewer;
 
   Proposal proposal;
 
@@ -169,14 +196,14 @@ public:
   Implementation(
     TablePtr owner_,
     std::shared_ptr<NegotiationData> negotiation_data_,
-    const Viewer& viewer_,
+    std::shared_ptr<const schedule::Viewer> schedule_viewer_,
     ParticipantId participant_,
     std::size_t depth_,
     std::vector<ParticipantId> submitted_,
     std::vector<ParticipantId> unsubmitted_,
     Proposal initial_proposal_,
     TablePtr parent_)
-  : viewer(&viewer_),
+  : schedule_viewer(std::move(schedule_viewer_)),
     unsubmitted(std::move(unsubmitted_)),
     proposal(std::move(initial_proposal_)),
     participant(participant_),
@@ -185,32 +212,36 @@ public:
     weak_owner(owner_),
     weak_parent(std::move(parent_))
   {
+    std::vector<std::shared_ptr<void>> handles;
+    Timeline<RouteEntry> timeline_builder;
+
     for (const auto& p : proposal)
     {
       const ParticipantId participant = p.participant;
-      const auto& description = viewer->get_participant(participant);
+      const auto& description = schedule_viewer->get_participant(participant);
       for (std::size_t i = 0; i < p.itinerary.size(); ++i)
       {
         const auto& route = p.itinerary[i];
 
-        auto entry = std::make_unique<RouteEntry>(
+        auto entry = std::make_shared<RouteEntry>(
           RouteEntry{
             route,
             participant,
             i,
-            description,
-            nullptr
+            description
           });
 
-        timeline.insert(*entry);
-        entries.emplace_back(std::move(entry));
+        handles.push_back(timeline_builder.insert(entry));
       }
     }
+
+    proposed_timeline = timeline_builder.snapshot();
 
     std::vector<ParticipantId> all_participants = submitted_;
     all_participants.insert(
       all_participants.end(), unsubmitted.begin(), unsubmitted.end());
-    participant_query = Query::Participants::make_all_except(all_participants);
+    participant_query = std::make_shared<Query::Participants>(
+          Query::Participants::make_all_except(all_participants));
 
     // Add this Table's participant to the sequence
     sequence = std::move(submitted_);
@@ -225,10 +256,6 @@ public:
     assert(std::find(unsubmitted.begin(),
       unsubmitted.end(), participant) == unsubmitted.end());
   }
-
-  Viewer::View query(
-      const Query::Spacetime& spacetime,
-      const std::vector<Table::Rollout>& rollouts) const;
 
   void add_participant(const ParticipantId new_participant)
   {
@@ -263,14 +290,14 @@ public:
   {
     auto table = std::make_shared<Table>(Table());
     table->_pimpl = rmf_utils::make_unique_impl<Implementation>(
-      table, weak_negotiation_data.lock(), *viewer, p, depth+1,
+      table, weak_negotiation_data.lock(), schedule_viewer, p, depth+1,
       sequence, unsubmitted, proposal, weak_owner.lock());
 
     descendants.insert(std::make_pair(p, std::move(table)));
   }
 
   static TablePtr make_root(
-    const Viewer& viewer,
+    std::shared_ptr<const schedule::Viewer> schedule_viewer,
     const std::shared_ptr<NegotiationData> negotiation_data,
     const ParticipantId participant,
     const std::vector<ParticipantId>& participants)
@@ -278,8 +305,8 @@ public:
     auto table = std::make_shared<Table>(Table());
     table->_pimpl = rmf_utils::make_unique_impl<Implementation>(
       Implementation(
-        table, negotiation_data, viewer, participant, 1, {},
-        participants, {}, nullptr));
+        table, negotiation_data, std::move(schedule_viewer),
+        participant, 1, {}, participants, {}, nullptr));
 
     return table;
   }
@@ -348,32 +375,33 @@ public:
     return true;
   }
 
-  std::vector<Rollout> to_rollouts(
+  AlternativesTimelineMap to_timelines(
       const ParticipantId participant,
       const Alternatives& alternatives) const
   {
-    std::vector<Rollout> output;
-    const auto& description = viewer->get_participant(participant);
+    AlternativesTimelineMap output;
+    const auto& description = schedule_viewer->get_participant(participant);
+
     for (const auto& alternative : alternatives)
     {
-      Rollout rollout;
+      Timeline<RouteEntry> timeline;
+      std::vector<std::shared_ptr<void>> handles;
+
       std::size_t id = 0;
       for (const auto& route : alternative)
       {
-        auto entry = std::make_unique<RouteEntry>(
+        auto entry = std::make_shared<RouteEntry>(
               RouteEntry{
                 route,
                 participant,
                 id,
-                description,
-                nullptr
+                description
               });
 
-        rollout.timeline.insert(*entry);
-        rollout.entries.emplace_back(std::move(entry));
+        handles.push_back(timeline.insert(entry));
       }
 
-      output.emplace_back(std::move(rollout));
+      output.emplace_back(timeline.snapshot());
     }
 
     return output;
@@ -382,10 +410,15 @@ public:
   void reject(
       const Version rejected_version,
       ParticipantId rejected_by,
-      const Alternatives& alternatives)
+      Alternatives offered_alternatives)
   {
-    rollout_timelines[rejected_by] = to_rollouts(rejected_by, alternatives);
-    rollouts[rejected_by] = alternatives;
+    cached_table_viewer.reset();
+
+    alternatives_timelines[rejected_by] =
+        to_timelines(rejected_by, offered_alternatives);
+
+    this->alternatives[rejected_by] =
+        std::make_shared<Alternatives>(std::move(offered_alternatives));
 
     if (version && rmf_utils::modular(rejected_version).less_than(*version))
       return;
@@ -493,6 +526,8 @@ public:
         }
 
         table->_pimpl->weak_negotiation_data.reset();
+        // TODO(MXG): Should we really not clear out the parentage of an
+        // orphaned table?
 //        table->_pimpl->weak_parent.reset();
         queue.push_back(entry.second->_pimpl.get());
       }
@@ -508,9 +543,9 @@ class Negotiation::Implementation
 public:
 
   Implementation(
-    const Viewer& viewer_,
+    std::shared_ptr<const schedule::Viewer> schedule_viewer_,
     std::vector<ParticipantId> participants_)
-  : viewer(&viewer_),
+  : schedule_viewer(std::move(schedule_viewer_)),
     data(std::make_shared<NegotiationData>())
   {
     for (const auto p : participants_)
@@ -521,11 +556,11 @@ public:
     for (const auto p : participants_)
     {
       tables[p] = Table::Implementation::make_root(
-        viewer_, data, p, participants_);
+        schedule_viewer, data, p, participants_);
     }
   }
 
-  const Viewer* viewer;
+  std::shared_ptr<const schedule::Viewer> schedule_viewer;
   std::size_t max_terminated_tables;
 
   using TableMap = Table::Implementation::TableMap;
@@ -654,7 +689,7 @@ public:
       t->add_participant(new_participant);
 
     tables[new_participant] = Table::Implementation::make_root(
-      *viewer, data, new_participant,
+      schedule_viewer, data, new_participant,
       std::vector<ParticipantId>(
         data->participants.begin(),
         data->participants.end()));
@@ -663,10 +698,10 @@ public:
 
 //==============================================================================
 Negotiation::Negotiation(
-  const Viewer& viewer,
+  std::shared_ptr<const schedule::Viewer> schedule_viewer,
   std::vector<ParticipantId> participants)
 : _pimpl(rmf_utils::make_unique_impl<Implementation>(
-      viewer, std::move(participants)))
+      std::move(schedule_viewer), std::move(participants)))
 {
   // Do nothing
 }
@@ -697,14 +732,11 @@ bool Negotiation::complete() const
 
 namespace {
 //==============================================================================
-class NegotiationRelevanceInspector
-  : public TimelineInspector<Negotiation::Table::Implementation::RouteEntry>
+class NegotiationRelevanceInspector : public TimelineInspector<RouteEntry>
 {
 public:
 
-  using RouteEntry = Negotiation::Table::Implementation::RouteEntry;
-
-  using Storage = Viewer::View::Implementation::Storage;
+  using Storage = schedule::Viewer::View::Implementation::Storage;
 
   std::vector<Storage> routes;
 
@@ -728,28 +760,26 @@ public:
 } // anonymous namespace
 
 //==============================================================================
-Viewer::View Negotiation::Table::Implementation::query(
+Viewer::View Negotiation::Table::Viewer::Implementation::query(
   const Query::Spacetime& spacetime,
   const std::vector<Table::Rollout>& chosen_rollouts) const
 {
-  Query query = query_all();
-  query.spacetime() = spacetime;
+  const auto& all_participants = Query::Participants::make_all();
 
   // Query for the relevant routes that are being negotiated
   NegotiationRelevanceInspector inspector;
-  timeline.inspect(query, inspector);
+  proposed_timeline->inspect(spacetime, all_participants, inspector);
 
   // Query for the routes in the child rollouts that are being considered
   for (const auto& rollout : chosen_rollouts)
   {
-    rollout_timelines.at(rollout.participant)
+    alternatives_timelines.at(rollout.participant)
       .at(rollout.alternative)
-      .timeline.inspect(query, inspector);
+      ->inspect(spacetime, all_participants, inspector);
   }
 
   // Query for the relevant routes that are outside of the negotiation
-  query.participants() = participant_query;
-  Viewer::View view = viewer->query(query);
+  Viewer::View view = schedule_viewer->query(spacetime, *participant_query);
 
   // Merge them together into a single view
   Viewer::View::Implementation::append_to_view(
@@ -759,7 +789,7 @@ Viewer::View Negotiation::Table::Implementation::query(
 }
 
 //==============================================================================
-Viewer::View Negotiation::Table::query(
+Viewer::View Negotiation::Table::Viewer::query(
     const Query::Spacetime& parameters,
     const std::vector<Rollout>& rollouts) const
 {
@@ -767,9 +797,39 @@ Viewer::View Negotiation::Table::query(
 }
 
 //==============================================================================
-const Viewer* Negotiation::Table::viewer() const
+auto Negotiation::Table::Viewer::alternatives() const -> const AlternativeMap&
 {
-  return _pimpl->viewer;
+  return _pimpl->alternatives;
+}
+
+//==============================================================================
+std::shared_ptr<const ParticipantDescription>
+Negotiation::Table::Viewer::get_participant(ParticipantId participant_id) const
+{
+  return _pimpl->schedule_viewer->get_participant(participant_id);
+}
+
+//==============================================================================
+Negotiation::Table::Viewer::Viewer()
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Negotiation::Table::viewer() const -> ViewerPtr
+{
+  if (_pimpl->cached_table_viewer)
+    return _pimpl->cached_table_viewer;
+
+  _pimpl->cached_table_viewer = std::make_shared<Viewer>(
+        Viewer::Implementation::make(
+          _pimpl->proposed_timeline,
+          _pimpl->alternatives_timelines,
+          _pimpl->alternatives,
+          _pimpl->participant_query,
+          _pimpl->schedule_viewer));
+
+  return _pimpl->cached_table_viewer;
 }
 
 //==============================================================================
@@ -820,22 +880,15 @@ bool Negotiation::Table::submit(
 void Negotiation::Table::reject(
     const Version version,
     ParticipantId rejected_by,
-    const Alternatives& rollouts)
+    Alternatives rollouts)
 {
-  _pimpl->reject(version, rejected_by, rollouts);
+  _pimpl->reject(version, rejected_by, std::move(rollouts));
 }
 
 //==============================================================================
 bool Negotiation::Table::rejected() const
 {
   return _pimpl->rejected;
-}
-
-//==============================================================================
-auto Negotiation::Table::rollouts() const
--> const std::unordered_map<ParticipantId, Alternatives>&
-{
-  return _pimpl->rollouts;
 }
 
 //==============================================================================
