@@ -32,7 +32,8 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-/// A class that allows users to see Trajectories that are part of a schedule.
+/// A pure abstract interface class that allows users to query for itineraries
+/// that are in a schedule.
 ///
 /// This class cannot be instantiated directly. To get a Viewer, you must
 /// instantiate an rmf_traffic::schedule::Database or an
@@ -102,19 +103,38 @@ public:
   virtual std::shared_ptr<const ParticipantDescription> get_participant(
     ParticipantId participant_id) const = 0;
 
+  /// Get the latest version number of this Database.
+  virtual Version latest_version() const = 0;
+
+  // Virtual destructor
+  virtual ~Viewer() = default;
+
+  // The Debug class is for internal testing use only. Its definition is not
+  // visible to downstream users.
+  class Debug;
+  class Implementation;
+};
+
+//==============================================================================
+/// A pure abstract interface class that extends Viewer to allow users to
+/// explicitly request the itinerary of a specific participant.
+///
+/// \note This interface class is separate from Viewer because it is not
+/// generally needed by the traffic planning or negotiation systems, and the
+/// Snapshot class can perform better if it does not need to provide this
+/// function.
+class ItineraryViewer
+{
+public:
+
   /// Get the itinerary of a specific participant if it is available. If a
   /// participant with the specified ID is not registered with the schedule or
   /// has never submitted an itinerary, then this will return a nullopt.
   virtual rmf_utils::optional<Itinerary> get_itinerary(
     std::size_t participant_id) const = 0;
 
-  /// Get the latest version number of this Database.
-  virtual Version latest_version() const = 0;
-
-  // The Debug class is for internal testing use only. Its definition is not
-  // visible to downstream users.
-  class Debug;
-  class Implementation;
+  // Virtual destructor
+  virtual ~ItineraryViewer() = default;
 };
 
 } // namespace schedule

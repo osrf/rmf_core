@@ -20,6 +20,7 @@
 #include "ChangeInternal.hpp"
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
+#include "internal_Snapshot.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
@@ -51,6 +52,14 @@ public:
     std::unordered_map<RouteId, RouteStorage> storage;
     std::shared_ptr<const ParticipantDescription> description;
   };
+
+  // This violates the single-source-of-truth principle, but it helps make it
+  // more efficient to create snapshots
+  using ParticipantDescriptions =
+    std::unordered_map<ParticipantId,
+    std::shared_ptr<const ParticipantDescription>
+  >;
+  ParticipantDescriptions descriptions;
 
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
@@ -229,11 +238,11 @@ const std::unordered_set<ParticipantId>& Mirror::participant_ids() const
 std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
   std::size_t participant_id) const
 {
-  const auto p = _pimpl->states.find(participant_id);
-  if (p == _pimpl->states.end())
+  const auto p = _pimpl->descriptions.find(participant_id);
+  if (p == _pimpl->descriptions.end())
     return nullptr;
 
-  return p->second.description;
+  return p->second;
 }
 
 //==============================================================================
@@ -260,6 +269,22 @@ Version Mirror::latest_version() const
 }
 
 //==============================================================================
+std::shared_ptr<const Snapshot> Mirror::snapshot() const
+{
+  using SnapshotType =
+    SnapshotImplementation<
+      Implementation::RouteEntry,
+      MirrorViewRelevanceInspector
+    >;
+
+  return std::make_shared<SnapshotType>(
+        _pimpl->timeline.snapshot(),
+        _pimpl->participant_ids,
+        _pimpl->descriptions,
+        _pimpl->latest_version);
+}
+
+//==============================================================================
 Mirror::Mirror()
 : _pimpl(rmf_utils::make_unique_impl<Implementation>())
 {
@@ -282,20 +307,24 @@ Version Mirror::update(const Patch& patch)
     }
 
     _pimpl->states.erase(p_it);
+    _pimpl->descriptions.erase(id);
     _pimpl->participant_ids.erase(id);
   }
 
   for (const auto& registered : patch.registered())
   {
+    const auto description = std::make_shared<ParticipantDescription>(registered.description());
+
     const ParticipantId id = registered.id();
     const bool inserted = _pimpl->states.insert(
       std::make_pair(
         id,
         Implementation::ParticipantState{
           {},
-          std::make_shared<ParticipantDescription>(registered.description())
+          description
         })).second;
 
+    _pimpl->descriptions.insert({id, description});
     _pimpl->participant_ids.insert(id);
 
     assert(inserted);

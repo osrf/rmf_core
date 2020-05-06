@@ -20,6 +20,7 @@
 #include "Timeline.hpp"
 #include "ViewerInternal.hpp"
 #include "debug_Database.hpp"
+#include "internal_Snapshot.hpp"
 
 #include "../detail/internal_bidirectional_iterator.hpp"
 
@@ -115,6 +116,14 @@ public:
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
+
+  // This violates the single-source-of-truth principle, but it helps make it
+  // more efficient to create snapshots
+  using ParticipantDescriptions =
+    std::unordered_map<ParticipantId,
+    std::shared_ptr<const ParticipantDescription>
+  >;
+  ParticipantDescriptions descriptions;
 
   using ParticipantRegistrationVersions = std::map<Version, ParticipantId>;
   ParticipantRegistrationVersions add_participant_version;
@@ -632,6 +641,9 @@ ParticipantId Database::register_participant(
 
   const Version version = ++_pimpl->schedule_version;
 
+  const auto description_ptr =
+      std::make_shared<ParticipantDescription>(std::move(description));
+
   _pimpl->states.insert(
     std::make_pair(
       id,
@@ -639,9 +651,11 @@ ParticipantId Database::register_participant(
         {},
         std::move(tracker),
         {},
-        std::make_shared<ParticipantDescription>(std::move(description)),
+        description_ptr,
         version
       }));
+
+  _pimpl->descriptions.insert({id, description_ptr});
 
   _pimpl->add_participant_version[version] = id;
   return id;
@@ -683,6 +697,7 @@ void Database::unregister_participant(
 
   _pimpl->participant_ids.erase(id_it);
   _pimpl->states.erase(state_it);
+  _pimpl->descriptions.erase(participant);
 
   const Version version = ++_pimpl->schedule_version;
   _pimpl->remove_participant_version[version] = {participant, initial_version};
@@ -1004,11 +1019,11 @@ const std::unordered_set<ParticipantId>& Database::participant_ids() const
 std::shared_ptr<const ParticipantDescription> Database::get_participant(
   std::size_t participant_id) const
 {
-  const auto state_it = _pimpl->states.find(participant_id);
-  if (state_it == _pimpl->states.end())
+  const auto state_it = _pimpl->descriptions.find(participant_id);
+  if (state_it == _pimpl->descriptions.end())
     return nullptr;
 
-  return state_it->second.description;
+  return state_it->second;
 }
 
 //==============================================================================
@@ -1033,6 +1048,19 @@ rmf_utils::optional<Itinerary> Database::get_itinerary(
 Version Database::latest_version() const
 {
   return _pimpl->schedule_version;
+}
+
+//==============================================================================
+std::shared_ptr<const Snapshot> Database::snapshot() const
+{
+  using SnapshotType =
+    SnapshotImplementation<Implementation::RouteEntry, ViewRelevanceInspector>;
+
+  return std::make_shared<SnapshotType>(
+        _pimpl->timeline.snapshot(),
+        _pimpl->participant_ids,
+        _pimpl->descriptions,
+        _pimpl->schedule_version);
 }
 
 //==============================================================================
