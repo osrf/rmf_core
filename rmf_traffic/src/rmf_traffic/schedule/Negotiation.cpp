@@ -408,11 +408,14 @@ public:
     return output;
   }
 
-  void reject(
+  bool reject(
       const Version rejected_version,
       ParticipantId rejected_by,
       Alternatives offered_alternatives)
   {
+    if (version && rmf_utils::modular(rejected_version).less_than(*version))
+      return false;
+
     cached_table_viewer.reset();
 
     alternatives_timelines[rejected_by] =
@@ -421,13 +424,13 @@ public:
     this->alternatives[rejected_by] =
         std::make_shared<Alternatives>(std::move(offered_alternatives));
 
-    if (version && rmf_utils::modular(rejected_version).less_than(*version))
-      return;
-
     version = rejected_version;
 
+    // We return true here because the alternatives updated which may be
+    // relevant to the negotiation participant, even if the rejected status is
+    // unchanged.
     if (rejected)
-      return;
+      return true;
 
     const auto negotiation_data = weak_negotiation_data.lock();
     if (itinerary && descendants.empty() && negotiation_data)
@@ -453,6 +456,8 @@ public:
       // Erase any successful tables that branched off of this rejected table
       negotiation_data->clear_successful_descendants_of(sequence);
     }
+
+    return true;
   }
 
   void forfeit(const Version forfeited_version)
@@ -889,12 +894,12 @@ bool Negotiation::Table::submit(
 }
 
 //==============================================================================
-void Negotiation::Table::reject(
+bool Negotiation::Table::reject(
     const Version version,
     ParticipantId rejected_by,
     Alternatives rollouts)
 {
-  _pimpl->reject(version, rejected_by, std::move(rollouts));
+  return _pimpl->reject(version, rejected_by, std::move(rollouts));
 }
 
 //==============================================================================

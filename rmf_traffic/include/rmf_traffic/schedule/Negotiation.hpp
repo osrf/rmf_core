@@ -210,7 +210,10 @@ public:
     ///   A set of rollouts that could be used by the participant that is
     ///   rejecting this proposal. The proposer should use this information to
     ///   offer a proposal that can accommodate at least one of these rollouts.
-    void reject(
+    ///
+    /// \return True if the rejection was accepted. False if the version was
+    /// out of date and nothing changed in the negotiation.
+    bool reject(
         Version version,
         ParticipantId rejected_by,
         Alternatives alternatives);
