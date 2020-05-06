@@ -41,7 +41,6 @@ namespace schedule {
 /// to a downstream Viewer, it is strongly advised to use the
 /// rmf_traffic::schedule::Mirror class.
 class Database :
-    public Viewer,
     public ItineraryViewer,
     public Writer,
     public Snappable

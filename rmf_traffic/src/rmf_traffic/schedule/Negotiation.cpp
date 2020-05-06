@@ -139,6 +139,7 @@ public:
   AlternativeTimelinePtr proposed_timeline;
   ParticipantToAlternativesMap alternatives_timelines;
   AlternativeMap alternatives;
+  std::shared_ptr<Proposal> base_proposals;
   std::shared_ptr<Query::Participants> participant_query;
   std::shared_ptr<const schedule::Viewer> schedule_viewer;
   rmf_utils::optional<ParticipantId> parent_id;
@@ -180,6 +181,7 @@ public:
   // operations
   mutable ViewerPtr cached_table_viewer;
 
+  std::shared_ptr<Proposal> base_proposals;
   Proposal proposal;
 
   const ParticipantId participant;
@@ -206,7 +208,8 @@ public:
     TablePtr parent_)
   : schedule_viewer(std::move(schedule_viewer_)),
     unsubmitted(std::move(unsubmitted_)),
-    proposal(std::move(initial_proposal_)),
+    base_proposals(std::make_shared<Proposal>(std::move(initial_proposal_))),
+    proposal(*base_proposals),
     participant(participant_),
     depth(depth_),
     weak_negotiation_data(negotiation_data_),
@@ -809,6 +812,12 @@ auto Negotiation::Table::Viewer::alternatives() const -> const AlternativeMap&
 }
 
 //==============================================================================
+auto Negotiation::Table::Viewer::base_proposals() const -> const Proposal&
+{
+  return *_pimpl->base_proposals;
+}
+
+//==============================================================================
 std::shared_ptr<const ParticipantDescription>
 Negotiation::Table::Viewer::get_participant(ParticipantId participant_id) const
 {
@@ -842,6 +851,7 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
           _pimpl->proposed_timeline,
           _pimpl->alternatives_timelines,
           _pimpl->alternatives,
+          _pimpl->base_proposals,
           _pimpl->participant_query,
           _pimpl->schedule_viewer,
           parent_id));
@@ -868,7 +878,7 @@ const Version* Negotiation::Table::version() const
 }
 
 //==============================================================================
-auto Negotiation::Table::proposal() const -> Proposal
+auto Negotiation::Table::proposal() const -> const Proposal&
 {
   return _pimpl->proposal;
 }

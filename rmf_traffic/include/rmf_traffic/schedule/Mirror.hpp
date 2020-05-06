@@ -30,7 +30,7 @@ namespace schedule {
 /// rmf_traffic::schedule::Database.
 ///
 /// The Mirror is designed to mirror a relevant subset of the schedule database.
-class Mirror : public Viewer, public ItineraryViewer, public Snappable
+class Mirror : public ItineraryViewer, public Snappable
 {
 public:
 

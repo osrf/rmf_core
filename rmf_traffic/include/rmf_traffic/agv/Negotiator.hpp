@@ -37,13 +37,24 @@ public:
   {
   public:
 
+    using ApprovalCallback =
+        std::function<Responder::UpdateVersion(rmf_traffic::agv::Plan)>;
+
     /// Constructor
+    ///
+    /// \param[in] approval_cb
+    ///   The callback that will be triggered if the proposal is approved.
     ///
     /// \param[in] min_hold_time
     ///   The minimum amount of time that the planner should spend waiting at
     ///   holding points. See Planner::Options for more information.
     Options(
+      ApprovalCallback approval_cb = nullptr,
       Duration min_hold_time = Planner::Options::DefaultMinHoldingTime);
+
+    /// Set the approval callback
+    // TODO(MXG): The approval_callback option needs to be unit tested
+    Options& approval_callback(ApprovalCallback cb);
 
     /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);
@@ -74,7 +85,7 @@ public:
     Planner::Start start,
     Planner::Goal goal,
     Planner::Configuration planner_configuration,
-    const Options& options = Options());
+    Options options = Options());
 
   /// Constructor
   ///
@@ -94,7 +105,10 @@ public:
     std::vector<Planner::Start> starts,
     Planner::Goal goal,
     Planner::Configuration planner_configuration,
-    const Options& options = Options());
+    Options options = Options());
+
+  // TODO(MXG): Offer a constructor that accepts a Planner instance to benefit
+  // from the cached heuristics.
 
   // Documentation inherited
   void respond(

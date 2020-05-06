@@ -123,7 +123,7 @@ public:
 /// generally needed by the traffic planning or negotiation systems, and the
 /// Snapshot class can perform better if it does not need to provide this
 /// function.
-class ItineraryViewer
+class ItineraryViewer : public virtual Viewer
 {
 public:
 

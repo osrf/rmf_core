@@ -40,6 +40,7 @@ public:
     using ParticipantId = rmf_traffic::schedule::ParticipantId;
     using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
     using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
+    using ApprovalCallback = std::function<UpdateVersion()>;
     using Alternatives = Negotiation::Alternatives;
 
     /// The negotiator will call this function when it has an itinerary to
@@ -56,7 +57,7 @@ public:
     ///   nullptr if an approval callback is not necessary.
     virtual void submit(
       std::vector<Route> itinerary,
-      std::function<UpdateVersion()> approval_callback = nullptr) const = 0;
+      ApprovalCallback approval_callback = nullptr) const = 0;
 
     /// The negotiator will call this function if it has decided to reject an
     /// attempt to negotiate. It must supply a set of alternatives for the

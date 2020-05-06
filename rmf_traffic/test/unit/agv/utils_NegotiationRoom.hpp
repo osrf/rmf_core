@@ -212,7 +212,7 @@ public:
 
       using namespace std::chrono_literals;
       // Give up if the solution is not found within a time limit
-      if (result.wait_for(10s) != std::future_status::ready)
+      if (result.wait_for(1s) != std::future_status::ready)
         interrupt = true;
 
       result.wait();

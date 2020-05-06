@@ -31,15 +31,35 @@ class SimpleNegotiator::Options::Implementation
 {
 public:
 
+  ApprovalCallback approval_cb;
   Duration minimum_holding_time;
+
+  static ApprovalCallback&& move_approval_cb(Options&& options)
+  {
+    return std::move(options._pimpl->approval_cb);
+  }
 
 };
 
 //==============================================================================
-SimpleNegotiator::Options::Options(Duration min_hold_time)
-: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{min_hold_time}))
+SimpleNegotiator::Options::Options(
+    ApprovalCallback approval_cb,
+    Duration min_hold_time)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             std::move(approval_cb),
+             min_hold_time
+           }))
 {
   // Do nothing
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::approval_callback(
+    ApprovalCallback approval_cb) -> Options&
+{
+  _pimpl->approval_cb = std::move(approval_cb);
+  return *this;
 }
 
 //==============================================================================
@@ -64,6 +84,7 @@ public:
   Planner::Goal goal;
   Planner::Options options;
   Planner planner;
+  Options::ApprovalCallback approval_cb;
 
   bool debug_print = false;
 
@@ -71,11 +92,13 @@ public:
     std::vector<Planner::Start> starts_,
     Planner::Goal goal_,
     Planner::Configuration configuration_,
-    Planner::Options options_)
+    Planner::Options options_,
+    Options::ApprovalCallback approval_cb_)
   : starts(std::move(starts_)),
     goal(std::move(goal_)),
     options(std::move(options_)),
-    planner(std::move(configuration_), options)
+    planner(std::move(configuration_), options),
+    approval_cb(std::move(approval_cb_))
   {
     // Do nothing
   }
@@ -87,13 +110,14 @@ SimpleNegotiator::SimpleNegotiator(
   Planner::Start start,
   Planner::Goal goal,
   Planner::Configuration planner_configuration,
-  const Options& options)
+  Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
     Implementation(
       {std::move(start)},
       std::move(goal),
       std::move(planner_configuration),
-      Planner::Options(nullptr, options.minimum_holding_time()))))
+      Planner::Options(nullptr, options.minimum_holding_time()),
+      Options::Implementation::move_approval_cb(std::move(options)))))
 {
   // Do nothing
 }
@@ -103,12 +127,13 @@ SimpleNegotiator::SimpleNegotiator(
   std::vector<Planner::Start> starts,
   Planner::Goal goal,
   Planner::Configuration planner_configuration,
-  const Options& options)
+  Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
            std::move(starts),
            std::move(goal),
            std::move(planner_configuration),
-           Planner::Options(nullptr, options.minimum_holding_time())))
+           Planner::Options(nullptr, options.minimum_holding_time()),
+           Options::Implementation::move_approval_cb(std::move(options))))
 {
   // Do nothing
 }
@@ -218,7 +243,20 @@ void SimpleNegotiator::respond(
         std::cout << "Submitting:\n";
         print_itinerary(plan->get_itinerary());
       }
-      return responder.submit(plan->get_itinerary());
+
+      Responder::ApprovalCallback responder_approval_cb;
+      if (_pimpl->approval_cb)
+      {
+        responder_approval_cb = [
+              approval_cb = _pimpl->approval_cb,
+              approved_plan = *plan
+            ]() -> Responder::UpdateVersion
+        {
+          return approval_cb(std::move(approved_plan));
+        };
+      }
+
+      return responder.submit(plan->get_itinerary(), responder_approval_cb);
     }
 
     if (_pimpl->debug_print)

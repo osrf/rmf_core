@@ -200,14 +200,14 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       plan_1->get_start(),
       plan_1.get_goal(),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
     };
 
     rmf_traffic::agv::SimpleNegotiator negotiator_2{
       plan_2->get_start(),
       plan_2.get_goal(),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
     };
 
     auto next_table = negotiation->table(p1.id(), {});
@@ -281,14 +281,14 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),
       rmf_traffic::agv::Plan::Goal(7),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
     };
 
     rmf_traffic::agv::SimpleNegotiator negotiator_2{
       rmf_traffic::agv::Plan::Start(start_time, 7, 0.0),
       rmf_traffic::agv::Plan::Goal(3),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
     };
 
     auto next_table = negotiation->table(p1.id(), {});

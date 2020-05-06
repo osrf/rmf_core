@@ -135,6 +135,9 @@ public:
       /// them.
       const AlternativeMap& alternatives() const;
 
+      /// The proposals submitted to the predecessor tables.
+      const Proposal& base_proposals() const;
+
       /// Get the description of a participant in this Viewer
       std::shared_ptr<const ParticipantDescription> get_participant(
           ParticipantId participant_id) const;
@@ -165,7 +168,7 @@ public:
     /// itinerary that has been submitted to this Table if anything has been
     /// submitted. Otherwise it will only include the submissions that underlie
     /// this table.
-    Proposal proposal() const;
+    const Proposal& proposal() const;
 
     /// The participant that is meant to submit to this Table.
     ParticipantId participant() const;
