@@ -256,6 +256,10 @@ void SimpleNegotiator::respond(
         };
       }
 
+      if (_pimpl->debug_print)
+      {
+        std::cout << " >>>>> Submitting" << std::endl;
+      }
       return responder.submit(plan->get_itinerary(), responder_approval_cb);
     }
 
@@ -346,11 +350,27 @@ void SimpleNegotiator::respond(
   }
 
   if (alternatives)
+  {
+    if (_pimpl->debug_print)
+    {
+      std::cout << " >>>>> Rejecting" << std::endl;
+    }
     return responder.reject(*alternatives);
+  }
 
   if (best_blockers)
+  {
+    if (_pimpl->debug_print)
+    {
+      std::cout << " >>>>> Forfeiting with blockers" << std::endl;
+    }
     return responder.forfeit(*best_blockers);
+  }
 
+  if (_pimpl->debug_print)
+  {
+    std::cout << " >>>>> Forfeiting with NO BLOCKERS" << std::endl;
+  }
   // This would be suspicious. How could the planning fail without any blockers?
   responder.forfeit({});
 }

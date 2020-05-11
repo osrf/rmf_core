@@ -190,6 +190,7 @@ public:
   rmf_utils::optional<Version> version = rmf_utils::nullopt;
   bool rejected = false;
   bool forfeited = false;
+  bool defunct = false;
   TableMap descendants;
 
   std::weak_ptr<NegotiationData> weak_negotiation_data;
@@ -535,9 +536,8 @@ public:
         }
 
         table->_pimpl->weak_negotiation_data.reset();
-        // TODO(MXG): Should we really not clear out the parentage of an
-        // orphaned table?
-//        table->_pimpl->weak_parent.reset();
+        // Tell the child tables that they are now defunct
+        table->_pimpl->defunct = true;
         queue.push_back(entry.second->_pimpl.get());
       }
     }
@@ -928,6 +928,12 @@ void Negotiation::Table::forfeit(Version version)
 bool Negotiation::Table::forfeited() const
 {
   return _pimpl->forfeited;
+}
+
+//==============================================================================
+bool Negotiation::Table::defunct() const
+{
+  return _pimpl->defunct;
 }
 
 //==============================================================================

@@ -34,7 +34,7 @@ NegotiationRoom::NegotiationRoom(rmf_traffic::schedule::Negotiation negotiation_
 
 //==============================================================================
 std::vector<rmf_traffic::schedule::Negotiation::TablePtr> NegotiationRoom::
-check_cache()
+check_cache(const NegotiatorMap& negotiators)
 {
   std::vector<rmf_traffic::schedule::Negotiation::TablePtr> new_tables;
 
@@ -99,13 +99,25 @@ check_cache()
   auto remove_it = std::remove_if(new_tables.begin(), new_tables.end(),
       [](const rmf_traffic::schedule::Negotiation::TablePtr& table)
       {
-        return table->rejected();
+        return table->forfeited() || table->defunct();
       });
   new_tables.erase(remove_it, new_tables.end());
 
-  return new_tables;
+  std::vector<rmf_traffic::schedule::Negotiation::TablePtr> respond_to;
+  for (const auto& new_table : new_tables)
+  {
+    for (const auto& n : negotiators)
+    {
+      const auto participant = n.first;
+      if (const auto r = new_table->respond(participant))
+        respond_to.push_back(r);
+    }
+  }
+
+  return respond_to;
 }
 
+//==============================================================================
 void print_negotiation_status(
   rmf_traffic::schedule::Version conflict_version,
   const rmf_traffic::schedule::Negotiation& negotiation)
@@ -152,11 +164,14 @@ void print_negotiation_status(
     std::cout << "\n --";
     const bool finished = static_cast<bool>(t->submission());
     const bool rejected = t->rejected();
+    const bool forfeited = t->forfeited();
     const auto sequence = t->sequence();
     for (std::size_t i = 0; i < sequence.size(); ++i)
     {
-      if (i == t->sequence().size()-1 && rejected)
+      if (i == t->sequence().size()-1 && forfeited)
         std::cout << " <" << sequence[i] << ">";
+      else if (i == t->sequence().size()-1 && rejected)
+        std::cout << " {" << sequence[i] << "}";
       else if (i == t->sequence().size()-1 && !finished)
         std::cout << " [" << sequence[i] << "]";
       else

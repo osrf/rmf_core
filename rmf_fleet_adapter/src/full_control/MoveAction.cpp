@@ -22,6 +22,7 @@
 
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 
 #include <rmf_utils/math.hpp>
 
@@ -220,14 +221,47 @@ public:
     }
 
     interrupt_flag = true;
+    const auto time_diff = rmf_traffic::time::to_seconds(
+          std::chrono::steady_clock::now() - giveup_time);
+
     main_plan_thread.join();
 //    for (auto& fallback_thread : fallback_plan_threads)
 //      fallback_thread.join();
 
-    if (main_plan)
+    if (main_plan->success())
     {
-      plans.emplace_back(std::move(*std::move(*std::move(main_plan))));
+      plans.emplace_back(**main_plan);
       return plans;
+    }
+
+    std::cout << "Planning Interrupted: ";
+    if (main_plan->interrupted())
+      std::cout << "true: " << time_diff;
+    else
+      std::cout << "false: " << time_diff;
+    std::cout << std::endl;
+
+    if (validator == nullptr)
+    {
+      std::cout << " ===== MAKING IT WORK...." << std::endl;
+      interrupt_flag = false;
+      const auto extra_time_start = std::chrono::steady_clock::now();
+      main_plan->resume();
+      std::cout << " ===== Extra time needed: "
+                << rmf_traffic::time::to_seconds(
+                     std::chrono::steady_clock::now() - extra_time_start)
+                << std::endl;
+
+      if (main_plan->success())
+      {
+        std::cout << "  ===== It is solved now" << std::endl;
+        plans.emplace_back(**main_plan);
+        return plans;
+      }
+      else
+      {
+        std::cout << " ===== Still not solved, expect a crash" << std::endl;
+      }
     }
 
 //    return use_fallback(std::move(fallback_plans));
@@ -244,6 +278,9 @@ public:
       _node->get_logger(),
       "Looking for a plan to open a schedule conflict for ["
       + _context->robot_name() + "]");
+
+    std::cout << " ===== DEMANDING A FEASIBLE PLAN" << std::endl;
+
     plans = find_plan(nullptr);
     if (plans.empty())
     {
@@ -361,6 +398,8 @@ public:
           rmf_traffic::agv::Plan::Goal(_goal_wp_index),
           planner.get_configuration(),
           options);
+
+    rmf_traffic::agv::SimpleNegotiator::Debug::enable_debug_print(negotiator);
 
     bool interrupt_flag = false;
     auto future = std::async(
@@ -511,8 +550,6 @@ public:
       for (const auto& wp : plan.get_waypoints())
         _remaining_waypoints.emplace_back(wp);
 
-
-
     return send_next_command(false);
   }
 
@@ -657,7 +694,7 @@ public:
 
     void receive(const RobotState& msg) final
     {
-      assert(_parent->_command || _parent->_retry_time);
+      assert(_parent->_command);
 
       if (_parent->handle_docking(msg))
         return;
@@ -676,9 +713,6 @@ public:
 
   bool verify_task_id(const RobotState& msg)
   {
-    if (!_command)
-      return false;
-
     if (msg.task_id != _command->task_id)
     {
       const auto now = _node->get_clock()->now();
@@ -725,9 +759,6 @@ public:
 
   void handle_event(const RobotState& msg)
   {
-    if (!_command)
-      return;
-
     if (_issued_waypoints.empty())
       return;
 
@@ -805,9 +836,6 @@ public:
 
   void handle_delay(const RobotState& msg)
   {
-    if (!_command)
-      return;
-
     bool s;
     auto trajectory_estimate =
       make_trajectory(msg, _node->get_fields().traits, s);
@@ -1469,8 +1497,6 @@ private:
   rmf_utils::optional<Eigen::Vector3d> _next_stop;
   rmf_utils::optional<rmf_fleet_msgs::msg::PathRequest> _command;
   std::size_t _command_id = 0;
-
-  rmf_utils::optional<rclcpp::Time> _retry_time = rmf_utils::nullopt;
 
   bool _waiting_on_docking = false;
   std::string _current_dock_name;

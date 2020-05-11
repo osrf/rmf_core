@@ -156,9 +156,6 @@ public:
   using AckPub = rclcpp::Publisher<Ack>;
   AckPub::SharedPtr ack_pub;
 
-  using ParticipantId = rmf_traffic::schedule::ParticipantId;
-  using NegotiatorPtr = std::unique_ptr<rmf_traffic::schedule::Negotiator>;
-  using NegotiatorMap = std::unordered_map<ParticipantId, NegotiatorPtr>;
   using NegotiationMapPtr = std::shared_ptr<NegotiatorMap>;
   using WeakNegotiationMapPtr = std::weak_ptr<NegotiatorMap>;
   NegotiationMapPtr negotiators;
@@ -297,6 +294,51 @@ public:
     publish_proposal(msg.conflict_version, *table);
   }
 
+  void respond_to_queue(
+      std::vector<TablePtr> queue,
+      Version conflict_version)
+  {
+    while (!queue.empty())
+    {
+      const auto top = queue.back();
+      queue.pop_back();
+
+      if (top->defunct())
+        continue;
+
+      if (!top->submission())
+      {
+        const auto n_it = negotiators->find(top->participant());
+        if (n_it == negotiators->end())
+          continue;
+
+        // TODO(MXG): Make this limit configurable
+        if (top->version() && *top->version() > 3)
+        {
+          // Give up on this table at this point to avoid an infinite loop
+          top->forfeit(*top->version());
+          publish_forfeit(conflict_version, *top);
+          continue;
+        }
+
+        const auto& negotiator = n_it->second;
+        negotiator->respond(
+              top->viewer(), Responder(this, conflict_version, top));
+      }
+
+      if (top->submission())
+      {
+        for (const auto& c : top->children())
+          queue.push_back(c);
+      }
+      else if (const auto& parent = top->parent())
+      {
+        if (parent->rejected())
+          queue.push_back(parent);
+      }
+    }
+  }
+
   void receive_notice(const Notice& msg)
   {
     bool relevant = false;
@@ -353,69 +395,11 @@ public:
       }
     }
 
-    std::vector<TablePtr> respond_queue;
-    std::vector<TablePtr> traverse_queue;
+    std::vector<TablePtr> queue;
     for (const auto p : negotiation.participants())
-      traverse_queue.push_back(negotiation.table(p, {}));
+      queue.push_back(negotiation.table(p, {}));
 
-    while (!traverse_queue.empty())
-    {
-      const auto top = traverse_queue.back();
-      traverse_queue.pop_back();
-      respond_queue.push_back(top);
-
-      for (const auto& child : top->children())
-        traverse_queue.push_back(child);
-    }
-
-    while (!respond_queue.empty())
-    {
-      const auto top = respond_queue.back();
-      respond_queue.pop_back();
-
-      for (const auto& n : *negotiators)
-      {
-        const auto respond_to = top->respond(n.first);
-        if (!respond_to)
-          continue;
-
-        if (!respond_to->submission())
-        {
-          n.second->respond(
-            respond_to->viewer(),
-            Responder(this, msg.conflict_version, respond_to));
-        }
-
-        respond_queue.push_back(respond_to);
-      }
-    }
-  }
-
-  void respond_to_queue(
-      std::vector<TablePtr> queue,
-      Version conflict_version)
-  {
-    while (!queue.empty())
-    {
-      const auto top = queue.back();
-      queue.pop_back();
-
-      for (const auto& n : *negotiators)
-      {
-        const ParticipantId participant = n.first;
-        const auto& negotiator = n.second;
-
-        if (const auto respond_to = top->respond(participant))
-        {
-          negotiator->respond(
-            respond_to->viewer(),
-            Responder(this, conflict_version, respond_to));
-
-          if (respond_to->submission())
-            queue.push_back(respond_to);
-        }
-      }
-    }
+    respond_to_queue(queue, msg.conflict_version);
   }
 
   void receive_proposal(const Proposal& msg)
@@ -465,12 +449,17 @@ public:
     if (!updated)
       return;
 
-    std::vector<TablePtr> queue = room.check_cache();
+    std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
     if (!participating)
       return;
 
-    queue.push_back(received_table);
+    for (const auto& n : *negotiators)
+    {
+      if (const auto respond_to = received_table->respond(n.first))
+        queue.push_back(respond_to);
+    }
+
     respond_to_queue(queue, msg.conflict_version);
   }
 
@@ -494,28 +483,35 @@ public:
       return;
     }
 
+    std::cout << " ===== [" << msg.conflict_version << "] received rejection [";
+    for (const auto s : table->sequence())
+      std::cout << " " << s;
+    std::cout << " ]" << std::endl;
+
     const bool updated = table->reject(
       msg.proposal_version, msg.rejected_by, convert(msg.alternatives));
 
     if (!updated)
+    {
+      std::cout << " ===== rejection did not update anything" << std::endl;
       return;
+    }
 
-    std::vector<TablePtr> queue = room.check_cache();
+    std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
     if (!negotiate_it->second.participating)
+    {
+      std::cout << " ===== we are not participating in the rejection" << std::endl;
       return;
+    }
 
     const auto n_it = negotiators->find(table->participant());
     if (n_it != negotiators->end())
     {
-      const auto& negotiator = n_it->second;
-      negotiator->respond(
-            table->viewer(),
-            Responder(this, msg.conflict_version, table));
-
-      if (table->submission())
-        queue.push_back(table);
+      std::cout << " ===== we have a negotiator for the rejection" << std::endl;
     }
+
+    queue.push_back(table);
 
     respond_to_queue(queue, msg.conflict_version);
   }
@@ -542,7 +538,7 @@ public:
 
     table->forfeit(msg.proposal_version);
 
-    room.check_cache();
+    respond_to_queue(room.check_cache(*negotiators), msg.conflict_version);
   }
 
   void receive_conclusion(const Conclusion& msg)
@@ -612,20 +608,62 @@ public:
         }
       }
 
-      if (approval_callback_it != approvals.end())
-        approvals.erase(approval_callback_it);
-
       // Acknowledge that we know about this conclusion
       Ack ack;
       ack.conflict_version = msg.conflict_version;
       ack.acknowledgments = std::move(acknowledgments);
 
-      // If we are participating in this negotiation, then the acknowledgments
-      // must not be empty, or else there is a bug somewhere.
-      assert(!ack.acknowledgments.empty());
+      if (ack.acknowledgments.empty())
+      {
+        // If we are participating in this negotiation, then the acknowledgments
+        // must not be empty, or else there is a bug somewhere.
+
+        std::string err =
+            "\n !!!!!!!!!!!! Impossible situation encountered for Negotiation ["
+            + std::to_string(msg.conflict_version) + "] in node ["
+            + node.get_name() + "]: No approval callbacks found?? Sequence: [";
+        for (const auto s : msg.table)
+          err += " " + std::to_string(s);
+
+        if (msg.resolved)
+        {
+          err += " ]. Tables with acknowledgments for this negotiation:";
+
+          const auto& approval_callbacks = approval_callback_it->second;
+          for (const auto& cb : approval_callbacks)
+          {
+            const auto table = cb.first;
+            err += "\n -- (";
+            if (table->version())
+              err += std::to_string(*table->version());
+            else
+              err += "null??";
+            err += ")";
+
+            for (const auto& s : table->sequence())
+              err += " " + std::to_string(s);
+          }
+        }
+        else
+        {
+          err += " ]. Negotiation participants for this node:";
+          for (const auto p : negotiation.participants())
+          {
+            if (negotiators->count(p) != 0)
+              err += " " + std::to_string(p);
+          }
+        }
+
+        std::cout << err << "\n" << std::endl;
+
+        assert(!ack.acknowledgments.empty());
+      }
 
       ack_pub->publish(ack);
       // TODO(MXG): Should we consider a more robust cache cleanup strategy?
+
+      if (approval_callback_it != approvals.end())
+        approvals.erase(approval_callback_it);
     }
 
     // Erase these entries because the negotiation has concluded
@@ -636,6 +674,7 @@ public:
     const Version conflict_version,
     const Negotiation::Table& table)
   {
+    std::cout << " -|-|-|-|- publishing proposal" << std::endl;
     Proposal msg;
     msg.conflict_version = conflict_version;
     assert(table.version());
@@ -659,6 +698,7 @@ public:
     const ParticipantId rejected_by,
     const Negotiation::Alternatives& alternatives)
   {
+    std::cout << " -|-|-|-|- publishing rejection" << std::endl;
     Rejection msg;
     msg.conflict_version = conflict_version;
     assert(table.version());
@@ -674,6 +714,7 @@ public:
     const Version conflict_version,
     const Negotiation::Table& table)
   {
+    std::cout << " -|-|-|-|- publishing forfeit" << std::endl;
     Forfeit msg;
     msg.conflict_version = conflict_version;
     assert(table.version());

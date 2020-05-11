@@ -232,6 +232,11 @@ public:
     /// Returns true if the proposer for this Table has forfeited.
     bool forfeited() const;
 
+    /// Returns true if any of this table's ancestors were rejected or
+    /// forfeited. When that happens, this Table will no longer have any effect
+    /// on the Negotiation.
+    bool defunct() const;
+
     /// If by_participant can respond to this table, then this will return a
     /// TablePtr that by_participant can submit a proposal to.
     ///

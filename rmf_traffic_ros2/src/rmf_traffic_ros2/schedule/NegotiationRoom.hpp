@@ -19,6 +19,7 @@
 #define SRC__RMF_TRAFFIC_ROS2__SCHEDULE__NEGOTIATIONROOM_HPP
 
 #include <rmf_traffic/schedule/Negotiation.hpp>
+#include <rmf_traffic/schedule/Negotiator.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_proposal.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_rejection.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_forfeit.hpp>
@@ -27,6 +28,10 @@
 
 namespace rmf_traffic_ros2 {
 namespace schedule {
+
+using ParticipantId = rmf_traffic::schedule::ParticipantId;
+using NegotiatorPtr = std::unique_ptr<rmf_traffic::schedule::Negotiator>;
+using NegotiatorMap = std::unordered_map<ParticipantId, NegotiatorPtr>;
 
 //==============================================================================
 // TODO(MXG): Refactor this class into something more broadly usable.
@@ -39,7 +44,8 @@ struct NegotiationRoom
   std::list<rmf_traffic_msgs::msg::ScheduleConflictRejection> cached_rejections;
   std::list<rmf_traffic_msgs::msg::ScheduleConflictForfeit> cached_forfeits;
 
-  std::vector<rmf_traffic::schedule::Negotiation::TablePtr> check_cache();
+  std::vector<rmf_traffic::schedule::Negotiation::TablePtr> check_cache(
+      const NegotiatorMap& negotiators);
 };
 
 //==============================================================================
