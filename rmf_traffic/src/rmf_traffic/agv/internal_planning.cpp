@@ -149,7 +149,9 @@ NodePtr search(
   SearchQueue& queue,
   const bool* interrupt_flag)
 {
-  while (!queue.empty() && !(interrupt_flag && *interrupt_flag))
+  const auto duration = std::chrono::milliseconds(10);
+  const auto end = std::chrono::steady_clock::now() + duration;
+  while (!queue.empty() && !(interrupt_flag && *interrupt_flag) && std::chrono::steady_clock::now() < end)
   {
     NodePtr top = queue.top();
     queue.pop();

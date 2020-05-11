@@ -21,6 +21,8 @@
 #include <rmf_traffic/agv/Rollout.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 
+#include <rxcpp/rx.hpp>
+
 #include <future>
 #include <iostream>
 #include <queue>
@@ -267,6 +269,7 @@ int main()
     >;
 
   JobQueue planning_job_queue;
+  std::vector<std::shared_ptr<PlannerJob>> planner_jobs;
 
   std::cout << "Alternatives:" << std::endl;
   for (const auto& alternative : alternatives)
@@ -281,6 +284,8 @@ int main()
 
     planning_job_queue.push(std::make_shared<PlannerJob>(
                      std::move(database), config, start_B, goal_B));
+//    planner_jobs.emplace_back(std::make_shared<PlannerJob>(
+//                         std::move(database), config, start_B, goal_B));
   }
 
   //^^^^^^^^^^^^^^^^^^^^ Done setting up the problem ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -297,33 +302,46 @@ int main()
     rmf_traffic::agv::Plan plan;
   };
 
+  using PlannerResult = rmf_traffic::agv::Planner::Result;
+  struct JobProgress
+  {
+    std::shared_ptr<PlannerJob> job;
+    PlannerResult result;
+  };
+
   // Task 1: Find the best_result for the planning_job_queue
   rmf_utils::optional<JobResult> best_result;
 
   std::size_t finished_count = 0;
 
-  while (!planning_job_queue.empty())
+  bool interrupt = false;
+
+  auto planner_obs = rxcpp::observable<>::create<rxcpp::observable<JobProgress>>([&](const auto& s)
   {
-    const auto top = planning_job_queue.top();
-    planning_job_queue.pop();
-
-    bool interrupt_flag = false;
-    auto future =
-        std::async(
-          std::launch::async,
-          [&]() -> const rmf_traffic::agv::Planner::Result& {
-            return top->process(&interrupt_flag);
-          });
-
-    future.wait_for(std::chrono::milliseconds(10));
-    interrupt_flag = true;
-    const auto& result = future.get();
+    while (!planning_job_queue.empty())
+    {
+      const auto job = planning_job_queue.top();
+      planning_job_queue.pop();
+      s.on_next(rxcpp::observable<>::create<JobProgress>([&, job](const auto& s2)
+      {
+        s2.on_next(JobProgress{job, job->process(&interrupt)});
+        s2.on_completed();
+      }).subscribe_on(rxcpp::observe_on_event_loop()));
+    }
+    s.on_completed();
+  });
+  std::mutex m;
+  planner_obs.merge().as_blocking().subscribe([&](const JobProgress& progress) {
+    std::unique_lock<std::mutex> lk{m};
+    std::cout << "thread: " << std::this_thread::get_id() << std::endl;
+    std::cout << "job: " << progress.job.get() << std::endl;
+    const auto& result = progress.result;
 
     if (!result.cost_estimate())
     {
       // The plan is impossible, so we should just move on
       std::cout << "(Fail) Finished: " << ++finished_count << std::endl;
-      continue;
+      return;
     }
 
     if (result) // This evaluates to true if a plan is ready
@@ -346,14 +364,67 @@ int main()
     {
       // This job could still produce a better plan than the current best, so
       // put it back in the job queue.
-      planning_job_queue.push(top);
+      planning_job_queue.push(progress.job);
     }
     else
     {
       std::cout << "(Discarded) Finished: " << ++finished_count << std::endl;
     }
-  }
+    std::cout << "//////////" << std::endl;
+  });
 
+//  while (!planning_job_queue.empty())
+//  {
+//    const auto top = planning_job_queue.top();
+//    planning_job_queue.pop();
+//
+//    bool interrupt_flag = false;
+//    auto future =
+//        std::async(
+//          std::launch::async,
+//          [&]() -> const rmf_traffic::agv::Planner::Result& {
+//            return top->process(&interrupt_flag);
+//          });
+//
+//    future.wait_for(std::chrono::milliseconds(10));
+//    interrupt_flag = true;
+//    const auto& result = future.get();
+//
+//    if (!result.cost_estimate())
+//    {
+//      // The plan is impossible, so we should just move on
+//      std::cout << "(Fail) Finished: " << ++finished_count << std::endl;
+//      continue;
+//    }
+//
+//    if (result) // This evaluates to true if a plan is ready
+//    {
+//      std::cout << "(Success) Finished: " << ++finished_count << std::endl;
+//      const auto finish_time =
+//          *result->get_itinerary().back().trajectory().finish_time();
+//
+//      const double cost =
+//          rmf_traffic::time::to_seconds(finish_time - start_time);
+//
+//      if (!best_result || cost < best_result->cost)
+//      {
+//        std::cout << "New best" << std::endl;
+//        // If no result exists yet, use this as the best result.
+//        best_result = JobResult{cost, *result};
+//      }
+//    }
+//    else if (!best_result || *result.cost_estimate() < best_result->cost)
+//    {
+//      // This job could still produce a better plan than the current best, so
+//      // put it back in the job queue.
+//      planning_job_queue.push(top);
+//    }
+//    else
+//    {
+//      std::cout << "(Discarded) Finished: " << ++finished_count << std::endl;
+//    }
+//  }
+//
   std::cout <<"\nBest plan for B:" << std::endl;
   print_itinerary(best_result->plan.get_itinerary());
 

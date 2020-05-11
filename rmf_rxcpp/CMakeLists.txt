@@ -34,4 +34,9 @@ target_link_libraries(rmf_rxcpp_test
     rmf_traffic::rmf_traffic
 )
 
+target_include_directories(rmf_rxcpp_test
+  PRIVATE
+    RxCpp-4.1.0/Rx/v2/src
+)
+
 ament_package()
