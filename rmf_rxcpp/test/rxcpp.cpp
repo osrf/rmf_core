@@ -15,6 +15,8 @@
  *
 */
 
+#include "rx-wrappers.hpp"
+
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
@@ -134,6 +136,8 @@ rmf_traffic::agv::Graph make_graph()
 //==============================================================================
 struct PlannerJob
 {
+  using Result = rmf_traffic::agv::Planner::Result;
+
   PlannerJob(
       rmf_traffic::schedule::Database schedule,
       rmf_traffic::agv::Planner::Configuration config,
@@ -150,9 +154,11 @@ struct PlannerJob
     // Do nothing
   }
 
-  const rmf_traffic::agv::Planner::Result& process(bool* interrupt_flag)
+  const rmf_traffic::agv::Planner::Result& process()
   {
-    _current_result.resume(interrupt_flag);
+    _current_result.resume();
+    if (_current_result)
+      _completed = true;
     return _current_result;
   }
 
@@ -171,9 +177,15 @@ struct PlannerJob
     }
   };
 
+  inline bool completed() const
+  {
+    return _completed;
+  }
+
 private:
   rmf_traffic::schedule::Database _database;
   rmf_traffic::agv::Planner::Result _current_result;
+  bool _completed = false;
 
   static rmf_traffic::agv::Planner::Result initiate(
       const rmf_traffic::schedule::Viewer& viewer,
@@ -282,10 +294,10 @@ int main()
     for (const auto& route : alternative)
       database.extend(p, {{r, route}}, v++);
 
-    planning_job_queue.push(std::make_shared<PlannerJob>(
-                     std::move(database), config, start_B, goal_B));
-//    planner_jobs.emplace_back(std::make_shared<PlannerJob>(
-//                         std::move(database), config, start_B, goal_B));
+//    planning_job_queue.push(std::make_shared<PlannerJob>(
+//                     std::move(database), config, start_B, goal_B));
+    planner_jobs.emplace_back(std::make_shared<PlannerJob>(
+                         std::move(database), config, start_B, goal_B));
   }
 
   //^^^^^^^^^^^^^^^^^^^^ Done setting up the problem ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -302,45 +314,21 @@ int main()
     rmf_traffic::agv::Plan plan;
   };
 
-  using PlannerResult = rmf_traffic::agv::Planner::Result;
-  struct JobProgress
-  {
-    std::shared_ptr<PlannerJob> job;
-    PlannerResult result;
-  };
-
   // Task 1: Find the best_result for the planning_job_queue
   rmf_utils::optional<JobResult> best_result;
 
   std::size_t finished_count = 0;
 
-  bool interrupt = false;
-
-  auto planner_obs = rxcpp::observable<>::create<rxcpp::observable<JobProgress>>([&](const auto& s)
+  run_jobs(planner_jobs, [&finished_count, &start_time, &best_result](const auto& progress)
   {
-    while (!planning_job_queue.empty())
-    {
-      const auto job = planning_job_queue.top();
-      planning_job_queue.pop();
-      s.on_next(rxcpp::observable<>::create<JobProgress>([&, job](const auto& s2)
-      {
-        s2.on_next(JobProgress{job, job->process(&interrupt)});
-        s2.on_completed();
-      }).subscribe_on(rxcpp::observe_on_event_loop()));
-    }
-    s.on_completed();
-  });
-  std::mutex m;
-  planner_obs.merge().as_blocking().subscribe([&](const JobProgress& progress) {
-    std::unique_lock<std::mutex> lk{m};
     std::cout << "thread: " << std::this_thread::get_id() << std::endl;
-    std::cout << "job: " << progress.job.get() << std::endl;
     const auto& result = progress.result;
 
     if (!result.cost_estimate())
     {
       // The plan is impossible, so we should just move on
       std::cout << "(Fail) Finished: " << ++finished_count << std::endl;
+      progress.cancel();
       return;
     }
 
@@ -364,11 +352,18 @@ int main()
     {
       // This job could still produce a better plan than the current best, so
       // put it back in the job queue.
-      planning_job_queue.push(progress.job);
+      std::cout << "(Resume) " << "current cost: " << *result.cost_estimate() << " best: ";
+      if (best_result)
+        std::cout << best_result->cost;
+      else
+        std::cout << "N/A";
+      std::cout << std::endl;
+//      planning_job_queue.push(progress.job);
     }
     else
     {
       std::cout << "(Discarded) Finished: " << ++finished_count << std::endl;
+      progress.cancel();
     }
     std::cout << "//////////" << std::endl;
   });
