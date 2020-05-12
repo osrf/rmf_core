@@ -42,6 +42,7 @@ set(msg_files
   "msg/ScheduleConflictNotice.msg"
   "msg/ScheduleConflictParticipantAck.msg"
   "msg/ScheduleConflictProposal.msg"
+  "msg/ScheduleConflictRefusal.msg"
   "msg/ScheduleConflictRejection.msg"
   "msg/ScheduleConflictRepeat.msg"
   "msg/ScheduleInconsistency.msg"

@@ -34,11 +34,7 @@ public:
   // TODO(MXG): Add an API that allows a multi-participant planner to propose
   // globally optimal itineraries.
 
-  /// Constructor
-  ///
-  /// \warning You are expected to maintain the lifetime of the schedule
-  /// viewer for as long as this Negotiation instance is alive. This object
-  /// will only retain a reference to the viewer, not a copy of it.
+  /// Begin a negotiation.
   ///
   /// \param[in] viewer
   ///   A reference to the schedule viewer that represents the most up-to-date
@@ -47,7 +43,30 @@ public:
   /// \param[in] participants
   ///   The participants who are involved in the schedule negotiation.
   ///
-  Negotiation(
+  /// \return a negotiation between the given participants. If the Viewer is
+  /// missing a description of any of the participants, then a nullopt will be
+  /// returned instead.
+  ///
+  /// \sa make_shared()
+  static rmf_utils::optional<Negotiation> make(
+    std::shared_ptr<const Viewer> schedule_viewer,
+    std::vector<ParticipantId> participants);
+
+  /// Begin a negotiation.
+  ///
+  /// \param[in] viewer
+  ///   A reference to the schedule viewer that represents the most up-to-date
+  ///   schedule.
+  ///
+  /// \param[in] participants
+  ///   The participants who are involved in the schedule negotiation.
+  ///
+  /// \return a negotiation between the given participants. If the Viewer is
+  /// missing a description of any of the participants, then a nullptr will be
+  /// returned instead.
+  ///
+  /// \sa make()
+  static std::shared_ptr<Negotiation> make_shared(
     std::shared_ptr<const Viewer> schedule_viewer,
     std::vector<ParticipantId> participants);
 
@@ -327,6 +346,7 @@ public:
 
   class Implementation;
 private:
+  Negotiation();
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 

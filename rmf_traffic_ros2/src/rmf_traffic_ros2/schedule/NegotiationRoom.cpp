@@ -168,14 +168,30 @@ void print_negotiation_status(
     const auto sequence = t->sequence();
     for (std::size_t i = 0; i < sequence.size(); ++i)
     {
-      if (i == t->sequence().size()-1 && forfeited)
-        std::cout << " <" << sequence[i] << ">";
-      else if (i == t->sequence().size()-1 && rejected)
-        std::cout << " {" << sequence[i] << "}";
-      else if (i == t->sequence().size()-1 && !finished)
-        std::cout << " [" << sequence[i] << "]";
+      if (i == t->sequence().size()-1)
+      {
+        if (forfeited)
+          std::cout << " <" << sequence[i] << ">";
+        else if (rejected)
+          std::cout << " {" << sequence[i] << "}";
+        else if (!finished)
+          std::cout << " [" << sequence[i] << "]";
+        else
+          std::cout << " " << sequence[i];
+
+        if (const auto v = t->version())
+          std::cout << ":" << *t->version();
+      }
       else
-        std::cout << " " << sequence[i];
+      {
+        const auto sub_table = negotiation.table(
+              std::vector<ParticipantId>(
+                sequence.begin(),
+                sequence.begin() + i+1));
+
+        std::cout << " " << sequence[i]
+                  << ":" << *sub_table->version();
+      }
     }
   }
   std::cout << "\n" << std::endl;

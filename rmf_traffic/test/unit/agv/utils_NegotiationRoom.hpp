@@ -125,7 +125,7 @@ public:
     Intentions intentions,
     const bool print_failures_ = false)
   : negotiators(make_negotiators(intentions)),
-    negotiation(std::make_shared<Negotiation>(
+    negotiation(Negotiation::make_shared(
         std::move(viewer), get_participants(intentions))),
     _print(print_failures_)
   {

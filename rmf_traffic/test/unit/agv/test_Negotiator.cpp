@@ -185,7 +185,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
   WHEN("Participants Crossing Paths")
   {
     auto negotiation = std::make_shared<rmf_traffic::schedule::Negotiation>(
-      rmf_traffic::schedule::Negotiation{database, {p1.id(), p2.id()}});
+      *rmf_traffic::schedule::Negotiation::make(database, {p1.id(), p2.id()}));
 
     REQUIRE(negotiation->table(p1.id(), {}));
     CHECK_FALSE(negotiation->table(p1.id(), {p2.id()}));
@@ -275,7 +275,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     }
 
     auto negotiation = std::make_shared<rmf_traffic::schedule::Negotiation>(
-      rmf_traffic::schedule::Negotiation{database, {p1.id(), p2.id()}});
+      *rmf_traffic::schedule::Negotiation::make(database, {p1.id(), p2.id()}));
 
     rmf_traffic::agv::SimpleNegotiator negotiator_1{
       rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),

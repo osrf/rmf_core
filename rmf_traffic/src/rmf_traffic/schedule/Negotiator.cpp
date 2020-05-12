@@ -17,6 +17,9 @@
 
 #include <rmf_traffic/schedule/Negotiator.hpp>
 
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -66,7 +69,7 @@ void SimpleResponder::submit(std::vector<Route> itinerary,
 {
   _pimpl->table->submit(
     std::move(itinerary),
-    _pimpl->table_version ? _pimpl->table_version+1 : 0);
+    _pimpl->table_version ? *_pimpl->table_version+1 : 0);
 }
 
 //==============================================================================
@@ -90,7 +93,8 @@ void SimpleResponder::forfeit(const std::vector<ParticipantId>& blockers) const
   if (_pimpl->report_blockers)
     *_pimpl->report_blockers = blockers;
 
-  _pimpl->table->forfeit(_pimpl->table_version);
+  _pimpl->table->forfeit(
+        _pimpl->table_version? *_pimpl->table_version : 0);
 }
 
 } // namespace schedule

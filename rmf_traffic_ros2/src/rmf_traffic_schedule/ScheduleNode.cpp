@@ -131,11 +131,6 @@ ScheduleNode::ScheduleNode()
     rmf_traffic_ros2::MirrorWakeupTopicName,
     rclcpp::SystemDefaultsQoS());
 
-  conflict_publisher =
-    create_publisher<ScheduleConflictNotice>(
-    rmf_traffic_ros2::ScheduleConflictNoticeTopicName,
-    rclcpp::SystemDefaultsQoS());
-
   itinerary_set_sub =
     create_subscription<ItinerarySet>(
     rmf_traffic_ros2::ItinerarySetTopicName,
@@ -196,6 +191,13 @@ ScheduleNode::ScheduleNode()
 
   conflict_notice_pub = create_publisher<ConflictNotice>(
     rmf_traffic_ros2::ScheduleConflictNoticeTopicName, negotiation_qos);
+
+  conflict_refusal_sub = create_subscription<ConflictRefusal>(
+    rmf_traffic_ros2::ScheduleConflictRefusalTopicName, negotiation_qos,
+    [&](const ConflictRefusal::UniquePtr msg)
+    {
+      this->receive_refusal(*msg);
+    });
 
   conflict_proposal_sub = create_subscription<ConflictProposal>(
     rmf_traffic_ros2::ScheduleConflictProposalTopicName, negotiation_qos,
@@ -635,6 +637,34 @@ void ScheduleNode::receive_conclusion_ack(const ConflictAck& msg)
 }
 
 //==============================================================================
+void ScheduleNode::receive_refusal(const ConflictRefusal& msg)
+{
+  std::unique_lock<std::mutex> lock(active_conflicts_mutex);
+  auto* negotiation_room =
+      active_conflicts.negotiation(msg.conflict_version);
+
+  if (!negotiation_room)
+  {
+    RCLCPP_WARN(
+      get_logger(),
+      "Received refusal for unknown negotiation ["
+      + std::to_string(msg.conflict_version) + "]");
+    return;
+  }
+
+  std::string output = "Refused negotiation ["
+      + std::to_string(msg.conflict_version) + "]";
+  RCLCPP_INFO(get_logger(), output);
+
+  active_conflicts.refuse(msg.conflict_version);
+
+  ConflictConclusion conclusion;
+  conclusion.conflict_version = msg.conflict_version;
+  conclusion.resolved = false;
+  conflict_conclusion_pub->publish(conclusion);
+}
+
+//==============================================================================
 void ScheduleNode::receive_proposal(const ConflictProposal& msg)
 {
   std::unique_lock<std::mutex> lock(active_conflicts_mutex);
@@ -754,7 +784,14 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
         msg.proposal_version,
         msg.rejected_by,
         rmf_traffic_ros2::convert(msg.alternatives));
+
   negotiation_room->check_cache({});
+
+
+  // TODO(MXG): This should be removed once we have a negotiation visualizer
+  rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
+    negotiation);
+
 }
 
 //==============================================================================
@@ -810,6 +847,10 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
 
     conflict_conclusion_pub->publish(conclusion);
 //    print_conclusion(active_conflicts._waiting);
+  }
+  else
+  {
+    std::cout << "Not forfeiting negotiation yet" << std::endl;
   }
 }
 

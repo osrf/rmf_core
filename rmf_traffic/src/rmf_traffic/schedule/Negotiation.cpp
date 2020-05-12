@@ -342,8 +342,10 @@ public:
     if (forfeited && negotiation_data)
     {
       negotiation_data->forfeited_tables.erase(this);
-      negotiation_data->num_terminated_tables -=
-        termination_factor(depth, negotiation_data->participants.size());
+
+      const auto tf = termination_factor(depth, negotiation_data->participants.size());
+      std::cout << "Submission reducing forfeit tf by: " << tf << std::endl;
+      negotiation_data->num_terminated_tables -= tf;
     }
     else if (had_itinerary && descendants.empty())
     {
@@ -375,6 +377,7 @@ public:
       // negotiation
       negotiation_data->successful_tables.push_back(sequence);
       negotiation_data->num_terminated_tables += 1;
+      std::cout << "Terminating submission increasing tf by 1" << std::endl;
     }
 
     return true;
@@ -443,6 +446,7 @@ public:
       // TODO(MXG): It's a bit suspicious that a successfully completed
       // negotiation table would get rejected. Maybe we should put an
       // assertion here.
+      std::cout << "Rejection of terminating submission decreasing tf by 1" << std::endl;
       negotiation_data->num_terminated_tables -= 1;
     }
 
@@ -469,7 +473,11 @@ public:
     // TODO(MXG): Consider if this function's implementation can be refactored
     // with reject()
     if (version && rmf_utils::modular(forfeited_version).less_than(*version))
+    {
+      std::cout << "Irrelevant forfeit version: " << forfeited_version << " | "
+                << *version << std::endl;
       return;
+    }
 
     version = forfeited_version;
 
@@ -483,6 +491,8 @@ public:
       // TODO(MXG): It's a bit suspicious that a successfully completed
       // negotiation table would get forfeited. Maybe we should put an
       // assertion here.
+
+      std::cout << "Forfeit of terminating submission decreasing tf by 1" << std::endl;
       negotiation_data->num_terminated_tables -= 1;
     }
 
@@ -497,8 +507,10 @@ public:
 
     if (negotiation_data)
     {
-      negotiation_data->num_terminated_tables += termination_factor(
-        depth, negotiation_data->participants.size());
+      const auto tf = termination_factor(
+            depth, negotiation_data->participants.size());
+      std::cout << "Adding forfeit termination factor: " << tf << std::endl;
+      negotiation_data->num_terminated_tables += tf;
       negotiation_data->forfeited_tables.insert(this);
 
       negotiation_data->clear_successful_descendants_of(sequence);
@@ -526,11 +538,12 @@ public:
       for (const auto entry : top->descendants)
       {
         const auto& table = entry.second;
-        if (table->_pimpl->rejected && negotiation_data)
+        if (table->_pimpl->forfeited && negotiation_data)
         {
-          negotiation_data->num_terminated_tables -=
-            termination_factor(
-            table->_pimpl->depth, negotiation_data->participants.size());
+          const auto tf = termination_factor(
+                table->_pimpl->depth, negotiation_data->participants.size());
+          std::cout << "descendants clearing reduces tf by: " << tf << std::endl;;
+          negotiation_data->num_terminated_tables -= tf;
 
           negotiation_data->forfeited_tables.erase(table->_pimpl.get());
         }
@@ -674,6 +687,8 @@ public:
     for (const auto rejected : data->forfeited_tables)
       data->num_terminated_tables += termination_factor(rejected->depth, N);
 
+    std::cout << "restarting terminated tables at " << data->num_terminated_tables << std::endl;
+
     std::vector<TableMap*> queue;
     std::vector<Table::Implementation*> current_tables;
     queue.push_back(&tables);
@@ -706,13 +721,35 @@ public:
 };
 
 //==============================================================================
-Negotiation::Negotiation(
+rmf_utils::optional<Negotiation> Negotiation::make(
   std::shared_ptr<const schedule::Viewer> schedule_viewer,
   std::vector<ParticipantId> participants)
-: _pimpl(rmf_utils::make_unique_impl<Implementation>(
-      std::move(schedule_viewer), std::move(participants)))
 {
-  // Do nothing
+  if (!schedule_viewer)
+    return rmf_utils::nullopt;
+
+  for (const auto p : participants)
+  {
+    if (!schedule_viewer->get_participant(p))
+      return rmf_utils::nullopt;
+  }
+
+  Negotiation negotiation;
+  negotiation._pimpl = rmf_utils::make_unique_impl<Implementation>(
+        std::move(schedule_viewer), std::move(participants));
+  return negotiation;
+}
+
+//==============================================================================
+std::shared_ptr<Negotiation> Negotiation::make_shared(
+  std::shared_ptr<const schedule::Viewer> schedule_viewer,
+  std::vector<ParticipantId> participants)
+{
+  auto negotiation = make(std::move(schedule_viewer), std::move(participants));
+  if (!negotiation)
+    return nullptr;
+
+  return std::make_shared<Negotiation>(*std::move(negotiation));
 }
 
 //==============================================================================
@@ -736,6 +773,11 @@ bool Negotiation::ready() const
 //==============================================================================
 bool Negotiation::complete() const
 {
+  std::cout << "Checking complete: "
+            << _pimpl->data->num_terminated_tables
+            << " vs "
+            << _pimpl->max_terminated_tables
+            << std::endl;
   return _pimpl->data->num_terminated_tables == _pimpl->max_terminated_tables;
 }
 
@@ -1054,6 +1096,12 @@ auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
   assert(choice < tables.size());
 
   return tables[choice];
+}
+
+//==============================================================================
+Negotiation::Negotiation()
+{
+  // Do nothing
 }
 
 namespace {

@@ -229,8 +229,25 @@ void SimpleNegotiator::respond(
     const auto validator = std::move(validators.front());
     validators.pop_front();
 
-    if (!validator)
+    if (validator->end())
       continue;
+
+    if (_pimpl->debug_print)
+    {
+      if (validator->rollouts().empty())
+        std::cout << "Negotiating without rollouts" << std::endl;
+      else
+      {
+        std::cout << "Negotiating with rollouts:";
+        for (const auto& r : validator->rollouts())
+        {
+          std::cout << " [" << r.participant << ":" << r.alternative
+                    << "|" << table_viewer->alternatives().at(r.participant)->size()
+                    << "]";
+        }
+        std::cout << std::endl;
+      }
+    }
 
     options.validator(validator);
     const auto plan = _pimpl->planner.plan(

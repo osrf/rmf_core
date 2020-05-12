@@ -26,6 +26,7 @@
 #include <rmf_traffic_msgs/msg/schedule_conflict_ack.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_repeat.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_notice.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_refusal.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_forfeit.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_proposal.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_rejection.hpp>
@@ -36,6 +37,7 @@
 namespace rmf_traffic_ros2 {
 namespace schedule {
 
+//==============================================================================
 std::string table_to_string(
   const std::vector<rmf_traffic::schedule::ParticipantId>& table)
 {
@@ -43,6 +45,15 @@ std::string table_to_string(
   for (const auto p : table)
     output += " " + std::to_string(p);
   return output;
+}
+
+//==============================================================================
+template <typename T>
+std::string ptr_to_string(T* ptr)
+{
+  std::stringstream str;
+  str << ptr;
+  return str.str();
 }
 
 //==============================================================================
@@ -129,6 +140,10 @@ public:
   NoticeSub::SharedPtr notice_sub;
   NoticePub::SharedPtr notice_pub;
 
+  using Refusal = rmf_traffic_msgs::msg::ScheduleConflictRefusal;
+  using RefusalPub = rclcpp::Publisher<Refusal>;
+  RefusalPub::SharedPtr refusal_pub;
+
   using Proposal = rmf_traffic_msgs::msg::ScheduleConflictProposal;
   using ProposalSub = rclcpp::Subscription<Proposal>;
   using ProposalPub = rclcpp::Publisher<Proposal>;
@@ -210,6 +225,9 @@ public:
 
     notice_pub = node.create_publisher<Notice>(
       ScheduleConflictNoticeTopicName, qos);
+
+    refusal_pub = node.create_publisher<Refusal>(
+      ScheduleConflictRefusalTopicName, qos);
 
     proposal_sub = node.create_subscription<Proposal>(
       ScheduleConflictProposalTopicName, qos,
@@ -321,6 +339,10 @@ public:
           continue;
         }
 
+        std::cout << " ======= Responding to:";
+        for (const auto s : top->sequence())
+          std::cout << " " << s;
+        std::cout << std::endl;
         const auto& negotiator = n_it->second;
         negotiator->respond(
               top->viewer(), Responder(this, conflict_version, top));
@@ -351,9 +373,32 @@ public:
       }
     }
 
+
+    auto new_negotiation = Negotiation::make(
+          viewer->snapshot(), msg.participants);
+    if (!new_negotiation)
+    {
+      // TODO(MXG): This is a temporary hack to deal with situations where a
+      // conflict occurs before this node is aware of other relevant schedule
+      // participants. We will refuse the negotiation and then expect it to be
+      // retriggered some time later. Hopefully this node will know about the
+      // schedule participant by then.
+      //
+      // A better system will be to use ReactiveX to observe the schedule and
+      // try to open the negotiation again once the participant information is
+      // available.
+      Refusal refusal;
+      refusal.conflict_version = msg.conflict_version;
+      refusal_pub->publish(refusal);
+
+      const auto n_it = negotiations.find(msg.conflict_version);
+      if (n_it != negotiations.end())
+        negotiations.erase(n_it);
+      return;
+    }
+
     const auto insertion = negotiations.insert(
-      {msg.conflict_version,
-        Entry{relevant, Negotiation(viewer->snapshot(), msg.participants)}});
+      {msg.conflict_version, Entry{relevant, *std::move(new_negotiation)}});
 
     const bool is_new = insertion.second;
     bool& participating = insertion.first->second.participating;
@@ -389,6 +434,9 @@ public:
         const auto table = negotiation.table(p, {});
         if (!table->submission())
         {
+          std::cout << " ======= Responding to:";
+          for (const auto s : table->sequence())
+            std::cout << " " << s;
           it->second->respond(
             table->viewer(), Responder(this, msg.conflict_version, table));
         }
@@ -423,9 +471,6 @@ public:
 
     if (!received_table)
     {
-      // TODO(MXG): Work out a scheme for caching inconsistent proposals
-      // so that the negotiation can be reconstructed after requesting some
-      // repeats.
       std::string error =
         "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
         "Receieved a proposal for negotiation ["
@@ -440,6 +485,11 @@ public:
       return;
     }
 
+    std::cout << " ===== [" << msg.conflict_version << "] received proposal [";
+    for (const auto s : received_table->sequence())
+      std::cout << " " << s;
+    std::cout << " ]  :" << msg.proposal_version << ":" << std::endl;
+
     // We'll keep track of these negotiations whether or not we're participating
     // in them, because one of our negotiators might get added to it in the
     // future
@@ -447,7 +497,10 @@ public:
       received_table->submit(convert(msg.itinerary), msg.proposal_version);
 
     if (!updated)
+    {
+      std::cout << " ==== proposal out of date" << std::endl;
       return;
+    }
 
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
@@ -479,6 +532,17 @@ public:
     const auto table = negotiation.table(msg.table);
     if (!table)
     {
+      std::string error =
+        "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
+        "Receieved a rejection for negotiation ["
+        + std::to_string(msg.conflict_version) + "] for an "
+        "unknown table: [";
+      for (const auto p : msg.table)
+        error += " " + std::to_string(p);
+      error += " ]";
+
+      RCLCPP_WARN(node.get_logger(), error);
+
       room.cached_rejections.push_back(msg);
       return;
     }
@@ -486,7 +550,7 @@ public:
     std::cout << " ===== [" << msg.conflict_version << "] received rejection [";
     for (const auto s : table->sequence())
       std::cout << " " << s;
-    std::cout << " ]" << std::endl;
+    std::cout << " ]  :" << msg.proposal_version << ":" << std::endl;
 
     const bool updated = table->reject(
       msg.proposal_version, msg.rejected_by, convert(msg.alternatives));
@@ -509,6 +573,10 @@ public:
     if (n_it != negotiators->end())
     {
       std::cout << " ===== we have a negotiator for the rejection" << std::endl;
+    }
+    else
+    {
+      std::cout << " ===== no negotiator for the rejection" << std::endl;
     }
 
     queue.push_back(table);
@@ -624,16 +692,17 @@ public:
             + node.get_name() + "]: No approval callbacks found?? Sequence: [";
         for (const auto s : msg.table)
           err += " " + std::to_string(s);
+        err += " ] ";
 
         if (msg.resolved)
         {
-          err += " ]. Tables with acknowledgments for this negotiation:";
+          err += "Tables with acknowledgments for this negotiation:";
 
           const auto& approval_callbacks = approval_callback_it->second;
           for (const auto& cb : approval_callbacks)
           {
             const auto table = cb.first;
-            err += "\n -- (";
+            err += "\n -- " + ptr_to_string(table.get()) + " | (";
             if (table->version())
               err += std::to_string(*table->version());
             else
@@ -643,10 +712,26 @@ public:
             for (const auto& s : table->sequence())
               err += " " + std::to_string(s);
           }
+
+          err += "\nCurrent relevant tables in the negotiation:";
+          for (std::size_t i = 1; i <= msg.table.size(); ++i)
+          {
+            const auto table = negotiation.table(
+                  std::vector<ParticipantId>(
+                    msg.table.begin(), msg.table.begin()+i));
+            err += "\n -- " + ptr_to_string(table.get()) + " |";
+            if (table && table->version())
+              err += " (" + std::to_string(*table->version()) + ")";
+            else if (table)
+              err += " (null)";
+
+            for (std::size_t j=0; j < i; ++j)
+              err += " " + std::to_string(msg.table[j]);
+          }
         }
         else
         {
-          err += " ]. Negotiation participants for this node:";
+          err += "Negotiation participants for this node:";
           for (const auto p : negotiation.participants())
           {
             if (negotiators->count(p) != 0)
@@ -654,7 +739,10 @@ public:
           }
         }
 
-        std::cout << err << "\n" << std::endl;
+        std::cout << "\nAll tables in the negotiation:\n";
+        print_negotiation_status(msg.conflict_version, negotiation);
+
+        std::cout << err << "\n --- Fin --- \n" << std::endl;
 
         assert(!ack.acknowledgments.empty());
       }

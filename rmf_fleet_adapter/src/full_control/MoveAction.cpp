@@ -404,7 +404,29 @@ public:
     bool interrupt_flag = false;
     auto future = std::async(
           std::launch::async,
-          [&](){negotiator.respond(table, responder, &interrupt_flag);});
+          [&]()
+    {
+      try {
+        negotiator.respond(table, responder, &interrupt_flag);
+      }
+      catch(const std::exception& e)
+      {
+        if (e.what())
+        {
+          std::cout << " !!!!!!!!!!!!!!!!!! EXCEPTION WHILE TRYING TO NEGOTIATE: "
+                    << e.what() << std::endl;
+        }
+        else
+        {
+          std::cout << " !!!!!!!!!!!!!!!!!! EXCEPTION WHILE TRYING TO NEGOTIATE: "
+                    << "(null???)" << std::endl;
+        }
+
+        throw e;
+
+        responder.forfeit({});
+      }
+    });
 
     using namespace std::chrono_literals;
     if (future.wait_for(2s) != std::future_status::ready)
@@ -499,44 +521,6 @@ public:
     return plans;
   }
 
-  std::vector<rmf_traffic::Route> collect_routes(
-    std::vector<rmf_traffic::agv::Plan> plans,
-    std::chrono::nanoseconds delay = std::chrono::seconds(0)) const
-  {
-    std::vector<rmf_traffic::Route> routes;
-    bool first_trajectory = true;
-    for (const auto& plan : plans)
-    {
-      for (auto r : plan.get_itinerary())
-      {
-        if (first_trajectory && r.trajectory().size() > 0)
-        {
-          first_trajectory = false;
-          const auto now = rmf_traffic_ros2::convert(_node->now());
-          assert(r.trajectory().start_time());
-          if (now < *r.trajectory().start_time())
-          {
-            const auto& s = r.trajectory().front();
-            r.trajectory().insert(
-              now,
-              s.position(),
-              Eigen::Vector3d::Zero());
-          }
-        }
-
-        // If the trajectory has only one point then the robot doesn't need to
-        // go anywhere.
-        if (r.trajectory().size() < 2)
-          continue;
-
-        r.trajectory().begin()->adjust_times(delay);
-        routes.emplace_back(std::move(r));
-      }
-    }
-
-    return routes;
-  }
-
   void execute_plan(std::vector<rmf_traffic::agv::Plan> plans)
   {
     assert(!plans.empty());
@@ -572,8 +556,8 @@ public:
     _command = rmf_fleet_msgs::msg::PathRequest();
     _command->fleet_name = _node->get_fleet_name();
     _command->robot_name = _context->robot_name();
-    _command->task_id = task_id();
     ++_command_id;
+    _command->task_id = task_id();
 
     const auto& graph = _node->get_graph();
 
@@ -640,8 +624,7 @@ public:
 
     const std::string& map_name =
       _node->get_graph().get_waypoint(0).get_map_name();
-    const auto trajectory = make_trajectory(
-      _issued_waypoints.front().time(),
+    const auto trajectory = make_timed_trajectory(
       _command->path,
       _node->get_fields().traits);
     _context->schedule.push_routes({{map_name, trajectory}});
@@ -694,6 +677,12 @@ public:
 
     void receive(const RobotState& msg) final
     {
+      ++_report_status_count;
+      if (_report_status_count % 100 == 0)
+      {
+        _parent->_task->report_status();
+      }
+
       assert(_parent->_command);
 
       if (_parent->handle_docking(msg))
@@ -709,6 +698,7 @@ public:
     }
 
     MoveAction* _parent;
+    std::size_t _report_status_count = 0;
   };
 
   bool verify_task_id(const RobotState& msg)
@@ -816,13 +806,17 @@ public:
 
     if (msg.task_id != task_id())
     {
+      std::cout << " ==== SENDING A REDUNDANT DOCKING REQUEST" << std::endl;
       _event_executor.request_docking(_current_dock_name);
       return true;
     }
 
     using RobotMode = rmf_fleet_msgs::msg::RobotMode;
     if (msg.mode.mode == RobotMode::MODE_DOCKING)
+    {
+      std::cout << " ====== WAITING DOCKING" << std::endl;
       return true;
+    }
 
     // If the task_id is the one for docking but the state's mode is not docking
     // then we assume that the docking is complete and that we should send the
@@ -831,6 +825,8 @@ public:
     _waiting_on_docking = false;
     _current_dock_name.clear();
     send_next_command(false);
+    std::cout << " ======== DONE DOCKING, SENDING NEXT COMMAND: "
+              << task_id() << std::endl;
     return true;
   }
 
@@ -844,7 +840,7 @@ public:
 
     const auto total_delay = new_finish_estimate - _original_finish_estimate;
     if (!_event_executor.do_not_negotiate()
-      && std::chrono::seconds(10) < total_delay)
+      && std::chrono::seconds(20) < total_delay)
     {
       RCLCPP_INFO(
         _node->get_logger(),
@@ -1460,6 +1456,8 @@ public:
     {
       status += _event_executor.status;
     }
+
+    status += " - Subtask ID: [" + task_id() + "]";
 
     rmf_utils::optional<rmf_traffic::agv::Plan::Waypoint> final_wp;
     if (!_remaining_waypoints.empty())
