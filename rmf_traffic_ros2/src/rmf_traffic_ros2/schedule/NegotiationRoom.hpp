@@ -23,10 +23,20 @@
 #include <rmf_traffic_msgs/msg/schedule_conflict_proposal.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_rejection.hpp>
 #include <rmf_traffic_msgs/msg/schedule_conflict_forfeit.hpp>
+#include <rmf_traffic_msgs/msg/schedule_conflict_key.hpp>
 
 #include <list>
 
 namespace rmf_traffic_ros2 {
+
+//==============================================================================
+rmf_traffic::schedule::Negotiation::VersionedKeySequence convert(
+    const std::vector<rmf_traffic_msgs::msg::ScheduleConflictKey>& from);
+
+//==============================================================================
+std::vector<rmf_traffic_msgs::msg::ScheduleConflictKey> convert(
+    const rmf_traffic::schedule::Negotiation::VersionedKeySequence& from);
+
 namespace schedule {
 
 using ParticipantId = rmf_traffic::schedule::ParticipantId;

@@ -230,7 +230,7 @@ SCENARIO("Submit after a rejection")
       std::vector<rmf_traffic::Route> itinerary,
       std::function<UpdateVersion()>) const final
     {
-      *version = table->version() ? *table->version() + 1 : 0;
+      *version = table->version() + 1;
       *accepted = table->submit(std::move(itinerary), **version);
     }
 
@@ -240,15 +240,15 @@ SCENARIO("Submit after a rejection")
       if (parent)
       {
         parent->reject(
-              *parent->version(),
-              table->sequence().back(),
+              parent->version(),
+              table->sequence().back().participant,
               alternatives);
       }
     }
 
     void forfeit(const std::vector<ParticipantId>& /*blockers*/) const final
     {
-      table->forfeit(table->version()? *table->version() : 0);
+      table->forfeit(table->version());
     }
   };
 
@@ -273,7 +273,7 @@ SCENARIO("Submit after a rejection")
 
   CHECK(accepted);
   REQUIRE(version);
-  CHECK(*version == 0);
+  CHECK(*version == 1);
   const auto last_version = *version;
 
   accepted = false;
@@ -294,5 +294,5 @@ SCENARIO("Submit after a rejection")
   CHECK(accepted);
   REQUIRE(version);
   CHECK(last_version < *version);
-  CHECK(*version == 1);
+  CHECK(*version == 2);
 }

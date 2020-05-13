@@ -137,8 +137,8 @@ public:
     if (table->submission() && !table->rejected())
       return true;
 
-    // Give up we have already attempted more than 3 submissions
-    if (table->version() && (*table->version() > 2))
+    // Give up we have already attempted more than 2 submissions
+    if (table->version() > 2)
       return true;
 
     auto ancestor = table->parent();
@@ -181,7 +181,7 @@ public:
         {
           std::cout << "Skipping [";
           for (const auto p : top->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ]" << std::endl;
         }
         continue;
@@ -194,7 +194,7 @@ public:
       {
         std::cout << "Responding to [";
         for (const auto p : top->sequence())
-          std::cout << " " << p;
+          std::cout << " " << p.participant;
         std::cout << " ]" << std::endl;
 
         rmf_traffic::agv::SimpleNegotiator::Debug
@@ -211,8 +211,15 @@ public:
       });
 
       using namespace std::chrono_literals;
+#if NDEBUG
+      const auto wait_time = 1s;
+#else
+      // We wait longer in debug mode because the planner takes much longer to
+      // run in debug than it does in release.
+      const auto wait_time = 15s;
+#endif
       // Give up if the solution is not found within a time limit
-      if (result.wait_for(1s) != std::future_status::ready)
+      if (result.wait_for(wait_time) != std::future_status::ready)
         interrupt = true;
 
       result.wait();
@@ -223,7 +230,7 @@ public:
         {
           std::cout << "Submission given for [";
           for (const auto p : top->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ]" << std::endl;
         }
 
@@ -246,7 +253,7 @@ public:
           std::cout << "[" << std::to_string(top->participant())
                     << "] rejected [";
           for (const auto p : parent->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ]" << std::endl;
         }
         // We push front so that we revisit the rejected tables only if
@@ -261,7 +268,7 @@ public:
         {
           std::cout << "Forfeit given for [";
           for (const auto p : top->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ] with the following blockers:";
           for (const auto p : blockers)
             std::cout << " " << p << std::endl;

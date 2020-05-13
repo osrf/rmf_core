@@ -69,10 +69,11 @@ public:
     const rmf_traffic::schedule::Version conflict_version;
 
     const rmf_traffic::schedule::Negotiation::TablePtr table;
-    rmf_utils::optional<rmf_traffic::schedule::Version> table_version;
+    rmf_traffic::schedule::Version table_version;
 
+    using OptVersion = rmf_utils::optional<rmf_traffic::schedule::Version>;
     const rmf_traffic::schedule::Negotiation::TablePtr parent;
-    rmf_utils::optional<rmf_traffic::schedule::Version> parent_version;
+    OptVersion parent_version;
 
     Responder(
       Implementation* const impl_,
@@ -81,11 +82,9 @@ public:
     : impl(impl_),
       conflict_version(version_),
       table(table_),
-      table_version(rmf_utils::pointer_to_opt(table->version())),
+      table_version(table->version()),
       parent(table->parent()),
-      parent_version(
-        parent? rmf_utils::pointer_to_opt(parent->version())
-              : rmf_utils::nullopt)
+      parent_version(parent? OptVersion(parent->version()) : OptVersion())
     {
       // Do nothing
     }
@@ -94,11 +93,15 @@ public:
       std::vector<rmf_traffic::Route> itinerary,
       std::function<UpdateVersion()> approval_callback) const final
     {
-      const bool accepted = table->submit(itinerary,
-          table_version? *table_version+1 : 0);
+      const bool accepted = table->submit(itinerary, table_version+1);
       assert(accepted);
       (void)(accepted);
-      impl->approvals[conflict_version][table] = std::move(approval_callback);
+
+      impl->approvals[conflict_version][table] = {
+        table->sequence(),
+        std::move(approval_callback)
+      };
+
       impl->publish_proposal(conflict_version, *table);
     }
 
@@ -108,8 +111,7 @@ public:
       {
         // We will reject the parent to communicate that this whole branch is
         // infeasible
-        assert(parent->version());
-        parent->reject(*parent->version(), table->participant(), alternatives);
+        parent->reject(*parent_version, table->participant(), alternatives);
         impl->publish_rejection(
               conflict_version, *parent, table->participant(), alternatives);
       }
@@ -119,7 +121,7 @@ public:
     {
       // TODO(MXG): Consider using blockers to invite more participants into the
       // negotiation
-      table->forfeit(table_version? *table_version+1 : 0);
+      table->forfeit(table_version);
       impl->publish_forfeit(conflict_version, *table);
     }
 
@@ -191,8 +193,13 @@ public:
   using TablePtr = rmf_traffic::schedule::Negotiation::TablePtr;
   using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
   using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
-  using ApprovalCallbackMap = std::unordered_map<TablePtr,
-      std::function<UpdateVersion()>>;
+  struct CallbackEntry
+  {
+    Negotiation::VersionedKeySequence sequence;
+    std::function<UpdateVersion()> callback;
+  };
+
+  using ApprovalCallbackMap = std::unordered_map<TablePtr, CallbackEntry>;
   using Approvals = std::unordered_map<Version, ApprovalCallbackMap>;
   Approvals approvals;
 
@@ -331,17 +338,17 @@ public:
           continue;
 
         // TODO(MXG): Make this limit configurable
-        if (top->version() && *top->version() > 3)
+        if (top->version() > 3)
         {
           // Give up on this table at this point to avoid an infinite loop
-          top->forfeit(*top->version());
+          top->forfeit(top->version());
           publish_forfeit(conflict_version, *top);
           continue;
         }
 
         std::cout << " ======= Responding to:";
         for (const auto s : top->sequence())
-          std::cout << " " << s;
+          std::cout << " " << s.participant << ":" << s.version;
         std::cout << std::endl;
         const auto& negotiator = n_it->second;
         negotiator->respond(
@@ -436,7 +443,7 @@ public:
         {
           std::cout << " ======= Responding to:";
           for (const auto s : table->sequence())
-            std::cout << " " << s;
+            std::cout << " " << s.participant << ":" << s.version;
           it->second->respond(
             table->viewer(), Responder(this, msg.conflict_version, table));
         }
@@ -466,9 +473,15 @@ public:
     const bool participating = negotiate_it->second.participating;
     auto& room = negotiate_it->second.room;
     Negotiation& negotiation = room.negotiation;
-    const auto received_table =
-      negotiation.table(msg.for_participant, msg.to_accommodate);
+    const auto search =
+      negotiation.find(msg.for_participant, convert(msg.to_accommodate));
 
+    if (search.deprecated())
+    {
+      return;
+    }
+
+    const auto received_table = search.table;
     if (!received_table)
     {
       std::string error =
@@ -477,7 +490,7 @@ public:
         + std::to_string(msg.conflict_version) + "] that builds on an "
         "unknown table: [";
       for (const auto p : msg.to_accommodate)
-        error += " " + std::to_string(p);
+        error += " " + std::to_string(p.participant) + ":" + std::to_string(p.version);
       error += " " + std::to_string(msg.for_participant) + " ]";
 
       RCLCPP_WARN(node.get_logger(), error);
@@ -487,7 +500,7 @@ public:
 
     std::cout << " ===== [" << msg.conflict_version << "] received proposal [";
     for (const auto s : received_table->sequence())
-      std::cout << " " << s;
+      std::cout << " " << s.participant << ":" << s.version;
     std::cout << " ]  :" << msg.proposal_version << ":" << std::endl;
 
     // We'll keep track of these negotiations whether or not we're participating
@@ -529,7 +542,14 @@ public:
 
     auto& room = negotiate_it->second.room;
     Negotiation& negotiation = room.negotiation;
-    const auto table = negotiation.table(msg.table);
+    const auto search = negotiation.find(convert(msg.table));
+
+    if (search.deprecated())
+    {
+      return;
+    }
+
+    const auto table = search.table;
     if (!table)
     {
       std::string error =
@@ -538,7 +558,7 @@ public:
         + std::to_string(msg.conflict_version) + "] for an "
         "unknown table: [";
       for (const auto p : msg.table)
-        error += " " + std::to_string(p);
+        error += " " + std::to_string(p.participant) + ":" + std::to_string(p.version);
       error += " ]";
 
       RCLCPP_WARN(node.get_logger(), error);
@@ -549,11 +569,11 @@ public:
 
     std::cout << " ===== [" << msg.conflict_version << "] received rejection [";
     for (const auto s : table->sequence())
-      std::cout << " " << s;
-    std::cout << " ]  :" << msg.proposal_version << ":" << std::endl;
+      std::cout << " " << s.participant << ":" << s.version;
+    std::cout << " ]" << std::endl;
 
     const bool updated = table->reject(
-      msg.proposal_version, msg.rejected_by, convert(msg.alternatives));
+      msg.table.back().version, msg.rejected_by, convert(msg.alternatives));
 
     if (!updated)
     {
@@ -597,14 +617,20 @@ public:
 
     auto& room = negotiate_it->second.room;
     Negotiation& negotiation = room.negotiation;
-    const auto table = negotiation.table(msg.table);
+    const auto search = negotiation.find(convert(msg.table));
+    if (search.deprecated())
+    {
+      return;
+    }
+
+    const auto table = search.table;
     if (!table)
     {
       room.cached_forfeits.push_back(msg);
       return;
     }
 
-    table->forfeit(msg.proposal_version);
+    table->forfeit(msg.table.back().version);
 
     respond_to_queue(room.check_cache(*negotiators), msg.conflict_version);
   }
@@ -621,6 +647,7 @@ public:
     const bool participating = negotiate_it->second.participating;
     auto& room = negotiate_it->second.room;
     Negotiation& negotiation = room.negotiation;
+    const auto full_sequence = convert(msg.table);
 
     if (participating)
     {
@@ -634,20 +661,63 @@ public:
 
         for (std::size_t i = 1; i <= msg.table.size(); ++i)
         {
-          const auto table = negotiation.table(
-            std::vector<ParticipantId>(
-              msg.table.begin(), msg.table.begin()+i));
+          const auto sequence = Negotiation::VersionedKeySequence(
+                full_sequence.begin(), full_sequence.begin()+i);
+          const auto participant = msg.table[i-1].participant;
 
-          if (!table)
+          const auto search = negotiation.find(sequence);
+          if (search.absent())
+          {
+            // If the Negotiation never knew about this sequence, then we cannot
+            // possibly have any approval callbacks waiting for it. This may
+            // happen towards the end of a Negotiation sequence if the remaining
+            // tables belong to a different node.
             break;
+          }
 
-          const auto approve_it = approval_callbacks.find(table);
+          auto approve_it = approval_callbacks.end();
+          if (search)
+          {
+            approve_it = approval_callbacks.find(search.table);
+          }
+          else
+          {
+            assert(search.deprecated());
+            // The final table was somehow deprecated. In principle this
+            // shouldn't happen if all Negotiation participants are "consistent"
+            // about what they propose. However, due to race conditions and
+            // implementation details, we cannot guarantee consistency.
+            // Therefore this situation is possible, and we should just try our
+            // best to cope with it gracefully.
+
+            if (negotiators->find(participant) == negotiators->end())
+            {
+              // We do not have a negotiator for this participant, so there is
+              // no point searching for an approval callback for it.
+              continue;
+            }
+
+            // We will do a brute-force search through our approval callbacks
+            // to dig up the relevant one.
+            for (auto a_it = approval_callbacks.begin();
+                 a_it != approval_callbacks.end();
+                 ++a_it)
+            {
+              if (a_it->second.sequence == sequence)
+              {
+                approve_it = a_it;
+                break;
+              }
+            }
+          }
+
           if (approve_it != approval_callbacks.end())
           {
+            const auto& entry = approve_it->second;
             ParticipantAck p_ack;
-            p_ack.participant = table->participant();
+            p_ack.participant = entry.sequence.back().participant;
             p_ack.updating = false;
-            const auto& approval_cb = approve_it->second;
+            const auto& approval_cb = entry.callback;
             if (approval_cb)
             {
               const auto update_version = approval_cb();
@@ -659,6 +729,10 @@ public:
             }
 
             acknowledgments.emplace_back(std::move(p_ack));
+          }
+          else
+          {
+            assert(negotiators->find(participant) == negotiators->end());
           }
         }
       }
@@ -691,7 +765,7 @@ public:
             + std::to_string(msg.conflict_version) + "] in node ["
             + node.get_name() + "]: No approval callbacks found?? Sequence: [";
         for (const auto s : msg.table)
-          err += " " + std::to_string(s);
+          err += " " + std::to_string(s.participant) + ":" + std::to_string(s.version);
         err += " ] ";
 
         if (msg.resolved)
@@ -702,31 +776,24 @@ public:
           for (const auto& cb : approval_callbacks)
           {
             const auto table = cb.first;
-            err += "\n -- " + ptr_to_string(table.get()) + " | (";
-            if (table->version())
-              err += std::to_string(*table->version());
-            else
-              err += "null??";
-            err += ")";
+            err += "\n -- " + ptr_to_string(table.get()) + " |";
 
             for (const auto& s : table->sequence())
-              err += " " + std::to_string(s);
+              err += " " + std::to_string(s.participant) + ":" + std::to_string(s.version);
           }
 
           err += "\nCurrent relevant tables in the negotiation:";
           for (std::size_t i = 1; i <= msg.table.size(); ++i)
           {
-            const auto table = negotiation.table(
-                  std::vector<ParticipantId>(
-                    msg.table.begin(), msg.table.begin()+i));
+            std::vector<ParticipantId> sequence;
+            for (std::size_t j=0; j < i; ++j)
+              sequence.push_back(full_sequence[j].participant);
+
+            const auto table = negotiation.table(sequence);
             err += "\n -- " + ptr_to_string(table.get()) + " |";
-            if (table && table->version())
-              err += " (" + std::to_string(*table->version()) + ")";
-            else if (table)
-              err += " (null)";
 
             for (std::size_t j=0; j < i; ++j)
-              err += " " + std::to_string(msg.table[j]);
+              err += " " + std::to_string(msg.table[j].participant) + ":" + std::to_string(msg.table[j].version);
           }
         }
         else
@@ -765,17 +832,17 @@ public:
     std::cout << " -|-|-|-|- publishing proposal" << std::endl;
     Proposal msg;
     msg.conflict_version = conflict_version;
-    assert(table.version());
-    msg.proposal_version = *table.version();
+    msg.proposal_version = table.version();
 
     assert(table.submission());
     msg.itinerary = convert(*table.submission());
     msg.for_participant = table.participant();
+    msg.to_accommodate = convert(table.sequence());
 
-    const auto& sequence = table.sequence();
-    msg.to_accommodate.reserve(sequence.size()-1);
-    for (std::size_t i = 0; i < sequence.size()-1; ++i)
-      msg.to_accommodate.push_back(sequence[i]);
+    // Make sure to pop the back off of msg.to_accommodate, because we don't
+    // want to include this table's final sequence key. That final key is
+    // provided by for_participant.
+    msg.to_accommodate.pop_back();
 
     proposal_pub->publish(msg);
   }
@@ -789,9 +856,7 @@ public:
     std::cout << " -|-|-|-|- publishing rejection" << std::endl;
     Rejection msg;
     msg.conflict_version = conflict_version;
-    assert(table.version());
-    msg.proposal_version = *table.version();
-    msg.table = table.sequence();
+    msg.table = convert(table.sequence());
     msg.rejected_by = rejected_by;
     msg.alternatives = convert(alternatives);
 
@@ -805,9 +870,7 @@ public:
     std::cout << " -|-|-|-|- publishing forfeit" << std::endl;
     Forfeit msg;
     msg.conflict_version = conflict_version;
-    assert(table.version());
-    msg.proposal_version = *table.version();
-    msg.table = table.sequence();
+    msg.table = convert(table.sequence());
 
     forfeit_pub->publish(msg);
   }

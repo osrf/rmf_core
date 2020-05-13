@@ -23,6 +23,36 @@
 #include <iostream>
 
 namespace rmf_traffic_ros2 {
+
+//==============================================================================
+rmf_traffic::schedule::Negotiation::VersionedKeySequence convert(
+    const std::vector<rmf_traffic_msgs::msg::ScheduleConflictKey>& from)
+{
+  rmf_traffic::schedule::Negotiation::VersionedKeySequence output;
+  output.reserve(from.size());
+  for (const auto& key : from)
+    output.push_back({key.participant, key.version});
+
+  return output;
+}
+
+//==============================================================================
+std::vector<rmf_traffic_msgs::msg::ScheduleConflictKey> convert(
+    const rmf_traffic::schedule::Negotiation::VersionedKeySequence& from)
+{
+  std::vector<rmf_traffic_msgs::msg::ScheduleConflictKey> output;
+  output.reserve(from.size());
+  for (const auto& key : from)
+  {
+    rmf_traffic_msgs::msg::ScheduleConflictKey msg;
+    msg.participant = key.participant;
+    msg.version = key.version;
+    output.push_back(msg);
+  }
+
+  return output;
+}
+
 namespace schedule {
 
 //==============================================================================
@@ -46,8 +76,16 @@ check_cache(const NegotiatorMap& negotiators)
     for (auto it = cached_proposals.begin(); it != cached_proposals.end(); )
     {
       const auto& proposal = *it;
-      const auto table = negotiation.table(
-        proposal.for_participant, proposal.to_accommodate);
+      const auto search = negotiation.find(
+        proposal.for_participant, convert(proposal.to_accommodate));
+
+      if (search.deprecated())
+      {
+        cached_proposals.erase(it++);
+        continue;
+      }
+
+      const auto table = search.table;
       if (table)
       {
         const bool updated = table->submit(
@@ -66,11 +104,19 @@ check_cache(const NegotiatorMap& negotiators)
     for (auto it = cached_rejections.begin(); it != cached_rejections.end(); )
     {
       const auto& rejection = *it;
-      const auto table = negotiation.table(rejection.table);
+      const auto search = negotiation.find(convert(rejection.table));
+
+      if (search.deprecated())
+      {
+        cached_rejections.erase(it++);
+        continue;
+      }
+
+      const auto table = search.table;
       if (table)
       {
         table->reject(
-              rejection.proposal_version,
+              rejection.table.back().version,
               rejection.rejected_by,
               rmf_traffic_ros2::convert(rejection.alternatives));
         recheck = true;
@@ -83,10 +129,18 @@ check_cache(const NegotiatorMap& negotiators)
     for (auto it = cached_forfeits.begin(); it != cached_forfeits.end(); )
     {
       const auto& forfeit = *it;
-      const auto table = negotiation.table(forfeit.table);
+      const auto search = negotiation.find(convert(forfeit.table));
+
+      if (search.deprecated())
+      {
+        cached_forfeits.erase(it++);
+        continue;
+      }
+
+      const auto table = search.table;
       if (table)
       {
-        table->forfeit(forfeit.proposal_version);
+        table->forfeit(forfeit.table.back().version);
         recheck = true;
         cached_forfeits.erase(it++);
       }
@@ -168,29 +222,21 @@ void print_negotiation_status(
     const auto sequence = t->sequence();
     for (std::size_t i = 0; i < sequence.size(); ++i)
     {
+      const auto& s = sequence[i];
       if (i == t->sequence().size()-1)
       {
         if (forfeited)
-          std::cout << " <" << sequence[i] << ">";
+          std::cout << " <" << s.participant << ":" << s.version << ">";
         else if (rejected)
-          std::cout << " {" << sequence[i] << "}";
+          std::cout << " {" << s.participant << ":" << s.version << "}";
         else if (!finished)
-          std::cout << " [" << sequence[i] << "]";
+          std::cout << " [" << s.participant << ":" << s.version << "]";
         else
-          std::cout << " " << sequence[i];
-
-        if (const auto v = t->version())
-          std::cout << ":" << *t->version();
+          std::cout << " >" << s.participant << ":" << s.version << "<";
       }
       else
       {
-        const auto sub_table = negotiation.table(
-              std::vector<ParticipantId>(
-                sequence.begin(),
-                sequence.begin() + i+1));
-
-        std::cout << " " << sequence[i]
-                  << ":" << *sub_table->version();
+        std::cout << " " << s.participant << ":" << s.version;
       }
     }
   }

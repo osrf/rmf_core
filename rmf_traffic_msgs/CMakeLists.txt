@@ -37,6 +37,7 @@ set(msg_files
   "msg/ScheduleChangeCull.msg"
   "msg/ScheduleChangeDelay.msg"
   "msg/ScheduleConflictAck.msg"
+  "msg/ScheduleConflictKey.msg"
   "msg/ScheduleConflictConclusion.msg"
   "msg/ScheduleConflictForfeit.msg"
   "msg/ScheduleConflictNotice.msg"

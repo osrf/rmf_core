@@ -89,6 +89,28 @@ public:
   /// that all proposals have been rejected.
   bool complete() const;
 
+  /// This struct is used to select a child table, demaning a specific version.
+  struct VersionedKey
+  {
+    ParticipantId participant;
+    Version version;
+
+    inline bool operator==(const VersionedKey& other) const
+    {
+      return participant == other.participant
+          && version == other.version;
+    }
+
+    inline bool operator!=(const VersionedKey& other) const
+    {
+      return !(*this == other);
+    }
+  };
+
+  /// The versioned key sequence can be used to select tables while demanding
+  /// specific versions for those tables.
+  using VersionedKeySequence = std::vector<VersionedKey>;
+
   struct Submission
   {
     ParticipantId participant;
@@ -118,13 +140,6 @@ public:
   {
   public:
 
-    /// A struct used to specify the rollout for a participant.
-    struct Rollout
-    {
-      ParticipantId participant;
-      std::size_t alternative;
-    };
-
     class Viewer
     {
     public:
@@ -141,7 +156,7 @@ public:
       ///   participants who have rejected this proposal in the past.
       View query(
           const Query::Spacetime& parameters,
-          const std::vector<Rollout>& rollouts) const;
+          const VersionedKeySequence& alternatives) const;
 
       using AlternativeMap =
         std::unordered_map<ParticipantId, std::shared_ptr<Alternatives>>;
@@ -181,7 +196,7 @@ public:
 
     /// The a pointer to the latest itinerary version that was submitted to this
     /// table, if one was submitted at all.
-    const Version* version() const;
+    Version version() const;
 
     /// The proposal on this table so far. This will include the latest
     /// itinerary that has been submitted to this Table if anything has been
@@ -194,7 +209,10 @@ public:
 
     /// The sequence key that refers to this table. This is equivalent to
     /// [to_accommodate..., for_participant]
-    const std::vector<ParticipantId>& sequence() const;
+    const VersionedKeySequence& sequence() const;
+
+    /// The versioned sequence key that refers to this table.
+    std::vector<ParticipantId> unversioned_sequence() const;
 
     /// Submit a proposal for a participant that accommodates some of the other
     /// participants in the negotiation (or none if an empty vector is given for
@@ -293,6 +311,8 @@ public:
   /// Get a Negotiation::Table that provides a view into what participants are
   /// proposing.
   ///
+  /// This function does not care about table versioning.
+  ///
   /// \param[in] for_participant
   ///   The participant that is supposed to be viewing this Table. The
   ///   itineraries of this participant will be left off of the Table.
@@ -302,6 +322,8 @@ public:
   ///   ordering of the participants in this set is hierarchical where each
   ///   participant is accommodating all of the participants that come before
   ///   it.
+  ///
+  /// \sa find()
   TablePtr table(
     ParticipantId for_participant,
     const std::vector<ParticipantId>& to_accommodate);
@@ -316,13 +338,82 @@ public:
   /// would call:
   /// table([to_accommodate..., for_participant])
   ///
+  /// This function does not care about table versioning.
+  ///
   /// \param[in] sequence
   ///   The participant sequence that corresponds to the desired table. This is
   ///   equivalent to [to_accommodate..., for_participant]
+  ///
+  /// \sa find()
   TablePtr table(const std::vector<ParticipantId>& sequence);
 
   // const-qualified table()
   ConstTablePtr table(const std::vector<ParticipantId>& sequence) const;
+
+  /// This enumeration describes the status of a search attempt.
+  enum class SearchStatus
+  {
+    /// The requested Table existed, but the requested version is out of date
+    Deprecated = 0,
+
+    /// The requested version of this Table has never been seen by this
+    /// Negotiation.
+    Absent,
+
+    /// The requested Table has been found.
+    Found
+  };
+
+  template<typename Ptr>
+  struct SearchResult
+  {
+    /// The status of the search
+    SearchStatus status;
+
+    /// The Table that was searched for (or nullptr if status is Deprecated or
+    /// Absent)
+    Ptr table;
+
+    inline bool deprecated() const
+    {
+      return SearchStatus::Deprecated == status;
+    }
+
+    inline bool absent() const
+    {
+      return SearchStatus::Absent == status;
+    }
+
+    inline bool found() const
+    {
+      return SearchStatus::Found == status;
+    }
+
+    inline operator bool() const
+    {
+      return found();
+    }
+  };
+
+  /// Find a table, requesting specific versions
+  ///
+  /// \sa table()
+  SearchResult<TablePtr> find(
+    ParticipantId for_participant,
+    const VersionedKeySequence& to_accommodate);
+
+  /// const-qualified find()
+  SearchResult<ConstTablePtr> find(
+    ParticipantId for_participant,
+    const VersionedKeySequence& to_accommodate) const;
+
+  /// Find a table, requesting specific versions
+  ///
+  /// \sa table()
+  SearchResult<TablePtr> find(const VersionedKeySequence& sequence);
+
+  /// const-qualified find()
+  SearchResult<ConstTablePtr> find(const VersionedKeySequence& sequence) const;
 
   /// A pure abstract interface class for choosing the best proposal.
   class Evaluator

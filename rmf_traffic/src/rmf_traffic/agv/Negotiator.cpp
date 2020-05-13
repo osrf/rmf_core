@@ -234,14 +234,14 @@ void SimpleNegotiator::respond(
 
     if (_pimpl->debug_print)
     {
-      if (validator->rollouts().empty())
+      if (validator->alternatives().empty())
         std::cout << "Negotiating without rollouts" << std::endl;
       else
       {
         std::cout << "Negotiating with rollouts:";
-        for (const auto& r : validator->rollouts())
+        for (const auto& r : validator->alternatives())
         {
-          std::cout << " [" << r.participant << ":" << r.alternative
+          std::cout << " [" << r.participant << ":" << r.version
                     << "|" << table_viewer->alternatives().at(r.participant)->size()
                     << "]";
         }
