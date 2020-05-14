@@ -175,32 +175,8 @@ public:
         }
       });
 
-//    std::vector<std::thread> fallback_plan_threads;
-//    std::vector<rmf_utils::optional<rmf_traffic::agv::Plan>> fallback_plans;
-//    std::mutex fallback_plan_mutex;
-//    for (const std::size_t goal_wp : _fallback_wps)
-//    {
-//      fallback_plan_threads.emplace_back(std::thread([&, goal_wp]()
-//      {
-//        auto fallback_plan =
-//            planner.plan(
-//              plan_starts,
-//              rmf_traffic::agv::Plan::Goal(goal_wp),
-//              _planner_options);
-
-//        std::unique_lock<std::mutex> lock(fallback_plan_mutex);
-//        if (fallback_plan)
-//        {
-//          fallback_plan_solved = true;
-//          plan_solved_cv.notify_all();
-//        }
-//        fallback_plans.emplace_back(std::move(fallback_plan));
-//      }));
-//    }
-
     using namespace std::chrono_literals;
     const auto giveup_time =
-//        std::chrono::steady_clock::now() + _node->get_plan_time();
       std::chrono::steady_clock::now() + 10s;
 
     const auto done_searching = [&]() -> bool
@@ -223,12 +199,10 @@ public:
     interrupt_flag = true;
 
     main_plan_thread.join();
-//    for (auto& fallback_thread : fallback_plan_threads)
-//      fallback_thread.join();
 
     if (main_plan->success())
     {
-      plans.emplace_back(**main_plan);
+      plans.emplace_back(**std::move(main_plan));
       return plans;
     }
 
@@ -239,7 +213,7 @@ public:
 
       if (main_plan->success())
       {
-        plans.emplace_back(**main_plan);
+        plans.emplace_back(**std::move(main_plan));
         return plans;
       }
     }
@@ -336,17 +310,26 @@ public:
       return;
     }
 
-    auto start_time = rmf_traffic_ros2::convert(_node->get_clock()->now());
-    const auto& base_proposals = table->base_proposals();
-    if (!base_proposals.empty())
+    rmf_utils::optional<rmf_traffic::Time> earliest_time;
+    for (const auto& proposed : table->base_proposals())
     {
-      // TODO(MXG): We should really look through all the routes to find the
-      // one that starts earliest.
-      const auto& r = base_proposals.front().itinerary.front();
+      if (proposed.itinerary.empty())
+        continue;
+
+      const auto& r = proposed.itinerary.front();
+      if (!r || r->trajectory().size() == 0)
+        continue;
+
       const auto* t = r->trajectory().start_time();
-      if (t)
-        start_time = *t;
+      if (!t)
+        continue;
+
+      if (!earliest_time || *t < *earliest_time)
+        earliest_time = *t;
     }
+
+    const auto start_time = earliest_time?
+          *earliest_time : rmf_traffic_ros2::convert(_node->get_clock()->now());
 
     std::weak_ptr<void> weak_handle = _handle;
     rmf_traffic::agv::SimpleNegotiator::Options options(
@@ -376,8 +359,6 @@ public:
           planner.get_configuration(),
           options);
 
-    rmf_traffic::agv::SimpleNegotiator::Debug::enable_debug_print(negotiator);
-
     bool interrupt_flag = false;
     auto future = std::async(
           std::launch::async,
@@ -396,6 +377,8 @@ public:
     });
 
     using namespace std::chrono_literals;
+    // We allow for more time based on how many negotiation attempts have been
+    // made.
     auto wait_duration = 2s + table->sequence().back().version * 10s;
     if (table->sequence().size() > 2)
     {
@@ -653,7 +636,7 @@ public:
     void receive(const RobotState& msg) final
     {
       ++_report_status_count;
-      if (_report_status_count % 100 == 0)
+      if (_report_status_count % 1000 == 0)
       {
         _parent->_task->report_status();
       }
@@ -787,9 +770,7 @@ public:
 
     using RobotMode = rmf_fleet_msgs::msg::RobotMode;
     if (msg.mode.mode == RobotMode::MODE_DOCKING)
-    {
       return true;
-    }
 
     // If the task_id is the one for docking but the state's mode is not docking
     // then we assume that the docking is complete and that we should send the
