@@ -172,12 +172,15 @@ public:
       /// The proposals submitted to the predecessor tables.
       const Proposal& base_proposals() const;
 
-      /// Get the description of a participant in this Viewer
+      /// Get the description of a participant in this Viewer.
       std::shared_ptr<const ParticipantDescription> get_participant(
           ParticipantId participant_id) const;
 
-      /// If the Table has a parent, get its Participant ID
+      /// If the Table has a parent, get its Participant ID.
       rmf_utils::optional<ParticipantId> parent_id() const;
+
+      /// The sequence of the table that is being viewed.
+      const VersionedKeySequence& sequence() const;
 
       class Implementation;
     private:

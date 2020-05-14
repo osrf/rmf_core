@@ -143,6 +143,7 @@ public:
   std::shared_ptr<Query::Participants> participant_query;
   std::shared_ptr<const schedule::Viewer> schedule_viewer;
   rmf_utils::optional<ParticipantId> parent_id;
+  VersionedKeySequence sequence;
 
   Viewer::View query(
       const Query::Spacetime& spacetime,
@@ -676,13 +677,25 @@ public:
   SearchResult<TablePtr> find_entry(
     const VersionedKeySequence& sequence)
   {
+    TablePtr parent = nullptr;
     TablePtr output = nullptr;
     const TableMap* map = &tables;
     for (const auto key : sequence)
     {
+      parent = output;
       output = climb(*map, key.participant);
       if (!output)
+      {
+        if (parent && (parent->rejected() || parent->forfeited()))
+        {
+          // If this table can't be found but the parent table has a rejected or
+          // forfeited status, that means the unfound table has been deprecated;
+          // not that it is absent.
+          return {SearchStatus::Deprecated, nullptr};
+        }
+
         return {SearchStatus::Absent, nullptr};
+      }
 
       if (key.version < output->version())
         return {SearchStatus::Deprecated, nullptr};
@@ -956,6 +969,12 @@ rmf_utils::optional<ParticipantId> Negotiation::Table::Viewer::parent_id() const
 }
 
 //==============================================================================
+auto Negotiation::Table::Viewer::sequence() const -> const VersionedKeySequence&
+{
+  return _pimpl->sequence;
+}
+
+//==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
   // Do nothing
@@ -979,7 +998,8 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
           _pimpl->base_proposals,
           _pimpl->participant_query,
           _pimpl->schedule_viewer,
-          parent_id));
+          parent_id,
+          _pimpl->sequence));
 
   return _pimpl->cached_table_viewer;
 }

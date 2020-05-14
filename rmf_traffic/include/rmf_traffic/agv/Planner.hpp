@@ -558,19 +558,11 @@ public:
   };
 
   /// If this Plan is valid, this will return the trajectory of the successful
-  /// plan.
-  ///
-  /// \warning If this plan is not valid, this will have undefined behavior, and
-  /// will cause a segmentation fault if this Plan is uninitialized
-  /// (default-constructed).
+  /// plan. If the Start satisfies the Goal, then the itinerary will be empty.
   const std::vector<Route>& get_itinerary() const;
 
   /// If this plan is valid, this will return the waypoints of the successful
   /// plan.
-  ///
-  /// \warning If this plan is not valid, this will have undefined behavior, and
-  /// will cause a segmentation fault if this Plan is uninitialized
-  /// (default-constructed).
   const std::vector<Waypoint>& get_waypoints() const;
 
   /// Get the start condition that was used for this plan.

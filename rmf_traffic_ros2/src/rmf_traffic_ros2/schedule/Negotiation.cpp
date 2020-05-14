@@ -635,6 +635,65 @@ public:
     respond_to_queue(room.check_cache(*negotiators), msg.conflict_version);
   }
 
+  void dump_conclusion_info(
+      const Conclusion& msg,
+      const Approvals::const_iterator& approval_callback_it,
+      const Negotiation& negotiation)
+  {
+    const auto full_sequence = convert(msg.table);
+
+    std::string err =
+        "\n !!!!!!!!!!!! Impossible situation encountered for Negotiation ["
+        + std::to_string(msg.conflict_version) + "] in node ["
+        + node.get_name() + "]: No approval callbacks found?? Sequence: [";
+    for (const auto s : msg.table)
+      err += " " + std::to_string(s.participant) + ":" + std::to_string(s.version);
+    err += " ] ";
+
+    if (msg.resolved)
+    {
+      err += "Tables with acknowledgments for this negotiation:";
+
+      const auto& approval_callbacks = approval_callback_it->second;
+      for (const auto& cb : approval_callbacks)
+      {
+        const auto table = cb.first;
+        err += "\n -- " + ptr_to_string(table.get()) + " |";
+
+        for (const auto& s : table->sequence())
+          err += " " + std::to_string(s.participant) + ":" + std::to_string(s.version);
+      }
+
+      err += "\nCurrent relevant tables in the negotiation:";
+      for (std::size_t i = 1; i <= msg.table.size(); ++i)
+      {
+        std::vector<ParticipantId> sequence;
+        for (std::size_t j=0; j < i; ++j)
+          sequence.push_back(full_sequence[j].participant);
+
+        const auto table = negotiation.table(sequence);
+        err += "\n -- " + ptr_to_string(table.get()) + " |";
+
+        for (std::size_t j=0; j < i; ++j)
+          err += " " + std::to_string(msg.table[j].participant) + ":" + std::to_string(msg.table[j].version);
+      }
+    }
+    else
+    {
+      err += "Negotiation participants for this node:";
+      for (const auto p : negotiation.participants())
+      {
+        if (negotiators->count(p) != 0)
+          err += " " + std::to_string(p);
+      }
+    }
+
+    std::cout << "\nAll tables in the negotiation:\n";
+    print_negotiation_status(msg.conflict_version, negotiation);
+
+    std::cout << err << "\n --- Fin --- \n" << std::endl;
+  }
+
   void receive_conclusion(const Conclusion& msg)
   {
     const auto negotiate_it = negotiations.find(msg.conflict_version);
@@ -663,7 +722,7 @@ public:
         {
           const auto sequence = Negotiation::VersionedKeySequence(
                 full_sequence.begin(), full_sequence.begin()+i);
-          const auto participant = msg.table[i-1].participant;
+          const auto participant = sequence.back().participant;
 
           const auto search = negotiation.find(sequence);
           if (search.absent())
@@ -672,6 +731,10 @@ public:
             // possibly have any approval callbacks waiting for it. This may
             // happen towards the end of a Negotiation sequence if the remaining
             // tables belong to a different node.
+            std::cout << " ====== Absent sequence:";
+            for (const auto& s : sequence)
+              std::cout << " " << s.participant << ":" << s.version;
+            std::cout << std::endl;
             break;
           }
 
@@ -732,7 +795,13 @@ public:
           }
           else
           {
-            assert(negotiators->find(participant) == negotiators->end());
+            // If we couldn't find an approval callback for this table of the
+            // conclusion, then that should not be a negotiator for the table.
+            if (negotiators->find(participant) != negotiators->end())
+            {
+              dump_conclusion_info(msg, approval_callback_it, negotiation);
+              assert(negotiators->find(participant) == negotiators->end());
+            }
           }
         }
       }
@@ -757,60 +826,9 @@ public:
 
       if (ack.acknowledgments.empty())
       {
-        // If we are participating in this negotiation, then the acknowledgments
-        // must not be empty, or else there is a bug somewhere.
-
-        std::string err =
-            "\n !!!!!!!!!!!! Impossible situation encountered for Negotiation ["
-            + std::to_string(msg.conflict_version) + "] in node ["
-            + node.get_name() + "]: No approval callbacks found?? Sequence: [";
-        for (const auto s : msg.table)
-          err += " " + std::to_string(s.participant) + ":" + std::to_string(s.version);
-        err += " ] ";
-
-        if (msg.resolved)
-        {
-          err += "Tables with acknowledgments for this negotiation:";
-
-          const auto& approval_callbacks = approval_callback_it->second;
-          for (const auto& cb : approval_callbacks)
-          {
-            const auto table = cb.first;
-            err += "\n -- " + ptr_to_string(table.get()) + " |";
-
-            for (const auto& s : table->sequence())
-              err += " " + std::to_string(s.participant) + ":" + std::to_string(s.version);
-          }
-
-          err += "\nCurrent relevant tables in the negotiation:";
-          for (std::size_t i = 1; i <= msg.table.size(); ++i)
-          {
-            std::vector<ParticipantId> sequence;
-            for (std::size_t j=0; j < i; ++j)
-              sequence.push_back(full_sequence[j].participant);
-
-            const auto table = negotiation.table(sequence);
-            err += "\n -- " + ptr_to_string(table.get()) + " |";
-
-            for (std::size_t j=0; j < i; ++j)
-              err += " " + std::to_string(msg.table[j].participant) + ":" + std::to_string(msg.table[j].version);
-          }
-        }
-        else
-        {
-          err += "Negotiation participants for this node:";
-          for (const auto p : negotiation.participants())
-          {
-            if (negotiators->count(p) != 0)
-              err += " " + std::to_string(p);
-          }
-        }
-
-        std::cout << "\nAll tables in the negotiation:\n";
-        print_negotiation_status(msg.conflict_version, negotiation);
-
-        std::cout << err << "\n --- Fin --- \n" << std::endl;
-
+        // If we are participating in this negotiation, then the
+        // acknowledgments must not be empty, or else there is a bug somewhere.
+        dump_conclusion_info(msg, approval_callback_it, negotiation);
         assert(!ack.acknowledgments.empty());
       }
 
