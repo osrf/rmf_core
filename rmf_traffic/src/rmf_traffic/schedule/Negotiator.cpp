@@ -26,7 +26,7 @@ class SimpleResponder::Implementation
 public:
 
   schedule::Negotiation::TablePtr table;
-  rmf_utils::optional<schedule::Version> table_version;
+  schedule::Version table_version;
   schedule::Negotiation::TablePtr parent;
   rmf_utils::optional<schedule::Version> parent_version;
 
@@ -38,14 +38,13 @@ public:
     : table(std::move(table_)),
       report_blockers(report_blockers_)
   {
-    if (table->version())
-      table_version = *table->version();
+    table_version = table->version();
 
     parent = table->parent();
     if (parent)
     {
       assert(parent->version());
-      parent_version = *parent->version();
+      parent_version = parent->version();
     }
   }
 };
@@ -64,9 +63,7 @@ SimpleResponder::SimpleResponder(
 void SimpleResponder::submit(std::vector<Route> itinerary,
   std::function<UpdateVersion()> /*approval_callback*/) const
 {
-  _pimpl->table->submit(
-    std::move(itinerary),
-    _pimpl->table_version ? _pimpl->table_version+1 : 0);
+  _pimpl->table->submit(std::move(itinerary), _pimpl->table_version+1);
 }
 
 //==============================================================================

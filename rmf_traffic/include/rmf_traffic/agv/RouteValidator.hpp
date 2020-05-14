@@ -178,8 +178,9 @@ public:
   /// by the given participant.
   NegotiatingRouteValidator next(schedule::ParticipantId id) const;
 
-  /// Get the set of rollouts used by this NegotiatingRouteValidator.
-  const std::vector<schedule::Negotiation::Table::Rollout>& rollouts() const;
+  /// Get the set of child Table alternatives used by this
+  /// NegotiatingRouteValidator.
+  const schedule::Negotiation::VersionedKeySequence& alternatives() const;
 
   /// Implicitly cast this validator instance to true if it can be used as a
   /// validator. If it cannot be used as a validator, return false. This will

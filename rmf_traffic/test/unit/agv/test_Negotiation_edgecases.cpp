@@ -232,15 +232,15 @@ SCENARIO("Test difficult 3-way scenarios")
     const auto time = std::chrono::steady_clock::now();
 
     auto a0_starts = rmf_traffic::agv::compute_plan_starts(
-      graph_a, {18.012, -15.53, -M_PI}, time);
+      graph_a, {14.006982, -15.530105, -3.137865}, time);
     auto a0_goal = rmf_traffic::agv::Plan::Goal(1);
 
     auto b1_starts = rmf_traffic::agv::compute_plan_starts(
-          graph_b, {16.858, -15.758, -M_PI/2.0}, time);
+          graph_b, {11.892134, -15.398828, 2.631314}, time);
     auto b1_goal = rmf_traffic::agv::Plan::Goal(11);
 
     auto b2_starts = rmf_traffic::agv::compute_plan_starts(
-          graph_b, {16.83, -17.26, -M_PI/2.0}, time);
+          graph_b, {13.057442, -15.363754, -3.128299}, time);
     auto b2_goal = rmf_traffic::agv::Plan::Goal(13);
 
 //    std::cout << "Checking a0, b1" << std::endl;
@@ -369,8 +369,8 @@ SCENARIO("Test difficult 3-way scenarios")
       NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
 
     auto room = NegotiationRoom(database, intentions);
-    auto proposal = room/*.print()*/.solve();
-//    REQUIRE(proposal);
+    auto proposal = room.print().solve();
+    REQUIRE(proposal);
   }
 
 

@@ -171,6 +171,10 @@ public:
     return _has_value;
   }
 
+  // Disable implicit conversion to integer types
+  operator int() const = delete;
+  operator std::size_t() const = delete;
+
 
   T& value()
   {

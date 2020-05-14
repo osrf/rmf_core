@@ -84,7 +84,7 @@ struct NegotiationData
   std::unordered_set<ParticipantId> participants;
 
   /// The negotiation tables that have successfully reached a termination
-  std::vector<std::vector<ParticipantId>> successful_tables;
+  std::vector<Negotiation::VersionedKeySequence> successful_tables;
 
   /// The number of negotiation tables that have reached a conclusion (either
   /// successfully finished or rejected)
@@ -93,16 +93,16 @@ struct NegotiationData
   std::unordered_set<Negotiation::Table::Implementation*> forfeited_tables;
 
   void clear_successful_descendants_of(
-      const std::vector<ParticipantId>& sequence)
+      const Negotiation::VersionedKeySequence& sequence)
   {
     const auto erase_it = std::remove_if(
       successful_tables.begin(),
       successful_tables.end(),
-      [&](const std::vector<ParticipantId>& table)
+      [&](const Negotiation::VersionedKeySequence& table)
       {
         for (std::size_t i = 0; i < sequence.size(); ++i)
         {
-          if (table[i] != sequence[i])
+          if (table[i].participant != sequence[i].participant)
             return false;
         }
 
@@ -143,10 +143,11 @@ public:
   std::shared_ptr<Query::Participants> participant_query;
   std::shared_ptr<const schedule::Viewer> schedule_viewer;
   rmf_utils::optional<ParticipantId> parent_id;
+  VersionedKeySequence sequence;
 
   Viewer::View query(
       const Query::Spacetime& spacetime,
-      const std::vector<Table::Rollout>& rollouts) const;
+      const VersionedKeySequence& rollouts) const;
 
   template<typename... Args>
   static Viewer make(Args&&... args)
@@ -167,7 +168,7 @@ public:
   using TableMap = std::unordered_map<ParticipantId, std::shared_ptr<Table>>;
 
   std::shared_ptr<const schedule::Viewer> const schedule_viewer;
-  std::vector<ParticipantId> sequence;
+  VersionedKeySequence sequence;
   std::vector<ParticipantId> unsubmitted;
 
   // ===== Fields that get copied into a Viewer =====
@@ -187,10 +188,20 @@ public:
   const ParticipantId participant;
   const std::size_t depth;
   rmf_utils::optional<Itinerary> itinerary;
-  rmf_utils::optional<Version> version = rmf_utils::nullopt;
   bool rejected = false;
   bool forfeited = false;
+  bool defunct = false;
   TableMap descendants;
+
+  Version& version()
+  {
+    return sequence.back().version;
+  }
+
+  Version version() const
+  {
+    return sequence.back().version;
+  }
 
   std::weak_ptr<NegotiationData> weak_negotiation_data;
   std::weak_ptr<Table> weak_owner;
@@ -202,7 +213,7 @@ public:
     std::shared_ptr<const schedule::Viewer> schedule_viewer_,
     ParticipantId participant_,
     std::size_t depth_,
-    std::vector<ParticipantId> submitted_,
+    VersionedKeySequence submitted_,
     std::vector<ParticipantId> unsubmitted_,
     Proposal initial_proposal_,
     TablePtr parent_)
@@ -241,15 +252,20 @@ public:
 
     proposed_timeline = timeline_builder.snapshot();
 
-    std::vector<ParticipantId> all_participants = submitted_;
+    std::vector<ParticipantId> all_participants;
+    all_participants.reserve(submitted_.size() + unsubmitted_.size());
+    for (const auto& s : submitted_)
+      all_participants.push_back(s.participant);
+
     all_participants.insert(
       all_participants.end(), unsubmitted.begin(), unsubmitted.end());
+
     participant_query = std::make_shared<Query::Participants>(
-          Query::Participants::make_all_except(all_participants));
+          Query::Participants::make_all_except(std::move(all_participants)));
 
     // Add this Table's participant to the sequence
     sequence = std::move(submitted_);
-    sequence.push_back(participant);
+    sequence.push_back({participant, 0});
 
     // Remove this Table's participant from the unsubmitted
     const auto it = std::remove_if(unsubmitted.begin(), unsubmitted.end(),
@@ -265,8 +281,13 @@ public:
   {
     assert(std::find(unsubmitted.begin(),
       unsubmitted.end(), new_participant) == unsubmitted.end());
-    assert(std::find(sequence.begin(),
-      sequence.end(), new_participant) == sequence.end());
+
+    assert(std::find_if(sequence.begin(), sequence.end(),
+      [&new_participant](const VersionedKey& key)
+      {
+        return key.participant == new_participant;
+      }) == sequence.end());
+
     unsubmitted.push_back(new_participant);
 
     if (itinerary)
@@ -329,10 +350,10 @@ public:
     std::vector<Route> new_itinerary,
     const Version new_version)
   {
-    if (version && rmf_utils::modular(new_version).less_than_or_equal(*version))
+    if (rmf_utils::modular(new_version).less_than_or_equal(version()))
       return false;
 
-    version = new_version;
+    version() = new_version;
 
     const bool had_itinerary = itinerary.has_value();
     bool formerly_successful = false;
@@ -342,7 +363,7 @@ public:
     {
       negotiation_data->forfeited_tables.erase(this);
       negotiation_data->num_terminated_tables -=
-        termination_factor(depth, negotiation_data->participants.size());
+          termination_factor(depth, negotiation_data->participants.size());
     }
     else if (had_itinerary && descendants.empty())
     {
@@ -416,7 +437,7 @@ public:
       ParticipantId rejected_by,
       Alternatives offered_alternatives)
   {
-    if (version && rmf_utils::modular(rejected_version).less_than(*version))
+    if (rmf_utils::modular(rejected_version).less_than(version()))
       return false;
 
     cached_table_viewer.reset();
@@ -427,7 +448,7 @@ public:
     this->alternatives[rejected_by] =
         std::make_shared<Alternatives>(std::move(offered_alternatives));
 
-    version = rejected_version;
+    version() = rejected_version;
 
     // We return true here because the alternatives updated which may be
     // relevant to the negotiation participant, even if the rejected status is
@@ -467,10 +488,10 @@ public:
   {
     // TODO(MXG): Consider if this function's implementation can be refactored
     // with reject()
-    if (version && rmf_utils::modular(forfeited_version).less_than(*version))
+    if (rmf_utils::modular(forfeited_version).less_than(version()))
       return;
 
-    version = forfeited_version;
+    version() = forfeited_version;
 
     if (forfeited)
       return;
@@ -496,8 +517,8 @@ public:
 
     if (negotiation_data)
     {
-      negotiation_data->num_terminated_tables += termination_factor(
-        depth, negotiation_data->participants.size());
+      negotiation_data->num_terminated_tables +=
+          termination_factor(depth, negotiation_data->participants.size());
       negotiation_data->forfeited_tables.insert(this);
 
       negotiation_data->clear_successful_descendants_of(sequence);
@@ -525,19 +546,18 @@ public:
       for (const auto entry : top->descendants)
       {
         const auto& table = entry.second;
-        if (table->_pimpl->rejected && negotiation_data)
+        if (table->_pimpl->forfeited && negotiation_data)
         {
           negotiation_data->num_terminated_tables -=
-            termination_factor(
-            table->_pimpl->depth, negotiation_data->participants.size());
+              termination_factor(
+                table->_pimpl->depth, negotiation_data->participants.size());
 
           negotiation_data->forfeited_tables.erase(table->_pimpl.get());
         }
 
         table->_pimpl->weak_negotiation_data.reset();
-        // TODO(MXG): Should we really not clear out the parentage of an
-        // orphaned table?
-//        table->_pimpl->weak_parent.reset();
+        // Tell the child tables that they are now defunct
+        table->_pimpl->defunct = true;
         queue.push_back(entry.second->_pimpl.get());
       }
     }
@@ -641,6 +661,83 @@ public:
       for_participant, to_accommodate);
   }
 
+  SearchResult<TablePtr> find_entry(
+    const VersionedKeySequence& sequence)
+  {
+    TablePtr parent = nullptr;
+    TablePtr output = nullptr;
+    const TableMap* map = &tables;
+    for (const auto key : sequence)
+    {
+      parent = output;
+      output = climb(*map, key.participant);
+      if (!output)
+      {
+        if (parent && (parent->rejected() || parent->forfeited()))
+        {
+          // If this table can't be found but the parent table has a rejected or
+          // forfeited status, that means the unfound table has been deprecated;
+          // not that it is absent.
+          return {SearchStatus::Deprecated, nullptr};
+        }
+
+        return {SearchStatus::Absent, nullptr};
+      }
+
+      if (key.version < output->version())
+        return {SearchStatus::Deprecated, nullptr};
+
+      if (output->version() < key.version)
+        return {SearchStatus::Absent, nullptr};
+
+      map = &Table::Implementation::get(*output).descendants;
+    }
+
+    return {SearchStatus::Found, output};
+  }
+
+  SearchResult<ConstTablePtr> find_entry(
+    const VersionedKeySequence& sequence) const
+  {
+    auto output = const_cast<Implementation&>(*this).find_entry(sequence);
+    return {output.status, std::move(output.table)};
+  }
+
+  SearchResult<TablePtr> find_entry(
+    const ParticipantId for_participant,
+    const VersionedKeySequence& to_accommodate)
+  {
+    TableMap* map = nullptr;
+    if (to_accommodate.empty())
+    {
+      map = &tables;
+    }
+    else
+    {
+      const auto output = find_entry(to_accommodate);
+      if (!output)
+        return output;
+
+      map = &Table::Implementation::get(*output.table).descendants;
+    }
+    assert(map);
+
+    auto output = climb(*map, for_participant);
+    if (!output)
+      return {SearchStatus::Absent, nullptr};
+
+    return {SearchStatus::Found, output};
+  }
+
+  SearchResult<ConstTablePtr> find_entry(
+    const ParticipantId for_participant,
+    const VersionedKeySequence& to_accommodate) const
+  {
+    auto output = const_cast<Implementation&>(*this).find_entry(
+          for_participant, to_accommodate);
+    return {output.status, output.table};
+  }
+
   void add_participant(const ParticipantId new_participant)
   {
     if (!data->participants.insert(new_participant).second)
@@ -706,13 +803,35 @@ public:
 };
 
 //==============================================================================
-Negotiation::Negotiation(
+rmf_utils::optional<Negotiation> Negotiation::make(
   std::shared_ptr<const schedule::Viewer> schedule_viewer,
   std::vector<ParticipantId> participants)
-: _pimpl(rmf_utils::make_unique_impl<Implementation>(
-      std::move(schedule_viewer), std::move(participants)))
 {
-  // Do nothing
+  if (!schedule_viewer)
+    return rmf_utils::nullopt;
+
+  for (const auto p : participants)
+  {
+    if (!schedule_viewer->get_participant(p))
+      return rmf_utils::nullopt;
+  }
+
+  Negotiation negotiation;
+  negotiation._pimpl = rmf_utils::make_unique_impl<Implementation>(
+        std::move(schedule_viewer), std::move(participants));
+  return negotiation;
+}
+
+//==============================================================================
+std::shared_ptr<Negotiation> Negotiation::make_shared(
+  std::shared_ptr<const schedule::Viewer> schedule_viewer,
+  std::vector<ParticipantId> participants)
+{
+  auto negotiation = make(std::move(schedule_viewer), std::move(participants));
+  if (!negotiation)
+    return nullptr;
+
+  return std::make_shared<Negotiation>(*std::move(negotiation));
 }
 
 //==============================================================================
@@ -771,7 +890,7 @@ public:
 //==============================================================================
 Viewer::View Negotiation::Table::Viewer::Implementation::query(
   const Query::Spacetime& spacetime,
-  const std::vector<Table::Rollout>& chosen_rollouts) const
+  const VersionedKeySequence& chosen_alternatives) const
 {
   const auto& all_participants = Query::Participants::make_all();
 
@@ -780,10 +899,10 @@ Viewer::View Negotiation::Table::Viewer::Implementation::query(
   proposed_timeline->inspect(spacetime, all_participants, inspector);
 
   // Query for the routes in the child rollouts that are being considered
-  for (const auto& rollout : chosen_rollouts)
+  for (const auto& alternative : chosen_alternatives)
   {
-    alternatives_timelines.at(rollout.participant)
-      .at(rollout.alternative)
+    alternatives_timelines.at(alternative.participant)
+      .at(alternative.version)
       ->inspect(spacetime, all_participants, inspector);
   }
 
@@ -799,10 +918,10 @@ Viewer::View Negotiation::Table::Viewer::Implementation::query(
 
 //==============================================================================
 Viewer::View Negotiation::Table::Viewer::query(
-    const Query::Spacetime& parameters,
-    const std::vector<Rollout>& rollouts) const
+  const Query::Spacetime& parameters,
+  const VersionedKeySequence& alternatives) const
 {
-  return _pimpl->query(parameters, rollouts);
+  return _pimpl->query(parameters, alternatives);
 }
 
 //==============================================================================
@@ -831,6 +950,12 @@ rmf_utils::optional<ParticipantId> Negotiation::Table::Viewer::parent_id() const
 }
 
 //==============================================================================
+auto Negotiation::Table::Viewer::sequence() const -> const VersionedKeySequence&
+{
+  return _pimpl->sequence;
+}
+
+//==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
   // Do nothing
@@ -854,7 +979,8 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
           _pimpl->base_proposals,
           _pimpl->participant_query,
           _pimpl->schedule_viewer,
-          parent_id));
+          parent_id,
+          _pimpl->sequence));
 
   return _pimpl->cached_table_viewer;
 }
@@ -869,12 +995,9 @@ const Itinerary* Negotiation::Table::submission() const
 }
 
 //==============================================================================
-const Version* Negotiation::Table::version() const
+Version Negotiation::Table::version() const
 {
-  if (_pimpl->version)
-    return &(*_pimpl->version);
-
-  return nullptr;
+  return _pimpl->version();
 }
 
 //==============================================================================
@@ -890,9 +1013,20 @@ ParticipantId Negotiation::Table::participant() const
 }
 
 //==============================================================================
-const std::vector<ParticipantId>& Negotiation::Table::sequence() const
+const Negotiation::VersionedKeySequence& Negotiation::Table::sequence() const
 {
   return _pimpl->sequence;
+}
+
+//==============================================================================
+std::vector<ParticipantId> Negotiation::Table::unversioned_sequence() const
+{
+  std::vector<ParticipantId> output;
+  output.reserve(_pimpl->sequence.size());
+  for (const auto& key : _pimpl->sequence)
+    output.push_back(key.participant);
+
+  return output;
 }
 
 //==============================================================================
@@ -928,6 +1062,12 @@ void Negotiation::Table::forfeit(Version version)
 bool Negotiation::Table::forfeited() const
 {
   return _pimpl->forfeited;
+}
+
+//==============================================================================
+bool Negotiation::Table::defunct() const
+{
+  return _pimpl->defunct;
 }
 
 //==============================================================================
@@ -1020,6 +1160,37 @@ auto Negotiation::table(
 }
 
 //==============================================================================
+auto Negotiation::find(
+  const ParticipantId for_participant,
+  const VersionedKeySequence& to_accommodate) -> SearchResult<TablePtr>
+{
+  return _pimpl->find_entry(for_participant, to_accommodate);
+}
+
+//==============================================================================
+auto Negotiation::find(
+  const ParticipantId for_participant,
+  const VersionedKeySequence& to_accommodate) const
+-> SearchResult<ConstTablePtr>
+{
+  return _pimpl->find_entry(for_participant, to_accommodate);
+}
+
+//==============================================================================
+auto Negotiation::find(const VersionedKeySequence& sequence)
+-> SearchResult<TablePtr>
+{
+  return _pimpl->find_entry(sequence);
+}
+
+//==============================================================================
+auto Negotiation::find(const VersionedKeySequence& sequence) const
+-> SearchResult<ConstTablePtr>
+{
+  return _pimpl->find_entry(sequence);
+}
+
+//==============================================================================
 auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
 {
   const auto& successes = _pimpl->data->successful_tables;
@@ -1031,7 +1202,7 @@ auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
   proposals.reserve(successes.size());
   for (const auto& s : successes)
   {
-    auto table_ptr = _pimpl->get_entry(s);
+    auto table_ptr = _pimpl->find_entry(s).table;
     assert(table_ptr);
 
     const auto& proposal = Table::Implementation::get(*table_ptr).proposal;
@@ -1048,6 +1219,12 @@ auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
   assert(choice < tables.size());
 
   return tables[choice];
+}
+
+//==============================================================================
+Negotiation::Negotiation()
+{
+  // Do nothing
 }
 
 namespace {

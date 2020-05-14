@@ -161,12 +161,12 @@ class NegotiatingRouteValidator::Implementation
 public:
 
   std::shared_ptr<const Generator::Implementation::Data> data;
-  std::vector<schedule::Negotiation::Table::Rollout> rollouts;
+  schedule::Negotiation::VersionedKeySequence rollouts;
   rmf_utils::optional<schedule::ParticipantId> masked = rmf_utils::nullopt;
 
   static NegotiatingRouteValidator make(
     std::shared_ptr<const Generator::Implementation::Data> data,
-    std::vector<schedule::Negotiation::Table::Rollout> rollouts)
+    schedule::Negotiation::VersionedKeySequence rollouts)
   {
     NegotiatingRouteValidator output;
     output._pimpl = rmf_utils::make_impl<Implementation>(
@@ -182,7 +182,7 @@ public:
 //==============================================================================
 NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
 {
-  std::vector<schedule::Negotiation::Table::Rollout> rollouts;
+  schedule::Negotiation::VersionedKeySequence rollouts;
   for (const auto& r : _pimpl->data->viewer->alternatives())
     rollouts.push_back({r.first, 0});
 
@@ -226,9 +226,9 @@ NegotiatingRouteValidator NegotiatingRouteValidator::next(
   auto rollouts = _pimpl->rollouts;
   const auto it = std::find_if(
         rollouts.begin(), rollouts.end(), [&](
-        const schedule::Negotiation::Table::Rollout& r)
+        const schedule::Negotiation::VersionedKey& key)
   {
-    return r.participant == id;
+    return key.participant == id;
   });
 
   if (it == rollouts.end())
@@ -244,14 +244,14 @@ NegotiatingRouteValidator NegotiatingRouteValidator::next(
     throw std::runtime_error(error);
   }
 
-  it->alternative += 1;
+  it->version += 1;
 
   return _pimpl->make(_pimpl->data, std::move(rollouts));
 }
 
 //==============================================================================
-const std::vector<schedule::Negotiation::Table::Rollout>&
-NegotiatingRouteValidator::rollouts() const
+const schedule::Negotiation::VersionedKeySequence&
+NegotiatingRouteValidator::alternatives() const
 {
   return _pimpl->rollouts;
 }
@@ -270,7 +270,7 @@ bool NegotiatingRouteValidator::end() const
     const auto num_alternatives =
         _pimpl->data->viewer->alternatives().at(r.participant)->size();
 
-    if (num_alternatives <= r.alternative)
+    if (num_alternatives <= r.version)
       return true;
   }
 
@@ -317,7 +317,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     const auto& last_route =
         _pimpl->data->viewer->alternatives()
         .at(r.participant)
-        ->at(r.alternative).back();
+        ->at(r.version).back();
 
     if (route.map() != last_route->map())
       continue;

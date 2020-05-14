@@ -175,6 +175,14 @@ std::vector<Route> reconstruct_routes(const NodePtr& finish_node)
     node = node->parent;
   }
 
+  if (node_sequence.size() == 1)
+  {
+    // If there is only one node in the sequence, then it is a start node. When
+    // this happens, we should return an empty itinerary to indicate that the
+    // AGV does not need to go anywhere.
+    return {};
+  }
+
   std::vector<RouteData> routes;
   routes.push_back(RouteData{node_sequence.back()->route_from_parent.map, {}});
 

@@ -44,6 +44,13 @@ struct MockNegotiator : public rmf_traffic::schedule::Negotiator
       responder.forfeit({});
   }
 
+  virtual void respond(
+    const rmf_traffic::schedule::Negotiation::TablePtr table)
+  {
+    using rmf_traffic::schedule::SimpleResponder;
+    respond(table->viewer(), SimpleResponder(table));
+  }
+
   MockNegotiator& submit()
   {
     _choice = Submit;
@@ -113,40 +120,79 @@ SCENARIO("Identify a failed negotiation")
   // while adding participants.
   auto database = std::make_shared<rmf_traffic::schedule::Database>();
 
-  auto negotiation =
-    std::make_shared<rmf_traffic::schedule::Negotiation>(
+  // The Negotiation requires these participants to have descriptions
+  auto description =
+      rmf_traffic::schedule::ParticipantDescription(
+        "", "", rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+        rmf_traffic::Profile(nullptr));
+  database->register_participant(description);
+  database->register_participant(description);
+  database->register_participant(description);
+
+  auto negotiation = rmf_traffic::schedule::Negotiation::make_shared(
     database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 2});
 
-  std::vector<Table> submitted =
+  SECTION("Case 1")
   {
-    {{}, 2}, {{}, 0}, {{0}, 2}, {{2}, 0}
-  };
+    std::vector<Table> submitted =
+    {
+      {{}, 2}, {{}, 0}, {{0}, 2}, {{2}, 0}
+    };
 
-  apply_submissions(negotiation, submitted);
+    apply_submissions(negotiation, submitted);
 
-  CHECK(negotiation->complete());
-  CHECK(negotiation->ready());
+    CHECK(negotiation->complete());
+    CHECK(negotiation->ready());
 
-  negotiation->add_participant(1);
+    negotiation->add_participant(1);
 
-  CHECK_FALSE(negotiation->complete());
-  CHECK_FALSE(negotiation->ready());
+    CHECK_FALSE(negotiation->complete());
+    CHECK_FALSE(negotiation->ready());
 
-  submitted =
+    submitted =
+    {
+      {{}, 1}, {{2}, 1}
+    };
+
+    apply_submissions(negotiation, submitted);
+
+    CHECK_FALSE(negotiation->table(1, {2})->respond(1));
+
+    std::vector<Table> forfeited =
+    {
+      {{2}, 1}, {{2}, 0}, {{}, 1}, {{2}, 1}, {{0, 2}, 1}, {{0}, 1}
+    };
+
+    apply_forfeit(negotiation, forfeited);
+  }
+
+  SECTION("Case 2")
   {
-    {{}, 1}, {{2}, 1}
-  };
+    negotiation->add_participant(1);
 
-  apply_submissions(negotiation, submitted);
+    MockNegotiator().submit().respond(negotiation->table({0}));
+    MockNegotiator().submit().respond(negotiation->table({1}));
+    MockNegotiator().submit().respond(negotiation->table({2}));
 
-  CHECK_FALSE(negotiation->table(1, {2})->respond(1));
+    MockNegotiator().reject().respond(negotiation->table({1}));
+    MockNegotiator().reject().respond(negotiation->table({2}));
 
-  std::vector<Table> forfeited =
-  {
-    {{2}, 1}, {{2}, 0}, {{}, 1}, {{2}, 1}, {{0, 2}, 1}, {{0}, 1}
-  };
+    MockNegotiator().submit().respond(negotiation->table({0, 1}));
+    MockNegotiator().reject().respond(negotiation->table({0, 1}));
+    MockNegotiator().reject().respond(negotiation->table({0}));
 
-  apply_forfeit(negotiation, forfeited);
+    MockNegotiator().submit().respond(negotiation->table({0}));
+
+    MockNegotiator().submit().respond(negotiation->table({1}));
+    MockNegotiator().submit().respond(negotiation->table({1, 2}));
+    MockNegotiator().submit().respond(negotiation->table({1, 0}));
+
+    MockNegotiator().reject().respond(negotiation->table({1, 2}));
+
+    MockNegotiator().forfeit().respond(negotiation->table({2}));
+    MockNegotiator().forfeit().respond(negotiation->table({1}));
+    MockNegotiator().forfeit().respond(negotiation->table({0}));
+  }
 
   CHECK(negotiation->complete());
 }
@@ -177,7 +223,7 @@ SCENARIO("Submit after a rejection")
       std::vector<rmf_traffic::Route> itinerary,
       std::function<UpdateVersion()>) const final
     {
-      *version = table->version() ? *table->version() + 1 : 0;
+      *version = table->version() + 1;
       *accepted = table->submit(std::move(itinerary), **version);
     }
 
@@ -187,22 +233,29 @@ SCENARIO("Submit after a rejection")
       if (parent)
       {
         parent->reject(
-              *parent->version(),
-              table->sequence().back(),
+              parent->version(),
+              table->sequence().back().participant,
               alternatives);
       }
     }
 
     void forfeit(const std::vector<ParticipantId>& /*blockers*/) const final
     {
-      table->forfeit(table->version()? *table->version() : 0);
+      table->forfeit(table->version());
     }
   };
 
   auto database = std::make_shared<rmf_traffic::schedule::Database>();
 
-  auto negotiation =
-    std::make_shared<rmf_traffic::schedule::Negotiation>(
+  // The Negotiation requires these participants to have descriptions
+  auto description =
+      rmf_traffic::schedule::ParticipantDescription(
+        "", "", rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+        rmf_traffic::Profile(nullptr));
+  database->register_participant(description);
+  database->register_participant(description);
+
+  auto negotiation = rmf_traffic::schedule::Negotiation::make_shared(
     database, std::vector<rmf_traffic::schedule::ParticipantId>{0, 1});
 
   bool accepted = false;
@@ -213,7 +266,7 @@ SCENARIO("Submit after a rejection")
 
   CHECK(accepted);
   REQUIRE(version);
-  CHECK(*version == 0);
+  CHECK(*version == 1);
   const auto last_version = *version;
 
   accepted = false;
@@ -234,5 +287,5 @@ SCENARIO("Submit after a rejection")
   CHECK(accepted);
   REQUIRE(version);
   CHECK(last_version < *version);
-  CHECK(*version == 1);
+  CHECK(*version == 2);
 }
