@@ -21,9 +21,6 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <iostream>
-
-
 namespace {
 //==============================================================================
 struct MockNegotiator : public rmf_traffic::schedule::Negotiator
@@ -171,7 +168,6 @@ SCENARIO("Identify a failed negotiation")
 
   SECTION("Case 2")
   {
-    std::cout << " ========= Beginning case 2" << std::endl;
     negotiation->add_participant(1);
 
     MockNegotiator().submit().respond(negotiation->table({0}));
@@ -196,11 +192,8 @@ SCENARIO("Identify a failed negotiation")
     MockNegotiator().forfeit().respond(negotiation->table({2}));
     MockNegotiator().forfeit().respond(negotiation->table({1}));
     MockNegotiator().forfeit().respond(negotiation->table({0}));
-
-    std::cout << " ========= Finished case 2" << std::endl;
   }
 
-  std::cout << "here" << std::endl;
   CHECK(negotiation->complete());
 }
 

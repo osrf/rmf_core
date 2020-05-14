@@ -849,7 +849,6 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
     std::string output = "Forfeited negotiation ["
       + std::to_string(msg.conflict_version) + "]";
     RCLCPP_INFO(get_logger(), output);
-    std::cout << " ============ " << output << std::endl;
 
     active_conflicts.conclude(msg.conflict_version);
 
@@ -859,10 +858,6 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
 
     conflict_conclusion_pub->publish(conclusion);
 //    print_conclusion(active_conflicts._waiting);
-  }
-  else
-  {
-    std::cout << "Not forfeiting negotiation yet" << std::endl;
   }
 }
 

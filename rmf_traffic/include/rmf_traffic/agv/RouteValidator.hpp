@@ -178,7 +178,8 @@ public:
   /// by the given participant.
   NegotiatingRouteValidator next(schedule::ParticipantId id) const;
 
-  /// Get the set of rollouts used by this NegotiatingRouteValidator.
+  /// Get the set of child Table alternatives used by this
+  /// NegotiatingRouteValidator.
   const schedule::Negotiation::VersionedKeySequence& alternatives() const;
 
   /// Implicitly cast this validator instance to true if it can be used as a

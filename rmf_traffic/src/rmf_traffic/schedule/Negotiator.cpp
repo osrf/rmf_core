@@ -17,9 +17,6 @@
 
 #include <rmf_traffic/schedule/Negotiator.hpp>
 
-
-#include <iostream>
-
 namespace rmf_traffic {
 namespace schedule {
 

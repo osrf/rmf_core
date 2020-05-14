@@ -20,7 +20,6 @@
 #include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 
 #include <deque>
-
 #include <iostream>
 
 namespace rmf_traffic {
@@ -150,20 +149,13 @@ bool contains(
 //==============================================================================
 inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 {
-  if (route.trajectory().size() == 0)
-  {
-    std::cout << "!!!!!!!! Empty route??" << std::endl;
-    return rmf_traffic::Time(rmf_traffic::Duration(0));
-  }
-  else
-  {
-    std::cout << "(start) --> ";
-    std::cout << "(" << 0.0 << "; "
-              << route.trajectory().front().position().transpose()
-              << ") --> ";
+  assert(route.trajectory().size() > 0);
+  std::cout << "(start) --> ";
+  std::cout << "(" << 0.0 << "; "
+            << route.trajectory().front().position().transpose()
+            << ") --> ";
 
-    return *route.trajectory().start_time();
-  }
+  return *route.trajectory().start_time();
 }
 
 //==============================================================================
@@ -171,22 +163,17 @@ inline void print_route(
     const rmf_traffic::Route& route,
     const rmf_traffic::Time start_time)
 {
-  if (route.trajectory().size() == 0)
+  assert(route.trajectory().size() > 0);
+  for (auto it = ++route.trajectory().begin(); it
+       != route.trajectory().end(); ++it)
   {
-    std::cout << "!!!!!!!! Empty route???" << std::endl;
-  }
-  else
-  {
-    for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
-    {
-      const auto& wp = *it;
-      if (wp.velocity().norm() > 1e-3)
-        continue;
+    const auto& wp = *it;
+    if (wp.velocity().norm() > 1e-3)
+      continue;
 
-      const auto rel_time = wp.time() - start_time;
-      std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
-                << wp.position().transpose() << ") --> ";
-    }
+    const auto rel_time = wp.time() - start_time;
+    std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
+              << wp.position().transpose() << ") --> ";
   }
 }
 
@@ -194,20 +181,26 @@ inline void print_route(
 inline void print_itinerary(
     const rmf_traffic::schedule::Itinerary& itinerary)
 {
-  auto start_time = print_start(*itinerary.front());
-  for (const auto& r : itinerary)
-    print_route(*r, start_time);
+  if (itinerary.empty())
+  {
+    std::cout << "No plan needed!" << std::endl;
+  }
+  else
+  {
+    auto start_time = print_start(*itinerary.front());
+    for (const auto& r : itinerary)
+      print_route(*r, start_time);
 
-  std::cout << "(end)\n" << std::endl;
+    std::cout << "(end)\n" << std::endl;
+  }
 }
 
 //==============================================================================
 inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
 {
-  std::cout << "About to print itinerary" << std::endl;
   if (itinerary.empty())
   {
-    std::cout << "!!!!!!!! No plan needed!" << std::endl;
+    std::cout << "No plan needed!" << std::endl;
   }
   else
   {
@@ -217,7 +210,6 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
 
     std::cout << "(end)\n" << std::endl;
   }
-  std::cout << "Done printing itinerary" << std::endl;
 }
 
 
@@ -259,14 +251,16 @@ void SimpleNegotiator::respond(
     if (_pimpl->debug_print)
     {
       if (validator->alternatives().empty())
+      {
         std::cout << "Negotiating without rollouts" << std::endl;
+      }
       else
       {
         std::cout << "Negotiating with rollouts:";
         for (const auto& r : validator->alternatives())
         {
-          std::cout << " [" << r.participant << ":" << r.version
-                    << "|" << table_viewer->alternatives().at(r.participant)->size()
+          std::cout << " [" << r.participant << ":" << r.version << "|"
+                    << table_viewer->alternatives().at(r.participant)->size()
                     << "]";
         }
         std::cout << std::endl;
@@ -276,11 +270,6 @@ void SimpleNegotiator::respond(
     options.validator(validator);
     const auto plan = _pimpl->planner.plan(
           _pimpl->starts, _pimpl->goal, options);
-
-    if (_pimpl->debug_print)
-    {
-      std::cout << "Done with planning (" << plan.success() << ")" << std::endl;
-    }
 
     if (plan)
     {
@@ -363,7 +352,6 @@ void SimpleNegotiator::respond(
 
     Rollout rollout(plan);
     // TODO(MXG): Make the span configurable
-//    alternatives = rollout.expand(parent_id, std::chrono::seconds(30), options);
     alternatives = rollout.expand(parent_id, std::chrono::seconds(15), options);
     if (alternatives->empty())
     {
@@ -417,6 +405,7 @@ void SimpleNegotiator::respond(
   {
     std::cout << " >>>>> Forfeiting with NO BLOCKERS" << std::endl;
   }
+
   // This would be suspicious. How could the planning fail without any blockers?
   responder.forfeit({});
 }
