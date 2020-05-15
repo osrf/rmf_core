@@ -15,7 +15,7 @@
  *
 */
 
-#include "rx-wrappers.hpp"
+#include <RxJobs.hpp>
 
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
@@ -138,6 +138,12 @@ struct PlannerJob
 {
   using Result = rmf_traffic::agv::Planner::Result;
 
+  struct Progress
+  {
+    PlannerJob& job;
+    Result result;
+  };
+
   PlannerJob(
       rmf_traffic::schedule::Database schedule,
       rmf_traffic::agv::Planner::Configuration config,
@@ -154,11 +160,31 @@ struct PlannerJob
     // Do nothing
   }
 
+  template<typename Subscriber>
+  void operator()(const Subscriber& s)
+  {
+    auto r = process();
+      s.on_next(Progress{*this, r});
+    if (r || _discarded)
+    {
+      s.on_completed();
+      return;
+    }
+
+    run_job<Result>(empty_job<Result>(), [](const auto&) {}, [s, this]()
+    {
+      (*this)(s);
+    });
+  }
+
+  inline void discard()
+  {
+    _discarded = true;
+  }
+
   const rmf_traffic::agv::Planner::Result& process()
   {
     _current_result.resume();
-    if (_current_result)
-      _completed = true;
     return _current_result;
   }
 
@@ -177,15 +203,10 @@ struct PlannerJob
     }
   };
 
-  inline bool completed() const
-  {
-    return _completed;
-  }
-
 private:
   rmf_traffic::schedule::Database _database;
   rmf_traffic::agv::Planner::Result _current_result;
-  bool _completed = false;
+  bool _discarded = false;
 
   static rmf_traffic::agv::Planner::Result initiate(
       const rmf_traffic::schedule::Viewer& viewer,
@@ -319,16 +340,16 @@ int main()
 
   std::size_t finished_count = 0;
 
-  run_jobs(planner_jobs, [&finished_count, &start_time, &best_result](const auto& progress)
+  run_jobs_list_blocking<PlannerJob::Progress>(planner_jobs, [&finished_count, &start_time, &best_result](const PlannerJob::Progress& progress)
   {
     std::cout << "thread: " << std::this_thread::get_id() << std::endl;
-    const auto& result = progress.result;
+    auto result = progress.result;
 
     if (!result.cost_estimate())
     {
       // The plan is impossible, so we should just move on
       std::cout << "(Fail) Finished: " << ++finished_count << std::endl;
-      progress.cancel();
+      progress.job.discard();
       return;
     }
 
@@ -363,7 +384,7 @@ int main()
     else
     {
       std::cout << "(Discarded) Finished: " << ++finished_count << std::endl;
-      progress.cancel();
+      progress.job.discard();
     }
     std::cout << "//////////" << std::endl;
   });

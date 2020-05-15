@@ -11,15 +11,38 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(Threads REQUIRED)
+
+add_library(rmf_rxcpp INTERFACE)
+target_include_directories(rmf_rxcpp
+  INTERFACE
+    .
+    RxCpp-4.1.0/Rx/v2/src
+)
+target_link_libraries(rmf_rxcpp
+  INTERFACE
+    Threads::Threads
+)
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_catch2 REQUIRED)
+  find_package(rmf_utils REQUIRED)
   find_package(rmf_cmake_uncrustify REQUIRED)
   find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
-                
+
   rmf_uncrustify(
     ARGN include src test
     CONFIG_FILE ${uncrustify_config_file}
     MAX_LINE_LENGTH 80
+  )
+
+  ament_add_catch2(
+    rmf_rxcpp_test test/RxJobs.cpp
+  )
+  target_link_libraries(rmf_rxcpp_test
+    PRIVATE
+      rmf_rxcpp
+      rmf_utils::rmf_utils
   )
 endif()
 
@@ -27,16 +50,12 @@ find_package(rmf_traffic REQUIRED)
 
 # -----------------------------------------------------------------------------
 
-add_executable(rmf_rxcpp_test test/rxcpp.cpp)
+add_executable(rmf_rxcpp_example examples/rxcpp.cpp)
 
-target_link_libraries(rmf_rxcpp_test
+target_link_libraries(rmf_rxcpp_example
   PUBLIC
     rmf_traffic::rmf_traffic
-)
-
-target_include_directories(rmf_rxcpp_test
-  PRIVATE
-    RxCpp-4.1.0/Rx/v2/src
+    rmf_rxcpp
 )
 
 ament_package()
