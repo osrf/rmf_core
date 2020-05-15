@@ -164,7 +164,8 @@ struct PlannerJob
 
   double cost_estimate() const
   {
-    return _current_result.cost_estimate();
+    assert(_current_result.cost_estimate().has_value());
+    return *_current_result.cost_estimate();
   }
 
   struct Compare
