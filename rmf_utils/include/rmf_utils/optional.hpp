@@ -36,6 +36,7 @@ struct bad_optional_access : std::logic_error
   }
 };
 
+//==============================================================================
 // TODO(MXG): Replace this with a std::optional when we're able to support C++17
 // TODO(MXG): Consider removing the safety check for the dereference operators
 template<typename T>
@@ -170,6 +171,10 @@ public:
     return _has_value;
   }
 
+  // Disable implicit conversion to integer types
+  operator int() const = delete;
+  operator std::size_t() const = delete;
+
 
   T& value()
   {
@@ -285,6 +290,17 @@ private:
   } _storage;
 
 };
+
+//==============================================================================
+// Use this function to convert a potentially null pointer to an optional
+template <typename T>
+rmf_utils::optional<T> pointer_to_opt(const T* const ptr)
+{
+  if (ptr)
+    return *ptr;
+
+  return rmf_utils::nullopt;
+}
 
 } // namespace rmf_utils
 

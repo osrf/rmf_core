@@ -15,28 +15,40 @@
  *
 */
 
-#ifndef RMF_TRAFFIC_ROS2__SCHEDULE__ITINERARY_HPP
-#define RMF_TRAFFIC_ROS2__SCHEDULE__ITINERARY_HPP
+#ifndef RMF_TRAFFIC__SCHEDULE__SNAPSHOT_HPP
+#define RMF_TRAFFIC__SCHEDULE__SNAPSHOT_HPP
 
-#include <rmf_traffic/schedule/Itinerary.hpp>
+#include <rmf_traffic/schedule/Viewer.hpp>
 
-#include <rmf_traffic_msgs/msg/route.hpp>
-#include <rmf_traffic_msgs/msg/itinerary.hpp>
-
-namespace rmf_traffic_ros2 {
+namespace rmf_traffic {
+namespace schedule {
 
 //==============================================================================
-std::vector<rmf_traffic_msgs::msg::Route> convert(
-  const rmf_traffic::schedule::Itinerary& from);
+class Snapshot : public Viewer
+{
+public:
+
+  // The Snapshot class is just a more specific name for Viewer.
+
+};
 
 //==============================================================================
-std::vector<rmf_traffic::schedule::Itinerary> convert(
-  const std::vector<rmf_traffic_msgs::msg::Itinerary>& from);
+/// This is a pure abstract interface class that can be inherited by any
+/// schedule Viewer that wants to be able to provide a frozen snapshot of its
+/// schedule.
+class Snappable
+{
+public:
 
-//==============================================================================
-std::vector<rmf_traffic_msgs::msg::Itinerary> convert(
-  const std::vector<rmf_traffic::schedule::Itinerary>& from);
+  /// Get a snapshot of the schedule
+  virtual std::shared_ptr<const Snapshot> snapshot() const = 0;
 
-} // namespace rmf_traffic_ros2
+  // Virtual destructor
+  virtual ~Snappable() = default;
 
-#endif // RMF_TRAFFIC_ROS2__SCHEDULE__ITINERARY_HPP
+};
+
+} // namespace schedule
+} // namespace rmf_traffic
+
+#endif // RMF_TRAFFIC__SCHEDULE__SNAPSHOT_HPP

@@ -153,6 +153,7 @@ std::unordered_map<RouteId, ConstRoutePtr> convert_itinerary(
   {
     const auto result = itinerary.insert(std::make_pair(item.id, item.route));
     assert(result.second);
+    (void)(result);
   }
   return itinerary;
 }

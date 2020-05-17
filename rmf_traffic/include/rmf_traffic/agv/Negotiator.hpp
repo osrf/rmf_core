@@ -37,13 +37,24 @@ public:
   {
   public:
 
+    using ApprovalCallback =
+        std::function<Responder::UpdateVersion(rmf_traffic::agv::Plan)>;
+
     /// Constructor
+    ///
+    /// \param[in] approval_cb
+    ///   The callback that will be triggered if the proposal is approved.
     ///
     /// \param[in] min_hold_time
     ///   The minimum amount of time that the planner should spend waiting at
     ///   holding points. See Planner::Options for more information.
     Options(
+      ApprovalCallback approval_cb = nullptr,
       Duration min_hold_time = Planner::Options::DefaultMinHoldingTime);
+
+    /// Set the approval callback
+    // TODO(MXG): The approval_callback option needs to be unit tested
+    Options& approval_callback(ApprovalCallback cb);
 
     /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);
@@ -74,10 +85,34 @@ public:
     Planner::Start start,
     Planner::Goal goal,
     Planner::Configuration planner_configuration,
-    const Options& options = Options());
+    Options options = Options());
+
+  /// Constructor
+  ///
+  /// \param[in] start
+  ///   A set of starts that can be used.
+  ///
+  /// \param[in] goal
+  ///   The desired goal for the plan.
+  ///
+  /// \param[in] planner_configuration
+  ///   The configuration that will be used by the planner underlying this
+  ///   Negotiator.
+  ///
+  /// \param[in] options
+  ///   Additional options that will be used by the Negotiator.
+  SimpleNegotiator(
+    std::vector<Planner::Start> starts,
+    Planner::Goal goal,
+    Planner::Configuration planner_configuration,
+    Options options = Options());
+
+  // TODO(MXG): Offer a constructor that accepts a Planner instance to benefit
+  // from the cached heuristics.
 
   // Documentation inherited
-  void respond(std::shared_ptr<const schedule::Negotiation::Table> table,
+  void respond(
+    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const Responder& responder,
     const bool* interrupt_flag = nullptr) final;
 
@@ -85,6 +120,7 @@ public:
   // negotiator rejects our proposal?
 
   class Implementation;
+  class Debug;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };

@@ -102,7 +102,7 @@ void print_trajectory_info(
 
 rmf_traffic::Trajectory test_with_obstacle(
   const std::string& parent,
-  const rmf_traffic::agv::Plan& original_plan,
+  const rmf_traffic::agv::Planner::Result& original_result,
   rmf_traffic::schedule::Database& database,
   const std::vector<rmf_traffic::Trajectory>& obstacles,
   const std::size_t hold_index,
@@ -131,13 +131,15 @@ rmf_traffic::Trajectory test_with_obstacle(
     database.extend(p_obs, {{rid++, r}}, iv++);
   }
 
-  rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+  rmf_utils::optional<rmf_traffic::agv::Planner::Result> result;
   const auto start_time = std::chrono::steady_clock::now();
   for (std::size_t i = 0; i < N; ++i)
   {
-    plan = original_plan.replan(original_plan.get_start());
-    REQUIRE(plan);
+    result = original_result.replan(original_result->get_start());
+    REQUIRE(*result);
   }
+
+  const auto plan = **result;
 
   const auto end_time = std::chrono::steady_clock::now();
   if (test_performance)
@@ -148,21 +150,21 @@ rmf_traffic::Trajectory test_with_obstacle(
     std::cout << "Per run: " << sec/N << std::endl;
   }
 
-  const auto& graph = original_plan.get_configuration().graph();
+  const auto& graph = original_result.get_configuration().graph();
 
-  REQUIRE(plan->get_itinerary().size() == 1);
-  t_obs = plan->get_itinerary().front().trajectory();
+  REQUIRE(plan.get_itinerary().size() == 1);
+  t_obs = plan.get_itinerary().front().trajectory();
   const Eigen::Vector2d initial_position = [&]() -> Eigen::Vector2d
     {
-      if (original_plan.get_start().location())
-        return *original_plan.get_start().location();
+      if (original_result->get_start().location())
+        return *original_result->get_start().location();
 
-      const std::size_t start_index = original_plan.get_start().waypoint();
+      const std::size_t start_index = original_result->get_start().waypoint();
       return graph.get_waypoint(start_index).get_location();
     } ();
 
 
-  const std::size_t goal_index = original_plan.get_goal().waypoint();
+  const std::size_t goal_index = original_result.get_goal().waypoint();
   const auto goal_position = graph.get_waypoint(goal_index).get_location();
 
   const Eigen::Vector2d p_initial =
@@ -174,7 +176,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   CHECK( (p_final - goal_position).norm() == Approx(0.0) );
 
   const auto& original_trajectory =
-    original_plan.get_itinerary().front().trajectory();
+    original_result->get_itinerary().front().trajectory();
   if (expect_conflict)
   {
     CHECK(original_trajectory.duration() < t_obs.duration() );
@@ -200,7 +202,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   if (check_holding)
   {
     bool used_holding_point = false;
-    for (const auto& wp : plan->get_waypoints())
+    for (const auto& wp : plan.get_waypoints())
     {
       if (!wp.graph_index())
         continue;
@@ -218,38 +220,38 @@ rmf_traffic::Trajectory test_with_obstacle(
   if (print_info)
   {
     std::cout << "Parent: " << parent << std::endl;
-    print_trajectory_info(*plan, time);
+    print_trajectory_info(plan, time);
   }
   return t_obs;
 }
 
 void test_ignore_obstacle(
-  const rmf_traffic::agv::Plan& original_plan,
+  const rmf_traffic::agv::Planner::Result& original_result,
   const rmf_traffic::schedule::Version database_version)
 {
   REQUIRE(database_version > 0);
-  const auto& start = original_plan.get_start();
-  rmf_traffic::agv::Plan::Options options = original_plan.get_options();
+  const auto& start = original_result->get_start();
+  rmf_traffic::agv::Plan::Options options = original_result.get_options();
   std::unordered_set<rmf_traffic::schedule::ParticipantId> ignore_ids;
   for (rmf_traffic::schedule::Version v = 0; v <= database_version; ++v)
     ignore_ids.insert(v);
 
   options.validator(nullptr);
 
-  const auto new_plan = original_plan.replan(start, std::move(options));
+  const auto new_plan = original_result.replan(start, std::move(options));
 
   // The new plan which ignores the conflicts should be the same as the original
   REQUIRE(new_plan->get_itinerary().size() == 1);
   CHECK(new_plan->get_itinerary().front().trajectory().duration()
-    == original_plan.get_itinerary().front().trajectory().duration());
+    == original_result->get_itinerary().front().trajectory().duration());
 
   REQUIRE(new_plan->get_waypoints().size()
-    == original_plan.get_waypoints().size());
+    == original_result->get_waypoints().size());
 
   for (std::size_t i = 0; i < new_plan->get_waypoints().size(); ++i)
   {
     const auto& new_wp = new_plan->get_waypoints()[i];
-    const auto& old_wp = original_plan.get_waypoints()[i];
+    const auto& old_wp = original_result->get_waypoints()[i];
 
     if (new_wp.graph_index())
     {
@@ -304,7 +306,7 @@ inline void CHECK_INTERPOLATION(
 }
 
 inline void CHECK_PLAN(
-  rmf_utils::optional<rmf_traffic::agv::Plan> plan,
+  const rmf_traffic::agv::Plan::Result& plan,
   const Eigen::Vector2d first_location,
   const double first_orientation,
   const Eigen::Vector2d last_location,
@@ -572,25 +574,26 @@ SCENARIO("Test planning")
       rmf_traffic::agv::Planner::Goal(3, 0.0));
 
     REQUIRE(plan);
-    CHECK(plan->get_itinerary().size() == 1);
-    CHECK(plan->get_itinerary().front().trajectory().size() == 0);
+    CHECK(plan->get_itinerary().size() == 0);
+    CHECK(plan->get_waypoints().size() == 1);
   }
 
   WHEN("initial and goal waypoints are same but goal_orientation is different")
   {
-    rmf_utils::optional<rmf_traffic::agv::Plan> plan;
-    CHECK(!plan);
+    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
     const double goal_orientation = M_PI/2.0;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
     for (std::size_t i = 0; i < N; ++i)
     {
-      plan = planner.plan(
+      result = planner.plan(
         rmf_traffic::agv::Planner::Start{start_time, 3, 0.0},
         rmf_traffic::agv::Planner::Goal{3, goal_orientation});
 
-      REQUIRE(plan);
+      REQUIRE(*result);
     }
+
+    auto plan = *result;
 
     const auto end_time = std::chrono::steady_clock::now();
     if (test_performance)
@@ -613,18 +616,19 @@ SCENARIO("Test planning")
 
   WHEN("goal waypoint is an adjacent node")
   {
-    rmf_utils::optional<rmf_traffic::agv::Plan> plan;
-    CHECK(!plan);
+    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
     const double goal_orientation = M_PI;
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
     for (std::size_t i = 0; i < N; ++i)
     {
-      plan = planner.plan(
+      result = planner.plan(
         rmf_traffic::agv::Planner::Start{start_time, 3, M_PI},
         rmf_traffic::agv::Planner::Goal{2, goal_orientation});
-      REQUIRE(plan);
+      REQUIRE(*result);
     }
+
+    auto plan = *result;
 
     const auto end_time = std::chrono::steady_clock::now();
     if (test_performance)
@@ -687,14 +691,16 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
       const auto start_time = std::chrono::steady_clock::now();
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
 
       for (std::size_t i = 0; i < N; ++i)
       {
-        plan = planner.plan(start, goal);
-        REQUIRE(plan);
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
       }
+
+      auto plan = *result;
 
       const auto end_time = std::chrono::steady_clock::now();
       if (test_performance)
@@ -717,9 +723,9 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-          "Unconstrained 12->5", *plan, database, obstacles, 6, time);
+          "Unconstrained 12->5", plan, database, obstacles, 6, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
     }
 
@@ -735,13 +741,15 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
       for (std::size_t i = 0; i < N; ++i)
       {
-        plan = planner.plan(start, goal);
-        REQUIRE(plan);
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
       }
+
+      auto plan = *result;
 
       const auto end_time = std::chrono::steady_clock::now();
       if (test_performance)
@@ -765,9 +773,9 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-          "Constrained to 0.0  12->5", *plan, database, obstacles, 6, time);
+          "Constrained to 0.0  12->5", plan, database, obstacles, 6, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
     }
   }
@@ -806,14 +814,16 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
 
       for (std::size_t i = 0; i < N; ++i)
       {
-        plan = planner.plan(start, goal);
-        REQUIRE(plan);
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
       }
+
+      auto plan = *result;
 
       const auto end_time = std::chrono::steady_clock::now();
       if (test_performance)
@@ -836,9 +846,9 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-          "Unconstrained  2->12", *plan, database, obstacles, 4, time);
+          "Unconstrained  2->12", plan, database, obstacles, 4, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
     }
 
@@ -853,14 +863,16 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      rmf_utils::optional<Planner::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
 
       for (std::size_t i = 0; i < N; ++i)
       {
-        plan = planner.plan(start, goal);
-        REQUIRE(plan);
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
       }
+
+      auto plan = *result;
 
       const auto end_time = std::chrono::steady_clock::now();
       if (test_performance)
@@ -884,9 +896,9 @@ SCENARIO("Test planning")
       WHEN("An obstacle is introduced")
       {
         test_with_obstacle(
-          "Constrained to 0.0  2->12", *plan, database, obstacles, 4, time);
+          "Constrained to 0.0  2->12", plan, database, obstacles, 4, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
     }
 
@@ -901,13 +913,15 @@ SCENARIO("Test planning")
         default_options
       };
 
-      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
       const auto start_time = std::chrono::steady_clock::now();
       for (std::size_t i = 0; i < N; ++i)
       {
-        plan = planner.plan(start, goal);
-        REQUIRE(plan);
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
       }
+
+      auto plan = *result;
 
       const auto end_time = std::chrono::steady_clock::now();
       if (test_performance)
@@ -935,9 +949,9 @@ SCENARIO("Test planning")
       {
         test_with_obstacle(
           "Constrained to 180.0  2->12",
-          *plan, database, obstacles, 4, time);
+          plan, database, obstacles, 4, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
     }
   } //end of GIVEN
@@ -978,14 +992,16 @@ SCENARIO("Test planning")
 
       planner = Planner{Planner::Configuration{graph, traits}, default_options};
 
-      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
 
       const auto start_time = std::chrono::steady_clock::now();
       for (std::size_t i = 0; i < N; ++i)
       {
-        plan = planner.plan(start, goal);
-        REQUIRE(plan);
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
       }
+
+      auto plan = *result;
 
       const auto end_time = std::chrono::steady_clock::now();
       if (test_performance)
@@ -1016,9 +1032,9 @@ SCENARIO("Test planning")
         obstacles.push_back(obstacle_1);
 
         test_with_obstacle(
-          "Unconstrained (1)  12->0", *plan, database, obstacles, 6, time);
+          "Unconstrained (1)  12->0", plan, database, obstacles, 6, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
 
       WHEN("Second obstacle is introduced")
@@ -1045,9 +1061,9 @@ SCENARIO("Test planning")
 
         obstacles.push_back(obstacle_2);
         test_with_obstacle(
-          "Unconstrained (2)  12->0", *plan, database, obstacles, 4, time);
+          "Unconstrained (2)  12->0", plan, database, obstacles, 4, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
 
       WHEN("Both obstacles are introduced")
@@ -1070,9 +1086,9 @@ SCENARIO("Test planning")
         obstacles.push_back(obstacle_2);
 
         test_with_obstacle(
-          "Unconstrained (3)  12->0", *plan, database, obstacles, 6, time);
+          "Unconstrained (3)  12->0", plan, database, obstacles, 6, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
       }
     }
   }
@@ -1243,9 +1259,9 @@ SCENARIO("DP1 Graph")
       obstacles.push_back(obstacle_1);
 
       test_with_obstacle(
-        "Partial 28->3", *plan, database, obstacles, 0, time, false);
+        "Partial 28->3", plan, database, obstacles, 0, time, false);
 
-      test_ignore_obstacle(*plan, database.latest_version());
+      test_ignore_obstacle(plan, database.latest_version());
 
       WHEN("Obstacle 28->3, 16-29 added")
       {
@@ -1270,9 +1286,9 @@ SCENARIO("DP1 Graph")
         obstacles.push_back(obstacle_2);
         test_with_obstacle(
           "Partial 28->3, 16-29",
-          *plan, database, obstacles, 0, time, false);
+          plan, database, obstacles, 0, time, false);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
 
         WHEN("Obstacle 28->3, 16-29, 24->26 added")
         {
@@ -1299,10 +1315,10 @@ SCENARIO("DP1 Graph")
           obstacles.push_back(obstacle_3);
 
           test_with_obstacle(
-            "Partial 28->3, 16-29, 24->26", *plan, database,
+            "Partial 28->3, 16-29, 24->26", plan, database,
             obstacles, 0, time, false);
 
-          test_ignore_obstacle(*plan, database.latest_version());
+          test_ignore_obstacle(plan, database.latest_version());
 
           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
           {
@@ -1369,9 +1385,9 @@ SCENARIO("DP1 Graph")
 
             test_with_obstacle(
               "Partial 28->3, 16-29, 24->26, 21->22, 13->14, 5->6",
-              *plan, database, obstacles, 0, time, false);
+              plan, database, obstacles, 0, time, false);
 
-            test_ignore_obstacle(*plan, database.latest_version());
+            test_ignore_obstacle(plan, database.latest_version());
           }
         }
       }
@@ -1429,9 +1445,9 @@ SCENARIO("DP1 Graph")
       REQUIRE_FALSE(DetectConflict::between(profile, obstacle_1, profile, t));
       obstacles.push_back(obstacle_1);
       test_with_obstacle(
-        "Full 28->3", *plan, database, obstacles, 0, time, false);
+        "Full 28->3", plan, database, obstacles, 0, time, false);
 
-      test_ignore_obstacle(*plan, database.latest_version());
+      test_ignore_obstacle(plan, database.latest_version());
 
       WHEN("Obstacle 28->3, 16-29 added")
       {
@@ -1455,9 +1471,9 @@ SCENARIO("DP1 Graph")
         REQUIRE_FALSE(DetectConflict::between(profile, obstacle_2, profile, t));
         obstacles.push_back(obstacle_2);
         test_with_obstacle(
-          "Full 28->3, 16-29", *plan, database, obstacles, 0, time, false);
+          "Full 28->3, 16-29", plan, database, obstacles, 0, time, false);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
 
         WHEN("Obstacle 28->3, 16-29, 24->26 added")
         {
@@ -1484,9 +1500,9 @@ SCENARIO("DP1 Graph")
 
           test_with_obstacle(
             "Full 28->3, 16-29, 24->26",
-            *plan, database, obstacles, 0, time, false);
+            plan, database, obstacles, 0, time, false);
 
-          test_ignore_obstacle(*plan, database.latest_version());
+          test_ignore_obstacle(plan, database.latest_version());
 
           WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
           {
@@ -1554,9 +1570,9 @@ SCENARIO("DP1 Graph")
 
             test_with_obstacle(
               "Full 28->3, 16-29, 24->26, 2->3, 13->14, 5->6",
-              *plan, database, obstacles, 0, time, false);
+              plan, database, obstacles, 0, time, false);
 
-            test_ignore_obstacle(*plan, database.latest_version());
+            test_ignore_obstacle(plan, database.latest_version());
           }
         }
       }
@@ -1610,9 +1626,9 @@ SCENARIO("DP1 Graph")
       REQUIRE_FALSE(!rmf_traffic::DetectConflict::between(
           profile, obstacle, profile, t));
       obstacles.push_back(obstacle);
-      test_with_obstacle("Unconstrained", *plan, database, obstacles, 32, time);
+      test_with_obstacle("Unconstrained", plan, database, obstacles, 32, time);
 
-      test_ignore_obstacle(*plan, database.latest_version());
+      test_ignore_obstacle(plan, database.latest_version());
     }
   }
 
@@ -1668,15 +1684,23 @@ SCENARIO("DP1 Graph")
       const std::size_t goal_index = 32;
       const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
 
-      rmf_utils::optional<rmf_traffic::agv::Plan> plan;
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
       auto plan_thread = std::thread(
         [&]()
         {
-          plan = planner.plan(start, goal);
+          result = planner.plan(start, goal);
         });
       interrupt_flag = true;
       plan_thread.join();
-      CHECK_FALSE(plan);
+      CHECK_FALSE(*result);
+      CHECK(result->interrupted());
+
+      THEN("Plan can resume and find a solution")
+      {
+        interrupt_flag = false;
+        result->resume();
+        CHECK(*result);
+      }
     }
 
     WHEN("Obstacle 28->2")
@@ -1684,9 +1708,9 @@ SCENARIO("DP1 Graph")
       obstacles.push_back(obstacle_1);
 
       const auto t_obs1 = test_with_obstacle(
-        "Obstacle 28->2", *plan, database, obstacles, 27, time);
+        "Obstacle 28->2", plan, database, obstacles, 27, time);
 
-      test_ignore_obstacle(*plan, database.latest_version());
+      test_ignore_obstacle(plan, database.latest_version());
 
       WHEN("Obstacle 28->2 , 29->4")
       {
@@ -1711,9 +1735,9 @@ SCENARIO("DP1 Graph")
         obstacles.push_back(obstacle_2);
 
         const auto t_obs2 = test_with_obstacle(
-          "Obstacle 28->2 , 29->4", *plan, database, obstacles, 27, time);
+          "Obstacle 28->2 , 29->4", plan, database, obstacles, 27, time);
 
-        test_ignore_obstacle(*plan, database.latest_version());
+        test_ignore_obstacle(plan, database.latest_version());
 
         WHEN("Obstacle 28->2 , 29->4, 23->26")
         {
@@ -1740,9 +1764,9 @@ SCENARIO("DP1 Graph")
 
           test_with_obstacle(
             "Obstacle 28->2 , 29->4, 23->26",
-            *plan, database, obstacles, 27, time);
+            plan, database, obstacles, 27, time);
 
-          test_ignore_obstacle(*plan, database.latest_version());
+          test_ignore_obstacle(plan, database.latest_version());
         }
       }
     }
@@ -2004,7 +2028,7 @@ SCENARIO("Test planner with various start conditions")
     CHECK_PLAN(plan1, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
     const auto duration1 =
       plan1->get_itinerary().front().trajectory().duration();
-    const auto plan2 = plan1->replan(start2);
+    const auto plan2 = plan1.replan(start2);
     REQUIRE(plan2);
     CHECK_PLAN(plan2, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
     const auto duration2 =
@@ -2014,7 +2038,7 @@ SCENARIO("Test planner with various start conditions")
 
     // Test with startset
     std::vector<Planner::Start> starts{start1, start2};
-    const auto plan = plan1->replan(starts);
+    const auto plan = plan1.replan(starts);
     REQUIRE(plan);
     CHECK_PLAN(plan, {-5.0, 0}, 0.0, {5.0, 0}, {1, 3});
     CHECK(
@@ -2051,7 +2075,7 @@ SCENARIO("Test planner with various start conditions")
 
     WHEN("Testing replan")
     {
-      auto plan2 = plan->replan(start);
+      auto plan2 = plan.replan(start);
       CHECK_PLAN(plan2, {-2.5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
 
@@ -2076,7 +2100,7 @@ SCENARIO("Test planner with various start conditions")
 
       test_with_obstacle(
         "Obstace 4->0 overlaps",
-        *plan, database, obstacles, 1, initial_time, true);
+        plan, database, obstacles, 1, initial_time, true);
 
       // Note: Waypoint 2 will be skipped because the robot does not need to
       // stop or turn there. It moves directly from waypoint 1 to waypoint 3.
@@ -2170,7 +2194,7 @@ SCENARIO("Test planner with various start conditions")
 
     WHEN("Testing replan with startsets")
     {
-      auto plan2 = plan->replan(starts);
+      auto plan2 = plan.replan(starts);
       CHECK_PLAN(plan, {-5, 0}, 0.0, {5.0, 0}, {1, 3});
     }
     WHEN("Obstace 4->0 overlaps")
@@ -2197,10 +2221,10 @@ SCENARIO("Test planner with various start conditions")
         database.extend(p_obs, {{ri_o++, r}}, iv_o++);
       }
 
-      const auto result1 = plan->replan(start1);
+      const auto result1 = plan.replan(start1);
       const auto duration1 =
         result1->get_itinerary().front().trajectory().duration();
-      const auto result2 = plan->replan(start2);
+      const auto result2 = plan.replan(start2);
       const auto duration2 =
         result2->get_itinerary().front().trajectory().duration();
 
@@ -2232,10 +2256,12 @@ SCENARIO("Test planner with various start conditions")
     CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
     const auto duration = plan->get_itinerary().front().trajectory().duration();
 
-    const auto result1 = plan->replan(start1);
+    const auto result1 = plan.replan(start1);
+    REQUIRE(result1);
     const auto duration1 =
       result1->get_itinerary().front().trajectory().duration();
-    const auto result2 = plan->replan(start2);
+    const auto result2 = plan.replan(start2);
+    REQUIRE(result2);
     const auto duration2 =
       result2->get_itinerary().front().trajectory().duration();
     CHECK(duration2 < duration1);
@@ -2265,10 +2291,12 @@ SCENARIO("Test planner with various start conditions")
     auto plan = planner.plan(starts, goal);
     CHECK_PLAN(plan, {-2.5, 0}, 0.0, {0, 5}, {2, 4});
     const auto duration = plan->get_itinerary().front().trajectory().duration();
-    const auto result1 = plan->replan(start1);
+    const auto result1 = plan.replan(start1);
+    REQUIRE(result1);
     const auto duration1 =
       result1->get_itinerary().front().trajectory().duration();
-    const auto result2 = plan->replan(start2);
+    const auto result2 = plan.replan(start2);
+    REQUIRE(result2);
     const auto duration2 =
       result2->get_itinerary().front().trajectory().duration();
 
@@ -2357,15 +2385,19 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     REQUIRE(starts.size() == 4);
 
     auto result1 = planner.plan(start1, goal);
+    REQUIRE(result1);
     const auto duration1 =
       result1->get_itinerary().front().trajectory().duration();
-    auto result2 = result1->replan(start2);
+    auto result2 = result1.replan(start2);
+    REQUIRE(result2);
     const auto duration2 =
       result2->get_itinerary().front().trajectory().duration();
-    auto result3 = result2->replan(start3);
+    auto result3 = result2.replan(start3);
+    REQUIRE(result3);
     const auto duration3 =
       result3->get_itinerary().front().trajectory().duration();
-    auto result4 = result3->replan(start4);
+    auto result4 = result3.replan(start4);
+    REQUIRE(result4);
     const auto duration4 =
       result3->get_itinerary().front().trajectory().duration();
 

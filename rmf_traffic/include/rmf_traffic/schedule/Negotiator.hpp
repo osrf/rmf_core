@@ -37,8 +37,11 @@ public:
   {
   public:
 
+    using ParticipantId = rmf_traffic::schedule::ParticipantId;
     using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
     using UpdateVersion = rmf_utils::optional<ItineraryVersion>;
+    using ApprovalCallback = std::function<UpdateVersion()>;
+    using Alternatives = Negotiation::Alternatives;
 
     /// The negotiator will call this function when it has an itinerary to
     /// submit in response to a negotiation.
@@ -54,11 +57,20 @@ public:
     ///   nullptr if an approval callback is not necessary.
     virtual void submit(
       std::vector<Route> itinerary,
-      std::function<UpdateVersion()> approval_callback = nullptr) const = 0;
+      ApprovalCallback approval_callback = nullptr) const = 0;
 
     /// The negotiator will call this function if it has decided to reject an
-    /// attempt to negotiate.
-    virtual void reject() const = 0;
+    /// attempt to negotiate. It must supply a set of alternatives for the
+    /// parent negotiator to consider for its next proposal.
+    virtual void reject(const Alternatives& alternatives) const = 0;
+
+    /// The negotiator will call this function if it cannot find any feasible
+    /// proposal or alternative that can be accommodated by the parent.
+    ///
+    /// \param[in] blockers
+    ///   Give the set of schedule participants that are blocking a solution
+    ///   from being found.
+    virtual void forfeit(const std::vector<ParticipantId>& blockers) const = 0;
 
     // Virtual destructor
     virtual ~Responder() = default;
@@ -78,7 +90,7 @@ public:
   ///   has been running for too long. If the planner should run indefinitely,
   ///   then pass a nullptr.
   virtual void respond(
-    std::shared_ptr<const schedule::Negotiation::Table> table,
+    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const Responder& responder,
     const bool* interrupt_flag = nullptr) = 0;
 
@@ -97,26 +109,15 @@ public:
   /// \param[in] negotiation
   ///   The Negotiation that this SimpleResponder is tied to
   ///
-  /// \param[in] for_participant
-  ///   The participant that will respond using this SimpleResponder
+  /// \param[in] table
+  ///   The table
   ///
-  /// \param[in] to_accommodate
-  ///   The participants that will be accommodated by the response
+  /// \param[in] report_blockers
+  ///   If the blockers should be reported when a forfeit is given, provide a
+  ///   pointer to a vector of ParticipantIds.
   SimpleResponder(
-    std::shared_ptr<schedule::Negotiation> negotiation,
-    schedule::ParticipantId for_participant,
-    std::vector<schedule::ParticipantId> to_accommodate);
-
-  /// Constructor
-  ///
-  /// \param[in] negotiation
-  ///   The Negotiation that this SimpleResponder is tied to
-  ///
-  /// \param[in] table_sequence
-  ///   The sequence that identifies what table this responder should submit to
-  SimpleResponder(
-    std::shared_ptr<schedule::Negotiation> negotiation,
-    std::vector<schedule::ParticipantId> table_sequence);
+    const Negotiation::TablePtr& table,
+    std::vector<schedule::ParticipantId>* report_blockers = nullptr);
 
   // Documentation inherited
   // NOTE: approval_callback does not get used
@@ -125,7 +126,15 @@ public:
     std::function<UpdateVersion()> approval_callback = nullptr) const final;
 
   // Documentation inherited
-  void reject() const final;
+  void reject(
+      const Negotiation::Alternatives& alternatives) const final;
+
+  // Documentation inherited
+  void forfeit(const std::vector<ParticipantId>& blockers) const final;
+
+  /// Get the blockers that were reported by the Negotiator, if a forfeit
+  /// was given.
+  const std::vector<ParticipantId>& blockers() const;
 
   class Implementation;
 private:

@@ -22,6 +22,7 @@
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_traffic/schedule/Patch.hpp>
 #include <rmf_traffic/schedule/Writer.hpp>
+#include <rmf_traffic/schedule/Snapshot.hpp>
 
 #include <rmf_utils/macros.hpp>
 
@@ -39,7 +40,10 @@ namespace schedule {
 /// You can also retrieve update patches from a database. To apply those patches
 /// to a downstream Viewer, it is strongly advised to use the
 /// rmf_traffic::schedule::Mirror class.
-class Database : public Viewer, public Writer
+class Database :
+    public ItineraryViewer,
+    public Writer,
+    public Snappable
 {
 public:
 
@@ -97,6 +101,11 @@ public:
   View query(const Query& parameters) const final;
 
   // Documentation inherited from Viewer
+  View query(
+      const Query::Spacetime& spacetime,
+      const Query::Participants& participants) const final;
+
+  // Documentation inherited from Viewer
   const std::unordered_set<ParticipantId>& participant_ids() const final;
 
   // Documentation inherited from Viewer
@@ -110,6 +119,13 @@ public:
   // Documentation inherited from Viewer
   Version latest_version() const final;
 
+
+  //============================================================================
+  // Snappable API
+  //============================================================================
+
+  // Documentation inherited from Snappable
+  std::shared_ptr<const Snapshot> snapshot() const final;
 
   //============================================================================
   // Database API

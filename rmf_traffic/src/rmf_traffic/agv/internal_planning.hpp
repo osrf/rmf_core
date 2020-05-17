@@ -19,6 +19,7 @@
 #define SRC__RMF_TRAFFIC__AGV__PLANNINGINTERNAL_HPP
 
 #include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/agv/debug/Planner.hpp>
 
 #include <memory>
 #include <mutex>
@@ -31,14 +32,47 @@ class Cache;
 using CachePtr = std::shared_ptr<Cache>;
 
 //==============================================================================
-struct Result
+struct Conditions
+{
+  std::vector<agv::Planner::Start> starts;
+  agv::Planner::Goal goal;
+  agv::Planner::Options options;
+};
+
+//==============================================================================
+struct Issues
+{
+  using BlockedNodes = std::unordered_map<std::shared_ptr<void>, Time>;
+  using BlockerMap = std::unordered_map<schedule::ParticipantId, BlockedNodes>;
+
+  BlockerMap blocked_nodes;
+  bool interrupted = false;
+};
+
+//==============================================================================
+struct State
+{
+  Conditions conditions;
+  Issues issues;
+
+  class Internal
+  {
+  public:
+
+    virtual rmf_utils::optional<double> cost_estimate() const = 0;
+
+    virtual ~Internal() = default;
+  };
+
+  rmf_utils::impl_ptr<Internal> internal;
+};
+
+//==============================================================================
+struct Plan
 {
   std::vector<Route> routes;
   std::vector<agv::Plan::Waypoint> waypoints;
-
   agv::Planner::Start start;
-  agv::Planner::Goal goal;
-  agv::Planner::Options options;
 };
 
 //==============================================================================
@@ -61,12 +95,42 @@ public:
 
   virtual void update(const Cache& other) = 0;
 
-  virtual rmf_utils::optional<Result> plan(
+  virtual State initiate(
     const std::vector<agv::Planner::Start>& starts,
     agv::Planner::Goal goal,
     agv::Planner::Options options) = 0;
 
+  virtual rmf_utils::optional<Plan> plan(State& state) = 0;
+
+  virtual std::vector<schedule::Itinerary> rollout(
+    const Duration span,
+    const Issues::BlockedNodes& nodes,
+    const agv::Planner::Goal& goal,
+    const agv::Planner::Options& options) = 0;
+
   virtual const agv::Planner::Configuration& get_configuration() const = 0;
+
+  class Debugger
+  {
+  public:
+
+    virtual const agv::Planner::Debug::Node::SearchQueue& queue() const = 0;
+
+    virtual const std::vector<agv::Planner::Debug::ConstNodePtr>&
+    expanded_nodes() const = 0;
+
+    virtual const std::vector<agv::Planner::Debug::ConstNodePtr>&
+    terminal_nodes() const = 0;
+
+    virtual ~Debugger() = default;
+  };
+
+  virtual std::unique_ptr<Debugger> debug_begin(
+    const std::vector<agv::Planner::Start>& starts,
+    agv::Planner::Goal goal,
+    agv::Planner::Options options) = 0;
+
+  virtual rmf_utils::optional<Plan> debug_step(Debugger& debugger) = 0;
 
   virtual ~Cache() = default;
 };
@@ -84,10 +148,13 @@ public:
   // Moving it is okay
   CacheHandle(CacheHandle&&) = default;
 
-  rmf_utils::optional<Result> plan(
-    const std::vector<agv::Planner::Start>& starts,
-    agv::Planner::Goal goal,
-    agv::Planner::Options options);
+  Cache* operator->();
+
+  const Cache* operator->() const;
+
+  Cache& operator*() &;
+
+  const Cache& operator*() const&;
 
   ~CacheHandle();
 

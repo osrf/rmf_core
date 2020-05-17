@@ -31,8 +31,31 @@ class RouteValidator
 {
 public:
 
-  /// Returns true if the given route can be considered valid, false otherwise.
-  virtual bool valid(const Route& route) const = 0;
+  using ParticipantId = schedule::ParticipantId;
+  using Route = rmf_traffic::Route;
+
+  struct Conflict
+  {
+    ParticipantId participant;
+    Time time;
+  };
+
+  /// If the specified route has a conflict with another participant, this will
+  /// return the participant ID for the first conflict that gets identified.
+  /// Otherwise it will return a nullopt.
+  ///
+  /// \param[in] route
+  ///   The route that is being checked.
+  //
+  // TODO(MXG): It would be better to implement this as a coroutine generator so
+  // that clients of this interface can decide whether they only care about the
+  // first conflict or if they want to know all of the conflicts. This is not a
+  // high priority because in the vast majority of cases when a conflict happens
+  // it will only be with one participant. And since this is only meant to
+  // provide a hint about which participant is causing conflicts, it is okay if
+  // other participants are ignored.
+  virtual rmf_utils::optional<Conflict> find_conflict(
+      const Route& route) const = 0;
 
   /// Create a clone of the underlying RouteValidator object.
   virtual std::unique_ptr<RouteValidator> clone() const = 0;
@@ -88,7 +111,7 @@ public:
   // TODO(MXG): Make profile setters and getters
 
   // Documentation inherited
-  bool valid(const Route& route) const final;
+  rmf_utils::optional<Conflict> find_conflict(const Route& route) const final;
 
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;
@@ -103,25 +126,80 @@ class NegotiatingRouteValidator : public RouteValidator
 {
 public:
 
-  /// Constructor
+  /// The Generator class begins the creation of NegotiatingRouteValidator
+  /// instances. NegotiatingRouteValidator may be able to brach in multiple
+  /// dimensions because of the rollout alternatives that are provided during a
+  /// rejection.
+  class Generator
+  {
+  public:
+
+    /// Constructor
+    ///
+    /// \param[in] table
+    ///   The Negotiating Table that the generated validators are concerned with
+    ///
+    /// \param[in] profile
+    ///   The profile of the participant whose routes are being validated.
+    Generator(
+        schedule::Negotiation::Table::ViewerPtr viewer,
+        rmf_traffic::Profile profile);
+
+    /// Start with a NegotiatingRouteValidator that will use all the most
+    /// preferred alternatives from every participant.
+    NegotiatingRouteValidator begin() const;
+
+    /// Get the set of participants who have specified what their available
+    /// rollouts are.
+    const std::vector<schedule::ParticipantId>& alternative_sets() const;
+
+    /// Get the number of alternative rollouts for the specified participant.
+    /// This function will throw an excpetion if participant does not offer an
+    /// alternative set.
+    std::size_t alternative_count(schedule::ParticipantId participant) const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  /// Mask the given Participant so that conflicts with it will be ignored. In
+  /// the current implementation, only one participant can be masked at a time.
   ///
-  /// \param[in] table
-  ///   The Negotiation::Table that the route must be valid on.
-  ///
-  /// \param[in] profile
-  ///   The profile of the participant that is being planned for.
-  NegotiatingRouteValidator(
-    const schedule::Negotiation::Table& table,
-    rmf_traffic::Profile profile);
+  /// \param[in] id
+  ///   The ID of a participant whose conflicts should be ignored when checking
+  ///   for collisions.
+  NegotiatingRouteValidator& mask(schedule::ParticipantId id);
+
+  /// Remove any mask that has been applied using the mask() function.
+  NegotiatingRouteValidator& remove_mask();
+
+  /// Get a NegotiatingRouteValidator for the next rollout alternative offered
+  /// by the given participant.
+  NegotiatingRouteValidator next(schedule::ParticipantId id) const;
+
+  /// Get the set of child Table alternatives used by this
+  /// NegotiatingRouteValidator.
+  const schedule::Negotiation::VersionedKeySequence& alternatives() const;
+
+  /// Implicitly cast this validator instance to true if it can be used as a
+  /// validator. If it cannot be used as a validator, return false. This will
+  /// have the opposite value of end().
+  operator bool() const;
+
+  /// Return true if this validator object has gone past the end of its limits.
+  /// Return false if it can still be used as a validator.
+  bool end() const;
 
   // Documentation inherited
-  bool valid(const Route& route) const final;
+  rmf_utils::optional<Conflict> find_conflict(const Route& route) const final;
 
   // Documentation inherited
   std::unique_ptr<RouteValidator> clone() const final;
 
   class Implementation;
 private:
+  NegotiatingRouteValidator();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

@@ -30,7 +30,7 @@ namespace schedule {
 /// rmf_traffic::schedule::Database.
 ///
 /// The Mirror is designed to mirror a relevant subset of the schedule database.
-class Mirror : public Viewer
+class Mirror : public ItineraryViewer, public Snappable
 {
 public:
 
@@ -40,6 +40,11 @@ public:
 
   // Documentation inherited from Viewer
   View query(const Query& parameters) const final;
+
+  // Documentation inherited from Viewer
+  View query(
+      const Query::Spacetime& spacetime,
+      const Query::Participants& participants) const final;
 
   // Documentation inherited from Viewer
   const std::unordered_set<ParticipantId>& participant_ids() const final;
@@ -54,6 +59,12 @@ public:
 
   // Documentation inherited from Viewer
   Version latest_version() const final;
+
+
+  //============================================================================
+  // Snappable API
+  //============================================================================
+  std::shared_ptr<const Snapshot> snapshot() const final;
 
 
   //============================================================================

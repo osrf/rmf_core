@@ -15,34 +15,24 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#ifndef RMF_TRAFFIC__AGV__DEBUG__DEBUG_NEGOTIATOR_HPP
+#define RMF_TRAFFIC__AGV__DEBUG__DEBUG_NEGOTIATOR_HPP
 
-#include <rmf_traffic/Route.hpp>
+#include <rmf_traffic/agv/Negotiator.hpp>
 
 namespace rmf_traffic {
+namespace agv {
 
 //==============================================================================
-class Route::Implementation
+class SimpleNegotiator::Debug
 {
 public:
 
-  std::string map;
-  Trajectory trajectory;
+  static SimpleNegotiator& enable_debug_print(SimpleNegotiator& negotiator);
 
-  static Route make(Implementation data)
-  {
-    return Route(std::move(data.map), std::move(data.trajectory));
-  }
-
-  static const Route::Implementation& get(const Route& route)
-  {
-    return *route._pimpl;
-  }
 };
 
-using RouteData = Route::Implementation;
-
+} // namespace agv
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#endif // RMF_TRAFFIC__AGV__DEBUG__DEBUG_NEGOTIATOR_HPP

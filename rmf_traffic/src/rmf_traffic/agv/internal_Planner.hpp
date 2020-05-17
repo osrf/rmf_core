@@ -20,6 +20,8 @@
 
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include "internal_planning.hpp"
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -45,6 +47,25 @@ public:
 
     return wp;
   }
+
+};
+
+//==============================================================================
+class Planner::Result::Implementation
+{
+public:
+
+  rmf_traffic::internal::planning::CacheManager cache_mgr;
+  rmf_traffic::internal::planning::State state;
+  rmf_utils::optional<Plan> plan;
+
+  static Result generate(
+    rmf_traffic::internal::planning::CacheManager cache_mgr,
+    const std::vector<Planner::Start>& starts,
+    Planner::Goal goal,
+    Planner::Options options);
+
+  static const Implementation& get(const Result& r);
 
 };
 

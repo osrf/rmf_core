@@ -25,6 +25,7 @@
 
 #include <fcl/continuous_collision.h>
 #include <fcl/ccd/motion.h>
+#include <fcl/collision.h>
 
 #include <unordered_map>
 
@@ -277,6 +278,21 @@ BoundingBox adjust_bounding_box(
 }
 
 //==============================================================================
+BoundingBox get_bounding_footprint(
+  const rmf_traffic::Spline& spline,
+  const Profile::Implementation& profile)
+{
+  if (profile.footprint)
+  {
+    return adjust_bounding_box(
+      get_bounding_box(spline),
+      profile.footprint->get_characteristic_length());
+  }
+
+  return void_box();
+}
+
+//==============================================================================
 BoundingProfile get_bounding_profile(
   const rmf_traffic::Spline& spline,
   const Profile::Implementation& profile)
@@ -390,7 +406,7 @@ Time compute_time(
 } // anonymous namespace
 
 //==============================================================================
-bool DetectConflict::between(
+rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
   const Profile& profile_a,
   const Trajectory& trajectory_a,
   const Profile& profile_b,
@@ -403,7 +419,69 @@ bool DetectConflict::between(
     interpolation);
 }
 
-bool DetectConflict::Implementation::between(
+namespace {
+//==============================================================================
+fcl::Transform3f convert(Eigen::Vector3d p)
+{
+  fcl::Matrix3f R;
+  R.setEulerZYX(0.0, 0.0, p[2]);
+  return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
+}
+
+//==============================================================================
+bool close_start(
+  const Profile::Implementation& profile_a,
+  const Trajectory::const_iterator& a_it,
+  const Profile::Implementation& profile_b,
+  const Trajectory::const_iterator& b_it)
+{
+  // If two trajectories start very close to each other, then we do not consider
+  // it a conflict for them to be in each other's vicinities. This gives robots
+  // an opportunity to back away from each other without it being considered a
+  // schedule conflict.
+
+  if (profile_a.footprint == profile_a.vicinity
+    && profile_b.footprint == profile_b.vicinity)
+  {
+    // If there is no difference between the footprint and vicinity for either
+    // vehicle, then there is no such thing as a "close start".
+    return false;
+  }
+
+  Spline spline_a(a_it);
+  Spline spline_b(b_it);
+  const auto start_time =
+    std::max(spline_a.start_time(), spline_b.start_time());
+
+  using ConvexPair = std::array<geometry::ConstFinalConvexShapePtr, 2>;
+  std::array<ConvexPair, 2> pairs = {
+    ConvexPair{profile_a.footprint, profile_b.vicinity},
+    ConvexPair{profile_a.vicinity, profile_b.footprint}
+  };
+
+  fcl::CollisionRequest request;
+  fcl::CollisionResult result;
+  for (const auto pair : pairs)
+  {
+    fcl::CollisionObject obj_a(
+      geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
+      convert(spline_a.compute_position(start_time)));
+
+    fcl::CollisionObject obj_b(
+      geometry::FinalConvexShape::Implementation::get_collision(*pair[1]),
+      convert(spline_b.compute_position(start_time)));
+
+    if (fcl::collide(&obj_a, &obj_b, request, result) > 0)
+      return true;
+  }
+
+  return false;
+}
+
+} // anonymous namespace
+
+//==============================================================================
+rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   const Profile& input_profile_a,
   const Trajectory& trajectory_a,
   const Profile& input_profile_b,
@@ -415,10 +493,8 @@ bool DetectConflict::Implementation::between(
     std::min(trajectory_a.size(), trajectory_b.size());
   if (min_size < 2)
   {
-    // *INDENT-OFF*
     throw invalid_trajectory_error::Implementation
-      ::make_segment_num_error(min_size);
-    // *INDENT-ON*
+          ::make_segment_num_error(min_size);
   }
 
   const Profile::Implementation profile_a = convert_profile(input_profile_a);
@@ -427,7 +503,7 @@ bool DetectConflict::Implementation::between(
   // Return early if there is no geometry in the profiles
   // TODO(MXG): Should this produce an exception? Is this an okay scenario?
   if (!profile_a.footprint && !profile_b.footprint)
-    return false;
+    return rmf_utils::nullopt;
 
   // Return early if either profile is missing both a vicinity and a footprint.
   // NOTE(MXG): Since convert_profile will promote the vicinity to have the same
@@ -435,11 +511,11 @@ bool DetectConflict::Implementation::between(
   // a vicinity doesn't exist is the same as checking that both the vicinity and
   // footprint doesn't exist.
   if (!profile_a.vicinity || !profile_b.vicinity)
-    return false;
+    return rmf_utils::nullopt;
 
   // Return early if there is no time overlap between the trajectories
   if (!have_time_overlap(trajectory_a, trajectory_b))
-    return false;
+    return rmf_utils::nullopt;
 
   Trajectory::const_iterator a_it;
   Trajectory::const_iterator b_it;
@@ -454,6 +530,10 @@ bool DetectConflict::Implementation::between(
     make_uninitialized_fcl_spline_motion();
 
   const fcl::ContinuousCollisionRequest request = make_fcl_request();
+
+  // This flag lets us know that only a collision between the footprints of the
+  // vehicles will count as a conflict.
+  const bool test_footprints = close_start(profile_a, a_it, profile_b, b_it);
 
   // This flag lets us know that we need to test both a's footprint in b's
   // vicinity and b's footprint in a's vicinity.
@@ -481,38 +561,56 @@ bool DetectConflict::Implementation::between(
     *motion_a = spline_a->to_fcl(start_time, finish_time);
     *motion_b = spline_b->to_fcl(start_time, finish_time);
 
-    const BoundingProfile bound_a = get_bounding_profile(*spline_a, profile_a);
-    const BoundingProfile bound_b = get_bounding_profile(*spline_b, profile_b);
-
-    if (overlap(bound_a.footprint, bound_b.vicinity))
+    if (test_footprints)
     {
-      if (const auto collision = check_collision(
-          *profile_a.footprint, motion_a,
-          *profile_b.vicinity, motion_b, request))
-      {
-        if (!output_conflicts)
-          return true;
+      const auto bound_a = get_bounding_footprint(*spline_a, profile_a);
+      const auto bound_b = get_bounding_footprint(*spline_b, profile_b);
 
-        output_conflicts->emplace_back(
-          Conflict{
-            a_it, b_it, compute_time(*collision, start_time, finish_time)
-          });
+      if (overlap(bound_a, bound_b))
+      {
+        if (const auto collision = check_collision(
+            *profile_a.footprint, motion_a,
+            *profile_b.footprint, motion_b, request))
+        {
+          const auto time = compute_time(*collision, start_time, finish_time);
+          if (!output_conflicts)
+            return time;
+
+          output_conflicts->emplace_back(Conflict{a_it, b_it, time});
+        }
       }
     }
-
-    if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
+    else
     {
-      if (const auto collision = check_collision(
-          *profile_a.vicinity, motion_a,
-          *profile_b.footprint, motion_b, request))
-      {
-        if (!output_conflicts)
-          return true;
+      const auto bound_a = get_bounding_profile(*spline_a, profile_a);
+      const auto bound_b = get_bounding_profile(*spline_b, profile_b);
 
-        output_conflicts->emplace_back(
-          Conflict{
-            a_it, b_it, compute_time(*collision, start_time, finish_time)
-          });
+      if (overlap(bound_a.footprint, bound_b.vicinity))
+      {
+        if (const auto collision = check_collision(
+            *profile_a.footprint, motion_a,
+            *profile_b.vicinity, motion_b, request))
+        {
+          const auto time = compute_time(*collision, start_time, finish_time);
+          if (!output_conflicts)
+            return time;
+
+          output_conflicts->emplace_back(Conflict{a_it, b_it, time});
+        }
+      }
+
+      if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
+      {
+        if (const auto collision = check_collision(
+            *profile_a.vicinity, motion_a,
+            *profile_b.footprint, motion_b, request))
+        {
+          const auto time = compute_time(*collision, start_time, finish_time);
+          if (!output_conflicts)
+            return time;
+
+          output_conflicts->emplace_back(Conflict{a_it, b_it, time});
+        }
       }
     }
 
@@ -537,9 +635,12 @@ bool DetectConflict::Implementation::between(
   }
 
   if (!output_conflicts)
-    return false;
+    return rmf_utils::nullopt;
 
-  return !output_conflicts->empty();
+  if (output_conflicts->empty())
+    return rmf_utils::nullopt;
+
+  return output_conflicts->front().time;
 }
 
 namespace internal {
@@ -560,10 +661,8 @@ bool detect_conflicts(
               << "trajectory was passed to detect_conflicts. This is a bug "
               << "that should never happen. Please alert the RMF developers."
               << std::endl;
-    // *INDENT-OFF*
     throw invalid_trajectory_error::Implementation
-      ::make_segment_num_error(trajectory.size());
-    // *INDENT-ON*
+          ::make_segment_num_error(trajectory.size());
   }
 #endif // NDEBUG
 
