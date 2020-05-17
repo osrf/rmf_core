@@ -122,6 +122,7 @@ public:
   rmf_utils::clone_ptr<RouteValidator> validator;
   Duration min_hold_time;
   const bool* interrupt_flag;
+  rmf_utils::optional<double> maximum_cost_estimate;
 
 };
 
@@ -129,12 +130,14 @@ public:
 Planner::Options::Options(
   rmf_utils::clone_ptr<RouteValidator> validator,
   const Duration min_hold_time,
-  const bool* interrupt_flag)
+  const bool* interrupt_flag,
+  rmf_utils::optional<double> maximum_cost_estimate)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(validator),
         min_hold_time,
-        interrupt_flag
+        interrupt_flag,
+        maximum_cost_estimate
       }))
 {
   // Do nothing
@@ -179,6 +182,20 @@ auto Planner::Options::interrupt_flag(const bool* flag) -> Options&
 const bool* Planner::Options::interrupt_flag() const
 {
   return _pimpl->interrupt_flag;
+}
+
+//==============================================================================
+auto Planner::Options::maximum_cost_estimate(rmf_utils::optional<double> value)
+-> Options&
+{
+  _pimpl->maximum_cost_estimate = value;
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<double> Planner::Options::maximum_cost_estimate() const
+{
+  return _pimpl->maximum_cost_estimate;
 }
 
 //==============================================================================
@@ -600,6 +617,25 @@ bool Planner::Result::resume(const bool* interrupt_flag)
 }
 
 //==============================================================================
+Planner::Options& Planner::Result::options()
+{
+  return _pimpl->state.conditions.options;
+}
+
+//==============================================================================
+const Planner::Options& Planner::Result::options() const
+{
+  return _pimpl->state.conditions.options;
+}
+
+//==============================================================================
+Planner::Result& Planner::Result::options(Options new_options)
+{
+  _pimpl->state.conditions.options = std::move(new_options);
+  return *this;
+}
+
+//==============================================================================
 rmf_utils::optional<double> Planner::Result::cost_estimate() const
 {
   return _pimpl->state.internal->cost_estimate();
@@ -615,12 +651,6 @@ const std::vector<Planner::Start>& Planner::Result::get_starts() const
 const Planner::Goal& Planner::Result::get_goal() const
 {
   return _pimpl->state.conditions.goal;
-}
-
-//==============================================================================
-const Planner::Options& Planner::Result::get_options() const
-{
-  return _pimpl->state.conditions.options;
 }
 
 //==============================================================================

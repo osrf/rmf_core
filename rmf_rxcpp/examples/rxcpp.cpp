@@ -141,7 +141,7 @@ struct PlannerJob
   struct Progress
   {
     PlannerJob& job;
-    Result result;
+    Result& result;
   };
 
   PlannerJob(
@@ -192,6 +192,11 @@ struct PlannerJob
   {
     assert(_current_result.cost_estimate().has_value());
     return *_current_result.cost_estimate();
+  }
+
+  void set_maximum_cost_estimate(double cost)
+  {
+    _current_result.options().maximum_cost_estimate(cost);
   }
 
   struct Compare
@@ -305,6 +310,14 @@ int main()
   JobQueue planning_job_queue;
   std::vector<std::shared_ptr<PlannerJob>> planner_jobs;
 
+  struct EstimateInfo
+  {
+    double cost = std::numeric_limits<double>::infinity();
+    const PlannerJob* estimator = nullptr;
+  };
+  EstimateInfo best_estimate;
+  EstimateInfo second_best_estimate;
+
   std::cout << "Alternatives:" << std::endl;
   for (const auto& alternative : alternatives)
   {
@@ -320,7 +333,25 @@ int main()
 //                     std::move(database), config, start_B, goal_B));
     planner_jobs.emplace_back(std::make_shared<PlannerJob>(
                          std::move(database), config, start_B, goal_B));
+    const double estimate = planner_jobs.back()->cost_estimate();
+    if (estimate < best_estimate.cost)
+    {
+      best_estimate.cost = estimate;
+      best_estimate.estimator = planner_jobs.back().get();
+    }
   }
+  second_best_estimate = best_estimate;
+
+//  const double estimate_leeway = 1.0; // 3.94903s | 3.51954s | 3.79843s
+  const double estimate_leeway = 1.01; // 3.51758s | 3.49792s | 3.23114s
+//  const double estimate_leeway = 1.05; // 3.91029s | 3.53983s | 3.93007s
+//  const double estimate_leeway = 1.1; // 3.77644s | 3.4398s | 3.90458s
+//  const double estimate_leeway = 1.25; // 6.87893s | 4.04424s | 4.04946s
+//  const double estimate_leeway = 1.5; // 9.25227s | 6.06916s | 5.59134s
+//  const double estimate_leeway = 1.75; // 7.22795s | 10.3928s | 8.25479s
+
+  for (auto& job : planner_jobs)
+    job->set_maximum_cost_estimate(estimate_leeway*best_estimate.cost);
 
   //^^^^^^^^^^^^^^^^^^^^ Done setting up the problem ^^^^^^^^^^^^^^^^^^^^^^^^^^^
   //============================================================================
@@ -341,10 +372,15 @@ int main()
 
   std::size_t finished_count = 0;
 
-  run_jobs_list_blocking<PlannerJob::Progress>(planner_jobs, [&finished_count, &start_time, &best_result](const PlannerJob::Progress& progress)
+  const auto benchmark_start = std::chrono::steady_clock::now();
+  run_jobs_list_blocking<PlannerJob::Progress>(
+        planner_jobs,
+        [&finished_count, &start_time, &best_result,
+         &best_estimate, &second_best_estimate, estimate_leeway](
+          const PlannerJob::Progress& progress)
   {
     std::cout << "thread: " << std::this_thread::get_id() << std::endl;
-    auto result = progress.result;
+    auto& result = progress.result;
 
     if (!result.cost_estimate())
     {
@@ -368,19 +404,47 @@ int main()
         std::cout << "New best" << std::endl;
         // If no result exists yet, use this as the best result.
         best_result = JobResult{cost, *result};
+        best_estimate.cost = cost;
       }
     }
     else if (!best_result || *result.cost_estimate() < best_result->cost)
     {
       // This job could still produce a better plan than the current best, so
       // put it back in the job queue.
-      std::cout << "(Resume) " << "current cost: " << *result.cost_estimate() << " best: ";
+
+      // Update our best estimates based on the result of this job.
+      const double cost_estimate = *result.cost_estimate();
+      if (!best_result)
+      {
+        if (&progress.job == best_estimate.estimator)
+        {
+          best_estimate.cost = cost_estimate;
+          if (second_best_estimate.cost < best_estimate.cost)
+          {
+            best_estimate = second_best_estimate;
+            second_best_estimate = EstimateInfo();
+          }
+        }
+        else
+        {
+          if (cost_estimate < second_best_estimate.cost)
+          {
+            second_best_estimate.cost = cost_estimate;
+            second_best_estimate.estimator = &progress.job;
+          }
+        }
+      }
+
+      std::cout << "(Resume) " << "current cost: " << cost_estimate
+                << " best estimate: " << best_estimate.cost << " best result: ";
       if (best_result)
         std::cout << best_result->cost;
       else
         std::cout << "N/A";
       std::cout << std::endl;
-//      planning_job_queue.push(progress.job);
+
+      progress.job.set_maximum_cost_estimate(
+            estimate_leeway*best_estimate.cost);
     }
     else
     {
@@ -390,58 +454,8 @@ int main()
     std::cout << "//////////" << std::endl;
   });
 
-//  while (!planning_job_queue.empty())
-//  {
-//    const auto top = planning_job_queue.top();
-//    planning_job_queue.pop();
-//
-//    bool interrupt_flag = false;
-//    auto future =
-//        std::async(
-//          std::launch::async,
-//          [&]() -> const rmf_traffic::agv::Planner::Result& {
-//            return top->process(&interrupt_flag);
-//          });
-//
-//    future.wait_for(std::chrono::milliseconds(10));
-//    interrupt_flag = true;
-//    const auto& result = future.get();
-//
-//    if (!result.cost_estimate())
-//    {
-//      // The plan is impossible, so we should just move on
-//      std::cout << "(Fail) Finished: " << ++finished_count << std::endl;
-//      continue;
-//    }
-//
-//    if (result) // This evaluates to true if a plan is ready
-//    {
-//      std::cout << "(Success) Finished: " << ++finished_count << std::endl;
-//      const auto finish_time =
-//          *result->get_itinerary().back().trajectory().finish_time();
-//
-//      const double cost =
-//          rmf_traffic::time::to_seconds(finish_time - start_time);
-//
-//      if (!best_result || cost < best_result->cost)
-//      {
-//        std::cout << "New best" << std::endl;
-//        // If no result exists yet, use this as the best result.
-//        best_result = JobResult{cost, *result};
-//      }
-//    }
-//    else if (!best_result || *result.cost_estimate() < best_result->cost)
-//    {
-//      // This job could still produce a better plan than the current best, so
-//      // put it back in the job queue.
-//      planning_job_queue.push(top);
-//    }
-//    else
-//    {
-//      std::cout << "(Discarded) Finished: " << ++finished_count << std::endl;
-//    }
-//  }
-//
+  const auto benchmark_finish = std::chrono::steady_clock::now();
+
   std::cout <<"\nBest plan for B:" << std::endl;
   print_itinerary(best_result->plan.get_itinerary());
 
@@ -453,4 +467,7 @@ int main()
   std::cout << "\nBest plan for A:" << std::endl;
   print_itinerary(final_result_A->get_itinerary());
   p_A.set(final_result_A->get_itinerary());
+
+  std::cout << "Benchmark: " << rmf_traffic::time::to_seconds(
+                 benchmark_finish - benchmark_start) << std::endl;
 }

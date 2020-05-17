@@ -231,7 +231,7 @@ void test_ignore_obstacle(
 {
   REQUIRE(database_version > 0);
   const auto& start = original_result->get_start();
-  rmf_traffic::agv::Plan::Options options = original_result.get_options();
+  rmf_traffic::agv::Plan::Options options = original_result.options();
   std::unordered_set<rmf_traffic::schedule::ParticipantId> ignore_ids;
   for (rmf_traffic::schedule::Version v = 0; v <= database_version; ++v)
     ignore_ids.insert(v);

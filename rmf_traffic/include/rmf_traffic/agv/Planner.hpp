@@ -124,10 +124,18 @@ public:
     ///   has been running for too long. If the planner should run indefinitely,
     ///   then pass in a nullptr. It is the user's responsibility to make sure
     ///   that this flag remains valid.
+    ///
+    /// \param[in] maximum_cost_estimate
+    ///   A cap on how high the best possible solution's cost can be. If the
+    ///   cost of the best possible solution ever exceeds this value, then the
+    ///   planner will interrupt itself, no matter what the state of the
+    ///   interrupt_flag is. Set this to nullopt to specify that there should
+    ///   not be a cap.
     Options(
       rmf_utils::clone_ptr<RouteValidator> validator,
       Duration min_hold_time = DefaultMinHoldingTime,
-      const bool* interrupt_flag = nullptr);
+      const bool* interrupt_flag = nullptr,
+      rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt);
 
     /// Set the route validator
     Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
@@ -147,6 +155,14 @@ public:
     /// Get the interrupt flag that will stop this planner if it has run for too
     /// long.
     const bool* interrupt_flag() const;
+
+    /// Set the maximum cost estimate that the planner should allow. If the cost
+    /// estimate of the best possible plan that the planner could produce ever
+    /// exceeds this value, the planner will interrupt itself.
+    Options& maximum_cost_estimate(rmf_utils::optional<double> value);
+
+    /// Get the maximum cost estimate that the planner will allow.
+    rmf_utils::optional<double> maximum_cost_estimate() const;
 
     class Implementation;
   private:
@@ -462,28 +478,27 @@ public:
   /// \return true if a plan has been found, false otherwise.
   bool resume(const bool* interrupt_flag);
 
+  /// Get a mutable reference to the options that will be used by this planning
+  /// task.
+  Options& options();
+
+  /// Get the options that will be used by this planning task.
+  const Options& options() const;
+
+  /// Change the options to be used by this planning task.
+  Result& options(Options new_options);
+
   /// Get the best cost estimate of the current state of this planner result.
   /// This is the value of the lowest f(n)=g(n)+h(n) in the planner's queue.
   /// If the node queue of this planner result is empty, this will return a
   /// nullopt.
   rmf_utils::optional<double> cost_estimate() const;
 
-  /// If this Plan is valid, this will return the Planner::Start that was used
-  /// to produce it.
+  /// Get the start conditions that were given for this planning task.
   const std::vector<Start>& get_starts() const;
 
-  /// If this Plan is valid, this will return the Planner::Goal that was used
-  /// to produce it.
-  ///
-  /// If replan() is called, this goal will be used to produce the new Plan.
+  /// Get the goal for this planning task.
   const Goal& get_goal() const;
-
-  /// If this Plan is valid, this will return the Planner::Options that were
-  /// used to produce it.
-  ///
-  /// If replan(Planner::Start) is called, these Planner::Options will be used
-  /// to produce the new Plan.
-  const Options& get_options() const;
 
   /// If this Plan is valid, this will return the Planner::Configuration that
   /// was used to produce it.

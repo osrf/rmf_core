@@ -152,6 +152,11 @@ NodePtr search(
   while (!queue.empty() && !(interrupt_flag && *interrupt_flag))
   {
     NodePtr top = queue.top();
+    if (expander.quit(top))
+      return nullptr;
+
+    // This pop must only happen after we have decided whether or not we are
+    // quitting. If we pop before quitting, then we will lose this node forever.
     queue.pop();
 
     if (expander.is_finished(top))
@@ -321,6 +326,11 @@ struct EuclideanExpander
   bool is_finished(const NodePtr& node)
   {
     return node->waypoint == context.final_waypoint;
+  }
+
+  bool quit(const NodePtr&) const
+  {
+    return false;
   }
 
   static double lane_event_cost(const agv::Graph::Lane& lane)
@@ -642,6 +652,7 @@ struct DifferentialDriveExpander
     const agv::RouteValidator* const validator;
     const std::size_t final_waypoint;
     const rmf_utils::optional<double> final_orientation;
+    const rmf_utils::optional<double> maximum_cost_estimate;
     const bool* const interrupt_flag;
     Heuristic& heuristic;
     Issues::BlockerMap& blockers;
@@ -918,6 +929,17 @@ struct DifferentialDriveExpander
     }
 
     return true;
+  }
+
+  bool quit(const NodePtr& node) const
+  {
+    if (!_context.maximum_cost_estimate.has_value())
+      return false;
+
+    const double cost_estimate =
+        node->current_cost + node->remaining_cost_estimate;
+
+    return (*_context.maximum_cost_estimate < cost_estimate);
   }
 
   bool is_valid(
@@ -1865,9 +1887,7 @@ private:
       const bool simple_lane_expansion)
   {
     const std::size_t goal_waypoint = goal.waypoint();
-    rmf_utils::optional<double> goal_orientation;
-    if (goal.orientation())
-      goal_orientation = *goal.orientation();
+    const auto goal_orientation = rmf_utils::pointer_to_opt(goal.orientation());
 
     Heuristic& h = _heuristics.insert(
           std::make_pair(goal_waypoint, Heuristic{})).first->second;
@@ -1882,6 +1902,7 @@ private:
       options.validator().get(),
       goal_waypoint,
       goal_orientation,
+      options.maximum_cost_estimate(),
       interrupt_flag,
       h,
       blocked_nodes,
