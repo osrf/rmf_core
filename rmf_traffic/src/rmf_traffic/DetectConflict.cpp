@@ -637,6 +637,9 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   if (!output_conflicts)
     return rmf_utils::nullopt;
 
+  if (output_conflicts->empty())
+    return rmf_utils::nullopt;
+
   return output_conflicts->front().time;
 }
 

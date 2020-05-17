@@ -67,6 +67,9 @@ std::shared_ptr<FleetAdapterNode> FleetAdapterNode::make()
     if (ready)
     {
       node->_mirror = mirror_future.get();
+      node->_negotiation = rmf_traffic_ros2::schedule::Negotiation(
+            *node, node->_mirror->snapshot_handle());
+
       return node;
     }
   }
@@ -91,22 +94,22 @@ FleetAdapterNode::ScheduleEntry::ScheduleEntry(
   };
 
   async_make_schedule_manager(
-    *node, *node->_writer, nullptr, std::move(description),
+    *node, *node->_writer, &node->_negotiation.value(), std::move(description),
     [this, node](ScheduleManager manager)
     {
       this->schedule = std::move(manager);
 
       this->schedule->set_negotiator(
         [this, node](
-          rmf_traffic::schedule::Negotiation::ConstTablePtr table,
+          const rmf_traffic::schedule::Negotiation::Table::ViewerPtr& table,
           const rmf_traffic::schedule::Negotiator::Responder& responder,
           const bool*)
         {
           const auto itinerary = this->schedule->participant().itinerary();
 
-          const auto proposal = table->proposal();
+          const auto proposals = table->base_proposals();
           const auto& profile = this->schedule->description().profile();
-          for (const auto& p : proposal)
+          for (const auto& p : proposals)
           {
             const auto other_participant =
             node->_mirror->viewer().get_participant(p.participant);
@@ -114,11 +117,11 @@ FleetAdapterNode::ScheduleEntry::ScheduleEntry(
             if (!other_participant)
             {
               // TODO(MXG): This is lazy and sloppy. For now we just reject the
-              // negotiation if we don't know about the other participant. In the
-              // future, we should have a way to wait until the participant
+              // negotiation if we don't know about the other participant. In
+              // the future, we should have a way to wait until the participant
               // information is available.
               assert(false);
-              return responder.reject();
+              return responder.forfeit({});
             }
 
             const auto& other_profile = other_participant->profile();
@@ -135,7 +138,12 @@ FleetAdapterNode::ScheduleEntry::ScheduleEntry(
                   other_profile,
                   other_route->trajectory()))
                 {
-                  return responder.reject();
+                  rmf_traffic::schedule::Itinerary alternative;
+                  alternative.reserve(itinerary.size());
+                  for (const auto& item : itinerary)
+                    alternative.emplace_back(item.route);
+
+                  return responder.reject({std::move(alternative)});
                 }
               }
             }

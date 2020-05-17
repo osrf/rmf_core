@@ -107,11 +107,22 @@ class TimelineInspector;
 
 //==============================================================================
 template<typename Entry>
-class Timeline
+class Timeline;
+
+//==============================================================================
+template<typename Entry>
+class TimelineView
 {
 public:
+public:
 
-  using Bucket = std::vector<const Entry*>;
+  using ConstEntryPtr = std::shared_ptr<const Entry>;
+  using Bucket = std::vector<ConstEntryPtr>;
+
+  // We use a shared_ptr for BucketPtr so that the Handle class can hold a
+  // weak_ptr to the bucket that contains its entry. If the bucket is ever
+  // deleted (e.g. because of a culling) that won't have a negative impact on
+  // the Handle's cleanup.
   using BucketPtr = std::shared_ptr<Bucket>;
   using Checked =
     std::unordered_map<ParticipantId, std::unordered_set<RouteId>>;
@@ -120,104 +131,40 @@ public:
   using Entries = std::map<Time, BucketPtr>;
   using MapNameToEntries = std::unordered_map<std::string, Entries>;
 
-  /// This Timeline::Handle class allows us to use RAII so that when an Entry is
-  /// deleted it will automatically be removed from any of its timeline buckets.
-  struct Handle
-  {
-    Handle(
-      const Entry* entry,
-      std::vector<std::weak_ptr<Bucket>> buckets)
-    : _entry(entry),
-      _buckets(std::move(buckets))
-    {
-      // Do nothing
-    }
-
-    ~Handle()
-    {
-      for (const auto& b : _buckets)
-      {
-        BucketPtr bucket = b.lock();
-        if (!bucket)
-          continue;
-
-        const auto it = std::find(bucket->begin(), bucket->end(), _entry);
-        if (it != bucket->end())
-          bucket->erase(it);
-      }
-    }
-
-  private:
-    const Entry* _entry;
-    std::vector<std::weak_ptr<Bucket>> _buckets;
-  };
-
   /// Constructor
-  Timeline()
+  TimelineView()
   : _all_bucket(std::make_shared<Bucket>())
   {
     // Do nothing
   }
 
-  /// Insert a new entry into the timeline
-  void insert(Entry& entry)
-  {
-    std::vector<std::weak_ptr<Bucket>> buckets;
-    _all_bucket->push_back(&entry);
-    buckets.emplace_back(_all_bucket);
-
-    if (entry.route && entry.route->trajectory().start_time())
-    {
-      const Time start_time = *entry.route->trajectory().start_time();
-      const Time finish_time = *entry.route->trajectory().finish_time();
-      const std::string& map_name = entry.route->map();
-
-      const auto map_it = _timelines.insert(
-        std::make_pair(map_name, Entries())).first;
-
-      Entries& timeline = map_it->second;
-
-      const auto start_it = get_timeline_iterator(timeline, start_time);
-      const auto end_it = ++get_timeline_iterator(timeline, finish_time);
-
-      for (auto it = start_it; it != end_it; ++it)
-      {
-        it->second->push_back(&entry);
-        buckets.emplace_back(it->second);
-      }
-    }
-
-    entry.timeline_handle = std::make_shared<Handle>(
-      &entry, std::move(buckets));
-  }
-
   /// Inspect the timeline for entries that match the query
   template<typename Inspector>
   void inspect(
-    const Query& query,
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants,
     Inspector& inspector) const
   {
-    const Query::Participants& participants = query.participants();
     const Query::Participants::Mode mode = participants.get_mode();
 
     if (Query::Participants::Mode::All == mode)
     {
       inspect_spacetime(
-        query.spacetime(),
+        spacetime,
         ParticipantFilter::AllowAll(),
         inspector);
     }
     else if (Query::Participants::Mode::Include == mode)
     {
       inspect_spacetime(
-        query.spacetime(),
+        spacetime,
         ParticipantFilter::Include(participants.include()->get_ids()),
         inspector);
     }
     else if (Query::Participants::Mode::Exclude == mode)
     {
       inspect_spacetime(
-        query.spacetime(),
+        spacetime,
         ParticipantFilter::Exclude(participants.exclude()->get_ids()),
         inspector);
     }
@@ -231,23 +178,9 @@ public:
     }
   }
 
-  void cull(const Time time)
-  {
-    for (auto& pair : _timelines)
-    {
-      auto& timeline = pair.second;
+  template<typename> friend class Timeline;
 
-      // NOTE(MXG): It is not an error that we are using get_timeline_begin() to
-      // find the ending iterator. We want to stop just before the first bucket
-      // that contains the cull time, because we only want to erase times that
-      // come before it.
-      const auto end_it = get_timeline_begin(timeline, &time);
-      if (end_it != timeline.begin())
-        timeline.erase(timeline.begin(), end_it);
-    }
-  }
-
-private:
+protected:
 
   template<typename Inspector, typename ParticipantFilter>
   void inspect_spacetime(
@@ -289,7 +222,7 @@ private:
       if (!checked[entry->participant].insert(entry->route_id).second)
         continue;
 
-      inspector.inspect(entry, relevant);
+      inspector.inspect(entry.get(), relevant);
     }
   }
 
@@ -431,7 +364,7 @@ private:
       auto entry_it = bucket.begin();
       for (; entry_it != bucket.end(); ++entry_it)
       {
-        const Entry* entry = *entry_it;
+        const Entry* entry = entry_it->get();
 
         if (participant_filter.ignore(entry->participant))
           continue;
@@ -443,6 +376,161 @@ private:
       }
     }
   }
+
+  static typename Entries::const_iterator get_timeline_begin(
+    const Entries& timeline,
+    const Time* const lower_time_bound)
+  {
+    return (lower_time_bound == nullptr) ?
+      timeline.begin() : timeline.lower_bound(*lower_time_bound);
+  }
+
+  static typename Entries::const_iterator get_timeline_end(
+    const Entries& timeline,
+    const Time* upper_time_bound)
+  {
+    if (upper_time_bound == nullptr)
+      return timeline.end();
+
+    auto end = timeline.upper_bound(*upper_time_bound);
+    if (end == timeline.end())
+      return end;
+
+    return ++end;
+  }
+
+  MapNameToEntries _timelines;
+  BucketPtr _all_bucket;
+};
+
+//==============================================================================
+template<typename Entry>
+class Timeline : public TimelineView<Entry>
+{
+public:
+
+  using ConstEntryPtr = typename TimelineView<Entry>::ConstEntryPtr;
+  using Bucket = typename TimelineView<Entry>::Bucket;
+  using BucketPtr = typename TimelineView<Entry>::BucketPtr;
+  using Entries = typename TimelineView<Entry>::Entries;
+
+  /// This Timeline::Handle class allows us to use RAII so that when an Entry is
+  /// deleted it will automatically be removed from any of its timeline buckets.
+  struct Handle
+  {
+    Handle(
+      ConstEntryPtr entry,
+      std::vector<std::weak_ptr<Bucket>> buckets)
+    : _entry(std::move(entry)),
+      _buckets(std::move(buckets))
+    {
+      // Do nothing
+    }
+
+    ~Handle()
+    {
+      for (const auto& b : _buckets)
+      {
+        BucketPtr bucket = b.lock();
+        if (!bucket)
+          continue;
+
+        const auto it = std::find(bucket->begin(), bucket->end(), _entry);
+        if (it != bucket->end())
+          bucket->erase(it);
+      }
+    }
+
+  private:
+    ConstEntryPtr _entry;
+    std::vector<std::weak_ptr<Bucket>> _buckets;
+  };
+
+  /// Insert a new entry into the timeline
+  std::shared_ptr<Handle> insert(
+      const std::shared_ptr<Entry>& entry)
+  {
+    std::vector<std::weak_ptr<Bucket>> buckets;
+    this->_all_bucket->push_back(entry);
+    buckets.emplace_back(this->_all_bucket);
+
+    if (entry->route && entry->route->trajectory().start_time())
+    {
+      const Time start_time = *entry->route->trajectory().start_time();
+      const Time finish_time = *entry->route->trajectory().finish_time();
+      const std::string& map_name = entry->route->map();
+
+      const auto map_it = this->_timelines.insert(
+        std::make_pair(map_name, Entries())).first;
+
+      Entries& timeline = map_it->second;
+
+      const auto start_it = get_timeline_iterator(timeline, start_time);
+      const auto end_it = ++get_timeline_iterator(timeline, finish_time);
+
+      for (auto it = start_it; it != end_it; ++it)
+      {
+        it->second->push_back(entry);
+        buckets.emplace_back(it->second);
+      }
+    }
+
+    return std::make_shared<Handle>(entry, std::move(buckets));
+  }
+
+  void cull(const Time time)
+  {
+    for (auto& pair : this->_timelines)
+    {
+      auto& timeline = pair.second;
+
+      // NOTE(MXG): It is not an error that we are using get_timeline_begin() to
+      // find the ending iterator. We want to stop just before the first bucket
+      // that contains the cull time, because we only want to erase times that
+      // come before it.
+      const auto end_it =
+          TimelineView<Entry>::get_timeline_begin(timeline, &time);
+
+      if (end_it != timeline.begin())
+        timeline.erase(timeline.begin(), end_it);
+    }
+  }
+
+  /// Create an immutable snapshot of the current timeline. A single instance of
+  /// the snapshot can be safely used by multiple threads simultaneously.
+  std::shared_ptr<const TimelineView<const Entry>> snapshot() const
+  {
+    // TODO(MXG): Consider whether we could use plain std::vector<Bucket>
+    // instances instead of std::vector<std::shared_ptr<Bucket>> in the snapshot
+    // to reduce how many heap allocations are needed, and to lessen the cache
+    // misses. The tricky part is this may cost us more when copying the maps.
+
+    // TODO(MXG): Consider whether there's a safe way to cache a snapshot. The
+    // main problem I see is that we don't have a good way of knowing when an
+    // entry gets removed right now, so we wouldn't know to update the snapshot
+    // when an entry gets taken out.
+
+    std::shared_ptr<TimelineView<const Entry>> result =
+        std::make_shared<TimelineView<const Entry>>();
+
+    // Make a deep copy of the buckets so that adding/removing entries from the
+    // source bucket does not impact the snapshot
+    result->_timelines = this->_timelines;
+    for (auto& map_scope : result->_timelines)
+    {
+      for (auto& time_scope : map_scope.second)
+      {
+        auto& bucket = time_scope.second;
+        bucket = std::make_shared<Bucket>(*bucket);
+      }
+    }
+
+    result->_all_bucket = std::make_shared<Bucket>(*result->_all_bucket);
+
+    return result;
+  }
+
+private:
 
   //============================================================================
   static typename Entries::iterator get_timeline_iterator(
@@ -487,32 +575,6 @@ private:
 
     return start_it;
   }
-
-  static typename Entries::const_iterator get_timeline_begin(
-    const Entries& timeline,
-    const Time* const lower_time_bound)
-  {
-    return (lower_time_bound == nullptr) ?
-      timeline.begin() : timeline.lower_bound(*lower_time_bound);
-  }
-
-  static typename Entries::const_iterator get_timeline_end(
-    const Entries& timeline,
-    const Time* upper_time_bound)
-  {
-    if (upper_time_bound == nullptr)
-      return timeline.end();
-
-    auto end = timeline.upper_bound(*upper_time_bound);
-    if (end == timeline.end())
-      return end;
-
-    return ++end;
-  }
-
-  MapNameToEntries _timelines;
-  BucketPtr _all_bucket;
-
 };
 
 //==============================================================================

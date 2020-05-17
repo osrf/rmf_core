@@ -574,8 +574,8 @@ SCENARIO("Test planning")
       rmf_traffic::agv::Planner::Goal(3, 0.0));
 
     REQUIRE(plan);
-    CHECK(plan->get_itinerary().size() == 1);
-    CHECK(plan->get_itinerary().front().trajectory().size() == 0);
+    CHECK(plan->get_itinerary().size() == 0);
+    CHECK(plan->get_waypoints().size() == 1);
   }
 
   WHEN("initial and goal waypoints are same but goal_orientation is different")

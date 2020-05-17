@@ -17,9 +17,9 @@
 
 #include <rmf_traffic/agv/Negotiator.hpp>
 #include <rmf_traffic/agv/Rollout.hpp>
+#include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 
 #include <deque>
-
 #include <iostream>
 
 namespace rmf_traffic {
@@ -30,15 +30,35 @@ class SimpleNegotiator::Options::Implementation
 {
 public:
 
+  ApprovalCallback approval_cb;
   Duration minimum_holding_time;
+
+  static ApprovalCallback&& move_approval_cb(Options&& options)
+  {
+    return std::move(options._pimpl->approval_cb);
+  }
 
 };
 
 //==============================================================================
-SimpleNegotiator::Options::Options(Duration min_hold_time)
-: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{min_hold_time}))
+SimpleNegotiator::Options::Options(
+    ApprovalCallback approval_cb,
+    Duration min_hold_time)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+           Implementation{
+             std::move(approval_cb),
+             min_hold_time
+           }))
 {
   // Do nothing
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::approval_callback(
+    ApprovalCallback approval_cb) -> Options&
+{
+  _pimpl->approval_cb = std::move(approval_cb);
+  return *this;
 }
 
 //==============================================================================
@@ -63,16 +83,21 @@ public:
   Planner::Goal goal;
   Planner::Options options;
   Planner planner;
+  Options::ApprovalCallback approval_cb;
+
+  bool debug_print = false;
 
   Implementation(
     std::vector<Planner::Start> starts_,
     Planner::Goal goal_,
     Planner::Configuration configuration_,
-    Planner::Options options_)
+    Planner::Options options_,
+    Options::ApprovalCallback approval_cb_)
   : starts(std::move(starts_)),
     goal(std::move(goal_)),
     options(std::move(options_)),
-    planner(std::move(configuration_), options)
+    planner(std::move(configuration_), options),
+    approval_cb(std::move(approval_cb_))
   {
     // Do nothing
   }
@@ -84,13 +109,14 @@ SimpleNegotiator::SimpleNegotiator(
   Planner::Start start,
   Planner::Goal goal,
   Planner::Configuration planner_configuration,
-  const Options& options)
+  Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
     Implementation(
       {std::move(start)},
       std::move(goal),
       std::move(planner_configuration),
-      Planner::Options(nullptr, options.minimum_holding_time()))))
+      Planner::Options(nullptr, options.minimum_holding_time()),
+      Options::Implementation::move_approval_cb(std::move(options)))))
 {
   // Do nothing
 }
@@ -100,12 +126,13 @@ SimpleNegotiator::SimpleNegotiator(
   std::vector<Planner::Start> starts,
   Planner::Goal goal,
   Planner::Configuration planner_configuration,
-  const Options& options)
+  Options options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
            std::move(starts),
            std::move(goal),
            std::move(planner_configuration),
-           Planner::Options(nullptr, options.minimum_holding_time())))
+           Planner::Options(nullptr, options.minimum_holding_time()),
+           Options::Implementation::move_approval_cb(std::move(options))))
 {
   // Do nothing
 }
@@ -122,6 +149,7 @@ bool contains(
 //==============================================================================
 inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 {
+  assert(route.trajectory().size() > 0);
   std::cout << "(start) --> ";
   std::cout << "(" << 0.0 << "; "
             << route.trajectory().front().position().transpose()
@@ -135,7 +163,9 @@ inline void print_route(
     const rmf_traffic::Route& route,
     const rmf_traffic::Time start_time)
 {
-  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
+  assert(route.trajectory().size() > 0);
+  for (auto it = ++route.trajectory().begin(); it
+       != route.trajectory().end(); ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)
@@ -151,21 +181,35 @@ inline void print_route(
 inline void print_itinerary(
     const rmf_traffic::schedule::Itinerary& itinerary)
 {
-  auto start_time = print_start(*itinerary.front());
-  for (const auto& r : itinerary)
-    print_route(*r, start_time);
+  if (itinerary.empty())
+  {
+    std::cout << "No plan needed!" << std::endl;
+  }
+  else
+  {
+    auto start_time = print_start(*itinerary.front());
+    for (const auto& r : itinerary)
+      print_route(*r, start_time);
 
-  std::cout << "(end)\n" << std::endl;
+    std::cout << "(end)\n" << std::endl;
+  }
 }
 
 //==============================================================================
 inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
 {
-  auto start_time = print_start(itinerary.front());
-  for (const auto& r : itinerary)
-    print_route(r, start_time);
+  if (itinerary.empty())
+  {
+    std::cout << "No plan needed!" << std::endl;
+  }
+  else
+  {
+    auto start_time = print_start(itinerary.front());
+    for (const auto& r : itinerary)
+      print_route(r, start_time);
 
-  std::cout << "(end)\n" << std::endl;
+    std::cout << "(end)\n" << std::endl;
+  }
 }
 
 
@@ -176,13 +220,13 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
 
 //==============================================================================
 void SimpleNegotiator::respond(
-  std::shared_ptr<const schedule::Negotiation::Table> table,
+  const schedule::Negotiation::Table::ViewerPtr& table_viewer,
   const Responder& responder,
   const bool* interrupt_flag)
 {
   const auto& profile =
     _pimpl->planner.get_configuration().vehicle_traits().profile();
-  NegotiatingRouteValidator::Generator rv_generator(*table, profile);
+  NegotiatingRouteValidator::Generator rv_generator(table_viewer, profile);
 
   const auto& alternative_sets = rv_generator.alternative_sets();
 
@@ -201,8 +245,27 @@ void SimpleNegotiator::respond(
     const auto validator = std::move(validators.front());
     validators.pop_front();
 
-    if (!validator)
+    if (validator->end())
       continue;
+
+    if (_pimpl->debug_print)
+    {
+      if (validator->alternatives().empty())
+      {
+        std::cout << "Negotiating without rollouts" << std::endl;
+      }
+      else
+      {
+        std::cout << "Negotiating with rollouts:";
+        for (const auto& r : validator->alternatives())
+        {
+          std::cout << " [" << r.participant << ":" << r.version << "|"
+                    << table_viewer->alternatives().at(r.participant)->size()
+                    << "]";
+        }
+        std::cout << std::endl;
+      }
+    }
 
     options.validator(validator);
     const auto plan = _pimpl->planner.plan(
@@ -210,15 +273,32 @@ void SimpleNegotiator::respond(
 
     if (plan)
     {
-      if (debug_print)
+      if (_pimpl->debug_print)
       {
         std::cout << "Submitting:\n";
         print_itinerary(plan->get_itinerary());
       }
-      return responder.submit(plan->get_itinerary());
+
+      Responder::ApprovalCallback responder_approval_cb;
+      if (_pimpl->approval_cb)
+      {
+        responder_approval_cb = [
+              approval_cb = _pimpl->approval_cb,
+              approved_plan = *plan
+            ]() -> Responder::UpdateVersion
+        {
+          return approval_cb(std::move(approved_plan));
+        };
+      }
+
+      if (_pimpl->debug_print)
+      {
+        std::cout << " >>>>> Submitting" << std::endl;
+      }
+      return responder.submit(plan->get_itinerary(), responder_approval_cb);
     }
 
-    if (debug_print)
+    if (_pimpl->debug_print)
     {
       std::cout << "Failed to find a plan. Blocked by:";
       for (const auto p : plan.blockers())
@@ -240,11 +320,11 @@ void SimpleNegotiator::respond(
       }
     }
 
-    const auto parent = table->parent();
-    if (!parent)
+    const auto has_parent = table_viewer->parent_id();
+    if (!has_parent)
       continue;
 
-    const auto parent_id = parent->participant();
+    const auto parent_id = *has_parent;
     if (!contains(blockers, parent_id))
     {
       // If the parent participant is not a blocker, then there is no point in
@@ -258,7 +338,7 @@ void SimpleNegotiator::respond(
       continue;
     }
 
-    if (debug_print)
+    if (_pimpl->debug_print)
     {
       std::cout << "Negotiation parent ["
                 << parent_id << "] is a blocker" << std::endl;
@@ -272,15 +352,18 @@ void SimpleNegotiator::respond(
 
     Rollout rollout(plan);
     // TODO(MXG): Make the span configurable
-//    alternatives = rollout.expand(parent_id, std::chrono::seconds(30), options);
     alternatives = rollout.expand(parent_id, std::chrono::seconds(15), options);
     if (alternatives->empty())
     {
       alternatives = rmf_utils::nullopt;
+      if (_pimpl->debug_print)
+      {
+        std::cout << "Could not roll out any alternatives" << std::endl;
+      }
     }
     else
     {
-      if (debug_print)
+      if (_pimpl->debug_print)
       {
         std::cout << "Rolled out [" << alternatives->size() << "] alternatives"
                   << std::endl;
@@ -289,7 +372,7 @@ void SimpleNegotiator::respond(
       if (alternatives->size() > 10)
         alternatives->resize(10);
 
-      if (debug_print)
+      if (_pimpl->debug_print)
       {
         for (const auto& itinerary : *alternatives)
           print_itinerary(itinerary);
@@ -301,13 +384,38 @@ void SimpleNegotiator::respond(
   }
 
   if (alternatives)
+  {
+    if (_pimpl->debug_print)
+    {
+      std::cout << " >>>>> Rejecting" << std::endl;
+    }
     return responder.reject(*alternatives);
+  }
 
   if (best_blockers)
+  {
+    if (_pimpl->debug_print)
+    {
+      std::cout << " >>>>> Forfeiting with blockers" << std::endl;
+    }
     return responder.forfeit(*best_blockers);
+  }
+
+  if (_pimpl->debug_print)
+  {
+    std::cout << " >>>>> Forfeiting with NO BLOCKERS" << std::endl;
+  }
 
   // This would be suspicious. How could the planning fail without any blockers?
   responder.forfeit({});
+}
+
+//==============================================================================
+SimpleNegotiator& SimpleNegotiator::Debug::enable_debug_print(
+    SimpleNegotiator& negotiator)
+{
+  negotiator._pimpl->debug_print = true;
+  return negotiator;
 }
 
 } // namespace agv

@@ -242,16 +242,16 @@ SCENARIO("Test Rollout on graph with side routes")
         p0.id(), 30s, rmf_traffic::agv::Planner::Options{nullptr, 10s});
 
   bool found_plan = false;
-  std::size_t alterantive_count = 0;
-  std::cout << "Found " << alternatives.size() << " alterantives" << std::endl;
+//  std::size_t alterantive_count = 0;
+//  std::cout << "Found " << alternatives.size() << " alterantives" << std::endl;
   for (const auto& itinerary : alternatives)
   {
-    std::cout << "Trying alternative #" << ++alterantive_count << std::endl;
-    for (const auto& r : itinerary)
-      std::cout << "(" << r->trajectory().front().position().transpose()
-                << ") --> (" << r->trajectory().back().position().transpose()
-                << ") --> ";
-    std::cout << "(end)\n" << std::endl;
+//      std::cout << "Trying alternative #" << ++alterantive_count << std::endl;
+//      for (const auto& r : itinerary)
+//        std::cout << "(" << r->trajectory().front().position().transpose()
+//                  << ") --> (" << r->trajectory().back().position().transpose()
+//                  << ") --> ";
+//      std::cout << "(end)\n" << std::endl;
 
     const auto new_plan_0 = plan_0.replan(
           plan_0.get_starts(),
@@ -269,15 +269,15 @@ SCENARIO("Test Rollout on graph with side routes")
       found_plan = true;
       p0.set(new_plan_0->get_itinerary());
 
-      std::cout << "Found plan:\n(start) --> ";
-      for (const auto& wp : new_plan_0->get_waypoints())
-      {
-        if (wp.graph_index())
-          std::cout << *wp.graph_index() << " --> ";
-        else
-          std::cout << "(no index) --> ";
-      }
-      std::cout << "(end)\n" << std::endl;
+//      std::cout << "Found plan:\n(start) --> ";
+//      for (const auto& wp : new_plan_0->get_waypoints())
+//      {
+//        if (wp.graph_index())
+//          std::cout << *wp.graph_index() << " --> ";
+//        else
+//          std::cout << "(no index) --> ";
+//      }
+//      std::cout << "(end)\n" << std::endl;
 
       break;
     }
@@ -291,13 +291,13 @@ SCENARIO("Test Rollout on graph with side routes")
 
   const auto new_plan_0 = plan_0.replan(plan_0.get_starts());
   CHECK(new_plan_0);
-  std::cout << "Found plan:\n(start) --> ";
-  for (const auto& wp : new_plan_0->get_waypoints())
-  {
-    if (wp.graph_index())
-      std::cout << *wp.graph_index() << " --> ";
-    else
-      std::cout << "(no index) --> ";
-  }
-  std::cout << "(end)\n" << std::endl;
+//  std::cout << "Found plan:\n(start) --> ";
+//  for (const auto& wp : new_plan_0->get_waypoints())
+//  {
+//    if (wp.graph_index())
+//      std::cout << *wp.graph_index() << " --> ";
+//    else
+//      std::cout << "(no index) --> ";
+//  }
+//  std::cout << "(end)\n" << std::endl;
 }

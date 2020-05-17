@@ -19,6 +19,7 @@
 #define RMF_TRAFFIC__TEST__UNIT__AGV__UTILS_NEGOTIATIONROOM_HPP
 
 #include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 
@@ -120,12 +121,12 @@ public:
   using Intentions = std::unordered_map<ParticipantId, Intention>;
 
   NegotiationRoom(
-    const rmf_traffic::schedule::Viewer& viewer,
+    std::shared_ptr<const rmf_traffic::schedule::Viewer> viewer,
     Intentions intentions,
     const bool print_failures_ = false)
   : negotiators(make_negotiators(intentions)),
-    negotiation(std::make_shared<Negotiation>(
-        viewer, get_participants(intentions))),
+    negotiation(Negotiation::make_shared(
+        std::move(viewer), get_participants(intentions))),
     _print(print_failures_)
   {
     // Do nothing
@@ -136,9 +137,9 @@ public:
     if (table->submission() && !table->rejected())
       return true;
 
-    // Give up we have already attempted more than 3 submissions
-//    if (table->version() && (*table->version() > 2))
-//      return true;
+    // Give up we have already attempted more than 2 submissions
+    if (table->version() > 2)
+      return true;
 
     auto ancestor = table->parent();
     while (ancestor)
@@ -162,7 +163,9 @@ public:
       queue.push_back(table);
     }
 
-    while (!queue.empty() && !negotiation->ready() && !negotiation->complete())
+    while (!queue.empty()
+           && !negotiation->ready()) // Use this to allow a quick Negotiation
+//           && !negotiation->complete()) // Use this to force a complete Negotiation
     {
       if (_print)
         std::cout << "Queue size: " << queue.size() << std::endl;
@@ -178,7 +181,7 @@ public:
         {
           std::cout << "Skipping [";
           for (const auto p : top->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ]" << std::endl;
         }
         continue;
@@ -191,25 +194,32 @@ public:
       {
         std::cout << "Responding to [";
         for (const auto p : top->sequence())
-          std::cout << " " << p;
+          std::cout << " " << p.participant;
         std::cout << " ]" << std::endl;
 
-        negotiator.debug_print = true;
+        rmf_traffic::agv::SimpleNegotiator::Debug
+            ::enable_debug_print(negotiator);
       }
 
+      auto viewer = top->viewer();
       bool interrupt = false;
       auto result = std::async(
             std::launch::async,
             [&]()
       {
-        negotiator.respond(
-              top, Responder(negotiation, top->sequence(), &blockers),
-              &interrupt);
+        negotiator.respond(viewer, Responder(top, &blockers), &interrupt);
       });
 
       using namespace std::chrono_literals;
+#if NDEBUG
+      const auto wait_time = 1s;
+#else
+      // We wait longer in debug mode because the planner takes much longer to
+      // run in debug than it does in release.
+      const auto wait_time = 15s;
+#endif
       // Give up if the solution is not found within a time limit
-      if (result.wait_for(10s) != std::future_status::ready)
+      if (result.wait_for(wait_time) != std::future_status::ready)
         interrupt = true;
 
       result.wait();
@@ -220,7 +230,7 @@ public:
         {
           std::cout << "Submission given for [";
           for (const auto p : top->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ]" << std::endl;
         }
 
@@ -243,13 +253,13 @@ public:
           std::cout << "[" << std::to_string(top->participant())
                     << "] rejected [";
           for (const auto p : parent->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ]" << std::endl;
         }
         // We push front so that we revisit the rejected tables only if
-        // everything else fails.
-//        queue.push_front(parent);
-        queue.push_back(parent);
+        // everything else fails, or if we are forcing the Negotiation to
+        // completion.
+        queue.push_front(parent);
       }
 
       if (top->forfeited())
@@ -258,7 +268,7 @@ public:
         {
           std::cout << "Forfeit given for [";
           for (const auto p : top->sequence())
-            std::cout << " " << p;
+            std::cout << " " << p.participant;
           std::cout << " ] with the following blockers:";
           for (const auto p : blockers)
             std::cout << " " << p << std::endl;
@@ -266,7 +276,6 @@ public:
       }
     }
 
-//    CHECK(negotiation->complete());
     if (!negotiation->ready())
       return rmf_utils::nullopt;
 

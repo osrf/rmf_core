@@ -573,9 +573,10 @@ Query::Participants::Participants()
 }
 
 //==============================================================================
-auto Query::Participants::make_all() -> Participants
+const Query::Participants& Query::Participants::make_all()
 {
-  return Participants();
+  static const Participants all_participants;
+  return all_participants;
 }
 
 //==============================================================================
