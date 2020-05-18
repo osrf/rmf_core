@@ -7,26 +7,31 @@ if (NOT CMAKE_CXX_STANDARD)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(Threads REQUIRED)
+find_package(rclcpp REQUIRED)
 
-add_library(rmf_rxcpp INTERFACE)
+add_library(rmf_rxcpp STATIC
+  Transport.cpp)
 target_include_directories(rmf_rxcpp
-  INTERFACE
+  PUBLIC
     .
     RxCpp-4.1.0/Rx/v2/src
+    ${rclcpp_INCLUDE_DIRS}
 )
 target_link_libraries(rmf_rxcpp
-  INTERFACE
+  PUBLIC
     Threads::Threads
+    ${rclcpp_LIBRARIES}
 )
 
 if(BUILD_TESTING)
   find_package(ament_cmake_catch2 REQUIRED)
   find_package(rmf_utils REQUIRED)
+  find_package(std_msgs REQUIRED)
   find_package(rmf_cmake_uncrustify REQUIRED)
   find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
 
@@ -37,12 +42,20 @@ if(BUILD_TESTING)
   )
 
   ament_add_catch2(
-    rmf_rxcpp_test test/RxJobs.cpp
+    rmf_rxcpp_test
+      test/main.cpp
+      test/RxJobs.cpp
+      test/RxTransport.cpp
+  )
+  target_include_directories(rmf_rxcpp_test
+    PRIVATE
+      ${std_msgs_INCLUDE_DIRS}
   )
   target_link_libraries(rmf_rxcpp_test
     PRIVATE
       rmf_rxcpp
       rmf_utils::rmf_utils
+      ${std_msgs_LIBRARIES}
   )
 endif()
 

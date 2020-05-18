@@ -15,12 +15,11 @@
  *
 */
 
-#define CATCH_CONFIG_MAIN  // This tells Catch to provide a main() - only do this in one cpp file
 #include <rmf_utils/catch.hpp>
 
 #include <RxJobs.hpp>
 
-TEST_CASE("run simple job")
+TEST_CASE("run simple job", "[Jobs]")
 {
   bool ran = false;
   auto j = make_job([](const auto& s)
@@ -32,7 +31,7 @@ TEST_CASE("run simple job")
   REQUIRE(ran);
 }
 
-TEST_CASE("run multiple jobs in parallel")
+TEST_CASE("run multiple jobs in parallel", "[Jobs]")
 {
   bool job1_success = false;
   bool job2_success = false;
@@ -75,14 +74,14 @@ struct AsyncCounterJob
   }
 };
 
-TEST_CASE("async job")
+TEST_CASE("async job", "[Jobs]")
 {
   auto j = std::make_shared<AsyncCounterJob>();
   run_job_blocking<int>(j);
   REQUIRE(j->counter == 10);
 }
 
-TEST_CASE("job completion handler is called")
+TEST_CASE("job completion handler is called", "[Jobs]")
 {
   bool called = false;
   auto j = make_job([](const auto& s)
@@ -96,7 +95,7 @@ TEST_CASE("job completion handler is called")
   REQUIRE(called);
 }
 
-TEST_CASE("nested job")
+TEST_CASE("nested job", "[Jobs]")
 {
   auto job1 = make_job([](const auto& s)
   {
@@ -117,7 +116,7 @@ TEST_CASE("nested job")
   });
 }
 
-TEST_CASE("cancelling job")
+TEST_CASE("cancelling job", "[Jobs]")
 {
   int counter = 0;
   auto j = make_job([&counter](const auto& s)
