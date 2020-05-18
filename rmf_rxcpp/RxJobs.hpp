@@ -18,6 +18,7 @@
 #ifndef RMF_RXCPP__RXJOBS_HPP
 #define RMF_RXCPP__RXJOBS_HPP
 
+#include "detail/RxJobsDetail.hpp"
 #include <rxcpp/rx.hpp>
 #include <memory>
 
@@ -38,7 +39,7 @@ auto make_observable(const Job& job)
   return rxcpp::observable<>::create<T>([job](const auto& s)
   {
     auto worker = event_loop.create_worker();
-    worker.schedule([job, s](const auto&) { (*job)(s); });
+    detail::schedule_job(job, s, worker);
   });
 }
 
@@ -125,15 +126,6 @@ inline void run_jobs_list_blocking(const JobsIterable& jobs, SubscriberArgs&&...
 inline auto make_subscription()
 {
   return rxcpp::composite_subscription{};
-}
-
-template<typename T>
-inline auto empty_job()
-{
-  return make_job([](const auto& s)
-  {
-    s.on_completed();
-  });
 }
 
 template<typename F>

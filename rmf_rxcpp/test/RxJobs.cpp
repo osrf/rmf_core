@@ -59,8 +59,8 @@ struct AsyncCounterJob
 {
   int counter = 0;
 
-  template<typename Subscriber>
-  void operator()(const Subscriber& s)
+  template<typename Subscriber, typename Worker>
+  void operator()(const Subscriber& s, const Worker& w)
   {
     s.on_next(++counter);
     if (counter >= 10)
@@ -68,9 +68,9 @@ struct AsyncCounterJob
       s.on_completed();
       return;
     }
-    run_job<int>(empty_job<int>(), [](const auto&) {}, [s, this]
+    w.schedule([this, s, w](const auto&)
     {
-      (*this)(s);
+      (*this)(s, w);
     });
   }
 };

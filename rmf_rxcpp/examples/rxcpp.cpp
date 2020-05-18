@@ -160,8 +160,8 @@ struct PlannerJob
     // Do nothing
   }
 
-  template<typename Subscriber>
-  void operator()(const Subscriber& s)
+  template<typename Subscriber, typename Worker>
+  void operator()(const Subscriber& s, const Worker& w)
   {
     auto r = process();
       s.on_next(Progress{*this, r});
@@ -171,9 +171,9 @@ struct PlannerJob
       return;
     }
 
-    run_job<Result>(empty_job<Result>(), [](const auto&) {}, [s, this]()
+    w.schedule([this, s, w](const auto&)
     {
-      (*this)(s);
+      (*this)(s, w);
     });
   }
 
