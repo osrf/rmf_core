@@ -613,6 +613,7 @@ private:
 ///   1e-8 meters.
 std::vector<Plan::Start> compute_plan_starts(
   const rmf_traffic::agv::Graph& graph,
+  const std::string& map_name,
   const Eigen::Vector3d pose,
   const rmf_traffic::Time start_time,
   const double max_merge_waypoint_distance = 0.1,
