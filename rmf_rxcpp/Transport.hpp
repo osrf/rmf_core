@@ -18,6 +18,7 @@
 #ifndef RMF_RXCPP__TRANSPORT_HPP
 #define RMF_RXCPP__TRANSPORT_HPP
 
+#include "detail/TransportDetail.hpp"
 #include "RxJobs.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <rxcpp/rx.hpp>
@@ -25,34 +26,6 @@
 
 class Transport : public rclcpp::Node
 {
-private:
-
-  template<typename Message>
-  class EventJob
-  {
-  public:
-
-    EventJob(rclcpp::Node::SharedPtr  node, std::string topic_name, const rclcpp::QoS& qos)
-    : _node{std::move(node)}, _topic_name{std::move(topic_name)}, _qos{qos}
-    {
-      // no op
-    }
-
-    template<typename Subscriber>
-    void operator()(const Subscriber& s)
-    {
-      _subscription = _node->create_subscription<Message>(_topic_name, _qos, [s](typename Message::SharedPtr msg)
-      {
-        s.on_next(msg);
-      });
-    }
-  private:
-
-    rclcpp::Node::SharedPtr _node;
-    std::string _topic_name;
-    rclcpp::QoS _qos;
-    typename rclcpp::Subscription<Message>::SharedPtr _subscription;
-  };
 public:
 
   explicit Transport(const std::string& node_name) : rclcpp::Node{node_name}
@@ -60,25 +33,39 @@ public:
     // no op
   }
 
-  template<typename Message>
-  auto create_event_job(const std::string& topic_name, const rclcpp::QoS& qos)
-  {
-    return std::make_shared<EventJob<Message>>(shared_from_this(), topic_name, qos);
-  }
+  /**
+   * Not threadsafe
+   */
+  void start();
 
-  void spin_background()
+  void stop();
+
+  /**
+   * Creates a sharable observable that is bridged to a rclcpp subscription and is observed on an
+   * event loop. When there are multiple subscribers, it multiplexes the message onto each
+   * subscriber.
+   * @tparam Message
+   * @param topic_name
+   * @param qos
+   * @return
+   */
+  template<typename Message>
+  auto create_observable(const std::string& topic_name, const rclcpp::QoS& qos)
   {
-    _spin_thread = std::thread{[this]() { _do_spin(); }};
+    auto wrapper = std::make_shared<detail::SubscriptionWrapper<Message>>(
+      shared_from_this(), topic_name, qos);
+    return rxcpp::observable<>::create<typename Message::SharedPtr>([wrapper](const auto& s)
+    {
+      (*wrapper)(s);
+    }).publish().ref_count().observe_on(rxcpp::observe_on_event_loop());
   }
 
 private:
 
   std::thread _spin_thread;
+  bool _stopping = true;
 
-  void _do_spin()
-  {
-    rclcpp::spin(shared_from_this());
-  }
+  void _do_spin();
 };
 
 

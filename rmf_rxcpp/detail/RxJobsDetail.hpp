@@ -21,19 +21,64 @@
 #include <rxcpp/rx.hpp>
 
 namespace detail {
-template<typename Job, typename Subscriber>
-using IsAsyncJob = std::is_constructible<std::function<void(Subscriber, int)>, typename Job::element_type>;
+template<typename Action, typename Subscriber>
+using IsAsyncAction = std::is_constructible<
+  std::function<void(Subscriber, rxcpp::schedulers::worker)>,
+  Action>;
 
-template<typename Job, typename Subscriber>
-void schedule_job(const Job& j, const Subscriber& s, const rxcpp::schedulers::worker w, typename std::enable_if_t<IsAsyncJob<Job, Subscriber>::value>* = 0)
+template<typename Action, typename Subscriber>
+void schedule_job(
+  const std::shared_ptr<Action>& a,
+  const Subscriber& s,
+  const rxcpp::schedulers::worker w,
+  typename std::enable_if_t<IsAsyncAction<Action, Subscriber>::value>* = 0)
 {
-  w.schedule([j, s, w](const auto&) { (*j)(s, w); });
+  w.schedule([a, s, w](const auto&) { (*a)(s, w); });
 }
 
-template<typename Job, typename Subscriber>
-void schedule_job(const Job& j, const Subscriber& s, const rxcpp::schedulers::worker w, typename std::enable_if_t<!IsAsyncJob<Job, Subscriber>::value>* = 0)
+template<typename Action, typename Subscriber>
+void schedule_job(
+  const std::shared_ptr<Action>& a,
+  const Subscriber& s,
+  const rxcpp::schedulers::worker w,
+  typename std::enable_if_t<!IsAsyncAction<Action, Subscriber>::value>* = 0)
 {
-  w.schedule([j, s](const auto&) { (*j)(s); });
+  w.schedule([a, s](const auto&) { (*a)(s); });
+}
+
+/**
+ * Creates an observable from a job, the observable runs the job in an event loop until it has
+ * completed or cancelled. Each progress update on a job is queued at the back of the event loop
+ * so that other jobs has a chance to start before earlier jobs are finished.
+ *
+ * @tparam Action
+ * @tparam Result
+ * @param action
+ * @return
+ */
+template<typename T, typename Action>
+auto make_observable(const std::shared_ptr<Action>& action)
+{
+  static auto event_loop = rxcpp::schedulers::make_event_loop();
+  return rxcpp::observable<>::create<T>([action](const auto& s)
+  {
+    auto worker = event_loop.create_worker();
+    detail::schedule_job(action, s, worker);
+  });
+}
+
+template<typename T, typename ActionsIterable>
+auto make_merged_observable(const ActionsIterable& actions)
+{
+  // needed to prevent dynamic observables, which reduces performance
+  using Observable = decltype(detail::make_observable<T>(*actions.begin()));
+
+  return rxcpp::observable<>::create<Observable>([&actions](const auto& s)
+  {
+    for (const auto& a : actions)
+      s.on_next(detail::make_observable<T>(a));
+    s.on_completed();
+  }).merge(rxcpp::serialize_event_loop());
 }
 
 } // namespace detail

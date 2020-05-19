@@ -22,12 +22,12 @@
 TEST_CASE("run simple job", "[Jobs]")
 {
   bool ran = false;
-  auto j = make_job([](const auto& s)
+  auto j = make_job<int>([](const auto& s)
   {
     s.on_next(1);
     s.on_completed();
   });
-  run_job_blocking<int>(j, [&ran](const auto&) { ran = true; });
+  j.as_blocking().subscribe([&ran](const auto&) { ran = true; });
   REQUIRE(ran);
 }
 
@@ -35,7 +35,7 @@ TEST_CASE("run multiple jobs in parallel", "[Jobs]")
 {
   bool job1_success = false;
   bool job2_success = false;
-  auto job1 = make_job([&job1_success, &job2_success](const auto& s) {
+  auto job1 = make_job<int>([&job1_success, &job2_success](const auto& s) {
     auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     while (std::chrono::steady_clock::now() < timeout)
     {
@@ -45,16 +45,17 @@ TEST_CASE("run multiple jobs in parallel", "[Jobs]")
     job1_success = job2_success;
     s.on_completed();
   });
-  auto job2 = make_job([&job2_success](const auto& s) {
+  auto job2 = make_job<int>([&job2_success](const auto& s) {
     job2_success = true;
     s.on_completed();
   });
+  auto job3 = group_jobs(job1, job2);
 
-  run_jobs_blocking<int>(std::make_tuple(job1, job2), [](const auto&) {});
+  job3.as_blocking().subscribe();
   REQUIRE(job1_success);
 }
 
-struct AsyncCounterJob
+struct AsyncCounterAction
 {
   int counter = 0;
 
@@ -76,19 +77,20 @@ struct AsyncCounterJob
 
 TEST_CASE("async job", "[Jobs]")
 {
-  auto j = std::make_shared<AsyncCounterJob>();
-  run_job_blocking<int>(j);
-  REQUIRE(j->counter == 10);
+  auto action = std::make_shared<AsyncCounterAction>();
+  auto j = make_job<int>(action);
+  j.as_blocking().subscribe();
+  REQUIRE(action->counter == 10);
 }
 
 TEST_CASE("job completion handler is called", "[Jobs]")
 {
   bool called = false;
-  auto j = make_job([](const auto& s)
+  auto j = make_job<int>([](const auto& s)
   {
     s.on_completed();
   });
-  run_job_blocking<int>(j, [](const auto&) {}, [&called]()
+  j.as_blocking().subscribe([](const auto&) {}, [&called]()
   {
     called = true;
   });
@@ -97,20 +99,21 @@ TEST_CASE("job completion handler is called", "[Jobs]")
 
 TEST_CASE("nested job", "[Jobs]")
 {
-  auto job1 = make_job([](const auto& s)
+  auto job1 = make_job<std::string>([](const auto& s)
   {
-    s.on_next(std::string{"hello"});
-    s.on_completed();
-  });
-  auto job2 = make_job([&job1](const auto& s)
-  {
-    run_job<std::string>(job1, [s](const auto& val)
+    auto job2 = make_job<std::string>([](const auto& s)
+    {
+      s.on_next("hello");
+      s.on_completed();
+    });
+
+    job2.subscribe([s](const auto& val)
     {
       s.on_next(val + " world");
       s.on_completed();
     });
   });
-  run_job_blocking<std::string>(job2, [](const auto& val)
+  job1.as_blocking().subscribe([](const auto& val)
   {
     REQUIRE(val == "hello world");
   });
@@ -119,7 +122,7 @@ TEST_CASE("nested job", "[Jobs]")
 TEST_CASE("cancelling job", "[Jobs]")
 {
   int counter = 0;
-  auto j = make_job([&counter](const auto& s)
+  auto j = make_job<int>([&counter](const auto& s)
   {
     for (int i = 1; i <= 10; i++)
     {
@@ -130,11 +133,37 @@ TEST_CASE("cancelling job", "[Jobs]")
     }
     s.on_completed();
   });
-  auto subscription = make_subscription();
-  run_job_blocking<int>(j, subscription, [&subscription](int i)
+  rxcpp::composite_subscription subscription{};
+  j.as_blocking().subscribe(subscription, [&subscription](int i)
   {
     if (i >= 5)
       subscription.unsubscribe();
   });
   REQUIRE(counter == 5);
+}
+
+struct DummyAction
+{
+  int call_count = 0;
+
+  template<typename Subscriber>
+  void operator()(const Subscriber& s)
+  {
+    s.on_next(++call_count);
+    s.on_completed();
+  }
+};
+
+TEST_CASE("make group jobs", "[Jobs]")
+{
+  std::vector<std::shared_ptr<DummyAction>> actions{
+    std::make_shared<DummyAction>(),
+    std::make_shared<DummyAction>()
+  };
+  auto j = make_group_job<int>(actions);
+  j.as_blocking().subscribe();
+  for (const auto& a : actions)
+  {
+    REQUIRE(a->call_count == 1);
+  }
 }

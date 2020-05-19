@@ -16,3 +16,24 @@
 */
 
 #include "Transport.hpp"
+
+void Transport::start()
+{
+  if (!_stopping)
+    return;
+  _stopping = false;
+  _spin_thread = std::thread{[this]() { _do_spin(); }};
+}
+
+void Transport::stop()
+{
+  _stopping = true;
+  if (_spin_thread.joinable())
+    _spin_thread.join();
+}
+
+void Transport::_do_spin()
+{
+  while (!_stopping)
+    rclcpp::spin_some(shared_from_this());
+}

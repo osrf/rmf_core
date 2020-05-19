@@ -24,26 +24,42 @@ TEST_CASE("publish subscribe loopback", "[Transport]")
 {
   rclcpp::init(0, nullptr);
   auto transport = std::make_shared<Transport>("test_transport");
-  transport->spin_background();
+  transport->start();
   auto publisher = transport->create_publisher<std_msgs::msg::String>("test_topic", 10);
-  auto event_job = transport->create_event_job<std_msgs::msg::String>("test_topic", 10);
+  auto obs = transport->create_observable<std_msgs::msg::String>("test_topic", 10);
 
-  std_msgs::msg::String msg{};
-  msg.data = "hello";
-  auto timer = transport->create_wall_timer(std::chrono::milliseconds(100), [&publisher, &msg]()
+  SECTION("can receive subscription")
   {
-    publisher->publish(msg);
-  });
-
-  bool received = false;
-  auto j = make_job([&event_job, &received](const auto& s)
-  {
-    run_job<std_msgs::msg::String::SharedPtr>(event_job, [&received, s](const auto&)
+    std_msgs::msg::String msg{};
+    msg.data = "hello";
+    auto timer = transport->create_wall_timer(std::chrono::milliseconds(100), [&publisher, &msg]()
     {
-      received = true;
-      s.on_completed();
+      publisher->publish(msg);
     });
-  });
-  run_job_blocking<bool>(j);
-  REQUIRE(received);
+
+    bool received = false;
+    auto j = make_job<std_msgs::msg::String>([&obs, &received](const auto& s)
+    {
+      obs.subscribe([s, &received](const auto&)
+      {
+        received = true;
+        s.on_completed();
+      });
+    });
+    j.as_blocking().subscribe();
+    REQUIRE(received);
+    REQUIRE(transport->count_subscribers("test_topic") == 1);
+  }
+
+  SECTION("multiple subscriptions are multiplexed")
+  {
+    rxcpp::composite_subscription subscription{};
+    obs.subscribe(subscription);
+    obs.subscribe(subscription);
+    REQUIRE(transport->count_subscribers("test_topic") == 1);
+    subscription.unsubscribe();
+  }
+
+  transport->stop();
+  rclcpp::shutdown();
 }
