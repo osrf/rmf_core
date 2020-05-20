@@ -272,7 +272,7 @@ struct MetaPlannerAction
     auto alternatives = rollout_A.expand(
           p_B.id(), std::chrono::seconds(30), {nullptr});
 
-//    std::cout << "Alternatives:" << std::endl;
+    std::cout << "Alternatives:" << std::endl;
     for (const auto& alternative : alternatives)
     {
 //      print_itinerary(alternative);
@@ -311,21 +311,20 @@ struct MetaPlannerAction
 
     //============================================================================
     //vvvvvvvvvvvvvvvvvvvvv TODO: Make this parallel vvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-//    std::cout << "Jobs: " << planner_actions.size() << std::endl;
+    std::cout << "Jobs: " << planner_actions.size() << std::endl;
 
     auto meta_job = make_job_from_action_list(planner_actions);
     meta_job.subscribe(
           [this, s, estimate_leeway](
             const PlannerAction::Progress& progress)
     {
-//      std::cout << "thread: " << std::this_thread::get_id() << std::endl;
       auto& result = progress.result;
 
       if (!result.cost_estimate())
       {
         // The plan is impossible, so we should just move on
         finished_count++;
-//        std::cout << "(Fail) Finished: " << finished_count << std::endl;
+        std::cout << "(Fail) Finished: " << finished_count << std::endl;
         if (finished_count >= planner_actions.size())
         {
           s.on_next(best_result->plan.get_itinerary());
@@ -339,7 +338,7 @@ struct MetaPlannerAction
       if (result) // This evaluates to true if a plan is ready
       {
         finished_count++;
-//        std::cout << "(Success) Finished: " << finished_count << std::endl;
+        std::cout << "(Success) Finished: " << finished_count << std::endl;
         const auto finish_time =
             *result->get_itinerary().back().trajectory().finish_time();
 
@@ -348,7 +347,7 @@ struct MetaPlannerAction
 
         if (!best_result || cost < best_result->cost)
         {
-//          std::cout << "New best: " << cost << std::endl;
+          std::cout << "New best: " << cost << std::endl;
           // If no result exists yet, use this as the best result.
           best_result = JobResult{cost, *result};
           best_estimate.cost = cost;
@@ -389,13 +388,13 @@ struct MetaPlannerAction
           }
         }
 
-//        std::cout << "(Resume) " << "current cost: " << cost_estimate
-//                  << " best estimate: " << best_estimate.cost << " best result: ";
-//        if (best_result)
-//          std::cout << best_result->cost;
-//        else
-//          std::cout << "N/A";
-//        std::cout << std::endl;
+        std::cout << "(Resume) " << "current cost: " << cost_estimate
+                  << " best estimate: " << best_estimate.cost << " best result: ";
+        if (best_result)
+          std::cout << best_result->cost;
+        else
+          std::cout << "N/A";
+        std::cout << std::endl;
 
         progress.action.set_maximum_cost_estimate(
               estimate_leeway*best_estimate.cost);
@@ -403,7 +402,7 @@ struct MetaPlannerAction
       else
       {
         finished_count++;
-//        std::cout << "(Discarded) Finished: " << finished_count << std::endl;
+        std::cout << "(Discarded) Finished: " << finished_count << std::endl;
         progress.action.discard();
         if (finished_count >= planner_actions.size())
         {
@@ -412,7 +411,7 @@ struct MetaPlannerAction
           return;
         }
       }
-//      std::cout << "//////////" << std::endl;
+      std::cout << "//////////" << std::endl;
     });
   }
 };
