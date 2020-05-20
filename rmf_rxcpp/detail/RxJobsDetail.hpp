@@ -24,13 +24,13 @@ namespace detail {
 template<typename Action, typename Subscriber>
 using IsAsyncAction = std::is_constructible<
   std::function<void(Subscriber, rxcpp::schedulers::worker)>,
-  Action>;
+  std::reference_wrapper<std::remove_reference_t<Action>>>;
 
 template<typename Action, typename Subscriber>
 void schedule_job(
   const std::shared_ptr<Action>& a,
   const Subscriber& s,
-  const rxcpp::schedulers::worker w,
+  const rxcpp::schedulers::worker& w,
   typename std::enable_if_t<IsAsyncAction<Action, Subscriber>::value>* = 0)
 {
   w.schedule([a, s, w](const auto&) { (*a)(s, w); });
@@ -40,10 +40,16 @@ template<typename Action, typename Subscriber>
 void schedule_job(
   const std::shared_ptr<Action>& a,
   const Subscriber& s,
-  const rxcpp::schedulers::worker w,
+  const rxcpp::schedulers::worker& w,
   typename std::enable_if_t<!IsAsyncAction<Action, Subscriber>::value>* = 0)
 {
   w.schedule([a, s](const auto&) { (*a)(s); });
+}
+
+inline auto get_event_loop()
+{
+  static auto event_loop = rxcpp::schedulers::make_event_loop();
+  return event_loop;
 }
 
 /**
@@ -59,10 +65,9 @@ void schedule_job(
 template<typename T, typename Action>
 auto make_observable(const std::shared_ptr<Action>& action)
 {
-  static auto event_loop = rxcpp::schedulers::make_event_loop();
   return rxcpp::observable<>::create<T>([action](const auto& s)
   {
-    auto worker = event_loop.create_worker();
+    auto worker = get_event_loop().create_worker();
     detail::schedule_job(action, s, worker);
   });
 }

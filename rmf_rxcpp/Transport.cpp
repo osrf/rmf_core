@@ -21,6 +21,7 @@ void Transport::start()
 {
   if (!_stopping)
     return;
+
   _stopping = false;
   _spin_thread = std::thread{[this]() { _do_spin(); }};
 }
@@ -34,6 +35,11 @@ void Transport::stop()
 
 void Transport::_do_spin()
 {
+  rclcpp::executor::ExecutorArgs exec_args;
+  exec_args.context = this->get_node_options().context();
+  rclcpp::executors::SingleThreadedExecutor executor(exec_args);
+  executor.add_node(shared_from_this());
+
   while (!_stopping)
-    rclcpp::spin_some(shared_from_this());
+    executor.spin_some();
 }

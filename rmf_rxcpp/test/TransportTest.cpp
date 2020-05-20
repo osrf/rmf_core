@@ -20,13 +20,25 @@
 #include <Transport.hpp>
 #include <std_msgs/msg/string.hpp>
 
+#include <rclcpp/contexts/default_context.hpp>
+
+std::size_t node_counter = 0;
+std::size_t topic_counter = 0;
+
 TEST_CASE("publish subscribe loopback", "[Transport]")
 {
-  rclcpp::init(0, nullptr);
-  auto transport = std::make_shared<Transport>("test_transport");
+  auto context = std::make_shared<rclcpp::Context>();
+  context->init(0, nullptr);
+
+  auto transport = std::make_shared<Transport>(
+        "test_transport_" + std::to_string(node_counter++),
+        rclcpp::NodeOptions().context(context));
+
   transport->start();
-  auto publisher = transport->create_publisher<std_msgs::msg::String>("test_topic", 10);
-  auto obs = transport->create_observable<std_msgs::msg::String>("test_topic", 10);
+
+  const std::string topic_name = "test_topic_" + std::to_string(topic_counter++);
+  auto publisher = transport->create_publisher<std_msgs::msg::String>(topic_name, 10);
+  auto obs = transport->create_observable<std_msgs::msg::String>(topic_name, 10);
 
   SECTION("can receive subscription")
   {
@@ -48,7 +60,7 @@ TEST_CASE("publish subscribe loopback", "[Transport]")
     });
     j.as_blocking().subscribe();
     REQUIRE(received);
-    REQUIRE(transport->count_subscribers("test_topic") == 1);
+    REQUIRE(transport->count_subscribers(topic_name) == 1);
   }
 
   SECTION("multiple subscriptions are multiplexed")
@@ -56,10 +68,10 @@ TEST_CASE("publish subscribe loopback", "[Transport]")
     rxcpp::composite_subscription subscription{};
     obs.subscribe(subscription);
     obs.subscribe(subscription);
-    REQUIRE(transport->count_subscribers("test_topic") == 1);
+    REQUIRE(transport->count_subscribers(topic_name) == 1);
     subscription.unsubscribe();
   }
 
   transport->stop();
-  rclcpp::shutdown();
+  rclcpp::shutdown(context);
 }

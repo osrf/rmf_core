@@ -49,7 +49,7 @@ TEST_CASE("run multiple jobs in parallel", "[Jobs]")
     job2_success = true;
     s.on_completed();
   });
-  auto job3 = group_jobs(job1, job2);
+  auto job3 = merge_jobs(job1, job2);
 
   job3.as_blocking().subscribe();
   REQUIRE(job1_success);
@@ -57,6 +57,8 @@ TEST_CASE("run multiple jobs in parallel", "[Jobs]")
 
 struct AsyncCounterAction
 {
+  using Result = int;
+
   int counter = 0;
 
   template<typename Subscriber, typename Worker>
@@ -78,7 +80,7 @@ struct AsyncCounterAction
 TEST_CASE("async job", "[Jobs]")
 {
   auto action = std::make_shared<AsyncCounterAction>();
-  auto j = make_job<int>(action);
+  auto j = make_job(action);
   j.as_blocking().subscribe();
   REQUIRE(action->counter == 10);
 }
@@ -144,6 +146,8 @@ TEST_CASE("cancelling job", "[Jobs]")
 
 struct DummyAction
 {
+  using Result = int;
+
   int call_count = 0;
 
   template<typename Subscriber>
@@ -160,7 +164,7 @@ TEST_CASE("make group jobs", "[Jobs]")
     std::make_shared<DummyAction>(),
     std::make_shared<DummyAction>()
   };
-  auto j = make_group_job<int>(actions);
+  auto j = make_job_from_action_list(actions);
   j.as_blocking().subscribe();
   for (const auto& a : actions)
   {

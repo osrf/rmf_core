@@ -22,28 +22,29 @@
 #include <rxcpp/rx.hpp>
 #include <memory>
 
-template<typename T, typename Action>
+template<typename Action>
 inline auto make_job(const std::shared_ptr<Action>& action)
 {
-  return detail::make_observable<T>(action);
+  return detail::make_observable<typename Action::Result>(action);
 }
 
-template<typename T, typename Action>
-inline auto make_job(const Action& action)
+template<typename T, typename F>
+inline auto make_job(const F& f)
 {
-  return detail::make_observable<T>(std::make_shared<Action>(action));
+  return detail::make_observable<T>(std::make_shared<F>(f));
 }
 
 template<typename Job0, typename... Jobs>
-inline auto group_jobs(const Job0& o0, Jobs&&... os)
+inline auto merge_jobs(const Job0& o0, Jobs&&... os)
 {
   return o0.merge(rxcpp::serialize_event_loop(), os...);
 }
 
-template<typename T, typename ActionsIterable>
-inline auto make_group_job(const ActionsIterable& actions)
+template<typename ActionsIterable>
+inline auto make_job_from_action_list(const ActionsIterable& actions)
 {
-  return detail::make_merged_observable<T>(actions);
+  using Action = typename std::iterator_traits<decltype(actions.begin())>::value_type::element_type;
+  return detail::make_merged_observable<typename Action::Result>(actions);
 }
 
 #endif //RMF_RXCPP__RXJOBS_HPP

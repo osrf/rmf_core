@@ -28,7 +28,10 @@ class Transport : public rclcpp::Node
 {
 public:
 
-  explicit Transport(const std::string& node_name) : rclcpp::Node{node_name}
+  explicit Transport(
+      const std::string& node_name,
+      const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
+    : rclcpp::Node{node_name, options}
   {
     // no op
   }
