@@ -18,11 +18,13 @@
 #ifndef RMF_RXCPP__TRANSPORT_HPP
 #define RMF_RXCPP__TRANSPORT_HPP
 
-#include "detail/TransportDetail.hpp"
-#include "RxJobs.hpp"
+#include <rmf_rxcpp/detail/TransportDetail.hpp>
+#include <rmf_rxcpp/RxJobs.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rxcpp/rx.hpp>
 #include <utility>
+
+namespace rmf_rxcpp {
 
 class Transport : public rclcpp::Node
 {
@@ -71,5 +73,6 @@ private:
   void _do_spin();
 };
 
+} // namespace rmf_rxcpp
 
 #endif //RMF_RXCPP__TRANSPORT_HPP

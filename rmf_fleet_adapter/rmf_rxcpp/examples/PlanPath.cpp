@@ -17,7 +17,7 @@
 
 #include "TestMap.hpp"
 
-#include <RxJobs.hpp>
+#include <rmf_rxcpp/RxJobs.hpp>
 
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/agv/Planner.hpp>

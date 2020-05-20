@@ -17,7 +17,7 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <Transport.hpp>
+#include <rmf_rxcpp/Transport.hpp>
 #include <std_msgs/msg/string.hpp>
 
 #include <rclcpp/contexts/default_context.hpp>
@@ -30,7 +30,7 @@ TEST_CASE("publish subscribe loopback", "[Transport]")
   auto context = std::make_shared<rclcpp::Context>();
   context->init(0, nullptr);
 
-  auto transport = std::make_shared<Transport>(
+  auto transport = std::make_shared<rmf_rxcpp::Transport>(
         "test_transport_" + std::to_string(node_counter++),
         rclcpp::NodeOptions().context(context));
 

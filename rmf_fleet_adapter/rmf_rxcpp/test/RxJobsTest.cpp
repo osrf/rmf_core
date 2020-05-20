@@ -17,7 +17,7 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <RxJobs.hpp>
+#include <rmf_rxcpp/RxJobs.hpp>
 
 TEST_CASE("run simple job", "[Jobs]")
 {

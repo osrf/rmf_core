@@ -20,6 +20,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+namespace rmf_rxcpp {
 namespace detail {
 
 template<typename Message>
@@ -50,5 +51,6 @@ private:
 };
 
 } // namespace detail
+} // namespace rmf_rxcpp
 
 #endif //RMF_RXCPP__TRANSPORTDETAIL_HPP

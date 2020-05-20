@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_rxcpp)
-
 if (NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
 endif()
@@ -10,16 +8,16 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-find_package(ament_cmake REQUIRED)
 find_package(Threads REQUIRED)
-find_package(rclcpp REQUIRED)
 
 add_library(rmf_rxcpp STATIC
-  Transport.cpp)
+  src/Transport.cpp
+)
+
 target_include_directories(rmf_rxcpp
   PUBLIC
-    .
-    RxCpp-4.1.0/Rx/v2/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/RxCpp-4.1.0/Rx/v2/src
     ${rclcpp_INCLUDE_DIRS}
 )
 target_link_libraries(rmf_rxcpp
@@ -57,18 +55,15 @@ if(BUILD_TESTING)
       rmf_utils::rmf_utils
       ${std_msgs_LIBRARIES}
   )
+
+  find_package(rmf_traffic REQUIRED)
+
+  add_executable(rmf_rxcpp_example_plan_path examples/PlanPath.cpp)
+
+  target_link_libraries(rmf_rxcpp_example_plan_path
+    PUBLIC
+      rmf_traffic::rmf_traffic
+      rmf_rxcpp
+  )
+
 endif()
-
-find_package(rmf_traffic REQUIRED)
-
-# -----------------------------------------------------------------------------
-
-add_executable(rmf_rxcpp_example_plan_path examples/PlanPath.cpp)
-
-target_link_libraries(rmf_rxcpp_example_plan_path
-  PUBLIC
-    rmf_traffic::rmf_traffic
-    rmf_rxcpp
-)
-
-ament_package()
