@@ -44,8 +44,8 @@ if(BUILD_TESTING)
   ament_add_catch2(
     rmf_rxcpp_test
       test/main.cpp
-      test/RxJobs.cpp
-      test/RxTransport.cpp
+      test/RxJobsTest.cpp
+      test/TransportTest.cpp
   )
   target_include_directories(rmf_rxcpp_test
     PRIVATE
@@ -63,9 +63,9 @@ find_package(rmf_traffic REQUIRED)
 
 # -----------------------------------------------------------------------------
 
-add_executable(rmf_rxcpp_example examples/rxcpp.cpp)
+add_executable(rmf_rxcpp_example_plan_path examples/PlanPath.cpp)
 
-target_link_libraries(rmf_rxcpp_example
+target_link_libraries(rmf_rxcpp_example_plan_path
   PUBLIC
     rmf_traffic::rmf_traffic
     rmf_rxcpp
