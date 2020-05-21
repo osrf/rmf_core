@@ -18,7 +18,7 @@
 #ifndef RMF_TRAFFIC__TEST__UNIT__AGV__UTILS_NEGOTIATIONROOM_HPP
 #define RMF_TRAFFIC__TEST__UNIT__AGV__UTILS_NEGOTIATIONROOM_HPP
 
-#include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/SimpleNegotiator.hpp>
 #include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>

@@ -19,7 +19,7 @@
 
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
-#include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/SimpleNegotiator.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>

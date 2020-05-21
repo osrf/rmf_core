@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/SimpleNegotiator.hpp>
 #include <rmf_traffic/agv/Rollout.hpp>
 #include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 
