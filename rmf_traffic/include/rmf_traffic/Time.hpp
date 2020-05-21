@@ -44,6 +44,10 @@ namespace time {
 /// floating-point representation in seconds.
 double to_seconds(Duration delta_t);
 
+/// Chance the given duration from a double-precision floating-point
+/// representation to a nanosecond count.
+Duration from_seconds(double delta_t);
+
 /// Return the given start_time, offset by the number of seconds given.
 ///
 /// \param[in] start_time

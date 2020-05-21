@@ -28,6 +28,13 @@ double to_seconds(const Duration delta_t)
 }
 
 //==============================================================================
+Duration from_seconds(double delta_t)
+{
+  using Sec64 = std::chrono::duration<double>;
+  return std::chrono::duration_cast<Duration>(Sec64(delta_t));
+}
+
+//==============================================================================
 Time apply_offset(const Time start_time, const double delta_seconds)
 {
   using Sec64 = std::chrono::duration<double>;

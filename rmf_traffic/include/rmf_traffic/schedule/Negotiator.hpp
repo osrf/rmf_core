@@ -31,6 +31,8 @@ class Negotiator
 {
 public:
 
+  using TableViewerPtr = Negotiation::Table::ViewerPtr;
+
   /// A pure abstract interface class that allows the Negotiator to respond to
   /// other Negotiators.
   class Responder
@@ -90,7 +92,7 @@ public:
   ///   has been running for too long. If the planner should run indefinitely,
   ///   then pass a nullptr.
   virtual void respond(
-    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
+    const TableViewerPtr& table_viewer,
     const Responder& responder,
     const bool* interrupt_flag = nullptr) = 0;
 
