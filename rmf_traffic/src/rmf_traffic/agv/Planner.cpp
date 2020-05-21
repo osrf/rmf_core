@@ -425,7 +425,9 @@ Planner::Result Planner::Result::Implementation::generate(
     Planner::Options options)
 {
   auto cache_handle = cache_mgr.get();
-  auto state = cache_handle->initiate(starts, goal, options);
+  auto state = cache_handle->initiate(
+        starts, std::move(goal), std::move(options));
+
   auto plan = Plan::Implementation::make(cache_handle->plan(state));
 
   Planner::Result result;
@@ -434,6 +436,28 @@ Planner::Result Planner::Result::Implementation::generate(
       std::move(cache_mgr),
       std::move(state),
       std::move(plan)
+    });
+
+  return result;
+}
+
+//==============================================================================
+Planner::Result Planner::Result::Implementation::setup(
+    rmf_traffic::internal::planning::CacheManager cache_mgr,
+    const std::vector<Planner::Start>& starts,
+    Planner::Goal goal,
+    Planner::Options options)
+{
+  auto cache_handle = cache_mgr.get();
+  auto state = cache_handle->initiate(
+        starts, std::move(goal), std::move(options));
+
+  Planner::Result result;
+  result._pimpl = rmf_utils::make_impl<Implementation>(
+    Implementation{
+      std::move(cache_mgr),
+      std::move(state),
+      rmf_utils::nullopt
     });
 
   return result;
@@ -518,6 +542,52 @@ Planner::Result Planner::plan(
 }
 
 //==============================================================================
+Planner::Result Planner::setup(const Start& start, Goal goal) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    _pimpl->default_options);
+}
+
+//==============================================================================
+Planner::Result Planner::setup(
+  const Start& start,
+  Goal goal,
+  Options options) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    std::move(options));
+}
+
+//==============================================================================
+Planner::Result Planner::setup(const StartSet& start, Goal goal) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    start,
+    std::move(goal),
+    _pimpl->default_options);
+}
+
+//==============================================================================
+Planner::Result Planner::setup(
+    const StartSet& start,
+    Goal goal,
+    Options options) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    start,
+    std::move(goal),
+    std::move(options));
+}
+
+//==============================================================================
 bool Planner::Result::success() const
 {
   return _pimpl->plan.has_value();
@@ -591,6 +661,50 @@ Planner::Result Planner::Result::replan(
   Options new_options) const
 {
   return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->state.conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
+Planner::Result Planner::Result::setup(const Start& new_start) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::setup(
+  const Start& new_start,
+  Options new_options) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->state.conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
+Planner::Result Planner::Result::setup(const StartSet& new_starts) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::setup(
+  const StartSet& new_starts,
+  Options new_options) const
+{
+  return Result::Implementation::setup(
     _pimpl->cache_mgr,
     new_starts,
     _pimpl->state.conditions.goal,

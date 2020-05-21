@@ -395,6 +395,32 @@ public:
     Goal goal,
     Options options) const;
 
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const Start&, Goal)
+  Result setup(const Start& start, Goal goal) const;
+
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const Start&, Goal, Options)
+  Result setup(
+    const Start& start,
+    Goal goal,
+    Options options) const;
+
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const StartSet&, Goal)
+  Result setup(const StartSet& starts, Goal goal) const;
+
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const StartSet&, Goal, Options)
+  Result setup(
+    const StartSet& starts,
+    Goal goal,
+    Options options) const;
+
   class Implementation;
   class Debug;
 private:
@@ -443,7 +469,7 @@ public:
   /// \param[in] new_options
   ///   The options that should be used for replanning.
   Result replan(
-    const Planner::Start& new_start,
+    const Start& new_start,
     Options new_options) const;
 
   /// Replan to the same goal from a new set of start locations using the same
@@ -462,6 +488,30 @@ public:
   /// \param[in] new_options
   ///   The options that should be used for replanning.
   Result replan(
+    const StartSet& new_starts,
+    Options new_options) const;
+
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const Start&)
+  Result setup(const Start& new_start) const;
+
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const Start&, Options)
+  Result setup(
+    const Start& new_start,
+    Options new_options) const;
+
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const StartSet&)
+  Result setup(const StartSet& new_starts) const;
+
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const StartSet&, Options)
+  Result setup(
     const StartSet& new_starts,
     Options new_options) const;
 
