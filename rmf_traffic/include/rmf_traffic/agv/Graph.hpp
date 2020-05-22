@@ -318,6 +318,13 @@ public:
     {
     public:
 
+      using DoorOpen = Lane::DoorOpen;
+      using DoorClose = Lane::DoorClose;
+      using LiftDoorOpen = Lane::LiftDoorOpen;
+      using LiftDoorClose = Lane::LiftDoorClose;
+      using LiftMove = Lane::LiftMove;
+      using Dock = Lane::Dock;
+
       virtual void execute(const DoorOpen& open) = 0;
       virtual void execute(const DoorClose& close) = 0;
       virtual void execute(const LiftDoorOpen& open) = 0;

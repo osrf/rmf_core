@@ -633,6 +633,9 @@ public:
   /// Get the start condition that was used for this plan.
   const Start& get_start() const;
 
+  /// Get the final cost of this plan.
+  double get_cost() const;
+
   // TODO(MXG): Create a feature that can diff two plans to produce the most
   // efficient schedule::Database::Change to get from the original plan to the
   // new plan.
