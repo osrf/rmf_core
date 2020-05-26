@@ -1101,15 +1101,15 @@ SCENARIO("DP1 Graph")
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
   graph.add_waypoint(test_map_name, {12, -12}).set_passthrough_point(true); // 0
-  graph.add_waypoint(test_map_name, {18, -12}, true); // 1
+  graph.add_waypoint(test_map_name, {18, -12}).set_holding_point(true); // 1
   graph.add_waypoint(test_map_name, {-10, -8}).set_passthrough_point(true); // 2
-  graph.add_waypoint(test_map_name, {-2, -8}, true);  // 3
+  graph.add_waypoint(test_map_name, {-2, -8}).set_holding_point(true);  // 3
   graph.add_waypoint(test_map_name, { 3, -8}).set_passthrough_point(true); // 4
   graph.add_waypoint(test_map_name, {12, -8}).set_passthrough_point(true); // 5
-  graph.add_waypoint(test_map_name, {18, -8}, true); // 6
-  graph.add_waypoint(test_map_name, {-15, -4}, true); // 7
+  graph.add_waypoint(test_map_name, {18, -8}).set_holding_point(true); // 6
+  graph.add_waypoint(test_map_name, {-15, -4}).set_holding_point(true); // 7
   graph.add_waypoint(test_map_name, {-10, -4}).set_passthrough_point(true); // 8
-  graph.add_waypoint(test_map_name, { -2, -4}, true); // 9
+  graph.add_waypoint(test_map_name, { -2, -4}).set_holding_point(true); // 9
   graph.add_waypoint(test_map_name, { 3, -4}).set_passthrough_point(true); // 10
   graph.add_waypoint(test_map_name, {6, -4}).set_passthrough_point(true); // 11
   graph.add_waypoint(test_map_name, {9, -4}).set_passthrough_point(true); // 12
@@ -1119,20 +1119,20 @@ SCENARIO("DP1 Graph")
   graph.add_waypoint(test_map_name, { 3, 0}).set_passthrough_point(true); // 16
   graph.add_waypoint(test_map_name, {6, 0}).set_passthrough_point(true); // 17
   graph.add_waypoint(test_map_name, {9, 0}).set_passthrough_point(true); // 18
-  graph.add_waypoint(test_map_name, {15, 0}, true);   // 19
-  graph.add_waypoint(test_map_name, {18, 0}, true);   // 20
-  graph.add_waypoint(test_map_name, { -2, 4}, true);  // 21
+  graph.add_waypoint(test_map_name, {15, 0}).set_holding_point(true);   // 19
+  graph.add_waypoint(test_map_name, {18, 0}).set_holding_point(true);   // 20
+  graph.add_waypoint(test_map_name, { -2, 4}).set_holding_point(true);  // 21
   graph.add_waypoint(test_map_name, { 3, 4}).set_passthrough_point(true); // 22
   graph.add_waypoint(test_map_name, {6, 4}).set_passthrough_point(true); // 23
   graph.add_waypoint(test_map_name, {9, 4}).set_passthrough_point(true); // 24
   graph.add_waypoint(test_map_name, {15, 4}).set_passthrough_point(true); // 25
   graph.add_waypoint(test_map_name, {18, 4}).set_passthrough_point(true); // 26
-  graph.add_waypoint(test_map_name, { -15, 8}, true); // 27
-  graph.add_waypoint(test_map_name, {-10, 8}, true);  // 28
-  graph.add_waypoint(test_map_name, {3, 8}, true);    // 29
-  graph.add_waypoint(test_map_name, {6, 8}, true);    // 30
-  graph.add_waypoint(test_map_name, {15, 8}, true);  // 31
-  graph.add_waypoint(test_map_name, {18, 8}, true);  // 32
+  graph.add_waypoint(test_map_name, { -15, 8}).set_holding_point(true); // 27
+  graph.add_waypoint(test_map_name, {-10, 8}).set_holding_point(true);  // 28
+  graph.add_waypoint(test_map_name, {3, 8}).set_holding_point(true);    // 29
+  graph.add_waypoint(test_map_name, {6, 8}).set_holding_point(true);    // 30
+  graph.add_waypoint(test_map_name, {15, 8}).set_holding_point(true);  // 31
+  graph.add_waypoint(test_map_name, {18, 8}).set_holding_point(true);  // 32
 
   REQUIRE(graph.num_waypoints() == 33);
 
@@ -1950,11 +1950,11 @@ SCENARIO("Test planner with various start conditions")
 
   const std::string test_map_name = "test_map";
   Graph graph;
-  graph.add_waypoint(test_map_name, {0, -5}, true); // 0
-  graph.add_waypoint(test_map_name, {-5, 0}, true); // 1
+  graph.add_waypoint(test_map_name, {0, -5}); // 0
+  graph.add_waypoint(test_map_name, {-5, 0}); // 1
   graph.add_waypoint(test_map_name, {0, 0}); // 2
-  graph.add_waypoint(test_map_name, {5, 0}, true); // 3
-  graph.add_waypoint(test_map_name, {0, 5}, true); // 4
+  graph.add_waypoint(test_map_name, {5, 0}); // 3
+  graph.add_waypoint(test_map_name, {0, 5}); // 4
   REQUIRE(graph.num_waypoints() == 5);
 
   graph.add_lane(0, 2); // 0
@@ -2317,11 +2317,11 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
 
   const std::string test_map_name = "test_map";
   Graph graph;
-  graph.add_waypoint(test_map_name, {0, 0}, true); // 0
-  graph.add_waypoint(test_map_name, {-4, 3}, true); // 1
+  graph.add_waypoint(test_map_name, {0, 0}); // 0
+  graph.add_waypoint(test_map_name, {-4, 3}); // 1
   graph.add_waypoint(test_map_name, {4, 3}); // 2
-  graph.add_waypoint(test_map_name, {-4, 15}, true); // 3
-  graph.add_waypoint(test_map_name, {4, 15}, true); // 4
+  graph.add_waypoint(test_map_name, {-4, 15}); // 3
+  graph.add_waypoint(test_map_name, {4, 15}); // 4
   REQUIRE(graph.num_waypoints() == 5);
 
   graph.add_lane(0, 1); // 0
