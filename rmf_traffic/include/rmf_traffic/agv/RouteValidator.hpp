@@ -21,6 +21,8 @@
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 
+#include <rmf_utils/clone_ptr.hpp>
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -89,6 +91,49 @@ public:
     const schedule::Viewer& viewer,
     schedule::ParticipantId participant_id,
     Profile profile);
+
+  /// Constructor
+  ///
+  /// This constructor will assume that the profile for the participant can be
+  /// found inside the viewer.
+  ///
+  /// \param[in] viewer
+  ///   The schedule viewer which will be used to check for conflicts. The
+  ///   reference to the viewer will be kept alive.
+  ///
+  /// \param[in] participant_id
+  ///   The ID for the participant that is being validated.
+  ScheduleRouteValidator(
+    std::shared_ptr<const schedule::Viewer> viewer,
+    schedule::ParticipantId participant_id);
+
+  /// Constructor
+  ///
+  /// This constructor will use the profile given to it for the participant that
+  /// is being planned for. This is safe to use, even if the participant is not
+  /// registered in the schedule yet.
+  ///
+  /// \param[in] viewer
+  ///   The schedule viewer which will be used ot check for conflicts. The
+  ///   reference to the viewer will be kept alive.
+  ///
+  /// \param[in] participant_id
+  ///   The ID for the participant that is being validated.
+  ///
+  /// \param[in] profile
+  ///   The profile for the participant.
+  ScheduleRouteValidator(
+    std::shared_ptr<const schedule::Viewer> viewer,
+    schedule::ParticipantId participant_id,
+    Profile profile);
+
+  /// Make the ScheduleRouteValidator as a clone_ptr
+  template<typename... Args>
+  static rmf_utils::clone_ptr<ScheduleRouteValidator> make(Args&&... args)
+  {
+    return rmf_utils::make_clone<ScheduleRouteValidator>(
+          std::forward<Args>(args)...);
+  }
 
   /// Change the schedule viewer to use for planning.
   ///

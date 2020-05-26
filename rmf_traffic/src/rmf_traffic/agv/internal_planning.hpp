@@ -73,6 +73,7 @@ struct Plan
   std::vector<Route> routes;
   std::vector<agv::Plan::Waypoint> waypoints;
   agv::Planner::Start start;
+  double cost;
 };
 
 //==============================================================================

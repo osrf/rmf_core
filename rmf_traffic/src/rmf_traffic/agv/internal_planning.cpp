@@ -1876,7 +1876,8 @@ private:
     return Plan{
       std::move(routes),
       std::move(waypoints),
-      starts[start_index]
+      starts[start_index],
+      solution->current_cost
     };
   }
 
