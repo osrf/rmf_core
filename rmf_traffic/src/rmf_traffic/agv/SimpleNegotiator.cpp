@@ -26,6 +26,11 @@ namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
+// This line tells the linker to take care of defining the value of this field
+// inside of this translation unit.
+const double SimpleNegotiator::Options::DefaultMaxCostLeeway;
+
+//==============================================================================
 class SimpleNegotiator::Options::Implementation
 {
 public:
@@ -220,6 +225,7 @@ inline void print_itinerary(
   }
   else
   {
+    std::cout << "[Routes: " << itinerary.size() << "]";
     auto start_time = print_start(*itinerary.front());
     for (const auto& r : itinerary)
       print_route(*r, start_time);
@@ -237,6 +243,7 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
   }
   else
   {
+    std::cout << "[Routes: " << itinerary.size() << "]";
     auto start_time = print_start(itinerary.front());
     for (const auto& r : itinerary)
       print_route(r, start_time);
@@ -277,6 +284,14 @@ void SimpleNegotiator::respond(
   rmf_utils::optional<schedule::Negotiation::Alternatives> alternatives;
   rmf_utils::optional<std::vector<schedule::ParticipantId>> best_blockers;
 
+  if (_pimpl->debug_print)
+  {
+    std::cout << "Responding to [";
+    for (const auto& p : table_viewer->sequence())
+      std::cout << " " << p.participant << ":" << p.version;
+    std::cout << " ]" << std::endl;
+  }
+
   while (!validators.empty() && !(interrupt_flag && *interrupt_flag))
   {
     const auto validator = std::move(validators.front());
@@ -296,7 +311,7 @@ void SimpleNegotiator::respond(
         std::cout << "Negotiating with rollouts:";
         for (const auto& r : validator->alternatives())
         {
-          std::cout << " [" << r.participant << ":" << r.version << "|"
+          std::cout << " [" << r.participant << "|" << r.version << "/"
                     << table_viewer->alternatives().at(r.participant)->size()
                     << "]";
         }
@@ -311,6 +326,10 @@ void SimpleNegotiator::respond(
     {
       plan.options().maximum_cost_estimate(
             maximum_cost_leeway.value() * initial_cost_estimate);
+    }
+    else
+    {
+      plan.options().maximum_cost_estimate(rmf_utils::nullopt);
     }
 
     plan.resume();
@@ -424,7 +443,7 @@ void SimpleNegotiator::respond(
     {
       if (_pimpl->debug_print)
       {
-        std::cout << "Rolled out [" << alternatives->size() << "] alternatives"
+        std::cout << "Rolled out [" << alternatives->size() << "] alternatives:"
                   << std::endl;
       }
 
@@ -435,6 +454,7 @@ void SimpleNegotiator::respond(
       {
         for (const auto& itinerary : *alternatives)
           print_itinerary(itinerary);
+        std::cout << " ^^^^^^^^^^ " << std::endl;
       }
     }
 

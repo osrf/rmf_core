@@ -170,7 +170,9 @@ NodePtr search(
 
 //==============================================================================
 template<typename NodePtr>
-std::vector<Route> reconstruct_routes(const NodePtr& finish_node)
+std::vector<Route> reconstruct_routes(
+    const NodePtr& finish_node,
+    rmf_utils::optional<rmf_traffic::Duration> span = rmf_utils::nullopt)
 {
   NodePtr node = finish_node;
   std::vector<NodePtr> node_sequence;
@@ -182,8 +184,30 @@ std::vector<Route> reconstruct_routes(const NodePtr& finish_node)
 
   if (node_sequence.size() == 1)
   {
-    // If there is only one node in the sequence, then it is a start node. When
-    // this happens, we should return an empty itinerary to indicate that the
+    // If there is only one node in the sequence, then it is a start node.
+    if (span)
+    {
+      // When performing a rollout, it is important that at least one route with
+      // two waypoints is provided. We use the span value to creating a
+      // stationary trajectory when the robot is already starting out at a
+      // holding point.
+      std::vector<Route> output;
+      Route simple_route =
+          RouteData::make(node_sequence.back()->route_from_parent);
+      if (simple_route.trajectory().size() < 2)
+      {
+        const auto& wp = simple_route.trajectory().back();
+        simple_route.trajectory().insert(
+              wp.time() + *span,
+              wp.position(),
+              Eigen::Vector3d::Zero());
+      }
+
+      output.emplace_back(std::move(simple_route));
+      return output;
+    }
+
+    // When the , we should return an empty itinerary to indicate that the
     // AGV does not need to go anywhere.
     return {};
   }
@@ -1692,10 +1716,14 @@ public:
       finished_rollouts.pop();
 
       schedule::Itinerary itinerary;
-      auto routes = reconstruct_routes(node);
+      auto routes = reconstruct_routes(node, max_span);
       for (auto& r : routes)
+      {
+        assert(r.trajectory().size() > 0);
         itinerary.emplace_back(std::make_shared<Route>(std::move(r)));
+      }
 
+      assert(!itinerary.empty());
       alternatives.emplace_back(std::move(itinerary));
     }
 
