@@ -67,6 +67,16 @@ public:
     /// vehicle.
     Waypoint& set_holding_point(bool _is_holding_point);
 
+    /// Returns true if this Waypoint is a passthrough point, meaning a planner
+    /// should not have a robot wait at this point, even briefly to allow
+    /// another robot to pass. Setting passthrough points reduces the branching
+    /// factor of a planner, allowing it to run faster, at the cost of losing
+    /// possible solutions to conflicts.
+    bool is_passthrough_point() const;
+
+    /// Set this waypoint to be a passthrough point.
+    Waypoint& set_passthrough_point(bool _is_passthrough);
+
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
     std::size_t index() const;

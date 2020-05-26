@@ -48,17 +48,25 @@ public:
   ///   participant wasn't actually blocking, then the returned vector will be
   ///   empty.
   ///
+  /// \param[in] span
+  ///   How far into the future the rollout should continue. Once a rollout
+  ///   extends this far, it will stop wherever it is.
+  ///
   /// \param[in] options
   ///   The options to use while expanding. NOTE: It is important to provide a
   ///   RouteValidator that will ignore the blocker, otherwise the expansion
   ///   might not give back any useful results.
+  ///
+  /// \param[in] max_rollouts
+  ///   The maximum number of rollouts to produce.
   ///
   /// \return a collection of itineraries from the original Planning Result's
   /// starts past the blockages that were caused by the specified blocker.
   std::vector<schedule::Itinerary> expand(
       schedule::ParticipantId blocker,
       rmf_traffic::Duration span,
-      const Planner::Options& options) const;
+      const Planner::Options& options,
+      rmf_utils::optional<std::size_t> max_rollouts = rmf_utils::nullopt) const;
 
   class Implementation;
 private:

@@ -37,6 +37,8 @@ public:
 
   bool holding_point;
 
+  bool passthrough_point = false;
+
   template<typename... Args>
   static Waypoint make(Args&& ... args)
   {
@@ -84,6 +86,19 @@ bool Graph::Waypoint::is_holding_point() const
 auto Graph::Waypoint::set_holding_point(bool _is_holding_point) -> Waypoint&
 {
   _pimpl->holding_point = _is_holding_point;
+  return *this;
+}
+
+//==============================================================================
+bool Graph::Waypoint::is_passthrough_point() const
+{
+  return _pimpl->passthrough_point;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_passthrough_point(bool _is_passthrough) -> Waypoint&
+{
+  _pimpl->passthrough_point = _is_passthrough;
   return *this;
 }
 

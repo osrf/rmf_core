@@ -117,14 +117,14 @@ SCENARIO("Test Rollout on graph with side routes")
   GIVEN("Nav graph with side routes")
   {
     graph.add_waypoint(test_map_name, {0.0, -10.0}); // 0
-    graph.add_waypoint(test_map_name, {0.0, -5.0}, true);  // 1
+    graph.add_waypoint(test_map_name, {0.0, -5.0});  // 1
     graph.add_waypoint(test_map_name, {5.0, -5.0}, true);  // 2
     graph.add_waypoint(test_map_name, {-10.0, 0.0}); // 3
-    graph.add_waypoint(test_map_name, {-5.0, 0.0}, true); // 4
+    graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 4
     graph.add_waypoint(test_map_name, {0.0, 0.0}); // 5
     graph.add_waypoint(test_map_name, {5.0, 0.0}); // 6
     graph.add_waypoint(test_map_name, {10.0, 0.0}); // 7
-    graph.add_waypoint(test_map_name, {0.0, 5.0}, true); // 8
+    graph.add_waypoint(test_map_name, {0.0, 5.0}); // 8
     graph.add_waypoint(test_map_name, {5.0, 5.0}, true); // 9
     graph.add_waypoint(test_map_name, {0.0, 10.0}); // 10
 
@@ -174,9 +174,9 @@ SCENARIO("Test Rollout on graph with side routes")
      *
      **/
 
-    graph.add_waypoint(test_map_name, {-5.0, 0.0}, true); // 0
+    graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 0
     graph.add_waypoint(test_map_name, { 0.0, 0.0}); // 1
-    graph.add_waypoint(test_map_name, { 5.0, 0.0}, true); // 2
+    graph.add_waypoint(test_map_name, { 5.0, 0.0}); // 2
     graph.add_waypoint(test_map_name, { 0.0, 5.0}, true); // 3
 
     start_0 = 0;

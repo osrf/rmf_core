@@ -509,19 +509,19 @@ SCENARIO("Test planning")
 
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
-  graph.add_waypoint(test_map_name, {-5, -5}); // 0
-  graph.add_waypoint(test_map_name, { 0, -5}); // 1
-  graph.add_waypoint(test_map_name, { 5, -5}); // 2
-  graph.add_waypoint(test_map_name, {10, -5}); // 3
-  graph.add_waypoint(test_map_name, {-5, 0}, true); // 4
-  graph.add_waypoint(test_map_name, { 0, 0}, true); // 5
-  graph.add_waypoint(test_map_name, { 5, 0}, true); // 6
-  graph.add_waypoint(test_map_name, {10, 0}); // 7
-  graph.add_waypoint(test_map_name, {10, 4}); // 8
-  graph.add_waypoint(test_map_name, { 0, 8}); // 9
-  graph.add_waypoint(test_map_name, { 5, 8}); // 10
-  graph.add_waypoint(test_map_name, {10, 12}); // 11
-  graph.add_waypoint(test_map_name, {12, 12}); // 12
+  graph.add_waypoint(test_map_name, {-5, -5}).set_passthrough_point(true); // 0
+  graph.add_waypoint(test_map_name, { 0, -5}).set_passthrough_point(true); // 1
+  graph.add_waypoint(test_map_name, { 5, -5}).set_passthrough_point(true); // 2
+  graph.add_waypoint(test_map_name, {10, -5}).set_passthrough_point(true); // 3
+  graph.add_waypoint(test_map_name, {-5, 0}); // 4
+  graph.add_waypoint(test_map_name, { 0, 0}); // 5
+  graph.add_waypoint(test_map_name, { 5, 0}); // 6
+  graph.add_waypoint(test_map_name, {10, 0}).set_passthrough_point(true); // 7
+  graph.add_waypoint(test_map_name, {10, 4}).set_passthrough_point(true); // 8
+  graph.add_waypoint(test_map_name, { 0, 8}).set_passthrough_point(true); // 9
+  graph.add_waypoint(test_map_name, { 5, 8}).set_passthrough_point(true); // 10
+  graph.add_waypoint(test_map_name, {10, 12}).set_passthrough_point(true); // 11
+  graph.add_waypoint(test_map_name, {12, 12}).set_passthrough_point(true); // 12
   REQUIRE(graph.num_waypoints() == 13);
 
   auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
@@ -1039,7 +1039,6 @@ SCENARIO("Test planning")
 
       WHEN("Second obstacle is introduced")
       {
-        REQUIRE(graph.get_waypoint(4).is_holding_point());
         rmf_traffic::Trajectory obstacle_2;
         obstacle_2.insert(
           time + 49s,
@@ -1101,33 +1100,33 @@ SCENARIO("DP1 Graph")
   //initialize graph
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
-  graph.add_waypoint(test_map_name, {12, -12});       // 0
+  graph.add_waypoint(test_map_name, {12, -12}).set_passthrough_point(true); // 0
   graph.add_waypoint(test_map_name, {18, -12}, true); // 1
-  graph.add_waypoint(test_map_name, {-10, -8});       // 2
+  graph.add_waypoint(test_map_name, {-10, -8}).set_passthrough_point(true); // 2
   graph.add_waypoint(test_map_name, {-2, -8}, true);  // 3
-  graph.add_waypoint(test_map_name, { 3, -8});       // 4
-  graph.add_waypoint(test_map_name, {12, -8});       // 5
+  graph.add_waypoint(test_map_name, { 3, -8}).set_passthrough_point(true); // 4
+  graph.add_waypoint(test_map_name, {12, -8}).set_passthrough_point(true); // 5
   graph.add_waypoint(test_map_name, {18, -8}, true); // 6
   graph.add_waypoint(test_map_name, {-15, -4}, true); // 7
-  graph.add_waypoint(test_map_name, {-10, -4});      // 8
+  graph.add_waypoint(test_map_name, {-10, -4}).set_passthrough_point(true); // 8
   graph.add_waypoint(test_map_name, { -2, -4}, true); // 9
-  graph.add_waypoint(test_map_name, { 3, -4});       // 10
-  graph.add_waypoint(test_map_name, {6, -4});         // 11
-  graph.add_waypoint(test_map_name, {9, -4});         // 12
-  graph.add_waypoint(test_map_name, {-15, 0});       // 13
-  graph.add_waypoint(test_map_name, {-10, 0});       // 14
-  graph.add_waypoint(test_map_name, { 0, 0});        // 15 DOOR (not implemented)
-  graph.add_waypoint(test_map_name, { 3, 0});        // 16
-  graph.add_waypoint(test_map_name, {6, 0});          // 17
-  graph.add_waypoint(test_map_name, {9, 0});          // 18
+  graph.add_waypoint(test_map_name, { 3, -4}).set_passthrough_point(true); // 10
+  graph.add_waypoint(test_map_name, {6, -4}).set_passthrough_point(true); // 11
+  graph.add_waypoint(test_map_name, {9, -4}).set_passthrough_point(true); // 12
+  graph.add_waypoint(test_map_name, {-15, 0}).set_passthrough_point(true); // 13
+  graph.add_waypoint(test_map_name, {-10, 0}).set_passthrough_point(true); // 14
+  graph.add_waypoint(test_map_name, { 0, 0}).set_passthrough_point(true); // 15 DOOR (not implemented)
+  graph.add_waypoint(test_map_name, { 3, 0}).set_passthrough_point(true); // 16
+  graph.add_waypoint(test_map_name, {6, 0}).set_passthrough_point(true); // 17
+  graph.add_waypoint(test_map_name, {9, 0}).set_passthrough_point(true); // 18
   graph.add_waypoint(test_map_name, {15, 0}, true);   // 19
   graph.add_waypoint(test_map_name, {18, 0}, true);   // 20
   graph.add_waypoint(test_map_name, { -2, 4}, true);  // 21
-  graph.add_waypoint(test_map_name, { 3, 4});        // 22
-  graph.add_waypoint(test_map_name, {6, 4});          // 23
-  graph.add_waypoint(test_map_name, {9, 4});          // 24
-  graph.add_waypoint(test_map_name, {15, 4});        // 25
-  graph.add_waypoint(test_map_name, {18, 4});        // 26
+  graph.add_waypoint(test_map_name, { 3, 4}).set_passthrough_point(true); // 22
+  graph.add_waypoint(test_map_name, {6, 4}).set_passthrough_point(true); // 23
+  graph.add_waypoint(test_map_name, {9, 4}).set_passthrough_point(true); // 24
+  graph.add_waypoint(test_map_name, {15, 4}).set_passthrough_point(true); // 25
+  graph.add_waypoint(test_map_name, {18, 4}).set_passthrough_point(true); // 26
   graph.add_waypoint(test_map_name, { -15, 8}, true); // 27
   graph.add_waypoint(test_map_name, {-10, 8}, true);  // 28
   graph.add_waypoint(test_map_name, {3, 8}, true);    // 29

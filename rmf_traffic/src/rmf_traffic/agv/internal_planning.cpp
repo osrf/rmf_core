@@ -800,7 +800,6 @@ struct DifferentialDriveExpander
       if (!is_valid(route, start_node))
         continue;
 
-//      std::cout << "Expanding down lane from start" << std::endl;
       queue.push(std::make_shared<Node>(
         Node{
           remaining_cost_estimate,
@@ -829,7 +828,6 @@ struct DifferentialDriveExpander
 
     if (is_valid(wait_route, start_node))
     {
-//      std::cout << "Expanding hold from start" << std::endl;
       queue.push(std::make_shared<Node>(
         Node{
           start_node->remaining_cost_estimate,
@@ -929,6 +927,14 @@ struct DifferentialDriveExpander
     }
 
     return true;
+  }
+
+  bool is_holding_point(rmf_utils::optional<std::size_t> waypoint) const
+  {
+    if (!waypoint)
+      return false;
+
+    return _context.graph.waypoints.at(*waypoint).is_holding_point();
   }
 
   bool quit(const NodePtr& node) const
@@ -1418,7 +1424,7 @@ struct DifferentialDriveExpander
     for (const std::size_t l : lanes)
       expand_lane(parent_node, l, queue);
 
-    if (_context.graph.waypoints[parent_waypoint].is_holding_point())
+    if (!_context.graph.waypoints[parent_waypoint].is_passthrough_point())
       expand_holding(parent_waypoint, parent_node, queue);
   }
 
@@ -1566,7 +1572,8 @@ public:
       const Duration max_span,
       const Issues::BlockedNodes& nodes,
       const agv::Planner::Goal& goal,
-      const agv::Planner::Options& options) final
+      const agv::Planner::Options& options,
+      rmf_utils::optional<std::size_t> max_rollouts) final
   {
 //    using RolloutQueue =
 //      std::priority_queue<
@@ -1651,22 +1658,24 @@ public:
           top.node->route_from_parent.trajectory.back().time()
           - top.initial_time;
 
-      if (max_span < current_span)
-      {
-        finished_rollouts.push(top.node);
-        continue;
-      }
+      const bool stop_expanding =
+             (max_span < current_span)
+          || expander.is_finished(top.node)
+          || expander.is_holding_point(top.node->waypoint);
 
-      if (expander.is_finished(top.node))
+      if (stop_expanding)
       {
         finished_rollouts.push(top.node);
+
+        if (max_rollouts && *max_rollouts <= finished_rollouts.size())
+          break;
+
         continue;
       }
 
       expander.expand(top.node, search_queue);
       while (!search_queue.empty())
       {
-//        rollout_queue.emplace(
         rollout_queue.emplace_back(
           RolloutEntry{
             top.initial_time,
