@@ -123,8 +123,11 @@ public:
   NegotiationRoom(
     std::shared_ptr<const rmf_traffic::schedule::Viewer> viewer,
     Intentions intentions,
+    double max_cost_leeway =
+      rmf_traffic::agv::SimpleNegotiator::Options::DefaultMaxCostLeeway,
+    std::size_t max_alts = 1,
     const bool print_failures_ = false)
-  : negotiators(make_negotiators(intentions)),
+  : negotiators(make_negotiators(intentions, max_cost_leeway, max_alts)),
     negotiation(Negotiation::make_shared(
         std::move(viewer), get_participants(intentions))),
     _print(print_failures_)
@@ -202,27 +205,7 @@ public:
       }
 
       auto viewer = top->viewer();
-      bool interrupt = false;
-      auto result = std::async(
-            std::launch::async,
-            [&]()
-      {
-        negotiator.respond(viewer, Responder(top, &blockers), &interrupt);
-      });
-
-      using namespace std::chrono_literals;
-#if NDEBUG
-      const auto wait_time = 1s;
-#else
-      // We wait longer in debug mode because the planner takes much longer to
-      // run in debug than it does in release.
-      const auto wait_time = 15s;
-#endif
-      // Give up if the solution is not found within a time limit
-      if (result.wait_for(wait_time) != std::future_status::ready)
-        interrupt = true;
-
-      result.wait();
+      negotiator.respond(viewer, Responder(top, &blockers));
 
       if (top->submission())
       {
@@ -284,7 +267,9 @@ public:
   }
 
   static std::unordered_map<ParticipantId, Negotiator> make_negotiators(
-    const std::unordered_map<ParticipantId, Intention>& intentions)
+    const std::unordered_map<ParticipantId, Intention>& intentions,
+    double maximum_cost_leeway,
+    std::size_t maximum_alts)
   {
     std::unordered_map<ParticipantId, Negotiator> negotiators;
     for (const auto& entry : intentions)
@@ -295,7 +280,9 @@ public:
         std::make_pair(
           participant,
           rmf_traffic::agv::SimpleNegotiator(
-            intention.start, intention.goal, intention.configuration)));
+            intention.start, intention.goal, intention.configuration,
+            rmf_traffic::agv::SimpleNegotiator::Options(
+                  nullptr, maximum_cost_leeway, maximum_alts))));
     }
 
     return negotiators;

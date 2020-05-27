@@ -37,6 +37,8 @@ public:
   {
   public:
 
+    static constexpr double DefaultMaxCostLeeway = 3.0;
+
     using ApprovalCallback =
         std::function<Responder::UpdateVersion(rmf_traffic::agv::Plan)>;
 
@@ -45,16 +47,37 @@ public:
     /// \param[in] approval_cb
     ///   The callback that will be triggered if the proposal is approved.
     ///
+    /// \param[in] maximum_cost_leeway
+    ///   The initial cost estimate for each planning attempt will be multiplied
+    ///   by this factor to determine the maximum cost estimate that will be
+    ///   allowed for a plan before giving up.
+    ///
+    /// \param[in] maximum_alts
+    ///   The maximum number of alternatives to produce when rejecting a
+    ///   proposal from another negotiator.
+    ///
     /// \param[in] min_hold_time
     ///   The minimum amount of time that the planner should spend waiting at
     ///   holding points. See Planner::Options for more information.
     Options(
       ApprovalCallback approval_cb = nullptr,
+      rmf_utils::optional<double> maximum_cost_leeway = DefaultMaxCostLeeway,
+      rmf_utils::optional<std::size_t> maximum_alts = rmf_utils::nullopt,
       Duration min_hold_time = Planner::Options::DefaultMinHoldingTime);
 
     /// Set the approval callback
     // TODO(MXG): The approval_callback option needs to be unit tested
     Options& approval_callback(ApprovalCallback cb);
+
+    /// Set the maximum cost leeway
+    Options& maximum_cost_leeway(rmf_utils::optional<double> leeway);
+
+    /// Get the maximum cost leeway
+    rmf_utils::optional<double> maximum_cost_leeway() const;
+
+    Options& maximum_alternatives(rmf_utils::optional<std::size_t> num);
+
+    rmf_utils::optional<std::size_t> maximum_alternatives() const;
 
     /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);

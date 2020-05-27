@@ -35,7 +35,11 @@ public:
 
   Eigen::Vector2d location;
 
-  bool holding_point;
+  bool holding_point = false;
+
+  bool passthrough_point = false;
+
+  bool parking_spot = false;
 
   template<typename... Args>
   static Waypoint make(Args&& ... args)
@@ -84,6 +88,32 @@ bool Graph::Waypoint::is_holding_point() const
 auto Graph::Waypoint::set_holding_point(bool _is_holding_point) -> Waypoint&
 {
   _pimpl->holding_point = _is_holding_point;
+  return *this;
+}
+
+//==============================================================================
+bool Graph::Waypoint::is_passthrough_point() const
+{
+  return _pimpl->passthrough_point;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_passthrough_point(bool _is_passthrough) -> Waypoint&
+{
+  _pimpl->passthrough_point = _is_passthrough;
+  return *this;
+}
+
+//==============================================================================
+bool Graph::Waypoint::is_parking_spot() const
+{
+  return _pimpl->parking_spot;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_parking_spot(bool _is_parking_spot) -> Waypoint&
+{
+  _pimpl->parking_spot = _is_parking_spot;
   return *this;
 }
 
@@ -666,13 +696,12 @@ Graph::Graph()
 //==============================================================================
 auto Graph::add_waypoint(
   std::string map_name,
-  Eigen::Vector2d location,
-  const bool is_holding_point) -> Waypoint&
+  Eigen::Vector2d location) -> Waypoint&
 {
   _pimpl->waypoints.emplace_back(
     Waypoint::Implementation::make(
       _pimpl->waypoints.size(),
-      std::move(map_name), std::move(location), is_holding_point));
+      std::move(map_name), std::move(location)));
 
   _pimpl->lanes_from.push_back({});
 

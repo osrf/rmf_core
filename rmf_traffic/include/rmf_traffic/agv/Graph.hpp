@@ -67,6 +67,24 @@ public:
     /// vehicle.
     Waypoint& set_holding_point(bool _is_holding_point);
 
+    /// Returns true if this Waypoint is a passthrough point, meaning a planner
+    /// should not have a robot wait at this point, even just briefly to allow
+    /// another robot to pass. Setting passthrough points reduces the branching
+    /// factor of a planner, allowing it to run faster, at the cost of losing
+    /// possible solutions to conflicts.
+    bool is_passthrough_point() const;
+
+    /// Set this Waypoint to be a passthrough point.
+    Waypoint& set_passthrough_point(bool _is_passthrough);
+
+    /// Returns true if this Waypoint is a parking spot. Parking spots are used
+    /// when an emergency alarm goes off, and the robot is required to park
+    /// itself.
+    bool is_parking_spot() const;
+
+    /// Set this Waypoint to be a parking spot.
+    Waypoint& set_parking_spot(bool _is_parking_spot);
+
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
     std::size_t index() const;
@@ -456,14 +474,10 @@ public:
   /// Make a new waypoint for this graph. It will not be connected to any other
   /// waypoints until you use make_lane() to connect it.
   ///
-  /// \note Waypoints cannot be erased from a Graph after they are created. That
-  /// feature could be introduced in a later version of this library, but as of
-  /// this version, it is not supported. This is to avoid confusion for Lanes if
-  /// a Waypoint that they depend on is erased.
+  /// \note Waypoints cannot be erased from a Graph after they are created.
   Waypoint& add_waypoint(
     std::string map_name,
-    Eigen::Vector2d location,
-    bool is_holding_point = false);
+    Eigen::Vector2d location);
 
   // TODO(MXG): Allow waypoints to have keynames so that they can be gotten by
   // a string value instead of an index value.

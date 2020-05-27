@@ -83,18 +83,18 @@ SCENARIO("Test difficult 3-way scenarios")
   const std::string test_map_name = "test_map";
 
   rmf_traffic::agv::Graph graph_a;
-  graph_a.add_waypoint(test_map_name, {18.013, -15.518}, true); // 0
-  graph_a.add_waypoint(test_map_name, {12.417, -15.536}, true); // 1
-  graph_a.add_waypoint(test_map_name, { 9.990, -15.543}, true); // 2
-  graph_a.add_waypoint(test_map_name, { 9.482, -15.534}, true); // 3
-  graph_a.add_waypoint(test_map_name, {17.934, -20.165}, true); // 4
-  graph_a.add_waypoint(test_map_name, {17.943, -21.654}, true); // 5
-  graph_a.add_waypoint(test_map_name, {22.370, -21.593}, true); // 6
-  graph_a.add_waypoint(test_map_name, {22.370, -22.660}, true); // 7
-  graph_a.add_waypoint(test_map_name, {22.399, -23.540}, true); // 8
-  graph_a.add_waypoint(test_map_name, {18.968, -20.183}, true); // 9
-  graph_a.add_waypoint(test_map_name, {20.137, -20.188}, true); // 10
-  graph_a.add_waypoint(test_map_name, { 8.185, -15.535}, true); // 11
+  graph_a.add_waypoint(test_map_name, {18.013, -15.518}); // 0
+  graph_a.add_waypoint(test_map_name, {12.417, -15.536}); // 1
+  graph_a.add_waypoint(test_map_name, { 9.990, -15.543}); // 2
+  graph_a.add_waypoint(test_map_name, { 9.482, -15.534}); // 3
+  graph_a.add_waypoint(test_map_name, {17.934, -20.165}); // 4
+  graph_a.add_waypoint(test_map_name, {17.943, -21.654}); // 5
+  graph_a.add_waypoint(test_map_name, {22.370, -21.593}); // 6
+  graph_a.add_waypoint(test_map_name, {22.370, -22.660}); // 7
+  graph_a.add_waypoint(test_map_name, {22.399, -23.540}); // 8
+  graph_a.add_waypoint(test_map_name, {18.968, -20.183}); // 9
+  graph_a.add_waypoint(test_map_name, {20.137, -20.188}); // 10
+  graph_a.add_waypoint(test_map_name, { 8.185, -15.535}); // 11
 
   graph_a.add_lane(0, 1);
   graph_a.add_lane(1, 0);
@@ -256,7 +256,7 @@ SCENARIO("Test difficult 3-way scenarios")
       b2.id(),
       NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
 
-    auto room = NegotiationRoom(database, intentions);
+    auto room = NegotiationRoom(database, intentions, 5.5, 20);
     auto proposal = room.solve();
     REQUIRE(proposal);
   }

@@ -45,7 +45,8 @@ Rollout::Rollout(Planner::Result result)
 std::vector<schedule::Itinerary> Rollout::expand(
     schedule::ParticipantId blocker,
     rmf_traffic::Duration span,
-    const Planner::Options& options) const
+    const Planner::Options& options,
+    rmf_utils::optional<std::size_t> max_rollouts) const
 {
   const auto& result = Planner::Result::Implementation::get(_pimpl->result);
   const auto& blocker_map = result.state.issues.blocked_nodes;
@@ -61,7 +62,8 @@ std::vector<schedule::Itinerary> Rollout::expand(
         span,
         block_it->second,
         result.state.conditions.goal,
-        options);
+        options,
+        max_rollouts);
 }
 
 } // namespace agv

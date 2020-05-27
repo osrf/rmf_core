@@ -107,7 +107,8 @@ public:
     const Duration span,
     const Issues::BlockedNodes& nodes,
     const agv::Planner::Goal& goal,
-    const agv::Planner::Options& options) = 0;
+    const agv::Planner::Options& options,
+    rmf_utils::optional<std::size_t> max_rollouts) = 0;
 
   virtual const agv::Planner::Configuration& get_configuration() const = 0;
 
