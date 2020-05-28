@@ -1866,7 +1866,7 @@ public:
       finished_rollouts.pop();
 
       schedule::Itinerary itinerary;
-      auto routes = reconstruct_routes(reconstruct_nodes(node, max_span));
+      auto routes = reconstruct_routes(reconstruct_nodes(node), max_span);
       for (auto& r : routes)
       {
         assert(r.trajectory().size() > 0);
