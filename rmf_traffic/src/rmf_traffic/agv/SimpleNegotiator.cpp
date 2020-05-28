@@ -447,13 +447,16 @@ void SimpleNegotiator::respond(
                   << std::endl;
       }
 
-      if (alternatives->size() > 10)
-        alternatives->resize(10);
-
       if (_pimpl->debug_print)
       {
+        std::size_t count = 0;
         for (const auto& itinerary : *alternatives)
+        {
+          if (10 <= ++count)
+            break;
+
           print_itinerary(itinerary);
+        }
         std::cout << " ^^^^^^^^^^ " << std::endl;
       }
     }
