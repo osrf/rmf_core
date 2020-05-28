@@ -214,7 +214,6 @@ struct OrientationTimeMap
       std::vector<TimePair> queue;
       queue.push_back({time_map.begin(), --time_map.end()});
 
-      const auto start_time = std::chrono::steady_clock::now();
       while (!queue.empty())
       {
         const auto top = queue.back();
@@ -273,7 +272,6 @@ struct OrientationTimeMap
         if (next_low != it_high)
           queue.push_back({next_low, it_high});
       }
-      const auto end_time = std::chrono::steady_clock::now();
     }
   };
 
