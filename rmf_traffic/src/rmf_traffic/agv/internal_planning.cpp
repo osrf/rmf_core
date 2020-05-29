@@ -165,7 +165,7 @@ NodePtr search(
 
 //==============================================================================
 template<typename NodePtr>
-std::vector<Route> reconstruct_routes(const NodePtr& finish_node)
+std::vector<NodePtr> reconstruct_nodes(const NodePtr& finish_node)
 {
   NodePtr node = finish_node;
   std::vector<NodePtr> node_sequence;
@@ -175,6 +175,166 @@ std::vector<Route> reconstruct_routes(const NodePtr& finish_node)
     node = node->parent;
   }
 
+  return node_sequence;
+}
+
+namespace {
+//==============================================================================
+template<typename NodePtr>
+void reparent_node_for_holding(
+    const NodePtr& low_node,
+    const NodePtr& high_node,
+    RouteData route)
+{
+  high_node->parent = low_node;
+  high_node->route_from_parent = std::move(route);
+}
+
+//==============================================================================
+template<typename NodePtr>
+struct OrientationTimeMap
+{
+  struct Element
+  {
+    using TimeMap = std::map<rmf_traffic::Time, NodePtr>;
+    using TimePair = std::pair<
+      typename TimeMap::iterator,
+      typename TimeMap::iterator
+    >;
+
+    double orientation;
+    TimeMap time_map;
+
+    void squash(const agv::RouteValidator* validator)
+    {
+      assert(!time_map.empty());
+      if (time_map.size() <= 2)
+        return;
+
+      std::vector<TimePair> queue;
+      queue.push_back({time_map.begin(), --time_map.end()});
+
+      while (!queue.empty())
+      {
+        const auto top = queue.back();
+        queue.pop_back();
+        const auto it_low = top.first;
+        const auto it_high = top.second;
+
+        assert(it_low != time_map.end());
+        assert(it_high != time_map.end());
+
+        if (it_high->first <= it_low->first)
+          continue;
+
+        if (it_low == --typename TimeMap::iterator(it_high))
+        {
+          // If the iterators are perfectly next to each other, then the only
+          // action between them must be a holding.
+          continue;
+        }
+
+        assert(it_high != time_map.begin());
+
+        const auto& node_low = it_low->second;
+        const auto& node_high = it_high->second;
+        assert(node_low->route_from_parent.map
+               == node_high->route_from_parent.map);
+
+        const auto& start_wp = node_low->route_from_parent.trajectory.back();
+        const auto& end_wp = node_high->route_from_parent.trajectory.back();
+
+        RouteData new_route;
+        new_route.map = node_low->route_from_parent.map;
+        new_route.trajectory.insert(start_wp);
+        new_route.trajectory.insert(
+              end_wp.time(),
+              end_wp.position(),
+              Eigen::Vector3d::Zero());
+
+        if (!validator || !validator->find_conflict(RouteData::make(new_route)))
+        {
+          reparent_node_for_holding(node_low, node_high, std::move(new_route));
+          time_map.erase(++typename TimeMap::iterator(it_low), it_high);
+          queue.clear();
+          if (time_map.size() > 2)
+            queue.push_back({time_map.begin(), --time_map.end()});
+
+          continue;
+        }
+
+        const auto next_high = --typename TimeMap::iterator(it_high);
+        const auto next_low = ++typename TimeMap::iterator(it_low);
+
+        if (next_high != it_low)
+          queue.push_back({it_low, next_high});
+
+        if (next_low != it_high)
+          queue.push_back({next_low, it_high});
+      }
+    }
+  };
+
+  void insert(NodePtr node)
+  {
+    const auto orientation = node->orientation;
+    const auto time = *node->route_from_parent.trajectory.finish_time();
+
+    auto it = elements.begin();
+    for (; it != elements.end(); ++it)
+    {
+      if (std::abs(it->orientation - orientation) < 15.0*M_PI/180.0)
+        break;
+    }
+
+    if (it == elements.end())
+      elements.push_back({orientation, {{time, node}}});
+    else
+      it->time_map.insert({time, node});
+  }
+
+  std::vector<Element> elements;
+};
+} // anonymous namespace
+
+//==============================================================================
+template<typename NodePtr>
+std::vector<NodePtr> reconstruct_nodes(
+    const NodePtr& finish_node,
+    const agv::RouteValidator* validator)
+{
+  auto node_sequence = reconstruct_nodes(finish_node);
+
+  // Remove "cruft" from plans. This means making sure vehicles don't do any
+  // unnecessary motions.
+  std::unordered_map<
+    std::size_t,
+    OrientationTimeMap<NodePtr>
+  > cruft_map;
+
+  for (const auto& node : node_sequence)
+  {
+    if (!node->waypoint)
+      continue;
+
+    const auto wp = *node->waypoint;
+    cruft_map[wp].insert(node);
+  }
+
+  for (auto& cruft : cruft_map)
+  {
+    for (auto& duplicate : cruft.second.elements)
+      duplicate.squash(validator);
+  }
+
+  return reconstruct_nodes(finish_node);
+}
+
+//==============================================================================
+template<typename NodePtr>
+std::vector<Route> reconstruct_routes(
+    const std::vector<NodePtr>& node_sequence)
+{
   if (node_sequence.size() == 1)
   {
     // If there is only one node in the sequence, then it is a start node. When
@@ -215,16 +375,9 @@ std::vector<Route> reconstruct_routes(const NodePtr& finish_node)
 //==============================================================================
 template<typename NodePtr>
 std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
-  const NodePtr& finish_node,
+  const std::vector<NodePtr>& node_sequence,
   const agv::Graph::Implementation& graph)
 {
-  NodePtr node = finish_node;
-  std::vector<NodePtr> node_sequence;
-  while (node)
-  {
-    node_sequence.push_back(node);
-    node = node->parent;
-  }
 
   std::vector<agv::Plan::Waypoint> waypoints;
   for (auto it = node_sequence.rbegin(); it != node_sequence.rend(); ++it)
@@ -1518,7 +1671,7 @@ public:
     if (!solution)
       return rmf_utils::nullopt;
 
-    return make_plan(state.conditions.starts, solution);
+    return make_plan(state.conditions.starts, solution, context.validator);
   }
 
   struct RolloutEntry
@@ -1662,7 +1815,7 @@ public:
       finished_rollouts.pop();
 
       schedule::Itinerary itinerary;
-      auto routes = reconstruct_routes(node);
+      auto routes = reconstruct_routes(reconstruct_nodes(node));
       for (auto& r : routes)
         itinerary.emplace_back(std::make_shared<Route>(std::move(r)));
 
@@ -1824,7 +1977,7 @@ public:
 
     DifferentialDriveExpander expander(context);
     if (expander.is_finished(top))
-      return make_plan(debugger.starts_, top);
+      return make_plan(debugger.starts_, top, context.validator);
 
     DifferentialDriveExpander::SearchQueue queue;
     expander.expand(top, queue);
@@ -1846,10 +1999,12 @@ private:
 
   Plan make_plan(
       const std::vector<agv::Planner::Start>& starts,
-      const NodePtr& solution) const
+      const NodePtr& solution,
+      const agv::RouteValidator* validator) const
   {
-    auto routes = reconstruct_routes(solution);
-    auto waypoints = reconstruct_waypoints(solution, _graph);
+    auto nodes = reconstruct_nodes(solution, validator);
+    auto routes = reconstruct_routes(nodes);
+    auto waypoints = reconstruct_waypoints(nodes, _graph);
     auto start_index = find_start_index(solution);
 
     return Plan{
