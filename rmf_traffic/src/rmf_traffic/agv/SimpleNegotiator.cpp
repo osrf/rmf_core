@@ -225,12 +225,11 @@ inline void print_itinerary(
   }
   else
   {
-    std::cout << "[Routes: " << itinerary.size() << "]";
     auto start_time = print_start(*itinerary.front());
     for (const auto& r : itinerary)
       print_route(*r, start_time);
 
-    std::cout << "(end)\n" << std::endl;
+    std::cout << "(end)" << std::endl;
   }
 }
 
@@ -243,18 +242,69 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
   }
   else
   {
-    std::cout << "[Routes: " << itinerary.size() << "]";
     auto start_time = print_start(itinerary.front());
     for (const auto& r : itinerary)
       print_route(r, start_time);
 
-    std::cout << "(end)\n" << std::endl;
+    std::cout << "(end)" << std::endl;
   }
 }
 
 
 ////==============================================================================
-//struct
+class AlternativesTracker
+{
+public:
+
+  AlternativesTracker(std::vector<schedule::ParticipantId> participants)
+    : _ordered_participants(std::move(participants))
+  {
+    std::sort(_ordered_participants.begin(), _ordered_participants.end());
+  }
+
+  bool check(schedule::Negotiation::VersionedKeySequence sequence)
+  {
+    if (_ordered_participants.empty())
+      return true;
+
+    bool new_sequence = true;
+
+    const schedule::ParticipantId last = _ordered_participants.back();
+
+    Element* n = &_root;
+    for (const auto p : _ordered_participants)
+    {
+      for (const auto& s : sequence)
+      {
+        if (s.participant == p)
+        {
+          const auto insertion = n->next.insert({s.version, nullptr});
+          const bool inserted = insertion.second;
+          new_sequence = inserted;
+          auto& next = insertion.first->second;
+          if (inserted && p != last)
+            next = std::make_unique<Element>();
+
+          n = next.get();
+          break;
+        }
+      }
+    }
+
+    return new_sequence;
+  }
+
+private:
+
+  struct Element
+  {
+    std::unordered_map<schedule::Version, std::unique_ptr<Element>> next;
+  };
+
+  std::vector<schedule::ParticipantId> _ordered_participants;
+  Element _root;
+
+};
 
 } // anonymous namespace
 
@@ -292,12 +342,17 @@ void SimpleNegotiator::respond(
     std::cout << " ]" << std::endl;
   }
 
+  AlternativesTracker tracker(rv_generator.alternative_sets());
+
   while (!validators.empty() && !(interrupt_flag && *interrupt_flag))
   {
     const auto validator = std::move(validators.front());
     validators.pop_front();
 
     if (validator->end())
+      continue;
+
+    if (!tracker.check(validator->alternatives()))
       continue;
 
     if (_pimpl->debug_print)
@@ -311,9 +366,9 @@ void SimpleNegotiator::respond(
         std::cout << "Negotiating with rollouts:";
         for (const auto& r : validator->alternatives())
         {
-          std::cout << " [" << r.participant << "|" << r.version << "/"
-                    << table_viewer->alternatives().at(r.participant)->size()
-                    << "]";
+          std::cout << " (" << r.participant << ":" << r.version
+                    << "/" << table_viewer->alternatives().at(r.participant)->size()
+                    << ")";
         }
         std::cout << std::endl;
       }
@@ -445,19 +500,15 @@ void SimpleNegotiator::respond(
       {
         std::cout << "Rolled out [" << alternatives->size() << "] alternatives:"
                   << std::endl;
-      }
 
-      if (_pimpl->debug_print)
-      {
         std::size_t count = 0;
         for (const auto& itinerary : *alternatives)
         {
-          if (10 <= ++count)
+          if (++count > 5)
             break;
 
           print_itinerary(itinerary);
         }
-        std::cout << " ^^^^^^^^^^ " << std::endl;
       }
     }
 

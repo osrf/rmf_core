@@ -1728,6 +1728,11 @@ public:
     Time initial_time;
     NodePtr node;
 
+    bool operator==(const RolloutEntry& r) const
+    {
+      return node == r.node;
+    }
+
     rmf_traffic::Duration span() const
     {
       return *node->route_from_parent.trajectory.finish_time() - initial_time;
@@ -1735,9 +1740,17 @@ public:
 
     struct Compare
     {
-      bool operator()(const RolloutEntry& a, const RolloutEntry& b)
+      bool operator()(const RolloutEntry& a, const RolloutEntry& b) const
       {
         return b.span() < a.span();
+      }
+    };
+
+    struct Hash
+    {
+      std::size_t operator()(const RolloutEntry& r) const
+      {
+        return std::hash<NodePtr>()(r.node);
       }
     };
   };
@@ -1749,14 +1762,6 @@ public:
       const agv::Planner::Options& options,
       rmf_utils::optional<std::size_t> max_rollouts) final
   {
-//    using RolloutQueue =
-//      std::priority_queue<
-//        RolloutEntry,
-//        std::vector<RolloutEntry>,
-//        RolloutEntry::Compare
-//      >;
-
-//    RolloutQueue rollout_queue;
     std::vector<RolloutEntry> rollout_queue;
     for (const auto& void_node : nodes)
     {
@@ -1808,7 +1813,6 @@ public:
         break;
     }
 
-    auto initial_rollout_queue = rollout_queue;
     std::unordered_map<NodePtr, ConstRoutePtr> route_map;
     std::vector<schedule::Itinerary> alternatives;
 
@@ -1823,8 +1827,6 @@ public:
 
     while (!rollout_queue.empty() && !(interrupt_flag && *interrupt_flag))
     {
-//      const auto top = rollout_queue.top();
-//      rollout_queue.pop();
       const auto top = rollout_queue.back();
       rollout_queue.pop_back();
 

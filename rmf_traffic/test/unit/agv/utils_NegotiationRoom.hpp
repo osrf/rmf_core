@@ -170,13 +170,11 @@ public:
            && !negotiation->ready()) // Use this to allow a quick Negotiation
 //           && !negotiation->complete()) // Use this to force a complete Negotiation
     {
-
+      if (_print)
+        std::cout << "Queue size: " << std::endl;
 
       const auto top = queue.back();
       queue.pop_back();
-
-//      if (_print)
-//        std::cout << "Queue size: " << std::endl;
 
       if (skip(top))
       {
@@ -186,7 +184,7 @@ public:
         {
           std::cout << "Skipping [";
           for (const auto p : top->sequence())
-            std::cout << " " << p.participant;
+            std::cout << " " << p.participant << ":" << p.version;
           std::cout << " ]" << std::endl;
         }
         continue;
@@ -197,11 +195,6 @@ public:
 
       if (_print)
       {
-//        std::cout << "Responding to [";
-//        for (const auto p : top->sequence())
-//          std::cout << " " << p.participant;
-//        std::cout << " ]" << std::endl;
-
         rmf_traffic::agv::SimpleNegotiator::Debug
             ::enable_debug_print(negotiator);
       }

@@ -256,8 +256,8 @@ SCENARIO("Test difficult 3-way scenarios")
       b2.id(),
       NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
 
-    auto room = NegotiationRoom(database, intentions, 5.5, 20);
-    auto proposal = room.print().solve();
+    auto room = NegotiationRoom(database, intentions, 5.5, 200);
+    auto proposal = room.solve();
     REQUIRE(proposal);
   }
 }
