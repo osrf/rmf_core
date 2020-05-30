@@ -199,36 +199,6 @@ NegotiatingRouteValidator::Generator::Generator(
 }
 
 //==============================================================================
-std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>>
-NegotiatingRouteValidator::Generator::all() const
-{
-  std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>> validators;
-  std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>> queue;
-  const auto& participants = _pimpl->data->viewer->sequence();
-
-  queue.push_back(rmf_utils::make_clone<NegotiatingRouteValidator>(begin()));
-  while (!queue.empty())
-  {
-    validators.emplace_back(std::move(queue.back()));
-    queue.pop_back();
-    const auto& top = validators.back();
-
-    for (std::size_t i=0; i < participants.size()-1; ++i)
-    {
-      auto next = top->next(participants[i].participant);
-      if (!next.end())
-      {
-        queue.emplace_back(
-              rmf_utils::make_clone<
-              NegotiatingRouteValidator>(std::move(next)));
-      }
-    }
-  }
-
-  return validators;
-}
-
-//==============================================================================
 class NegotiatingRouteValidator::Implementation
 {
 public:
@@ -250,7 +220,73 @@ public:
 
     return output;
   }
+
+  static rmf_utils::clone_ptr<NegotiatingRouteValidator> make_ptr(
+      std::shared_ptr<const Generator::Implementation::Data> data,
+      schedule::Negotiation::VersionedKeySequence rollout)
+  {
+    return rmf_utils::make_clone<NegotiatingRouteValidator>(
+          make(std::move(data), std::move(rollout)));
+  }
 };
+
+//==============================================================================
+std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>>
+NegotiatingRouteValidator::Generator::all() const
+{
+  const std::size_t N_alts = _pimpl->data->viewer->alternatives().size();
+
+  std::vector<std::vector<schedule::Version>> version_queue;
+  std::vector<schedule::Version> current_versions;
+  current_versions.reserve(N_alts);
+  std::vector<schedule::Version> end_versions;
+  current_versions.reserve(N_alts);
+  schedule::Negotiation::VersionedKeySequence keys;
+  keys.reserve(N_alts);
+  for (const auto& alts : _pimpl->data->viewer->alternatives())
+  {
+    current_versions.push_back(0);
+    end_versions.push_back(alts.second->size());
+    keys.push_back({alts.first, 0});
+  }
+
+  assert(current_versions.size() == N_alts);
+  assert(end_versions.size() == N_alts);
+  assert(keys.size() == N_alts);
+
+  while (current_versions.back() < end_versions.back())
+  {
+    for (std::size_t i=0; i < N_alts-1; ++i)
+    {
+      if (current_versions[i] >= end_versions[i])
+      {
+        for (std::size_t j=0; j <= i; ++j)
+          current_versions[j] = 0;
+
+        ++current_versions[i+1];
+        continue;
+      }
+    }
+
+    version_queue.push_back(current_versions);
+    ++current_versions[0];
+  }
+
+  std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>> validators;
+  validators.reserve(version_queue.size());
+
+  for (const auto& versions : version_queue)
+  {
+    for (std::size_t i=0; i < N_alts; ++i)
+      keys[i].version = versions[i];
+
+    validators.emplace_back(
+          NegotiatingRouteValidator::Implementation::make_ptr(
+            _pimpl->data, keys));
+  }
+
+  return validators;
+}
 
 //==============================================================================
 NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
