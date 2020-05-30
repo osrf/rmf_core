@@ -213,9 +213,60 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
 }
 
 
-////==============================================================================
-//struct
+//==============================================================================
+class AlternativesTracker
+{
+public:
 
+  AlternativesTracker(std::vector<schedule::ParticipantId> participants)
+    : _ordered_participants(std::move(participants))
+  {
+    std::sort(_ordered_participants.begin(), _ordered_participants.end());
+  }
+
+  bool skip(schedule::Negotiation::VersionedKeySequence sequence)
+  {
+    if (_ordered_participants.empty())
+      return false;
+
+    bool new_sequence = true;
+
+    const schedule::ParticipantId last = _ordered_participants.back();
+
+    Element* n = &_root;
+    for (const auto p : _ordered_participants)
+    {
+      for (const auto& s : sequence)
+      {
+        if (s.participant == p)
+        {
+          const auto insertion = n->next.insert({s.version, nullptr});
+          const bool inserted = insertion.second;
+          new_sequence = inserted;
+          auto& next = insertion.first->second;
+          if (inserted && p != last)
+            next = std::make_unique<Element>();
+
+          n = next.get();
+          break;
+        }
+      }
+    }
+
+    return !new_sequence;
+  }
+
+private:
+
+  struct Element
+  {
+    std::unordered_map<schedule::Version, std::unique_ptr<Element>> next;
+  };
+
+  std::vector<schedule::ParticipantId> _ordered_participants;
+  Element _root;
+
+};
 } // anonymous namespace
 
 //==============================================================================
@@ -240,12 +291,17 @@ void SimpleNegotiator::respond(
   rmf_utils::optional<schedule::Negotiation::Alternatives> alternatives;
   rmf_utils::optional<std::vector<schedule::ParticipantId>> best_blockers;
 
+  AlternativesTracker tracker(rv_generator.alternative_sets());
+
   while (!validators.empty() && !(interrupt_flag && *interrupt_flag))
   {
     const auto validator = std::move(validators.front());
     validators.pop_front();
 
     if (validator->end())
+      continue;
+
+    if (tracker.skip(validator->alternatives()))
       continue;
 
     if (_pimpl->debug_print)
