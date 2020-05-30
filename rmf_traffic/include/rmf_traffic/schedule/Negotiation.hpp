@@ -173,8 +173,12 @@ public:
       const Proposal& base_proposals() const;
 
       /// Get the description of a participant in this Viewer.
-      std::shared_ptr<const ParticipantDescription> get_participant(
+      std::shared_ptr<const ParticipantDescription> get_description(
           ParticipantId participant_id) const;
+
+      /// Get the Participant ID of the participant who should submit to this
+      /// table.
+      ParticipantId participant_id() const;
 
       /// If the Table has a parent, get its Participant ID.
       rmf_utils::optional<ParticipantId> parent_id() const;

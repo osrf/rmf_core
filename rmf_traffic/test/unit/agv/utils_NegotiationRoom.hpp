@@ -126,11 +126,11 @@ public:
     double max_cost_leeway =
       rmf_traffic::agv::SimpleNegotiator::Options::DefaultMaxCostLeeway,
     std::size_t max_alts = 1,
-    const bool print_failures_ = false)
+    const bool print = false)
   : negotiators(make_negotiators(intentions, max_cost_leeway, max_alts)),
     negotiation(Negotiation::make_shared(
         std::move(viewer), get_participants(intentions))),
-    _print(print_failures_)
+    _print(print)
   {
     // Do nothing
   }
@@ -170,11 +170,13 @@ public:
            && !negotiation->ready()) // Use this to allow a quick Negotiation
 //           && !negotiation->complete()) // Use this to force a complete Negotiation
     {
-      if (_print)
-        std::cout << "Queue size: " << queue.size() << std::endl;
+
 
       const auto top = queue.back();
       queue.pop_back();
+
+//      if (_print)
+//        std::cout << "Queue size: " << std::endl;
 
       if (skip(top))
       {
@@ -195,26 +197,35 @@ public:
 
       if (_print)
       {
-        std::cout << "Responding to [";
-        for (const auto p : top->sequence())
-          std::cout << " " << p.participant;
-        std::cout << " ]" << std::endl;
+//        std::cout << "Responding to [";
+//        for (const auto p : top->sequence())
+//          std::cout << " " << p.participant;
+//        std::cout << " ]" << std::endl;
 
         rmf_traffic::agv::SimpleNegotiator::Debug
             ::enable_debug_print(negotiator);
       }
 
       auto viewer = top->viewer();
+      blockers.clear();
       negotiator.respond(viewer, Responder(top, &blockers));
+
+      if (_print)
+      {
+        std::cout << "Responded to [";
+        for (const auto p : top->sequence())
+          std::cout << " " << p.participant;
+        std::cout << " ]" << std::endl;
+      }
 
       if (top->submission())
       {
         if (_print)
         {
-          std::cout << "Submission given for [";
-          for (const auto p : top->sequence())
-            std::cout << " " << p.participant;
-          std::cout << " ]" << std::endl;
+//          std::cout << "Submission given for [";
+//          for (const auto p : top->sequence())
+//            std::cout << " " << p.participant;
+//          std::cout << " ]" << std::endl;
         }
 
         for (const auto& n : negotiators)

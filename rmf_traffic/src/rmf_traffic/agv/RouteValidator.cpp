@@ -189,6 +189,46 @@ NegotiatingRouteValidator::Generator::Generator(
 }
 
 //==============================================================================
+NegotiatingRouteValidator::Generator::Generator(
+  schedule::Negotiation::Table::ViewerPtr viewer)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             viewer,
+             viewer->get_description(viewer->participant_id())->profile()))
+{
+  // Do nothing
+}
+
+//==============================================================================
+std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>>
+NegotiatingRouteValidator::Generator::all() const
+{
+  std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>> validators;
+  std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>> queue;
+  const auto& participants = _pimpl->data->viewer->sequence();
+
+  queue.push_back(rmf_utils::make_clone<NegotiatingRouteValidator>(begin()));
+  while (!queue.empty())
+  {
+    validators.emplace_back(std::move(queue.back()));
+    queue.pop_back();
+    const auto& top = validators.back();
+
+    for (std::size_t i=0; i < participants.size()-1; ++i)
+    {
+      auto next = top->next(participants[i].participant);
+      if (!next.end())
+      {
+        queue.emplace_back(
+              rmf_utils::make_clone<
+              NegotiatingRouteValidator>(std::move(next)));
+      }
+    }
+  }
+
+  return validators;
+}
+
+//==============================================================================
 class NegotiatingRouteValidator::Implementation
 {
 public:
@@ -361,7 +401,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       continue;
 
     const auto& description =
-        _pimpl->data->viewer->get_participant(r.participant);
+        _pimpl->data->viewer->get_description(r.participant);
     assert(description);
 
     // The end_cap trajectory represents the last known position of the

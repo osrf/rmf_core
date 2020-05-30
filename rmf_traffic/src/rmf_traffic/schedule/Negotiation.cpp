@@ -938,9 +938,15 @@ auto Negotiation::Table::Viewer::base_proposals() const -> const Proposal&
 
 //==============================================================================
 std::shared_ptr<const ParticipantDescription>
-Negotiation::Table::Viewer::get_participant(ParticipantId participant_id) const
+Negotiation::Table::Viewer::get_description(ParticipantId participant_id) const
 {
   return _pimpl->schedule_viewer->get_participant(participant_id);
+}
+
+//==============================================================================
+ParticipantId Negotiation::Table::Viewer::participant_id() const
+{
+  return _pimpl->sequence.back().participant;
 }
 
 //==============================================================================

@@ -181,8 +181,11 @@ public:
 
     /// Constructor
     ///
+    /// This version is safe to use even if the participant being negotiated for
+    /// is not in the schedule yet.
+    ///
     /// \param[in] table
-    ///   The Negotiating Table that the generated validators are concerned with
+    ///   The Negotiation Table that the generated validators are concerned with
     ///
     /// \param[in] profile
     ///   The profile of the participant whose routes are being validated.
@@ -190,9 +193,21 @@ public:
         schedule::Negotiation::Table::ViewerPtr viewer,
         rmf_traffic::Profile profile);
 
+    /// Constructor
+    ///
+    /// This version looks for the participant in the schedule to find its
+    /// profile.
+    ///
+    /// \param[in] table
+    ///   The Negotiation Table that the generated validators are concerned with
+    Generator(schedule::Negotiation::Table::ViewerPtr viewer);
+
     /// Start with a NegotiatingRouteValidator that will use all the most
     /// preferred alternatives from every participant.
     NegotiatingRouteValidator begin() const;
+
+    /// Get all the Negotiating Route Validators that can be generated.
+    std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>> all() const;
 
     /// Get the set of participants who have specified what their available
     /// rollouts are.

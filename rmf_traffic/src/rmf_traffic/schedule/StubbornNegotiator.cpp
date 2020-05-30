@@ -42,7 +42,7 @@ void StubbornNegotiator::respond(
 
   for (const auto& p : proposal)
   {
-    const auto other_participant = table_viewer->get_participant(p.participant);
+    const auto other_participant = table_viewer->get_description(p.participant);
     assert(other_participant);
     const auto& other_profile = other_participant->profile();
 
