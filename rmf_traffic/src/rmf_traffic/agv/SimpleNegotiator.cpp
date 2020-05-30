@@ -262,10 +262,10 @@ public:
     std::sort(_ordered_participants.begin(), _ordered_participants.end());
   }
 
-  bool check(schedule::Negotiation::VersionedKeySequence sequence)
+  bool skip(const schedule::Negotiation::VersionedKeySequence& sequence)
   {
     if (_ordered_participants.empty())
-      return true;
+      return false;
 
     bool new_sequence = true;
 
@@ -291,7 +291,7 @@ public:
       }
     }
 
-    return new_sequence;
+    return !new_sequence;
   }
 
 private:
@@ -352,7 +352,7 @@ void SimpleNegotiator::respond(
     if (validator->end())
       continue;
 
-    if (!tracker.check(validator->alternatives()))
+    if (tracker.skip(validator->alternatives()))
       continue;
 
     if (_pimpl->debug_print)
