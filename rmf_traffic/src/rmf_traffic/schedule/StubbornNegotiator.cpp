@@ -33,7 +33,7 @@ public:
 //==============================================================================
 void StubbornNegotiator::respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-    const Responder& responder,
+    const ResponderPtr& responder,
     const bool*)
 {
   const auto& itinerary = _pimpl->participant->itinerary();
@@ -64,7 +64,7 @@ void StubbornNegotiator::respond(
           for (const auto& item : itinerary)
             alternative.emplace_back(item.route);
 
-          return responder.reject({std::move(alternative)});
+          return responder->reject({std::move(alternative)});
         }
       }
     }
@@ -74,7 +74,7 @@ void StubbornNegotiator::respond(
   for (const auto& item : itinerary)
     submission.push_back(*item.route);
 
-  responder.submit(std::move(submission));
+  responder->submit(std::move(submission));
 }
 
 } // namespace schedule

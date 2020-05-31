@@ -66,5 +66,14 @@ std::vector<schedule::Itinerary> Rollout::expand(
         max_rollouts);
 }
 
+//==============================================================================
+std::vector<schedule::Itinerary> Rollout::expand(
+    schedule::ParticipantId blocker,
+    rmf_traffic::Duration span,
+    rmf_utils::optional<std::size_t> max_rollouts) const
+{
+  return expand(blocker, span, _pimpl->result.options(), max_rollouts);
+}
+
 } // namespace agv
 } // namespace rmf_traffic

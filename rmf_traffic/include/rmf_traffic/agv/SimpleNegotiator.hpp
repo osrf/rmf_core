@@ -136,7 +136,7 @@ public:
   // Documentation inherited
   void respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-    const Responder& responder,
+    const ResponderPtr& responder,
     const bool* interrupt_flag = nullptr) final;
 
   // TODO(MXG): How should we implement fallback behaviors when a different

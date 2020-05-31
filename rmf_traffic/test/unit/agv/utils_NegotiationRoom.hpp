@@ -201,7 +201,7 @@ public:
 
       auto viewer = top->viewer();
       blockers.clear();
-      negotiator.respond(viewer, Responder(top, &blockers));
+      negotiator.respond(viewer, Responder::make(top, &blockers));
 
       if (_print)
       {

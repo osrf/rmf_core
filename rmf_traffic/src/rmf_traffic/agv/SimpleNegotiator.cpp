@@ -311,7 +311,7 @@ private:
 //==============================================================================
 void SimpleNegotiator::respond(
   const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-  const Responder& responder,
+  const ResponderPtr& responder,
   const bool* interrupt_flag)
 {
   const auto& profile =
@@ -419,7 +419,7 @@ void SimpleNegotiator::respond(
       {
         std::cout << " >>>>> Submitting" << std::endl;
       }
-      return responder.submit(plan->get_itinerary(), responder_approval_cb);
+      return responder->submit(plan->get_itinerary(), responder_approval_cb);
     }
 
     if (_pimpl->debug_print)
@@ -522,7 +522,7 @@ void SimpleNegotiator::respond(
     {
       std::cout << " >>>>> Rejecting" << std::endl;
     }
-    return responder.reject(*alternatives);
+    return responder->reject(*alternatives);
   }
 
   if (best_blockers)
@@ -531,7 +531,7 @@ void SimpleNegotiator::respond(
     {
       std::cout << " >>>>> Forfeiting with blockers" << std::endl;
     }
-    return responder.forfeit(*best_blockers);
+    return responder->forfeit(*best_blockers);
   }
 
   if (_pimpl->debug_print)
@@ -540,7 +540,7 @@ void SimpleNegotiator::respond(
   }
 
   // This would be suspicious. How could the planning fail without any blockers?
-  responder.forfeit({});
+  responder->forfeit({});
 }
 
 //==============================================================================
