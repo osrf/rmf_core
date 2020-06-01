@@ -235,6 +235,8 @@ std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>>
 NegotiatingRouteValidator::Generator::all() const
 {
   const std::size_t N_alts = _pimpl->data->viewer->alternatives().size();
+  if (0 == N_alts)
+    return {rmf_utils::make_clone<NegotiatingRouteValidator>(begin())};
 
   std::vector<std::vector<schedule::Version>> version_queue;
   std::vector<schedule::Version> current_versions;
