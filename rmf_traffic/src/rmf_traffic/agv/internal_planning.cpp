@@ -343,6 +343,7 @@ std::vector<Route> reconstruct_routes(
 {
   if (node_sequence.size() == 1)
   {
+    std::vector<Route> output;
     // If there is only one node in the sequence, then it is a start node.
     if (span)
     {
@@ -350,7 +351,8 @@ std::vector<Route> reconstruct_routes(
       // two waypoints is provided. We use the span value to creating a
       // stationary trajectory when the robot is already starting out at a
       // holding point.
-      std::vector<Route> output;
+
+      // TODO(MXG): Make a unit test for this situation
       Route simple_route =
           RouteData::make(node_sequence.back()->route_from_parent);
       if (simple_route.trajectory().size() < 2)
@@ -367,7 +369,7 @@ std::vector<Route> reconstruct_routes(
 
     // When there is only one node, we should return an empty itinerary to 
     // indicate that the AGV does not need to go anywhere.
-    return {};
+    return output;
   }
 
   std::vector<RouteData> routes;
