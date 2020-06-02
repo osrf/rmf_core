@@ -61,6 +61,7 @@ public:
     ///   holding points. See Planner::Options for more information.
     Options(
       ApprovalCallback approval_cb = nullptr,
+      std::shared_ptr<const bool> interrupt_flag = nullptr,
       rmf_utils::optional<double> maximum_cost_leeway = DefaultMaxCostLeeway,
       rmf_utils::optional<std::size_t> maximum_alts = rmf_utils::nullopt,
       Duration min_hold_time = Planner::Options::DefaultMinHoldingTime);
@@ -68,6 +69,12 @@ public:
     /// Set the approval callback
     // TODO(MXG): The approval_callback option needs to be unit tested
     Options& approval_callback(ApprovalCallback cb);
+
+    /// Set the interrupt flag
+    Options& interrupt_flag(std::shared_ptr<const bool> flag);
+
+    /// Get the interrupt flag
+    const std::shared_ptr<const bool>& interrupt_flag() const;
 
     /// Set the maximum cost leeway
     Options& maximum_cost_leeway(rmf_utils::optional<double> leeway);
@@ -136,8 +143,7 @@ public:
   // Documentation inherited
   void respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-    const ResponderPtr& responder,
-    const bool* interrupt_flag = nullptr) final;
+    const ResponderPtr& responder) final;
 
   // TODO(MXG): How should we implement fallback behaviors when a different
   // negotiator rejects our proposal?

@@ -1709,7 +1709,8 @@ public:
 
     DifferentialDriveExpander expander(context);
     auto& queue = static_cast<InternalState*>(state.internal.get())->queue;
-    const bool* interrupt_flag = state.conditions.options.interrupt_flag();
+    const bool* interrupt_flag =
+        state.conditions.options.interrupt_flag().get();
 
     const NodePtr solution =
         search<DifferentialDriveExpander>(expander, queue, interrupt_flag);
@@ -1820,7 +1821,7 @@ public:
     auto context = make_context(goal, options, temp_blocked_nodes, true);
     DifferentialDriveExpander expander(context);
 
-    const bool* interrupt_flag = options.interrupt_flag();
+    const bool* interrupt_flag = options.interrupt_flag().get();
 
     DifferentialDriveExpander::SearchQueue search_queue;
     DifferentialDriveExpander::SearchQueue finished_rollouts;
@@ -2083,7 +2084,7 @@ private:
 
     Heuristic& h = _heuristics.insert(
           std::make_pair(goal_waypoint, Heuristic{})).first->second;
-    const bool* const interrupt_flag = options.interrupt_flag();
+    const bool* const interrupt_flag = options.interrupt_flag().get();
 
     return DifferentialDriveExpander::Context{
       _graph,

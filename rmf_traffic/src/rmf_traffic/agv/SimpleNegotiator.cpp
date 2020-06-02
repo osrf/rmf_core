@@ -36,6 +36,7 @@ class SimpleNegotiator::Options::Implementation
 public:
 
   ApprovalCallback approval_cb;
+  std::shared_ptr<const bool> interrupt_flag;
   rmf_utils::optional<double> maximum_cost_leeway;
   rmf_utils::optional<std::size_t> maximum_alts;
   Duration minimum_holding_time;
@@ -48,14 +49,15 @@ public:
 };
 
 //==============================================================================
-SimpleNegotiator::Options::Options(
-    ApprovalCallback approval_cb,
+SimpleNegotiator::Options::Options(ApprovalCallback approval_cb,
+    std::shared_ptr<const bool> interrupt_flag,
     rmf_utils::optional<double> maximum_cost_leeway,
     rmf_utils::optional<std::size_t> maximum_alts,
     Duration min_hold_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
            Implementation{
              std::move(approval_cb),
+             std::move(interrupt_flag),
              maximum_cost_leeway,
              maximum_alts,
              min_hold_time
@@ -70,6 +72,21 @@ auto SimpleNegotiator::Options::approval_callback(
 {
   _pimpl->approval_cb = std::move(approval_cb);
   return *this;
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::interrupt_flag(
+    std::shared_ptr<const bool> flag) -> Options&
+{
+  _pimpl->interrupt_flag = std::move(flag);
+  return *this;
+}
+
+//==============================================================================
+const std::shared_ptr<const bool>&
+SimpleNegotiator::Options::interrupt_flag() const
+{
+  return _pimpl->interrupt_flag;
 }
 
 //==============================================================================
@@ -311,8 +328,7 @@ private:
 //==============================================================================
 void SimpleNegotiator::respond(
   const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-  const ResponderPtr& responder,
-  const bool* interrupt_flag)
+  const ResponderPtr& responder)
 {
   const auto& profile =
     _pimpl->planner.get_configuration().vehicle_traits().profile();
@@ -321,7 +337,6 @@ void SimpleNegotiator::respond(
   const auto& alternative_sets = rv_generator.alternative_sets();
 
   auto options = _pimpl->planner_options;
-  options.interrupt_flag(interrupt_flag);
 
   const auto maximum_cost_leeway =
       _pimpl->negotiator_options.maximum_cost_leeway();
@@ -344,6 +359,7 @@ void SimpleNegotiator::respond(
 
   AlternativesTracker tracker(rv_generator.alternative_sets());
 
+  const auto interrupt_flag = _pimpl->planner_options.interrupt_flag();
   while (!validators.empty() && !(interrupt_flag && *interrupt_flag))
   {
     const auto validator = std::move(validators.front());

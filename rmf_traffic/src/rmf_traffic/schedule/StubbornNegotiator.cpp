@@ -33,8 +33,7 @@ public:
 //==============================================================================
 void StubbornNegotiator::respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-    const ResponderPtr& responder,
-    const bool*)
+    const ResponderPtr& responder)
 {
   const auto& itinerary = _pimpl->participant->itinerary();
   const auto& profile = _pimpl->participant->description().profile();

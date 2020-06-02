@@ -134,7 +134,7 @@ public:
     Options(
       rmf_utils::clone_ptr<RouteValidator> validator,
       Duration min_hold_time = DefaultMinHoldingTime,
-      const bool* interrupt_flag = nullptr,
+      std::shared_ptr<const bool> interrupt_flag = nullptr,
       rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt);
 
     /// Set the route validator
@@ -150,15 +150,16 @@ public:
     Duration minimum_holding_time() const;
 
     /// Set an interrupt flag to stop this planner if it has run for too long.
-    Options& interrupt_flag(const bool* flag);
+    Options& interrupt_flag(std::shared_ptr<const bool> flag);
 
     /// Get the interrupt flag that will stop this planner if it has run for too
     /// long.
-    const bool* interrupt_flag() const;
+    const std::shared_ptr<const bool>& interrupt_flag() const;
 
     /// Set the maximum cost estimate that the planner should allow. If the cost
     /// estimate of the best possible plan that the planner could produce ever
-    /// exceeds this value, the planner will interrupt itself.
+    /// exceeds this value, the planner will pause itself (but this will not be
+    /// considered an interruption).
     Options& maximum_cost_estimate(rmf_utils::optional<double> value);
 
     /// Get the maximum cost estimate that the planner will allow.
@@ -515,18 +516,18 @@ public:
     const StartSet& new_starts,
     Options new_options) const;
 
-  /// Resume planning if the planner was interrupted.
+  /// Resume planning if the planner was paused.
   ///
   /// \return true if a plan has been found, false otherwise.
   bool resume();
 
-  /// Resume planning if the planner was interrupted.
+  /// Resume planning if the planner was paused.
   ///
   /// \param[in] interrupt_flag
   ///   A new interrupt flag to listen to while planning.
   ///
   /// \return true if a plan has been found, false otherwise.
-  bool resume(const bool* interrupt_flag);
+  bool resume(std::shared_ptr<const bool> interrupt_flag);
 
   /// Get a mutable reference to the options that will be used by this planning
   /// task.

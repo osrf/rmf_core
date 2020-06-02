@@ -423,10 +423,10 @@ SCENARIO("Test Options", "[options]")
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
 
-  bool interrupt_flag = false;
+  auto interrupt_flag = std::make_shared<bool>(false);
   Duration hold_time = std::chrono::seconds(6);
 
-  Planner::Options default_options(nullptr, hold_time, &interrupt_flag);
+  Planner::Options default_options(nullptr, hold_time, interrupt_flag);
   WHEN("Get the minimum_holding_time")
   {
     CHECK(rmf_traffic::time::to_seconds(
@@ -450,7 +450,7 @@ SCENARIO("Test Options", "[options]")
 
   WHEN("Set the interrupt_flag")
   {
-    interrupt_flag = true;
+    *interrupt_flag = true;
     CHECK(*default_options.interrupt_flag());
   }
 
@@ -1192,11 +1192,11 @@ SCENARIO("DP1 Graph")
     profile
   };
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
-  bool interrupt_flag = false;
+  const auto interrupt_flag = std::make_shared<bool>(false);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, profile),
     std::chrono::seconds(5),
-    &interrupt_flag};
+    interrupt_flag};
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -1689,15 +1689,15 @@ SCENARIO("DP1 Graph")
         {
           result = planner.plan(start, goal);
         });
-      interrupt_flag = true;
+      *interrupt_flag = true;
       plan_thread.join();
       CHECK_FALSE(*result);
       CHECK(result->interrupted());
 
       THEN("Plan can resume and find a solution")
       {
-        bool new_interrupt_flag = false;
-        result->resume(&new_interrupt_flag);
+        const auto new_interrupt_flag = std::make_shared<bool>(false);
+        result->resume(new_interrupt_flag);
         CHECK(*result);
       }
     }
@@ -1985,12 +1985,12 @@ SCENARIO("Test planner with various start conditions")
   rmf_traffic::schedule::ItineraryVersion iv_o = 0;
   rmf_traffic::RouteId ri_o = 0;
 
-  bool interrupt_flag = false;
+  const auto interrupt_flag = std::make_shared<bool>(false);
   Duration hold_time = std::chrono::seconds(6);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, profile),
     hold_time,
-    &interrupt_flag};
+    interrupt_flag};
 
   Planner planner{
     Planner::Configuration{graph, traits},
@@ -2339,12 +2339,12 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     create_test_profile(UnitCircle)};
 
   rmf_traffic::schedule::Database database;
-  bool interrupt_flag = false;
+  const auto interrupt_flag = std::make_shared<bool>(false);
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, traits.profile()),
     hold_time,
-    &interrupt_flag};
+    interrupt_flag};
 
   Planner planner{
     Planner::Configuration{graph, traits},

@@ -121,7 +121,7 @@ public:
 
   rmf_utils::clone_ptr<RouteValidator> validator;
   Duration min_hold_time;
-  const bool* interrupt_flag;
+  std::shared_ptr<const bool> interrupt_flag;
   rmf_utils::optional<double> maximum_cost_estimate;
 
 };
@@ -130,13 +130,13 @@ public:
 Planner::Options::Options(
   rmf_utils::clone_ptr<RouteValidator> validator,
   const Duration min_hold_time,
-  const bool* interrupt_flag,
+  std::shared_ptr<const bool> interrupt_flag,
   rmf_utils::optional<double> maximum_cost_estimate)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(validator),
         min_hold_time,
-        interrupt_flag,
+        std::move(interrupt_flag),
         maximum_cost_estimate
       }))
 {
@@ -172,14 +172,15 @@ Duration Planner::Options::minimum_holding_time() const
 }
 
 //==============================================================================
-auto Planner::Options::interrupt_flag(const bool* flag) -> Options&
+auto Planner::Options::interrupt_flag(
+    std::shared_ptr<const bool> flag) -> Options&
 {
-  _pimpl->interrupt_flag = flag;
+  _pimpl->interrupt_flag = std::move(flag);
   return *this;
 }
 
 //==============================================================================
-const bool* Planner::Options::interrupt_flag() const
+const std::shared_ptr<const bool>& Planner::Options::interrupt_flag() const
 {
   return _pimpl->interrupt_flag;
 }
@@ -724,9 +725,9 @@ bool Planner::Result::resume()
 }
 
 //==============================================================================
-bool Planner::Result::resume(const bool* interrupt_flag)
+bool Planner::Result::resume(std::shared_ptr<const bool> interrupt_flag)
 {
-  _pimpl->state.conditions.options.interrupt_flag(interrupt_flag);
+  _pimpl->state.conditions.options.interrupt_flag(std::move(interrupt_flag));
   return resume();
 }
 

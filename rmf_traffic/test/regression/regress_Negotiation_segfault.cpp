@@ -33,8 +33,7 @@ struct MockNegotiator : public rmf_traffic::schedule::Negotiator
 
   virtual void respond(
     const rmf_traffic::schedule::Negotiation::Table::ViewerPtr&,
-    const ResponderPtr& responder,
-    const bool* = nullptr) final
+    const ResponderPtr& responder) final
   {
     if (Submit == _choice)
       responder->submit({});

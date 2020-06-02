@@ -286,7 +286,7 @@ public:
           rmf_traffic::agv::SimpleNegotiator(
             intention.start, intention.goal, intention.configuration,
             rmf_traffic::agv::SimpleNegotiator::Options(
-                  nullptr, maximum_cost_leeway, maximum_alts))));
+                  nullptr, nullptr, maximum_cost_leeway, maximum_alts))));
     }
 
     return negotiators;

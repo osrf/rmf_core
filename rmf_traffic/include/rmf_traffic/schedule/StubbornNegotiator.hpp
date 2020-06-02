@@ -47,8 +47,7 @@ public:
 
   void respond(
       const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-      const ResponderPtr& responder,
-      const bool* interrupt_flag = nullptr) final;
+      const ResponderPtr& responder) final;
 
   class Implementation;
 private:

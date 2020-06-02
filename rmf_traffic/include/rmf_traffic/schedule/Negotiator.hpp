@@ -95,8 +95,7 @@ public:
   ///   then pass a nullptr.
   virtual void respond(
     const TableViewerPtr& table_viewer,
-    const ResponderPtr& responder,
-    const bool* interrupt_flag = nullptr) = 0;
+    const ResponderPtr& responder) = 0;
 
   virtual ~Negotiator() = default;
 };
