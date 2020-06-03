@@ -757,6 +757,12 @@ rmf_utils::optional<double> Planner::Result::cost_estimate() const
 }
 
 //==============================================================================
+double Planner::Result::initial_cost_estimate() const
+{
+  return _pimpl->state.initial_cost_estimate;
+}
+
+//==============================================================================
 const std::vector<Planner::Start>& Planner::Result::get_starts() const
 {
   return _pimpl->state.conditions.starts;

@@ -152,6 +152,7 @@ NodePtr search(
   while (!queue.empty() && !(interrupt_flag && *interrupt_flag))
   {
     NodePtr top = queue.top();
+
     if (expander.quit(top))
       return nullptr;
 
@@ -799,6 +800,8 @@ struct DifferentialDriveExpander
         const double cost_esimate = time::to_seconds(estimate.duration());
         estimate_it.first->second = cost_esimate;
 
+        new_costs[waypoint] = cost_esimate;
+
         // TODO(MXG): We could get significantly better performance if we
         // accounted for the cost of rotating when making this estimate, but
         // that would add considerable complexity to the caching, so we'll leave
@@ -810,12 +813,13 @@ struct DifferentialDriveExpander
 
     void update(const Heuristic& other)
     {
-      for (const auto& wp_costs : other.known_costs)
+      for (const auto& wp_costs : other.new_costs)
         known_costs.insert(wp_costs);
     }
 
   private:
     std::unordered_map<std::size_t, double> known_costs;
+    std::unordered_map<std::size_t, double> new_costs;
   };
 
   struct Context
@@ -1678,6 +1682,7 @@ public:
         std::move(options)
       },
       Issues{},
+      std::numeric_limits<double>::infinity(),
       rmf_utils::make_derived_impl<State::Internal, InternalState>()
     };
 
@@ -1694,6 +1699,9 @@ public:
           DifferentialDriveExpander::InitialNodeArgs{
             state.conditions.starts
           }, queue);
+
+    if (const auto initial_cost_opt = state.internal->cost_estimate())
+      state.initial_cost_estimate = *initial_cost_opt;
 
     return state;
   }

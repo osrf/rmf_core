@@ -545,6 +545,10 @@ public:
   /// nullopt.
   rmf_utils::optional<double> cost_estimate() const;
 
+  /// Get the cost estimate that was initially computed for this plan. If no
+  /// valid starts were provided, then this will return infinity.
+  double initial_cost_estimate() const;
+
   /// Get the start conditions that were given for this planning task.
   const std::vector<Start>& get_starts() const;
 

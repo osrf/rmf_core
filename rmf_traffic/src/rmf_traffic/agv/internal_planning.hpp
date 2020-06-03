@@ -54,6 +54,7 @@ struct State
 {
   Conditions conditions;
   Issues issues;
+  double initial_cost_estimate;
 
   class Internal
   {
