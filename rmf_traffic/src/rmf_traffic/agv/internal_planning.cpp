@@ -111,7 +111,7 @@ const Cache& CacheHandle::operator*() const&
 //==============================================================================
 CacheHandle::~CacheHandle()
 {
-  if (!_original)
+  if (!_original || !_copy->has_update())
     return;
 
   // We are now done with the copy, so we will update the original cache with
@@ -809,6 +809,11 @@ struct DifferentialDriveExpander
       }
 
       return estimate_it.first->second;
+    }
+
+    bool has_update() const
+    {
+      return !new_costs.empty();
     }
 
     void update(const Heuristic& other)
@@ -1640,6 +1645,15 @@ public:
   CachePtr clone() const final
   {
     return std::make_shared<DifferentialDriveCache>(*this);
+  }
+
+  bool has_update() const final
+  {
+    for (const auto& h : _heuristics)
+      if (h.second.has_update())
+        return true;
+
+    return false;
   }
 
   void update(const Cache& newer_cache) override final
