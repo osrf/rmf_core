@@ -95,6 +95,8 @@ public:
 
   virtual CachePtr clone() const = 0;
 
+  virtual bool has_update() const = 0;
+
   virtual void update(const Cache& other) = 0;
 
   virtual State initiate(
