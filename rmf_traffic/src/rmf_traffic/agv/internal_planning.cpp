@@ -153,7 +153,7 @@ NodePtr search(
   {
     NodePtr top = queue.top();
 
-    if (expander.quit(top))
+    if (expander.quit(top, queue.size()))
       return nullptr;
 
     // This pop must only happen after we have decided whether or not we are
@@ -505,7 +505,7 @@ struct EuclideanExpander
     return node->waypoint == context.final_waypoint;
   }
 
-  bool quit(const NodePtr&) const
+  bool quit(const NodePtr&, const std::size_t) const
   {
     return false;
   }
@@ -838,6 +838,8 @@ struct DifferentialDriveExpander
     const std::size_t final_waypoint;
     const rmf_utils::optional<double> final_orientation;
     const rmf_utils::optional<double> maximum_cost_estimate;
+    const rmf_utils::optional<std::size_t> saturation_limit;
+    std::size_t& popped_count;
     const bool* const interrupt_flag;
     Heuristic& heuristic;
     Issues::BlockerMap& blockers;
@@ -1122,15 +1124,26 @@ struct DifferentialDriveExpander
     return _context.graph.waypoints.at(*waypoint).is_holding_point();
   }
 
-  bool quit(const NodePtr& node) const
+  bool quit(const NodePtr& node, const std::size_t queue_size) const
   {
-    if (!_context.maximum_cost_estimate.has_value())
-      return false;
+    ++_context.popped_count;
 
-    const double cost_estimate =
-        node->current_cost + node->remaining_cost_estimate;
+    if (_context.saturation_limit)
+    {
+      if (*_context.saturation_limit < _context.popped_count + queue_size)
+        return true;
+    }
 
-    return (*_context.maximum_cost_estimate < cost_estimate);
+    if (_context.maximum_cost_estimate)
+    {
+      const double cost_estimate =
+          node->current_cost + node->remaining_cost_estimate;
+
+      if (*_context.maximum_cost_estimate < cost_estimate)
+        return true;
+    }
+
+    return false;
   }
 
   bool is_valid(
@@ -1682,6 +1695,11 @@ public:
       const auto& top = queue.top();
       return top->current_cost + top->remaining_cost_estimate;
     }
+
+    std::size_t queue_size() const final
+    {
+      return queue.size();
+    }
   };
 
   State initiate(
@@ -1704,6 +1722,7 @@ public:
           state.conditions.goal,
           state.conditions.options,
           state.issues.blocked_nodes,
+          state.popped_count,
           false);
 
     DifferentialDriveExpander expander(context);
@@ -1729,6 +1748,7 @@ public:
           state.conditions.goal,
           state.conditions.options,
           state.issues.blocked_nodes,
+          state.popped_count,
           false);
 
     DifferentialDriveExpander expander(context);
@@ -1842,7 +1862,9 @@ public:
     std::vector<schedule::Itinerary> alternatives;
 
     Issues::BlockerMap temp_blocked_nodes;
-    auto context = make_context(goal, options, temp_blocked_nodes, true);
+    std::size_t popped_count = 0;
+    auto context = make_context(goal, options, temp_blocked_nodes,
+                                popped_count, true);
     DifferentialDriveExpander expander(context);
 
     const bool* interrupt_flag = options.interrupt_flag().get();
@@ -2028,8 +2050,10 @@ public:
           std::move(goal),
           std::move(options));
 
+    std::size_t popped_count = 0;
     auto context = make_context(
-          debugger->goal_, debugger->options_, debugger->blocked_nodes_, false);
+          debugger->goal_, debugger->options_, debugger->blocked_nodes_,
+          popped_count, false);
 
     DifferentialDriveExpander expander(context);
 
@@ -2054,8 +2078,10 @@ public:
     debugger.queue_.pop();
     debugger.expanded_nodes_.push_back(debugger.convert(top));
 
+    std::size_t popped_count = 0;
     auto context = make_context(
-          debugger.goal_, debugger.options_, debugger.blocked_nodes_, false);
+          debugger.goal_, debugger.options_, debugger.blocked_nodes_,
+          popped_count, false);
 
     DifferentialDriveExpander expander(context);
     if (expander.is_finished(top))
@@ -2101,6 +2127,7 @@ private:
       const agv::Planner::Goal& goal,
       const agv::Planner::Options& options,
       Issues::BlockerMap& blocked_nodes,
+      std::size_t& popped_count,
       const bool simple_lane_expansion)
   {
     const std::size_t goal_waypoint = goal.waypoint();
@@ -2120,6 +2147,8 @@ private:
       goal_waypoint,
       goal_orientation,
       options.maximum_cost_estimate(),
+      options.saturation_limit(),
+      popped_count,
       interrupt_flag,
       h,
       blocked_nodes,

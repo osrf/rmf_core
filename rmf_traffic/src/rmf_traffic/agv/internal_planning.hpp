@@ -62,10 +62,13 @@ struct State
 
     virtual rmf_utils::optional<double> cost_estimate() const = 0;
 
+    virtual std::size_t queue_size() const = 0;
+
     virtual ~Internal() = default;
   };
 
   rmf_utils::impl_ptr<Internal> internal;
+  std::size_t popped_count = 0;
 };
 
 //==============================================================================

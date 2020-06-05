@@ -123,6 +123,7 @@ public:
   Duration min_hold_time;
   std::shared_ptr<const bool> interrupt_flag;
   rmf_utils::optional<double> maximum_cost_estimate;
+  rmf_utils::optional<std::size_t> saturation_limit;
 
 };
 
@@ -131,13 +132,15 @@ Planner::Options::Options(
   rmf_utils::clone_ptr<RouteValidator> validator,
   const Duration min_hold_time,
   std::shared_ptr<const bool> interrupt_flag,
-  rmf_utils::optional<double> maximum_cost_estimate)
+  rmf_utils::optional<double> maximum_cost_estimate,
+  rmf_utils::optional<std::size_t> saturation_limit)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(validator),
         min_hold_time,
         std::move(interrupt_flag),
-        maximum_cost_estimate
+        maximum_cost_estimate,
+        saturation_limit
       }))
 {
   // Do nothing
@@ -197,6 +200,20 @@ auto Planner::Options::maximum_cost_estimate(rmf_utils::optional<double> value)
 rmf_utils::optional<double> Planner::Options::maximum_cost_estimate() const
 {
   return _pimpl->maximum_cost_estimate;
+}
+
+//==============================================================================
+auto Planner::Options::saturation_limit(rmf_utils::optional<std::size_t> value)
+-> Options&
+{
+  _pimpl->saturation_limit = value;
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<std::size_t> Planner::Options::saturation_limit() const
+{
+  return _pimpl->saturation_limit;
 }
 
 //==============================================================================
@@ -784,6 +801,21 @@ const Planner::Configuration& Planner::Result::get_configuration() const
 bool Planner::Result::interrupted() const
 {
   return _pimpl->state.issues.interrupted;
+}
+
+//==============================================================================
+bool Planner::Result::saturated() const
+{
+  const auto saturation_limit =
+      _pimpl->state.conditions.options.saturation_limit();
+
+  if (!saturation_limit)
+    return false;
+
+  const std::size_t saturation =
+      _pimpl->state.internal->queue_size() + _pimpl->state.popped_count;
+
+  return *saturation_limit < saturation;
 }
 
 //==============================================================================
