@@ -131,11 +131,15 @@ public:
     ///   planner will interrupt itself, no matter what the state of the
     ///   interrupt_flag is. Set this to nullopt to specify that there should
     ///   not be a cap.
+    ///
+    /// \param[in] saturation_limit
+    ///   A cap on how many search nodes the planner is allowed to produce.
     Options(
       rmf_utils::clone_ptr<RouteValidator> validator,
       Duration min_hold_time = DefaultMinHoldingTime,
       std::shared_ptr<const bool> interrupt_flag = nullptr,
-      rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt);
+      rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt,
+      rmf_utils::optional<std::size_t> saturation_limit = rmf_utils::nullopt);
 
     /// Set the route validator
     Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
@@ -164,6 +168,13 @@ public:
 
     /// Get the maximum cost estimate that the planner will allow.
     rmf_utils::optional<double> maximum_cost_estimate() const;
+
+    /// Set the saturation limit for the planner. If the planner produces more
+    /// search nodes than this limit, then the planning will stop.
+    Options& saturation_limit(rmf_utils::optional<std::size_t> value);
+
+    /// Get the saturation limit.
+    rmf_utils::optional<std::size_t> saturation_limit() const;
 
     class Implementation;
   private:
@@ -565,6 +576,9 @@ public:
   /// This will return true if the planning failed because it was interrupted.
   /// Otherwise it will return false.
   bool interrupted() const;
+
+  /// This will return true if the planner has reached its saturation limit.
+  bool saturated() const;
 
   /// This is a list of schedule Participants who blocked the planning effort.
   /// Blockers do not necessarily prevent a solution from being found, but they
