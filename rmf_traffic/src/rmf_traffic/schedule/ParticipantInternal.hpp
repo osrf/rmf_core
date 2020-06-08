@@ -34,8 +34,8 @@ public:
 
   static Participant make(
     ParticipantDescription description,
-    Writer& writer,
-    RectificationRequesterFactory* rectifier_factory);
+    std::shared_ptr<Writer> writer,
+    std::shared_ptr<RectificationRequesterFactory> rectifier_factory);
 
   void retransmit(
     const std::vector<Rectifier::Range>& from,
@@ -48,7 +48,7 @@ public:
   Implementation(
     ParticipantId id,
     ParticipantDescription description,
-    Writer& writer);
+    std::shared_ptr<Writer> writer);
 
   ~Implementation();
 
@@ -60,7 +60,7 @@ private:
 
   const ParticipantId _id;
   const ParticipantDescription _description;
-  Writer& _writer;
+  std::shared_ptr<Writer> _writer;
   std::unique_ptr<RectificationRequester> _rectification;
 
   using ChangeHistory =

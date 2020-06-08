@@ -209,7 +209,7 @@ SCENARIO("Test difficult 3-way scenarios")
       "fleet_a",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile_a
-    }, *database);
+    }, database);
 
   auto b1 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -217,7 +217,7 @@ SCENARIO("Test difficult 3-way scenarios")
       "fleet_b",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile_b
-    }, *database);
+    }, database);
 
   auto b2 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -225,7 +225,7 @@ SCENARIO("Test difficult 3-way scenarios")
       "fleet_b",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile_b
-    }, *database);
+    }, database);
 
   GIVEN("Case 1")
   {

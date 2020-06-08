@@ -119,13 +119,13 @@ private:
 //==============================================================================
 /// Make a participant for the schedule.
 ///
+/// \warning This will throw a std::runtime_error if you pass a nullptr writer.
+///
 /// \param[in] description
 ///   A descrition of the participant.
 ///
 /// \param[in] writer
-///   An interface to use when writing to the schedule. It is imperative that
-///   the object providing this interface is alive for the entire lifecycle of
-///   the returned Participant object, or else undefined behavior will occur.
+///   An interface to use when writing to the schedule.
 ///
 /// \param[in] rectifier_factory
 ///   A reference to a factory that can produce a rectifier for this
@@ -136,8 +136,8 @@ private:
 ///   then there is no need for a RectifierRequesterFactory.
 Participant make_participant(
   ParticipantDescription description,
-  Writer& writer,
-  RectificationRequesterFactory* rectifier_factory = nullptr);
+  std::shared_ptr<Writer> writer,
+  std::shared_ptr<RectificationRequesterFactory> rectifier_factory = nullptr);
 
 // TODO(MXG): Consider creating an overload of make_participant() that accepts
 // a std::shared_ptr<Writer> to ensure that the writer's lifecycle is long
