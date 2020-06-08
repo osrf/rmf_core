@@ -590,7 +590,7 @@ const ParticipantConfig a2_config = {
 
 // Tests
 //==============================================================================
-SCENARIO("A Single Lane, hold anywhere")
+SCENARIO("A Single Lane")
 {
   using namespace std::chrono_literals;
   auto database = std::make_shared<rmf_traffic::schedule::Database>();
@@ -600,8 +600,8 @@ SCENARIO("A Single Lane, hold anywhere")
 
   /*           single_lane_map
    *
-   *          3        3        3
-   *    A(H) <-> B(H) <-> C(H) <-> D(H)
+   *       3     3     3
+   *    A <-> B <-> C <-> D
    */
 
   vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(false)}});
@@ -1587,6 +1587,7 @@ SCENARIO("A single lane with an alcove holding space")
     }
   }
 }
+
 
 SCENARIO("A single lane with a alternate one way path")
 {
