@@ -31,6 +31,13 @@ public:
 };
 
 //==============================================================================
+StubbornNegotiator::StubbornNegotiator(const Participant& participant)
+  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{&participant}))
+{
+  // Do nothing
+}
+
+//==============================================================================
 void StubbornNegotiator::respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const ResponderPtr& responder)

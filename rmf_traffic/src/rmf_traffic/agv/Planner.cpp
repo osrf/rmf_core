@@ -898,6 +898,7 @@ Plan::Plan()
 //==============================================================================
 std::vector<Plan::Start> compute_plan_starts(
   const rmf_traffic::agv::Graph& graph,
+  const std::string& map_name,
   const Eigen::Vector3d pose,
   const rmf_traffic::Time start_time,
   const double max_merge_waypoint_distance,
@@ -911,6 +912,9 @@ std::vector<Plan::Start> compute_plan_starts(
   for (std::size_t i = 0; i < graph.num_waypoints(); ++i)
   {
     const auto& wp = graph.get_waypoint(i);
+    if (wp.get_map_name() != map_name)
+      continue;
+
     const Eigen::Vector2d wp_location = wp.get_location();
 
     if ( (p_location - wp_location).norm() < max_merge_waypoint_distance)
@@ -927,10 +931,16 @@ std::vector<Plan::Start> compute_plan_starts(
   for (std::size_t i = 0; i < graph.num_lanes(); ++i)
   {
     const auto& lane = graph.get_lane(i);
-    const Eigen::Vector2d p0 =
-      graph.get_waypoint(lane.entry().waypoint_index()).get_location();
-    const Eigen::Vector2d p1 =
-      graph.get_waypoint(lane.exit().waypoint_index()).get_location();
+    const auto& wp0 = graph.get_waypoint(lane.entry().waypoint_index());
+    if (wp0.get_map_name() != map_name)
+      continue;
+
+    const auto& wp1 = graph.get_waypoint(lane.exit().waypoint_index());
+    if (wp1.get_map_name() != map_name)
+      continue;
+
+    const Eigen::Vector2d p0 = wp0.get_location();
+    const Eigen::Vector2d p1 = wp1.get_location();
 
     const double lane_length = (p1 - p0).norm();
 

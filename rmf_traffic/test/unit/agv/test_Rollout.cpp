@@ -76,7 +76,7 @@ public:
 
 SCENARIO("Test Rollout on graph with side routes")
 {
-  rmf_traffic::schedule::Database database;
+  const auto database = std::make_shared<rmf_traffic::schedule::Database>();
 
   rmf_traffic::Profile profile{
     rmf_traffic::geometry::make_final_convex<
