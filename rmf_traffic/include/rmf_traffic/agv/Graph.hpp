@@ -26,6 +26,7 @@
 #include <rmf_utils/clone_ptr.hpp>
 
 #include <vector>
+#include <unordered_map>
 
 namespace rmf_traffic {
 namespace agv {
@@ -88,6 +89,12 @@ public:
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
     std::size_t index() const;
+
+    /// If this waypoint has a name, return a reference to it. If this waypoint
+    /// does not have a name, return a nullptr.
+    ///
+    /// The name of a waypoint can only be set using add_key() or set_key().
+    const std::string* name() const;
 
     class Implementation;
   private:
@@ -487,6 +494,33 @@ public:
 
   /// const-qualified get_waypoint()
   const Waypoint& get_waypoint(std::size_t index) const;
+
+  /// Find a waypoint given a key name. If the graph does not have a matching
+  /// key name, then a nullptr will be returned.
+  Waypoint* find_waypoint(const std::string& key);
+
+  /// const-qualified find_waypoint()
+  const Waypoint* find_waypoint(const std::string& key) const;
+
+  /// Add a new waypoint key name to the graph. If a new key name is given, then
+  /// this function will return true. If the given key name was already in use,
+  /// then this will return false and nothing will be changed in the graph.
+  bool add_key(const std::string& key, std::size_t wp_index);
+
+  /// Remove the waypoint key with the given name, if it exists in this Graph.
+  /// If the key was removed, this will return true. If the key did not exist,
+  /// this will return false.
+  bool remove_key(const std::string& key);
+
+  /// Set a waypoint key. If this key is already in the Graph, it will be
+  /// changed to the new association.
+  ///
+  /// This function will return false if wp_index is outside the range of the
+  /// waypoints in this Graph.
+  bool set_key(const std::string& key, std::size_t wp_index);
+
+  /// Get the map of all keys in this Graph.
+  const std::unordered_map<std::string, std::size_t>& keys() const;
 
   /// Get the number of waypoints in this Graph
   std::size_t num_waypoints() const;

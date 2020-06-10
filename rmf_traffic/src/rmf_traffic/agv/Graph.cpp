@@ -20,6 +20,7 @@
 #include <rmf_traffic/agv/Graph.hpp>
 
 #include <rmf_utils/math.hpp>
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_traffic {
 namespace agv {
@@ -35,6 +36,8 @@ public:
 
   Eigen::Vector2d location;
 
+  rmf_utils::optional<std::string> name = rmf_utils::nullopt;
+
   bool holding_point = false;
 
   bool passthrough_point = false;
@@ -49,6 +52,11 @@ public:
       Implementation{std::forward<Args>(args)...});
 
     return result;
+  }
+
+  static Waypoint::Implementation& get(Waypoint& wp)
+  {
+    return *wp._pimpl;
   }
 };
 
@@ -121,6 +129,15 @@ auto Graph::Waypoint::set_parking_spot(bool _is_parking_spot) -> Waypoint&
 std::size_t Graph::Waypoint::index() const
 {
   return _pimpl->index;
+}
+
+//==============================================================================
+const std::string* Graph::Waypoint::name() const
+{
+  if (_pimpl->name)
+    return &_pimpl->name.value();
+
+  return nullptr;
 }
 
 //==============================================================================
@@ -718,6 +735,75 @@ auto Graph::get_waypoint(const std::size_t index) -> Waypoint&
 auto Graph::get_waypoint(const std::size_t index) const -> const Waypoint&
 {
   return _pimpl->waypoints.at(index);
+}
+
+//==============================================================================
+auto Graph::find_waypoint(const std::string& key) -> Waypoint*
+{
+  const auto it = _pimpl->keys.find(key);
+  if (it == _pimpl->keys.end())
+    return nullptr;
+
+  return &get_waypoint(it->second);
+}
+
+//==============================================================================
+auto Graph::find_waypoint(const std::string& key) const -> const Waypoint*
+{
+  return const_cast<Graph&>(*this).find_waypoint(key);
+}
+
+//==============================================================================
+bool Graph::add_key(const std::string& key, std::size_t wp_index)
+{
+  if (wp_index > _pimpl->waypoints.size())
+    return false;
+
+  const auto inserted = _pimpl->keys.insert({key, wp_index}).second;
+  if (!inserted)
+    return false;
+
+  Waypoint::Implementation::get(_pimpl->waypoints[wp_index]).name = key;
+  return true;
+}
+
+//==============================================================================
+bool Graph::remove_key(const std::string& key)
+{
+  const auto it = _pimpl->keys.find(key);
+  if (it == _pimpl->keys.end())
+    return false;
+
+  Waypoint::Implementation::get(_pimpl->waypoints[it->second])
+      .name = rmf_utils::nullopt;
+
+  _pimpl->keys.erase(it);
+  return true;
+}
+
+//==============================================================================
+bool Graph::set_key(const std::string& key, std::size_t wp_index)
+{
+  if (_pimpl->waypoints.size() <= wp_index)
+    return false;
+
+  _pimpl->keys[key] = wp_index;
+  const auto insertion = _pimpl->keys.insert({key, wp_index});
+  if (!insertion.second)
+  {
+    Waypoint::Implementation::get(_pimpl->waypoints[insertion.first->second])
+        .name = rmf_utils::nullopt;
+    insertion.first->second = wp_index;
+  }
+
+  Waypoint::Implementation::get(_pimpl->waypoints[wp_index]).name = key;
+  return true;
+}
+
+//==============================================================================
+const std::unordered_map<std::string, std::size_t>& Graph::keys() const
+{
+  return _pimpl->keys;
 }
 
 //==============================================================================
