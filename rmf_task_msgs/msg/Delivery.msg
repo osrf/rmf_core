@@ -6,7 +6,9 @@ string task_id
 rmf_dispenser_msgs/DispenserRequestItem[] items
 
 string pickup_place_name
+string pickup_dispenser
 Behavior pickup_behavior
 
 string dropoff_place_name
+string dropoff_dispenser
 Behavior dropoff_behavior
