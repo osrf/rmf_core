@@ -93,7 +93,7 @@ struct NegotiationData
   std::unordered_set<Negotiation::Table::Implementation*> forfeited_tables;
 
   void clear_successful_descendants_of(
-      const Negotiation::VersionedKeySequence& sequence)
+    const Negotiation::VersionedKeySequence& sequence)
   {
     const auto erase_it = std::remove_if(
       successful_tables.begin(),
@@ -146,15 +146,15 @@ public:
   VersionedKeySequence sequence;
 
   Viewer::View query(
-      const Query::Spacetime& spacetime,
-      const VersionedKeySequence& rollouts) const;
+    const Query::Spacetime& spacetime,
+    const VersionedKeySequence& rollouts) const;
 
   template<typename... Args>
-  static Viewer make(Args&&... args)
+  static Viewer make(Args&& ... args)
   {
     Viewer output;
     output._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::forward<Args>(args)...});
+      Implementation{std::forward<Args>(args)...});
 
     return output;
   }
@@ -261,7 +261,7 @@ public:
       all_participants.end(), unsubmitted.begin(), unsubmitted.end());
 
     participant_query = std::make_shared<Query::Participants>(
-          Query::Participants::make_all_except(std::move(all_participants)));
+      Query::Participants::make_all_except(std::move(all_participants)));
 
     // Add this Table's participant to the sequence
     sequence = std::move(submitted_);
@@ -363,7 +363,7 @@ public:
     {
       negotiation_data->forfeited_tables.erase(this);
       negotiation_data->num_terminated_tables -=
-          termination_factor(depth, negotiation_data->participants.size());
+        termination_factor(depth, negotiation_data->participants.size());
     }
     else if (had_itinerary && descendants.empty())
     {
@@ -401,8 +401,8 @@ public:
   }
 
   AlternativesTimelineMap to_timelines(
-      const ParticipantId participant,
-      const Alternatives& alternatives) const
+    const ParticipantId participant,
+    const Alternatives& alternatives) const
   {
     AlternativesTimelineMap output;
     const auto& description = schedule_viewer->get_participant(participant);
@@ -416,12 +416,12 @@ public:
       for (const auto& route : alternative)
       {
         auto entry = std::make_shared<RouteEntry>(
-              RouteEntry{
-                route,
-                participant,
-                id,
-                description
-              });
+          RouteEntry{
+            route,
+            participant,
+            id,
+            description
+          });
 
         handles.push_back(timeline.insert(entry));
       }
@@ -433,9 +433,9 @@ public:
   }
 
   bool reject(
-      const Version rejected_version,
-      ParticipantId rejected_by,
-      Alternatives offered_alternatives)
+    const Version rejected_version,
+    ParticipantId rejected_by,
+    Alternatives offered_alternatives)
   {
     if (rmf_utils::modular(rejected_version).less_than(version()))
       return false;
@@ -443,10 +443,10 @@ public:
     cached_table_viewer.reset();
 
     alternatives_timelines[rejected_by] =
-        to_timelines(rejected_by, offered_alternatives);
+      to_timelines(rejected_by, offered_alternatives);
 
     this->alternatives[rejected_by] =
-        std::make_shared<Alternatives>(std::move(offered_alternatives));
+      std::make_shared<Alternatives>(std::move(offered_alternatives));
 
     version() = rejected_version;
 
@@ -518,7 +518,7 @@ public:
     if (negotiation_data)
     {
       negotiation_data->num_terminated_tables +=
-          termination_factor(depth, negotiation_data->participants.size());
+        termination_factor(depth, negotiation_data->participants.size());
       negotiation_data->forfeited_tables.insert(this);
 
       negotiation_data->clear_successful_descendants_of(sequence);
@@ -549,8 +549,8 @@ public:
         if (table->_pimpl->forfeited && negotiation_data)
         {
           negotiation_data->num_terminated_tables -=
-              termination_factor(
-                table->_pimpl->depth, negotiation_data->participants.size());
+            termination_factor(table->_pimpl->depth,
+              negotiation_data->participants.size());
 
           negotiation_data->forfeited_tables.erase(table->_pimpl.get());
         }
@@ -734,7 +734,7 @@ public:
     const VersionedKeySequence& to_accommodate) const
   {
     auto output = const_cast<Implementation&>(*this).find_entry(
-          for_participant, to_accommodate);
+      for_participant, to_accommodate);
     return {output.status, output.table};
   }
 
@@ -818,7 +818,7 @@ rmf_utils::optional<Negotiation> Negotiation::make(
 
   Negotiation negotiation;
   negotiation._pimpl = rmf_utils::make_unique_impl<Implementation>(
-        std::move(schedule_viewer), std::move(participants));
+    std::move(schedule_viewer), std::move(participants));
   return negotiation;
 }
 
@@ -902,8 +902,8 @@ Viewer::View Negotiation::Table::Viewer::Implementation::query(
   for (const auto& alternative : chosen_alternatives)
   {
     alternatives_timelines.at(alternative.participant)
-      .at(alternative.version)
-      ->inspect(spacetime, all_participants, inspector);
+    .at(alternative.version)
+    ->inspect(spacetime, all_participants, inspector);
   }
 
   // Query for the relevant routes that are outside of the negotiation
@@ -972,15 +972,15 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
     parent_id = p->participant();
 
   _pimpl->cached_table_viewer = std::make_shared<Viewer>(
-        Viewer::Implementation::make(
-          _pimpl->proposed_timeline,
-          _pimpl->alternatives_timelines,
-          _pimpl->alternatives,
-          _pimpl->base_proposals,
-          _pimpl->participant_query,
-          _pimpl->schedule_viewer,
-          parent_id,
-          _pimpl->sequence));
+    Viewer::Implementation::make(
+      _pimpl->proposed_timeline,
+      _pimpl->alternatives_timelines,
+      _pimpl->alternatives,
+      _pimpl->base_proposals,
+      _pimpl->participant_query,
+      _pimpl->schedule_viewer,
+      parent_id,
+      _pimpl->sequence));
 
   return _pimpl->cached_table_viewer;
 }
@@ -1039,9 +1039,9 @@ bool Negotiation::Table::submit(
 
 //==============================================================================
 bool Negotiation::Table::reject(
-    const Version version,
-    ParticipantId rejected_by,
-    Alternatives rollouts)
+  const Version version,
+  ParticipantId rejected_by,
+  Alternatives rollouts)
 {
   return _pimpl->reject(version, rejected_by, std::move(rollouts));
 }

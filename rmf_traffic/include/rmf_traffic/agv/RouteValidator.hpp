@@ -55,7 +55,7 @@ public:
   // provide a hint about which participant is causing conflicts, it is okay if
   // other participants are ignored.
   virtual rmf_utils::optional<Conflict> find_conflict(
-      const Route& route) const = 0;
+    const Route& route) const = 0;
 
   /// Create a clone of the underlying RouteValidator object.
   virtual std::unique_ptr<RouteValidator> clone() const = 0;
@@ -142,8 +142,8 @@ public:
     /// \param[in] profile
     ///   The profile of the participant whose routes are being validated.
     Generator(
-        schedule::Negotiation::Table::ViewerPtr viewer,
-        rmf_traffic::Profile profile);
+      schedule::Negotiation::Table::ViewerPtr viewer,
+      rmf_traffic::Profile profile);
 
     /// Start with a NegotiatingRouteValidator that will use all the most
     /// preferred alternatives from every participant.

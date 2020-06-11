@@ -41,9 +41,9 @@ namespace schedule {
 /// to a downstream Viewer, it is strongly advised to use the
 /// rmf_traffic::schedule::Mirror class.
 class Database :
-    public ItineraryViewer,
-    public Writer,
-    public Snappable
+  public ItineraryViewer,
+  public Writer,
+  public Snappable
 {
 public:
 
@@ -102,8 +102,8 @@ public:
 
   // Documentation inherited from Viewer
   View query(
-      const Query::Spacetime& spacetime,
-      const Query::Participants& participants) const final;
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const final;
 
   // Documentation inherited from Viewer
   const std::unordered_set<ParticipantId>& participant_ids() const final;

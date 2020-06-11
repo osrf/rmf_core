@@ -127,7 +127,7 @@ public:
 
   // Documentation inherited
   void reject(
-      const Negotiation::Alternatives& alternatives) const final;
+    const Negotiation::Alternatives& alternatives) const final;
 
   // Documentation inherited
   void forfeit(const std::vector<ParticipantId>& blockers) const final;

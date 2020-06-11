@@ -98,7 +98,7 @@ public:
     inline bool operator==(const VersionedKey& other) const
     {
       return participant == other.participant
-          && version == other.version;
+        && version == other.version;
     }
 
     inline bool operator!=(const VersionedKey& other) const
@@ -155,8 +155,8 @@ public:
       ///   The selection of which rollout alternatives should be viewed for the
       ///   participants who have rejected this proposal in the past.
       View query(
-          const Query::Spacetime& parameters,
-          const VersionedKeySequence& alternatives) const;
+        const Query::Spacetime& parameters,
+        const VersionedKeySequence& alternatives) const;
 
       using AlternativeMap =
         std::unordered_map<ParticipantId, std::shared_ptr<Alternatives>>;
@@ -174,7 +174,7 @@ public:
 
       /// Get the description of a participant in this Viewer.
       std::shared_ptr<const ParticipantDescription> get_participant(
-          ParticipantId participant_id) const;
+        ParticipantId participant_id) const;
 
       /// If the Table has a parent, get its Participant ID.
       rmf_utils::optional<ParticipantId> parent_id() const;
@@ -257,9 +257,9 @@ public:
     /// \return True if the rejection was accepted. False if the version was
     /// out of date and nothing changed in the negotiation.
     bool reject(
-        Version version,
-        ParticipantId rejected_by,
-        Alternatives alternatives);
+      Version version,
+      ParticipantId rejected_by,
+      Alternatives alternatives);
 
     /// Returns true if the proposal put on this Table has been rejected.
     bool rejected() const;

@@ -43,10 +43,11 @@ inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 
 //==============================================================================
 inline void print_route(
-    const rmf_traffic::Route& route,
-    const rmf_traffic::Time start_time)
+  const rmf_traffic::Route& route,
+  const rmf_traffic::Time start_time)
 {
-  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
+  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end();
+    ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)
@@ -60,7 +61,7 @@ inline void print_route(
 
 //==============================================================================
 inline void print_itinerary(
-    const rmf_traffic::schedule::Itinerary& itinerary)
+  const rmf_traffic::schedule::Itinerary& itinerary)
 {
   auto start_time = print_start(*itinerary.front());
   for (const auto& r : itinerary)
@@ -164,7 +165,7 @@ public:
     }
 
     while (!queue.empty()
-           && !negotiation->ready()) // Use this to allow a quick Negotiation
+      && !negotiation->ready()) // Use this to allow a quick Negotiation
 //           && !negotiation->complete()) // Use this to force a complete Negotiation
     {
       if (_print)
@@ -198,17 +199,17 @@ public:
         std::cout << " ]" << std::endl;
 
         rmf_traffic::agv::SimpleNegotiator::Debug
-            ::enable_debug_print(negotiator);
+        ::enable_debug_print(negotiator);
       }
 
       auto viewer = top->viewer();
       bool interrupt = false;
       auto result = std::async(
-            std::launch::async,
-            [&]()
-      {
-        negotiator.respond(viewer, Responder(top, &blockers), &interrupt);
-      });
+        std::launch::async,
+        [&]()
+        {
+          negotiator.respond(viewer, Responder(top, &blockers), &interrupt);
+        });
 
       using namespace std::chrono_literals;
 #if NDEBUG

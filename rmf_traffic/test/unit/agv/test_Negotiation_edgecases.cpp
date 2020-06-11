@@ -25,8 +25,8 @@
 #include <rmf_traffic/agv/debug/Planner.hpp>
 
 Eigen::Vector3d get_location(
-    const rmf_traffic::agv::Plan::Start& start,
-    const rmf_traffic::agv::Graph& graph)
+  const rmf_traffic::agv::Plan::Start& start,
+  const rmf_traffic::agv::Graph& graph)
 {
   if (start.location())
   {
@@ -39,12 +39,12 @@ Eigen::Vector3d get_location(
 }
 
 void check_start_compatibility(
-    const rmf_traffic::agv::Graph& graph_a,
-    const rmf_traffic::Profile& profile_a,
-    const std::vector<rmf_traffic::agv::Plan::Start>& a_starts,
-    const rmf_traffic::agv::Graph& graph_b,
-    const rmf_traffic::Profile& profile_b,
-    const std::vector<rmf_traffic::agv::Plan::Start>& b_starts)
+  const rmf_traffic::agv::Graph& graph_a,
+  const rmf_traffic::Profile& profile_a,
+  const std::vector<rmf_traffic::agv::Plan::Start>& a_starts,
+  const rmf_traffic::agv::Graph& graph_b,
+  const rmf_traffic::Profile& profile_b,
+  const std::vector<rmf_traffic::agv::Plan::Start>& b_starts)
 {
   std::cout << "a_starts: " << a_starts.size()
             << " | b_starts: " << b_starts.size()
@@ -68,8 +68,8 @@ void check_start_compatibility(
       b_traj.insert(b.time() + 10s, p_b, zero);
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-            profile_a, a_traj,
-            profile_b, b_traj))
+          profile_a, a_traj,
+          profile_b, b_traj))
       {
         std::cout << "CONFLICT FOUND" << std::endl;
       }
@@ -118,8 +118,6 @@ SCENARIO("Test difficult 3-way scenarios")
   graph_a.add_lane(10, 9);
   graph_a.add_lane(3, 11);
   graph_a.add_lane(11, 3);
-
-
 
 
   rmf_traffic::agv::Graph graph_b;
@@ -236,25 +234,25 @@ SCENARIO("Test difficult 3-way scenarios")
     auto a0_goal = rmf_traffic::agv::Plan::Goal(1);
 
     auto b1_starts = rmf_traffic::agv::compute_plan_starts(
-          graph_b, {11.892134, -15.398828, 2.631314}, time);
+      graph_b, {11.892134, -15.398828, 2.631314}, time);
     auto b1_goal = rmf_traffic::agv::Plan::Goal(11);
 
     auto b2_starts = rmf_traffic::agv::compute_plan_starts(
-          graph_b, {13.057442, -15.363754, -3.128299}, time);
+      graph_b, {13.057442, -15.363754, -3.128299}, time);
     auto b2_goal = rmf_traffic::agv::Plan::Goal(13);
 
     NegotiationRoom::Intentions intentions;
     intentions.insert({
-      a0.id(),
-      NegotiationRoom::Intention{std::move(a0_starts), a0_goal, config_a} });
+        a0.id(),
+        NegotiationRoom::Intention{std::move(a0_starts), a0_goal, config_a} });
 
     intentions.insert({
-      b1.id(),
-      NegotiationRoom::Intention{std::move(b1_starts), b1_goal, config_b}});
+        b1.id(),
+        NegotiationRoom::Intention{std::move(b1_starts), b1_goal, config_b}});
 
     intentions.insert({
-      b2.id(),
-      NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
+        b2.id(),
+        NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
 
     auto room = NegotiationRoom(database, intentions);
     auto proposal = room.solve();

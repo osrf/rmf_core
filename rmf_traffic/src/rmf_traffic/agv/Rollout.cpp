@@ -33,19 +33,19 @@ public:
 
 //==============================================================================
 Rollout::Rollout(Planner::Result result)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(result)
-             }))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(result)
+      }))
 {
   // Do nothing
 }
 
 //==============================================================================
 std::vector<schedule::Itinerary> Rollout::expand(
-    schedule::ParticipantId blocker,
-    rmf_traffic::Duration span,
-    const Planner::Options& options) const
+  schedule::ParticipantId blocker,
+  rmf_traffic::Duration span,
+  const Planner::Options& options) const
 {
   const auto& result = Planner::Result::Implementation::get(_pimpl->result);
   const auto& blocker_map = result.state.issues.blocked_nodes;
@@ -58,10 +58,10 @@ std::vector<schedule::Itinerary> Rollout::expand(
     return {};
 
   return result.cache_mgr.get()->rollout(
-        span,
-        block_it->second,
-        result.state.conditions.goal,
-        options);
+    span,
+    block_it->second,
+    result.state.conditions.goal,
+    options);
 }
 
 } // namespace agv

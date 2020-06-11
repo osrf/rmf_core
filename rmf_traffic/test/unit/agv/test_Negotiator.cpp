@@ -385,7 +385,7 @@ SCENARIO("Multi-participant negotiation")
   graph.add_waypoint(test_map_name, { 0.0, -5.0}, true); // 0
   graph.add_waypoint(test_map_name, {-5.0, 0.0}, true); // 1
   graph.add_waypoint(test_map_name, { 0.0, 0.0}, true); // 2
-  graph.add_waypoint(test_map_name, { 5.0,  0.0}, true); // 3
+  graph.add_waypoint(test_map_name, { 5.0, 0.0}, true); // 3
   graph.add_waypoint(test_map_name, { 0.0, 5.0}, true); // 4
 
   /*
@@ -427,7 +427,7 @@ SCENARIO("Multi-participant negotiation")
   intentions.insert({2, NegotiationRoom::Intention{
         {time, 3, 0.0}, 1, configuration}});
 
-  auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
+  auto proposal = NegotiationRoom(database, intentions) /*.print()*/.solve();
   REQUIRE(proposal);
 
   //print_proposal(*proposal);
@@ -497,7 +497,8 @@ generate_test_graph_data(std::string map_name, VertexMap vertices,
       vertex_id_to_idx);
 }
 
-inline rmf_utils::optional<rmf_traffic::schedule::Itinerary> get_participant_itinerary(
+inline rmf_utils::optional<rmf_traffic::schedule::Itinerary>
+get_participant_itinerary(
   rmf_traffic::schedule::Negotiation::Proposal proposal,
   rmf_traffic::schedule::ParticipantId participant_id)
 {
@@ -1393,10 +1394,14 @@ SCENARIO("A single lane with an alcove holding space")
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
 
-        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+        auto p0_itinerary =
+          get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary =
+          get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
+          2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
+          2) == vertices["A"].first);
       }
     }
 
@@ -1704,10 +1709,14 @@ SCENARIO("A single lane with a alternate one way path")
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
 
-        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+        auto p0_itinerary =
+          get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary =
+          get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
+          2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
+          2) == vertices["A"].first);
       }
     }
   }
@@ -1835,10 +1844,14 @@ SCENARIO("A single lane with a alternate two way path")
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
 
-        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
-        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
+        auto p0_itinerary =
+          get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary =
+          get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
+          2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
+          2) == vertices["A"].first);
       }
     }
   }
@@ -2084,7 +2097,8 @@ SCENARIO("A single loop with alcoves at each vertex")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
+        auto proposal =
+          NegotiationRoom(database, intentions) /*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2344,7 +2358,8 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
+        auto proposal =
+          NegotiationRoom(database, intentions) /*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2500,7 +2515,8 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
+        auto proposal =
+          NegotiationRoom(database, intentions) /*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2562,7 +2578,8 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
+        auto proposal =
+          NegotiationRoom(database, intentions) /*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =

@@ -56,9 +56,9 @@ public:
   /// \return a collection of itineraries from the original Planning Result's
   /// starts past the blockages that were caused by the specified blocker.
   std::vector<schedule::Itinerary> expand(
-      schedule::ParticipantId blocker,
-      rmf_traffic::Duration span,
-      const Planner::Options& options) const;
+    schedule::ParticipantId blocker,
+    rmf_traffic::Duration span,
+    const Planner::Options& options) const;
 
   class Implementation;
 private:

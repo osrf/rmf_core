@@ -121,8 +121,8 @@ public:
   // more efficient to create snapshots
   using ParticipantDescriptions =
     std::unordered_map<ParticipantId,
-    std::shared_ptr<const ParticipantDescription>
-  >;
+      std::shared_ptr<const ParticipantDescription>
+    >;
   ParticipantDescriptions descriptions;
 
   using ParticipantRegistrationVersions = std::map<Version, ParticipantId>;
@@ -262,7 +262,7 @@ public:
       assert(storage.find(id) != storage.end());
       auto& entry_storage = storage.at(id);
       const Trajectory& old_trajectory =
-          entry_storage.entry->route->trajectory();
+        entry_storage.entry->route->trajectory();
 
       assert(old_trajectory.start_time());
 
@@ -294,7 +294,7 @@ public:
         });
 
       entry_storage.entry->transition->predecessor.entry->successor =
-          entry_storage.entry;
+        entry_storage.entry;
 
       entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
@@ -329,7 +329,7 @@ public:
         });
 
       entry_storage.entry->transition->predecessor.entry->successor =
-          entry_storage.entry;
+        entry_storage.entry;
 
       entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
     }
@@ -642,7 +642,7 @@ ParticipantId Database::register_participant(
   const Version version = ++_pimpl->schedule_version;
 
   const auto description_ptr =
-      std::make_shared<ParticipantDescription>(std::move(description));
+    std::make_shared<ParticipantDescription>(std::move(description));
 
   _pimpl->states.insert(
     std::make_pair(
@@ -1001,8 +1001,8 @@ Viewer::View Database::query(const Query& parameters) const
 
 //==============================================================================
 Viewer::View Database::query(
-    const Query::Spacetime& spacetime,
-    const Query::Participants& participants) const
+  const Query::Spacetime& spacetime,
+  const Query::Participants& participants) const
 {
   ViewRelevanceInspector inspector;
   _pimpl->timeline.inspect(spacetime, participants, inspector);
@@ -1057,10 +1057,10 @@ std::shared_ptr<const Snapshot> Database::snapshot() const
     SnapshotImplementation<Implementation::RouteEntry, ViewRelevanceInspector>;
 
   return std::make_shared<SnapshotType>(
-        _pimpl->timeline.snapshot(),
-        _pimpl->participant_ids,
-        _pimpl->descriptions,
-        _pimpl->schedule_version);
+    _pimpl->timeline.snapshot(),
+    _pimpl->participant_ids,
+    _pimpl->descriptions,
+    _pimpl->schedule_version);
 }
 
 //==============================================================================
@@ -1086,7 +1086,7 @@ auto Database::changes(
   {
     PatchRelevanceInspector inspector(*after);
     _pimpl->timeline.inspect(
-          parameters.spacetime(), parameters.participants(), inspector);
+      parameters.spacetime(), parameters.participants(), inspector);
 
     changes = inspector.changes;
   }
@@ -1094,7 +1094,7 @@ auto Database::changes(
   {
     FirstPatchRelevanceInspector inspector;
     _pimpl->timeline.inspect(
-          parameters.spacetime(), parameters.participants(), inspector);
+      parameters.spacetime(), parameters.participants(), inspector);
 
     changes = inspector.changes;
   }
@@ -1173,7 +1173,7 @@ Viewer::View Database::query(const Query& parameters, const Version after) const
 {
   ViewerAfterRelevanceInspector inspector{after};
   _pimpl->timeline.inspect(
-        parameters.spacetime(), parameters.participants(), inspector);
+    parameters.spacetime(), parameters.participants(), inspector);
 
   return Viewer::View::Implementation::make_view(std::move(inspector.routes));
 }
@@ -1186,7 +1186,7 @@ Version Database::cull(Time time)
 
   CullRelevanceInspector inspector(time);
   _pimpl->timeline.inspect(
-        spacetime, Query::Participants::make_all(), inspector);
+    spacetime, Query::Participants::make_all(), inspector);
 
   // TODO(MXG) This iterating could probably be made more efficient by grouping
   // together the culls of each participant.

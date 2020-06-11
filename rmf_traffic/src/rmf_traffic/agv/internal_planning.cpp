@@ -182,9 +182,9 @@ namespace {
 //==============================================================================
 template<typename NodePtr>
 void reparent_node_for_holding(
-    const NodePtr& low_node,
-    const NodePtr& high_node,
-    RouteData route)
+  const NodePtr& low_node,
+  const NodePtr& high_node,
+  RouteData route)
 {
   high_node->parent = low_node;
   high_node->route_from_parent = std::move(route);
@@ -239,7 +239,7 @@ struct OrientationTimeMap
         const auto& node_low = it_low->second;
         const auto& node_high = it_high->second;
         assert(node_low->route_from_parent.map
-               == node_high->route_from_parent.map);
+          == node_high->route_from_parent.map);
 
         const auto& start_wp = node_low->route_from_parent.trajectory.back();
         const auto& end_wp = node_high->route_from_parent.trajectory.back();
@@ -248,9 +248,9 @@ struct OrientationTimeMap
         new_route.map = node_low->route_from_parent.map;
         new_route.trajectory.insert(start_wp);
         new_route.trajectory.insert(
-              end_wp.time(),
-              end_wp.position(),
-              Eigen::Vector3d::Zero());
+          end_wp.time(),
+          end_wp.position(),
+          Eigen::Vector3d::Zero());
 
         if (!validator || !validator->find_conflict(RouteData::make(new_route)))
         {
@@ -300,8 +300,8 @@ struct OrientationTimeMap
 //==============================================================================
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(
-    const NodePtr& finish_node,
-    const agv::RouteValidator* validator)
+  const NodePtr& finish_node,
+  const agv::RouteValidator* validator)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
 
@@ -333,7 +333,7 @@ std::vector<NodePtr> reconstruct_nodes(
 //==============================================================================
 template<typename NodePtr>
 std::vector<Route> reconstruct_routes(
-    const std::vector<NodePtr>& node_sequence)
+  const std::vector<NodePtr>& node_sequence)
 {
   if (node_sequence.size() == 1)
   {
@@ -734,11 +734,11 @@ struct DifferentialDriveExpander
 
         EuclideanExpander::SearchQueue euclidean_queue;
         expander.make_initial_nodes(
-              EuclideanExpander::InitialNodeArgs{waypoint},
-              euclidean_queue);
+          EuclideanExpander::InitialNodeArgs{waypoint},
+          euclidean_queue);
 
         const EuclideanExpander::NodePtr solution =
-            search<EuclideanExpander>(expander, euclidean_queue, nullptr);
+          search<EuclideanExpander>(expander, euclidean_queue, nullptr);
 
         // TODO(MXG): Instead of asserting that the goal exists, we should
         // probably take this opportunity to shortcircuit the planner and return
@@ -799,7 +799,8 @@ struct DifferentialDriveExpander
     Heuristic& heuristic;
     Issues::BlockerMap& blockers;
     const bool simple_lane_expansion; // reduces branching factor when true
-    const rmf_traffic::Time initial_time = rmf_traffic::Time(rmf_traffic::Duration(0));
+    const rmf_traffic::Time initial_time = rmf_traffic::Time(
+      rmf_traffic::Duration(0));
   };
 
   DifferentialDriveExpander(Context& context)
@@ -815,7 +816,7 @@ struct DifferentialDriveExpander
   // TODO(MXG): This will only ever return 0, 1, or 2 routes, so a bounded
   // vector would be preferable.
   std::vector<RouteData> make_start_approach_routes(
-      const agv::Planner::Start& start)
+    const agv::Planner::Start& start)
   {
     std::vector<RouteData> output;
 
@@ -920,22 +921,22 @@ struct DifferentialDriveExpander
   }
 
   void expand_start_routes(
-      const NodePtr& start_node,
-      const std::vector<RouteData>& routes,
-      SearchQueue& queue)
+    const NodePtr& start_node,
+    const std::vector<RouteData>& routes,
+    SearchQueue& queue)
   {
     assert(start_node->start);
 
     const std::size_t waypoint = start_node->start->waypoint();
 
     const double remaining_cost_estimate =
-        _context.heuristic.estimate_remaining_cost(
-          _context, waypoint);
+      _context.heuristic.estimate_remaining_cost(_context,
+        waypoint);
 
     for (const auto& route : routes)
     {
       const double current_cost =
-          rmf_traffic::time::to_seconds(route.trajectory.duration());
+        rmf_traffic::time::to_seconds(route.trajectory.duration());
 
       // TODO(MXG): Should we consider lane entry events here?
 
@@ -944,15 +945,15 @@ struct DifferentialDriveExpander
 
 //      std::cout << "Expanding down lane from start" << std::endl;
       queue.push(std::make_shared<Node>(
-        Node{
-          remaining_cost_estimate,
-          current_cost,
-          waypoint,
-          route.trajectory.back().position()[2],
-          route,
-          nullptr,
-          start_node
-        }));
+          Node{
+            remaining_cost_estimate,
+            current_cost,
+            waypoint,
+            route.trajectory.back().position()[2],
+            route,
+            nullptr,
+            start_node
+          }));
     }
 
     RouteData wait_route;
@@ -966,23 +967,23 @@ struct DifferentialDriveExpander
       Eigen::Vector3d::Zero());
 
     const double wait_cost =
-        start_node->current_cost
-        + rmf_traffic::time::to_seconds(wait_route.trajectory.duration());
+      start_node->current_cost
+      + rmf_traffic::time::to_seconds(wait_route.trajectory.duration());
 
     if (is_valid(wait_route, start_node))
     {
 //      std::cout << "Expanding hold from start" << std::endl;
       queue.push(std::make_shared<Node>(
-        Node{
-          start_node->remaining_cost_estimate,
-          wait_cost,
-          start_node->waypoint,
-          start_node->orientation,
-          std::move(wait_route),
-          nullptr,
-          start_node,
-          start_node->start
-        }));
+          Node{
+            start_node->remaining_cost_estimate,
+            wait_cost,
+            start_node->waypoint,
+            start_node->orientation,
+            std::move(wait_route),
+            nullptr,
+            start_node,
+            start_node->start
+          }));
     }
   }
 
@@ -1005,15 +1006,15 @@ struct DifferentialDriveExpander
       const std::size_t initial_waypoint = start.waypoint();
       auto initial_routes = make_start_approach_routes(start);
       const double remaining_cost_estimate =
-          _context.heuristic.estimate_remaining_cost(
-            _context, initial_waypoint);
+        _context.heuristic.estimate_remaining_cost(_context,
+          initial_waypoint);
 
-      double shortest_route_cost = initial_routes.empty()?
-            0.0 : std::numeric_limits<double>::infinity();
+      double shortest_route_cost = initial_routes.empty() ?
+        0.0 : std::numeric_limits<double>::infinity();
       for (const auto& initial_route : initial_routes)
       {
         const double route_cost =
-            rmf_traffic::time::to_seconds(initial_route.trajectory.duration());
+          rmf_traffic::time::to_seconds(initial_route.trajectory.duration());
         shortest_route_cost = std::min(shortest_route_cost, route_cost);
       }
 
@@ -1023,35 +1024,35 @@ struct DifferentialDriveExpander
       Eigen::Vector3d location;
       if (start.location())
       {
-        location.block<2,1>(0,0) = *start.location();
+        location.block<2, 1>(0, 0) = *start.location();
       }
       else
       {
-        location.block<2,1>(0,0) = wp.get_location();
+        location.block<2, 1>(0, 0) = wp.get_location();
       }
       location[2] = start.orientation();
 
       starting_point.trajectory.insert(
-          start.time(),
-          location,
-          Eigen::Vector3d::Zero());
+        start.time(),
+        location,
+        Eigen::Vector3d::Zero());
 
       rmf_utils::optional<std::size_t> start_node_wp = rmf_utils::nullopt;
       if (!start.location())
         start_node_wp = initial_waypoint;
 
       queue.push(std::make_shared<Node>(
-        Node{
-          shortest_route_cost + remaining_cost_estimate,
-          0.0,
-          start_node_wp,
-          start.orientation(),
-          starting_point,
-          nullptr,
-          nullptr,
-          start,
-          start_index
-        }));
+          Node{
+            shortest_route_cost + remaining_cost_estimate,
+            0.0,
+            start_node_wp,
+            start.orientation(),
+            starting_point,
+            nullptr,
+            nullptr,
+            start,
+            start_index
+          }));
     }
   }
 
@@ -1074,24 +1075,24 @@ struct DifferentialDriveExpander
   }
 
   bool is_valid(
-      const RouteData& route,
-      const NodePtr& parent)
+    const RouteData& route,
+    const NodePtr& parent)
   {
     if (_context.validator)
     {
       auto conflict = _context.validator->find_conflict(
-            Route::Implementation::make(route));
+        Route::Implementation::make(route));
 
       if (conflict)
       {
         auto time_it =
-            _context.blockers[conflict->participant]
-            .insert({parent, conflict->time});
+          _context.blockers[conflict->participant]
+          .insert({parent, conflict->time});
 
         if (!time_it.second)
         {
           time_it.first->second =
-              std::max(time_it.first->second, conflict->time);
+            std::max(time_it.first->second, conflict->time);
         }
 
         return false;
@@ -1616,9 +1617,9 @@ public:
   };
 
   State initiate(
-      const std::vector<agv::Planner::Start>& starts,
-      agv::Planner::Goal goal,
-      agv::Planner::Options options) final
+    const std::vector<agv::Planner::Start>& starts,
+    agv::Planner::Goal goal,
+    agv::Planner::Options options) final
   {
     State state{
       Conditions{
@@ -1631,18 +1632,18 @@ public:
     };
 
     auto context = make_context(
-          state.conditions.goal,
-          state.conditions.options,
-          state.issues.blocked_nodes,
-          false);
+      state.conditions.goal,
+      state.conditions.options,
+      state.issues.blocked_nodes,
+      false);
 
     DifferentialDriveExpander expander(context);
     auto& queue = static_cast<InternalState*>(state.internal.get())->queue;
 
     expander.make_initial_nodes(
-          DifferentialDriveExpander::InitialNodeArgs{
-            state.conditions.starts
-          }, queue);
+      DifferentialDriveExpander::InitialNodeArgs{
+        state.conditions.starts
+      }, queue);
 
     return state;
   }
@@ -1653,17 +1654,17 @@ public:
       return rmf_utils::nullopt;
 
     auto context = make_context(
-          state.conditions.goal,
-          state.conditions.options,
-          state.issues.blocked_nodes,
-          false);
+      state.conditions.goal,
+      state.conditions.options,
+      state.issues.blocked_nodes,
+      false);
 
     DifferentialDriveExpander expander(context);
     auto& queue = static_cast<InternalState*>(state.internal.get())->queue;
     const bool* interrupt_flag = state.conditions.options.interrupt_flag();
 
     const NodePtr solution =
-        search<DifferentialDriveExpander>(expander, queue, interrupt_flag);
+      search<DifferentialDriveExpander>(expander, queue, interrupt_flag);
 
     if (interrupt_flag && *interrupt_flag)
       state.issues.interrupted = true;
@@ -1694,10 +1695,10 @@ public:
   };
 
   std::vector<schedule::Itinerary> rollout(
-      const Duration max_span,
-      const Issues::BlockedNodes& nodes,
-      const agv::Planner::Goal& goal,
-      const agv::Planner::Options& options) final
+    const Duration max_span,
+    const Issues::BlockedNodes& nodes,
+    const agv::Planner::Goal& goal,
+    const agv::Planner::Options& options) final
   {
 //    using RolloutQueue =
 //      std::priority_queue<
@@ -1712,7 +1713,7 @@ public:
     {
       bool skip = false;
       const auto original_node =
-          std::static_pointer_cast<Node>(void_node.first);
+        std::static_pointer_cast<Node>(void_node.first);
 
       const auto original_t = void_node.second;
 
@@ -1747,10 +1748,10 @@ public:
         continue;
 
       rollout_queue.emplace_back(
-            RolloutEntry{
-              original_t,
-              original_node
-            });
+        RolloutEntry{
+          original_t,
+          original_node
+        });
 
       // TODO(MXG): Consider making this configurable, or making a more
       // meaningful decision on how to prune the initial rollout queue.
@@ -1780,8 +1781,8 @@ public:
       rollout_queue.pop_back();
 
       const auto current_span =
-          top.node->route_from_parent.trajectory.back().time()
-          - top.initial_time;
+        top.node->route_from_parent.trajectory.back().time()
+        - top.initial_time;
 
       if (max_span < current_span)
       {
@@ -1851,7 +1852,7 @@ public:
     }
 
     DifferentialDriveExpander::NodePtr convert(
-        agv::Planner::Debug::ConstNodePtr from)
+      agv::Planner::Debug::ConstNodePtr from)
     {
       auto output = _from_debug[from];
       assert(output);
@@ -1860,7 +1861,7 @@ public:
     }
 
     agv::Planner::Debug::ConstNodePtr convert(
-        DifferentialDriveExpander::NodePtr from)
+      DifferentialDriveExpander::NodePtr from)
     {
       const auto it = _to_debug.find(from);
       if (it != _to_debug.end())
@@ -1887,16 +1888,16 @@ public:
         }
 
         auto new_debug_node = std::make_shared<agv::Planner::Debug::Node>(
-              agv::Planner::Debug::Node{
-                debug_parent,
-                RouteData::make(node->route_from_parent),
-                node->remaining_cost_estimate,
-                node->current_cost,
-                node->waypoint,
-                node->orientation,
-                node->event,
-                node->start_set_index
-              });
+          agv::Planner::Debug::Node{
+            debug_parent,
+            RouteData::make(node->route_from_parent),
+            node->remaining_cost_estimate,
+            node->current_cost,
+            node->waypoint,
+            node->orientation,
+            node->event,
+            node->start_set_index
+          });
 
         _to_debug[node] = new_debug_node;
         _from_debug[new_debug_node] = node;
@@ -1916,9 +1917,9 @@ public:
     agv::Planner::Options options_;
 
     Debugger(
-        std::vector<agv::Planner::Start> starts,
-        agv::Planner::Goal goal,
-        agv::Planner::Options options)
+      std::vector<agv::Planner::Start> starts,
+      agv::Planner::Goal goal,
+      agv::Planner::Options options)
     : starts_(std::move(starts)),
       goal_(std::move(goal)),
       options_(std::move(options))
@@ -1928,12 +1929,12 @@ public:
 
   private:
     std::unordered_map<
-        agv::Planner::Debug::ConstNodePtr,
-        DifferentialDriveExpander::NodePtr> _from_debug;
+      agv::Planner::Debug::ConstNodePtr,
+      DifferentialDriveExpander::NodePtr> _from_debug;
 
     std::unordered_map<
-        DifferentialDriveExpander::NodePtr,
-        agv::Planner::Debug::ConstNodePtr> _to_debug;
+      DifferentialDriveExpander::NodePtr,
+      agv::Planner::Debug::ConstNodePtr> _to_debug;
   };
 
   std::unique_ptr<Cache::Debugger> debug_begin(
@@ -1942,18 +1943,18 @@ public:
     agv::Planner::Options options) final
   {
     auto debugger = std::make_unique<Debugger>(
-          starts,
-          std::move(goal),
-          std::move(options));
+      starts,
+      std::move(goal),
+      std::move(options));
 
     auto context = make_context(
-          debugger->goal_, debugger->options_, debugger->blocked_nodes_, false);
+      debugger->goal_, debugger->options_, debugger->blocked_nodes_, false);
 
     DifferentialDriveExpander expander(context);
 
     DifferentialDriveExpander::SearchQueue queue;
     expander.make_initial_nodes(
-          DifferentialDriveExpander::InitialNodeArgs{starts}, queue);
+      DifferentialDriveExpander::InitialNodeArgs{starts}, queue);
 
     while (!queue.empty())
     {
@@ -1973,7 +1974,7 @@ public:
     debugger.expanded_nodes_.push_back(debugger.convert(top));
 
     auto context = make_context(
-          debugger.goal_, debugger.options_, debugger.blocked_nodes_, false);
+      debugger.goal_, debugger.options_, debugger.blocked_nodes_, false);
 
     DifferentialDriveExpander expander(context);
     if (expander.is_finished(top))
@@ -1998,9 +1999,9 @@ public:
 private:
 
   Plan make_plan(
-      const std::vector<agv::Planner::Start>& starts,
-      const NodePtr& solution,
-      const agv::RouteValidator* validator) const
+    const std::vector<agv::Planner::Start>& starts,
+    const NodePtr& solution,
+    const agv::RouteValidator* validator) const
   {
     auto nodes = reconstruct_nodes(solution, validator);
     auto routes = reconstruct_routes(nodes);
@@ -2015,10 +2016,10 @@ private:
   }
 
   DifferentialDriveExpander::Context make_context(
-      const agv::Planner::Goal& goal,
-      const agv::Planner::Options& options,
-      Issues::BlockerMap& blocked_nodes,
-      const bool simple_lane_expansion)
+    const agv::Planner::Goal& goal,
+    const agv::Planner::Options& options,
+    Issues::BlockerMap& blocked_nodes,
+    const bool simple_lane_expansion)
   {
     const std::size_t goal_waypoint = goal.waypoint();
     rmf_utils::optional<double> goal_orientation;
@@ -2026,7 +2027,7 @@ private:
       goal_orientation = *goal.orientation();
 
     Heuristic& h = _heuristics.insert(
-          std::make_pair(goal_waypoint, Heuristic{})).first->second;
+      std::make_pair(goal_waypoint, Heuristic{})).first->second;
     const bool* const interrupt_flag = options.interrupt_flag();
 
     return DifferentialDriveExpander::Context{

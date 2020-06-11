@@ -83,13 +83,13 @@ ScheduleRouteValidator::find_conflict(const Route& route) const
   // allocation here?
   schedule::Query::Spacetime spacetime;
   spacetime.query_timespan()
-      .all_maps(false)
-      .add_map(route.map())
-      .set_lower_time_bound(*route.trajectory().start_time())
-      .set_upper_time_bound(*route.trajectory().finish_time());
+  .all_maps(false)
+  .add_map(route.map())
+  .set_lower_time_bound(*route.trajectory().start_time())
+  .set_upper_time_bound(*route.trajectory().finish_time());
 
   const auto view = _pimpl->viewer->query(
-        spacetime, schedule::Query::Participants::make_all());
+    spacetime, schedule::Query::Participants::make_all());
 
   for (const auto& v : view)
   {
@@ -130,13 +130,13 @@ public:
   std::vector<schedule::ParticipantId> alternative_sets;
 
   Implementation(
-      schedule::Negotiation::Table::ViewerPtr viewer,
-      Profile profile)
+    schedule::Negotiation::Table::ViewerPtr viewer,
+    Profile profile)
   : data(std::make_shared<Data>(
-           Data{
-             std::move(viewer),
-             std::move(profile)
-           }))
+        Data{
+          std::move(viewer),
+          std::move(profile)
+        }))
   {
     const auto& alternatives = data->viewer->alternatives();
     alternative_sets.reserve(alternatives.size());
@@ -150,7 +150,7 @@ NegotiatingRouteValidator::Generator::Generator(
   schedule::Negotiation::Table::ViewerPtr viewer,
   Profile profile)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-           std::move(viewer), std::move(profile)))
+      std::move(viewer), std::move(profile)))
 {
   // Do nothing
 }
@@ -170,10 +170,10 @@ public:
   {
     NegotiatingRouteValidator output;
     output._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{
-            std::move(data),
-            std::move(rollouts)
-          });
+      Implementation{
+        std::move(data),
+        std::move(rollouts)
+      });
 
     return output;
   }
@@ -187,7 +187,7 @@ NegotiatingRouteValidator NegotiatingRouteValidator::Generator::begin() const
     rollouts.push_back({r.first, 0});
 
   return NegotiatingRouteValidator::Implementation::make(
-        _pimpl->data, std::move(rollouts));
+    _pimpl->data, std::move(rollouts));
 }
 
 //==============================================================================
@@ -199,14 +199,14 @@ NegotiatingRouteValidator::Generator::alternative_sets() const
 
 //==============================================================================
 std::size_t NegotiatingRouteValidator::Generator::alternative_count(
-    schedule::ParticipantId participant) const
+  schedule::ParticipantId participant) const
 {
   return _pimpl->data->viewer->alternatives().at(participant)->size();
 }
 
 //==============================================================================
 NegotiatingRouteValidator& NegotiatingRouteValidator::mask(
-    schedule::ParticipantId id)
+  schedule::ParticipantId id)
 {
   _pimpl->masked = id;
   return *this;
@@ -221,20 +221,20 @@ NegotiatingRouteValidator& NegotiatingRouteValidator::remove_mask()
 
 //==============================================================================
 NegotiatingRouteValidator NegotiatingRouteValidator::next(
-    schedule::ParticipantId id) const
+  schedule::ParticipantId id) const
 {
   auto rollouts = _pimpl->rollouts;
   const auto it = std::find_if(
-        rollouts.begin(), rollouts.end(), [&](
-        const schedule::Negotiation::VersionedKey& key)
-  {
-    return key.participant == id;
-  });
+    rollouts.begin(), rollouts.end(), [&](
+      const schedule::Negotiation::VersionedKey& key)
+    {
+      return key.participant == id;
+    });
 
   if (it == rollouts.end())
   {
     std::string error = "[NegotiatingRouteValidator::next] Requested next "
-        "alternative for " + std::to_string(id) + " but the only options are [";
+      "alternative for " + std::to_string(id) + " but the only options are [";
 
     for (const auto r : rollouts)
       error += " " + std::to_string(r.participant);
@@ -268,7 +268,7 @@ bool NegotiatingRouteValidator::end() const
   for (const auto& r : _pimpl->rollouts)
   {
     const auto num_alternatives =
-        _pimpl->data->viewer->alternatives().at(r.participant)->size();
+      _pimpl->data->viewer->alternatives().at(r.participant)->size();
 
     if (num_alternatives <= r.version)
       return true;
@@ -285,10 +285,10 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
   // needed here.
   schedule::Query::Spacetime spacetime;
   spacetime.query_timespan()
-      .all_maps(false)
-      .add_map(route.map())
-      .set_lower_time_bound(*route.trajectory().start_time())
-      .set_upper_time_bound(*route.trajectory().finish_time());
+  .all_maps(false)
+  .add_map(route.map())
+  .set_lower_time_bound(*route.trajectory().start_time())
+  .set_upper_time_bound(*route.trajectory().finish_time());
 
   const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
 
@@ -315,9 +315,9 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       continue;
 
     const auto& last_route =
-        _pimpl->data->viewer->alternatives()
-        .at(r.participant)
-        ->at(r.version).back();
+      _pimpl->data->viewer->alternatives()
+      .at(r.participant)
+      ->at(r.version).back();
 
     if (route.map() != last_route->map())
       continue;
@@ -328,7 +328,7 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       continue;
 
     const auto& description =
-        _pimpl->data->viewer->get_participant(r.participant);
+      _pimpl->data->viewer->get_participant(r.participant);
     assert(description);
 
     // The end_cap trajectory represents the last known position of the
@@ -336,20 +336,20 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     // pathological strategy like waiting until the other participant vanishes.
     Trajectory end_cap;
     end_cap.insert(
-          last_wp.time(),
-          last_wp.position(),
-          Eigen::Vector3d::Zero());
+      last_wp.time(),
+      last_wp.position(),
+      Eigen::Vector3d::Zero());
 
     end_cap.insert(
-          *route.trajectory().finish_time() + std::chrono::seconds(10),
-          last_wp.position(),
-          Eigen::Vector3d::Zero());
+      *route.trajectory().finish_time() + std::chrono::seconds(10),
+      last_wp.position(),
+      Eigen::Vector3d::Zero());
 
     if (const auto time = rmf_traffic::DetectConflict::between(
-          _pimpl->data->profile,
-          route.trajectory(),
-          description->profile(),
-          end_cap))
+        _pimpl->data->profile,
+        route.trajectory(),
+        description->profile(),
+        end_cap))
     {
       return Conflict{r.participant, *time};
     }

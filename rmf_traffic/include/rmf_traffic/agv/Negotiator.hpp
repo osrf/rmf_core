@@ -38,7 +38,7 @@ public:
   public:
 
     using ApprovalCallback =
-        std::function<Responder::UpdateVersion(rmf_traffic::agv::Plan)>;
+      std::function<Responder::UpdateVersion(rmf_traffic::agv::Plan)>;
 
     /// Constructor
     ///

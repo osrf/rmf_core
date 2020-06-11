@@ -27,15 +27,15 @@ namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-template <typename RouteEntry, typename QueryInspector>
+template<typename RouteEntry, typename QueryInspector>
 class SnapshotImplementation : public Snapshot
 {
 public:
 
   using ParticipantMap =
     std::unordered_map<
-      ParticipantId,
-      std::shared_ptr<const ParticipantDescription>
+    ParticipantId,
+    std::shared_ptr<const ParticipantDescription>
     >;
 
   View query(const Query& parameters) const final
@@ -44,8 +44,8 @@ public:
   }
 
   View query(
-      const Query::Spacetime& spacetime,
-      const Query::Participants& participants) const final
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const final
   {
     QueryInspector inspector;
     _timeline->inspect(spacetime, participants, inspector);
@@ -58,7 +58,7 @@ public:
   }
 
   std::shared_ptr<const ParticipantDescription> get_participant(
-      ParticipantId participant_id) const final
+    ParticipantId participant_id) const final
   {
     const auto it = _participants.find(participant_id);
     if (it == _participants.end())
