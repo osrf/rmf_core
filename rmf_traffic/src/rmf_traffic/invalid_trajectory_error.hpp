@@ -18,7 +18,7 @@
 #ifndef SRC__RMF_TRAFFIC__INVALID_TRAJECTORY_ERROR_HPP
 #define SRC__RMF_TRAFFIC__INVALID_TRAJECTORY_ERROR_HPP
 
-#include <rmf_traffic/Conflict.hpp>
+#include <rmf_traffic/DetectConflict.hpp>
 
 namespace rmf_traffic {
 
@@ -30,27 +30,27 @@ public:
   std::string what;
 
   static invalid_trajectory_error make_segment_num_error(
-      std::size_t num_segments)
+    std::size_t num_segments)
   {
     invalid_trajectory_error error;
     error._pimpl->what = std::string()
-        + "[rmf_traffic::invalid_trajectory_error] Attempted to check a "
-        + "conflict with a Trajectory that has [" + std::to_string(num_segments)
-        + "] segments. This is not supported. Trajectories must have at least "
-        + "2 segments to check them for conflicts.";
+      + "[rmf_traffic::invalid_trajectory_error] Attempted to check a "
+      + "conflict with a Trajectory that has [" + std::to_string(num_segments)
+      + "] segments. This is not supported. Trajectories must have at least "
+      + "2 segments to check them for conflicts.";
     return error;
   }
 
   static invalid_trajectory_error make_missing_shape_error(
-      const Time time)
+    const Time time)
   {
     invalid_trajectory_error error;
     error._pimpl->what = std::string()
-        + "[rmf_traffic::invalid_trajectory_error] Attempting to check a "
-        + "conflict with a Trajectory that has no shape specified for the "
-        + "profile of its segment at time ["
-        + std::to_string(time.time_since_epoch().count())
-        + "ns]. This is not supported.";
+      + "[rmf_traffic::invalid_trajectory_error] Attempting to check a "
+      + "conflict with a Trajectory that has no shape specified for the "
+      + "profile of its waypoint at time ["
+      + std::to_string(time.time_since_epoch().count())
+      + "ns]. This is not supported.";
 
     return error;
   }

@@ -17,132 +17,364 @@
 
 #include <rmf_traffic/schedule/Mirror.hpp>
 
+#include "ChangeInternal.hpp"
+#include "Timeline.hpp"
 #include "ViewerInternal.hpp"
-
+#include "internal_Snapshot.hpp"
 
 namespace rmf_traffic {
 namespace schedule {
 
 //==============================================================================
-Mirror::Mirror()
+class Mirror::Implementation
 {
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Insert)]
-      = [&](const Database::Change& change)
+public:
+
+  struct RouteEntry
   {
-    const Database::Change::Insert& insertion = *change.insert();
+    ConstRoutePtr route;
+    ParticipantId participant;
+    RouteId route_id;
+    std::shared_ptr<const ParticipantDescription> description;
+  };
+  using ConstRouteEntryPtr = std::shared_ptr<const RouteEntry>;
 
-//    std::cout << "Getting insertion [" << change.id() << "]" << std::endl;
-
-    _pimpl->add_entry(
-          std::make_shared<internal::Entry>(
-            *insertion.trajectory(),
-            change.id()));
+  struct RouteStorage
+  {
+    ConstRouteEntryPtr entry;
+    std::shared_ptr<void> timeline_handle;
   };
 
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Interrupt)]
-      = [&](const Database::Change& change)
+  Timeline<const RouteEntry> timeline;
+
+  struct ParticipantState
   {
-    const Database::Change::Interrupt& interruption = *change.interrupt();
-
-//    std::cout << "Getting interruption [" << interruption.original_id()
-//              << "] --> [" << change.id()
-//              << "]" << std::endl;
-
-    const internal::EntryPtr& entry =
-        _pimpl->get_entry_iterator(
-          interruption.original_id(), "interruption")->second;
-
-    Trajectory new_trajectory = add_interruption(
-          entry->trajectory,
-          *interruption.interruption(),
-          interruption.delay());
-
-    _pimpl->modify_entry(entry, std::move(new_trajectory), change.id());
+    std::unordered_map<RouteId, RouteStorage> storage;
+    std::shared_ptr<const ParticipantDescription> description;
   };
 
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Delay)]
-      = [&](const Database::Change& change)
+  // This violates the single-source-of-truth principle, but it helps make it
+  // more efficient to create snapshots
+  using ParticipantDescriptions =
+    std::unordered_map<ParticipantId,
+      std::shared_ptr<const ParticipantDescription>
+    >;
+  ParticipantDescriptions descriptions;
+
+  using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
+  ParticipantStates states;
+
+  std::unordered_set<ParticipantId> participant_ids;
+
+  Version latest_version = 0;
+
+  static void erase_routes(
+    const ParticipantId participant,
+    ParticipantState& state,
+    const Change::Erase& erase)
   {
-    const Database::Change::Delay& delay = *change.delay();
-
-//    std::cout << "Getting delay [" << delay.original_id()
-//              << "] --> [" << change.id() << "]" << std::endl;
-
-    const internal::EntryPtr& entry =
-        _pimpl->get_entry_iterator(delay.original_id(), "delay")->second;
-
-    Trajectory new_trajectory = add_delay(
-          entry->trajectory,
-          delay.from(),
-          delay.duration());
-
-    _pimpl->modify_entry(entry, std::move(new_trajectory), change.id());
-  };
-
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Replace)]
-      = [&](const Database::Change& change)
-  {
-    const Database::Change::Replace& replace = *change.replace();
-
-//    std::cout << "Getting replacement [" << replace.original_id()
-//              << "] --> [" << change.id() << "]" << std::endl;
-
-    try
+    for (const RouteId id : erase.ids())
     {
-      const internal::EntryPtr& entry =
-          _pimpl->get_entry_iterator(
-            replace.original_id(), "replacement")->second;
+      const auto r_it = state.storage.find(id);
+      assert(r_it != state.storage.end());
+      if (r_it == state.storage.end())
+      {
+        std::cerr << "[Mirror::update] Erasing unrecognized route [" << id
+                  << "] for participant [" << participant << "]" << std::endl;
+        continue;
+      }
 
-      _pimpl->modify_entry(entry, *replace.trajectory(), change.id());
+      state.storage.erase(r_it);
     }
-    catch(const std::runtime_error& e)
+  }
+
+  void apply_delay(
+    ParticipantState& state,
+    const Change::Delay& delay)
+  {
+    for (auto& s : state.storage)
     {
-//      std::cout << "Failed replacement [" << replace.original_id()
-//                << "] --> [" << change.id() << "]" << std::endl;
+      RouteStorage& entry_storage = s.second;
+      assert(entry_storage.entry);
+      assert(entry_storage.entry->route);
+      auto delayed = schedule::apply_delay(
+        entry_storage.entry->route->trajectory(),
+        delay.from(), delay.duration());
 
-      // Sometimes replacements have been failing because the previous entry
-      // somehow doesn't exist anymore, so we'll just treat this replacement
-      // like an insertion
-      // TODO(MXG): This shouldn't really be happening, so debug this when time
-      // permits.
-      _pimpl->add_entry(
-            std::make_shared<internal::Entry>(
-              *replace.trajectory(),
-              change.id()));
+      if (!delayed)
+        continue;
 
-      // We'll continue with throwing the exception so that noise keeps getting
-      // made about this issue.
-      throw e;
+      auto new_route = std::make_shared<Route>(
+        entry_storage.entry->route->map(), std::move(*delayed));
+
+      // We create a new entry because
+      auto new_entry = std::make_shared<RouteEntry>(*entry_storage.entry);
+      new_entry->route = std::move(new_route);
+      entry_storage.entry = new_entry;
+      entry_storage.timeline_handle = timeline.insert(new_entry);
     }
-  };
+  }
 
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Erase)]
-      = [&](const Database::Change& change)
+  void add_routes(
+    const ParticipantId participant,
+    ParticipantState& state,
+    const Change::Add& add)
   {
-    const Database::Change::Erase& erase = *change.erase();
+    for (const auto& item : add.items())
+    {
+      const RouteId route_id = item.id;
+      auto insertion = state.storage.insert({route_id, RouteStorage()});
+      const bool inserted = insertion.second;
+      assert(inserted);
+      if (!inserted)
+      {
+        std::cerr << "[Mirror::update] Inserting a route [" << item.id
+                  << "] which already exists for participant [" << participant
+                  << "]" << std::endl;
+        // NOTE(MXG): We will continue anyway. The new route will simply
+        // overwrite the old one.
+      }
 
-//    std::cout << "Getting erase [" << erase.original_id() << "] --> ["
-//              << change.id() << "]" << std::endl;
+      auto route = std::make_shared<Route>(*item.route);
 
-    _pimpl->erase_entry(erase.original_id());
-  };
+      auto& entry_storage = insertion.first->second;
+      entry_storage.entry = std::make_shared<RouteEntry>(
+        RouteEntry{
+          std::move(route),
+          participant,
+          route_id,
+          state.description
+        });
 
-  _pimpl->changers[static_cast<std::size_t>(Database::Change::Mode::Cull)]
-      = [&](const Database::Change& change)
+      entry_storage.timeline_handle = timeline.insert(entry_storage.entry);
+    }
+  }
+};
+
+namespace {
+//==============================================================================
+class MirrorViewRelevanceInspector
+  : public TimelineInspector<Mirror::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Mirror::Implementation::RouteEntry;
+  using Storage = Viewer::View::Implementation::Storage;
+
+  std::vector<Storage> routes;
+
+  void inspect(
+    const RouteEntry* entry,
+    const std::function<bool(const RouteEntry&)>& relevant) final
   {
-    const Database::Change::Cull& cull = *change.cull();
-    _pimpl->cull(change.id(), cull.time());
+    assert(entry);
+    assert(entry->route);
+    if (relevant(*entry))
+    {
+      routes.emplace_back(
+        Storage{
+          entry->participant,
+          entry->route_id,
+          entry->route,
+          entry->description
+        });
+    }
+  }
+
+};
+
+//==============================================================================
+class MirrorCullRelevanceInspector
+  : public TimelineInspector<Mirror::Implementation::RouteEntry>
+{
+public:
+
+  using RouteEntry = Mirror::Implementation::RouteEntry;
+  struct Info
+  {
+    ParticipantId participant;
+    RouteId route_id;
   };
+
+  std::vector<Info> info;
+
+  void inspect(
+    const RouteEntry* entry,
+    const std::function<bool(const RouteEntry&)>& relevant) final
+  {
+    assert(entry);
+    assert(entry->route);
+    if (relevant(*entry))
+      info.emplace_back(Info{entry->participant, entry->route_id});
+  }
+
+};
+
+} // anonymous namespace
+
+//==============================================================================
+Viewer::View Mirror::query(const Query& parameters) const
+{
+  return query(parameters.spacetime(), parameters.participants());
 }
 
 //==============================================================================
-Version Mirror::update(const Database::Patch& patch)
+Viewer::View Mirror::query(
+  const Query::Spacetime& spacetime,
+  const Query::Participants& participants) const
 {
-  for(const auto& change : patch)
-    _pimpl->changers[static_cast<std::size_t>(change.get_mode())](change);
+  MirrorViewRelevanceInspector inspector;
+  _pimpl->timeline.inspect(spacetime, participants, inspector);
+  return Viewer::View::Implementation::make_view(std::move(inspector.routes));
+}
+
+//==============================================================================
+const std::unordered_set<ParticipantId>& Mirror::participant_ids() const
+{
+  return _pimpl->participant_ids;
+}
+
+//==============================================================================
+std::shared_ptr<const ParticipantDescription> Mirror::get_participant(
+  std::size_t participant_id) const
+{
+  const auto p = _pimpl->descriptions.find(participant_id);
+  if (p == _pimpl->descriptions.end())
+    return nullptr;
+
+  return p->second;
+}
+
+//==============================================================================
+rmf_utils::optional<Itinerary> Mirror::get_itinerary(
+  std::size_t participant_id) const
+{
+  const auto p = _pimpl->states.find(participant_id);
+  if (p == _pimpl->states.end())
+    return rmf_utils::nullopt;
+
+  const auto& state = p->second;
+  Itinerary itinerary;
+  itinerary.reserve(state.storage.size());
+  for (const auto& s : state.storage)
+    itinerary.push_back(s.second.entry->route);
+
+  return std::move(itinerary);
+}
+
+//==============================================================================
+Version Mirror::latest_version() const
+{
+  return _pimpl->latest_version;
+}
+
+//==============================================================================
+std::shared_ptr<const Snapshot> Mirror::snapshot() const
+{
+  using SnapshotType =
+    SnapshotImplementation<Implementation::RouteEntry,
+      MirrorViewRelevanceInspector
+    >;
+
+  return std::make_shared<SnapshotType>(
+    _pimpl->timeline.snapshot(),
+    _pimpl->participant_ids,
+    _pimpl->descriptions,
+    _pimpl->latest_version);
+}
+
+//==============================================================================
+Mirror::Mirror()
+: _pimpl(rmf_utils::make_unique_impl<Implementation>())
+{
+  // Do nothing
+}
+
+//==============================================================================
+Version Mirror::update(const Patch& patch)
+{
+  for (const auto& unregistered : patch.unregistered())
+  {
+    const ParticipantId id = unregistered.id();
+    const auto p_it = _pimpl->states.find(id);
+    assert(p_it != _pimpl->states.end());
+    if (p_it == _pimpl->states.end())
+    {
+      std::cerr << "[Mirror::update] Unrecognized participant ["
+                << id << "] being unregistered" << std::endl;
+      continue;
+    }
+
+    _pimpl->states.erase(p_it);
+    _pimpl->descriptions.erase(id);
+    _pimpl->participant_ids.erase(id);
+  }
+
+  for (const auto& registered : patch.registered())
+  {
+    const auto description = std::make_shared<ParticipantDescription>(
+      registered.description());
+
+    const ParticipantId id = registered.id();
+    const bool inserted = _pimpl->states.insert(
+      std::make_pair(
+        id,
+        Implementation::ParticipantState{
+          {},
+          description
+        })).second;
+
+    _pimpl->descriptions.insert({id, description});
+    _pimpl->participant_ids.insert(id);
+
+    assert(inserted);
+    if (!inserted)
+    {
+      std::cerr << "[Mirror::update] Duplicate participant ID ["
+                << id << "] while trying to register a new participant"
+                << std::endl;
+    }
+  }
+
+  for (const auto& p : patch)
+  {
+    const ParticipantId participant = p.participant_id();
+    Implementation::ParticipantState& state = _pimpl->states.at(participant);
+
+    Implementation::erase_routes(participant, state, p.erasures());
+
+    for (const auto& delay : p.delays())
+      _pimpl->apply_delay(state, delay);
+
+    _pimpl->add_routes(participant, state, p.additions());
+  }
+
+  if (const Change::Cull* cull = patch.cull())
+  {
+    const Time time = cull->time();
+    Query query = query_all();
+    query.spacetime().query_timespan().set_upper_time_bound(time);
+
+    MirrorCullRelevanceInspector inspector;
+    _pimpl->timeline.inspect(
+      query.spacetime(), query.participants(), inspector);
+
+    for (const auto& route : inspector.info)
+    {
+      auto p_it = _pimpl->states.find(route.participant);
+      assert(p_it != _pimpl->states.end());
+      if (p_it == _pimpl->states.end())
+      {
+        std::cerr << "[Mirror::update] Non-existent participant ["
+                  << route.participant << "] in timeline entry" << std::endl;
+        continue;
+      }
+
+      p_it->second.storage.erase(route.route_id);
+    }
+  }
 
   _pimpl->latest_version = patch.latest_version();
-
   return _pimpl->latest_version;
 }
 

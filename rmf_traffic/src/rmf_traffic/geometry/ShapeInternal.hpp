@@ -40,6 +40,8 @@ public:
 
   virtual CollisionGeometries make_fcl() const = 0;
 
+  virtual ~Internal() = default;
+
 };
 
 //==============================================================================
@@ -59,15 +61,15 @@ public:
   }
 
   static FinalShape make_final_shape(
-      rmf_utils::impl_ptr<const Shape> shape,
-      CollisionGeometries collisions,
-      double characteristic_length)
+    rmf_utils::impl_ptr<const Shape> shape,
+    CollisionGeometries collisions,
+    double characteristic_length)
   {
     FinalShape result;
     result._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(shape),
-          std::move(collisions),
-          std::move(characteristic_length)});
+      Implementation{std::move(shape),
+        std::move(collisions),
+        std::move(characteristic_length)});
     return result;
   }
 
@@ -84,15 +86,15 @@ public:
   }
 
   static FinalConvexShape make_final_shape(
-      rmf_utils::impl_ptr<const Shape> shape,
-      CollisionGeometries collisions,
-      double characteristic_length)
+    rmf_utils::impl_ptr<const Shape> shape,
+    CollisionGeometries collisions,
+    double characteristic_length)
   {
     FinalConvexShape result;
     result._pimpl = rmf_utils::make_impl<FinalShape::Implementation>(
-          FinalShape::Implementation{std::move(shape),
-          std::move(collisions),
-          characteristic_length});
+      FinalShape::Implementation{std::move(shape),
+        std::move(collisions),
+        characteristic_length});
     return result;
   }
 };

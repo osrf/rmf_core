@@ -44,7 +44,7 @@ bool StaticMotion::integrate(double /*dt*/) const
 
 //==============================================================================
 fcl::FCL_REAL StaticMotion::computeMotionBound(
-    const fcl::BVMotionBoundVisitor&) const
+  const fcl::BVMotionBoundVisitor&) const
 {
   // TODO(MXG): Investigate the legitimacy of this implementation. Make sure
   // that this function truly should always return 0.
@@ -53,11 +53,15 @@ fcl::FCL_REAL StaticMotion::computeMotionBound(
 
 //==============================================================================
 fcl::FCL_REAL StaticMotion::computeMotionBound(
-    const fcl::TriangleMotionBoundVisitor&) const
+  const fcl::TriangleMotionBoundVisitor&) const
 {
-  std::cout << " ----- OH NO, WE'RE USING StaticMotion::computeMotionBound(TriangleMotionBoundVisitor)!! ----- "
+  std::cout <<
+    " ----- OH NO, WE'RE USING StaticMotion::computeMotionBound(TriangleMotionBoundVisitor)!! ----- "
             << std::endl;
-  throw std::runtime_error("unimplemented function: StaticMotion::computeMotionBound(TriangleMotionBoundVisitor)");
+  // *INDENT-OFF*
+  throw std::runtime_error(
+    "unimplemented function: StaticMotion::computeMotionBound(TriangleMotionBoundVisitor)");
+  // *INDENT-ON*
 }
 
 //==============================================================================
@@ -69,9 +73,13 @@ void StaticMotion::getCurrentTransform(fcl::Transform3f& tf) const
 //==============================================================================
 void StaticMotion::getTaylorModel(fcl::TMatrix3&, fcl::TVector3&) const
 {
-  std::cout << " ----- OH NO, WE'RE USING StaticMotion::getTaylorModel()!! ----- "
+  std::cout <<
+    " ----- OH NO, WE'RE USING StaticMotion::getTaylorModel()!! ----- "
             << std::endl;
-  throw std::runtime_error("unimplemented function: StaticMotion::getTaylorModel()");
+  // *INDENT-OFF*
+  throw std::runtime_error(
+    "unimplemented function: StaticMotion::getTaylorModel()");
+  // *INDENT-ON*
 }
 
 } // namespace internal

@@ -36,7 +36,7 @@ const Shape::Internal* Shape::_get_internal() const
 
 //==============================================================================
 Shape::Shape(std::unique_ptr<Internal> internal)
-  : _internal(std::move(internal))
+: _internal(std::move(internal))
 {
   // Do nothing
 }

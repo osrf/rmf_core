@@ -16,12 +16,18 @@
 */
 
 #include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/agv/debug/Planner.hpp>
 
 #include "internal_Planner.hpp"
 #include "internal_planning.hpp"
 
 namespace rmf_traffic {
 namespace agv {
+
+//==============================================================================
+// This line tells the linker to take care of defining the value of this field
+// inside of this translation unit.
+const Duration Planner::Options::DefaultMinHoldingTime;
 
 //==============================================================================
 class Planner::Configuration::Implementation
@@ -36,15 +42,15 @@ public:
 
 //==============================================================================
 Planner::Configuration::Configuration(
-    Graph graph,
-    VehicleTraits traits,
-    Interpolate::Options interpolation)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               std::move(graph),
-               std::move(traits),
-               std::move(interpolation)
-             }))
+  Graph graph,
+  VehicleTraits traits,
+  Interpolate::Options interpolation)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(graph),
+        std::move(traits),
+        std::move(interpolation)
+      }))
 {
   // Do nothing
 }
@@ -113,42 +119,39 @@ class Planner::Options::Implementation
 {
 public:
 
-  const schedule::Viewer* viewer;
+  rmf_utils::clone_ptr<RouteValidator> validator;
   Duration min_hold_time;
   const bool* interrupt_flag;
-  std::unordered_set<schedule::Version> ignore_schedule_ids;
 
 };
 
 //==============================================================================
 Planner::Options::Options(
-    const schedule::Viewer& viewer,
-    const Duration min_hold_time,
-    const bool* interrupt_flag,
-    std::unordered_set<schedule::Version> ignore_ids)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               &viewer,
-               min_hold_time,
-               interrupt_flag,
-               std::move(ignore_ids)
-             }))
+  rmf_utils::clone_ptr<RouteValidator> validator,
+  const Duration min_hold_time,
+  const bool* interrupt_flag)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        std::move(validator),
+        min_hold_time,
+        interrupt_flag
+      }))
 {
   // Do nothing
 }
 
 //==============================================================================
-auto Planner::Options::schedule_viewer(const schedule::Viewer& viewer)
+auto Planner::Options::validator(rmf_utils::clone_ptr<RouteValidator> v)
 -> Options&
 {
-  _pimpl->viewer = &viewer;
+  _pimpl->validator = std::move(v);
   return *this;
 }
 
 //==============================================================================
-const schedule::Viewer& Planner::Options::schedule_viewer() const
+const rmf_utils::clone_ptr<RouteValidator>& Planner::Options::validator() const
 {
-  return *_pimpl->viewer;
+  return _pimpl->validator;
 }
 
 //==============================================================================
@@ -179,21 +182,6 @@ const bool* Planner::Options::interrupt_flag() const
 }
 
 //==============================================================================
-auto Planner::Options::ignore_schedule_ids(
-    std::unordered_set<schedule::Version> ignore_ids) -> Options&
-{
-  _pimpl->ignore_schedule_ids = std::move(ignore_ids);
-  return *this;
-}
-
-//==============================================================================
-std::unordered_set<schedule::Version> Planner::Options
-::ignore_schedule_ids() const
-{
-  return _pimpl->ignore_schedule_ids;
-}
-
-//==============================================================================
 class Planner::Start::Implementation
 {
 public:
@@ -208,19 +196,19 @@ public:
 
 //==============================================================================
 Planner::Start::Start(
-    const Time initial_time,
-    const std::size_t initial_waypoint,
-    const double initial_orientation,
-    rmf_utils::optional<Eigen::Vector2d> initial_location,
-    rmf_utils::optional<std::size_t> initial_lane)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               initial_time,
-               initial_waypoint,
-               initial_orientation,
-               std::move(initial_location),
-               initial_lane
-             }))
+  const Time initial_time,
+  const std::size_t initial_waypoint,
+  const double initial_orientation,
+  rmf_utils::optional<Eigen::Vector2d> initial_location,
+  rmf_utils::optional<std::size_t> initial_lane)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        initial_time,
+        initial_waypoint,
+        initial_orientation,
+        std::move(initial_location),
+        std::move(initial_lane)
+      }))
 {
   // Do nothing
 }
@@ -265,28 +253,28 @@ double Planner::Start::orientation() const
 }
 
 //==============================================================================
-rmf_utils::optional<Eigen::Vector2d> Planner::Start::location() const
+const rmf_utils::optional<Eigen::Vector2d>& Planner::Start::location() const
 {
   return _pimpl->location;
 }
 
 //==============================================================================
 auto Planner::Start::location(
-    rmf_utils::optional<Eigen::Vector2d> initial_location) -> Start&
+  rmf_utils::optional<Eigen::Vector2d> initial_location) -> Start&
 {
   _pimpl->location = std::move(initial_location);
   return *this;
 }
 
 //==============================================================================
-rmf_utils::optional<std::size_t> Planner::Start::lane() const
+const rmf_utils::optional<std::size_t>& Planner::Start::lane() const
 {
   return _pimpl->lane;
 }
 
 //==============================================================================
 auto Planner::Start::lane(
-    rmf_utils::optional<std::size_t> initial_lane) -> Start&
+  rmf_utils::optional<std::size_t> initial_lane) -> Start&
 {
   _pimpl->lane = initial_lane;
   return *this;
@@ -305,24 +293,24 @@ public:
 
 //==============================================================================
 Planner::Goal::Goal(const std::size_t waypoint)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               waypoint,
-               rmf_utils::nullopt
-             }))
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        waypoint,
+        rmf_utils::nullopt
+      }))
 {
   // Do nothing
 }
 
 //==============================================================================
 Planner::Goal::Goal(
-    const std::size_t waypoint,
-    const double goal_orientation)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               waypoint,
-               goal_orientation
-             }))
+  const std::size_t waypoint,
+  const double goal_orientation)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        waypoint,
+        goal_orientation
+      }))
 {
   // Do nothing
 }
@@ -357,7 +345,7 @@ auto Planner::Goal::any_orientation() -> Goal&
 //==============================================================================
 const double* Planner::Goal::orientation() const
 {
-  if(_pimpl->orientation)
+  if (_pimpl->orientation)
     return &(*_pimpl->orientation);
 
   return nullptr;
@@ -381,44 +369,64 @@ class Plan::Implementation
 {
 public:
 
-  internal::planning::Result result;
+  internal::planning::Plan plan;
 
-  internal::planning::CacheManager cache_mgr;
-
-
-  static rmf_utils::optional<Plan> generate(
-      internal::planning::CacheManager cache_mgr,
-      const std::vector<Planner::Start>& starts,
-      Planner::Goal goal,
-      Planner::Options options)
+  static rmf_utils::optional<Plan> make(
+    rmf_utils::optional<internal::planning::Plan> result)
   {
-    auto result = cache_mgr.get().plan(
-        {starts}, std::move(goal), std::move(options));
-
     if (!result)
       return rmf_utils::nullopt;
 
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
-          Implementation{std::move(*result), std::move(cache_mgr)});
+      Implementation{*std::move(result)});
 
-    return std::move(plan);
+    return plan;
   }
 
 };
 
 //==============================================================================
 Planner::Planner(
-    Configuration config,
-    Options default_options)
-  : _pimpl(rmf_utils::make_impl<Implementation>(
-             Implementation{
-               internal::planning::make_cache(config),
-               std::move(default_options),
-               config
-             }))
+  Configuration config,
+  Options default_options)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{
+        internal::planning::make_cache(config),
+        std::move(default_options),
+        config
+      }))
 {
   // Do nothing
+}
+
+//==============================================================================
+Planner::Result Planner::Result::Implementation::generate(
+  internal::planning::CacheManager cache_mgr,
+  const std::vector<Planner::Start>& starts,
+  Planner::Goal goal,
+  Planner::Options options)
+{
+  auto cache_handle = cache_mgr.get();
+  auto state = cache_handle->initiate(starts, goal, options);
+  auto plan = Plan::Implementation::make(cache_handle->plan(state));
+
+  Planner::Result result;
+  result._pimpl = rmf_utils::make_impl<Implementation>(
+    Implementation{
+      std::move(cache_mgr),
+      std::move(state),
+      std::move(plan)
+    });
+
+  return result;
+}
+
+//==============================================================================
+auto Planner::Result::Implementation::get(const Result& r)
+-> const Implementation&
+{
+  return *r._pimpl;
 }
 
 //==============================================================================
@@ -447,49 +455,201 @@ auto Planner::get_default_options() const -> const Options&
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(const Start& start, Goal goal) const
+Planner::Result Planner::plan(const Start& start, Goal goal) const
 {
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {start},
-        std::move(goal),
-        _pimpl->default_options);
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    _pimpl->default_options);
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(
-    const Start& start,
-    Goal goal,
-    Options options) const
+Planner::Result Planner::plan(
+  const Start& start,
+  Goal goal,
+  Options options) const
 {
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {start},
-        std::move(goal),
-        std::move(options));
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    std::move(options));
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(const StartSet& starts, Goal goal) const
+Planner::Result Planner::plan(const StartSet& starts, Goal goal) const
 {
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        starts,
-        std::move(goal),
-        _pimpl->default_options);
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    starts,
+    std::move(goal),
+    _pimpl->default_options);
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Planner::plan(
-    const StartSet& starts,
-    Goal goal,
-    Options options) const
+Planner::Result Planner::plan(
+  const StartSet& starts,
+  Goal goal,
+  Options options) const
 {
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        starts,
-        std::move(goal),
-        std::move(options));
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    starts,
+    std::move(goal),
+    std::move(options));
+}
+
+//==============================================================================
+bool Planner::Result::success() const
+{
+  return _pimpl->plan.has_value();
+}
+
+//==============================================================================
+Planner::Result::operator bool() const
+{
+  return _pimpl->plan.has_value();
+}
+
+//==============================================================================
+const Plan* Planner::Result::operator->() const
+{
+  return &(*_pimpl->plan);
+}
+
+//==============================================================================
+const Plan& Planner::Result::operator*() const&
+{
+  return *_pimpl->plan;
+}
+
+//==============================================================================
+Plan&& Planner::Result::operator*() &&
+{
+  return std::move(*std::move(_pimpl->plan));
+}
+
+//==============================================================================
+const Plan&& Planner::Result::operator*() const&&
+{
+  return std::move(*_pimpl->plan);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(const Start& new_start) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(
+  const Planner::Start& new_start,
+  Planner::Options new_options) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->state.conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(const StartSet& new_starts) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::replan(
+  const StartSet& new_starts,
+  Options new_options) const
+{
+  return Result::Implementation::generate(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->state.conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
+bool Planner::Result::resume()
+{
+  if (_pimpl->plan)
+    return true;
+
+  _pimpl->plan = Plan::Implementation::make(
+    _pimpl->cache_mgr.get()->plan(_pimpl->state));
+
+  return _pimpl->plan.has_value();
+}
+
+//==============================================================================
+bool Planner::Result::resume(const bool* interrupt_flag)
+{
+  _pimpl->state.conditions.options.interrupt_flag(interrupt_flag);
+  return resume();
+}
+
+//==============================================================================
+rmf_utils::optional<double> Planner::Result::cost_estimate() const
+{
+  return _pimpl->state.internal->cost_estimate();
+}
+
+//==============================================================================
+const std::vector<Planner::Start>& Planner::Result::get_starts() const
+{
+  return _pimpl->state.conditions.starts;
+}
+
+//==============================================================================
+const Planner::Goal& Planner::Result::get_goal() const
+{
+  return _pimpl->state.conditions.goal;
+}
+
+//==============================================================================
+const Planner::Options& Planner::Result::get_options() const
+{
+  return _pimpl->state.conditions.options;
+}
+
+//==============================================================================
+const Planner::Configuration& Planner::Result::get_configuration() const
+{
+  return _pimpl->cache_mgr.get_configuration();
+}
+
+//==============================================================================
+bool Planner::Result::interrupted() const
+{
+  return _pimpl->state.issues.interrupted;
+}
+
+//==============================================================================
+std::vector<schedule::ParticipantId> Planner::Result::blockers() const
+{
+  std::vector<schedule::ParticipantId> blockers;
+  blockers.reserve(_pimpl->state.issues.blocked_nodes.size());
+  for (const auto& b : _pimpl->state.issues.blocked_nodes)
+    blockers.push_back(b.first);
+
+  return blockers;
+}
+
+//==============================================================================
+Planner::Result::Result()
+{
+  // Do nothing
 }
 
 //==============================================================================
@@ -523,100 +683,43 @@ Plan::Waypoint::Waypoint()
 }
 
 //==============================================================================
-const std::vector<Trajectory>& Plan::get_trajectories() const
+const std::vector<Route>& Plan::get_itinerary() const
 {
-  return _pimpl->result.trajectories;
+  return _pimpl->plan.routes;
 }
 
 //==============================================================================
 const std::vector<Plan::Waypoint>& Plan::get_waypoints() const
 {
-  return _pimpl->result.waypoints;
+  return _pimpl->plan.waypoints;
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Plan::replan(const Start& new_start) const
+const Plan::Start& Plan::get_start() const
 {
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {new_start},
-        _pimpl->result.goal,
-        _pimpl->result.options);
+  return _pimpl->plan.start;
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Plan::replan(
-    const Planner::Start& new_start,
-    Planner::Options new_options) const
+Plan::Plan()
 {
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        {new_start},
-        _pimpl->result.goal,
-        std::move(new_options));
+  // Do nothing
 }
 
 //==============================================================================
-rmf_utils::optional<Plan> Plan::replan(const StartSet& new_starts) const
-{
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        new_starts,
-        _pimpl->result.goal,
-        _pimpl->result.options);
-}
-
-//==============================================================================
-rmf_utils::optional<Plan> Plan::replan(
-    const StartSet& new_starts,
-    Options new_options) const
-{
-  return Plan::Implementation::generate(
-        _pimpl->cache_mgr,
-        new_starts,
-        _pimpl->result.goal,
-        std::move(new_options));
-}
-
-//==============================================================================
-const Planner::Start& Plan::get_start() const
-{
-  return _pimpl->result.start;
-}
-
-//==============================================================================
-const Planner::Goal& Plan::get_goal() const
-{
-  return _pimpl->result.goal;
-}
-
-//==============================================================================
-const Planner::Options& Plan::get_options() const
-{
-  return _pimpl->result.options;
-}
-
-//==============================================================================
-const Planner::Configuration& Plan::get_configuration() const
-{
-  return _pimpl->cache_mgr.get_configuration();
-}
-
-//==============================================================================
-
 std::vector<Plan::Start> compute_plan_starts(
-    const rmf_traffic::agv::Graph& graph,
-    const Eigen::Vector3d pose,
-    const rmf_traffic::Time start_time,
-    const double max_merge_waypoint_distance,
-    const double max_merge_lane_distance,
-    const double min_lane_length)
+  const rmf_traffic::agv::Graph& graph,
+  const Eigen::Vector3d pose,
+  const rmf_traffic::Time start_time,
+  const double max_merge_waypoint_distance,
+  const double max_merge_lane_distance,
+  const double min_lane_length)
 {
   const Eigen::Vector2d p_location = {pose[0], pose[1]};
   const double start_yaw = pose[2];
 
   // If there are waypoints which are very close, take that as the only Start
-  for (std::size_t i=0; i < graph.num_waypoints() ; ++i)
+  for (std::size_t i = 0; i < graph.num_waypoints(); ++i)
   {
     const auto& wp = graph.get_waypoint(i);
     const Eigen::Vector2d wp_location = wp.get_location();
@@ -632,14 +735,14 @@ std::vector<Plan::Start> compute_plan_starts(
   std::vector<Plan::Start> starts;
   std::unordered_set<std::size_t> raw_starts;
 
-  for (std::size_t i=0; i < graph.num_lanes(); ++i)
+  for (std::size_t i = 0; i < graph.num_lanes(); ++i)
   {
     const auto& lane = graph.get_lane(i);
-    const Eigen::Vector2d p0 = 
-        graph.get_waypoint(lane.entry().waypoint_index()).get_location();
+    const Eigen::Vector2d p0 =
+      graph.get_waypoint(lane.entry().waypoint_index()).get_location();
     const Eigen::Vector2d p1 =
-        graph.get_waypoint(lane.exit().waypoint_index()).get_location();
-    
+      graph.get_waypoint(lane.exit().waypoint_index()).get_location();
+
     const double lane_length = (p1 - p0).norm();
 
     // This "lane" is effectively a single point, so we'll skip it
@@ -662,8 +765,8 @@ std::vector<Plan::Start> compute_plan_starts(
           continue;
 
         starts.emplace_back(
-            Plan::Start(
-                start_time, entry_waypoint_index, start_yaw, p_location));
+          Plan::Start(
+            start_time, entry_waypoint_index, start_yaw, p_location));
       }
     }
     // If it's larger than the lane length, then its closest point on the lane
@@ -679,8 +782,8 @@ std::vector<Plan::Start> compute_plan_starts(
           continue;
 
         starts.emplace_back(
-            Plan::Start(
-                start_time, exit_waypoint_index, start_yaw, p_location));
+          Plan::Start(
+            start_time, exit_waypoint_index, start_yaw, p_location));
       }
     }
     // If its between the entry and the exit waypoints, then we should
@@ -693,13 +796,113 @@ std::vector<Plan::Start> compute_plan_starts(
       if (lane_dist < max_merge_lane_distance)
       {
         starts.emplace_back(
-            Plan::Start(
-                start_time, exit_waypoint_index, start_yaw, p_location, i));
+          Plan::Start(
+            start_time, exit_waypoint_index, start_yaw, p_location, i));
       }
     }
   }
 
   return starts;
+}
+
+//==============================================================================
+class Planner::Debug::Implementation
+{
+public:
+
+  internal::planning::CacheManager cache_mgr;
+
+};
+
+//==============================================================================
+class Planner::Debug::Progress::Implementation
+{
+public:
+  internal::planning::CacheManager cache_mgr;
+  internal::planning::CacheHandle cache_handle;
+  std::unique_ptr<internal::planning::Cache::Debugger> debugger;
+
+  Implementation(
+    internal::planning::CacheManager cache_mgr_,
+    const std::vector<Start>& starts,
+    Goal goal,
+    Options options)
+  : cache_mgr(std::move(cache_mgr_)),
+    cache_handle(cache_mgr.get()),
+    debugger(cache_handle->debug_begin(
+        starts, std::move(goal), std::move(options)))
+  {
+    // Do nothing
+  }
+
+  static Progress make(
+    internal::planning::CacheManager mgr,
+    const std::vector<Start>& starts,
+    Goal goal,
+    Options options)
+  {
+    Progress progress;
+    progress._pimpl = rmf_utils::make_unique_impl<Implementation>(
+      Implementation{mgr, starts, std::move(goal), std::move(options)});
+
+    return progress;
+  }
+};
+
+//==============================================================================
+rmf_utils::optional<Plan> Planner::Debug::Progress::step()
+{
+  auto result = _pimpl->cache_mgr.get()->debug_step(*_pimpl->debugger);
+
+  if (!result)
+    return rmf_utils::nullopt;
+
+  return Plan::Implementation::make(std::move(*result));
+}
+
+//==============================================================================
+auto Planner::Debug::Progress::queue() const -> const Node::SearchQueue&
+{
+  return _pimpl->debugger->queue();
+}
+
+//==============================================================================
+auto Planner::Debug::Progress::expanded_nodes() const -> const Node::Vector&
+{
+  return _pimpl->debugger->expanded_nodes();
+}
+
+//==============================================================================
+auto Planner::Debug::Progress::terminal_nodes() const -> const Node::Vector&
+{
+  return _pimpl->debugger->terminal_nodes();
+}
+
+//==============================================================================
+Planner::Debug::Progress::Progress()
+{
+  // Do nothing
+}
+
+//==============================================================================
+Planner::Debug::Debug(const Planner& planner)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{planner._pimpl->cache_mgr}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Planner::Debug::begin(
+  const std::vector<Start>& starts,
+  Goal goal,
+  Options options) const -> Progress
+{
+  return Progress::Implementation::make(
+    _pimpl->cache_mgr,
+    starts,
+    std::move(goal),
+    std::move(options));
 }
 
 } // namespace agv

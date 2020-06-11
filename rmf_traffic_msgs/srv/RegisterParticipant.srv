@@ -1,0 +1,12 @@
+
+# The description of the participant that is being registered
+ParticipantDescription description
+
+---
+
+# The ID given to the registered participant
+uint64 participant_id
+
+# A string to notify about exceptional issues that came up while trying to
+# fulfill the request
+string error

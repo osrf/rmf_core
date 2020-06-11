@@ -30,9 +30,46 @@ namespace schedule {
 /// rmf_traffic::schedule::Database.
 ///
 /// The Mirror is designed to mirror a relevant subset of the schedule database.
-class Mirror : public Viewer
+class Mirror : public ItineraryViewer, public Snappable
 {
 public:
+
+  //============================================================================
+  // Viewer API
+  //============================================================================
+
+  // Documentation inherited from Viewer
+  View query(const Query& parameters) const final;
+
+  // Documentation inherited from Viewer
+  View query(
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const final;
+
+  // Documentation inherited from Viewer
+  const std::unordered_set<ParticipantId>& participant_ids() const final;
+
+  // Documentation inherited from Viewer
+  std::shared_ptr<const ParticipantDescription> get_participant(
+    std::size_t participant_id) const final;
+
+  // Documentation inherited from Viewer
+  rmf_utils::optional<Itinerary> get_itinerary(
+    std::size_t participant_id) const final;
+
+  // Documentation inherited from Viewer
+  Version latest_version() const final;
+
+
+  //============================================================================
+  // Snappable API
+  //============================================================================
+  std::shared_ptr<const Snapshot> snapshot() const final;
+
+
+  //============================================================================
+  // Mirror API
+  //============================================================================
 
   /// Create a database mirror
   Mirror();
@@ -40,11 +77,15 @@ public:
   /// Update this mirror.
   ///
   /// \return the last version that this Mirror knows of
-  Version update(const Database::Patch& patch);
+  Version update(const Patch& patch);
 
   // TODO(MXG): Consider a feature to log and report any possible
   // inconsistencies that might show up with the patches, e.g. replacing or
   // erasing a trajectory that was never received in the first place.
+
+  class Implementation;
+private:
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 

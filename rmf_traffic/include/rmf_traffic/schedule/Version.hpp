@@ -1,6 +1,8 @@
 #ifndef RMF_TRAFFIC__SCHEDULE__VERSION_HPP
 #define RMF_TRAFFIC__SCHEDULE__VERSION_HPP
 
+#include <rmf_utils/impl_ptr.hpp>
+
 #include <cstdint>
 
 namespace rmf_traffic {
@@ -11,11 +13,7 @@ namespace schedule {
 /// at any single moment in time (which is more than a server is likely to have
 /// enough RAM to store).
 ///
-/// The Version number is used to identify both:
-/// 1. The current version of a database
-/// 2. The identity of an entry within the database
-/// The current version of a database is equal to the identity of the entry that
-/// was most recently added to it.
+/// The Version number is used to identify the current version of a database.
 ///
 /// As database entries become irrelevant (e.g. they refer to events that have
 /// already finished taking place) they will be culled from the database. The

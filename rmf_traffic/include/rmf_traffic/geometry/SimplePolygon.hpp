@@ -118,8 +118,8 @@ struct InvalidSimplePolygonException : public std::exception
 {
   /// \brief Constructor for an invalid Polygon that has self-intersections.
   InvalidSimplePolygonException(
-      SimplePolygon::Intersections intersections,
-      std::size_t num_vertices);
+    SimplePolygon::Intersections intersections,
+    std::size_t num_vertices);
 
   /// \brief Constructor for an invalid Polygon that has too few vertices.
   InvalidSimplePolygonException(std::size_t num_vertices);

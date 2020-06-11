@@ -20,8 +20,8 @@
 #include <rmf_utils/catch.hpp>
 
 void test_independence(
-    rmf_traffic::agv::VehicleTraits& original,
-    rmf_traffic::agv::VehicleTraits& copy)
+  rmf_traffic::agv::VehicleTraits& original,
+  rmf_traffic::agv::VehicleTraits& copy)
 {
   // Check that the copy has the same properties as the original
   CHECK(copy.linear().get_nominal_velocity() == Approx(0.1));
@@ -31,12 +31,12 @@ void test_independence(
   CHECK(!copy.get_differential()->is_reversible());
 
   copy.linear()
-      .set_nominal_velocity(1.0)
-      .set_nominal_acceleration(2.0);
+  .set_nominal_velocity(1.0)
+  .set_nominal_acceleration(2.0);
 
   copy.rotational()
-      .set_nominal_velocity(3.0)
-      .set_nominal_acceleration(4.0);
+  .set_nominal_velocity(3.0)
+  .set_nominal_acceleration(4.0);
 
   copy.get_differential()->set_reversible(true);
 
@@ -55,12 +55,12 @@ void test_independence(
   CHECK(!original.get_differential()->is_reversible());
 
   original.linear()
-      .set_nominal_velocity(10.0)
-      .set_nominal_acceleration(20.0);
+  .set_nominal_velocity(10.0)
+  .set_nominal_acceleration(20.0);
 
   original.rotational()
-      .set_nominal_velocity(30.0)
-      .set_nominal_acceleration(40.0);
+  .set_nominal_velocity(30.0)
+  .set_nominal_acceleration(40.0);
 
   original.get_differential()->set_reversible(true);
 
@@ -81,7 +81,8 @@ void test_independence(
 
 SCENARIO("Test VehicleTraits")
 {
-  rmf_traffic::agv::VehicleTraits original({0.0, 0.0}, {0.0, 0.0}, nullptr);
+  rmf_traffic::agv::VehicleTraits original(
+    {0.0, 0.0}, {0.0, 0.0}, {nullptr, nullptr});
 
   // Check that the initial properties are all zero
   CHECK(original.linear().get_nominal_velocity() == Approx(0.0));
@@ -91,12 +92,12 @@ SCENARIO("Test VehicleTraits")
   CHECK(original.get_differential()->is_reversible());
 
   original.linear()
-      .set_nominal_velocity(0.1)
-      .set_nominal_acceleration(0.2);
+  .set_nominal_velocity(0.1)
+  .set_nominal_acceleration(0.2);
 
   original.rotational()
-      .set_nominal_velocity(0.3)
-      .set_nominal_acceleration(0.4);
+  .set_nominal_velocity(0.3)
+  .set_nominal_acceleration(0.4);
 
   original.get_differential()->set_reversible(false);
 
@@ -115,7 +116,9 @@ SCENARIO("Test VehicleTraits")
 
   SECTION("Copy operator")
   {
-    rmf_traffic::agv::VehicleTraits copy({0.0, 0.0}, {0.0, 0.0}, nullptr);
+    rmf_traffic::agv::VehicleTraits copy(
+      {0.0, 0.0}, {0.0, 0.0}, {nullptr, nullptr});
+
     copy = original;
     test_independence(original, copy);
   }
@@ -131,7 +134,9 @@ SCENARIO("Test VehicleTraits")
   SECTION("Move operator")
   {
     rmf_traffic::agv::VehicleTraits moved = original;
-    rmf_traffic::agv::VehicleTraits copy({0.0, 0.0}, {0.0, 0.0}, nullptr);
+    rmf_traffic::agv::VehicleTraits copy(
+      {0.0, 0.0}, {0.0, 0.0}, {nullptr, nullptr});
+
     copy = std::move(moved);
     moved = original;
     test_independence(moved, copy);

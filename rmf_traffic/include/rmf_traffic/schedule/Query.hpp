@@ -21,6 +21,7 @@
 #include <rmf_traffic/detail/bidirectional_iterator.hpp>
 
 #include <rmf_traffic/schedule/Version.hpp>
+#include <rmf_traffic/schedule/Participant.hpp>
 
 #include <rmf_traffic/Region.hpp>
 #include <rmf_traffic/Time.hpp>
@@ -135,13 +136,25 @@ public:
     public:
 
       /// Get the maps that will be queried.
-      const std::unordered_set<std::string>& get_maps() const;
+      const std::unordered_set<std::string>& maps() const;
 
       /// Add a map to the query.
       Timespan& add_map(std::string map_name);
 
       /// Remove a map from the query.
       Timespan& remove_map(const std::string& map_name);
+
+      /// Remove all maps from the query.
+      Timespan& clear_maps();
+
+      /// Returns true if all maps should be queried. If true, the set of maps
+      /// mentioned above will be ignored.
+      bool all_maps() const;
+
+      /// Set whether all maps should be queried. When true, the set of maps
+      /// above will be ignored. When false, only the maps in the set above will
+      /// be included in the query.
+      Timespan& all_maps(bool query_all_maps);
 
       /// Get the lower bound for the time range.
       ///
@@ -192,7 +205,7 @@ public:
 
     /// Timespan mode constructor.
     ///
-    /// This will query all trajectories that have at least one segment active
+    /// This will query all trajectories that have at least one waypoint active
     /// after the lower bound on the specified maps.
     ///
     /// \param[in] maps
@@ -201,12 +214,12 @@ public:
     /// \param[in] lower_bound
     ///   The lower bound on time
     Spacetime(
-        std::vector<std::string> maps,
-        Time lower_bound);
+      std::vector<std::string> maps,
+      Time lower_bound);
 
     /// Timespan mode constructor.
     ///
-    /// This will query all trajectories that have at least one segment active
+    /// This will query all trajectories that have at least one waypoint active
     /// after the lower bound and before the upper bound on the specified maps.
     ///
     /// \param[in] maps
@@ -218,9 +231,9 @@ public:
     /// \param[in] upper_bound
     ///   The upper bound on time
     Spacetime(
-        std::vector<std::string> maps,
-        Time lower_bound,
-        Time upper_bound);
+      std::vector<std::string> maps,
+      Time lower_bound,
+      Time upper_bound);
 
     /// Get the current Spacetime Mode of this query.
     Mode get_mode() const;
@@ -244,17 +257,20 @@ public:
 
     /// Query a timespan between two bounds for a set of maps
     Timespan& query_timespan(
-        std::vector<std::string> maps,
-        Time lower_bound,
-        Time upper_bound);
+      std::vector<std::string> maps,
+      Time lower_bound,
+      Time upper_bound);
 
     /// Query from a lower bound in time for a set of maps
     Timespan& query_timespan(
-        std::vector<std::string> maps,
-        Time lower_bound);
+      std::vector<std::string> maps,
+      Time lower_bound);
 
     /// Query for all trajectories on a set of maps
     Timespan& query_timespan(std::vector<std::string> maps);
+
+    /// Switch to timespan mode, and specify whether or not to use all maps.
+    Timespan& query_timespan(bool query_all_maps = true);
 
     /// Get the Timespan of Spacetime to use for this Query. If this Spacetime
     /// is not in Timespan mode, then this will return a nullptr.
@@ -268,23 +284,25 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
-  /// A class to describe a filter on what version changes to query from a
-  /// schedule.
-  class Versions
+  /// A class to describe a filter on which schedule participants to pay
+  /// attention to.
+  class Participants
   {
   public:
 
-    /// The mode for how to filter versions in a schedule database query.
     enum class Mode : uint16_t
     {
-      /// Invalid mode, behavior is undefined.
+      /// Invalid mode, behavior is undefined
       Invalid,
 
-      /// Get everything, regardless of version.
+      /// Get all participants
       All,
 
-      /// Get every version after the specified one.
-      After,
+      /// Get only the participants listed
+      Include,
+
+      /// Get all participants except the ones listed
+      Exclude
     };
 
     /// This is a placeholder class in case we ever want to extend the features
@@ -295,71 +313,107 @@ public:
 
       class Implementation;
     private:
+      All();
+      friend class Participants;
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
-    /// The interface for the Versions::After mode.
-    class After
+    /// The interface for the Participants::Include mode
+    class Include
     {
     public:
 
       /// Constructor.
-      After(Version version);
+      Include(std::vector<ParticipantId> ids);
 
-      /// Get the specified version. The Query will only return Trajectories
-      /// which were introduced after this version of the schedule.
-      Version get_version() const;
+      /// Get the IDs of the participants that should be included.
+      // TODO(MXG): Consider returning unordered_set
+      const std::vector<ParticipantId>& get_ids() const;
 
-      /// Set the version.
-      ///
-      /// \param version
-      ///   The Query will only return Trajectories which were introduced after
-      ///   this version of the schedule.
-      After& set_version(Version version);
+      /// Set the IDs of the participants that should be included.
+      Include& set_ids(std::vector<ParticipantId> ids);
 
       class Implementation;
     private:
-      /// Default constructor. This is not accessible to users because it leaves
-      /// the After instance null.
-      After();
-      friend class Versions;
+      Include();
+      friend class Participants;
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
+    /// The interface for the Participants::Exclude mode
+    class Exclude
+    {
+    public:
+
+      /// Constructor
+      Exclude(std::vector<ParticipantId> ids);
+
+      /// Get the IDs of the participants that should be excluded.
+      // TODO(MXG): Consider returning unordered_set
+      const std::vector<ParticipantId>& get_ids() const;
+
+      /// Set the IDs of the participants that should be excluded.
+      Exclude& set_ids(std::vector<ParticipantId> ids);
+
+      class Implementation;
+    private:
+      Exclude();
+      friend class Participants;
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
     /// Default constructor, uses All mode.
-    Versions();
+    Participants();
 
-    /// Constructor to use After mode.
+    /// Constructor to use All mode.
+    static const Participants& make_all();
+
+    /// Constructor to use Include mode.
     ///
-    /// \param[in] version
-    ///   The Query will only return Trajectories which were introduced after
-    ///   this version of the schedule.
-    Versions(Version version);
+    /// \param[in] ids
+    ///   The IDs of the participants that should be included in the query.
+    static Participants make_only(std::vector<ParticipantId> ids);
 
-    /// Get the current Versions mode of this query.
+    /// Constructor to use Exclude mode.
+    ///
+    /// \param[in] ids
+    ///   The IDs of the participants that should be excluded from the query.
+    static Participants make_all_except(std::vector<ParticipantId> ids);
+
+    /// Get the mode for this Participants filter
     Mode get_mode() const;
 
-    /// Set the mode of this Versions interface to query for All Trajectories
-    /// regardless of version.
-    All& query_all();
+    /// Get the All interface if this Participants filter is in All mode,
+    /// otherwise get a nullptr.
+    All* all();
 
-    /// Set the mode of this Versions interface to query for only Trajectories
-    /// that changed after the given version.
-    ///
-    /// \param[in] version
-    ///   The Query will only return Trajectories which were introduced after
-    ///   this version of the schedule.
-    After& query_after(Version version);
+    /// const-qualified all()
+    const All* all() const;
 
-    /// Get the Versions After interface to use for this Query. If this Versions
-    /// is not in the After mode, then this will return a nullptr.
-    After* after();
+    /// Get the Include interface if this Participants filter is in Include
+    /// mode, otherwise get a nullptr.
+    Include* include();
 
-    /// const-qualified after()
-    const After* after() const;
+    /// const-qualified include()
+    const Include* include() const;
 
-    class Implementation;
+    /// Change this filter to Include mode, and include the specified
+    /// participant IDs.
+    Participants& include(std::vector<ParticipantId> ids);
+
+    /// Get the Exclude interface if this Participants filter is in Exclude
+    /// mode, otherwise get a nullptr.
+    Exclude* exclude();
+
+    /// const-qualified exclude()
+    const Exclude* exclude() const;
+
+    /// Change this filter to Exclude mode, and exclude the specified
+    /// participant IDs.
+    Participants& exclude(std::vector<ParticipantId> ids);
+
   private:
+    class Implementation;
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
@@ -369,11 +423,11 @@ public:
   /// const-qualified spacetime()
   const Spacetime& spacetime() const;
 
-  /// Get the Versions component of this Query.
-  Versions& versions();
+  /// Get the Participants component of this Query.
+  Participants& participants();
 
-  /// const-qualified versions()
-  const Versions& versions() const;
+  /// const-qualified participants()
+  const Participants& participants() const;
 
   class Implementation;
 private:
@@ -384,18 +438,8 @@ private:
 };
 
 //==============================================================================
-/// Query for all Trajectories in a schedule database
-Query query_everything();
-
-//==============================================================================
-/// Query for all Trajectories in a schedule database that were introduced
-/// after a specified version of the schedule.
-///
-/// \param[in] after_version
-///   Only query Trajectories that were added to the schedule after this
-///   version number.
-Query make_query(
-    Version after_version);
+/// Query for all entries in a schedule database
+Query query_all();
 
 //==============================================================================
 /// Query for all Trajectories that intersect with this set of spacetime
@@ -404,7 +448,7 @@ Query make_query(
 /// \param[in] regions
 ///   Only query Trajectories that intersect with the specified regions.
 Query make_query(
-    std::vector<Region> regions);
+  std::vector<Region> regions);
 
 //==============================================================================
 /// Query for all Trajectories that fall within a time range.
@@ -417,23 +461,9 @@ Query make_query(
 ///   A pointer to the upper bound for the time range. Pass in a nullptr to
 ///   indicate that there is no upper bound.
 Query make_query(
-    std::vector<std::string> maps,
-    const Time* start_time,
-    const Time* finish_time);
-
-//==============================================================================
-/// Query for all Trajectories that were introduced after a specified version of
-/// the schedule, and which intersect with this set of spacetime regions.
-///
-/// \param[in] after_version
-///   Only query Trajectories that were added to the schedule after this
-///   version number.
-///
-/// \param[in] regions
-///   Only query Trajectories that intersect with the specified regions.
-Query make_query(
-    Version after_version,
-    std::vector<Region> regions);
+  std::vector<std::string> maps,
+  const Time* start_time,
+  const Time* finish_time);
 
 } // namespace schedule
 

@@ -56,7 +56,6 @@ Time apply_offset(Time start_time, double delta_seconds);
 } // namespace time
 
 
-
 // TODO(MXG): Make user-friendly interfaces for interacting with the STL
 // time points and durations. They have good semantics from a technical point
 // of view, but they tend to be difficult for users to do tests and experiments

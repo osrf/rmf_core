@@ -18,58 +18,66 @@
 #ifndef RMF_TRAFFIC__TEST__UNIT__SCHEDULE__UTILS_TRAJECTORY_HPP
 #define RMF_TRAFFIC__TEST__UNIT__SCHEDULE__UTILS_TRAJECTORY_HPP
 
+#include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/geometry/Box.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
-#include <rmf_utils/catch.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
-#include<iostream>
-#include<rmf_traffic/Conflict.hpp>
-inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory *t, rmf_traffic::Trajectory t2)
+
+#include <iostream>
+
+#include <rmf_utils/catch.hpp>
+
+inline void CHECK_EQUAL_TRAJECTORY(const rmf_traffic::Trajectory* t,
+  rmf_traffic::Trajectory t2)
 {
-rmf_traffic::Trajectory t1= *t;
-REQUIRE(t1.size()==t2.size());
+  rmf_traffic::Trajectory t1 = *t;
+  REQUIRE(t1.size() == t2.size());
 
-    for(auto it1=t1.begin(),it2=t2.begin();it1!=t1.end();it1++,it2++)
-    {
-    CHECK(it1->get_finish_position()==it2->get_finish_position());
-    CHECK(it1->get_finish_time()==it2->get_finish_time());
-    CHECK(it1->get_profile()==it2->get_profile());
-    }
-}
-
-inline void CHECK_TRAJECTORY_COUNT(rmf_traffic::schedule::Database d, int n)
-{
-    int trajectory_count=0;
-    auto query_everything= rmf_traffic::schedule::query_everything();
-    auto changes= d.changes(query_everything);
-    for(auto it=changes.begin();it!=changes.end();it++)
-    {
-      //std::cout<<"ID:"<<static_cast<int>(it->get_mode())<<std::endl;
-      if(static_cast<int>(it->get_mode())==1)
-        ++trajectory_count;
-      }
-
-    CHECK(trajectory_count==n);
-
-} 
-
-inline std::vector<rmf_traffic::Trajectory> get_collision_trajectories(const rmf_traffic::schedule::Viewer::View& view,rmf_traffic::Trajectory& t)
-{
-
-  std::vector<rmf_traffic::Trajectory> collision_trajectories;
-  for(auto v : view)
+  for (auto it1 = t1.begin(), it2 = t2.begin(); it1 != t1.end(); it1++, it2++)
   {
-    if(rmf_traffic::DetectConflict::between(v.trajectory, t).size()>0)
-        collision_trajectories.push_back(v.trajectory);
-
+    CHECK(it1->position() == it2->position());
+    CHECK(it1->velocity() == it2->velocity());
+    CHECK(it1->time() == it2->time());
   }
-  return collision_trajectories;
-
 }
 
+inline void CHECK_TRAJECTORY_COUNT(
+  const rmf_traffic::schedule::Viewer& d,
+  const std::size_t expected_participant_num,
+  const std::size_t expected_trajectory_num)
+{
+  const auto view = d.query(rmf_traffic::schedule::query_all());
+  CHECK(view.size() == expected_trajectory_num);
+  CHECK(d.participant_ids().size() == expected_participant_num);
+}
 
+inline std::vector<rmf_traffic::Trajectory> get_conflicting_trajectories(
+  const rmf_traffic::schedule::Viewer::View& view,
+  const rmf_traffic::Profile& p,
+  const rmf_traffic::Trajectory& t)
+{
+  std::vector<rmf_traffic::Trajectory> collision_trajectories;
+  for (const auto& v : view)
+  {
+    const auto& v_p = v.description.profile();
+    const auto& v_t = v.route.trajectory();
+    if (rmf_traffic::DetectConflict::between(v_p, v_t, p, t))
+      collision_trajectories.push_back(v_t);
+  }
 
+  return collision_trajectories;
+}
+
+inline rmf_traffic::schedule::Writer::Input create_test_input(
+  rmf_traffic::RouteId id, const rmf_traffic::Trajectory& t)
+{
+  return rmf_traffic::schedule::Writer::Input{
+    {
+      {id, std::make_shared<rmf_traffic::Route>("test_map", t)}
+    }
+  };
+}
 
 
 #endif //RMF_TRAFFIC__TEST__UNIT__SCHEDULE__UTILS_TRAJECTORY_HPP

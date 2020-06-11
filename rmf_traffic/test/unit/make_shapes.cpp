@@ -26,47 +26,47 @@ SCENARIO("Verify that these shape types can be upcast")
 {
   // Make sure all the shape types can be constructed and cast to shapes
   std::shared_ptr<rmf_traffic::geometry::Shape> box =
-      std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+    std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
 
   std::shared_ptr<rmf_traffic::geometry::Shape> circle =
-      std::make_shared<rmf_traffic::geometry::Circle>(1.0);
+    std::make_shared<rmf_traffic::geometry::Circle>(1.0);
 
   std::shared_ptr<rmf_traffic::geometry::Shape> polygon =
-      std::make_shared<rmf_traffic::geometry::SimplePolygon>(
-        std::vector<Eigen::Vector2d>());
+    std::make_shared<rmf_traffic::geometry::SimplePolygon>(
+    std::vector<Eigen::Vector2d>());
 
   // Make sure the two convex shape type can be constructed and cast to Convex
   std::shared_ptr<rmf_traffic::geometry::ConvexShape> convex_box =
-      std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
+    std::make_shared<rmf_traffic::geometry::Box>(1.0, 1.0);
 
   std::shared_ptr<rmf_traffic::geometry::ConvexShape> convex_circle =
-      std::make_shared<rmf_traffic::geometry::Circle>(1.0);
+    std::make_shared<rmf_traffic::geometry::Circle>(1.0);
 }
 
 SCENARIO("Verify characteristic lengths are accurately computed")
 {
-  // Box 
+  // Box
   const auto box_final_shape = rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Box>(4.0, 3.0);
+    rmf_traffic::geometry::Box>(4.0, 3.0);
   CHECK(box_final_shape->get_characteristic_length() - 2.5
-      == Approx(0.0).margin(1e-12));
+    == Approx(0.0).margin(1e-12));
 
-  // Circle 
+  // Circle
   const auto circle_final_shape = rmf_traffic::geometry::make_final_convex<
-          rmf_traffic::geometry::Circle>(6.0);
+    rmf_traffic::geometry::Circle>(6.0);
 
   CHECK(circle_final_shape->get_characteristic_length() - 6.0
-      == Approx(0.0).margin(1e-12));
-  
+    == Approx(0.0).margin(1e-12));
+
   // Simple Polygon
   std::vector<Eigen::Vector2d> vertices = {
-      {1.0, 1.0},
-      {0.0, 2.0},
-      {-1.0, 1.0},
-      {-1.0, -1.0},
-      {1.0, -1.0}};
+    {1.0, 1.0},
+    {0.0, 2.0},
+    {-1.0, 1.0},
+    {-1.0, -1.0},
+    {1.0, -1.0}};
   const auto polygon_final_shape = rmf_traffic::geometry::make_final<
-          rmf_traffic::geometry::SimplePolygon>(vertices);
+    rmf_traffic::geometry::SimplePolygon>(vertices);
   CHECK(polygon_final_shape->get_characteristic_length() -2.0
-      == Approx(0.0).margin(1e-12));
+    == Approx(0.0).margin(1e-12));
 }

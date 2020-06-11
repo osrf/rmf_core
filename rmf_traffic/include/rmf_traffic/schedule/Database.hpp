@@ -18,7 +18,11 @@
 #ifndef RMF_TRAFFIC__SCHEDULE__DATABASE_HPP
 #define RMF_TRAFFIC__SCHEDULE__DATABASE_HPP
 
+#include <rmf_traffic/schedule/Inconsistencies.hpp>
 #include <rmf_traffic/schedule/Viewer.hpp>
+#include <rmf_traffic/schedule/Patch.hpp>
+#include <rmf_traffic/schedule/Writer.hpp>
+#include <rmf_traffic/schedule/Snapshot.hpp>
 
 #include <rmf_utils/macros.hpp>
 
@@ -36,415 +40,152 @@ namespace schedule {
 /// You can also retrieve update patches from a database. To apply those patches
 /// to a downstream Viewer, it is strongly advised to use the
 /// rmf_traffic::schedule::Mirror class.
-class Database : public Viewer
+class Database :
+  public ItineraryViewer,
+  public Writer,
+  public Snappable
 {
 public:
 
-  /// A class that describes a change within the database
-  class Change
-  {
-  public:
+  //============================================================================
+  // Writer API
+  //============================================================================
 
-    /// Enumeration for what type of change has occurred
-    enum class Mode : uint16_t
-    {
-      /// This is an invalid Change::Mode. If you ever find this a Change object
-      /// in this mode, please report it as a bug.
-      Invalid,
+  // Documentation inherited from Writer
+  void set(
+    ParticipantId participant,
+    const Input& itinerary,
+    ItineraryVersion version) final;
 
-      /// A Trajectory was inserted
-      Insert,
+  // Documentation inherited from Writer
+  void extend(
+    ParticipantId participant,
+    const Input& routes,
+    ItineraryVersion version) final;
 
-      /// A pause was introduced to a Trajectory
-      Interrupt,
+  // Documentation inherited from Writer
+  void delay(
+    ParticipantId participant,
+    Time from,
+    Duration delay,
+    ItineraryVersion version) final;
 
-      /// A delay was introduced to a Trajectory
-      Delay,
+  // Documentation inherited from Writer
+  void erase(
+    ParticipantId participant,
+    ItineraryVersion version) final;
 
-      /// A Trajectory was replaced by a new one
-      Replace,
+  // Documentation inherited from Writer
+  void erase(
+    ParticipantId participant,
+    const std::vector<RouteId>& routes,
+    ItineraryVersion version) final;
 
-      /// A Trajectory was erased
-      Erase,
+  // Documentation inherited from Writer
+  ParticipantId register_participant(
+    ParticipantDescription participant_info) final;
 
-      /// Some Trajectories were culled
-      Cull,
+  /// Before calling this function on a Database, you should set the current
+  /// time for the database by calling set_current_time(). This will allow the
+  /// database to cull this participant after a reasonable amount of time has
+  /// passed.
+  void unregister_participant(
+    ParticipantId participant) final;
 
-      /// The number of Modes. This must always come last in the list. This is
-      /// never a valid Mode. Please report if this is ever returned by the
-      /// get_mode() function.
-      NUM,
-    };
 
-    /// Make an insertion change
-    ///
-    /// \param[in] trajectory
-    ///   The Trajectory that was inserted for this change
-    ///
-    /// \param[in] id
-    ///   The ID of this insertion.
-    static Change make_insert(
-        Trajectory trajectory,
-        Version id);
+  //============================================================================
+  // Viewer API
+  //============================================================================
 
-    /// Make an interruption change
-    ///
-    /// \param[in] original_id
-    ///   The original ID of the Trajectory that will be interrupted
-    ///
-    /// \param[in] interruption_trajectory
-    ///   The Trajectory that is being inserted as an interruption
-    ///
-    /// \param[in] delay
-    ///   The additional delay following the interruption.
-    ///
-    /// \param[in] id
-    ///   The ID of the modified Trajectory
-    static Change make_interrupt(
-        Version original_id,
-        Trajectory interruption_trajectory,
-        Duration delay,
-        Version id);
+  // Documentation inherited from Viewer
+  View query(const Query& parameters) const final;
 
-    /// Make a delay change
-    ///
-    /// \param[in] original_id
-    ///   The original ID of the Trajectory that will be delayed
-    ///
-    /// \param[in] from
-    ///   The point in time where the delay originates
-    ///
-    /// \param[in] delay
-    ///   The duration of the delay (how far back the Segments that come after
-    ///   `from` should be pushed).
-    ///
-    /// \param[in] id
-    ///   The ID of the modified Trajectory
-    static Change make_delay(
-        Version original_id,
-        Time from,
-        Duration delay,
-        Version id);
+  // Documentation inherited from Viewer
+  View query(
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const final;
 
-    /// Make a replacement change
-    ///
-    /// \param[in] original_id
-    ///   The original ID of the Trajectory that is being replaced
-    ///
-    /// \param[in] trajectory
-    ///   The Trajectory that was inserted for this change
-    ///
-    /// \param[in] id
-    ///   The ID of this replacement.
-    static Change make_replace(
-        Version original_id,
-        Trajectory trajectory,
-        Version id);
+  // Documentation inherited from Viewer
+  const std::unordered_set<ParticipantId>& participant_ids() const final;
 
-    /// Make an erasure change
-    ///
-    /// \param[in] original_id
-    ///   The ID of the Trajectory that is erased.
-    ///
-    /// \param[in] id
-    ///   The ID of this erasure.
-    static Change make_erase(
-        Version original_id,
-        Version id);
+  // Documentation inherited from Viewer
+  std::shared_ptr<const ParticipantDescription> get_participant(
+    std::size_t participant_id) const final;
 
-    /// Make a culling
-    ///
-    /// \param[in] time
-    ///   The cut-off time for the culling. Trajectories that finish before this
-    ///   time-point will be culled from the database, and all memory of them
-    ///   will be destroyed.
-    ///
-    /// \param[in] id
-    ///   The ID of this culling
-    static Change make_cull(
-        Time time,
-        Version id);
+  // Documentation inherited from Viewer
+  rmf_utils::optional<Itinerary> get_itinerary(
+    std::size_t participant_id) const final;
 
-    /// The API for an insertion
-    class Insert
-    {
-    public:
+  // Documentation inherited from Viewer
+  Version latest_version() const final;
 
-      /// A pointer to the Trajectory that was inserted.
-      ///
-      /// If this returns a nullptr, then that implies that this insertion is
-      /// void because the Patch will contain a Replace or Erase Change that
-      /// nullifies it.
-      const Trajectory* trajectory() const;
 
-      class Implementation;
-    private:
-      Insert();
-      RMF_UTILS__DEFAULT_COPY_MOVE(Insert);
-      friend class Change;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
+  //============================================================================
+  // Snappable API
+  //============================================================================
 
-    /// The API for an interruption
-    class Interrupt
-    {
-    public:
+  // Documentation inherited from Snappable
+  std::shared_ptr<const Snapshot> snapshot() const final;
 
-      /// The ID of the Trajectory that was interrupted.
-      Version original_id() const;
-
-      /// A pointer to the Trajectory that was inserted.
-      ///
-      /// If this returns a nullptr, then that implies this interruption is void
-      /// because the Patch will contain a Replace or Erase Change that
-      /// nullifies it.
-      const Trajectory* interruption() const;
-
-      /// The length of the delay that follows the interruption.
-      Duration delay() const;
-
-      class Implementation;
-    private:
-      Interrupt();
-      RMF_UTILS__DEFAULT_COPY_MOVE(Interrupt);
-      friend class Change;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// The API for a delay
-    class Delay
-    {
-    public:
-
-      /// The ID of the Trajectory that was delayed.
-      Version original_id() const;
-
-      /// The time that the delay began.
-      Time from() const;
-
-      /// The duration of the delay.
-      Duration duration() const;
-
-      class Implementation;
-    private:
-      Delay();
-      RMF_UTILS__DEFAULT_COPY_MOVE(Delay);
-      friend class Change;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// The API for a replacement
-    class Replace
-    {
-    public:
-
-      /// The ID of the Trajectory that was replaced
-      Version original_id() const;
-
-      /// A pointer to the Trajectory that replaced it.
-      ///
-      /// If this returns a nullptr, then that implies that this replacement is
-      /// void because the Patch will contain a Replace or Erase Change that
-      /// nullifies it.
-      const Trajectory* trajectory() const;
-
-      class Implementation;
-    private:
-      Replace();
-      RMF_UTILS__DEFAULT_COPY_MOVE(Replace);
-      friend class Change;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// The API for an erasure
-    class Erase
-    {
-    public:
-
-      /// The ID of the Trajectory that was erased.
-      Version original_id() const;
-
-      class Implementation;
-    private:
-      Erase();
-      RMF_UTILS__DEFAULT_COPY_MOVE(Erase);
-      friend class Change;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    class Cull
-    {
-    public:
-
-      /// The cut-off time for the culling.
-      Time time() const;
-
-      class Implementation;
-    private:
-      Cull();
-      RMF_UTILS__DEFAULT_COPY_MOVE(Cull);
-      friend class Change;
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
-
-    /// Get the type of Change
-    Mode get_mode() const;
-
-    /// Get the version ID that this change refers to
-    Version id() const;
-
-    /// Get the Insert interface if this is an Insert type change. Otherwise
-    /// this returns a nullptr.
-    const Insert* insert() const;
-
-    /// Get the Interrupt interface if this is an Interrupt type change.
-    /// Otherwise this returns a nullptr.
-    const Interrupt* interrupt() const;
-
-    /// Get the Delay interface if this is a Delay type change. Otherwise this
-    /// returns a nullptr.
-    const Delay* delay() const;
-
-    /// Get the Replace interface if this is a Replace type change. Otherwise
-    /// this returns a nullptr.
-    const Replace* replace() const;
-
-    /// Get the Erase interface if this is an Erase type change. Otherwise this
-    /// returns a nullptr.
-    const Erase* erase() const;
-
-    /// Get the Cull interface if this is a Cull type change. Otherwise this
-    /// returns a nullptr.
-    const Cull* cull() const;
-
-    class Implementation;
-  private:
-    Change();
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
-
-  /// A container of Database changes
-  class Patch
-  {
-  public:
-
-    template<typename E, typename I, typename F>
-    using base_iterator = rmf_traffic::detail::bidirectional_iterator<E, I, F>;
-
-    class IterImpl;
-    using const_iterator = base_iterator<const Change, IterImpl, Patch>;
-
-    Patch(std::vector<Change> changes, Version latest_version);
-
-    /// Returns an iterator to the first element of the Patch.
-    const_iterator begin() const;
-
-    /// Returns an iterator to the element following the last element of the
-    /// Patch. This iterator acts as a placeholder; attempting to dereference it
-    /// results in undefined behavior.
-    const_iterator end() const;
-
-    /// Get the number of elements in this Patch.
-    std::size_t size() const;
-
-    /// Get the latest version of the Database that informed this Patch.
-    Version latest_version() const;
-
-    class Implementation;
-  private:
-    Patch();
-    rmf_utils::impl_ptr<Implementation> _pimpl;
-  };
+  //============================================================================
+  // Database API
+  //============================================================================
 
   /// Initialize a Database
   Database();
 
+  /// A description of all inconsistencies currently present in the database.
+  /// Inconsistencies are isolated between Participants.
+  ///
+  /// To fix the inconsistency, the Participant should resend every Itinerary
+  /// change that was missing from every range, or else send a change that
+  /// nullifies all previous changes, such as a set(~) or erase(ParticipantId).
+  const Inconsistencies& inconsistencies() const;
+
   /// Get the changes in this Database that match the given Query parameters.
-  Patch changes(const Query& parameters) const;
+  /// If a version number is specified, then the returned Patch will reflect the
+  /// changes that occurred from the specified version to the current version of
+  /// the schedule.
+  ///
+  /// To get a consistent reflection of the schedule when specifying a base
+  /// version, it is important that the query parameters are not changed in
+  /// between calls.
+  ///
+  /// \param[in] parameters
+  ///   The parameters describing what types of schedule entries the mirror
+  ///   cares about.
+  ///
+  /// \param[in] after
+  ///   Specify that only changes which come after this version number are
+  ///   desired. If you give a nullopt for this argument, then all changes will
+  ///   be provided.
+  ///
+  /// \return A Patch of schedule changes that are relevant to the specified
+  /// query parameters.
+  Patch changes(
+    const Query& parameters,
+    rmf_utils::optional<Version> after) const;
 
-  /// Insert a Trajectory into this database.
+  /// View the routes that match the parameters and have changed (been added or
+  /// delayed) since the specified version. This is useful for viewing
+  /// incremental changes.
   ///
-  /// \return The database id for this new Trajectory.
-  Version insert(Trajectory trajectory);
+  /// \param[in] parameters
+  ///   The parameters describing what types of schedule entries are relevant.
+  ///
+  /// \param[in] after
+  ///   Specify that only routes which changed after this version number are
+  ///   desired.
+  ///
+  /// \return a view of the routes that are different since the specified
+  /// version.
+  ///
+  // TODO(MXG): Consider adding this function to the Viewer class.
+  View query(
+    const Query& parameters,
+    Version after) const;
 
-  /// Interrupt a trajectory by inserting another Trajectory inside of it.
-  ///
-  /// This will add each Segment of the input Trajectory into the targeted
-  /// Trajectory entry in the database. All Segments in the original Trajectory
-  /// that come after the start time of the interruption Trajectory will be
-  /// pushed back in time by the whole duration of the interruption Trajectory.
-  /// They will then be pushed back further by the duration of the `delay`
-  /// argument.
-  ///
-  /// \param[in] id
-  ///   The ID of the Trajectory to add the interruption to.
-  ///
-  /// \param[in] interruption_trajectory
-  ///   The trajectory that should be inserted as an interruption of the
-  ///   original trajectory.
-  ///
-  /// \param[in] delay
-  ///   Additional delay that should follow the interruption. The total time
-  ///   that the remaining Segments will be delayed from their original timing
-  ///   is the duration of the `interruption_trajectory` plus the duration of
-  ///   this `delay` argument.
-  ///
-  /// \return The updated ID for this modified Trajectory.
-  ///
-  /// \sa delay()
-  Version interrupt(
-      Version id,
-      Trajectory interruption_trajectory,
-      Duration delay);
-
-  /// Add a delay to the Trajectory from the specified Time.
-  ///
-  /// Nothing about the Trajectory will be changed except that Segments which
-  /// come after the specified time will be pushed back by the specified delay.
-  ///
-  /// \note This can create distortions in the Trajectory Segment that leads
-  /// up to the `from` Time, so use with caution. This is primarily intended to
-  /// make corrections to live Trajectories based on incoming state information.
-  ///
-  /// \note Unlike interrupt(), this will not introduce any new Segments to the
-  /// Trajectory.
-  ///
-  /// \param[in] id
-  ///   The ID of the Trajectory to delay.
-  ///
-  /// \param[in] from
-  ///   All Trajectory Segments that end after this time point will be pushed
-  ///   back by the delay.
-  ///
-  /// \param[in] delay
-  ///   This is the duration of time to delay all qualifying Trajectory Segments
-  ///
-  /// \return The updated ID for this modified Trajectory
-  ///
-  /// \sa interrupt()
-  Version delay(
-      Version id,
-      Time from,
-      Duration delay);
-
-  /// Replace an existing Trajectory with a new one. This is used for revising
-  /// plans.
-  ///
-  /// \param[in] previous_id
-  ///   The id of the previous Trajectory that is being replaced.
-  ///
-  /// \param[in] trajectory
-  ///   The new trajectory to replace the old one with.
-  ///
-  /// \return The updated ID of the revised trajectory.
-  Version replace(Version previous_id, Trajectory trajectory);
-
-  /// Erase a Trajectory from this database.
-  ///
-  /// \return the new version of this database.
-  Version erase(Version id);
-
-  /// Throw away all Trajectories up to the specified time.
+  /// Throw away all itineraries up to the specified time.
   ///
   /// \param[in] time
   ///   All Trajectories that finish before this time will be culled from the
@@ -455,19 +196,24 @@ public:
   /// this version number will remain the same.
   Version cull(Time time);
 
+  /// Set the current time on the database. This should be used immediately
+  /// before calling unregister_participant() so that the database can cull the
+  /// existence of the participant at an appropriate time. There's no need to
+  /// call this function for any other purpose.
+  void set_current_time(Time time);
+
+  /// Get the curret itinerary version for the specified participant.
+  //
+  // TODO(MXG): This function needs unit testing
+  ItineraryVersion itinerary_version(ParticipantId participant) const;
+
+  class Implementation;
+  class Debug;
+private:
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace schedule
-
-namespace detail {
-
-extern template class bidirectional_iterator<
-    const schedule::Database::Change,
-    schedule::Database::Patch::IterImpl,
-    schedule::Database::Patch
->;
-
-}
 
 } // namespace rmf_traffic
 

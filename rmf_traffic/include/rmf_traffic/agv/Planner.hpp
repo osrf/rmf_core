@@ -22,9 +22,8 @@
 
 #include <rmf_traffic/agv/Graph.hpp>
 #include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/agv/RouteValidator.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
-
-#include <rmf_traffic/schedule/Viewer.hpp>
 
 #include <rmf_utils/optional.hpp>
 
@@ -58,9 +57,9 @@ public:
     /// \param[in] graph
     ///   The graph which is being planned over
     Configuration(
-        Graph graph,
-        VehicleTraits traits,
-        Interpolate::Options interpolation = Interpolate::Options());
+      Graph graph,
+      VehicleTraits traits,
+      Interpolate::Options interpolation = Interpolate::Options());
 
     /// Set the graph to use for planning
     Configuration& graph(Graph graph);
@@ -105,14 +104,12 @@ public:
   {
   public:
 
+    static constexpr Duration DefaultMinHoldingTime = std::chrono::seconds(5);
+
     /// Constructor
     ///
-    /// \warning You are expected to maintain the lifetime of the schedule
-    /// viewer for as long as this Options instance is alive. The Options
-    /// instance will only retain a reference to the viewer, not a copy of it.
-    ///
-    /// \param[in] viewer
-    ///   The schedule viewer which will be used to check for conflicts
+    /// \param[in] validator
+    ///   A validator to check the validity of the planner's branching options.
     ///
     /// \param[in] min_hold_time
     ///   The minimum amount of time that the planner should spend waiting at
@@ -127,36 +124,21 @@ public:
     ///   has been running for too long. If the planner should run indefinitely,
     ///   then pass in a nullptr. It is the user's responsibility to make sure
     ///   that this flag remains valid.
-    ///
-    /// \param[in] ignore_schedule_ids
-    ///   A set of schedule IDs to ignore while planning. The plan will be
-    ///   allowed to conflict with any trajectory in this set. This is useful
-    ///   for planning trajectories that are meant to replace some trajectories
-    ///   that are already in the schedule.
     Options(
-        const schedule::Viewer& viewer,
-        Duration min_hold_time = std::chrono::seconds(5),
-        const bool* interrupt_flag = nullptr,
-        std::unordered_set<schedule::Version> ignore_schedule_ids = {});
+      rmf_utils::clone_ptr<RouteValidator> validator,
+      Duration min_hold_time = DefaultMinHoldingTime,
+      const bool* interrupt_flag = nullptr);
 
-    /// Change the schedule viewer to use for planning.
-    ///
-    /// \warning The Options instance will store a reference to the viewer; it
-    /// will not store a copy. Therefore you are responsible for keeping the
-    /// schedule viewer alive while this Options class is being used.
-    // TODO(MXG): Make this a pointer instead of a reference. When this is a
-    // nullptr, then the schedule will be ignored.
-    Options& schedule_viewer(const schedule::Viewer& viewer);
+    /// Set the route validator
+    Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
 
-    /// Get a const reference to the schedule viewer that will be used for
-    /// planning. It is undefined behavior to call this function is called after
-    /// the schedule viewer has been destroyed.
-    const schedule::Viewer& schedule_viewer() const;
+    /// Get the route validator
+    const rmf_utils::clone_ptr<RouteValidator>& validator() const;
 
-    /// Set the minimal amount of time to spend waiting at holding points
+    /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);
 
-    /// Get the minimal amount of time to spend waiting at holding points
+    /// Get the minimum amount of time to spend waiting at holding points
     Duration minimum_holding_time() const;
 
     /// Set an interrupt flag to stop this planner if it has run for too long.
@@ -165,13 +147,6 @@ public:
     /// Get the interrupt flag that will stop this planner if it has run for too
     /// long.
     const bool* interrupt_flag() const;
-
-    /// Specify a set of schedule IDs to ignore when collision checking. This is
-    /// useful for planning a schedule replacement.
-    Options& ignore_schedule_ids(std::unordered_set<schedule::Version> ids);
-
-    /// Get the set of schedule IDs that should be ignored.
-    std::unordered_set<schedule::Version> ignore_schedule_ids() const;
 
     class Implementation;
   private:
@@ -204,11 +179,11 @@ public:
     ///   Optional field to specify if the robot is starting in a certain lane.
     ///   This will only be used if an initial_location is specified.
     Start(
-        Time initial_time,
-        std::size_t initial_waypoint,
-        double initial_orientation,
-        rmf_utils::optional<Eigen::Vector2d> location = rmf_utils::nullopt,
-        rmf_utils::optional<std::size_t> initial_lane = rmf_utils::nullopt);
+      Time initial_time,
+      std::size_t initial_waypoint,
+      double initial_orientation,
+      rmf_utils::optional<Eigen::Vector2d> location = rmf_utils::nullopt,
+      rmf_utils::optional<std::size_t> initial_lane = rmf_utils::nullopt);
 
     /// Set the starting time of a plan
     Start& time(Time initial_time);
@@ -229,13 +204,13 @@ public:
     double orientation() const;
 
     /// Get the starting location, if one was specified
-    rmf_utils::optional<Eigen::Vector2d> location() const;
+    const rmf_utils::optional<Eigen::Vector2d>& location() const;
 
     /// Set the starting location, or remove it by using rmf_utils::nullopt
     Start& location(rmf_utils::optional<Eigen::Vector2d> initial_location);
 
     /// Get the starting lane, if one was specified
-    rmf_utils::optional<std::size_t> lane() const;
+    const rmf_utils::optional<std::size_t>& lane() const;
 
     /// Set the starting lane, or remove it by using rmf_utils::nullopt
     Start& lane(rmf_utils::optional<std::size_t> initial_lane);
@@ -293,6 +268,8 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  class Result;
+
   /// Constructor
   ///
   /// \param[in] config
@@ -311,8 +288,8 @@ public:
   ///   set them here and then forget about them. These options can be overriden
   ///   each time you request a plan.
   Planner(
-      Configuration config,
-      Options default_options);
+    Configuration config,
+    Options default_options);
 
   /// Get a const reference to the configuration for this Planner. Note that the
   /// configuration of a planner cannot be changed once it is set.
@@ -343,7 +320,7 @@ public:
   ///
   /// \param[in] goal
   ///   The goal conditions
-  rmf_utils::optional<Plan> plan(const Start& start, Goal goal) const;
+  Result plan(const Start& start, Goal goal) const;
 
   /// Product a plan for the given start and goal conditions. Override the
   /// default options.
@@ -357,10 +334,10 @@ public:
   /// \param[in] options
   ///   The Options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
-  rmf_utils::optional<Plan> plan(
-      const Start& start,
-      Goal goal,
-      Options options) const;
+  Result plan(
+    const Start& start,
+    Goal goal,
+    Options options) const;
 
 
   /// Produces a plan for the given set of starting conditions and goal. The
@@ -377,7 +354,7 @@ public:
   ///
   /// \param[in] goal
   ///   The goal conditions
-  rmf_utils::optional<Plan> plan(const StartSet& starts, Goal goal) const;
+  Result plan(const StartSet& starts, Goal goal) const;
 
   /// Produces a plan for the given set of starting conditions and goal.
   /// Override the default options.
@@ -397,15 +374,137 @@ public:
   /// \param[in] options
   ///   The options to use for this plan. This overrides the default Options of
   ///   the Planner instance.
-  rmf_utils::optional<Plan> plan(
-      const StartSet& starts,
-      Goal goal,
-      Options options) const;
+  Result plan(
+    const StartSet& starts,
+    Goal goal,
+    Options options) const;
 
   class Implementation;
+  class Debug;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 
+};
+
+//==============================================================================
+class Planner::Result
+{
+public:
+
+  /// True if a plan was found and this Result can be dereferenced to obtain a
+  /// plan.
+  bool success() const;
+
+  /// Implicitly cast the result to a boolean. It will return true if a plan
+  /// was found, otherwise it will return false.
+  operator bool() const;
+
+  /// If the Result was successful, drill into the plan.
+  const Plan* operator->() const;
+
+  /// If the Result was successful, get a reference to the plan.
+  const Plan& operator*() const&;
+
+  /// If the Result was successful, move the plan.
+  Plan&& operator*() &&;
+
+  /// If the Result was successful, get a reference to the plan.
+  const Plan&& operator*() const&&;
+
+  /// Replan to the same goal from a new start location using the same options
+  /// as before.
+  ///
+  /// \param[in] new_start
+  ///   The starting conditions that should be used for replanning.
+  Result replan(const Start& new_start) const;
+
+  /// Replan to the same goal from a new start location using a new set of
+  /// options.
+  ///
+  /// \param[in] new_start
+  ///   The starting conditions that should be used for replanning.
+  ///
+  /// \param[in] new_options
+  ///   The options that should be used for replanning.
+  Result replan(
+    const Planner::Start& new_start,
+    Options new_options) const;
+
+  /// Replan to the same goal from a new set of start locations using the same
+  /// options.
+  ///
+  /// \param[in] new_starts
+  ///   The set of starting conditions that should be used for replanning.
+  Result replan(const StartSet& new_starts) const;
+
+  /// Replan to the same goal from a new set of start locations using a new set
+  /// of options.
+  ///
+  /// \param[in] new_starts
+  ///   The set of starting conditions that should be used for replanning.
+  ///
+  /// \param[in] new_options
+  ///   The options that should be used for replanning.
+  Result replan(
+    const StartSet& new_starts,
+    Options new_options) const;
+
+  /// Resume planning if the planner was interrupted.
+  ///
+  /// \return true if a plan has been found, false otherwise.
+  bool resume();
+
+  /// Resume planning if the planner was interrupted.
+  ///
+  /// \param[in] interrupt_flag
+  ///   A new interrupt flag to listen to while planning.
+  ///
+  /// \return true if a plan has been found, false otherwise.
+  bool resume(const bool* interrupt_flag);
+
+  /// Get the best cost estimate of the current state of this planner result.
+  /// This is the value of the lowest f(n)=g(n)+h(n) in the planner's queue.
+  /// If the node queue of this planner result is empty, this will return a
+  /// nullopt.
+  rmf_utils::optional<double> cost_estimate() const;
+
+  /// If this Plan is valid, this will return the Planner::Start that was used
+  /// to produce it.
+  const std::vector<Start>& get_starts() const;
+
+  /// If this Plan is valid, this will return the Planner::Goal that was used
+  /// to produce it.
+  ///
+  /// If replan() is called, this goal will be used to produce the new Plan.
+  const Goal& get_goal() const;
+
+  /// If this Plan is valid, this will return the Planner::Options that were
+  /// used to produce it.
+  ///
+  /// If replan(Planner::Start) is called, these Planner::Options will be used
+  /// to produce the new Plan.
+  const Options& get_options() const;
+
+  /// If this Plan is valid, this will return the Planner::Configuration that
+  /// was used to produce it.
+  ///
+  /// If replan() is called, this Planner::Configuration will be used to produce
+  /// the new Plan.
+  const Configuration& get_configuration() const;
+
+  /// This will return true if the planning failed because it was interrupted.
+  /// Otherwise it will return false.
+  bool interrupted() const;
+
+  /// This is a list of schedule Participants who blocked the planning effort.
+  /// Blockers do not necessarily prevent a solution from being found, but they
+  /// do prevent the optimal solution from being available.
+  std::vector<schedule::ParticipantId> blockers() const;
+
+  class Implementation;
+private:
+  Result();
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 //==============================================================================
@@ -418,6 +517,7 @@ public:
   using Goal = Planner::Goal;
   using Options = Planner::Options;
   using Configuration = Planner::Configuration;
+  using Result = Planner::Result;
 
   /// A Waypoint within a Plan.
   ///
@@ -458,82 +558,15 @@ public:
   };
 
   /// If this Plan is valid, this will return the trajectory of the successful
-  /// plan.
-  ///
-  /// \warning If this plan is not valid, this will have undefined behavior, and
-  /// will cause a segmentation fault if this Plan is uninitialized
-  /// (default-constructed).
-  const std::vector<Trajectory>& get_trajectories() const;
+  /// plan. If the Start satisfies the Goal, then the itinerary will be empty.
+  const std::vector<Route>& get_itinerary() const;
 
   /// If this plan is valid, this will return the waypoints of the successful
   /// plan.
-  ///
-  /// \warning If this plan is not valid, this will have undefined behavior, and
-  /// will cause a segmentation fault if this Plan is uninitialized
-  /// (default-constructed).
   const std::vector<Waypoint>& get_waypoints() const;
 
-  /// Replan to the same goal from a new start location using the same options
-  /// as before.
-  ///
-  /// \param[in] new_start
-  ///   The starting conditions that should be used for replanning.
-  rmf_utils::optional<Plan> replan(const Start& new_start) const;
-
-  /// Replan to the same goal from a new start location using a new set of
-  /// options.
-  ///
-  /// \param[in] new_start
-  ///   The starting conditions that should be used for replanning.
-  ///
-  /// \param[in] new_options
-  ///   The options that should be used for replanning.
-  rmf_utils::optional<Plan> replan(
-      const Planner::Start& new_start,
-      Options new_options) const;
-
-  /// Replan to the same goal from a new set of start locations using the same
-  /// options.
-  ///
-  /// \param[in] new_starts
-  ///   The set of starting conditions that should be used for replanning.
-  rmf_utils::optional<Plan> replan(const StartSet& new_starts) const;
-
-  /// Replan to the same goal from a new set of start locations using a new set
-  /// of options.
-  ///
-  /// \param[in] new_starts
-  ///   The set of starting conditions that should be used for replanning.
-  ///
-  /// \param[in] new_options
-  ///   The options that should be used for replanning.
-  rmf_utils::optional<Plan> replan(
-      const StartSet& new_starts,
-      Options new_options) const;
-
-  /// If this Plan is valid, this will return the Planner::Start that was used
-  /// to produce it.
+  /// Get the start condition that was used for this plan.
   const Start& get_start() const;
-
-  /// If this Plan is valid, this will return the Planner::Goal that was used
-  /// to produce it.
-  ///
-  /// If replan() is called, this goal will be used to produce the new Plan.
-  const Goal& get_goal() const;
-
-  /// If this Plan is valid, this will return the Planner::Options that were
-  /// used to produce it.
-  ///
-  /// If replan(Planner::Start) is called, these Planner::Options will be used
-  /// to produce the new Plan.
-  const Options& get_options() const;
-
-  /// If this Plan is valid, this will return the Planner::Configuration that
-  /// was used to produce it.
-  ///
-  /// If replan() is called, this Planner::Configuration will be used to produce
-  /// the new Plan.
-  const Configuration& get_configuration() const;
 
   // TODO(MXG): Create a feature that can diff two plans to produce the most
   // efficient schedule::Database::Change to get from the original plan to the
@@ -541,6 +574,7 @@ public:
 
   class Implementation;
 private:
+  Plan();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
@@ -565,7 +599,7 @@ private:
 ///   network delays.
 ///
 /// \param[in] max_merge_waypoint_distance
-///   The maximum distance allowed to automatically merge onto a waypoint in 
+///   The maximum distance allowed to automatically merge onto a waypoint in
 ///   the graph. Default value as 0.1 meters.
 ///
 /// \param[in] max_merge_lane_distance
@@ -578,12 +612,12 @@ private:
 ///   any lanes shorter than this value will not be evaluated. Default value as
 ///   1e-8 meters.
 std::vector<Plan::Start> compute_plan_starts(
-    const rmf_traffic::agv::Graph& graph,
-    const Eigen::Vector3d pose,
-    const rmf_traffic::Time start_time,
-    const double max_merge_waypoint_distance = 0.1,
-    const double max_merge_lane_distance = 1.0,
-    const double min_lane_length = 1e-8);
+  const rmf_traffic::agv::Graph& graph,
+  const Eigen::Vector3d pose,
+  const rmf_traffic::Time start_time,
+  const double max_merge_waypoint_distance = 0.1,
+  const double max_merge_lane_distance = 1.0,
+  const double min_lane_length = 1e-8);
 
 } // namespace agv
 } // namespace rmf_traffic

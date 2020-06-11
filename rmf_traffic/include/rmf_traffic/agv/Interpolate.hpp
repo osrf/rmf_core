@@ -50,10 +50,10 @@ public:
   public:
 
     Options(
-        bool always_stop = false,
-        double translation_thresh = 1e-3,
-        double rotation_thresh = 1.0 * M_PI/180.0,
-        double corner_angle_thresh = 1.0 * M_PI/180.0);
+      bool always_stop = false,
+      double translation_thresh = 1e-3,
+      double rotation_thresh = 1.0* M_PI/180.0,
+      double corner_angle_thresh = 1.0* M_PI/180.0);
 
     /// The robot must always come to a complete stop at every position. When
     /// this is true, all other properties in the options will have no effect.
@@ -94,11 +94,10 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
   static Trajectory positions(
-      std::string map,
-      const VehicleTraits& traits,
-      Time start_time,
-      const std::vector<Eigen::Vector3d>& input_positions,
-      const Options& options = Options());
+    const VehicleTraits& traits,
+    Time start_time,
+    const std::vector<Eigen::Vector3d>& input_positions,
+    const Options& options = Options());
 
 };
 

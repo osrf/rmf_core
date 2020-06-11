@@ -18,6 +18,7 @@
 #ifndef RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
 #define RMF_TRAFFIC__AGV__VEHICLETRAITS_HPP
 
+#include <rmf_traffic/Profile.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 
 namespace rmf_traffic {
@@ -33,8 +34,8 @@ public:
   public:
 
     Limits(
-        double velocity = 0.0,
-        double acceleration = 0.0);
+      double velocity = 0.0,
+      double acceleration = 0.0);
 
     Limits& set_nominal_velocity(double nom_vel);
     double get_nominal_velocity() const;
@@ -67,8 +68,8 @@ public:
   public:
 
     Differential(
-        Eigen::Vector2d forward = Eigen::Vector2d::UnitX(),
-        bool reversible = true);
+      Eigen::Vector2d forward = Eigen::Vector2d::UnitX(),
+      bool reversible = true);
 
     Differential& set_forward(Eigen::Vector2d forward);
 
@@ -101,10 +102,10 @@ public:
 
   /// Constructor.
   VehicleTraits(
-      Limits linear,
-      Limits angular,
-      Trajectory::ConstProfilePtr profile,
-      Differential steering = Differential());
+    Limits linear,
+    Limits angular,
+    Profile profile,
+    Differential steering = Differential());
 
   Limits& linear();
   const Limits& linear() const;
@@ -112,9 +113,8 @@ public:
   Limits& rotational();
   const Limits& rotational() const;
 
-  VehicleTraits& set_profile(Trajectory::ConstProfilePtr profile);
-
-  const Trajectory::ConstProfilePtr& get_profile() const;
+  Profile& profile();
+  const Profile& profile() const;
 
   Steering get_steering() const;
 
