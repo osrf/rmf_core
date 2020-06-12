@@ -1126,17 +1126,12 @@ struct DifferentialDriveExpander
 
   bool quit(const NodePtr& node, const std::size_t queue_size) const
   {
-//    if (queue_size > 1000)
-//      std::cout << "QUEUE SIZE: " << queue_size << std::endl;
     ++_context.popped_count;
 
     if (_context.saturation_limit)
     {
       if (*_context.saturation_limit < _context.popped_count + queue_size)
-      {
-//        std::cout << "!!! SATURATED" << std::endl;
         return true;
-      }
     }
 
     if (_context.maximum_cost_estimate)
@@ -1145,10 +1140,7 @@ struct DifferentialDriveExpander
           node->current_cost + node->remaining_cost_estimate;
 
       if (*_context.maximum_cost_estimate < cost_estimate)
-      {
-//        std::cout << "!!! REACHED COST LIMIT" << std::endl;
         return true;
-      }
     }
 
     return false;
