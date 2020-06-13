@@ -448,7 +448,7 @@ public:
 
   /// Insert a new entry into the timeline
   std::shared_ptr<Handle> insert(
-      const std::shared_ptr<Entry>& entry)
+    const std::shared_ptr<Entry>& entry)
   {
     std::vector<std::weak_ptr<Bucket>> buckets;
     this->_all_bucket->push_back(entry);
@@ -489,7 +489,7 @@ public:
       // that contains the cull time, because we only want to erase times that
       // come before it.
       const auto end_it =
-          TimelineView<Entry>::get_timeline_begin(timeline, &time);
+        TimelineView<Entry>::get_timeline_begin(timeline, &time);
 
       if (end_it != timeline.begin())
         timeline.erase(timeline.begin(), end_it);
@@ -511,7 +511,7 @@ public:
     // when an entry gets taken out.
 
     std::shared_ptr<TimelineView<const Entry>> result =
-        std::make_shared<TimelineView<const Entry>>();
+      std::make_shared<TimelineView<const Entry>>();
 
     // Make a deep copy of the buckets so that adding/removing entries from the
     // source bucket does not impact the snapshot

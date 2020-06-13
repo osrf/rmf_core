@@ -75,7 +75,7 @@ public:
     };
 
     using SearchQueue =
-        std::priority_queue<ConstNodePtr, std::vector<ConstNodePtr>, Compare>;
+      std::priority_queue<ConstNodePtr, std::vector<ConstNodePtr>, Compare>;
 
     using Vector = std::vector<ConstNodePtr>;
   };
@@ -126,9 +126,9 @@ public:
   /// returns a plan or until the queue is empty (the Progress object can be
   /// treated as a boolean for this purpose).
   Progress begin(
-      const std::vector<Start>& starts,
-      Goal goal,
-      Options options) const;
+    const std::vector<Start>& starts,
+    Goal goal,
+    Options options) const;
 
   class Implementation;
 private:

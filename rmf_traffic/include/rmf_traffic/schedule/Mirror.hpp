@@ -43,8 +43,8 @@ public:
 
   // Documentation inherited from Viewer
   View query(
-      const Query::Spacetime& spacetime,
-      const Query::Participants& participants) const final;
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const final;
 
   // Documentation inherited from Viewer
   const std::unordered_set<ParticipantId>& participant_ids() const final;

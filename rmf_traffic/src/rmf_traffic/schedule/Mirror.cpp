@@ -57,8 +57,8 @@ public:
   // more efficient to create snapshots
   using ParticipantDescriptions =
     std::unordered_map<ParticipantId,
-    std::shared_ptr<const ParticipantDescription>
-  >;
+      std::shared_ptr<const ParticipantDescription>
+    >;
   ParticipantDescriptions descriptions;
 
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
@@ -220,8 +220,8 @@ Viewer::View Mirror::query(const Query& parameters) const
 
 //==============================================================================
 Viewer::View Mirror::query(
-    const Query::Spacetime& spacetime,
-    const Query::Participants& participants) const
+  const Query::Spacetime& spacetime,
+  const Query::Participants& participants) const
 {
   MirrorViewRelevanceInspector inspector;
   _pimpl->timeline.inspect(spacetime, participants, inspector);
@@ -272,16 +272,15 @@ Version Mirror::latest_version() const
 std::shared_ptr<const Snapshot> Mirror::snapshot() const
 {
   using SnapshotType =
-    SnapshotImplementation<
-      Implementation::RouteEntry,
+    SnapshotImplementation<Implementation::RouteEntry,
       MirrorViewRelevanceInspector
     >;
 
   return std::make_shared<SnapshotType>(
-        _pimpl->timeline.snapshot(),
-        _pimpl->participant_ids,
-        _pimpl->descriptions,
-        _pimpl->latest_version);
+    _pimpl->timeline.snapshot(),
+    _pimpl->participant_ids,
+    _pimpl->descriptions,
+    _pimpl->latest_version);
 }
 
 //==============================================================================
@@ -313,7 +312,8 @@ Version Mirror::update(const Patch& patch)
 
   for (const auto& registered : patch.registered())
   {
-    const auto description = std::make_shared<ParticipantDescription>(registered.description());
+    const auto description = std::make_shared<ParticipantDescription>(
+      registered.description());
 
     const ParticipantId id = registered.id();
     const bool inserted = _pimpl->states.insert(
@@ -357,7 +357,7 @@ Version Mirror::update(const Patch& patch)
 
     MirrorCullRelevanceInspector inspector;
     _pimpl->timeline.inspect(
-          query.spacetime(), query.participants(), inspector);
+      query.spacetime(), query.participants(), inspector);
 
     for (const auto& route : inspector.info)
     {

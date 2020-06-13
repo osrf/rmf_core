@@ -120,8 +120,6 @@ SCENARIO("Test difficult 3-way scenarios")
   graph_a.add_lane(11, 3);
 
 
-
-
   rmf_traffic::agv::Graph graph_b;
   graph_b.add_waypoint(test_map_name, {14.052, -23.840}); // 0
   graph_b.add_waypoint(test_map_name, {14.081, -21.636}); // 1

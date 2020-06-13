@@ -29,20 +29,20 @@ class MockValidator : public rmf_traffic::agv::RouteValidator
 public:
 
   MockValidator(
-      rmf_traffic::Profile profile,
-      ParticipantId other_participant,
-      rmf_traffic::Profile other_profile,
-      rmf_traffic::schedule::Itinerary other_itinerary)
-    : _profile(std::move(profile)),
-      _other_participant(other_participant),
-      _other_profile(std::move(other_profile)),
-      _other_itinerary(std::move(other_itinerary))
+    rmf_traffic::Profile profile,
+    ParticipantId other_participant,
+    rmf_traffic::Profile other_profile,
+    rmf_traffic::schedule::Itinerary other_itinerary)
+  : _profile(std::move(profile)),
+    _other_participant(other_participant),
+    _other_profile(std::move(other_profile)),
+    _other_itinerary(std::move(other_itinerary))
   {
     // Do nothing
   }
 
   rmf_utils::optional<Conflict> find_conflict(
-      const Route& route) const final
+    const Route& route) const final
   {
     for (const auto& blocking_route : _other_itinerary)
     {
@@ -53,10 +53,10 @@ public:
         continue;
 
       if (const auto time = rmf_traffic::DetectConflict::between(
-            _profile,
-            route.trajectory(),
-            _other_profile,
-            blocking_route->trajectory()))
+          _profile,
+          route.trajectory(),
+          _other_profile,
+          blocking_route->trajectory()))
         return Conflict{_other_participant, *time};
     }
 
@@ -84,22 +84,22 @@ SCENARIO("Test Rollout on graph with side routes")
   };
 
   auto p0 = rmf_traffic::schedule::make_participant(
-        rmf_traffic::schedule::ParticipantDescription{
-          "participant_0",
-          "test_Rollout",
-          rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-          profile
-        },
-        database);
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant_0",
+      "test_Rollout",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
 
   auto p1 = rmf_traffic::schedule::make_participant(
-        rmf_traffic::schedule::ParticipantDescription{
-          "participant_1",
-          "test_Rollout",
-          rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-          profile
-        },
-        database);
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant_1",
+      "test_Rollout",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
 
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
@@ -208,38 +208,38 @@ SCENARIO("Test Rollout on graph with side routes")
 
   rmf_traffic::agv::Planner::Options options_0{
     rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
-          database,
-          p0.id(),
-          profile),
+      database,
+      p0.id(),
+      profile),
     wait_time
   };
 
   rmf_traffic::agv::Planner::Options options_1{
     rmf_utils::make_clone<rmf_traffic::agv::ScheduleRouteValidator>(
-          database,
-          p1.id(),
-          profile),
+      database,
+      p1.id(),
+      profile),
     wait_time
   };
 
   const auto start_time = std::chrono::steady_clock::now();
 
   const auto plan_0 = planner.plan(
-        rmf_traffic::agv::Plan::Start(start_time, start_0, 0.0),
-        rmf_traffic::agv::Plan::Goal(goal_0), options_0);
+    rmf_traffic::agv::Plan::Start(start_time, start_0, 0.0),
+    rmf_traffic::agv::Plan::Goal(goal_0), options_0);
   CHECK(plan_0);
   p0.set(plan_0->get_itinerary());
 
   const auto plan_1 = planner.plan(
-        rmf_traffic::agv::Plan::Start(start_time, start_1, 0.0),
-        rmf_traffic::agv::Plan::Goal(goal_1), options_1);
+    rmf_traffic::agv::Plan::Start(start_time, start_1, 0.0),
+    rmf_traffic::agv::Plan::Goal(goal_1), options_1);
   CHECK_FALSE(plan_1);
   CHECK(std::find(plan_1.blockers().begin(), plan_1.blockers().end(), p0.id())
-        != plan_1.blockers().end());
+    != plan_1.blockers().end());
 
   rmf_traffic::agv::Rollout rollout_1(plan_1);
   const auto alternatives = rollout_1.expand(
-        p0.id(), 30s, rmf_traffic::agv::Planner::Options{nullptr, 10s});
+    p0.id(), 30s, rmf_traffic::agv::Planner::Options{nullptr, 10s});
 
   bool found_plan = false;
 //  std::size_t alterantive_count = 0;
@@ -254,15 +254,15 @@ SCENARIO("Test Rollout on graph with side routes")
 //      std::cout << "(end)\n" << std::endl;
 
     const auto new_plan_0 = plan_0.replan(
-          plan_0.get_starts(),
-          rmf_traffic::agv::Planner::Options{
-            rmf_utils::make_clone<MockValidator>(
-              profile,
-              p1.id(),
-              profile,
-              itinerary),
-            wait_time
-          });
+      plan_0.get_starts(),
+      rmf_traffic::agv::Planner::Options{
+        rmf_utils::make_clone<MockValidator>(
+          profile,
+          p1.id(),
+          profile,
+          itinerary),
+        wait_time
+      });
 
     if (new_plan_0)
     {

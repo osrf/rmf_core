@@ -33,10 +33,10 @@ public:
   std::vector<schedule::ParticipantId>* report_blockers;
 
   Implementation(
-      schedule::Negotiation::TablePtr table_,
-      std::vector<schedule::ParticipantId>* report_blockers_)
-    : table(std::move(table_)),
-      report_blockers(report_blockers_)
+    schedule::Negotiation::TablePtr table_,
+    std::vector<schedule::ParticipantId>* report_blockers_)
+  : table(std::move(table_)),
+    report_blockers(report_blockers_)
   {
     table_version = table->version();
 
@@ -68,14 +68,14 @@ void SimpleResponder::submit(std::vector<Route> itinerary,
 
 //==============================================================================
 void SimpleResponder::reject(
-    const Negotiation::Alternatives& alternatives) const
+  const Negotiation::Alternatives& alternatives) const
 {
   if (_pimpl->parent)
   {
     _pimpl->parent->reject(
-          *_pimpl->parent_version,
-          _pimpl->table->participant(),
-          alternatives);
+      *_pimpl->parent_version,
+      _pimpl->table->participant(),
+      alternatives);
   }
 
   // TODO(MXG): Should we throw an exception if the if-statement fails?

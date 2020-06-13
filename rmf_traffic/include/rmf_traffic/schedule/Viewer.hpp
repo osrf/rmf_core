@@ -88,8 +88,8 @@ public:
 
   /// Alternative signature for query()
   virtual View query(
-      const Query::Spacetime& spacetime,
-      const Query::Participants& participants) const = 0;
+    const Query::Spacetime& spacetime,
+    const Query::Participants& participants) const = 0;
 
   // TODO(MXG): Consider providing an iterator-style API to view participant IDs
   // and participant descriptions.
