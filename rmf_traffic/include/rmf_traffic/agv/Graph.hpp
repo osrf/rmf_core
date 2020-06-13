@@ -540,6 +540,17 @@ public:
   /// Get the number of Lanes in this Graph.
   std::size_t num_lanes() const;
 
+  /// Get the indices of lanes that come out of the given Waypoint index
+  const std::vector<std::size_t>& lanes_from(std::size_t wp_index) const;
+
+  /// Get a reference to the lane that goes from from_wp to to_wp if such a lane
+  /// exists. If no such lane exists, this will return a nullptr. If multiple
+  /// exist, this will return the one that was added most recently.
+  Lane* lane_from(std::size_t from_wp, std::size_t to_wp);
+
+  /// const-qualified lane_from()
+  const Lane* lane_from(std::size_t from_wp, std::size_t to_wp) const;
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;

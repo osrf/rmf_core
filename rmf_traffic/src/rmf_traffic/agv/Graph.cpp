@@ -721,6 +721,7 @@ auto Graph::add_waypoint(
       std::move(map_name), std::move(location)));
 
   _pimpl->lanes_from.push_back({});
+  _pimpl->lane_between.push_back({});
 
   return _pimpl->waypoints.back();
 }
@@ -763,7 +764,7 @@ bool Graph::add_key(const std::string& key, std::size_t wp_index)
   if (!inserted)
     return false;
 
-  Waypoint::Implementation::get(_pimpl->waypoints[wp_index]).name = key;
+  Waypoint::Implementation::get(_pimpl->waypoints.at(wp_index)).name = key;
   return true;
 }
 
@@ -774,7 +775,7 @@ bool Graph::remove_key(const std::string& key)
   if (it == _pimpl->keys.end())
     return false;
 
-  Waypoint::Implementation::get(_pimpl->waypoints[it->second])
+  Waypoint::Implementation::get(_pimpl->waypoints.at(it->second))
       .name = rmf_utils::nullopt;
 
   _pimpl->keys.erase(it);
@@ -791,12 +792,12 @@ bool Graph::set_key(const std::string& key, std::size_t wp_index)
   const auto insertion = _pimpl->keys.insert({key, wp_index});
   if (!insertion.second)
   {
-    Waypoint::Implementation::get(_pimpl->waypoints[insertion.first->second])
+    Waypoint::Implementation::get(_pimpl->waypoints.at(insertion.first->second))
         .name = rmf_utils::nullopt;
     insertion.first->second = wp_index;
   }
 
-  Waypoint::Implementation::get(_pimpl->waypoints[wp_index]).name = key;
+  Waypoint::Implementation::get(_pimpl->waypoints.at(wp_index)).name = key;
   return true;
 }
 
@@ -819,7 +820,9 @@ auto Graph::add_lane(Lane::Node entry, Lane::Node exit) -> Lane&
   assert(exit.waypoint_index() < _pimpl->waypoints.size());
 
   const std::size_t lane_id = _pimpl->lanes.size();
-  _pimpl->lanes_from[entry.waypoint_index()].push_back(lane_id);
+  _pimpl->lanes_from.at(entry.waypoint_index()).push_back(lane_id);
+  _pimpl->lane_between
+      .at(entry.waypoint_index())[exit.waypoint_index()] = lane_id;
 
   _pimpl->lanes.emplace_back(
     Lane::Implementation::make(
@@ -847,6 +850,30 @@ auto Graph::get_lane(const std::size_t index) const -> const Lane&
 std::size_t Graph::num_lanes() const
 {
   return _pimpl->lanes.size();
+}
+
+//==============================================================================
+const std::vector<std::size_t>& Graph::lanes_from(std::size_t wp_index) const
+{
+  return _pimpl->lanes_from.at(wp_index);
+}
+
+//==============================================================================
+auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) -> Lane*
+{
+  const auto& lanes = _pimpl->lane_between.at(from_wp);
+  const auto it = lanes.find(to_wp);
+  if (it == lanes.end())
+    return nullptr;
+
+  return &_pimpl->lanes.at(it->second);
+}
+
+//==============================================================================
+auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) const
+-> const Lane*
+{
+  return const_cast<Graph&>(*this).lane_from(from_wp, to_wp);
 }
 
 } // namespace avg
