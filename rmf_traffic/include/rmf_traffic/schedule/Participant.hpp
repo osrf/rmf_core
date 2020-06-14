@@ -57,13 +57,9 @@ public:
 
   /// Delay the current itinerary.
   ///
-  /// \param[in] from
-  ///   The time where the delay pushback begins. Waypoints that come after this
-  ///   time will be pushed back by the delay amount.
-  ///
   /// \param[in] delay
   ///   The amount of time to push back the relevant waypoints.
-  void delay(Time from, Duration delay);
+  void delay(Duration delay);
 
   /// Erase certain routes from the itinerary.
   ///

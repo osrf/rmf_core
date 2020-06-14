@@ -66,7 +66,6 @@ public:
   // Documentation inherited from Writer
   void delay(
     ParticipantId participant,
-    Time from,
     Duration delay,
     ItineraryVersion version) final;
 

@@ -200,37 +200,35 @@ RouteId Participant::extend(const std::vector<Route>& additional_routes)
 }
 
 //==============================================================================
-void Participant::delay(Time from, Duration delay)
+void Participant::delay(Duration delay)
 {
   bool no_delays = true;
   for (auto& item : _pimpl->_current_itinerary)
   {
-    const auto& original_trajectory = item.route->trajectory();
-    const auto old_it = original_trajectory.lower_bound(from);
-    if (old_it == original_trajectory.end())
-      continue;
+    if (item.route->trajectory().size() > 0)
+    {
+      no_delays = false;
 
-    no_delays = false;
-    auto new_trajectory = original_trajectory;
-    const auto new_it = new_trajectory.lower_bound(from);
-    new_it->adjust_times(delay);
+      auto new_trajectory = item.route->trajectory();
+      new_trajectory.front().adjust_times(delay);
 
-    item.route = std::make_shared<Route>(item.route->map(), new_trajectory);
+      item.route = std::make_shared<Route>(
+            item.route->map(), std::move(new_trajectory));
+    }
   }
 
   if (no_delays)
   {
-    // We don't need to make any changes, because the delay doesn't apply to
-    // any routes in the itinerary.
+    // We don't need to make any changes, because there are no waypoints to move
     return;
   }
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
   auto change =
-    [this, from, delay, itinerary_version, id]()
+    [this, delay, itinerary_version, id]()
     {
-      this->_pimpl->_writer->delay(id, from, delay, itinerary_version);
+      this->_pimpl->_writer->delay(id, delay, itinerary_version);
     };
 
   _pimpl->_change_history[itinerary_version] = change;

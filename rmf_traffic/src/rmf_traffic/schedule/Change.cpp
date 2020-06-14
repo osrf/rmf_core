@@ -25,24 +25,15 @@ namespace schedule {
 //==============================================================================
 rmf_utils::optional<Trajectory> apply_delay(
   const Trajectory& old_trajectory,
-  Time from,
   Duration delay)
 {
-  if (*old_trajectory.finish_time() < from)
-    return rmf_utils::nullopt;
+  if (old_trajectory.size() == 0)
+    return old_trajectory;
 
   Trajectory new_trajectory = old_trajectory;
+  new_trajectory.front().adjust_times(delay);
 
-  if (from < *old_trajectory.start_time())
-  {
-    new_trajectory.begin()->adjust_times(delay);
-  }
-  else
-  {
-    new_trajectory.find(from)->adjust_times(delay);
-  }
-
-  return std::move(new_trajectory);
+  return new_trajectory;
 }
 
 //==============================================================================
@@ -69,16 +60,10 @@ auto Change::Add::items() const -> const std::vector<Item>&
 }
 
 //==============================================================================
-Change::Delay::Delay(Time from, Duration duration)
-: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{from, duration}))
+Change::Delay::Delay(Duration duration)
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{duration}))
 {
   // Do nothing
-}
-
-//==============================================================================
-Time Change::Delay::from() const
-{
-  return _pimpl->from;
 }
 
 //==============================================================================

@@ -98,8 +98,7 @@ public:
       assert(entry_storage.entry);
       assert(entry_storage.entry->route);
       auto delayed = schedule::apply_delay(
-        entry_storage.entry->route->trajectory(),
-        delay.from(), delay.duration());
+        entry_storage.entry->route->trajectory(), delay.duration());
 
       if (!delayed)
         continue;

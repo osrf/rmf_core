@@ -65,14 +65,13 @@ public:
 
   void delay(
     rmf_traffic::schedule::ParticipantId participant,
-    rmf_traffic::Time from,
     rmf_traffic::Duration delay,
     rmf_traffic::schedule::ItineraryVersion version) final
   {
     if (drop_packets)
       return;
 
-    _database.delay(participant, from, delay, version);
+    _database.delay(participant, delay, version);
   }
 
   void erase(
@@ -343,7 +342,7 @@ SCENARIO("Test Participant")
 
   GIVEN("Changes: D")
   {
-    p1.delay(time, 5s);
+    p1.delay(5s);
     CHECK(p1.last_route_id() ==
       std::numeric_limits<rmf_traffic::RouteId>::max());
     CHECK(p1.itinerary().size() == 0);
@@ -366,7 +365,7 @@ SCENARIO("Test Participant")
     const auto old_itinerary = p1.itinerary();
 
     const auto delay_duration = 5s;
-    p1.delay(time, delay_duration);
+    p1.delay(delay_duration);
     REQUIRE(p1.itinerary().size() == 1);
     CHECK(old_itinerary.front().id == p1.itinerary().front().id);
     CHECK(old_itinerary.front().route->map() ==
@@ -486,7 +485,7 @@ SCENARIO("Test Participant")
 
     writer->drop_packets = false;
 
-    p1.delay(time, 10s);
+    p1.delay(10s);
     CHECK(db.latest_version() == dbv);
     REQUIRE(db.inconsistencies().size() == 1);
     CHECK(db.inconsistencies().begin()->ranges.size() == 1);
@@ -495,7 +494,7 @@ SCENARIO("Test Participant")
 
     writer->drop_packets = true;
 
-    p1.delay(time, 10s);
+    p1.delay(10s);
     CHECK(db.latest_version() == dbv);
     CHECK(db.inconsistencies().begin()->ranges.last_known_version() + 1 ==
       rmf_traffic::schedule::Participant::Debug::get_itinerary_version(p1));
@@ -593,14 +592,14 @@ SCENARIO("Test Participant")
     CHECK(db.get_itinerary(p1.id())->empty());
 
     // Add a delay to the itinerary
-    p1.delay(time, 1s);
+    p1.delay(1s);
     CHECK(p1.itinerary().size() == 1);
     CHECK(db.latest_version() == dbv);
     REQUIRE(db.get_itinerary(p1.id()));
     CHECK(db.get_itinerary(p1.id())->empty());
 
     // Add a second delay to the itinerary
-    p1.delay(time, 1s);
+    p1.delay(1s);
     CHECK(p1.itinerary().size() == 1);
     CHECK(db.latest_version() == dbv);
     REQUIRE(db.get_itinerary(p1.id()));
@@ -658,13 +657,13 @@ SCENARIO("Test Participant")
     writer->drop_packets = true;
 
     // Add a delay
-    p1.delay(time, 1s);
+    p1.delay(1s);
     CHECK(db.latest_version() == dbv);
 
     writer->drop_packets = false;
 
     // Add a delay
-    p1.delay(time, 1s);
+    p1.delay(1s);
     CHECK(db.latest_version() == dbv);
     REQUIRE(db.inconsistencies().size() > 0);
     auto inconsistency = db.inconsistencies().begin();

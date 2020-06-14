@@ -77,19 +77,10 @@ public:
   /// Add a delay to the itinerary from the specified Time.
   ///
   /// Nothing about the routes in the itinerary will be changed except that
-  /// waypoints which come after the specified time will be pushed back by the
-  /// specified delay.
-  ///
-  /// \note This can create distortions in the Trajectory movement that leads
-  /// up to the `from` Time, so use with caution. This is primarily intended to
-  /// make corrections to live Trajectories based on incoming state information.
+  /// waypoints will shifted through time.
   ///
   /// \param[in] participant
   ///   The ID of the participant whose itinerary is being delayed.
-  ///
-  /// \param[in] from
-  ///   All Trajectory Waypoints that end after this time point will be pushed
-  ///   back by the delay.
   ///
   /// \param[in] delay
   ///   This is the duration of time to delay all qualifying Trajectory
@@ -100,7 +91,6 @@ public:
   ///
   virtual void delay(
     ParticipantId participant,
-    Time from,
     Duration delay,
     ItineraryVersion version) = 0;
 

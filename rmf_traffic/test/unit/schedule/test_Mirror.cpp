@@ -173,7 +173,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     WHEN(
       "Delaying conflicting trajectory in db and updating mirror should eliminate conflict")
     {
-      db.delay(p1, time, 20s, iv1++);
+      db.delay(p1, 20s, iv1++);
       CHECK(db.latest_version() == ++dbv);
       changes = db.changes(query_all, mirror.latest_version());
       CHECK(mirror.update(changes) == changes.latest_version());

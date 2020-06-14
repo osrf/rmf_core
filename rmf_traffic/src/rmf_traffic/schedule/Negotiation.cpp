@@ -437,6 +437,9 @@ public:
     ParticipantId rejected_by,
     Alternatives offered_alternatives)
   {
+    // TODO(MXG): I should also keep track of the rejection version of the
+    // rejecter. That way we can correctly identify if the offered_alternatives
+    // have been updated or not.
     if (rmf_utils::modular(rejected_version).less_than(version()))
       return false;
 

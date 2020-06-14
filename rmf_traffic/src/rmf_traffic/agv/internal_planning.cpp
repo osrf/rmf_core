@@ -304,12 +304,31 @@ struct OrientationTimeMap
 } // anonymous namespace
 
 //==============================================================================
+//template<typename NodePtr>
+//std::vector<NodePtr> squash_initial_wait_nodes(NodePtr initial_wait_end)
+//{
+//  while (initial_wait_end->parent && initial_wait_end->parent->waypoint)
+//    initial_wait_end = initial_wait_end->parent;
+
+//  auto low_node = initial_wait_end;
+//  while (low_node->parent)
+//    low_node = low_node->parent;
+
+//  if (low_node != initial_wait_end->parent)
+//  {
+//    auto high_node = initial_wait_end->parent;
+//    reparent_node_for_holding(low_node, high_node);
+//  }
+//}
+
+//==============================================================================
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(
     const NodePtr& finish_node,
     const agv::RouteValidator* validator)
 {
   auto node_sequence = reconstruct_nodes(finish_node);
+//  auto node_sequence = squash_initial_wait_nodes(finish_node);
 
   // Remove "cruft" from plans. This means making sure vehicles don't do any
   // unnecessary motions.
@@ -860,7 +879,8 @@ struct DifferentialDriveExpander
   // TODO(MXG): This will only ever return 0, 1, or 2 routes, so a bounded
   // vector would be preferable.
   std::vector<RouteData> make_start_approach_routes(
-      const agv::Planner::Start& start)
+      const agv::Planner::Start& start,
+      const double time_held)
   {
     std::vector<RouteData> output;
 
@@ -872,7 +892,8 @@ struct DifferentialDriveExpander
 
     _query.spacetime().timespan()->add_map(map_name);
 
-    const auto initial_time = start.time();
+    const auto initial_time = start.time()
+        + rmf_traffic::time::from_seconds(time_held);
 
     const Eigen::Vector2d wp_location =
       _context.graph.waypoints[initial_waypoint].get_location();
@@ -1035,7 +1056,7 @@ struct DifferentialDriveExpander
   {
     expand_start_routes(
       start_node,
-      make_start_approach_routes(*start_node->start),
+      make_start_approach_routes(*start_node->start, start_node->current_cost),
       queue);
   }
 
@@ -1046,7 +1067,7 @@ struct DifferentialDriveExpander
     {
       const auto& start = args.starts[start_index];
       const std::size_t initial_waypoint = start.waypoint();
-      auto initial_routes = make_start_approach_routes(start);
+      auto initial_routes = make_start_approach_routes(start, 0.0);
       const double remaining_cost_estimate =
           _context.heuristic.estimate_remaining_cost(
             _context, initial_waypoint);
