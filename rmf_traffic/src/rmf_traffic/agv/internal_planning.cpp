@@ -304,6 +304,7 @@ struct OrientationTimeMap
 } // anonymous namespace
 
 //==============================================================================
+// TODO(MXG): Revisit this squashing function when time permits
 //template<typename NodePtr>
 //std::vector<NodePtr> squash_initial_wait_nodes(NodePtr initial_wait_end)
 //{
