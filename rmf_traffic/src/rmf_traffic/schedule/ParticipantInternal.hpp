@@ -71,6 +71,7 @@ private:
   ChangeHistory _change_history;
   RouteId _last_route_id = std::numeric_limits<RouteId>::max();
   ItineraryVersion _version = std::numeric_limits<ItineraryVersion>::max();
+  rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
 };
 
 } // namespace schedule

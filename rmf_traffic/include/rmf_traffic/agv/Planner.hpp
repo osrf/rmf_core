@@ -629,6 +629,12 @@ public:
     /// Get the time for this Waypoint
     rmf_traffic::Time time() const;
 
+    /// Adjust the timing of this Waypoint
+    ///
+    /// \warning Use with extreme caution. Changing the timing of a plan can
+    /// have drastic consequences.
+    Waypoint& time(rmf_traffic::Time t);
+
     /// Get the graph index of this Waypoint
     rmf_utils::optional<std::size_t> graph_index() const;
 

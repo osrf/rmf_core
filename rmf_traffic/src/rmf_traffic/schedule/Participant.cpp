@@ -151,6 +151,7 @@ RouteId Participant::set(std::vector<Route> itinerary)
   }
 
   _pimpl->_change_history.clear();
+  _pimpl->_cumulative_delay = std::chrono::seconds(0);
 
   auto input = _pimpl->make_input(std::move(itinerary));
 
@@ -223,6 +224,8 @@ void Participant::delay(Duration delay)
     return;
   }
 
+  _pimpl->_cumulative_delay += delay;
+
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
   auto change =
@@ -233,6 +236,12 @@ void Participant::delay(Duration delay)
 
   _pimpl->_change_history[itinerary_version] = change;
   change();
+}
+
+//==============================================================================
+rmf_traffic::Duration Participant::delay() const
+{
+  return _pimpl->_cumulative_delay;
 }
 
 //==============================================================================

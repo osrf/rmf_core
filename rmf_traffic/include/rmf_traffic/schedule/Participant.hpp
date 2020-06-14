@@ -61,6 +61,14 @@ public:
   ///   The amount of time to push back the relevant waypoints.
   void delay(Duration delay);
 
+  /// The cumulative delay that has built up since the last call to set().
+  ///
+  /// \note This value will not grow when there are no are itineraries for this
+  /// participant.
+  //
+  // TODO(MXG): Should extend() also reset this value? Currently it does not.
+  Duration delay() const;
+
   /// Erase certain routes from the itinerary.
   ///
   /// \param[in] routes
