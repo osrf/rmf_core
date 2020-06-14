@@ -52,21 +52,6 @@ ScheduleRouteValidator::ScheduleRouteValidator(
 //==============================================================================
 ScheduleRouteValidator::ScheduleRouteValidator(
   std::shared_ptr<const schedule::Viewer> viewer,
-  schedule::ParticipantId participant_id)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        viewer,
-        viewer.get(),
-        participant_id,
-        viewer->get_participant(participant_id)->profile()
-      }))
-{
-  // Do nothing
-}
-
-//==============================================================================
-ScheduleRouteValidator::ScheduleRouteValidator(
-  std::shared_ptr<const schedule::Viewer> viewer,
   schedule::ParticipantId participant_id,
   Profile profile)
 : _pimpl(rmf_utils::make_impl<Implementation>(

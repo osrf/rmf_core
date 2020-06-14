@@ -94,21 +94,6 @@ public:
 
   /// Constructor
   ///
-  /// This constructor will assume that the profile for the participant can be
-  /// found inside the viewer.
-  ///
-  /// \param[in] viewer
-  ///   The schedule viewer which will be used to check for conflicts. The
-  ///   reference to the viewer will be kept alive.
-  ///
-  /// \param[in] participant_id
-  ///   The ID for the participant that is being validated.
-  ScheduleRouteValidator(
-    std::shared_ptr<const schedule::Viewer> viewer,
-    schedule::ParticipantId participant_id);
-
-  /// Constructor
-  ///
   /// This constructor will use the profile given to it for the participant that
   /// is being planned for. This is safe to use, even if the participant is not
   /// registered in the schedule yet.
