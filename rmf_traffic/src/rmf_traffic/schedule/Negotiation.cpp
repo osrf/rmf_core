@@ -904,9 +904,12 @@ Viewer::View Negotiation::Table::Viewer::Implementation::query(
   // Query for the routes in the child rollouts that are being considered
   for (const auto& alternative : chosen_alternatives)
   {
-    alternatives_timelines.at(alternative.participant)
-    .at(alternative.version)
-    ->inspect(spacetime, all_participants, inspector);
+    const auto& participant_alternatives =
+        alternatives_timelines.at(alternative.participant);
+    assert(alternative.version < participant_alternatives.size());
+
+    participant_alternatives.at(alternative.version)
+        ->inspect(spacetime, all_participants, inspector);
   }
 
   // Query for the relevant routes that are outside of the negotiation

@@ -241,7 +241,7 @@ NegotiatingRouteValidator::Generator::all() const
   assert(end_versions.size() == N_alts);
   assert(keys.size() == N_alts);
 
-  while (current_versions.back() < end_versions.back())
+  while (true) // A break statement provides the exit condition
   {
     for (std::size_t i=0; i < N_alts-1; ++i)
     {
@@ -254,6 +254,9 @@ NegotiatingRouteValidator::Generator::all() const
         continue;
       }
     }
+
+    if (current_versions.back() >= end_versions.back())
+      break;
 
     version_queue.push_back(current_versions);
     ++current_versions[0];
