@@ -405,7 +405,6 @@ rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
 }
 
 //==============================================================================
-
 void Database::set(
   ParticipantId participant,
   const Input& input,

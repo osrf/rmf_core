@@ -848,13 +848,6 @@ rmf_traffic::Time Plan::Waypoint::time() const
 }
 
 //==============================================================================
-auto Plan::Waypoint::time(rmf_traffic::Time t) -> Waypoint&
-{
-  _pimpl->time = t;
-  return *this;
-}
-
-//==============================================================================
 rmf_utils::optional<std::size_t> Plan::Waypoint::graph_index() const
 {
   return _pimpl->graph_index;

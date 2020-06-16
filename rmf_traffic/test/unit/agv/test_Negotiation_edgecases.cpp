@@ -449,3 +449,59 @@ SCENARIO("Test cycling through all negotiation alternatives")
     CHECK(!plan_0.cost_estimate());
   }
 }
+
+//==============================================================================
+SCENARIO("Test empty proposal")
+{
+  auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
+  rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(1.0)
+  };
+
+  auto p0 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 0",
+      "test_Negotiator",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  auto p1 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 1",
+      "test_Negotiator",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  auto negotiation =
+      *rmf_traffic::schedule::Negotiation::make(database, {0, 1});
+
+  const auto empty_route = rmf_traffic::Route("test_map", {});
+
+  using namespace std::chrono_literals;
+  const auto now = std::chrono::steady_clock::now();
+  rmf_traffic::Trajectory not_empty_trajectory;
+  not_empty_trajectory.insert(now, {0, 0, 0}, {0, 0, 0});
+  not_empty_trajectory.insert(now + 10s, {0, 0, 0}, {0, 0, 0});
+  const auto not_empty_route =
+      rmf_traffic::Route("test_map", not_empty_trajectory);
+
+  negotiation.table(0, {})->submit({empty_route}, 1);
+  negotiation.table(1, {})->submit({not_empty_route}, 1);
+  negotiation.table(1, {0})->submit({not_empty_route}, 1);
+  negotiation.table(0, {1})->submit({not_empty_route}, 1);
+
+  const auto quickest_finish =
+      negotiation.evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());
+  REQUIRE(quickest_finish);
+
+  std::cout << "Selected: [";
+  for (const auto& s : quickest_finish->sequence())
+    std::cout << " " << s.participant << ":" << s.version;
+  std::cout << " ]" << std::endl;
+}
