@@ -6,4 +6,4 @@ uint64 conflict_version
 bool resolved
 
 # The ID sequence for the negotiation table that was selected
-ScheduleConflictKey[] table
+NegotiationKey[] table

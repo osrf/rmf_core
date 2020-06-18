@@ -30,7 +30,7 @@ uint64 for_participant
 #              ideal itinerary of participant 3 and the best itineraries that
 #              accommodate the best itineraries of the participants that precede
 #              them in the list, recursively.
-ScheduleConflictKey[] to_accommodate
+NegotiationKey[] to_accommodate
 
 # The itinerary that is being proposed for this participant
 Route[] itinerary
