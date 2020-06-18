@@ -42,14 +42,6 @@ public:
 
     /// Get the name of the map that this Waypoint exists on.
     const std::string& get_map_name() const;
-    // TODO(MXG): What should be done for waypoints that "exist" on multiple
-    // maps? For example, a waypoint that is in a lift shaft exists on both the
-    // map of the floor that it's level with, and the map of the lift that it's
-    // inside of.
-    //
-    // For now, we will solve this by testing trajectories for conflicts on both
-    // maps that waypoints claim to belong to, if there is ever a difference
-    // between the maps of two connected waypoints.
 
     /// Set the name of the map that this Waypoint exists on.
     Waypoint& set_map_name(std::string map);
@@ -144,37 +136,6 @@ public:
 
     // Default destructor.
     virtual ~OrientationConstraint() = default;
-  };
-
-  /// A class that implicitly specifies a constraint on the robot's velocity.
-  //
-  // TODO(MXG): This class is not currently being used while planning. Remember
-  // to add this feature later, or else delete this API.
-  class VelocityConstraint
-  {
-  public:
-
-    /// Apply the constraint to the given homogeneous velocity.
-    ///
-    /// \param[in,out] velocity
-    ///   The velocity which needs to be constrained. The function should modify
-    ///   this velocity such that it satisfies the constraint, if possible.
-    ///
-    /// \param[in] course_vector
-    ///   The direction that the robot is travelling in. Given for informational
-    ///   purposes.
-    ///
-    /// \return True if the constraint is satisfied with the new value of
-    /// velocity. False if the constraint could not be satisfied.
-    virtual bool apply(
-      Eigen::Vector3d& velocity,
-      const Eigen::Vector2d& course_vector) const = 0;
-
-    /// Clone this VelocityConstraint.
-    virtual std::unique_ptr<VelocityConstraint> clone() const = 0;
-
-    // Default destructor
-    virtual ~VelocityConstraint() = default;
   };
 
   /// Add a lane to connect two waypoints
@@ -414,14 +375,9 @@ public:
       /// \param orientation
       ///   Any orientation constraints for moving to/from this Node (depending
       ///   on whether it's an entry Node or an exit Node).
-      ///
-      /// \param velocity
-      ///   Any velocity constraints for moving to/from this Node (depending on
-      ///   whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
         rmf_utils::clone_ptr<Event> event = nullptr,
-        rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr,
-        rmf_utils::clone_ptr<VelocityConstraint> velocity = nullptr);
+        rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr);
 
       /// Constructor, event and velocity_constraint parameters will be nullptr
       ///
@@ -445,13 +401,6 @@ public:
 
       /// Get the constraint on orientation that is tied to this Node.
       const OrientationConstraint* orientation_constraint() const;
-
-      /// Get the constraint on velocity that is tied to this Node.
-      ///
-      /// \warning This is currently not being used anyway
-      //
-      // TODO(MXG): Decide if this should be used or thrown away.
-      const VelocityConstraint* velocity_constraint() const;
 
       class Implementation;
     private:
@@ -485,9 +434,6 @@ public:
   Waypoint& add_waypoint(
     std::string map_name,
     Eigen::Vector2d location);
-
-  // TODO(MXG): Allow waypoints to have keynames so that they can be gotten by
-  // a string value instead of an index value.
 
   /// Get a waypoint based on its index.
   Waypoint& get_waypoint(std::size_t index);

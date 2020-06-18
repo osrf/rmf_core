@@ -18,7 +18,9 @@
 #include <rmf_traffic/Profile.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
+
+//#include <rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/geometry/Box.hpp>
 
 #include <rmf_utils/catch.hpp>
 

@@ -1351,9 +1351,6 @@ struct DifferentialDriveExpander
 
     if (node)
     {
-      // TODO(MXG): Consider short-circuiting the rest of the search and
-      // returning the solution if this Node solves the search problem. It could
-      // be an optional behavior configurable from the Planner::Options.
       queue.push(node);
       return true;
     }

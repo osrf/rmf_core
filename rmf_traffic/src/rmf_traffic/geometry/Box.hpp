@@ -24,6 +24,10 @@
 namespace rmf_traffic {
 namespace geometry {
 
+// TODO(MXG): This header has been moved out of the public API because our
+// collision detection does not properly support it yet. This should be moved
+// back to the public API once the support is available.
+
 //==============================================================================
 /// \brief This class represent a box shape which can be added into a Zone or
 /// Trajectory.

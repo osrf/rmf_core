@@ -103,7 +103,6 @@ public:
 
   Timeline<RouteEntry> timeline;
 
-  // TODO(MXG): Should storage be merged with state?
   using ParticipantStorage = std::unordered_map<RouteId, RouteStorage>;
 
   struct ParticipantState

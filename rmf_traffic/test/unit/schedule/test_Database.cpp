@@ -17,7 +17,9 @@
 
 #include "utils_Database.hpp"
 #include <rmf_traffic/schedule/Database.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
+
+//#include <rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/geometry/Box.hpp>
 
 #include "src/rmf_traffic/schedule/debug_Viewer.hpp"
 #include "src/rmf_traffic/schedule/debug_Database.hpp"

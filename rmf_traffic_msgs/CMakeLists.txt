@@ -61,9 +61,6 @@ set(msg_files
   "msg/Timespan.msg"
   "msg/Trajectory.msg"
   "msg/TrajectoryWaypoint.msg"
-
-  # Test message definitions
-  "msg/TestTaskRequest.msg"
 )
 
 set(srv_files

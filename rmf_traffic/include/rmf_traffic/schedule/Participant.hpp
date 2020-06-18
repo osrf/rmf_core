@@ -143,10 +143,6 @@ Participant make_participant(
   std::shared_ptr<Writer> writer,
   std::shared_ptr<RectificationRequesterFactory> rectifier_factory = nullptr);
 
-// TODO(MXG): Consider creating an overload of make_participant() that accepts
-// a std::shared_ptr<Writer> to ensure that the writer's lifecycle is long
-// enough.
-
 } // namespace schedule
 } // namespace rmf_traffic
 

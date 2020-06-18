@@ -96,7 +96,6 @@ SCENARIO("Tests for Graph API")
 
     rmf_traffic::agv::Graph::Lane::Node entry_node{0};
     CHECK(entry_node.waypoint_index() == 0);
-    CHECK(entry_node.velocity_constraint() == nullptr);
     CHECK(entry_node.orientation_constraint() == nullptr);
 
     std::vector<double> acceptable_orientations {0, M_PI};
@@ -108,7 +107,6 @@ SCENARIO("Tests for Graph API")
     };
 
     CHECK(exit_node.waypoint_index() == 1);
-    CHECK(exit_node.velocity_constraint() == nullptr);
     CHECK(exit_node.orientation_constraint() != nullptr);
 
     auto& lane1 = graph.add_lane(entry_node, exit_node);
