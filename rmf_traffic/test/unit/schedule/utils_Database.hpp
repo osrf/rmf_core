@@ -20,7 +20,10 @@
 
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/Trajectory.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
+
+//#include <rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/geometry/Box.hpp>
+
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 

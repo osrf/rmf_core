@@ -3,7 +3,7 @@
 uint64 conflict_version
 
 # Reject this negotiation table
-ScheduleConflictKey[] table
+NegotiationKey[] table
 
 # The rejection is by this participant
 uint64 rejected_by

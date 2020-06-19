@@ -17,7 +17,8 @@
 
 #include "ShapeInternal.hpp"
 
-#include <rmf_traffic/geometry/Box.hpp>
+//#include <rmf_traffic/geometry/Box.hpp>
+#include "Box.hpp"
 
 #include <fcl/shape/geometric_shapes.h>
 

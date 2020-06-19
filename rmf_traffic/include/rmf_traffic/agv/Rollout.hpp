@@ -39,8 +39,6 @@ public:
   ///   The Planning Result that should be rolled out.
   Rollout(Planner::Result result);
 
-  // TODO(MXG): Create an option for a maximum number of alternatives to produce
-
   /// Expand the Planning Result through the specified blocker.
   ///
   /// \param[in] blocker

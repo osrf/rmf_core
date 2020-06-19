@@ -178,8 +178,6 @@ public:
   ///
   /// \return a view of the routes that are different since the specified
   /// version.
-  ///
-  // TODO(MXG): Consider adding this function to the Viewer class.
   View query(
     const Query& parameters,
     Version after) const;

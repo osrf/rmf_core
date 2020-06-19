@@ -30,6 +30,10 @@
 namespace rmf_traffic {
 namespace geometry {
 
+// TODO(MXG): This header has been moved out of the public API because our
+// collision detection does not properly support it yet. This should be moved
+// back to the public API once the support is available.
+
 //==============================================================================
 /// \brief The SimplePolygon class represent a simple polygon. A polygon is
 /// "simple" if it never intersects itself. It is also expected to have at least

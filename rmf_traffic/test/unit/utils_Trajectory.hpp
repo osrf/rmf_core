@@ -20,7 +20,10 @@
 
 #include <rmf_traffic/Profile.hpp>
 #include <rmf_traffic/Trajectory.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
+
+//#include <rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/geometry/Box.hpp>
+
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_utils/catch.hpp>
 

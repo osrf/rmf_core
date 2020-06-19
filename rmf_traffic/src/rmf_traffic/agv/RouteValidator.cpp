@@ -139,7 +139,6 @@ class NegotiatingRouteValidator::Generator::Implementation
 public:
   struct Data
   {
-    // TODO(MXG): This should be changed to a Table::View
     schedule::Negotiation::Table::ViewerPtr viewer;
     Profile profile;
   };

@@ -3,4 +3,4 @@
 uint64 conflict_version
 
 # Forfeit this negotiation table
-ScheduleConflictKey[] table
+NegotiationKey[] table

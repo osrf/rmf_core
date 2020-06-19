@@ -592,22 +592,18 @@ public:
 
   rmf_utils::clone_ptr<OrientationConstraint> _orientation;
 
-  rmf_utils::clone_ptr<VelocityConstraint> _velocity;
-
 };
 
 //==============================================================================
 Graph::Lane::Node::Node(
   std::size_t waypoint_index,
   rmf_utils::clone_ptr<Event> event,
-  rmf_utils::clone_ptr<OrientationConstraint> orientation,
-  rmf_utils::clone_ptr<VelocityConstraint> velocity)
+  rmf_utils::clone_ptr<OrientationConstraint> orientation)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         waypoint_index,
         std::move(event),
-        std::move(orientation),
-        std::move(velocity)
+        std::move(orientation)
       }))
 {
   // Do nothing
@@ -621,8 +617,7 @@ Graph::Lane::Node::Node(
       Implementation{
         waypoint_index,
         nullptr,
-        std::move(orientation),
-        nullptr
+        std::move(orientation)
       }))
 {
   // Do nothing
@@ -645,13 +640,6 @@ auto Graph::Lane::Node::orientation_constraint() const
 -> const OrientationConstraint*
 {
   return _pimpl->_orientation.get();
-}
-
-//==============================================================================
-auto Graph::Lane::Node::velocity_constraint() const
--> const VelocityConstraint*
-{
-  return _pimpl->_velocity.get();
 }
 
 //==============================================================================

@@ -15,7 +15,8 @@
  *
 */
 
-#include <rmf_traffic/geometry/Box.hpp>
+//#include <rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/geometry/Box.hpp>
 
 #include <rmf_traffic/schedule/Query.hpp>
 

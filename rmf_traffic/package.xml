@@ -18,8 +18,6 @@
 
   <depend>eigen</depend>
 
-  <depend>rclcpp</depend>
-
   <export>
     <build_type>ament_cmake</build_type>
   </export>
