@@ -18,7 +18,7 @@
 #ifndef RMF_TRAFFIC__AGV__DEBUG__DEBUG_NEGOTIATOR_HPP
 #define RMF_TRAFFIC__AGV__DEBUG__DEBUG_NEGOTIATOR_HPP
 
-#include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/SimpleNegotiator.hpp>
 
 namespace rmf_traffic {
 namespace agv {

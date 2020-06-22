@@ -31,14 +31,14 @@ ItineraryVersion Participant::Debug::get_itinerary_version(const Participant& p)
 //==============================================================================
 Participant Participant::Implementation::make(
   ParticipantDescription description,
-  Writer& writer,
-  RectificationRequesterFactory* rectifier_factory)
+  std::shared_ptr<Writer> writer,
+  std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
 {
-  const ParticipantId id = writer.register_participant(description);
+  const ParticipantId id = writer->register_participant(description);
 
   Participant participant;
   participant._pimpl = rmf_utils::make_unique_impl<Implementation>(
-    id, std::move(description), writer);
+    id, std::move(description), std::move(writer));
 
   if (rectifier_factory)
   {
@@ -99,7 +99,7 @@ ItineraryVersion Participant::Implementation::current_version() const
 Participant::Implementation::Implementation(
   ParticipantId id,
   ParticipantDescription description,
-  Writer& writer)
+  std::shared_ptr<Writer> writer)
 : _id(id),
   _description(std::move(description)),
   _writer(writer)
@@ -111,7 +111,7 @@ Participant::Implementation::Implementation(
 Participant::Implementation::~Implementation()
 {
   // Unregister the participant during destruction
-  _writer.unregister_participant(_id);
+  _writer->unregister_participant(_id);
 }
 
 //==============================================================================
@@ -151,6 +151,7 @@ RouteId Participant::set(std::vector<Route> itinerary)
   }
 
   _pimpl->_change_history.clear();
+  _pimpl->_cumulative_delay = std::chrono::seconds(0);
 
   auto input = _pimpl->make_input(std::move(itinerary));
 
@@ -161,7 +162,7 @@ RouteId Participant::set(std::vector<Route> itinerary)
   auto change =
     [this, input = std::move(input), itinerary_version, id]()
     {
-      this->_pimpl->_writer.set(id, input, itinerary_version);
+      this->_pimpl->_writer->set(id, input, itinerary_version);
     };
 
   _pimpl->_change_history[itinerary_version] = change;
@@ -190,7 +191,7 @@ RouteId Participant::extend(const std::vector<Route>& additional_routes)
   auto change =
     [this, input = std::move(input), itinerary_version, id]()
     {
-      this->_pimpl->_writer.extend(id, input, itinerary_version);
+      this->_pimpl->_writer->extend(id, input, itinerary_version);
     };
 
   _pimpl->_change_history[itinerary_version] = change;
@@ -200,41 +201,47 @@ RouteId Participant::extend(const std::vector<Route>& additional_routes)
 }
 
 //==============================================================================
-void Participant::delay(Time from, Duration delay)
+void Participant::delay(Duration delay)
 {
   bool no_delays = true;
   for (auto& item : _pimpl->_current_itinerary)
   {
-    const auto& original_trajectory = item.route->trajectory();
-    const auto old_it = original_trajectory.lower_bound(from);
-    if (old_it == original_trajectory.end())
-      continue;
+    if (item.route->trajectory().size() > 0)
+    {
+      no_delays = false;
 
-    no_delays = false;
-    auto new_trajectory = original_trajectory;
-    const auto new_it = new_trajectory.lower_bound(from);
-    new_it->adjust_times(delay);
+      auto new_trajectory = item.route->trajectory();
+      new_trajectory.front().adjust_times(delay);
 
-    item.route = std::make_shared<Route>(item.route->map(), new_trajectory);
+      item.route = std::make_shared<Route>(
+            item.route->map(), std::move(new_trajectory));
+    }
   }
 
   if (no_delays)
   {
-    // We don't need to make any changes, because the delay doesn't apply to
-    // any routes in the itinerary.
+    // We don't need to make any changes, because there are no waypoints to move
     return;
   }
+
+  _pimpl->_cumulative_delay += delay;
 
   const ItineraryVersion itinerary_version = _pimpl->get_next_version();
   const ParticipantId id = _pimpl->_id;
   auto change =
-    [this, from, delay, itinerary_version, id]()
+    [this, delay, itinerary_version, id]()
     {
-      this->_pimpl->_writer.delay(id, from, delay, itinerary_version);
+      this->_pimpl->_writer->delay(id, delay, itinerary_version);
     };
 
   _pimpl->_change_history[itinerary_version] = change;
   change();
+}
+
+//==============================================================================
+rmf_traffic::Duration Participant::delay() const
+{
+  return _pimpl->_cumulative_delay;
 }
 
 //==============================================================================
@@ -267,7 +274,7 @@ void Participant::erase(const std::unordered_set<RouteId>& input_routes)
   auto change =
     [this, routes = std::move(routes), itinerary_version, id]()
     {
-      this->_pimpl->_writer.erase(id, routes, itinerary_version);
+      this->_pimpl->_writer->erase(id, routes, itinerary_version);
     };
 
   _pimpl->_change_history[itinerary_version] = change;
@@ -290,7 +297,7 @@ void Participant::clear()
   auto change =
     [this, itinerary_version, id]()
     {
-      this->_pimpl->_writer.erase(id, itinerary_version);
+      this->_pimpl->_writer->erase(id, itinerary_version);
     };
 
   _pimpl->_change_history[itinerary_version] = change;
@@ -334,15 +341,21 @@ Participant::Participant()
 }
 
 //==============================================================================
-Participant make_participant(
-  ParticipantDescription description,
-  Writer& writer,
-  RectificationRequesterFactory* rectifier_factory)
+Participant make_participant(ParticipantDescription description,
+  std::shared_ptr<Writer> writer,
+  std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
 {
+  if (!writer)
+  {
+    throw std::runtime_error(
+          "[rmf_traffic::schedule::make_participant] A nullptr was given for "
+          "the `writer` argument. This is illegal.");
+  }
+
   return Participant::Implementation::make(
     std::move(description),
-    writer,
-    rectifier_factory);
+    std::move(writer),
+    std::move(rectifier_factory));
 }
 
 } // namespace schedule

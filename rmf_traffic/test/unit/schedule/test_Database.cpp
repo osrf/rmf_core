@@ -17,7 +17,9 @@
 
 #include "utils_Database.hpp"
 #include <rmf_traffic/schedule/Database.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
+
+//#include <rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/geometry/Box.hpp>
 
 #include "src/rmf_traffic/schedule/debug_Viewer.hpp"
 #include "src/rmf_traffic/schedule/debug_Database.hpp"
@@ -126,7 +128,7 @@ SCENARIO("Test Database Conflicts")
     {
       //introduce a delay after the first waypoint in t1
       const auto duration = 5s;
-      db.delay(p1, time, duration, iv1++);
+      db.delay(p1, duration, iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 2);
 
@@ -150,7 +152,6 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.begin()->participant_id() == p1);
       CHECK(changes.begin()->additions().items().size() == 0);
       REQUIRE(changes.begin()->delays().size() == 1);
-      CHECK(changes.begin()->delays().begin()->from() == time);
       CHECK(changes.begin()->delays().begin()->duration() == duration);
       CHECK(changes.begin()->erasures().ids().size() == 0);
       CHECK_FALSE(changes.cull());

@@ -66,16 +66,16 @@ public:
   }
 
   clone_ptr(const clone_ptr& other)
-  : _ptr(other._ptr? other._ptr->clone().release() : nullptr)
   {
-    // Do nothing
+    if (other._ptr)
+      _ptr = std::unique_ptr<T>(static_cast<T*>(other->clone().release()));
   }
 
   template<typename U>
   clone_ptr(const clone_ptr<U>& other)
-  : _ptr(other._ptr? other._ptr->clone().release() : nullptr)
   {
-    // Do nothing
+    if (other._ptr)
+      _ptr = std::unique_ptr<T>(other->clone().release());
   }
 
   clone_ptr(clone_ptr&& other)

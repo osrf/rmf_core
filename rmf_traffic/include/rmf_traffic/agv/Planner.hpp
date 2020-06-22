@@ -124,10 +124,22 @@ public:
     ///   has been running for too long. If the planner should run indefinitely,
     ///   then pass in a nullptr. It is the user's responsibility to make sure
     ///   that this flag remains valid.
+    ///
+    /// \param[in] maximum_cost_estimate
+    ///   A cap on how high the best possible solution's cost can be. If the
+    ///   cost of the best possible solution ever exceeds this value, then the
+    ///   planner will interrupt itself, no matter what the state of the
+    ///   interrupt_flag is. Set this to nullopt to specify that there should
+    ///   not be a cap.
+    ///
+    /// \param[in] saturation_limit
+    ///   A cap on how many search nodes the planner is allowed to produce.
     Options(
       rmf_utils::clone_ptr<RouteValidator> validator,
       Duration min_hold_time = DefaultMinHoldingTime,
-      const bool* interrupt_flag = nullptr);
+      std::shared_ptr<const bool> interrupt_flag = nullptr,
+      rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt,
+      rmf_utils::optional<std::size_t> saturation_limit = rmf_utils::nullopt);
 
     /// Set the route validator
     Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
@@ -142,11 +154,27 @@ public:
     Duration minimum_holding_time() const;
 
     /// Set an interrupt flag to stop this planner if it has run for too long.
-    Options& interrupt_flag(const bool* flag);
+    Options& interrupt_flag(std::shared_ptr<const bool> flag);
 
     /// Get the interrupt flag that will stop this planner if it has run for too
     /// long.
-    const bool* interrupt_flag() const;
+    const std::shared_ptr<const bool>& interrupt_flag() const;
+
+    /// Set the maximum cost estimate that the planner should allow. If the cost
+    /// estimate of the best possible plan that the planner could produce ever
+    /// exceeds this value, the planner will pause itself (but this will not be
+    /// considered an interruption).
+    Options& maximum_cost_estimate(rmf_utils::optional<double> value);
+
+    /// Get the maximum cost estimate that the planner will allow.
+    rmf_utils::optional<double> maximum_cost_estimate() const;
+
+    /// Set the saturation limit for the planner. If the planner produces more
+    /// search nodes than this limit, then the planning will stop.
+    Options& saturation_limit(rmf_utils::optional<std::size_t> value);
+
+    /// Get the saturation limit.
+    rmf_utils::optional<std::size_t> saturation_limit() const;
 
     class Implementation;
   private:
@@ -379,6 +407,32 @@ public:
     Goal goal,
     Options options) const;
 
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const Start&, Goal)
+  Result setup(const Start& start, Goal goal) const;
+
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const Start&, Goal, Options)
+  Result setup(
+    const Start& start,
+    Goal goal,
+    Options options) const;
+
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const StartSet&, Goal)
+  Result setup(const StartSet& starts, Goal goal) const;
+
+  /// Set up a planning job, but do not start iterating.
+  ///
+  /// \sa plan(const StartSet&, Goal, Options)
+  Result setup(
+    const StartSet& starts,
+    Goal goal,
+    Options options) const;
+
   class Implementation;
   class Debug;
 private:
@@ -427,7 +481,7 @@ public:
   /// \param[in] new_options
   ///   The options that should be used for replanning.
   Result replan(
-    const Planner::Start& new_start,
+    const Start& new_start,
     Options new_options) const;
 
   /// Replan to the same goal from a new set of start locations using the same
@@ -449,18 +503,52 @@ public:
     const StartSet& new_starts,
     Options new_options) const;
 
-  /// Resume planning if the planner was interrupted.
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const Start&)
+  Result setup(const Start& new_start) const;
+
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const Start&, Options)
+  Result setup(
+    const Start& new_start,
+    Options new_options) const;
+
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const StartSet&)
+  Result setup(const StartSet& new_starts) const;
+
+  /// Set up a new planning job to the same goal, but do not start iterating.
+  ///
+  /// \sa replan(const StartSet&, Options)
+  Result setup(
+    const StartSet& new_starts,
+    Options new_options) const;
+
+  /// Resume planning if the planner was paused.
   ///
   /// \return true if a plan has been found, false otherwise.
   bool resume();
 
-  /// Resume planning if the planner was interrupted.
+  /// Resume planning if the planner was paused.
   ///
   /// \param[in] interrupt_flag
   ///   A new interrupt flag to listen to while planning.
   ///
   /// \return true if a plan has been found, false otherwise.
-  bool resume(const bool* interrupt_flag);
+  bool resume(std::shared_ptr<const bool> interrupt_flag);
+
+  /// Get a mutable reference to the options that will be used by this planning
+  /// task.
+  Options& options();
+
+  /// Get the options that will be used by this planning task.
+  const Options& options() const;
+
+  /// Change the options to be used by this planning task.
+  Result& options(Options new_options);
 
   /// Get the best cost estimate of the current state of this planner result.
   /// This is the value of the lowest f(n)=g(n)+h(n) in the planner's queue.
@@ -468,22 +556,15 @@ public:
   /// nullopt.
   rmf_utils::optional<double> cost_estimate() const;
 
-  /// If this Plan is valid, this will return the Planner::Start that was used
-  /// to produce it.
+  /// Get the cost estimate that was initially computed for this plan. If no
+  /// valid starts were provided, then this will return infinity.
+  double initial_cost_estimate() const;
+
+  /// Get the start conditions that were given for this planning task.
   const std::vector<Start>& get_starts() const;
 
-  /// If this Plan is valid, this will return the Planner::Goal that was used
-  /// to produce it.
-  ///
-  /// If replan() is called, this goal will be used to produce the new Plan.
+  /// Get the goal for this planning task.
   const Goal& get_goal() const;
-
-  /// If this Plan is valid, this will return the Planner::Options that were
-  /// used to produce it.
-  ///
-  /// If replan(Planner::Start) is called, these Planner::Options will be used
-  /// to produce the new Plan.
-  const Options& get_options() const;
 
   /// If this Plan is valid, this will return the Planner::Configuration that
   /// was used to produce it.
@@ -495,6 +576,9 @@ public:
   /// This will return true if the planning failed because it was interrupted.
   /// Otherwise it will return false.
   bool interrupted() const;
+
+  /// This will return true if the planner has reached its saturation limit.
+  bool saturated() const;
 
   /// This is a list of schedule Participants who blocked the planning effort.
   /// Blockers do not necessarily prevent a solution from being found, but they
@@ -568,6 +652,9 @@ public:
   /// Get the start condition that was used for this plan.
   const Start& get_start() const;
 
+  /// Get the final cost of this plan.
+  double get_cost() const;
+
   // TODO(MXG): Create a feature that can diff two plans to produce the most
   // efficient schedule::Database::Change to get from the original plan to the
   // new plan.
@@ -613,6 +700,7 @@ private:
 ///   1e-8 meters.
 std::vector<Plan::Start> compute_plan_starts(
   const rmf_traffic::agv::Graph& graph,
+  const std::string& map_name,
   const Eigen::Vector3d pose,
   const rmf_traffic::Time start_time,
   const double max_merge_waypoint_distance = 0.1,

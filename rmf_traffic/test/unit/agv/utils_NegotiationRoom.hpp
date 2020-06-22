@@ -18,7 +18,7 @@
 #ifndef RMF_TRAFFIC__TEST__UNIT__AGV__UTILS_NEGOTIATIONROOM_HPP
 #define RMF_TRAFFIC__TEST__UNIT__AGV__UTILS_NEGOTIATIONROOM_HPP
 
-#include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/SimpleNegotiator.hpp>
 #include <rmf_traffic/agv/debug/debug_Negotiator.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
@@ -43,11 +43,10 @@ inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
 
 //==============================================================================
 inline void print_route(
-  const rmf_traffic::Route& route,
-  const rmf_traffic::Time start_time)
+    const rmf_traffic::Route& route,
+    const rmf_traffic::Time start_time)
 {
-  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end();
-    ++it)
+  for (auto it = ++route.trajectory().begin(); it != route.trajectory().end(); ++it)
   {
     const auto& wp = *it;
     if (wp.velocity().norm() > 1e-3)
@@ -61,7 +60,7 @@ inline void print_route(
 
 //==============================================================================
 inline void print_itinerary(
-  const rmf_traffic::schedule::Itinerary& itinerary)
+    const rmf_traffic::schedule::Itinerary& itinerary)
 {
   auto start_time = print_start(*itinerary.front());
   for (const auto& r : itinerary)
@@ -124,11 +123,14 @@ public:
   NegotiationRoom(
     std::shared_ptr<const rmf_traffic::schedule::Viewer> viewer,
     Intentions intentions,
-    const bool print_failures_ = false)
-  : negotiators(make_negotiators(intentions)),
+    double max_cost_leeway =
+      rmf_traffic::agv::SimpleNegotiator::Options::DefaultMaxCostLeeway,
+    std::size_t max_alts = 1,
+    const bool print = false)
+  : negotiators(make_negotiators(intentions, max_cost_leeway, max_alts)),
     negotiation(Negotiation::make_shared(
         std::move(viewer), get_participants(intentions))),
-    _print(print_failures_)
+    _print(print)
   {
     // Do nothing
   }
@@ -165,11 +167,11 @@ public:
     }
 
     while (!queue.empty()
-      && !negotiation->ready()) // Use this to allow a quick Negotiation
+           && !negotiation->ready()) // Use this to allow a quick Negotiation
 //           && !negotiation->complete()) // Use this to force a complete Negotiation
     {
       if (_print)
-        std::cout << "Queue size: " << queue.size() << std::endl;
+        std::cout << "Queue size: " << std::endl;
 
       const auto top = queue.back();
       queue.pop_back();
@@ -182,7 +184,7 @@ public:
         {
           std::cout << "Skipping [";
           for (const auto p : top->sequence())
-            std::cout << " " << p.participant;
+            std::cout << " " << p.participant << ":" << p.version;
           std::cout << " ]" << std::endl;
         }
         continue;
@@ -193,46 +195,30 @@ public:
 
       if (_print)
       {
-        std::cout << "Responding to [";
-        for (const auto p : top->sequence())
-          std::cout << " " << p.participant;
-        std::cout << " ]" << std::endl;
-
         rmf_traffic::agv::SimpleNegotiator::Debug
-        ::enable_debug_print(negotiator);
+            ::enable_debug_print(negotiator);
       }
 
       auto viewer = top->viewer();
-      bool interrupt = false;
-      auto result = std::async(
-        std::launch::async,
-        [&]()
-        {
-          negotiator.respond(viewer, Responder(top, &blockers), &interrupt);
-        });
+      blockers.clear();
+      negotiator.respond(viewer, Responder::make(top, &blockers));
 
-      using namespace std::chrono_literals;
-#if NDEBUG
-      const auto wait_time = 1s;
-#else
-      // We wait longer in debug mode because the planner takes much longer to
-      // run in debug than it does in release.
-      const auto wait_time = 15s;
-#endif
-      // Give up if the solution is not found within a time limit
-      if (result.wait_for(wait_time) != std::future_status::ready)
-        interrupt = true;
-
-      result.wait();
+      if (_print)
+      {
+        std::cout << "Responded to [";
+        for (const auto p : top->sequence())
+          std::cout << " " << p.participant;
+        std::cout << " ]" << std::endl;
+      }
 
       if (top->submission())
       {
         if (_print)
         {
-          std::cout << "Submission given for [";
-          for (const auto p : top->sequence())
-            std::cout << " " << p.participant;
-          std::cout << " ]" << std::endl;
+//          std::cout << "Submission given for [";
+//          for (const auto p : top->sequence())
+//            std::cout << " " << p.participant;
+//          std::cout << " ]" << std::endl;
         }
 
         for (const auto& n : negotiators)
@@ -285,7 +271,9 @@ public:
   }
 
   static std::unordered_map<ParticipantId, Negotiator> make_negotiators(
-    const std::unordered_map<ParticipantId, Intention>& intentions)
+    const std::unordered_map<ParticipantId, Intention>& intentions,
+    double maximum_cost_leeway,
+    std::size_t maximum_alts)
   {
     std::unordered_map<ParticipantId, Negotiator> negotiators;
     for (const auto& entry : intentions)
@@ -296,7 +284,9 @@ public:
         std::make_pair(
           participant,
           rmf_traffic::agv::SimpleNegotiator(
-            intention.start, intention.goal, intention.configuration)));
+            intention.start, intention.goal, intention.configuration,
+            rmf_traffic::agv::SimpleNegotiator::Options(
+                  nullptr, nullptr, maximum_cost_leeway, maximum_alts))));
     }
 
     return negotiators;

@@ -20,6 +20,7 @@
 #include <rmf_traffic/agv/Graph.hpp>
 
 #include <rmf_utils/math.hpp>
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_traffic {
 namespace agv {
@@ -35,7 +36,13 @@ public:
 
   Eigen::Vector2d location;
 
-  bool holding_point;
+  rmf_utils::optional<std::string> name = rmf_utils::nullopt;
+
+  bool holding_point = false;
+
+  bool passthrough_point = false;
+
+  bool parking_spot = false;
 
   template<typename... Args>
   static Waypoint make(Args&& ... args)
@@ -45,6 +52,11 @@ public:
       Implementation{std::forward<Args>(args)...});
 
     return result;
+  }
+
+  static Waypoint::Implementation& get(Waypoint& wp)
+  {
+    return *wp._pimpl;
   }
 };
 
@@ -88,9 +100,44 @@ auto Graph::Waypoint::set_holding_point(bool _is_holding_point) -> Waypoint&
 }
 
 //==============================================================================
+bool Graph::Waypoint::is_passthrough_point() const
+{
+  return _pimpl->passthrough_point;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_passthrough_point(bool _is_passthrough) -> Waypoint&
+{
+  _pimpl->passthrough_point = _is_passthrough;
+  return *this;
+}
+
+//==============================================================================
+bool Graph::Waypoint::is_parking_spot() const
+{
+  return _pimpl->parking_spot;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_parking_spot(bool _is_parking_spot) -> Waypoint&
+{
+  _pimpl->parking_spot = _is_parking_spot;
+  return *this;
+}
+
+//==============================================================================
 std::size_t Graph::Waypoint::index() const
 {
   return _pimpl->index;
+}
+
+//==============================================================================
+const std::string* Graph::Waypoint::name() const
+{
+  if (_pimpl->name)
+    return &_pimpl->name.value();
+
+  return nullptr;
 }
 
 //==============================================================================
@@ -545,22 +592,18 @@ public:
 
   rmf_utils::clone_ptr<OrientationConstraint> _orientation;
 
-  rmf_utils::clone_ptr<VelocityConstraint> _velocity;
-
 };
 
 //==============================================================================
 Graph::Lane::Node::Node(
   std::size_t waypoint_index,
   rmf_utils::clone_ptr<Event> event,
-  rmf_utils::clone_ptr<OrientationConstraint> orientation,
-  rmf_utils::clone_ptr<VelocityConstraint> velocity)
+  rmf_utils::clone_ptr<OrientationConstraint> orientation)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         waypoint_index,
         std::move(event),
-        std::move(orientation),
-        std::move(velocity)
+        std::move(orientation)
       }))
 {
   // Do nothing
@@ -574,8 +617,7 @@ Graph::Lane::Node::Node(
       Implementation{
         waypoint_index,
         nullptr,
-        std::move(orientation),
-        nullptr
+        std::move(orientation)
       }))
 {
   // Do nothing
@@ -598,13 +640,6 @@ auto Graph::Lane::Node::orientation_constraint() const
 -> const OrientationConstraint*
 {
   return _pimpl->_orientation.get();
-}
-
-//==============================================================================
-auto Graph::Lane::Node::velocity_constraint() const
--> const VelocityConstraint*
-{
-  return _pimpl->_velocity.get();
 }
 
 //==============================================================================
@@ -666,15 +701,15 @@ Graph::Graph()
 //==============================================================================
 auto Graph::add_waypoint(
   std::string map_name,
-  Eigen::Vector2d location,
-  const bool is_holding_point) -> Waypoint&
+  Eigen::Vector2d location) -> Waypoint&
 {
   _pimpl->waypoints.emplace_back(
     Waypoint::Implementation::make(
       _pimpl->waypoints.size(),
-      std::move(map_name), std::move(location), is_holding_point));
+      std::move(map_name), std::move(location)));
 
   _pimpl->lanes_from.push_back({});
+  _pimpl->lane_between.push_back({});
 
   return _pimpl->waypoints.back();
 }
@@ -692,6 +727,75 @@ auto Graph::get_waypoint(const std::size_t index) const -> const Waypoint&
 }
 
 //==============================================================================
+auto Graph::find_waypoint(const std::string& key) -> Waypoint*
+{
+  const auto it = _pimpl->keys.find(key);
+  if (it == _pimpl->keys.end())
+    return nullptr;
+
+  return &get_waypoint(it->second);
+}
+
+//==============================================================================
+auto Graph::find_waypoint(const std::string& key) const -> const Waypoint*
+{
+  return const_cast<Graph&>(*this).find_waypoint(key);
+}
+
+//==============================================================================
+bool Graph::add_key(const std::string& key, std::size_t wp_index)
+{
+  if (wp_index > _pimpl->waypoints.size())
+    return false;
+
+  const auto inserted = _pimpl->keys.insert({key, wp_index}).second;
+  if (!inserted)
+    return false;
+
+  Waypoint::Implementation::get(_pimpl->waypoints.at(wp_index)).name = key;
+  return true;
+}
+
+//==============================================================================
+bool Graph::remove_key(const std::string& key)
+{
+  const auto it = _pimpl->keys.find(key);
+  if (it == _pimpl->keys.end())
+    return false;
+
+  Waypoint::Implementation::get(_pimpl->waypoints.at(it->second))
+      .name = rmf_utils::nullopt;
+
+  _pimpl->keys.erase(it);
+  return true;
+}
+
+//==============================================================================
+bool Graph::set_key(const std::string& key, std::size_t wp_index)
+{
+  if (_pimpl->waypoints.size() <= wp_index)
+    return false;
+
+  _pimpl->keys[key] = wp_index;
+  const auto insertion = _pimpl->keys.insert({key, wp_index});
+  if (!insertion.second)
+  {
+    Waypoint::Implementation::get(_pimpl->waypoints.at(insertion.first->second))
+        .name = rmf_utils::nullopt;
+    insertion.first->second = wp_index;
+  }
+
+  Waypoint::Implementation::get(_pimpl->waypoints.at(wp_index)).name = key;
+  return true;
+}
+
+//==============================================================================
+const std::unordered_map<std::string, std::size_t>& Graph::keys() const
+{
+  return _pimpl->keys;
+}
+
+//==============================================================================
 std::size_t Graph::num_waypoints() const
 {
   return _pimpl->waypoints.size();
@@ -704,7 +808,9 @@ auto Graph::add_lane(Lane::Node entry, Lane::Node exit) -> Lane&
   assert(exit.waypoint_index() < _pimpl->waypoints.size());
 
   const std::size_t lane_id = _pimpl->lanes.size();
-  _pimpl->lanes_from[entry.waypoint_index()].push_back(lane_id);
+  _pimpl->lanes_from.at(entry.waypoint_index()).push_back(lane_id);
+  _pimpl->lane_between
+      .at(entry.waypoint_index())[exit.waypoint_index()] = lane_id;
 
   _pimpl->lanes.emplace_back(
     Lane::Implementation::make(
@@ -732,6 +838,30 @@ auto Graph::get_lane(const std::size_t index) const -> const Lane&
 std::size_t Graph::num_lanes() const
 {
   return _pimpl->lanes.size();
+}
+
+//==============================================================================
+const std::vector<std::size_t>& Graph::lanes_from(std::size_t wp_index) const
+{
+  return _pimpl->lanes_from.at(wp_index);
+}
+
+//==============================================================================
+auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) -> Lane*
+{
+  const auto& lanes = _pimpl->lane_between.at(from_wp);
+  const auto it = lanes.find(to_wp);
+  if (it == lanes.end())
+    return nullptr;
+
+  return &_pimpl->lanes.at(it->second);
+}
+
+//==============================================================================
+auto Graph::lane_from(std::size_t from_wp, std::size_t to_wp) const
+-> const Lane*
+{
+  return const_cast<Graph&>(*this).lane_from(from_wp, to_wp);
 }
 
 } // namespace avg

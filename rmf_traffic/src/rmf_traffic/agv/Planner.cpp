@@ -121,7 +121,9 @@ public:
 
   rmf_utils::clone_ptr<RouteValidator> validator;
   Duration min_hold_time;
-  const bool* interrupt_flag;
+  std::shared_ptr<const bool> interrupt_flag;
+  rmf_utils::optional<double> maximum_cost_estimate;
+  rmf_utils::optional<std::size_t> saturation_limit;
 
 };
 
@@ -129,12 +131,16 @@ public:
 Planner::Options::Options(
   rmf_utils::clone_ptr<RouteValidator> validator,
   const Duration min_hold_time,
-  const bool* interrupt_flag)
+  std::shared_ptr<const bool> interrupt_flag,
+  rmf_utils::optional<double> maximum_cost_estimate,
+  rmf_utils::optional<std::size_t> saturation_limit)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(validator),
         min_hold_time,
-        interrupt_flag
+        std::move(interrupt_flag),
+        maximum_cost_estimate,
+        saturation_limit
       }))
 {
   // Do nothing
@@ -169,16 +175,45 @@ Duration Planner::Options::minimum_holding_time() const
 }
 
 //==============================================================================
-auto Planner::Options::interrupt_flag(const bool* flag) -> Options&
+auto Planner::Options::interrupt_flag(
+    std::shared_ptr<const bool> flag) -> Options&
 {
-  _pimpl->interrupt_flag = flag;
+  _pimpl->interrupt_flag = std::move(flag);
   return *this;
 }
 
 //==============================================================================
-const bool* Planner::Options::interrupt_flag() const
+const std::shared_ptr<const bool>& Planner::Options::interrupt_flag() const
 {
   return _pimpl->interrupt_flag;
+}
+
+//==============================================================================
+auto Planner::Options::maximum_cost_estimate(rmf_utils::optional<double> value)
+-> Options&
+{
+  _pimpl->maximum_cost_estimate = value;
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<double> Planner::Options::maximum_cost_estimate() const
+{
+  return _pimpl->maximum_cost_estimate;
+}
+
+//==============================================================================
+auto Planner::Options::saturation_limit(rmf_utils::optional<std::size_t> value)
+-> Options&
+{
+  _pimpl->saturation_limit = value;
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<std::size_t> Planner::Options::saturation_limit() const
+{
+  return _pimpl->saturation_limit;
 }
 
 //==============================================================================
@@ -408,7 +443,9 @@ Planner::Result Planner::Result::Implementation::generate(
   Planner::Options options)
 {
   auto cache_handle = cache_mgr.get();
-  auto state = cache_handle->initiate(starts, goal, options);
+  auto state = cache_handle->initiate(
+        starts, std::move(goal), std::move(options));
+
   auto plan = Plan::Implementation::make(cache_handle->plan(state));
 
   Planner::Result result;
@@ -417,6 +454,28 @@ Planner::Result Planner::Result::Implementation::generate(
       std::move(cache_mgr),
       std::move(state),
       std::move(plan)
+    });
+
+  return result;
+}
+
+//==============================================================================
+Planner::Result Planner::Result::Implementation::setup(
+    rmf_traffic::internal::planning::CacheManager cache_mgr,
+    const std::vector<Planner::Start>& starts,
+    Planner::Goal goal,
+    Planner::Options options)
+{
+  auto cache_handle = cache_mgr.get();
+  auto state = cache_handle->initiate(
+        starts, std::move(goal), std::move(options));
+
+  Planner::Result result;
+  result._pimpl = rmf_utils::make_impl<Implementation>(
+    Implementation{
+      std::move(cache_mgr),
+      std::move(state),
+      rmf_utils::nullopt
     });
 
   return result;
@@ -496,6 +555,52 @@ Planner::Result Planner::plan(
   return Result::Implementation::generate(
     _pimpl->cache_mgr,
     starts,
+    std::move(goal),
+    std::move(options));
+}
+
+//==============================================================================
+Planner::Result Planner::setup(const Start& start, Goal goal) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    _pimpl->default_options);
+}
+
+//==============================================================================
+Planner::Result Planner::setup(
+  const Start& start,
+  Goal goal,
+  Options options) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {start},
+    std::move(goal),
+    std::move(options));
+}
+
+//==============================================================================
+Planner::Result Planner::setup(const StartSet& start, Goal goal) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    start,
+    std::move(goal),
+    _pimpl->default_options);
+}
+
+//==============================================================================
+Planner::Result Planner::setup(
+    const StartSet& start,
+    Goal goal,
+    Options options) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    start,
     std::move(goal),
     std::move(options));
 }
@@ -581,6 +686,50 @@ Planner::Result Planner::Result::replan(
 }
 
 //==============================================================================
+Planner::Result Planner::Result::setup(const Start& new_start) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::setup(
+  const Start& new_start,
+  Options new_options) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    {new_start},
+    _pimpl->state.conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
+Planner::Result Planner::Result::setup(const StartSet& new_starts) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->state.conditions.goal,
+    _pimpl->state.conditions.options);
+}
+
+//==============================================================================
+Planner::Result Planner::Result::setup(
+  const StartSet& new_starts,
+  Options new_options) const
+{
+  return Result::Implementation::setup(
+    _pimpl->cache_mgr,
+    new_starts,
+    _pimpl->state.conditions.goal,
+    std::move(new_options));
+}
+
+//==============================================================================
 bool Planner::Result::resume()
 {
   if (_pimpl->plan)
@@ -593,16 +742,41 @@ bool Planner::Result::resume()
 }
 
 //==============================================================================
-bool Planner::Result::resume(const bool* interrupt_flag)
+bool Planner::Result::resume(std::shared_ptr<const bool> interrupt_flag)
 {
-  _pimpl->state.conditions.options.interrupt_flag(interrupt_flag);
+  _pimpl->state.conditions.options.interrupt_flag(std::move(interrupt_flag));
   return resume();
+}
+
+//==============================================================================
+Planner::Options& Planner::Result::options()
+{
+  return _pimpl->state.conditions.options;
+}
+
+//==============================================================================
+const Planner::Options& Planner::Result::options() const
+{
+  return _pimpl->state.conditions.options;
+}
+
+//==============================================================================
+Planner::Result& Planner::Result::options(Options new_options)
+{
+  _pimpl->state.conditions.options = std::move(new_options);
+  return *this;
 }
 
 //==============================================================================
 rmf_utils::optional<double> Planner::Result::cost_estimate() const
 {
   return _pimpl->state.internal->cost_estimate();
+}
+
+//==============================================================================
+double Planner::Result::initial_cost_estimate() const
+{
+  return _pimpl->state.initial_cost_estimate;
 }
 
 //==============================================================================
@@ -618,12 +792,6 @@ const Planner::Goal& Planner::Result::get_goal() const
 }
 
 //==============================================================================
-const Planner::Options& Planner::Result::get_options() const
-{
-  return _pimpl->state.conditions.options;
-}
-
-//==============================================================================
 const Planner::Configuration& Planner::Result::get_configuration() const
 {
   return _pimpl->cache_mgr.get_configuration();
@@ -633,6 +801,21 @@ const Planner::Configuration& Planner::Result::get_configuration() const
 bool Planner::Result::interrupted() const
 {
   return _pimpl->state.issues.interrupted;
+}
+
+//==============================================================================
+bool Planner::Result::saturated() const
+{
+  const auto saturation_limit =
+      _pimpl->state.conditions.options.saturation_limit();
+
+  if (!saturation_limit)
+    return false;
+
+  const std::size_t saturation =
+      _pimpl->state.internal->queue_size() + _pimpl->state.popped_count;
+
+  return *saturation_limit < saturation;
 }
 
 //==============================================================================
@@ -701,6 +884,12 @@ const Plan::Start& Plan::get_start() const
 }
 
 //==============================================================================
+double Plan::get_cost() const
+{
+  return _pimpl->plan.cost;
+}
+
+//==============================================================================
 Plan::Plan()
 {
   // Do nothing
@@ -709,6 +898,7 @@ Plan::Plan()
 //==============================================================================
 std::vector<Plan::Start> compute_plan_starts(
   const rmf_traffic::agv::Graph& graph,
+  const std::string& map_name,
   const Eigen::Vector3d pose,
   const rmf_traffic::Time start_time,
   const double max_merge_waypoint_distance,
@@ -722,6 +912,9 @@ std::vector<Plan::Start> compute_plan_starts(
   for (std::size_t i = 0; i < graph.num_waypoints(); ++i)
   {
     const auto& wp = graph.get_waypoint(i);
+    if (wp.get_map_name() != map_name)
+      continue;
+
     const Eigen::Vector2d wp_location = wp.get_location();
 
     if ( (p_location - wp_location).norm() < max_merge_waypoint_distance)
@@ -738,10 +931,16 @@ std::vector<Plan::Start> compute_plan_starts(
   for (std::size_t i = 0; i < graph.num_lanes(); ++i)
   {
     const auto& lane = graph.get_lane(i);
-    const Eigen::Vector2d p0 =
-      graph.get_waypoint(lane.entry().waypoint_index()).get_location();
-    const Eigen::Vector2d p1 =
-      graph.get_waypoint(lane.exit().waypoint_index()).get_location();
+    const auto& wp0 = graph.get_waypoint(lane.entry().waypoint_index());
+    if (wp0.get_map_name() != map_name)
+      continue;
+
+    const auto& wp1 = graph.get_waypoint(lane.exit().waypoint_index());
+    if (wp1.get_map_name() != map_name)
+      continue;
+
+    const Eigen::Vector2d p0 = wp0.get_location();
+    const Eigen::Vector2d p1 = wp1.get_location();
 
     const double lane_length = (p1 - p0).norm();
 

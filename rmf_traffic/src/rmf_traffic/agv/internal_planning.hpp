@@ -54,6 +54,7 @@ struct State
 {
   Conditions conditions;
   Issues issues;
+  double initial_cost_estimate;
 
   class Internal
   {
@@ -61,10 +62,13 @@ struct State
 
     virtual rmf_utils::optional<double> cost_estimate() const = 0;
 
+    virtual std::size_t queue_size() const = 0;
+
     virtual ~Internal() = default;
   };
 
   rmf_utils::impl_ptr<Internal> internal;
+  std::size_t popped_count = 0;
 };
 
 //==============================================================================
@@ -73,6 +77,7 @@ struct Plan
   std::vector<Route> routes;
   std::vector<agv::Plan::Waypoint> waypoints;
   agv::Planner::Start start;
+  double cost;
 };
 
 //==============================================================================
@@ -93,6 +98,8 @@ public:
 
   virtual CachePtr clone() const = 0;
 
+  virtual bool has_update() const = 0;
+
   virtual void update(const Cache& other) = 0;
 
   virtual State initiate(
@@ -106,7 +113,8 @@ public:
     const Duration span,
     const Issues::BlockedNodes& nodes,
     const agv::Planner::Goal& goal,
-    const agv::Planner::Options& options) = 0;
+    const agv::Planner::Options& options,
+    rmf_utils::optional<std::size_t> max_rollouts) = 0;
 
   virtual const agv::Planner::Configuration& get_configuration() const = 0;
 

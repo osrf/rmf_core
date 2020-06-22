@@ -68,17 +68,9 @@ public:
 
     /// Add a delay
     ///
-    /// \param[in] from
-    ///   The time that the delay began.
-    ///
     /// \param[in] duration
     ///   The duration of that delay.
-    Delay(
-      Time from,
-      Duration duration);
-
-    /// The time that the delay began.
-    Time from() const;
+    Delay(Duration duration);
 
     /// The duration of the delay.
     Duration duration() const;

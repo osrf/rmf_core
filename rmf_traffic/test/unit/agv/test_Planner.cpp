@@ -231,7 +231,7 @@ void test_ignore_obstacle(
 {
   REQUIRE(database_version > 0);
   const auto& start = original_result->get_start();
-  rmf_traffic::agv::Plan::Options options = original_result.get_options();
+  rmf_traffic::agv::Plan::Options options = original_result.options();
   std::unordered_set<rmf_traffic::schedule::ParticipantId> ignore_ids;
   for (rmf_traffic::schedule::Version v = 0; v <= database_version; ++v)
     ignore_ids.insert(v);
@@ -423,10 +423,10 @@ SCENARIO("Test Options", "[options]")
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
 
-  bool interrupt_flag = false;
+  auto interrupt_flag = std::make_shared<bool>(false);
   Duration hold_time = std::chrono::seconds(6);
 
-  Planner::Options default_options(nullptr, hold_time, &interrupt_flag);
+  Planner::Options default_options(nullptr, hold_time, interrupt_flag);
   WHEN("Get the minimum_holding_time")
   {
     CHECK(rmf_traffic::time::to_seconds(
@@ -450,7 +450,7 @@ SCENARIO("Test Options", "[options]")
 
   WHEN("Set the interrupt_flag")
   {
-    interrupt_flag = true;
+    *interrupt_flag = true;
     CHECK(*default_options.interrupt_flag());
   }
 
@@ -509,19 +509,19 @@ SCENARIO("Test planning")
 
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
-  graph.add_waypoint(test_map_name, {-5, -5}); // 0
-  graph.add_waypoint(test_map_name, { 0, -5}); // 1
-  graph.add_waypoint(test_map_name, { 5, -5}); // 2
-  graph.add_waypoint(test_map_name, {10, -5}); // 3
-  graph.add_waypoint(test_map_name, {-5, 0}, true); // 4
-  graph.add_waypoint(test_map_name, { 0, 0}, true); // 5
-  graph.add_waypoint(test_map_name, { 5, 0}, true); // 6
-  graph.add_waypoint(test_map_name, {10, 0}); // 7
-  graph.add_waypoint(test_map_name, {10, 4}); // 8
-  graph.add_waypoint(test_map_name, { 0, 8}); // 9
-  graph.add_waypoint(test_map_name, { 5, 8}); // 10
-  graph.add_waypoint(test_map_name, {10, 12}); // 11
-  graph.add_waypoint(test_map_name, {12, 12}); // 12
+  graph.add_waypoint(test_map_name, {-5, -5}).set_passthrough_point(true); // 0
+  graph.add_waypoint(test_map_name, { 0, -5}).set_passthrough_point(true); // 1
+  graph.add_waypoint(test_map_name, { 5, -5}).set_passthrough_point(true); // 2
+  graph.add_waypoint(test_map_name, {10, -5}).set_passthrough_point(true); // 3
+  graph.add_waypoint(test_map_name, {-5, 0}); // 4
+  graph.add_waypoint(test_map_name, { 0, 0}); // 5
+  graph.add_waypoint(test_map_name, { 5, 0}); // 6
+  graph.add_waypoint(test_map_name, {10, 0}).set_passthrough_point(true); // 7
+  graph.add_waypoint(test_map_name, {10, 4}).set_passthrough_point(true); // 8
+  graph.add_waypoint(test_map_name, { 0, 8}).set_passthrough_point(true); // 9
+  graph.add_waypoint(test_map_name, { 5, 8}).set_passthrough_point(true); // 10
+  graph.add_waypoint(test_map_name, {10, 12}).set_passthrough_point(true); // 11
+  graph.add_waypoint(test_map_name, {12, 12}).set_passthrough_point(true); // 12
   REQUIRE(graph.num_waypoints() == 13);
 
   auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
@@ -1039,7 +1039,6 @@ SCENARIO("Test planning")
 
       WHEN("Second obstacle is introduced")
       {
-        REQUIRE(graph.get_waypoint(4).is_holding_point());
         rmf_traffic::Trajectory obstacle_2;
         obstacle_2.insert(
           time + 49s,
@@ -1101,39 +1100,39 @@ SCENARIO("DP1 Graph")
   //initialize graph
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
-  graph.add_waypoint(test_map_name, {12, -12});       // 0
-  graph.add_waypoint(test_map_name, {18, -12}, true); // 1
-  graph.add_waypoint(test_map_name, {-10, -8});       // 2
-  graph.add_waypoint(test_map_name, {-2, -8}, true);  // 3
-  graph.add_waypoint(test_map_name, { 3, -8});       // 4
-  graph.add_waypoint(test_map_name, {12, -8});       // 5
-  graph.add_waypoint(test_map_name, {18, -8}, true); // 6
-  graph.add_waypoint(test_map_name, {-15, -4}, true); // 7
-  graph.add_waypoint(test_map_name, {-10, -4});      // 8
-  graph.add_waypoint(test_map_name, { -2, -4}, true); // 9
-  graph.add_waypoint(test_map_name, { 3, -4});       // 10
-  graph.add_waypoint(test_map_name, {6, -4});         // 11
-  graph.add_waypoint(test_map_name, {9, -4});         // 12
-  graph.add_waypoint(test_map_name, {-15, 0});       // 13
-  graph.add_waypoint(test_map_name, {-10, 0});       // 14
-  graph.add_waypoint(test_map_name, { 0, 0});        // 15 DOOR (not implemented)
-  graph.add_waypoint(test_map_name, { 3, 0});        // 16
-  graph.add_waypoint(test_map_name, {6, 0});          // 17
-  graph.add_waypoint(test_map_name, {9, 0});          // 18
-  graph.add_waypoint(test_map_name, {15, 0}, true);   // 19
-  graph.add_waypoint(test_map_name, {18, 0}, true);   // 20
-  graph.add_waypoint(test_map_name, { -2, 4}, true);  // 21
-  graph.add_waypoint(test_map_name, { 3, 4});        // 22
-  graph.add_waypoint(test_map_name, {6, 4});          // 23
-  graph.add_waypoint(test_map_name, {9, 4});          // 24
-  graph.add_waypoint(test_map_name, {15, 4});        // 25
-  graph.add_waypoint(test_map_name, {18, 4});        // 26
-  graph.add_waypoint(test_map_name, { -15, 8}, true); // 27
-  graph.add_waypoint(test_map_name, {-10, 8}, true);  // 28
-  graph.add_waypoint(test_map_name, {3, 8}, true);    // 29
-  graph.add_waypoint(test_map_name, {6, 8}, true);    // 30
-  graph.add_waypoint(test_map_name, {15, 8}, true);  // 31
-  graph.add_waypoint(test_map_name, {18, 8}, true);  // 32
+  graph.add_waypoint(test_map_name, {12, -12}).set_passthrough_point(true); // 0
+  graph.add_waypoint(test_map_name, {18, -12}).set_holding_point(true); // 1
+  graph.add_waypoint(test_map_name, {-10, -8}).set_passthrough_point(true); // 2
+  graph.add_waypoint(test_map_name, {-2, -8}).set_holding_point(true);  // 3
+  graph.add_waypoint(test_map_name, { 3, -8}).set_passthrough_point(true); // 4
+  graph.add_waypoint(test_map_name, {12, -8}).set_passthrough_point(true); // 5
+  graph.add_waypoint(test_map_name, {18, -8}).set_holding_point(true); // 6
+  graph.add_waypoint(test_map_name, {-15, -4}).set_holding_point(true); // 7
+  graph.add_waypoint(test_map_name, {-10, -4}).set_passthrough_point(true); // 8
+  graph.add_waypoint(test_map_name, { -2, -4}).set_holding_point(true); // 9
+  graph.add_waypoint(test_map_name, { 3, -4}).set_passthrough_point(true); // 10
+  graph.add_waypoint(test_map_name, {6, -4}).set_passthrough_point(true); // 11
+  graph.add_waypoint(test_map_name, {9, -4}).set_passthrough_point(true); // 12
+  graph.add_waypoint(test_map_name, {-15, 0}).set_passthrough_point(true); // 13
+  graph.add_waypoint(test_map_name, {-10, 0}).set_passthrough_point(true); // 14
+  graph.add_waypoint(test_map_name, { 0, 0}).set_passthrough_point(true); // 15 DOOR (not implemented)
+  graph.add_waypoint(test_map_name, { 3, 0}).set_passthrough_point(true); // 16
+  graph.add_waypoint(test_map_name, {6, 0}).set_passthrough_point(true); // 17
+  graph.add_waypoint(test_map_name, {9, 0}).set_passthrough_point(true); // 18
+  graph.add_waypoint(test_map_name, {15, 0}).set_holding_point(true);   // 19
+  graph.add_waypoint(test_map_name, {18, 0}).set_holding_point(true);   // 20
+  graph.add_waypoint(test_map_name, { -2, 4}).set_holding_point(true);  // 21
+  graph.add_waypoint(test_map_name, { 3, 4}).set_passthrough_point(true); // 22
+  graph.add_waypoint(test_map_name, {6, 4}).set_passthrough_point(true); // 23
+  graph.add_waypoint(test_map_name, {9, 4}).set_passthrough_point(true); // 24
+  graph.add_waypoint(test_map_name, {15, 4}).set_passthrough_point(true); // 25
+  graph.add_waypoint(test_map_name, {18, 4}).set_passthrough_point(true); // 26
+  graph.add_waypoint(test_map_name, { -15, 8}).set_holding_point(true); // 27
+  graph.add_waypoint(test_map_name, {-10, 8}).set_holding_point(true);  // 28
+  graph.add_waypoint(test_map_name, {3, 8}).set_holding_point(true);    // 29
+  graph.add_waypoint(test_map_name, {6, 8}).set_holding_point(true);    // 30
+  graph.add_waypoint(test_map_name, {15, 8}).set_holding_point(true);  // 31
+  graph.add_waypoint(test_map_name, {18, 8}).set_holding_point(true);  // 32
 
   REQUIRE(graph.num_waypoints() == 33);
 
@@ -1193,11 +1192,11 @@ SCENARIO("DP1 Graph")
     profile
   };
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
-  bool interrupt_flag = false;
+  const auto interrupt_flag = std::make_shared<bool>(false);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, profile),
     std::chrono::seconds(5),
-    &interrupt_flag};
+    interrupt_flag};
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -1690,15 +1689,15 @@ SCENARIO("DP1 Graph")
         {
           result = planner.plan(start, goal);
         });
-      interrupt_flag = true;
+      *interrupt_flag = true;
       plan_thread.join();
       CHECK_FALSE(*result);
       CHECK(result->interrupted());
 
       THEN("Plan can resume and find a solution")
       {
-        interrupt_flag = false;
-        result->resume();
+        const auto new_interrupt_flag = std::make_shared<bool>(false);
+        result->resume(new_interrupt_flag);
         CHECK(*result);
       }
     }
@@ -1951,11 +1950,11 @@ SCENARIO("Test planner with various start conditions")
 
   const std::string test_map_name = "test_map";
   Graph graph;
-  graph.add_waypoint(test_map_name, {0, -5}, true); // 0
-  graph.add_waypoint(test_map_name, {-5, 0}, true); // 1
+  graph.add_waypoint(test_map_name, {0, -5}); // 0
+  graph.add_waypoint(test_map_name, {-5, 0}); // 1
   graph.add_waypoint(test_map_name, {0, 0}); // 2
-  graph.add_waypoint(test_map_name, {5, 0}, true); // 3
-  graph.add_waypoint(test_map_name, {0, 5}, true); // 4
+  graph.add_waypoint(test_map_name, {5, 0}); // 3
+  graph.add_waypoint(test_map_name, {0, 5}); // 4
   REQUIRE(graph.num_waypoints() == 5);
 
   graph.add_lane(0, 2); // 0
@@ -1986,12 +1985,12 @@ SCENARIO("Test planner with various start conditions")
   rmf_traffic::schedule::ItineraryVersion iv_o = 0;
   rmf_traffic::RouteId ri_o = 0;
 
-  bool interrupt_flag = false;
+  const auto interrupt_flag = std::make_shared<bool>(false);
   Duration hold_time = std::chrono::seconds(6);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, profile),
     hold_time,
-    &interrupt_flag};
+    interrupt_flag};
 
   Planner planner{
     Planner::Configuration{graph, traits},
@@ -2318,11 +2317,11 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
 
   const std::string test_map_name = "test_map";
   Graph graph;
-  graph.add_waypoint(test_map_name, {0, 0}, true); // 0
-  graph.add_waypoint(test_map_name, {-4, 3}, true); // 1
+  graph.add_waypoint(test_map_name, {0, 0}); // 0
+  graph.add_waypoint(test_map_name, {-4, 3}); // 1
   graph.add_waypoint(test_map_name, {4, 3}); // 2
-  graph.add_waypoint(test_map_name, {-4, 15}, true); // 3
-  graph.add_waypoint(test_map_name, {4, 15}, true); // 4
+  graph.add_waypoint(test_map_name, {-4, 15}); // 3
+  graph.add_waypoint(test_map_name, {4, 15}); // 4
   REQUIRE(graph.num_waypoints() == 5);
 
   graph.add_lane(0, 1); // 0
@@ -2340,12 +2339,12 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
     create_test_profile(UnitCircle)};
 
   rmf_traffic::schedule::Database database;
-  bool interrupt_flag = false;
+  const auto interrupt_flag = std::make_shared<bool>(false);
   Duration hold_time = std::chrono::seconds(1);
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, traits.profile()),
     hold_time,
-    &interrupt_flag};
+    interrupt_flag};
 
   Planner planner{
     Planner::Configuration{graph, traits},

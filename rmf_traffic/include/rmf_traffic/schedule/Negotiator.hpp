@@ -31,6 +31,8 @@ class Negotiator
 {
 public:
 
+  using TableViewerPtr = Negotiation::Table::ViewerPtr;
+
   /// A pure abstract interface class that allows the Negotiator to respond to
   /// other Negotiators.
   class Responder
@@ -76,6 +78,8 @@ public:
     virtual ~Responder() = default;
   };
 
+  using ResponderPtr = std::shared_ptr<const Responder>;
+
   /// Have the Negotiator respond to an attempt to negotiate.
   ///
   /// \param[in] table
@@ -90,9 +94,8 @@ public:
   ///   has been running for too long. If the planner should run indefinitely,
   ///   then pass a nullptr.
   virtual void respond(
-    const schedule::Negotiation::Table::ViewerPtr& table_viewer,
-    const Responder& responder,
-    const bool* interrupt_flag = nullptr) = 0;
+    const TableViewerPtr& table_viewer,
+    const ResponderPtr& responder) = 0;
 
   virtual ~Negotiator() = default;
 };
@@ -118,6 +121,12 @@ public:
   SimpleResponder(
     const Negotiation::TablePtr& table,
     std::vector<schedule::ParticipantId>* report_blockers = nullptr);
+
+  template<typename... Args>
+  static std::shared_ptr<SimpleResponder> make(Args&&... args)
+  {
+    return std::make_shared<SimpleResponder>(std::forward<Args>(args)...);
+  }
 
   // Documentation inherited
   // NOTE: approval_callback does not get used

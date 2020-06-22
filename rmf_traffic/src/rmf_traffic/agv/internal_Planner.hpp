@@ -65,6 +65,12 @@ public:
     Planner::Goal goal,
     Planner::Options options);
 
+  static Result setup(
+    rmf_traffic::internal::planning::CacheManager cache_mgr,
+    const std::vector<Planner::Start>& starts,
+    Planner::Goal goal,
+    Planner::Options options);
+
   static const Implementation& get(const Result& r);
 
 };

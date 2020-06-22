@@ -26,6 +26,7 @@
 #include <rmf_utils/clone_ptr.hpp>
 
 #include <vector>
+#include <unordered_map>
 
 namespace rmf_traffic {
 namespace agv {
@@ -41,14 +42,6 @@ public:
 
     /// Get the name of the map that this Waypoint exists on.
     const std::string& get_map_name() const;
-    // TODO(MXG): What should be done for waypoints that "exist" on multiple
-    // maps? For example, a waypoint that is in a lift shaft exists on both the
-    // map of the floor that it's level with, and the map of the lift that it's
-    // inside of.
-    //
-    // For now, we will solve this by testing trajectories for conflicts on both
-    // maps that waypoints claim to belong to, if there is ever a difference
-    // between the maps of two connected waypoints.
 
     /// Set the name of the map that this Waypoint exists on.
     Waypoint& set_map_name(std::string map);
@@ -67,9 +60,33 @@ public:
     /// vehicle.
     Waypoint& set_holding_point(bool _is_holding_point);
 
+    /// Returns true if this Waypoint is a passthrough point, meaning a planner
+    /// should not have a robot wait at this point, even just briefly to allow
+    /// another robot to pass. Setting passthrough points reduces the branching
+    /// factor of a planner, allowing it to run faster, at the cost of losing
+    /// possible solutions to conflicts.
+    bool is_passthrough_point() const;
+
+    /// Set this Waypoint to be a passthrough point.
+    Waypoint& set_passthrough_point(bool _is_passthrough);
+
+    /// Returns true if this Waypoint is a parking spot. Parking spots are used
+    /// when an emergency alarm goes off, and the robot is required to park
+    /// itself.
+    bool is_parking_spot() const;
+
+    /// Set this Waypoint to be a parking spot.
+    Waypoint& set_parking_spot(bool _is_parking_spot);
+
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
     std::size_t index() const;
+
+    /// If this waypoint has a name, return a reference to it. If this waypoint
+    /// does not have a name, return a nullptr.
+    ///
+    /// The name of a waypoint can only be set using add_key() or set_key().
+    const std::string* name() const;
 
     class Implementation;
   private:
@@ -119,37 +136,6 @@ public:
 
     // Default destructor.
     virtual ~OrientationConstraint() = default;
-  };
-
-  /// A class that implicitly specifies a constraint on the robot's velocity.
-  //
-  // TODO(MXG): This class is not currently being used while planning. Remember
-  // to add this feature later, or else delete this API.
-  class VelocityConstraint
-  {
-  public:
-
-    /// Apply the constraint to the given homogeneous velocity.
-    ///
-    /// \param[in,out] velocity
-    ///   The velocity which needs to be constrained. The function should modify
-    ///   this velocity such that it satisfies the constraint, if possible.
-    ///
-    /// \param[in] course_vector
-    ///   The direction that the robot is travelling in. Given for informational
-    ///   purposes.
-    ///
-    /// \return True if the constraint is satisfied with the new value of
-    /// velocity. False if the constraint could not be satisfied.
-    virtual bool apply(
-      Eigen::Vector3d& velocity,
-      const Eigen::Vector2d& course_vector) const = 0;
-
-    /// Clone this VelocityConstraint.
-    virtual std::unique_ptr<VelocityConstraint> clone() const = 0;
-
-    // Default destructor
-    virtual ~VelocityConstraint() = default;
   };
 
   /// Add a lane to connect two waypoints
@@ -318,6 +304,13 @@ public:
     {
     public:
 
+      using DoorOpen = Lane::DoorOpen;
+      using DoorClose = Lane::DoorClose;
+      using LiftDoorOpen = Lane::LiftDoorOpen;
+      using LiftDoorClose = Lane::LiftDoorClose;
+      using LiftMove = Lane::LiftMove;
+      using Dock = Lane::Dock;
+
       virtual void execute(const DoorOpen& open) = 0;
       virtual void execute(const DoorClose& close) = 0;
       virtual void execute(const LiftDoorOpen& open) = 0;
@@ -382,14 +375,9 @@ public:
       /// \param orientation
       ///   Any orientation constraints for moving to/from this Node (depending
       ///   on whether it's an entry Node or an exit Node).
-      ///
-      /// \param velocity
-      ///   Any velocity constraints for moving to/from this Node (depending on
-      ///   whether it's an entry Node or an exit Node).
       Node(std::size_t waypoint_index,
         rmf_utils::clone_ptr<Event> event = nullptr,
-        rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr,
-        rmf_utils::clone_ptr<VelocityConstraint> velocity = nullptr);
+        rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr);
 
       /// Constructor, event and velocity_constraint parameters will be nullptr
       ///
@@ -413,13 +401,6 @@ public:
 
       /// Get the constraint on orientation that is tied to this Node.
       const OrientationConstraint* orientation_constraint() const;
-
-      /// Get the constraint on velocity that is tied to this Node.
-      ///
-      /// \warning This is currently not being used anyway
-      //
-      // TODO(MXG): Decide if this should be used or thrown away.
-      const VelocityConstraint* velocity_constraint() const;
 
       class Implementation;
     private:
@@ -449,23 +430,43 @@ public:
   /// Make a new waypoint for this graph. It will not be connected to any other
   /// waypoints until you use make_lane() to connect it.
   ///
-  /// \note Waypoints cannot be erased from a Graph after they are created. That
-  /// feature could be introduced in a later version of this library, but as of
-  /// this version, it is not supported. This is to avoid confusion for Lanes if
-  /// a Waypoint that they depend on is erased.
+  /// \note Waypoints cannot be erased from a Graph after they are created.
   Waypoint& add_waypoint(
     std::string map_name,
-    Eigen::Vector2d location,
-    bool is_holding_point = false);
-
-  // TODO(MXG): Allow waypoints to have keynames so that they can be gotten by
-  // a string value instead of an index value.
+    Eigen::Vector2d location);
 
   /// Get a waypoint based on its index.
   Waypoint& get_waypoint(std::size_t index);
 
   /// const-qualified get_waypoint()
   const Waypoint& get_waypoint(std::size_t index) const;
+
+  /// Find a waypoint given a key name. If the graph does not have a matching
+  /// key name, then a nullptr will be returned.
+  Waypoint* find_waypoint(const std::string& key);
+
+  /// const-qualified find_waypoint()
+  const Waypoint* find_waypoint(const std::string& key) const;
+
+  /// Add a new waypoint key name to the graph. If a new key name is given, then
+  /// this function will return true. If the given key name was already in use,
+  /// then this will return false and nothing will be changed in the graph.
+  bool add_key(const std::string& key, std::size_t wp_index);
+
+  /// Remove the waypoint key with the given name, if it exists in this Graph.
+  /// If the key was removed, this will return true. If the key did not exist,
+  /// this will return false.
+  bool remove_key(const std::string& key);
+
+  /// Set a waypoint key. If this key is already in the Graph, it will be
+  /// changed to the new association.
+  ///
+  /// This function will return false if wp_index is outside the range of the
+  /// waypoints in this Graph.
+  bool set_key(const std::string& key, std::size_t wp_index);
+
+  /// Get the map of all keys in this Graph.
+  const std::unordered_map<std::string, std::size_t>& keys() const;
 
   /// Get the number of waypoints in this Graph
   std::size_t num_waypoints() const;
@@ -484,6 +485,17 @@ public:
 
   /// Get the number of Lanes in this Graph.
   std::size_t num_lanes() const;
+
+  /// Get the indices of lanes that come out of the given Waypoint index
+  const std::vector<std::size_t>& lanes_from(std::size_t wp_index) const;
+
+  /// Get a reference to the lane that goes from from_wp to to_wp if such a lane
+  /// exists. If no such lane exists, this will return a nullptr. If multiple
+  /// exist, this will return the one that was added most recently.
+  Lane* lane_from(std::size_t from_wp, std::size_t to_wp);
+
+  /// const-qualified lane_from()
+  const Lane* lane_from(std::size_t from_wp, std::size_t to_wp) const;
 
   class Implementation;
 private:

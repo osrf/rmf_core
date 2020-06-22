@@ -21,6 +21,8 @@
 #include <rmf_traffic/schedule/Viewer.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
 
+#include <rmf_utils/clone_ptr.hpp>
+
 namespace rmf_traffic {
 namespace agv {
 
@@ -90,6 +92,34 @@ public:
     schedule::ParticipantId participant_id,
     Profile profile);
 
+  /// Constructor
+  ///
+  /// This constructor will use the profile given to it for the participant that
+  /// is being planned for. This is safe to use, even if the participant is not
+  /// registered in the schedule yet.
+  ///
+  /// \param[in] viewer
+  ///   The schedule viewer which will be used ot check for conflicts. The
+  ///   reference to the viewer will be kept alive.
+  ///
+  /// \param[in] participant_id
+  ///   The ID for the participant that is being validated.
+  ///
+  /// \param[in] profile
+  ///   The profile for the participant.
+  ScheduleRouteValidator(
+    std::shared_ptr<const schedule::Viewer> viewer,
+    schedule::ParticipantId participant_id,
+    Profile profile);
+
+  /// Make the ScheduleRouteValidator as a clone_ptr
+  template<typename... Args>
+  static rmf_utils::clone_ptr<ScheduleRouteValidator> make(Args&&... args)
+  {
+    return rmf_utils::make_clone<ScheduleRouteValidator>(
+          std::forward<Args>(args)...);
+  }
+
   /// Change the schedule viewer to use for planning.
   ///
   /// \warning The Options instance will store a reference to the viewer; it
@@ -136,8 +166,11 @@ public:
 
     /// Constructor
     ///
+    /// This version is safe to use even if the participant being negotiated for
+    /// is not in the schedule yet.
+    ///
     /// \param[in] table
-    ///   The Negotiating Table that the generated validators are concerned with
+    ///   The Negotiation Table that the generated validators are concerned with
     ///
     /// \param[in] profile
     ///   The profile of the participant whose routes are being validated.
@@ -145,9 +178,21 @@ public:
       schedule::Negotiation::Table::ViewerPtr viewer,
       rmf_traffic::Profile profile);
 
+    /// Constructor
+    ///
+    /// This version looks for the participant in the schedule to find its
+    /// profile.
+    ///
+    /// \param[in] table
+    ///   The Negotiation Table that the generated validators are concerned with
+    Generator(schedule::Negotiation::Table::ViewerPtr viewer);
+
     /// Start with a NegotiatingRouteValidator that will use all the most
     /// preferred alternatives from every participant.
     NegotiatingRouteValidator begin() const;
+
+    /// Get all the Negotiating Route Validators that can be generated.
+    std::vector<rmf_utils::clone_ptr<NegotiatingRouteValidator>> all() const;
 
     /// Get the set of participants who have specified what their available
     /// rollouts are.

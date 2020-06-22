@@ -16,9 +16,14 @@
 */
 
 #include <rmf_traffic/geometry/Shape.hpp>
-#include <rmf_traffic/geometry/Box.hpp>
+
+//#include <rmf_traffic/geometry/Box.hpp>
+#include <src/rmf_traffic/geometry/Box.hpp>
+
 #include <rmf_traffic/geometry/Circle.hpp>
-#include <rmf_traffic/geometry/SimplePolygon.hpp>
+
+//#include <rmf_traffic/geometry/SimplePolygon.hpp>
+#include <src/rmf_traffic/geometry/SimplePolygon.hpp>
 
 #include <rmf_utils/catch.hpp>
 

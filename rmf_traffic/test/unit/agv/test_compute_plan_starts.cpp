@@ -49,7 +49,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc = {0, 0, 0};
 
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -79,7 +81,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1 + 1e-8, 0.1, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -94,7 +98,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1 - 1e-8, 0.1, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -109,7 +115,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 + 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -124,7 +132,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 - 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -154,7 +164,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1 + 0.1 - 1e-8, 0.1, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -169,7 +181,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1 - 0.1 + 1e-8, 0.1, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -184,7 +198,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 + 0.1 - 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -199,7 +215,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0.1, 0.1 - 0.1 + 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -237,7 +255,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc = {0.05, 0.05, 0};
 
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -272,7 +292,9 @@ SCENARIO("Test computing Starts from coordinates")
       Eigen::Vector3d robot_loc = {
         0 - max_waypoint_merging_distance - 1e-8, 0, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -292,7 +314,7 @@ SCENARIO("Test computing Starts from coordinates")
         0 - slightly_larger_radius_x_y, 0 + slightly_larger_radius_x_y, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
         rmf_traffic::agv::compute_plan_starts(
-        graph, robot_loc, initial_time,
+        graph, test_map_name, robot_loc, initial_time,
         max_waypoint_merging_distance,
         max_lane_merging_distance,
         min_lane_length);
@@ -306,7 +328,9 @@ SCENARIO("Test computing Starts from coordinates")
       Eigen::Vector3d robot_loc = {
         0 - slightly_larger_radius_x_y, 0 - slightly_larger_radius_x_y, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -324,7 +348,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + very_near_to_border_y, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -339,7 +365,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - very_near_to_border_y, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -371,7 +399,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0 - max_lane_merging_distance + 1e-8, 0, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -392,7 +422,9 @@ SCENARIO("Test computing Starts from coordinates")
         0 + slightly_smaller_than_border_x_y,
         0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -411,7 +443,7 @@ SCENARIO("Test computing Starts from coordinates")
         0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
         rmf_traffic::agv::compute_plan_starts(
-        graph, robot_loc, initial_time,
+        graph, test_map_name, robot_loc, initial_time,
         max_waypoint_merging_distance,
         max_lane_merging_distance,
         min_lane_length);
@@ -427,7 +459,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {0 - 1e-8, 0 + very_near_to_border_y, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -443,7 +477,7 @@ SCENARIO("Test computing Starts from coordinates")
       Eigen::Vector3d robot_loc = {0 - 1e-8, 0 - very_near_to_border_y, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
         rmf_traffic::agv::compute_plan_starts(
-        graph, robot_loc, initial_time,
+        graph, test_map_name, robot_loc, initial_time,
         max_waypoint_merging_distance,
         max_lane_merging_distance,
         min_lane_length);
@@ -469,7 +503,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc = {5.5, 5.5, 0};
 
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -498,7 +534,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc = {5.5, 5.5, 0};
 
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -542,7 +580,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 + 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -559,7 +599,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 - 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -575,7 +617,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 + max_lane_merging_distance - 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -591,7 +635,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 - max_lane_merging_distance + 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -622,7 +668,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 + 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -653,7 +701,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 - 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -684,7 +734,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 + 1.0 - 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -715,7 +767,9 @@ SCENARIO("Test computing Starts from coordinates")
     {
       Eigen::Vector3d robot_loc = {5, 0 - 1.0 + 1e-8, 0};
       std::vector<rmf_traffic::agv::Plan::Start> start_set =
-        rmf_traffic::agv::compute_plan_starts(graph,
+        rmf_traffic::agv::compute_plan_starts(
+          graph,
+          test_map_name,
           robot_loc,
           initial_time,
           max_waypoint_merging_distance,
@@ -763,7 +817,9 @@ SCENARIO("Test computing Starts from coordinates")
       0 + max_lane_merging_distance - 1e-8,
       0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -811,7 +867,9 @@ SCENARIO("Test computing Starts from coordinates")
       0 + max_lane_merging_distance - 1e-8,
       0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -862,7 +920,9 @@ SCENARIO("Test computing Starts from coordinates")
       0 + max_lane_merging_distance - 1e-8,
       0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -910,7 +970,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc =
     {0 + max_waypoint_merging_distance + 1e-8, 0, 0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -954,7 +1016,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc =
     {0 + max_waypoint_merging_distance + 1e-8, 0, 0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -992,7 +1056,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc = {
       0 + max_waypoint_merging_distance + 1e-8, 0, 0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -1038,7 +1104,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc = {
       0 + max_waypoint_merging_distance + 1e-8, 0, 0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc, initial_time,
         max_waypoint_merging_distance,
         max_lane_merging_distance,
@@ -1081,7 +1149,9 @@ SCENARIO("Test computing Starts from coordinates")
     Eigen::Vector3d robot_loc = {
       0 + max_waypoint_merging_distance + 1e-8, 0, 0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,
@@ -1124,7 +1194,9 @@ SCENARIO("Test computing Starts from coordinates")
 
     Eigen::Vector3d robot_loc = {1 + 1e-8, 1 + 1e-8, 0.0};
     std::vector<rmf_traffic::agv::Plan::Start> start_set =
-      rmf_traffic::agv::compute_plan_starts(graph,
+      rmf_traffic::agv::compute_plan_starts(
+        graph,
+        test_map_name,
         robot_loc,
         initial_time,
         max_waypoint_merging_distance,

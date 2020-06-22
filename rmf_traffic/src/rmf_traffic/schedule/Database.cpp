@@ -103,7 +103,6 @@ public:
 
   Timeline<RouteEntry> timeline;
 
-  // TODO(MXG): Should storage be merged with state?
   using ParticipantStorage = std::unordered_map<RouteId, RouteStorage>;
 
   struct ParticipantState
@@ -253,7 +252,6 @@ public:
   void apply_delay(
     ParticipantId participant,
     ParticipantState& state,
-    Time from,
     Duration delay)
   {
     ParticipantStorage& storage = state.storage;
@@ -266,7 +264,7 @@ public:
 
       assert(old_trajectory.start_time());
 
-      auto delayed = schedule::apply_delay(old_trajectory, from, delay);
+      auto delayed = schedule::apply_delay(old_trajectory, delay);
       if (!delayed)
         continue;
 
@@ -275,7 +273,7 @@ public:
 
       auto transition = std::make_unique<Transition>(
         Transition{
-          Change::Delay::Implementation{from, delay},
+          Change::Delay::Implementation{delay},
           std::move(entry_storage)
         });
 
@@ -406,7 +404,6 @@ rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
 }
 
 //==============================================================================
-
 void Database::set(
   ParticipantId participant,
   const Input& input,
@@ -504,7 +501,6 @@ void Database::extend(
 //==============================================================================
 void Database::delay(
   ParticipantId participant,
-  Time from,
   Duration delay,
   ItineraryVersion version)
 {
@@ -530,13 +526,13 @@ void Database::delay(
 
   if (auto ticket = state.tracker->check(version))
   {
-    ticket->set([=]() { this->delay(participant, from, delay, version); });
+    ticket->set([=]() { this->delay(participant, delay, version); });
     return;
   }
 
   //======== All validation is complete ===========
   ++_pimpl->schedule_version;
-  _pimpl->apply_delay(participant, state, from, delay);
+  _pimpl->apply_delay(participant, state, delay);
 }
 
 //==============================================================================
@@ -721,7 +717,6 @@ const Database::Implementation::RouteEntry* get_most_recent(
 //==============================================================================
 struct Delay
 {
-  Time from;
   Duration duration;
 };
 
@@ -802,7 +797,6 @@ public:
             std::make_pair(
               traverse->schedule_version,
               Delay{
-                delay.from,
                 delay.duration
               }));
 #ifndef NDEBUG
@@ -812,7 +806,6 @@ public:
           if (!insertion.second)
           {
             const Delay& previous = insertion.first->second;
-            assert(previous.from == delay.from);
             assert(previous.duration == delay.duration);
           }
 #else
@@ -1107,7 +1100,6 @@ auto Database::changes(
     {
       delays.emplace_back(
         Change::Delay{
-          d.second.from,
           d.second.duration
         });
     }

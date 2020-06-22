@@ -30,7 +30,6 @@ class Change::Delay::Implementation
 {
 public:
 
-  Time from;
   Duration duration;
 
 };
@@ -38,7 +37,6 @@ public:
 //==============================================================================
 rmf_utils::optional<Trajectory> apply_delay(
   const Trajectory& old_trajectory,
-  Time from,
   Duration delay);
 
 } // namespace schedule

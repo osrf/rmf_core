@@ -30,9 +30,8 @@ namespace rmf_traffic {
 // will not overflow until the year 2262. Please be sure to change this
 // implementation before then.
 using Time = std::chrono::steady_clock::time_point;
-// TODO(MXG): Before the first official release, we should seriously consider
-// pimpling this class. That would make the API robust to potential changes in
-// how we want to implement the underlying concept of Time.
+// TODO(MXG): We should seriously consider a complete overhaul of how we are
+// using time in this library.
 
 
 /// Specifies a change in time, with nanosecond precision.
@@ -43,6 +42,10 @@ namespace time {
 /// Change the given duration from a nanosecond count to a double-precision
 /// floating-point representation in seconds.
 double to_seconds(Duration delta_t);
+
+/// Chance the given duration from a double-precision floating-point
+/// representation to a nanosecond count.
+Duration from_seconds(double delta_t);
 
 /// Return the given start_time, offset by the number of seconds given.
 ///

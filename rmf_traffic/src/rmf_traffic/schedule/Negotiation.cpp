@@ -437,6 +437,9 @@ public:
     ParticipantId rejected_by,
     Alternatives offered_alternatives)
   {
+    // TODO(MXG): I should also keep track of the rejection version of the
+    // rejecter. That way we can correctly identify if the offered_alternatives
+    // have been updated or not.
     if (rmf_utils::modular(rejected_version).less_than(version()))
       return false;
 
@@ -901,9 +904,12 @@ Viewer::View Negotiation::Table::Viewer::Implementation::query(
   // Query for the routes in the child rollouts that are being considered
   for (const auto& alternative : chosen_alternatives)
   {
-    alternatives_timelines.at(alternative.participant)
-    .at(alternative.version)
-    ->inspect(spacetime, all_participants, inspector);
+    const auto& participant_alternatives =
+        alternatives_timelines.at(alternative.participant);
+    assert(alternative.version < participant_alternatives.size());
+
+    participant_alternatives.at(alternative.version)
+        ->inspect(spacetime, all_participants, inspector);
   }
 
   // Query for the relevant routes that are outside of the negotiation
@@ -938,9 +944,15 @@ auto Negotiation::Table::Viewer::base_proposals() const -> const Proposal&
 
 //==============================================================================
 std::shared_ptr<const ParticipantDescription>
-Negotiation::Table::Viewer::get_participant(ParticipantId participant_id) const
+Negotiation::Table::Viewer::get_description(ParticipantId participant_id) const
 {
   return _pimpl->schedule_viewer->get_participant(participant_id);
+}
+
+//==============================================================================
+ParticipantId Negotiation::Table::Viewer::participant_id() const
+{
+  return _pimpl->sequence.back().participant;
 }
 
 //==============================================================================

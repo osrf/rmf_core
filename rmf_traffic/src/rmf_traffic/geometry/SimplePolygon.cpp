@@ -17,7 +17,8 @@
 
 #include "ShapeInternal.hpp"
 
-#include <rmf_traffic/geometry/SimplePolygon.hpp>
+//#include <rmf_traffic/geometry/SimplePolygon.hpp>
+#include "SimplePolygon.hpp"
 
 #include <fcl/shape/geometric_shapes.h>
 

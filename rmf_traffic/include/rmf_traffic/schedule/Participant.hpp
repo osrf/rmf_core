@@ -57,13 +57,17 @@ public:
 
   /// Delay the current itinerary.
   ///
-  /// \param[in] from
-  ///   The time where the delay pushback begins. Waypoints that come after this
-  ///   time will be pushed back by the delay amount.
-  ///
   /// \param[in] delay
   ///   The amount of time to push back the relevant waypoints.
-  void delay(Time from, Duration delay);
+  void delay(Duration delay);
+
+  /// The cumulative delay that has built up since the last call to set().
+  ///
+  /// \note This value will not grow when there are no are itineraries for this
+  /// participant.
+  //
+  // TODO(MXG): Should extend() also reset this value? Currently it does not.
+  Duration delay() const;
 
   /// Erase certain routes from the itinerary.
   ///
@@ -119,13 +123,13 @@ private:
 //==============================================================================
 /// Make a participant for the schedule.
 ///
+/// \warning This will throw a std::runtime_error if you pass a nullptr writer.
+///
 /// \param[in] description
 ///   A descrition of the participant.
 ///
 /// \param[in] writer
-///   An interface to use when writing to the schedule. It is imperative that
-///   the object providing this interface is alive for the entire lifecycle of
-///   the returned Participant object, or else undefined behavior will occur.
+///   An interface to use when writing to the schedule.
 ///
 /// \param[in] rectifier_factory
 ///   A reference to a factory that can produce a rectifier for this
@@ -136,12 +140,8 @@ private:
 ///   then there is no need for a RectifierRequesterFactory.
 Participant make_participant(
   ParticipantDescription description,
-  Writer& writer,
-  RectificationRequesterFactory* rectifier_factory = nullptr);
-
-// TODO(MXG): Consider creating an overload of make_participant() that accepts
-// a std::shared_ptr<Writer> to ensure that the writer's lifecycle is long
-// enough.
+  std::shared_ptr<Writer> writer,
+  std::shared_ptr<RectificationRequesterFactory> rectifier_factory = nullptr);
 
 } // namespace schedule
 } // namespace rmf_traffic

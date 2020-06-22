@@ -20,6 +20,9 @@ set(msg_files
   "msg/DoorMode.msg"
   "msg/DoorState.msg"
   "msg/DoorRequest.msg"
+  "msg/DoorSessions.msg"
+  "msg/Session.msg"
+  "msg/SupervisorHeartbeat.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

@@ -19,7 +19,7 @@
 
 #include <rmf_traffic/DetectConflict.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
-#include <rmf_traffic/agv/Negotiator.hpp>
+#include <rmf_traffic/agv/SimpleNegotiator.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
@@ -64,7 +64,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile
     },
-    *database);
+    database);
 
   auto p2 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -73,7 +73,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile
     },
-    *database);
+    database);
 
   auto p3 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -82,20 +82,20 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       rmf_traffic::schedule::ParticipantDescription::Rx::Unresponsive,
       profile
     },
-    *database);
+    database);
 
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
   graph.add_waypoint(test_map_name, {0.0, -10.0}); // 0
-  graph.add_waypoint(test_map_name, {0.0, -5.0}, true);  // 1
-  graph.add_waypoint(test_map_name, {5.0, -5.0}, true);  // 2
+  graph.add_waypoint(test_map_name, {0.0, -5.0});  // 1
+  graph.add_waypoint(test_map_name, {5.0, -5.0}).set_holding_point(true);  // 2
   graph.add_waypoint(test_map_name, {-10.0, 0.0}); // 3
-  graph.add_waypoint(test_map_name, {-5.0, 0.0}, true); // 4
+  graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 4
   graph.add_waypoint(test_map_name, {0.0, 0.0}); // 5
   graph.add_waypoint(test_map_name, {5.0, 0.0}); // 6
   graph.add_waypoint(test_map_name, {10.0, 0.0}); // 7
-  graph.add_waypoint(test_map_name, {0.0, 5.0}, true); // 8
-  graph.add_waypoint(test_map_name, {5.0, 5.0}, true); // 9
+  graph.add_waypoint(test_map_name, {0.0, 5.0}); // 8
+  graph.add_waypoint(test_map_name, {5.0, 5.0}).set_holding_point(true); // 9
   graph.add_waypoint(test_map_name, {0.0, 10.0}); // 10
 
   /*
@@ -200,41 +200,43 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       plan_1->get_start(),
       plan_1.get_goal(),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(
+            nullptr, nullptr, rmf_utils::nullopt, rmf_utils::nullopt, wait_time)
     };
 
     rmf_traffic::agv::SimpleNegotiator negotiator_2{
       plan_2->get_start(),
       plan_2.get_goal(),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(
+            nullptr, nullptr, rmf_utils::nullopt, rmf_utils::nullopt, wait_time)
     };
 
     auto next_table = negotiation->table(p1.id(), {});
     negotiator_1.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
     REQUIRE(negotiation->table(p2.id(), {p1.id()}));
 
     next_table = negotiation->table(p2.id(), {});
     negotiator_2.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
     REQUIRE(negotiation->table(p1.id(), {p2.id()}));
 
     next_table = negotiation->table(p1.id(), {p2.id()});
     negotiator_1.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
     CHECK(negotiation->ready());
 
     next_table = negotiation->table(p2.id(), {p1.id()});
     negotiator_2.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
     CHECK(negotiation->complete());
 
@@ -281,25 +283,27 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       rmf_traffic::agv::Plan::Start(start_time, 3, 0.0),
       rmf_traffic::agv::Plan::Goal(7),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(
+            nullptr, nullptr, rmf_utils::nullopt, rmf_utils::nullopt, wait_time)
     };
 
     rmf_traffic::agv::SimpleNegotiator negotiator_2{
       rmf_traffic::agv::Plan::Start(start_time, 7, 0.0),
       rmf_traffic::agv::Plan::Goal(3),
       configuration,
-      rmf_traffic::agv::SimpleNegotiator::Options(nullptr, wait_time)
+      rmf_traffic::agv::SimpleNegotiator::Options(
+            nullptr, nullptr, rmf_utils::nullopt, rmf_utils::nullopt, wait_time)
     };
 
     auto next_table = negotiation->table(p1.id(), {});
     negotiator_1.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
     next_table = negotiation->table(p2.id(), {});
     negotiator_2.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
     CHECK_FALSE(negotiation->ready());
     CHECK_FALSE(negotiation->complete());
@@ -307,7 +311,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     next_table = negotiation->table(p1.id(), {p2.id()});
     negotiator_1.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
     // ready() will be false here, because the ideal itinerary for
     // participant 2 makes it impossible for participant 1 to get out of the
@@ -317,7 +321,7 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
     next_table = negotiation->table(p2.id(), {p1.id()});
     negotiator_2.respond(
       next_table->viewer(),
-      rmf_traffic::schedule::SimpleResponder(next_table));
+      rmf_traffic::schedule::SimpleResponder::make(next_table));
 
 //    CHECK(negotiation->complete());
 
@@ -360,7 +364,7 @@ SCENARIO("Multi-participant negotiation")
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile
     },
-    *database);
+    database);
 
   auto p2 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -369,7 +373,7 @@ SCENARIO("Multi-participant negotiation")
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile
     },
-    *database);
+    database);
 
   auto p3 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
@@ -378,15 +382,15 @@ SCENARIO("Multi-participant negotiation")
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile
     },
-    *database);
+    database);
 
   const std::string test_map_name = "test_map";
   rmf_traffic::agv::Graph graph;
-  graph.add_waypoint(test_map_name, { 0.0, -5.0}, true); // 0
-  graph.add_waypoint(test_map_name, {-5.0, 0.0}, true); // 1
-  graph.add_waypoint(test_map_name, { 0.0, 0.0}, true); // 2
-  graph.add_waypoint(test_map_name, { 5.0, 0.0}, true); // 3
-  graph.add_waypoint(test_map_name, { 0.0, 5.0}, true); // 4
+  graph.add_waypoint(test_map_name, { 0.0, -5.0}); // 0
+  graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 1
+  graph.add_waypoint(test_map_name, { 0.0, 0.0}); // 2
+  graph.add_waypoint(test_map_name, { 5.0,  0.0}); // 3
+  graph.add_waypoint(test_map_name, { 0.0, 5.0}); // 4
 
   /*
    *         4
@@ -427,7 +431,7 @@ SCENARIO("Multi-participant negotiation")
   intentions.insert({2, NegotiationRoom::Intention{
         {time, 3, 0.0}, 1, configuration}});
 
-  auto proposal = NegotiationRoom(database, intentions) /*.print()*/.solve();
+  auto proposal = NegotiationRoom(database, intentions, 4.0)/*.print()*/.solve();
   REQUIRE(proposal);
 
   //print_proposal(*proposal);
@@ -476,7 +480,8 @@ generate_test_graph_data(std::string map_name, VertexMap vertices,
   for (auto it = vertices.cbegin(); it != vertices.cend(); it++)
   {
     // Adding to rmf_traffic::agv::Graph
-    graph.add_waypoint(map_name, it->second.first, it->second.second);
+    graph.add_waypoint(map_name, it->second.first)
+        .set_holding_point(it->second.second);
 
     // Book keeping
     vertex_id_to_idx.insert({it->first, current_idx});
@@ -497,8 +502,7 @@ generate_test_graph_data(std::string map_name, VertexMap vertices,
       vertex_id_to_idx);
 }
 
-inline rmf_utils::optional<rmf_traffic::schedule::Itinerary>
-get_participant_itinerary(
+inline rmf_utils::optional<rmf_traffic::schedule::Itinerary> get_participant_itinerary(
   rmf_traffic::schedule::Negotiation::Proposal proposal,
   rmf_traffic::schedule::ParticipantId participant_id)
 {
@@ -586,7 +590,7 @@ const ParticipantConfig a2_config = {
 
 // Tests
 //==============================================================================
-SCENARIO("A Single Lane, hold anywhere")
+SCENARIO("A Single Lane")
 {
   using namespace std::chrono_literals;
   auto database = std::make_shared<rmf_traffic::schedule::Database>();
@@ -596,14 +600,14 @@ SCENARIO("A Single Lane, hold anywhere")
 
   /*           single_lane_map
    *
-   *          3        3        3
-   *    A(H) <-> B(H) <-> C(H) <-> D(H)
+   *       3     3     3
+   *    A <-> B <-> C <-> D
    */
 
-  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(false)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -616,7 +620,7 @@ SCENARIO("A Single Lane, hold anywhere")
   GIVEN("1 Participant")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->D)]")
     {
@@ -651,11 +655,11 @@ SCENARIO("A Single Lane, hold anywhere")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
     auto p2 = rmf_traffic::schedule::make_participant(a2_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->B), p1(D->C)]")
     {
@@ -937,9 +941,9 @@ SCENARIO("A single lane, limited holding spaces")
    */
 
   vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(false)}});
   vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(false)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -952,11 +956,11 @@ SCENARIO("A single lane, limited holding spaces")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
     auto p2 = rmf_traffic::schedule::make_participant(a2_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[pO(A->C), p2(B->D)]")
     {
@@ -1071,10 +1075,10 @@ SCENARIO("A single loop")
    *         D(H)<------>C(H)
    */
 
-  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{6.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{6.0, -6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{-0.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B", {{6.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C", {{6.0, -6.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D", {{-0.0, -6.0}, IsHoldingSpot(false)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -1087,9 +1091,9 @@ SCENARIO("A single loop")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[pO(A->C), p1(B->D)]")
     {
@@ -1208,8 +1212,8 @@ SCENARIO("A single lane with an alcove holding space")
   vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(false)}});
   vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(false)}});
   vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(false)}});
-  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(true)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(false)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -1223,9 +1227,9 @@ SCENARIO("A single lane with an alcove holding space")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->E), p1(D->A)]")
     {
@@ -1394,14 +1398,10 @@ SCENARIO("A single lane with an alcove holding space")
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
 
-        auto p0_itinerary =
-          get_participant_itinerary(*proposal, p0.id()).value();
-        auto p1_itinerary =
-          get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
-          2) == vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
-          2) == vertices["A"].first);
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
       }
     }
 
@@ -1588,6 +1588,7 @@ SCENARIO("A single lane with an alcove holding space")
   }
 }
 
+
 SCENARIO("A single lane with a alternate one way path")
 {
   using namespace std::chrono_literals;
@@ -1608,12 +1609,12 @@ SCENARIO("A single lane with a alternate one way path")
    *      A(H) <-----> B(H) <------> C(H) <------> D(H)
    */
 
-  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(true)}});
-  vertices.insert({"F", {{3.0, 3.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"F", {{3.0, 3.0}, IsHoldingSpot(false)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -1629,9 +1630,9 @@ SCENARIO("A single lane with a alternate one way path")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
     WHEN("Schedule:[], Negotiation:[p0(A->D), p1(C->A)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -1661,7 +1662,7 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions, 4.0).solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -1706,17 +1707,13 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions, 4.0).solve();
         REQUIRE(proposal);
 
-        auto p0_itinerary =
-          get_participant_itinerary(*proposal, p0.id()).value();
-        auto p1_itinerary =
-          get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
-          2) == vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
-          2) == vertices["A"].first);
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
       }
     }
   }
@@ -1743,12 +1740,12 @@ SCENARIO("A single lane with a alternate two way path")
    *      A(H) <-----> B(H) <------> C(H) <------> D(H)
    */
 
-  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(true)}});
-  vertices.insert({"F", {{3.0, 3.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{-3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B", {{0.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C", {{3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D", {{6.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"E", {{0.0, 3.0}, IsHoldingSpot(false)}});
+  vertices.insert({"F", {{3.0, 3.0}, IsHoldingSpot(false)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -1764,9 +1761,9 @@ SCENARIO("A single lane with a alternate two way path")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
     WHEN("Schedule:[], Negotiation:[p0(A->D), p1(C->A)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -1844,14 +1841,10 @@ SCENARIO("A single lane with a alternate two way path")
         auto proposal = NegotiationRoom(database, intentions).solve();
         REQUIRE(proposal);
 
-        auto p0_itinerary =
-          get_participant_itinerary(*proposal, p0.id()).value();
-        auto p1_itinerary =
-          get_participant_itinerary(*proposal, p1.id()).value();
-        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0,
-          2) == vertices["D"].first);
-        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0,
-          2) == vertices["A"].first);
+        auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
+        auto p1_itinerary = get_participant_itinerary(*proposal, p1.id()).value();
+        REQUIRE(p0_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["D"].first);
+        REQUIRE(p1_itinerary.back()->trajectory().back().position().segment(0, 2) == vertices["A"].first);
       }
     }
   }
@@ -1880,15 +1873,15 @@ SCENARIO("A single loop with alcoves at each vertex")
    *      D'               C'
    */
 
-  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{6.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{6.0, -6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{-0.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B", {{6.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C", {{6.0, -6.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D", {{-0.0, -6.0}, IsHoldingSpot(false)}});
 
-  vertices.insert({"A'", {{-3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B'", {{9.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C'", {{9.0, -6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D'", {{-3.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A'", {{-3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B'", {{9.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C'", {{9.0, -6.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D'", {{-3.0, -6.0}, IsHoldingSpot(false)}});
 
   edges.insert({"AB", {{"A", "B"}, IsBidirectional(true)}});
   edges.insert({"BC", {{"B", "C"}, IsBidirectional(true)}});
@@ -1907,9 +1900,9 @@ SCENARIO("A single loop with alcoves at each vertex")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[pO(A'->C'), p1(B'->D')]")
     {
@@ -2051,11 +2044,11 @@ SCENARIO("A single loop with alcoves at each vertex")
   GIVEN("3 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
     auto p2 = rmf_traffic::schedule::make_participant(a2_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[pO(A'->C'), p1(B'->D'), p2(D'->B')]")
     {
@@ -2097,8 +2090,7 @@ SCENARIO("A single loop with alcoves at each vertex")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal =
-          NegotiationRoom(database, intentions) /*.print()*/.solve();
+        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2134,7 +2126,7 @@ SCENARIO("fan-in-fan-out bottleneck")
   /*
    *        fan_in_fan_out (All lengths are 3)
    *
-   *        A(H)    B(H)    C(H)   D(H)    E(H)
+   *        A       B(H)    C      D(H)    E
    *        ^       ^       ^      ^       ^
    *        |       |       |      |       |
    *        v       v       v      v       v
@@ -2150,18 +2142,18 @@ SCENARIO("fan-in-fan-out bottleneck")
    *        ^       ^       ^      ^       ^
    *        |       |       |      |       |
    *        v       v       v      v       v
-   *        V(H)    W(H)    X(H)   Y(H)    Z(H)
+   *        V       W(H)    X      Y(H)    Z
    *
    *
    *
    */
 
   // Vertices
-  vertices.insert({"A", {{-6.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{-6.0, 6.0}, IsHoldingSpot(false)}});
   vertices.insert({"B", {{-3.0, 6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{0.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"C", {{0.0, 6.0}, IsHoldingSpot(false)}});
   vertices.insert({"D", {{3.0, 6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"E", {{6.0, 6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"E", {{6.0, 6.0}, IsHoldingSpot(false)}});
 
   vertices.insert({"A'", {{-6.0, 3.0}, IsHoldingSpot(false)}});
   vertices.insert({"B'", {{-3.0, 3.0}, IsHoldingSpot(false)}});
@@ -2177,11 +2169,11 @@ SCENARIO("fan-in-fan-out bottleneck")
   vertices.insert({"Y'", {{3.0, -3.0}, IsHoldingSpot(false)}});
   vertices.insert({"Z'", {{6.0, -3.0}, IsHoldingSpot(false)}});
 
-  vertices.insert({"V", {{-6.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"V", {{-6.0, -6.0}, IsHoldingSpot(false)}});
   vertices.insert({"W", {{-3.0, -6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"X", {{0.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"X", {{0.0, -6.0}, IsHoldingSpot(false)}});
   vertices.insert({"Y", {{3.0, -6.0}, IsHoldingSpot(true)}});
-  vertices.insert({"Z", {{6.0, -6.0}, IsHoldingSpot(true)}});
+  vertices.insert({"Z", {{6.0, -6.0}, IsHoldingSpot(false)}});
 
   // Edges
   edges.insert({"AA'", {{"A", "A'"}, IsBidirectional(true)}});
@@ -2213,10 +2205,26 @@ SCENARIO("fan-in-fan-out bottleneck")
   auto graph = graph_data.first;
   auto vertex_id_to_idx = graph_data.second;
 
+  auto set_passthrough_point = [&](const std::string& wp)
+  {
+    graph.get_waypoint(vertex_id_to_idx[wp]).set_passthrough_point(true);
+  };
+  set_passthrough_point("A'");
+  set_passthrough_point("B'");
+  set_passthrough_point("C'");
+  set_passthrough_point("D'");
+  set_passthrough_point("E'");
+  set_passthrough_point("F");
+  set_passthrough_point("V'");
+  set_passthrough_point("W'");
+  set_passthrough_point("X'");
+  set_passthrough_point("Y'");
+  set_passthrough_point("Z'");
+
   GIVEN("1 Participant")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->Z)]")
     {
@@ -2280,9 +2288,9 @@ SCENARIO("fan-in-fan-out bottleneck")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(E->V)]")
     {
@@ -2358,8 +2366,7 @@ SCENARIO("fan-in-fan-out bottleneck")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal =
-          NegotiationRoom(database, intentions) /*.print()*/.solve();
+        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2469,11 +2476,11 @@ SCENARIO("fan-in-fan-out bottleneck")
   GIVEN("3 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
     auto p2 = rmf_traffic::schedule::make_participant(a2_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(E->V), p2(C->X)]")
     {
@@ -2513,10 +2520,10 @@ SCENARIO("fan-in-fan-out bottleneck")
           }
         });
 
+      // We don't run this test in debug mode because it takes a long time
       THEN("Valid Proposal is found")
       {
-        auto proposal =
-          NegotiationRoom(database, intentions) /*.print()*/.solve();
+        auto proposal = NegotiationRoom(database, intentions, 2.0)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2536,7 +2543,6 @@ SCENARIO("fan-in-fan-out bottleneck")
           vertices["X"].first);
       }
     }
-
     WHEN("Schedule:[], Negotiation:[p0(A->Z), p1(E->V), p2(X->C)]")
     {
       const auto time = std::chrono::steady_clock::now();
@@ -2575,11 +2581,10 @@ SCENARIO("fan-in-fan-out bottleneck")
           }
         });
 
-
+      // We don't run this test in debug mode because it takes a long time
       THEN("Valid Proposal is found")
       {
-        auto proposal =
-          NegotiationRoom(database, intentions) /*.print()*/.solve();
+        auto proposal = NegotiationRoom(database, intentions, 2.3)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2602,6 +2607,9 @@ SCENARIO("fan-in-fan-out bottleneck")
   }
 }
 
+#ifdef NDEBUG
+// We do not run this test in Debug mode because it takes a long time to run
+// due to the high branching factor
 SCENARIO("Fully connected graph of 10 vertices")
 {
   auto database = std::make_shared<rmf_traffic::schedule::Database>();
@@ -2609,16 +2617,16 @@ SCENARIO("Fully connected graph of 10 vertices")
   VertexMap vertices;
   EdgeMap edges;
 
-  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"B", {{3.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"C", {{6.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"D", {{9.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"E", {{12.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"F", {{15.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"G", {{18.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"H", {{21.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"I", {{24.0, 0.0}, IsHoldingSpot(true)}});
-  vertices.insert({"J", {{27.0, 0.0}, IsHoldingSpot(true)}});
+  vertices.insert({"A", {{0.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"B", {{3.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"C", {{6.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"D", {{9.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"E", {{12.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"F", {{15.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"G", {{18.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"H", {{21.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"I", {{24.0, 0.0}, IsHoldingSpot(false)}});
+  vertices.insert({"J", {{27.0, 0.0}, IsHoldingSpot(false)}});
 
   std::string vtxs = "ABCDEFGHIJ";
   for (char& v_source : vtxs)
@@ -2643,7 +2651,7 @@ SCENARIO("Fully connected graph of 10 vertices")
   GIVEN("1 Participant")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->J)]")
     {
@@ -2679,9 +2687,9 @@ SCENARIO("Fully connected graph of 10 vertices")
   GIVEN("2 Participants")
   {
     auto p0 = rmf_traffic::schedule::make_participant(a0_config.description,
-        *database);
+        database);
     auto p1 = rmf_traffic::schedule::make_participant(a1_config.description,
-        *database);
+        database);
 
     WHEN("Schedule:[], Negotiation:[p0(A->J), p1(J->A)]")
     {
@@ -2710,14 +2718,16 @@ SCENARIO("Fully connected graph of 10 vertices")
           }
         });
 
+      // We don't run this test in debug mode because it takes a long time
       THEN("No valid proposal is found")
       {
         // The AGV planner assumes that waypoints are connected with simple
         // straight lines. Since all waypoints are colinear, it is impossible
         // for two vehicles to cross over each other.
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions, 1.1).solve();
         CHECK_FALSE(proposal);
       }
     }
   }
 }
+#endif // NDEBUG
