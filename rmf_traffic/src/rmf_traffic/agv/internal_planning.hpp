@@ -140,6 +140,9 @@ public:
 
   virtual rmf_utils::optional<Plan> debug_step(Debugger& debugger) = 0;
 
+  virtual agv::Planner::Debug::Node::SearchQueue inspect(
+      const State& state) const = 0;
+
   virtual ~Cache() = default;
 };
 

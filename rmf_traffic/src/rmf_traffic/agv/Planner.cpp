@@ -1104,5 +1104,12 @@ auto Planner::Debug::begin(
     std::move(options));
 }
 
+//==============================================================================
+Planner::Debug::Node::SearchQueue Planner::Debug::inspect(const Result& result)
+{
+  const auto& rimpl = Result::Implementation::get(result);
+  return rimpl.cache_mgr.get()->inspect(rimpl.state);
+}
+
 } // namespace agv
 } // namespace rmf_traffic

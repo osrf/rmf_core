@@ -130,6 +130,8 @@ public:
     Goal goal,
     Options options) const;
 
+  static Node::SearchQueue inspect(const Result& result);
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;

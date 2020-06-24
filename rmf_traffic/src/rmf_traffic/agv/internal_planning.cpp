@@ -1982,11 +1982,29 @@ public:
       return output;
     }
 
+    using MapToDebug = std::unordered_map<
+      DifferentialDriveExpander::NodePtr,
+      agv::Planner::Debug::ConstNodePtr
+    >;
+
+    using MapFromDebug = std::unordered_map<
+      agv::Planner::Debug::ConstNodePtr,
+      DifferentialDriveExpander::NodePtr
+    >;
+
     agv::Planner::Debug::ConstNodePtr convert(
-        DifferentialDriveExpander::NodePtr from)
+        const DifferentialDriveExpander::NodePtr& from)
     {
-      const auto it = _to_debug.find(from);
-      if (it != _to_debug.end())
+      return convert(from, _to_debug, &_from_debug);
+    }
+
+    static agv::Planner::Debug::ConstNodePtr convert(
+        const DifferentialDriveExpander::NodePtr& from,
+        MapToDebug& to_debug,
+        MapFromDebug* from_debug)
+    {
+      const auto it = to_debug.find(from);
+      if (it != to_debug.end())
         return it->second;
 
       std::vector<DifferentialDriveExpander::NodePtr> queue;
@@ -1999,8 +2017,8 @@ public:
         agv::Planner::Debug::ConstNodePtr debug_parent = nullptr;
         if (parent)
         {
-          const auto parent_it = _to_debug.find(parent);
-          if (parent_it == _to_debug.end())
+          const auto parent_it = to_debug.find(parent);
+          if (parent_it == to_debug.end())
           {
             queue.push_back(parent);
             continue;
@@ -2021,12 +2039,13 @@ public:
                 node->start_set_index
               });
 
-        _to_debug[node] = new_debug_node;
-        _from_debug[new_debug_node] = node;
+        to_debug[node] = new_debug_node;
+        if (from_debug)
+          (*from_debug)[new_debug_node] = node;
         queue.pop_back();
       }
 
-      return _to_debug[from];
+      return to_debug[from];
     }
 
     agv::Planner::Debug::Node::SearchQueue queue_;
@@ -2050,13 +2069,8 @@ public:
     }
 
   private:
-    std::unordered_map<
-        agv::Planner::Debug::ConstNodePtr,
-        DifferentialDriveExpander::NodePtr> _from_debug;
-
-    std::unordered_map<
-        DifferentialDriveExpander::NodePtr,
-        agv::Planner::Debug::ConstNodePtr> _to_debug;
+    MapFromDebug _from_debug;
+    MapToDebug _to_debug;
   };
 
   std::unique_ptr<Cache::Debugger> debug_begin(
@@ -2120,6 +2134,32 @@ public:
     }
 
     return rmf_utils::nullopt;
+  }
+
+  agv::Planner::Debug::Node::SearchQueue inspect(const State& state) const final
+  {
+    std::unordered_map<
+        DifferentialDriveExpander::NodePtr,
+        agv::Planner::Debug::ConstNodePtr> to_debug;
+
+    const auto convert = [&to_debug](
+        const DifferentialDriveExpander::NodePtr& from)
+        -> agv::Planner::Debug::ConstNodePtr
+    {
+      return Debugger::convert(from, to_debug, nullptr);
+    };
+
+    auto from_queue =
+        static_cast<const InternalState*>(state.internal.get())->queue;
+    agv::Planner::Debug::Node::SearchQueue to_queue;
+
+    while (!from_queue.empty())
+    {
+      to_queue.push(convert(from_queue.top()));
+      from_queue.pop();
+    }
+
+    return to_queue;
   }
 
 private:
