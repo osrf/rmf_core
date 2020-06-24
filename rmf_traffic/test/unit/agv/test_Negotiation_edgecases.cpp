@@ -491,7 +491,7 @@ SCENARIO("Test empty proposal")
   const auto not_empty_route =
       rmf_traffic::Route("test_map", not_empty_trajectory);
 
-  negotiation.table(0, {})->submit({empty_route}, 1);
+  negotiation.table(0, {})->submit({}, 1);
   negotiation.table(1, {})->submit({not_empty_route}, 1);
   negotiation.table(1, {0})->submit({not_empty_route}, 1);
   negotiation.table(0, {1})->submit({not_empty_route}, 1);
@@ -499,9 +499,4 @@ SCENARIO("Test empty proposal")
   const auto quickest_finish =
       negotiation.evaluate(rmf_traffic::schedule::QuickestFinishEvaluator());
   REQUIRE(quickest_finish);
-
-  std::cout << "Selected: [";
-  for (const auto& s : quickest_finish->sequence())
-    std::cout << " " << s.participant << ":" << s.version;
-  std::cout << " ]" << std::endl;
 }
