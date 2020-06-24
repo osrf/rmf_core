@@ -45,7 +45,5 @@ install(
 )
 
 add_subdirectory(test/unit)
-add_subdirectory(cmake/ament_cmake_catch2)
-add_subdirectory(cmake/rmf_cmake_uncrustify)
 
 ament_package()
