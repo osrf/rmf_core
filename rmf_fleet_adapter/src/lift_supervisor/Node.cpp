@@ -53,14 +53,43 @@ Node::Node()
 //==============================================================================
 void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
 {
-  // For now we will simply forward the request along
+  auto& lift_requests = _schedule[msg->lift_name];
+  bool is_new = true;
+
+  for (auto const& i : lift_requests)
+  {
+    if ((i->destination_floor == msg->destination_floor) &&
+        (i->door_state == msg->door_state))
+    {
+      is_new = false;
+      break;
+    }
+  }
+
+  if (is_new)
+    lift_requests.push_back(std::move(msg));
+
+  // For now we will simply queue the requests and forward one by one
   // TODO(MXG): Make this more intelligent by scheduling the lift
-  _lift_request_pub->publish(*msg);
+  if (!lift_requests.empty())
+    _lift_request_pub->publish(*lift_requests.front());
 }
 
 //==============================================================================
-void Node::_lift_state_update(LiftState::UniquePtr /*msg*/)
+void Node::_lift_state_update(LiftState::UniquePtr msg)
 {
+  auto& lift_requests = _schedule[msg->lift_name];
+
+  if (!lift_requests.empty())
+  {
+    if ((lift_requests.front()->destination_floor == msg->current_floor) &&
+        (lift_requests.front()->door_state == msg->door_state))
+      lift_requests.pop_front();
+  }
+
+  if (!lift_requests.empty())
+    _lift_request_pub->publish(*lift_requests.front());
+
   // For now, we do not need to publish this.
 
 //  std_msgs::msg::Bool emergency_msg;

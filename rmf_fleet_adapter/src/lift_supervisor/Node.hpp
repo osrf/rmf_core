@@ -27,6 +27,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <list>
 
 namespace rmf_fleet_adapter {
 namespace lift_supervisor {
@@ -57,6 +58,9 @@ private:
   using EmergencyNoticePub = rclcpp::Publisher<EmergencyNotice>;
   EmergencyNoticePub::SharedPtr _emergency_notice_pub;
 
+  using LiftRequestSchedule = 
+    std::unordered_map<std::string, std::list<LiftRequest::UniquePtr>>;
+  LiftRequestSchedule _schedule;
 };
 
 } // namespace lift_supervisor
