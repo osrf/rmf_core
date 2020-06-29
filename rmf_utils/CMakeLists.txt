@@ -22,7 +22,7 @@ target_include_directories(rmf_utils
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-ament_export_interfaces(rmf_utils HAS_LIBRARY_TARGET)
+ament_export_targets(rmf_utils HAS_LIBRARY_TARGET)
 
 install(
   DIRECTORY include/
