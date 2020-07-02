@@ -169,7 +169,17 @@ Time PiecewiseSplineMotion::finish_time() const
 //==============================================================================
 Eigen::Vector3d PiecewiseSplineMotion::compute_position(Time t) const
 {
-  return _splines.lower_bound(t)->second.compute_position(t);
+  if (_splines.empty())
+  {
+    throw std::runtime_error(
+        "Calling PiecewiseSplineMotion::compute_position for an empty motion");
+  }
+
+  const auto it = _splines.lower_bound(t);
+  if (t < start_time() || it == _splines.end())
+    throw OutOfSplineRange(t, {start_time(), finish_time()});
+
+  return it->second.compute_position(t);
 }
 
 //==============================================================================

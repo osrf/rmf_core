@@ -271,8 +271,11 @@ Time Spline::finish_time() const
 //==============================================================================
 Eigen::Vector3d Spline::compute_position(const Time at_time) const
 {
-  return rmf_traffic::compute_position(
-    params, compute_scaled_time(at_time, params));
+  if (at_time < params.time_range[0] || params.time_range[1] < at_time)
+    throw OutOfSplineRange(at_time, params.time_range);
+
+  const double time = compute_scaled_time(at_time, params);
+  return rmf_traffic::compute_position(params, time);
 }
 
 //==============================================================================
@@ -295,6 +298,42 @@ Eigen::Vector3d Spline::compute_acceleration(const Time at_time) const
 const Spline::Parameters& Spline::get_params() const
 {
   return params;
+}
+
+//==============================================================================
+std::string out_of_spline_range_message(
+    Time t,
+    std::array<Time, 2> range)
+{
+  std::ostringstream oss;
+  if (t < range[0])
+  {
+    const auto dt = rmf_traffic::time::to_seconds(range[0] - t);
+    oss << "Requested time is [" << dt << "s] before the spline begins";
+  }
+  else if (range[1] < t)
+  {
+    const auto dt = rmf_traffic::time::to_seconds(t - range[1]);
+    oss << "Requested time is [" << dt << "s] after the spline ends";
+  }
+  else
+  {
+    const auto dt = rmf_traffic::time::to_seconds(t - range[0]);
+    const auto span = rmf_traffic::time::to_seconds(range[1] - range[0]);
+    oss << "OutOfSplineRange exception thrown by mistake. Requested time is ["
+        << dt << "s] into a spline of span [" << span << "s]";
+  }
+
+  return oss.str();
+}
+
+//==============================================================================
+OutOfSplineRange::OutOfSplineRange(
+    Time t,
+    std::array<Time, 2> range)
+  : std::runtime_error(out_of_spline_range_message(t, range))
+{
+  // Do nothing
 }
 
 } // namespace rmf_traffic

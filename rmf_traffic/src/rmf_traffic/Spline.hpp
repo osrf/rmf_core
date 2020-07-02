@@ -80,6 +80,14 @@ private:
 
 };
 
+class OutOfSplineRange : public std::runtime_error
+{
+public:
+
+  OutOfSplineRange(Time t, std::array<Time,2> range);
+
+};
+
 } // namespace rmf_traffic
 
 #endif // SRC__RMF_TRAFFIC__SPLINE_HPP
