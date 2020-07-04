@@ -147,7 +147,7 @@ public:
       const rclcpp::NodeOptions& node_options,
       rmf_utils::optional<rmf_traffic::Duration> discovery_timeout)
   {
-    if (!rclcpp::is_initialized(node_options.context()))
+    if (!rclcpp::ok(node_options.context()))
     {
       throw std::runtime_error(
             "rclcpp must be initialized before creating an Adapter! "
