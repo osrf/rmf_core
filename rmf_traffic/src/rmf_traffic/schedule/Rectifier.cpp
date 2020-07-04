@@ -133,7 +133,7 @@ DatabaseRectificationRequesterFactory::make(
     _pimpl->_database, std::move(rectifier), participant_id);
 
   _pimpl->_handles.push_back(requester->_handle);
-  return std::move(requester);
+  return requester;
 }
 
 //==============================================================================
