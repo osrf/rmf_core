@@ -35,8 +35,6 @@ std::shared_ptr<Task> make_delivery(
   const auto pickup_wp =
       graph.find_waypoint(request.pickup_place_name)->index();
 
-  const auto& node = context->node();
-
   Task::PendingPhases phases;
   phases.push_back(
         phases::GoToPlace::make(context, std::move(pickup_start), pickup_wp));
