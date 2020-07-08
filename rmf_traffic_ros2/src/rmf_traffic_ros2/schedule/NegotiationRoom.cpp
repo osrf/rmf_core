@@ -19,6 +19,7 @@
 
 #include <rmf_traffic_ros2/Route.hpp>
 #include <rmf_traffic_ros2/schedule/Itinerary.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include <iostream>
 
@@ -241,6 +242,83 @@ void print_negotiation_status(
     }
   }
   std::cout << "\n" << std::endl;
+}
+
+rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
+  rmf_traffic::schedule::Version conflict_version,
+  const rmf_traffic::schedule::Negotiation& negotiation)
+{
+  rmf_traffic_msgs::msg::NegotiationStatus msg;
+  msg.conflict_version = conflict_version;
+
+  //add participants
+  for (const auto p : negotiation.participants())
+    msg.participants.push_back(p);
+
+  //do a breadth first traversal to assemble tables into an array
+  struct Node
+  {
+    rmf_traffic::schedule::Negotiation::ConstTablePtr table_ptr;
+    int parent_index = -1;
+  };
+  std::vector<Node> queue;
+
+  for (const auto p : negotiation.participants())
+  { 
+    const auto root_table = negotiation.table(p, {});
+    assert(root_table);
+    assert(root_table->parent() == nullptr);
+
+    Node t;
+    t.table_ptr = root_table;
+    queue.push_back(t);
+  }
+
+  //do breadth first processing
+  uint current_depth = 0;
+  std::vector<Node> next_depth_queue;
+  do
+  {
+    for (auto node : queue)
+    { 
+      rmf_traffic_msgs::msg::NegotiationStatusTable table;
+
+      for (const auto v : node.table_ptr->sequence())
+        table.sequence.push_back(v.participant);
+      table.depth = current_depth;
+      table.parent_index = node.parent_index;
+
+      table.finished = static_cast<bool>(node.table_ptr->submission());
+      table.forfeited = node.table_ptr->forfeited();
+      table.rejected = node.table_ptr->rejected();
+      table.ongoing = node.table_ptr->ongoing();
+      msg.tables.push_back(table);
+
+      auto children = node.table_ptr->children();
+      for (auto child : children)
+      {
+        Node c;
+        c.table_ptr = child;
+        c.parent_index = msg.tables.size() - 1;
+        next_depth_queue.push_back(c);
+      }
+    }
+    queue = next_depth_queue;
+    next_depth_queue.clear();
+    ++current_depth;
+
+  } while (!queue.empty());
+  /*
+  auto sort = [](NegotiationStatusTable& l, NegotiationStatusTable& r) -> bool
+  {
+    assert(l.sequence.size() >= 1);
+    assert(r.sequence.size() >= 1);
+    int l_participant = l.sequence.back();
+    int r_participant = r.sequence.back();
+    return l.depth < r.depth && l_participant < r_participant;
+  };
+  std::sort(msg.tables.begin(), msg.tables.end(), sort);*/
+  return msg;
 }
 
 } // namespace schedule
