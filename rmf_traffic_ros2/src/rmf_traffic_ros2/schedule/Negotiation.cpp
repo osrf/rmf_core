@@ -482,6 +482,7 @@ public:
     respond_to_queue(queue, msg.conflict_version);
   }
 
+
   void receive_proposal(const Proposal& msg)
   {
     const auto negotiate_it = negotiations.find(msg.conflict_version);
@@ -562,7 +563,7 @@ public:
     if (!table)
     {
       std::string error =
-        "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
+        "[rmf_traffic_ros2::schedule::Negotiation::receive_rejection] "
         "Receieved a rejection for negotiation ["
         + std::to_string(msg.conflict_version) + "] for an "
         "unknown table: [";
