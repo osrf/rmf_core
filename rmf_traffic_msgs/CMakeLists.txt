@@ -45,6 +45,8 @@ set(msg_files
   "msg/NegotiationRefusal.msg"
   "msg/NegotiationRejection.msg"
   "msg/NegotiationRepeat.msg"
+  "msg/NegotiationStatus.msg"
+  "msg/NegotiationStatusTable.msg"
   "msg/ScheduleInconsistency.msg"
   "msg/ScheduleInconsistencyRange.msg"
   "msg/ScheduleParticipantPatch.msg"
