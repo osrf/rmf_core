@@ -16,7 +16,8 @@
 */
 
 #include <rmf_fleet_adapter/agv/parse_graph.hpp>
-
+#include <iostream>
+#include <unordered_map>
 #include <yaml-cpp/yaml.h>
 
 namespace rmf_fleet_adapter {
@@ -48,10 +49,14 @@ rmf_traffic::agv::Graph parse_graph(
   }
 
   rmf_traffic::agv::Graph graph;
+  std::unordered_map<
+    std::string, std::vector<rmf_traffic::agv::Graph::Waypoint>> lift_wps;
+  std::size_t vnum = 0;  // To increment lane endpoint ids
 
   for (const auto& level : levels)
   {
     const std::string& map_name = level.first.as<std::string>();
+    std::size_t vnum_temp = 0;
 
     const YAML::Node& vertices = level.second["vertices"];
     for (const auto& vertex : vertices)
@@ -76,6 +81,7 @@ rmf_traffic::agv::Graph parse_graph(
           }
         }
       }
+      vnum_temp ++;
 
       const YAML::Node& parking_spot_option = options["is_parking_spot"];
       if (parking_spot_option)
@@ -83,6 +89,15 @@ rmf_traffic::agv::Graph parse_graph(
         const bool is_parking_spot = parking_spot_option.as<bool>();
         if (is_parking_spot)
           wp.set_parking_spot(true);
+      }
+
+      const YAML::Node& lift_option = options["lift"];
+      if (lift_option)
+      {
+        const std::string lift_name = lift_option.as<std::string>();
+        std::cout << lift_name << " " << wp.index() << std::endl;
+        if (lift_name != "")
+          lift_wps[lift_name].push_back(wp);
       }
     }
 
@@ -117,8 +132,8 @@ rmf_traffic::agv::Graph parse_graph(
         {
           throw std::runtime_error(
             "Unrecognized orientation constraint label given to lane ["
-            + std::to_string(lane[0].as<std::size_t>()) + ", "
-            + std::to_string(lane[1].as<std::size_t>()) + "]: ["
+            + std::to_string(lane[0].as<std::size_t>() + vnum) + ", "
+            + std::to_string(lane[1].as<std::size_t>() + vnum) + "]: ["
             + constraint_label + "] in graph ["
             + graph_file + "]");
         }
@@ -174,8 +189,20 @@ rmf_traffic::agv::Graph parse_graph(
       }
 
       graph.add_lane(
-        {lane[0].as<std::size_t>(), entry_event},
-        {lane[1].as<std::size_t>(), exit_event, std::move(constraint)});
+        {lane[0].as<std::size_t>() + vnum, entry_event},
+        {lane[1].as<std::size_t>() + vnum, exit_event, std::move(constraint)});
+      std::cout << lane[0].as<std::size_t>() << "," << lane[1].as<std::size_t>() << std::endl;
+    }
+    vnum += vnum_temp;
+  }
+
+  for (const auto& lift : lift_wps)
+  {
+    const auto& wps = lift.second;
+    for (int i = 0; i < wps.size()-1; i++)
+    {
+      graph.add_lane(wps[i].index(), wps[i+1].index());
+      graph.add_lane(wps[i+1].index(), wps[i].index());
     }
   }
 
