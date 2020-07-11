@@ -1833,7 +1833,7 @@ public:
 
   void execute(const Lane::LiftMove&) final
   {
-    _result = _expectation == LiftDoorClose;
+    _result = _expectation == LiftMove;
   }
 
   void execute(const Lane::Dock&) final
@@ -2484,7 +2484,7 @@ SCENARIO("Multilevel Planning")
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
     const auto goal = rmf_traffic::agv::Planner::Goal(2);
-    auto plan = planner.plan(start, goal);
+    const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
     CHECK_PLAN(plan, {-5, 0}, 0.0, {0, -5}, {0, 1, 2});
   }
@@ -2514,13 +2514,14 @@ SCENARIO("Multilevel Planning")
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
     const auto goal = rmf_traffic::agv::Planner::Goal(3);
-    auto plan = planner.plan(start, goal);
+    const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
     CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
   }
 
   GIVEN("Goal waypoint is the second waypoint on the third map")
   {
+    // L1 -> L2 -> L3
     Graph graph;
     graph.add_waypoint("L1", {-5, 0}); // 0
     graph.add_waypoint("L1", {0, 0}); // 1
@@ -2550,13 +2551,46 @@ SCENARIO("Multilevel Planning")
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
     const auto goal = rmf_traffic::agv::Planner::Goal(5);
-    auto plan = planner.plan(start, goal);
+    const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
     CHECK_PLAN(plan, {-5, 0}, 0.0, {10, -10}, {0, 1, 2, 3, 4, 5});
   }
 
   GIVEN("Graph with Lift")
   {
+    using Event = Graph::Lane::Event;
+    using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
+    Graph graph;
+    graph.add_waypoint("L1", {-5, 0}); // 0
+    graph.add_waypoint("L1", {0, 0}); // 1
+    graph.add_waypoint("L2", {0, -5}); // 2
+    graph.add_waypoint("L2", {5, -5}); // 3
+    REQUIRE(graph.num_waypoints() == 4);
 
+    graph.add_lane(
+      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 1);
+    graph.add_lane(
+      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 0);
+    graph.add_lane(
+      {1, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 2);
+    graph.add_lane(
+      {2, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 1);
+    graph.add_lane(2, 3);
+    graph.add_lane(3, 2);
+    REQUIRE(graph.num_lanes() == 6);
+
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 3
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(3);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
+    CHECK(count_events(*plan) == 2);
+    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
   }
 }
