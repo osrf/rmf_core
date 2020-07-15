@@ -18,8 +18,18 @@ bool rejected
 # Ongoing status
 bool ongoing
 
+# Defunct status
+bool defunct
+
 # depth in tree of nodes used for sorting
 int32 depth
 
-# index to parent in the NegotiationStatus message. -1 indicates no parent
+# index to tables array in the NegotiationStatus message. -1 indicates no parent
 int32 parent_index
+
+# participant id of proposals. same count as proposals
+uint64[]  proposals_id
+
+# proposals. same count as proposals_id
+Itinerary[] proposals
+

@@ -292,6 +292,39 @@ rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
       table.forfeited = node.table_ptr->forfeited();
       table.rejected = node.table_ptr->rejected();
       table.ongoing = node.table_ptr->ongoing();
+      table.defunct = node.table_ptr->defunct();
+
+      auto p = node.table_ptr->proposal();
+      
+      for (auto submission : p)
+      {
+        table.proposals_id.push_back(submission.participant);
+        table.proposals.push_back(convert_itinerary(submission.itinerary));
+      }
+#if 0
+      auto viewer = node.table_ptr->viewer();
+      std::cout << "base_proposal count: " <<viewer->base_proposals().size() << std::endl;
+      for (auto proposal : viewer->base_proposals())
+      {
+        std::cout << "proposal id:" << proposal.participant << std::endl;
+        rmf_traffic_msgs::msg::Itinerary itin_msg;
+        itin_msg.routes = convert(proposal.itinerary);
+        table.base_proposals.push_back(itin_msg);
+      }
+
+      std::cout << "alternatives count: " <<viewer->alternatives().size() << std::endl;
+      for (auto alternative : viewer->alternatives())
+      {
+
+        ParticipantId participant = alternative.first;
+        std::cout << "id :" << participant << std::endl;
+        /*auto& alternatives_ptr = alternative.second;
+        
+        rmf_traffic_msgs::msg::Itinerary itin_msg;
+        itin_msg = convert(*alternatives_ptr);
+        table.alternatives.push_back(itin_msg);*/
+      }
+#endif
       msg.tables.push_back(table);
 
       auto children = node.table_ptr->children();

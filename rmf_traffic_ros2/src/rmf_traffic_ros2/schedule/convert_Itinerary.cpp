@@ -31,6 +31,15 @@ std::vector<rmf_traffic_msgs::msg::Route> convert(
   return output;
 }
 
+rmf_traffic_msgs::msg::Itinerary convert_itinerary(
+  const rmf_traffic::schedule::Itinerary& from)
+{
+  rmf_traffic_msgs::msg::Itinerary output;
+  for (const auto& r : from)
+    output.routes.emplace_back(convert(*r));
+  return output;
+}
+
 //==============================================================================
 std::vector<rmf_traffic::schedule::Itinerary> convert(
   const std::vector<rmf_traffic_msgs::msg::Itinerary>& from)
