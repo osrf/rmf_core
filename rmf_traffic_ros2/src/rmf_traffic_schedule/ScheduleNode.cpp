@@ -701,7 +701,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   // TODO(MXG): This should be removed once we have a negotiation visualizer
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
     negotiation);
-    std::cout << "received proposal\n";
+
   auto&& status_msg = rmf_traffic_ros2::schedule::assemble_negotiation_status_msg(
     msg.conflict_version, negotiation);
   negotiation_status_pub->publish(status_msg);
@@ -791,7 +791,7 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
   // TODO(MXG): This should be removed once we have a negotiation visualizer
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
     negotiation);
-    std::cout << "received rejection\n";
+
   auto&& status_msg = rmf_traffic_ros2::schedule::assemble_negotiation_status_msg(
     msg.conflict_version, negotiation);
   negotiation_status_pub->publish(status_msg);  
@@ -834,7 +834,7 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
   // TODO(MXG): This should be removed once we have a negotiation visualizer
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
     negotiation);
-    std::cout << "received forfeit\n";
+
   auto&& status_msg = rmf_traffic_ros2::schedule::assemble_negotiation_status_msg(
     msg.conflict_version, negotiation);
   negotiation_status_pub->publish(status_msg);  
