@@ -144,6 +144,7 @@ public:
   std::shared_ptr<const schedule::Viewer> schedule_viewer;
   rmf_utils::optional<ParticipantId> parent_id;
   VersionedKeySequence sequence;
+  std::shared_ptr<const bool> defunct;
 
   Viewer::View query(
     const Query::Spacetime& spacetime,
@@ -159,6 +160,47 @@ public:
     return output;
   }
 };
+
+namespace {
+//==============================================================================
+/// An RAII wrapper for a "defunct" flag. When the wrapper is destructed, it
+/// will automatically set the defunct flag to true to indicate that its holder
+/// is no longer alive. It can also be flipped to defunct at any time using the
+/// terminate() function.
+class DefunctFlag
+{
+public:
+
+  DefunctFlag()
+    : _defunct(std::make_shared<bool>(false))
+  {
+    // Do nothing
+  }
+
+  ~DefunctFlag()
+  {
+    *_defunct = true;
+  }
+
+  operator bool() const
+  {
+    return *_defunct;
+  }
+
+  std::shared_ptr<const bool> get() const
+  {
+    return _defunct;
+  }
+
+  void terminate()
+  {
+    *_defunct = true;
+  }
+
+private:
+  std::shared_ptr<bool> _defunct;
+};
+} // anonymous namespace
 
 //==============================================================================
 class Negotiation::Table::Implementation
@@ -190,7 +232,7 @@ public:
   rmf_utils::optional<Itinerary> itinerary;
   bool rejected = false;
   bool forfeited = false;
-  bool defunct = false;
+  DefunctFlag defunct;
   TableMap descendants;
 
   Version& version()
@@ -560,7 +602,7 @@ public:
 
         table->_pimpl->weak_negotiation_data.reset();
         // Tell the child tables that they are now defunct
-        table->_pimpl->defunct = true;
+        table->_pimpl->defunct.terminate();
         queue.push_back(entry.second->_pimpl.get());
       }
     }
@@ -803,6 +845,26 @@ public:
         data->participants.begin(),
         data->participants.end()));
   }
+
+  ~Implementation()
+  {
+    std::vector<Table::Implementation*> queue;
+    for (auto& table : tables)
+      queue.push_back(&Table::Implementation::get(*table.second));
+
+    while (!queue.empty())
+    {
+      auto top = queue.back();
+      queue.pop_back();
+
+      for (const auto entry : top->descendants)
+      {
+        auto& table = Table::Implementation::get(*entry.second);
+        table.defunct.terminate();
+        queue.push_back(&table);
+      }
+    }
+  }
 };
 
 //==============================================================================
@@ -968,6 +1030,12 @@ auto Negotiation::Table::Viewer::sequence() const -> const VersionedKeySequence&
 }
 
 //==============================================================================
+bool Negotiation::Table::Viewer::defunct() const
+{
+  return *_pimpl->defunct;
+}
+
+//==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
   // Do nothing
@@ -992,7 +1060,8 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
       _pimpl->participant_query,
       _pimpl->schedule_viewer,
       parent_id,
-      _pimpl->sequence));
+      _pimpl->sequence,
+      _pimpl->defunct.get()));
 
   return _pimpl->cached_table_viewer;
 }

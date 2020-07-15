@@ -186,6 +186,12 @@ public:
       /// The sequence of the table that is being viewed.
       const VersionedKeySequence& sequence() const;
 
+      /// Returns true if the table of this viewer is no longer relevant. Unlike
+      /// the other fields of the Viewer, this is not a snapshot of the table's
+      /// state when the Viewer was created; instead this defunct status will
+      /// remain in sync with the state of the source Table.
+      bool defunct() const;
+
       class Implementation;
     private:
       Viewer();
