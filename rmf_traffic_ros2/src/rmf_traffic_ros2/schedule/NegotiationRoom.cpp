@@ -341,16 +341,6 @@ rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
     ++current_depth;
 
   } while (!queue.empty());
-  /*
-  auto sort = [](NegotiationStatusTable& l, NegotiationStatusTable& r) -> bool
-  {
-    assert(l.sequence.size() >= 1);
-    assert(r.sequence.size() >= 1);
-    int l_participant = l.sequence.back();
-    int r_participant = r.sequence.back();
-    return l.depth < r.depth && l_participant < r_participant;
-  };
-  std::sort(msg.tables.begin(), msg.tables.end(), sort);*/
   return msg;
 }
 
