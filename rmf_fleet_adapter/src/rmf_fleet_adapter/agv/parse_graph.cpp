@@ -49,7 +49,8 @@ rmf_traffic::agv::Graph parse_graph(
   }
 
   rmf_traffic::agv::Graph graph;
-  std::unordered_map<std::string, std::vector<std::size_t>> lift_wps;
+  std::unordered_map<std::string, std::size_t> lift_wps;
+  std::vector<std::size_t> id_remap;
   std::size_t vnum = 0;  // To increment lane endpoint ids
 
   for (const auto& level : levels)
@@ -60,12 +61,36 @@ rmf_traffic::agv::Graph parse_graph(
     const YAML::Node& vertices = level.second["vertices"];
     for (const auto& vertex : vertices)
     {
+      vnum_temp ++;
+      bool skip = false;  // Indicates whether this waypoint is skipped
+      
+      const YAML::Node& options = vertex[2];
+      const YAML::Node& lift_option = options["lift"];
+      if (lift_option)
+      {
+        const std::string lift_name = lift_option.as<std::string>();
+        if (lift_name != "")
+        {
+          auto it = lift_wps.find(lift_name);
+          if (it == lift_wps.end())  // first point for this lift
+            lift_wps[lift_name] = graph.num_waypoints();
+          else
+          {
+            skip = true;
+            id_remap.push_back(it->second);
+          }
+        }
+      }
+      
+      if (skip)
+        continue;
+      
       const Eigen::Vector2d location{
         vertex[0].as<double>(), vertex[1].as<double>()};
-
       auto& wp = graph.add_waypoint(map_name, location);
 
-      const YAML::Node& options = vertex[2];
+      id_remap.push_back(wp.index());
+
       const YAML::Node& name_option = options["name"];
       if (name_option)
       {
@@ -80,7 +105,6 @@ rmf_traffic::agv::Graph parse_graph(
           }
         }
       }
-      vnum_temp ++;
 
       const YAML::Node& parking_spot_option = options["is_parking_spot"];
       if (parking_spot_option)
@@ -88,15 +112,6 @@ rmf_traffic::agv::Graph parse_graph(
         const bool is_parking_spot = parking_spot_option.as<bool>();
         if (is_parking_spot)
           wp.set_parking_spot(true);
-      }
-
-      const YAML::Node& lift_option = options["lift"];
-      if (lift_option)
-      {
-        const std::string lift_name = lift_option.as<std::string>();
-        //std::cout << lift_name << " " << wp.index() << std::endl;
-        if (lift_name != "")
-          lift_wps[lift_name].push_back(wp.index());
       }
     }
 
@@ -170,9 +185,8 @@ rmf_traffic::agv::Graph parse_graph(
 
       for (auto& lift : lift_wps)
       {
-        auto wps = lift.second;
-        if ((std::find(wps.begin(), wps.end(), begin) != wps.end()) ||
-            (std::find(wps.begin(), wps.end(), end) != wps.end()))
+        if ((id_remap[begin] == lift.second) ||
+            (id_remap[end] == lift.second))
         {
           const rmf_traffic::Duration duration = std::chrono::seconds(4);
           entry_event = Event::make(
@@ -211,21 +225,11 @@ rmf_traffic::agv::Graph parse_graph(
       }
 
       graph.add_lane(
-        {begin, entry_event},
-        {end, exit_event, std::move(constraint)});
-      //std::cout << lane[0].as<std::size_t>() << "," << lane[1].as<std::size_t>() << std::endl;
+        {id_remap[begin], entry_event},
+        {id_remap[end], exit_event, std::move(constraint)});
+      // std::cout << id_remap[begin] << "," << id_remap[end] << std::endl;
     }
     vnum += vnum_temp;
-  }
-
-  for (const auto& lift : lift_wps)
-  {
-    const auto& wps = lift.second;
-    for (std::size_t i = 0; i < wps.size()-1; i++)
-    {
-      graph.add_lane(wps[i], wps[i+1]);
-      graph.add_lane(wps[i+1], wps[i]);
-    }
   }
 
   return graph;
