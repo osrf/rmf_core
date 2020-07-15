@@ -122,8 +122,7 @@ public:
     /// \param[in] interrupt_flag
     ///   A pointer to a flag that should be used to interrupt the planner if it
     ///   has been running for too long. If the planner should run indefinitely,
-    ///   then pass in a nullptr. It is the user's responsibility to make sure
-    ///   that this flag remains valid.
+    ///   then pass in a nullptr.
     ///
     /// \param[in] maximum_cost_estimate
     ///   A cap on how high the best possible solution's cost can be. If the
@@ -141,6 +140,42 @@ public:
       rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt,
       rmf_utils::optional<std::size_t> saturation_limit = rmf_utils::nullopt);
 
+    /// Constructor
+    ///
+    /// \param[in] validator
+    ///   A validator to check the validity of the planner's branching options.
+    ///
+    /// \param[in] validator
+    ///   A validator to check the validity of the planner's branching options.
+    ///
+    /// \param[in] min_hold_time
+    ///   The minimum amount of time that the planner should spend waiting at
+    ///   holding points. Smaller values will make the plan more aggressive
+    ///   about being time-optimal, but the plan may take longer to produce.
+    ///   Larger values will add some latency to the execution of the plan as
+    ///   the robot may wait at a holding point longer than necessary, but the
+    ///   plan will usually be generated more quickly.
+    ///
+    /// \param[in] interrupter
+    ///   A function that can determine whether the planning should be
+    ///   interrupted. This is an alternative to using the interrupt_flag.
+    ///
+    /// \param[in] maximum_cost_estimate
+    ///   A cap on how high the best possible solution's cost can be. If the
+    ///   cost of the best possible solution ever exceeds this value, then the
+    ///   planner will interrupt itself, no matter what the state of the
+    ///   interrupt_flag is. Set this to nullopt to specify that there should
+    ///   not be a cap.
+    ///
+    /// \param[in] saturation_limit
+    ///   A cap on how many search nodes the planner is allowed to produce.
+    Options(
+      rmf_utils::clone_ptr<RouteValidator> validator,
+      Duration min_hold_time,
+      std::function<bool()> interrupter,
+      rmf_utils::optional<double> maximum_cost_estimate = rmf_utils::nullopt,
+      rmf_utils::optional<std::size_t> saturation_limit = rmf_utils::nullopt);
+
     /// Set the route validator
     Options& validator(rmf_utils::clone_ptr<RouteValidator> v);
 
@@ -153,7 +188,20 @@ public:
     /// Get the minimum amount of time to spend waiting at holding points
     Duration minimum_holding_time() const;
 
+    /// Set an interrupter callback that can indicate to the planner if it
+    /// should stop trying to plan.
+    ///
+    /// \warning Using this function will replace anything that was given to
+    /// interrupt_flag, and it will nullify the interrupt_flag() field.
+    Options& interrupter(std::function<bool()> cb);
+
+    /// Get the interrupter that will be used in these Options.
+    const std::function<bool()>& interrupter() const;
+
     /// Set an interrupt flag to stop this planner if it has run for too long.
+    ///
+    /// \warning Using this function will replace anything that was given to
+    /// interrupter.
     Options& interrupt_flag(std::shared_ptr<const bool> flag);
 
     /// Get the interrupt flag that will stop this planner if it has run for too

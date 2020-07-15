@@ -177,9 +177,16 @@ public:
     // Do nothing
   }
 
+  DefunctFlag(const DefunctFlag&) = delete;
+  DefunctFlag& operator=(const DefunctFlag&) = delete;
+
+  DefunctFlag(DefunctFlag&&) = default;
+  DefunctFlag& operator=(DefunctFlag&&) = default;
+
   ~DefunctFlag()
   {
-    *_defunct = true;
+    if (_defunct)
+      *_defunct = true;
   }
 
   operator bool() const
@@ -1032,6 +1039,7 @@ auto Negotiation::Table::Viewer::sequence() const -> const VersionedKeySequence&
 //==============================================================================
 bool Negotiation::Table::Viewer::defunct() const
 {
+  assert(_pimpl->defunct);
   return *_pimpl->defunct;
 }
 
