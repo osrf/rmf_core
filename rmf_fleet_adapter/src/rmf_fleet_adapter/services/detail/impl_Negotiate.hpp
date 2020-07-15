@@ -37,7 +37,7 @@ void Negotiate::operator()(const Subscriber& s)
   auto validators =
       rmf_traffic::agv::NegotiatingRouteValidator::Generator(_viewer).all();
 
-  _all_jobs.reserve(validators.size() * _goals.size());
+  _queued_jobs.reserve(validators.size() * _goals.size());
 
   for (const auto& goal : _goals)
   {
@@ -50,16 +50,16 @@ void Negotiate::operator()(const Subscriber& s)
 
       _evaluator.initialize(job->progress());
 
-      _all_jobs.emplace_back(std::move(job));
+      _queued_jobs.emplace_back(std::move(job));
     }
   }
 
   const double initial_max_cost =
       _evaluator.best_estimate.cost * _evaluator.estimate_leeway;
 
-  const std::size_t N_jobs = _all_jobs.size();
+  const std::size_t N_jobs = _queued_jobs.size();
 
-  for (const auto& job : _all_jobs)
+  for (const auto& job : _queued_jobs)
     job->progress().options().maximum_cost_estimate(initial_max_cost);
 
   auto check_if_finished = [this, s, N_jobs]() -> bool
@@ -145,7 +145,7 @@ void Negotiate::operator()(const Subscriber& s)
     return false;
   };
 
-  _search_sub = rmf_rxcpp::make_job_from_action_list(_all_jobs)
+  _search_sub = rmf_rxcpp::make_job_from_action_list(_queued_jobs)
       .observe_on(rxcpp::observe_on_event_loop())
       .subscribe(
         [n_weak = weak_from_this(), s,
@@ -221,8 +221,14 @@ void Negotiate::operator()(const Subscriber& s)
         for (const auto p : blockers)
           n->_blockers.insert(p);
 
-        if (!job->progress().success())
+        if (n->_evaluator.best_result.progress != &job->progress())
+        {
           job->discard();
+          const auto job_it = std::find(
+                n->_queued_jobs.begin(), n->_queued_jobs.end(), job);
+          assert(job_it != n->_queued_jobs.end());
+          n->_queued_jobs.erase(job_it);
+        }
 
         n->_current_jobs.erase(job);
       }
