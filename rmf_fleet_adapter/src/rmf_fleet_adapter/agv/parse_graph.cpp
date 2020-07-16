@@ -16,7 +16,8 @@
 */
 
 #include <rmf_fleet_adapter/agv/parse_graph.hpp>
-
+#include <iostream>
+#include <unordered_map>
 #include <yaml-cpp/yaml.h>
 
 namespace rmf_fleet_adapter {
@@ -48,20 +49,48 @@ rmf_traffic::agv::Graph parse_graph(
   }
 
   rmf_traffic::agv::Graph graph;
+  std::unordered_map<std::string, std::size_t> lift_wps;
+  std::vector<std::size_t> id_remap;
+  std::size_t vnum = 0;  // To increment lane endpoint ids
 
   for (const auto& level : levels)
   {
     const std::string& map_name = level.first.as<std::string>();
+    std::size_t vnum_temp = 0;
 
     const YAML::Node& vertices = level.second["vertices"];
     for (const auto& vertex : vertices)
     {
+      vnum_temp ++;
+      bool skip = false;  // Indicates whether this waypoint is skipped
+      
+      const YAML::Node& options = vertex[2];
+      const YAML::Node& lift_option = options["lift"];
+      if (lift_option)
+      {
+        const std::string lift_name = lift_option.as<std::string>();
+        if (lift_name != "")
+        {
+          auto it = lift_wps.find(lift_name);
+          if (it == lift_wps.end())  // first point for this lift
+            lift_wps[lift_name] = graph.num_waypoints();
+          else
+          {
+            skip = true;
+            id_remap.push_back(it->second);
+          }
+        }
+      }
+      
+      if (skip)
+        continue;
+      
       const Eigen::Vector2d location{
         vertex[0].as<double>(), vertex[1].as<double>()};
-
       auto& wp = graph.add_waypoint(map_name, location);
 
-      const YAML::Node& options = vertex[2];
+      id_remap.push_back(wp.index());
+
       const YAML::Node& name_option = options["name"];
       if (name_option)
       {
@@ -117,8 +146,8 @@ rmf_traffic::agv::Graph parse_graph(
         {
           throw std::runtime_error(
             "Unrecognized orientation constraint label given to lane ["
-            + std::to_string(lane[0].as<std::size_t>()) + ", "
-            + std::to_string(lane[1].as<std::size_t>()) + "]: ["
+            + std::to_string(lane[0].as<std::size_t>() + vnum) + ", "
+            + std::to_string(lane[1].as<std::size_t>() + vnum) + "]: ["
             + constraint_label + "] in graph ["
             + graph_file + "]");
         }
@@ -128,7 +157,7 @@ rmf_traffic::agv::Graph parse_graph(
       using Event = Lane::Event;
       rmf_utils::clone_ptr<Event> entry_event;
       rmf_utils::clone_ptr<Event> exit_event;
-      if (const YAML::Node mock_lift_option = options["demo_mock_floor_name"])
+      /*if (const YAML::Node mock_lift_option = options["demo_mock_floor_name"])
       {
         // TODO(MXG): Replace this with a key like lift_name when we have proper
         // support for lifts.
@@ -148,12 +177,34 @@ rmf_traffic::agv::Graph parse_graph(
           Lane::LiftDoorOpen(lift_name, floor_name, duration));
         // NOTE(MXG): We do not need an exit event for lifts
       }
-      else if (const YAML::Node door_name_option = options["door_name"])
+      else*/
+      std::size_t begin = lane[0].as<std::size_t>() + vnum;
+      std::size_t end = lane[1].as<std::size_t>() + vnum;
+
+      bool is_lift = false;
+
+      for (auto& lift : lift_wps)
       {
-        const std::string name = door_name_option.as<std::string>();
-        const rmf_traffic::Duration duration = std::chrono::seconds(4);
-        entry_event = Event::make(Lane::DoorOpen(name, duration));
-        exit_event = Event::make(Lane::DoorClose(name, duration));
+        if ((id_remap[begin] == lift.second) ||
+            (id_remap[end] == lift.second))
+        {
+          const rmf_traffic::Duration duration = std::chrono::seconds(4);
+          entry_event = Event::make(
+            Lane::LiftDoorOpen(lift.first, map_name, duration));
+          is_lift = true;
+          break;
+        }
+      }
+
+      if (!is_lift)
+      {
+        if (const YAML::Node door_name_option = options["door_name"])
+        {
+          const std::string name = door_name_option.as<std::string>();
+          const rmf_traffic::Duration duration = std::chrono::seconds(4);
+          entry_event = Event::make(Lane::DoorOpen(name, duration));
+          exit_event = Event::make(Lane::DoorClose(name, duration));
+        }
       }
 
       if (const YAML::Node docking_option = options["dock_name"])
@@ -174,9 +225,11 @@ rmf_traffic::agv::Graph parse_graph(
       }
 
       graph.add_lane(
-        {lane[0].as<std::size_t>(), entry_event},
-        {lane[1].as<std::size_t>(), exit_event, std::move(constraint)});
+        {id_remap[begin], entry_event},
+        {id_remap[end], exit_event, std::move(constraint)});
+      // std::cout << id_remap[begin] << "," << id_remap[end] << std::endl;
     }
+    vnum += vnum_temp;
   }
 
   return graph;
