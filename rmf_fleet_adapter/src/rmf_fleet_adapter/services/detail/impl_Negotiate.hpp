@@ -39,6 +39,12 @@ void Negotiate::operator()(const Subscriber& s)
 
   _queued_jobs.reserve(validators.size() * _goals.size());
 
+  auto interrupter = [
+      service_interrupted = _interrupted, viewer = _viewer]() -> bool
+  {
+    return *service_interrupted || viewer->defunct();
+  };
+
   for (const auto& goal : _goals)
   {
     for (const auto& validator : validators)
@@ -46,7 +52,7 @@ void Negotiate::operator()(const Subscriber& s)
       auto job = std::make_shared<jobs::Planning>(
             _planner, _starts, goal,
             rmf_traffic::agv::Plan::Options(validator)
-            .interrupt_flag(_interrupted));
+            .interrupter(interrupter));
 
       _evaluator.initialize(job->progress());
 
@@ -159,8 +165,9 @@ void Negotiate::operator()(const Subscriber& s)
       return;
     }
 
-    if (n->_discarded)
+    if (n->discarded())
     {
+      s.on_next(Result{n, [](){}});
       s.on_completed();
       return;
     }
