@@ -56,10 +56,10 @@ make_test_schedule_validator(
     std::move(profile));
 }
 
-void display_path(const rmf_traffic::agv::Plan& plan)
+void display_path(const rmf_traffic::agv::Plan::Result& plan)
 {
   std::vector<std::size_t> plan_indices;
-  for (const auto& wp : plan.get_waypoints())
+  for (const auto& wp : plan->get_waypoints())
   {
     if (wp.graph_index())
       plan_indices.push_back(*wp.graph_index());
@@ -77,27 +77,30 @@ void display_path(const rmf_traffic::agv::Plan& plan)
 }
 
 void print_trajectory_info(
-  const rmf_traffic::agv::Plan& plan,
+  const rmf_traffic::agv::Plan::Result& plan,
   rmf_traffic::Time time)
 {
-  int count = 1;
-  const auto& r = plan.get_itinerary().front();
-  const auto& t = r.trajectory();
-  std::cout<<"Trajectory in: "
-           << r.map()
-           <<" with "<< t.size()
-           <<" segments\n";
   display_path(plan);
-  for (auto it = t.begin(); it != t.end(); it++)
+  std::cout << "Itinerary count: " << plan->get_itinerary().size() 
+            << std::endl;
+  int trajectory_count = 1; 
+  for (const auto& r : plan->get_itinerary())
   {
-    auto position = it->position();
-    std::cout<<"Waypoint "<<count<<": {"<<position[0]<<","<<position[1]
-             <<","<<position[2]<<"} "
-             <<rmf_traffic::time::to_seconds(it->time() - time)<<"s"
-             <<std::endl;
-    count++;
+    int waypoint_count = 1;
+    const auto& t = r.trajectory();
+    std::cout << "Trajectory [" << trajectory_count << "] in " << r.map() 
+              << " with " << t.size() << " waypoints\n";
+    for (auto it = t.begin(); it != t.end(); it++)
+    {
+      auto position = it->position();
+      std::cout << "  Waypoint "<< waypoint_count << ": {" << position[0]
+                << ","<<position[1] << "," << position[2] << "} "
+                << rmf_traffic::time::to_seconds(it->time() - time) << "s"
+                << std::endl;
+      waypoint_count++;
+    }
+    trajectory_count++;
   }
-  std::cout<<"__________________\n";
 }
 
 rmf_traffic::Trajectory test_with_obstacle(
@@ -220,7 +223,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   if (print_info)
   {
     std::cout << "Parent: " << parent << std::endl;
-    print_trajectory_info(plan, time);
+    print_trajectory_info(*result, time);
   }
   return t_obs;
 }
@@ -315,22 +318,23 @@ inline void CHECK_PLAN(
 {
   REQUIRE(plan);
   REQUIRE(plan->get_itinerary().size() > 0);
-  auto t = plan->get_itinerary().front().trajectory();
+  const auto& first_trajectory = plan->get_itinerary().front().trajectory();
+  const auto& last_trajectory = plan->get_itinerary().back().trajectory();
   // check locations
-  CHECK((t.front().position().block<2, 1>(0, 0)
+  CHECK((first_trajectory.front().position().block<2, 1>(0, 0)
     - first_location).norm() == Approx(0.0).margin(1e-6));
-  CHECK((t.back().position().block<2, 1>(0, 0)
+  CHECK((last_trajectory.back().position().block<2, 1>(0, 0)
     - last_location).norm()  == Approx(0.0).margin(1e-6));
   // check orientations
-  CHECK((t.front().position()[2] - first_orientation)
+  CHECK((first_trajectory.front().position()[2] - first_orientation)
     == Approx(0.0).margin(1e-6));
   if (last_orientation != nullptr)
-    CHECK((t.back().position()[2] - *last_orientation)
+    CHECK((last_trajectory.back().position()[2] - *last_orientation)
       == Approx(0.0).margin(1e-6));
   // check waypoints
   const auto& wps = plan->get_waypoints();
   // removing consecutive duplicates of waypoints
-  // when robot is waiting at holdign point
+  // when robot is waiting at holding point
   std::vector<std::size_t> plan_indices;
   for (const auto& wp : wps)
   {
@@ -1829,7 +1833,7 @@ public:
 
   void execute(const Lane::LiftMove&) final
   {
-    _result = _expectation == LiftDoorClose;
+    _result = _expectation == LiftMove;
   }
 
   void execute(const Lane::Dock&) final
@@ -2434,5 +2438,159 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
       CHECK(plan_duration <= duration);
     }
     // start2 has the shortest duration
+  }
+}
+
+SCENARIO("Multilevel Planning")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+
+  const VehicleTraits traits{
+    {1.0, 0.4},
+    {1.0, 0.5},
+    create_test_profile(UnitCircle)};
+
+  rmf_traffic::schedule::Database database;
+  const auto interrupt_flag = std::make_shared<bool>(false);
+  Duration hold_time = std::chrono::seconds(1);
+  const rmf_traffic::agv::Planner::Options default_options{
+    make_test_schedule_validator(database, traits.profile()),
+    hold_time,
+    interrupt_flag};
+
+  GIVEN("Goal waypoint is the first waypoint on the second map")
+  {
+    Graph graph;
+    graph.add_waypoint("L1", {-5, 0}); // 0
+    graph.add_waypoint("L1", {0, 0}); // 1
+    graph.add_waypoint("L2", {0, -5}); // 2
+    REQUIRE(graph.num_waypoints() == 3);
+
+    graph.add_lane(0, 1); // 0
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    graph.add_lane(2, 1); // 3
+
+    REQUIRE(graph.num_lanes() == 4);
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 1
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(2);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {0, -5}, {0, 1, 2});
+  }
+
+  GIVEN("Goal waypoint is the second waypoint on the second map")
+  {
+    Graph graph;
+    graph.add_waypoint("L1", {-5, 0}); // 0
+    graph.add_waypoint("L1", {0, 0}); // 1
+    graph.add_waypoint("L2", {0, -5}); // 2
+    graph.add_waypoint("L2", {5, -5}); // 3
+    REQUIRE(graph.num_waypoints() == 4);
+
+    graph.add_lane(0, 1); // 0
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    graph.add_lane(2, 1); // 3
+    graph.add_lane(2, 3); // 4
+    graph.add_lane(3, 2); // 5
+
+    REQUIRE(graph.num_lanes() == 6);
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 3
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(3);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
+  }
+
+  GIVEN("Goal waypoint is the second waypoint on the third map")
+  {
+    // L1 -> L2 -> L3
+    Graph graph;
+    graph.add_waypoint("L1", {-5, 0}); // 0
+    graph.add_waypoint("L1", {0, 0}); // 1
+    graph.add_waypoint("L2", {0, -5}); // 2
+    graph.add_waypoint("L2", {5, -5}); // 3
+    graph.add_waypoint("L3", {5, -10}); // 4
+    graph.add_waypoint("L3", {10, -10}); // 5
+    REQUIRE(graph.num_waypoints() == 6);
+
+    graph.add_lane(0, 1); // 0
+    graph.add_lane(1, 0); // 1
+    graph.add_lane(1, 2); // 2
+    graph.add_lane(2, 1); // 3
+    graph.add_lane(2, 3); // 4
+    graph.add_lane(3, 2); // 5
+    graph.add_lane(3, 4); // 6
+    graph.add_lane(4, 3); // 7
+    graph.add_lane(4, 5); // 8
+    graph.add_lane(5, 4); // 9
+
+    REQUIRE(graph.num_lanes() == 10);
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 5
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(5);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {10, -10}, {0, 1, 2, 3, 4, 5});
+  }
+
+  GIVEN("Graph with Lift")
+  {
+    using Event = Graph::Lane::Event;
+    using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
+    Graph graph;
+    graph.add_waypoint("L1", {-5, 0}); // 0
+    graph.add_waypoint("L1", {0, 0}); // 1
+    graph.add_waypoint("L2", {0, -5}); // 2
+    graph.add_waypoint("L2", {5, -5}); // 3
+    REQUIRE(graph.num_waypoints() == 4);
+
+    graph.add_lane(
+      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 1);
+    graph.add_lane(
+      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 0);
+    graph.add_lane(
+      {1, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 2);
+    graph.add_lane(
+      {2, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 1);
+    graph.add_lane(2, 3);
+    graph.add_lane(3, 2);
+    REQUIRE(graph.num_lanes() == 6);
+
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 3
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(3);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
+    CHECK(count_events(*plan) == 2);
+    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
   }
 }
