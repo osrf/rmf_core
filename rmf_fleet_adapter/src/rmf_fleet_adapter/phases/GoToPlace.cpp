@@ -376,9 +376,18 @@ public:
     _continuous = true;
   }
 
-  void execute(const LiftDoorClose& /*close*/) final
+  void execute(const LiftDoorClose& close) final
   {
-    // Not supported yet
+    const auto node = _context->node();
+    _phases.push_back(
+          std::make_unique<phases::RequestLift::PendingPhase>(
+            _context,
+            close.lift_name(),
+            close.floor_name(),
+            _event_start_time + close.duration(),
+            rmf_lift_msgs::msg::LiftRequest::REQUEST_END_SESSION));
+
+    _continuous = true;
   }
 
   void execute(const LiftMove& /*move*/) final

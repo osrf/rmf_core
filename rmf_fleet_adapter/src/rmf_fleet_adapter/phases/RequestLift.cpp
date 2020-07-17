@@ -26,14 +26,16 @@ std::shared_ptr<RequestLift::ActivePhase> RequestLift::ActivePhase::make(
   agv::RobotContextPtr context,
   std::string lift_name,
   std::string destination,
-  rmf_traffic::Time expected_finish)
+  rmf_traffic::Time expected_finish,
+  uint8_t request_type)
 {
   auto inst = std::shared_ptr<ActivePhase>(
     new ActivePhase(
       std::move(context),
       std::move(lift_name),
       std::move(destination),
-      std::move(expected_finish)
+      std::move(expected_finish),
+      std::move(request_type)
   ));
   inst->_init_obs();
   return inst;
@@ -53,7 +55,7 @@ rmf_traffic::Duration RequestLift::ActivePhase::estimate_remaining_time() const
 }
 
 //==============================================================================
-void RequestLift::ActivePhase::emergency_alarm(bool on)
+void RequestLift::ActivePhase::emergency_alarm(bool /*on*/)
 {
   // TODO: implement
 }
@@ -75,11 +77,13 @@ RequestLift::ActivePhase::ActivePhase(
   agv::RobotContextPtr context,
   std::string lift_name,
   std::string destination,
-  rmf_traffic::Time expected_finish)
+  rmf_traffic::Time expected_finish,
+  uint8_t request_type)
   : _context(std::move(context)),
     _lift_name(std::move(lift_name)),
     _destination(std::move(destination)),
-    _expected_finish(std::move(expected_finish))
+    _expected_finish(std::move(expected_finish)),
+    _request_type(std::move(request_type))
 {
   std::ostringstream oss;
   oss << "Requesting lift \"" << lift_name << "\" to \"" << destination << "\"";
@@ -175,7 +179,7 @@ void RequestLift::ActivePhase::_do_publish()
   msg.destination_floor = _destination;
   msg.session_id = _context->requester_id();
   msg.request_time = _context->node()->now();
-  msg.request_type = rmf_lift_msgs::msg::LiftRequest::REQUEST_AGV_MODE;
+  msg.request_type = _request_type;
   msg.door_state = rmf_lift_msgs::msg::LiftRequest::DOOR_OPEN;
   _context->node()->lift_request()->publish(msg);
 }
@@ -185,11 +189,13 @@ RequestLift::PendingPhase::PendingPhase(
   agv::RobotContextPtr context,
   std::string lift_name,
   std::string destination,
-  rmf_traffic::Time expected_finish)
+  rmf_traffic::Time expected_finish,
+  uint8_t request_type)
   : _context(std::move(context)),
     _lift_name(std::move(lift_name)),
     _destination(std::move(destination)),
-    _expected_finish(std::move(expected_finish))
+    _expected_finish(std::move(expected_finish)),
+    _request_type(std::move(request_type))
 {
   std::ostringstream oss;
   oss << "Requesting lift \"" << lift_name << "\" to \"" << destination << "\"";
@@ -204,7 +210,8 @@ std::shared_ptr<Task::ActivePhase> RequestLift::PendingPhase::begin()
     _context,
     _lift_name,
     _destination,
-    _expected_finish);
+    _expected_finish,
+    _request_type);
 }
 
 //==============================================================================
