@@ -147,9 +147,9 @@ template<
 NodePtr search(
   Expander& expander,
   SearchQueue& queue,
-  const bool* interrupt_flag)
+  const std::function<bool()>& interrupter)
 {
-  while (!queue.empty() && !(interrupt_flag && *interrupt_flag))
+  while (!queue.empty() && !(interrupter && interrupter()))
   {
     NodePtr top = queue.top();
 
@@ -860,7 +860,6 @@ struct DifferentialDriveExpander
     const rmf_utils::optional<double> maximum_cost_estimate;
     const rmf_utils::optional<std::size_t> saturation_limit;
     std::size_t& popped_count;
-    const bool* const interrupt_flag;
     Heuristic& heuristic;
     Issues::BlockerMap& blockers;
     const bool simple_lane_expansion; // reduces branching factor when true
@@ -1772,13 +1771,12 @@ public:
 
     DifferentialDriveExpander expander(context);
     auto& queue = static_cast<InternalState*>(state.internal.get())->queue;
-    const bool* interrupt_flag =
-        state.conditions.options.interrupt_flag().get();
+    const auto& interrupter = state.conditions.options.interrupter();
 
     const NodePtr solution =
-        search<DifferentialDriveExpander>(expander, queue, interrupt_flag);
+        search<DifferentialDriveExpander>(expander, queue, interrupter);
 
-    if (interrupt_flag && *interrupt_flag)
+    if (interrupter && interrupter())
       state.issues.interrupted = true;
 
     if (!solution)
@@ -1886,12 +1884,12 @@ public:
                                 popped_count, true);
     DifferentialDriveExpander expander(context);
 
-    const bool* interrupt_flag = options.interrupt_flag().get();
+    const auto& interrupter = options.interrupter();
 
     DifferentialDriveExpander::SearchQueue search_queue;
     DifferentialDriveExpander::SearchQueue finished_rollouts;
 
-    while (!rollout_queue.empty() && !(interrupt_flag && *interrupt_flag))
+    while (!rollout_queue.empty() && !(interrupter && interrupter()))
     {
       const auto top = rollout_queue.back();
       rollout_queue.pop_back();
@@ -2154,7 +2152,6 @@ private:
 
     Heuristic& h = _heuristics.insert(
           std::make_pair(goal_waypoint, Heuristic{})).first->second;
-    const bool* const interrupt_flag = options.interrupt_flag().get();
 
     return DifferentialDriveExpander::Context{
       _graph,
@@ -2168,7 +2165,6 @@ private:
       options.maximum_cost_estimate(),
       options.saturation_limit(),
       popped_count,
-      interrupt_flag,
       h,
       blocked_nodes,
       simple_lane_expansion
