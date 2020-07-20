@@ -482,7 +482,6 @@ public:
     respond_to_queue(queue, msg.conflict_version);
   }
 
-
   void receive_proposal(const Proposal& msg)
   {
     const auto negotiate_it = negotiations.find(msg.conflict_version);
