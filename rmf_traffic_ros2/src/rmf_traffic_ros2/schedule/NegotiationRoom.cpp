@@ -301,7 +301,7 @@ rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
         table.proposals_id.push_back(submission.participant);
         table.proposals.push_back(convert_itinerary(submission.itinerary));
       }
-#if 0
+#if 0 //@TODO(ddengster): We could use table->viewer() to get a better view of itineraries
       auto viewer = node.table_ptr->viewer();
       std::cout << "base_proposal count: " <<viewer->base_proposals().size() << std::endl;
       for (auto proposal : viewer->base_proposals())
