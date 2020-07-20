@@ -54,57 +54,28 @@ Node::Node()
 void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
 {
   if (_log.find(msg->lift_name) == _log.end())
-    _log[msg->lift_name] = Node::LiftSession();
+    _log[msg->lift_name] = "None";
   
-  auto& lift_session = _log[msg->lift_name];
-  if (lift_session.curr_request)
+  std::string& curr_session = _log[msg->lift_name];
+  if (curr_session == "None")
   {
-    if (lift_session.curr_request->session_id != msg->session_id)
-      return;
-
-    switch (lift_session.status)
+    if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
     {
-    case Node::status::IN_ENTRY:
-      _lift_request_pub->publish(*lift_session.curr_request);
-      if ((msg->request_type == LiftRequest::REQUEST_END_SESSION) &&
-        (msg->destination_floor == lift_session.curr_request->destination_floor))
-      {  
-        lift_session.curr_request = std::move(msg);
-        lift_session.status = Node::status::IN_EXIT;
-      }
-      break;
-
-    case Node::status::IN_EXIT:
-      if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
-      {  
-        lift_session.curr_request = std::move(msg);
-        lift_session.status = Node::status::OUT_ENTRY;
-      }
-      break;
-
-    case Node::status::OUT_ENTRY:
-      _lift_request_pub->publish(*lift_session.curr_request);
-      if ((msg->request_type == LiftRequest::REQUEST_END_SESSION) &&
-        (msg->destination_floor == lift_session.curr_request->destination_floor))
-      {  
-        lift_session.curr_request = nullptr;
-        lift_session.status = Node::status::OUT_EXIT;
-      }
-      break;
-    
-    default:
-      break;
+      curr_session = msg->session_id;
+      _lift_request_pub->publish(*msg);
     }
   }
   else
   {
-    if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
+    if (curr_session == msg->session_id)
     {
-      lift_session.curr_request = std::move(msg);
-      lift_session.status = Node::status::IN_ENTRY;
-      _lift_request_pub->publish(*lift_session.curr_request);
+      if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
+        _lift_request_pub->publish(*msg);
+      else
+        curr_session = "None";
     }
   }
+
   // TODO(MXG): Make this more intelligent by scheduling the lift
 }
 

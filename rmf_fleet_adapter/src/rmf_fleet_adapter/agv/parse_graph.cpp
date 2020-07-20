@@ -189,7 +189,7 @@ rmf_traffic::agv::Graph parse_graph(
             (id_remap[end] == lift.second))
         {
           const rmf_traffic::Duration duration1 = std::chrono::seconds(4);
-          const rmf_traffic::Duration duration2 = std::chrono::seconds(0);
+          const rmf_traffic::Duration duration2 = std::chrono::seconds(1);
           entry_event = Event::make(
             Lane::LiftDoorOpen(lift.first, map_name, duration1));
           exit_event = Event::make(

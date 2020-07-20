@@ -37,14 +37,6 @@ class Node : public rclcpp::Node
 {
 public:
 
-  enum status
-  {
-    IN_ENTRY,
-    IN_EXIT,
-    OUT_ENTRY,
-    OUT_EXIT
-  };
-
   Node();
 
 private:
@@ -66,14 +58,7 @@ private:
   using EmergencyNoticePub = rclcpp::Publisher<EmergencyNotice>;
   EmergencyNoticePub::SharedPtr _emergency_notice_pub;
 
-  struct LiftSession
-  {
-    LiftRequest::UniquePtr curr_request;
-    rmf_fleet_adapter::lift_supervisor::Node::status status;
-  };
-
-  using LiftRequestLog = std::unordered_map<std::string, LiftSession>;
-  LiftRequestLog _log;
+  std::unordered_map<std::string, std::string> _log;
 };
 
 } // namespace lift_supervisor
