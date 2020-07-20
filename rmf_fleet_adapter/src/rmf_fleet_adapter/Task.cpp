@@ -104,7 +104,7 @@ void Task::_start_next_phase()
     _status_publisher.get_subscriber().on_completed();
 
     // Sometimes difficult negotiations end up seizing an exceedingly large
-    // amount of RAM. This function is used to occasionally the operating system
+    // amount of RAM. This function is used to allow the operating system
     // to take that RAM back after it's no longer needed. This is mostly
     // superficial, but it helps us know that the fleet adapter isn't leaking
     // huge amounts of memory.
