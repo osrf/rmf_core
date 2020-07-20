@@ -55,10 +55,10 @@ if(BUILD_TESTING)
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
   )
-  
+
   find_package(rmf_cmake_uncrustify REQUIRED)
   find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
-                
+
   rmf_uncrustify(
     ARGN include src test
     CONFIG_FILE ${uncrustify_config_file}
