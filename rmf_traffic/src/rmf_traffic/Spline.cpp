@@ -347,6 +347,39 @@ bool check_negative_derivative(
 
   return (dp.dot(dv) < 0.0);
 }
+
+//==============================================================================
+/// Get the quadratic roots of the coefficients, but only if they fall in the
+/// domain t = [0, 1]
+// TODO(MXG): This will always return 2, 1, or 0 results, so a bounded vector
+// would be preferable for a return value.
+std::vector<double> get_roots_in_unit_domain(const Eigen::Vector3d c)
+{
+  const double tol = 1e-5;
+
+  if (std::abs(c[0]) < tol)
+  {
+    if (std::abs(c[1]) < tol)
+      return {};
+
+    return {-c[2]/c[1]};
+  }
+
+  const double D = (c[1]*c[1] - 4*c[0]*c[2]);
+  if (D < 0.0)
+    return {};
+
+  std::vector<double> output;
+  const double t_m = (-c[1] - std::sqrt(D))/(2*c[0]);
+  if (0.0 <= t_m && t_m <= 1.0)
+    output.push_back(t_m);
+
+  const double t_p = (-c[1] + std::sqrt(D))/(2*c[0]);
+  if (0.0 <= t_p && t_p <= 1.0)
+    output.push_back(t_p);
+
+  return output;
+}
 } // anonymous namespace
 
 //==============================================================================
@@ -358,6 +391,44 @@ bool DistanceDifferential::initially_negative_derivative() const
 //==============================================================================
 std::vector<Time> DistanceDifferential::approach_times() const
 {
+  // The idea behind finding the "approach times" is to find local maximum
+  // points of the distance function. A local maximum on the distance function
+  // implies that the vehicles are changing from moving away from each other to
+  // moving towards each other.
+  //
+  // A local maximum would rigorously be defined by a point where the derivative
+  // of the distance function is zero while the second derivative of the
+  // distance function is negative. However, finding the roots of the derivative
+  // in the general case would require solving a quintic polynomial. Solving
+  // such a polynomial is possible, but would entail the following problems:
+  //
+  // 1. Only iterative methods are available, so the time required would be
+  //    sensitive to a choice of precision.
+  //
+  // 2. The time required to iteratively solve for the roots may become
+  //    prohibitive, considering how frequently conflicts need to be evaluated.
+  //
+  // 3. Iterative methods are sensitive to the choice of initial guesses, so we
+  //    would need to carefully consider how to choose those points.
+  //
+  // 4. The complexity of implementing the iterative root finding algorithm
+  //    implies some risk. It may be difficult to ensure a correct
+  //    implementation without a great deal of careful testing.
+  //
+  // Instead we will linearize the problem. We identify 5 different categories
+  // of derivative values which could imply that the distance is shrinking,
+  // depending on the position coordinate at the time.
+  //
+  // vx: 0, vy: 0
+  // vx: 0, vy: non-zero
+  // vx: non-zero, vy: 0
+  // vx + vy = 0
+  // vx - vy = 0
+  //
+  // Depending on the position coordinates at the time of one of these
+  // velocities, the vehicles may be approaching each other (or about to begin
+  // approaching each other).
+
 
 }
 
