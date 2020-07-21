@@ -297,4 +297,103 @@ const Spline::Parameters& Spline::get_params() const
   return params;
 }
 
+//==============================================================================
+std::array<Eigen::Vector4d, 3> normalize_coefficients(
+    const Time t0,
+    const Time t1,
+    const double delta_t,
+    const Spline& spline)
+{
+  const Eigen::Vector3d x0 = spline.compute_position(t0);
+  const Eigen::Vector3d x1 = spline.compute_position(t1);
+  const Eigen::Vector3d v0 = delta_t * spline.compute_velocity(t0);
+  const Eigen::Vector3d v1 = delta_t * spline.compute_velocity(t1);
+
+  return compute_coefficients(x0, x1, v0, v1);
+}
+
+//==============================================================================
+DistanceDifferential::DistanceDifferential(
+    const Spline& spline_a,
+    const Spline& spline_b)
+{
+  const Time t0 = std::max(spline_a.start_time(), spline_b.start_time());
+  const Time t1 = std::min(spline_a.finish_time(), spline_b.finish_time());
+  const double delta_t = compute_delta_t(t1, t0);
+
+  const auto coeffs_a = normalize_coefficients(t0, t1, delta_t, spline_a);
+  const auto coeffs_b = normalize_coefficients(t0, t1, delta_t, spline_b);
+
+  _params.coeffs[0] = coeffs_a[0] - coeffs_b[0];
+  _params.coeffs[1] = coeffs_a[1] - coeffs_b[1];
+  // we ignore rotation when calculating distance
+  _params.coeffs[2] = Eigen::Vector4d::Zero();
+
+  _params.time_range[0] = t0;
+  _params.time_range[1] = t1;
+  _params.delta_t = delta_t;
+}
+
+namespace {
+//==============================================================================
+bool check_negative_derivative(
+    const double scaled_time, const Spline::Parameters& params)
+{
+  const Eigen::Vector2d dp =
+      compute_position(params, scaled_time).block<2,1>(0,0);
+
+  const Eigen::Vector2d dv =
+      compute_velocity(params, scaled_time).block<2,1>(0,0);
+
+  return (dp.dot(dv) < 0.0);
+}
+} // anonymous namespace
+
+//==============================================================================
+bool DistanceDifferential::initially_negative_derivative() const
+{
+  return check_negative_derivative(0.0, _params);
+}
+
+//==============================================================================
+std::vector<Time> DistanceDifferential::approach_times() const
+{
+
+}
+
+////==============================================================================
+//bool DistanceDifferential::negative_derivative_at(const Time time) const
+//{
+//  return check_negative_derivative(compute_scaled_time(time, _params), _params);
+//}
+
+////==============================================================================
+//bool DistanceDifferential::negative_second_derivative_at(const Time time) const
+//{
+//  const double scaled_time = compute_scaled_time(time, _params);
+
+//  const Eigen::Vector2d dp =
+//      compute_position(_params, scaled_time).block<2,1>(0,0);
+
+//  const Eigen::Vector2d dv =
+//      compute_position(_params, scaled_time).block<2,1>(0,0);
+
+//  const Eigen::Vector2d da =
+//      compute_acceleration(_params, scaled_time).block<2,1>(0,0);
+
+//  return (dv.dot(dv) + dp.dot(da) < 0.0);
+//}
+
+//==============================================================================
+Time DistanceDifferential::start_time() const
+{
+  return _params.time_range[0];
+}
+
+//==============================================================================
+Time DistanceDifferential::finish_time() const
+{
+  return _params.time_range[1];
+}
+
 } // namespace rmf_traffic
