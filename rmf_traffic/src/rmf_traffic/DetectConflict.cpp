@@ -278,21 +278,6 @@ BoundingBox adjust_bounding_box(
 }
 
 //==============================================================================
-BoundingBox get_bounding_footprint(
-  const rmf_traffic::Spline& spline,
-  const Profile::Implementation& profile)
-{
-  if (profile.footprint)
-  {
-    return adjust_bounding_box(
-      get_bounding_box(spline),
-      profile.footprint->get_characteristic_length());
-  }
-
-  return void_box();
-}
-
-//==============================================================================
 BoundingProfile get_bounding_profile(
   const rmf_traffic::Spline& spline,
   const Profile::Implementation& profile)
@@ -641,7 +626,7 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
 
     const DistanceDifferential D(*spline_a, *spline_b);
 
-    if (D.initially_negative_derivative())
+    if (D.initially_approaching())
     {
       const auto time = D.start_time();
       if (!output_conflicts)

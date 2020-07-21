@@ -92,7 +92,7 @@ public:
       const Spline& spline_a,
       const Spline& spline_b);
 
-  bool initially_negative_derivative() const;
+  bool initially_approaching() const;
 
   /// Calculate the times within the relevant window when an "approach" is
   /// occuring. This means that the vehicles are getting closer together than
