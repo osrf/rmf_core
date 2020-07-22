@@ -103,6 +103,10 @@ public:
 
     /// Receive the required timing for a path that has been submitted.
     ///
+    /// This function may get called multiple times for the same path version,
+    /// because the timing information may need to change as the traffic
+    /// schedule gets updated and conflicts occur.
+    ///
     /// \param[in] version
     ///   The version number of the path whose timing is being provided. If this
     ///   version number does not match the latest path that you submitted, then
