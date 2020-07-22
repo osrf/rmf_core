@@ -123,7 +123,13 @@ public:
     ///   but UpdateHandle::add_delay(~) should be called whenever that happens.
     virtual void receive_path_timing(
         std::size_t version,
-        const std::vector<rmf_traffic::Time>& timing);
+        const std::vector<rmf_traffic::Time>& timing) = 0;
+
+    /// This function will be called when deadlock has occurred due to an
+    /// unresolvable conflict. Human intervention may be required at this point,
+    /// because the RMF traffic negotiation system does not have a high enough
+    /// level of control over the conflicting participants to resolve it.
+    virtual void deadlock() = 0;
 
   };
 
