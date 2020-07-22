@@ -3,7 +3,7 @@
 uint64 conflict_version
 
 # The IDs of the participants that are in conflict.
-uint64[] participants
+uint32[] participants
 
 # Array of all tables
 NegotiationStatusTable[] tables

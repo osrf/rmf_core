@@ -1,25 +1,19 @@
 
 # The sequence key that refers to this table. This is equivalent to
 # [to_accommodate..., for_participant]
-uint64[] sequence
+uint32[] sequence
 
 # indices to table array of NegotiationStatus.msg
 uint32[] children
 
-# Finished status
-bool finished
-
-# Forfeit status
-bool forfeited
-
-# Rejected status
-bool rejected
-
-# Ongoing status
-bool ongoing
-
-# Defunct status
-bool defunct
+# Status of the table
+uint8 status
+uint8 STATUS_UNKNOWN = 0
+uint8 STATUS_FINISHED = 1
+uint8 STATUS_FORFEITED = 2
+uint8 STATUS_REJECTED = 4
+uint8 STATUS_ONGOING = 8
+uint8 STATUS_DEFUNCT = 16
 
 # depth in tree of nodes used for sorting
 int32 depth
@@ -28,7 +22,7 @@ int32 depth
 int32 parent_index
 
 # participant id of proposals. same count as proposals
-uint64[]  proposals_id
+uint32[]  proposals_id
 
 # proposals. same count as proposals_id
 Itinerary[] proposals

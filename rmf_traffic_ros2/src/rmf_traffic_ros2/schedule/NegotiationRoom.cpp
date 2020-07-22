@@ -288,11 +288,16 @@ rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
       table.depth = current_depth;
       table.parent_index = node.parent_index;
 
-      table.finished = static_cast<bool>(node.table_ptr->submission());
-      table.forfeited = node.table_ptr->forfeited();
-      table.rejected = node.table_ptr->rejected();
-      table.ongoing = node.table_ptr->ongoing();
-      table.defunct = node.table_ptr->defunct();
+      if (static_cast<bool>(node.table_ptr->submission()))
+        table.status |= table.STATUS_FINISHED;
+      if (node.table_ptr->forfeited())
+        table.status |= table.STATUS_FORFEITED;
+      if (node.table_ptr->rejected())
+        table.status |= table.STATUS_REJECTED;
+      if (node.table_ptr->ongoing())
+        table.status |= table.STATUS_ONGOING;
+      if (node.table_ptr->defunct())
+        table.status |= table.STATUS_DEFUNCT;
 
       auto p = node.table_ptr->proposal();
       
