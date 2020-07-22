@@ -408,18 +408,24 @@ std::vector<double> compute_roots_in_unit_domain(const Eigen::Vector3d coeffs)
   if (std::abs(a) < tol)
   {
     if (std::abs(b) < tol)
+    {
       return {};
+    }
 
     const double t = -c/b;
     if (0.0 <= t && t <= 1.0)
+    {
       return {t};
+    }
 
     return {};
   }
 
   const double determinate = (b*b - 4*a*c);
   if (determinate < 0.0)
+  {
     return {};
+  }
 
   std::vector<double> output;
   const double t_m = (-b - std::sqrt(determinate))/(2*a);
@@ -465,6 +471,25 @@ bool is_in_eighth(
   const double half_range = M_PI/8.0;
   return (std::abs(theta - eighth_0) <= half_range)
       || (std::abs(theta - eighth_1) <= half_range);
+}
+
+//==============================================================================
+bool contains(const std::vector<double>& times, const double t)
+{
+  for (const auto check : times)
+  {
+    if (std::abs(t-check) < time_tolerance)
+      return true;
+  }
+
+  return false;
+}
+
+//==============================================================================
+void insert_if_missing(std::vector<double>& times, const double t)
+{
+  if (!contains(times, t))
+    times.push_back(t);
 }
 
 //==============================================================================
@@ -514,57 +539,66 @@ std::vector<Time> DistanceDifferential::approach_times() const
   const auto t_vx_zero = compute_roots_in_unit_domain(vx_coeffs);
   auto t_vy_zero = compute_roots_in_unit_domain(vy_coeffs);
 
-  std::unordered_set<double> t_full_zero;
+  std::vector<double> t_full_zero;
+  const double zero_tolerance = 1e-3;
 
   std::vector<Time> output;
 
   for (const double t : t_vx_zero)
   {
-    bool tested = false;
-    for (std::size_t j=0; j < t_vy_zero.size(); ++j)
+    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2,1>(0,0);
+    if (std::abs(dv.y()) < zero_tolerance)
     {
-      const double t_check = t_vy_zero.size();
-      if (std::abs(t - t_check) < time_tolerance)
-      {
-        tested = true;
-        // This is a true critical point, so we should check the second
-        // derivative. This is (vx: 0, vy: 0)
-        if (is_second_derivative_of_distance_negative(_params, t))
-          output.push_back(compute_real_time(_params.time_range, t));
-
-        t_vy_zero.erase(t_vy_zero.begin() + j);
-        t_full_zero.insert(t);
-        break;
-      }
-    }
-
-    if (tested)
+      insert_if_missing(t_full_zero, t);
       continue;
+    }
 
     // This is (vx: 0, vy: anything)
     const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, M_PI/2.0, -M_PI/2.0)
         || is_negative_derivative(t, _params))
+    {
       output.push_back(compute_real_time(_params.time_range, t));
+    }
   }
 
   for (const double t : t_vy_zero)
   {
+    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2,1>(0,0);
+    if (std::abs(dv.x()) < zero_tolerance)
+    {
+      insert_if_missing(t_full_zero, t);
+      continue;
+    }
+
     const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+
     double theta = std::atan2(dp.y(), dp.x());
     if (theta < -M_PI/2.0)
       theta += 2.0*M_PI;
 
     if (is_in_eighth(theta, 0.0, M_PI)
         || is_negative_derivative(t, _params))
+    {
       output.push_back(compute_real_time(_params.time_range, t));
+    }
+  }
+
+  for (const double t : t_full_zero)
+  {
+    // This is a true critical point, so we should check the second
+    // derivative. This is (vx: 0, vy: 0)
+    if (is_second_derivative_of_distance_negative(_params, t))
+    {
+      output.push_back(compute_real_time(_params.time_range, t));
+    }
   }
 
   const auto t_vx_p_vy = compute_roots_in_unit_domain(vx_coeffs + vy_coeffs);
   for (const double t : t_vx_p_vy)
   {
-    if (t_full_zero.count(t))
+    if (contains(t_full_zero, t))
       continue;
 
     // This is (vx + vy = 0)
@@ -572,13 +606,15 @@ std::vector<Time> DistanceDifferential::approach_times() const
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, M_PI/4.0, -3.0*M_PI/4.0)
         || is_negative_derivative(t, _params))
+    {
       output.push_back(compute_real_time(_params.time_range, t));
+    }
   }
 
   const auto t_vx_m_vy = compute_roots_in_unit_domain(vx_coeffs - vy_coeffs);
   for (const double t : t_vx_m_vy)
   {
-    if (t_full_zero.count(t))
+    if (contains(t_full_zero, t))
       continue;
 
     // This is (vx - vy = 0)
@@ -586,7 +622,9 @@ std::vector<Time> DistanceDifferential::approach_times() const
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, 3.0*M_PI/4.0, -M_PI/4.0)
         || is_negative_derivative(t, _params))
+    {
       output.push_back(compute_real_time(_params.time_range, t));
+    }
   }
 
   std::sort(output.begin(), output.end());
