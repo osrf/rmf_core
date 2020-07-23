@@ -459,15 +459,6 @@ bool close_start(
   // it a conflict for them to be in each other's vicinities. This gives robots
   // an opportunity to back away from each other without it being considered a
   // schedule conflict.
-
-  if (profile_a.footprint == profile_a.vicinity
-    && profile_b.footprint == profile_b.vicinity)
-  {
-    // If there is no difference between the footprint and vicinity for either
-    // vehicle, then there is no such thing as a "close start".
-    return false;
-  }
-
   Spline spline_a(a_it);
   Spline spline_b(b_it);
   const auto start_time =
