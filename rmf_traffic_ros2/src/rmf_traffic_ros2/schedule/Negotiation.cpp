@@ -99,6 +99,9 @@ public:
       std::vector<rmf_traffic::Route> itinerary,
       std::function<UpdateVersion()> approval_callback) const final
     {
+      if (table->defunct())
+        return;
+
       if (table->submit(itinerary, table_version+1))
       {
         impl->approvals[conflict_version][table] = {
@@ -162,12 +165,14 @@ public:
 
     void forfeit(const std::vector<ParticipantId>& /*blockers*/) const final
     {
-      // TODO(MXG): Consider using blockers to invite more participants into the
-      // negotiation
-      table->forfeit(table_version);
-      impl->publish_forfeit(conflict_version, *table);
+      if (!table->defunct())
+      {
+        // TODO(MXG): Consider using blockers to invite more participants into the
+        // negotiation
+        table->forfeit(table_version);
+        impl->publish_forfeit(conflict_version, *table);
+      }
     }
-
   };
 
   rclcpp::Node& node;

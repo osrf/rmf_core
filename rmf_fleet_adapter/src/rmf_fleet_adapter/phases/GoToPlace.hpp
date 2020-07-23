@@ -63,6 +63,8 @@ public:
         const TableViewerPtr& table_viewer,
         const ResponderPtr& responder) final;
 
+    ~Active();
+
   private:
     friend class Pending;
     Active(
