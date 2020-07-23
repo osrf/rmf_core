@@ -125,7 +125,7 @@ SCENARIO("Testing Construction")
   }
 }
 
-SCENARIO("Testing conflicts", "[conflicts]")
+SCENARIO("Testing conflicts", "[close_start]")
 {
   using Trajecotry = rmf_traffic::Trajectory;
 

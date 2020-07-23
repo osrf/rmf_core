@@ -433,8 +433,6 @@ SCENARIO("Multi-participant negotiation")
 
   auto proposal = NegotiationRoom(database, intentions, 4.0)/*.print()*/.solve();
   REQUIRE(proposal);
-
-  //print_proposal(*proposal);
 }
 
 // Helper Definitions
