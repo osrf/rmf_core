@@ -168,7 +168,11 @@ GoToPlace::Active::~Active()
   // forfeit on their responder to make sure the negotiation does not get
   // deadlocked because of us.
   for (const auto& n : _negotiate_services)
-    n.first->responder()->forfeit({});
+  {
+    const auto r = n.first->responder();
+    if (r)
+      r->forfeit({});
+  }
 }
 
 //==============================================================================
