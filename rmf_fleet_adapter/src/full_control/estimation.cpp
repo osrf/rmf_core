@@ -214,6 +214,12 @@ void estimate_state(
     TravelInfo& info)
 {
   std::string last_known_map = l.level_name;
+  if(!last_known_map.empty())
+  {
+    info.updater->update_position(last_known_map, {l.x, l.y, l.yaw});
+    return;
+  }
+
   if (info.last_known_wp)
   {
     const auto& last_known_wp = info.graph->get_waypoint(*info.last_known_wp);
@@ -260,37 +266,51 @@ void estimate_waypoint(
     TravelInfo& info)
 {
   std::string last_known_map = l.level_name;
-  if (last_known_map.empty() && info.last_known_wp)
+  if(!last_known_map.empty())
   {
-    last_known_map = info.graph->get_waypoint(*info.last_known_wp)
-        .get_map_name();
-  }
+    const auto starts = rmf_traffic::agv::compute_plan_starts(
+      *info.graph,
+      last_known_map,
+      {l.x, l.y, l.yaw},
+      rmf_traffic_ros2::convert(node->now()));
 
-  const Eigen::Vector2d p(l.x, l.y);
-  const rmf_traffic::agv::Graph::Waypoint* closest_wp = nullptr;
-  double nearest_dist = std::numeric_limits<double>::infinity();
-  for (std::size_t i=0; i < info.graph->num_waypoints(); ++i)
+    assert(starts.size() > 0);
+    info.updater->update_position(starts[0].waypoint(), l.yaw);
+  }
+  else
   {
-    const auto& wp = info.graph->get_waypoint(i);
-    const Eigen::Vector2d p_wp = wp.get_location();
-    const double dist = (p - p_wp).norm();
-    if (dist < nearest_dist)
+    if (last_known_map.empty() && info.last_known_wp)
     {
-      closest_wp = &wp;
-      nearest_dist = dist;
+      last_known_map = info.graph->get_waypoint(*info.last_known_wp)
+          .get_map_name();
     }
+
+    const Eigen::Vector2d p(l.x, l.y);
+    const rmf_traffic::agv::Graph::Waypoint* closest_wp = nullptr;
+    double nearest_dist = std::numeric_limits<double>::infinity();
+    for (std::size_t i=0; i < info.graph->num_waypoints(); ++i)
+    {
+      const auto& wp = info.graph->get_waypoint(i);
+      const Eigen::Vector2d p_wp = wp.get_location();
+      const double dist = (p - p_wp).norm();
+      if (dist < nearest_dist)
+      {
+        closest_wp = &wp;
+        nearest_dist = dist;
+      }
+    }
+
+    assert(closest_wp);
+
+    if (nearest_dist > 0.5)
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Robot named [%s] belonging to fleet [%s] is expected to be on a "
+        "waypoint, but the nearest waypoint is [%fm] away.",
+        info.robot_name.c_str(), info.fleet_name.c_str(), nearest_dist);
+    }
+
+    info.updater->update_position(closest_wp->index(), l.yaw);
   }
-
-  assert(closest_wp);
-
-  if (nearest_dist > 0.5)
-  {
-    RCLCPP_WARN(
-      node->get_logger(),
-      "Robot named [%s] belonging to fleet [%s] is expected to be on a "
-      "waypoint, but the nearest waypoint is [%fm] away.",
-      info.robot_name.c_str(), info.fleet_name.c_str(), nearest_dist);
-  }
-
-  info.updater->update_position(closest_wp->index(), l.yaw);
 }
