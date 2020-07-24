@@ -53,26 +53,25 @@ Node::Node()
 //==============================================================================
 void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
 {
-  if (_log.find(msg->lift_name) == _log.end())
-    _log[msg->lift_name] = "None";
+  if (_active_sessions.find(msg->lift_name) == _active_sessions.end())
+    _active_sessions[msg->lift_name] = nullptr;
   
-  std::string& curr_session = _log[msg->lift_name];
-  if (curr_session == "None")
+  auto& curr_request = _active_sessions[msg->lift_name];
+  if (curr_request)
   {
-    if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
+    if (curr_request->session_id == msg->session_id)
     {
-      curr_session = msg->session_id;
-      _lift_request_pub->publish(*msg);
+      if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
+        curr_request = std::move(msg);
+      else
+        curr_request = nullptr;
     }
   }
   else
   {
-    if (curr_session == msg->session_id)
+    if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
     {
-      if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
-        _lift_request_pub->publish(*msg);
-      else
-        curr_session = "None";
+      curr_request = std::move(msg);
     }
   }
 
@@ -80,21 +79,19 @@ void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
 }
 
 //==============================================================================
-void Node::_lift_state_update(LiftState::UniquePtr /*msg*/)
+void Node::_lift_state_update(LiftState::UniquePtr msg)
 {
-  /*
-  auto& lift_requests = _schedule[msg->lift_name];
+  if (_active_sessions.find(msg->lift_name) == _active_sessions.end())
+    _active_sessions[msg->lift_name] = nullptr;
 
-  if (!lift_requests.empty())
+  auto& lift_request = _active_sessions[msg->lift_name];
+
+  if (lift_request)
   {
-    if ((lift_requests.front()->destination_floor == msg->current_floor) &&
-        (lift_requests.front()->door_state == msg->door_state))
-      lift_requests.pop_front();
+    if ((lift_request->destination_floor != msg->current_floor) ||
+        (lift_request->door_state != msg->door_state))
+      _lift_request_pub->publish(*lift_request);
   }
-
-  if (!lift_requests.empty())
-    _lift_request_pub->publish(*lift_requests.front());
-  */
 
   // For now, we do not need to publish this.
 

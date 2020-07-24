@@ -16,7 +16,6 @@
 */
 
 #include <rmf_fleet_adapter/agv/parse_graph.hpp>
-#include <iostream>
 #include <unordered_map>
 #include <yaml-cpp/yaml.h>
 
@@ -227,7 +226,7 @@ rmf_traffic::agv::Graph parse_graph(
       ConstraintPtr constraint = nullptr;
       rmf_utils::clone_ptr<Event> entry_event;
       rmf_utils::clone_ptr<Event> exit_event;
-      const rmf_traffic::Duration duration = std::chrono::milliseconds(1);
+      const rmf_traffic::Duration duration = std::chrono::seconds(1);
 
       entry_event = Event::make(Lane::LiftMove(
         lift.first, graph.get_waypoint(wps[i+1]).get_map_name(), duration));
