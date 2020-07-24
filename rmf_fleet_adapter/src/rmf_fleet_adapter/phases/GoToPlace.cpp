@@ -162,20 +162,6 @@ void GoToPlace::Active::respond(
 }
 
 //==============================================================================
-GoToPlace::Active::~Active()
-{
-  // If there are any negotiating services still running, then we'll call
-  // forfeit on their responder to make sure the negotiation does not get
-  // deadlocked because of us.
-  for (const auto& n : _negotiate_services)
-  {
-    const auto r = n.first->responder();
-    if (r)
-      r->forfeit({});
-  }
-}
-
-//==============================================================================
 GoToPlace::Active::Active(
   agv::RobotContextPtr context,
   rmf_traffic::agv::Plan::Goal goal,
