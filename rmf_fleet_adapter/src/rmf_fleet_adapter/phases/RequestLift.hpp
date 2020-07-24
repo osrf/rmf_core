@@ -35,7 +35,8 @@ struct RequestLift
       agv::RobotContextPtr context,
       std::string lift_name,
       std::string destination,
-      rmf_traffic::Time expected_finish);
+      rmf_traffic::Time expected_finish,
+      uint8_t request_type = rmf_lift_msgs::msg::LiftRequest::REQUEST_AGV_MODE);
 
     const rxcpp::observable<Task::StatusMsg>& observe() const override;
 
@@ -53,6 +54,7 @@ struct RequestLift
     std::string _lift_name;
     std::string _destination;
     rmf_traffic::Time _expected_finish;
+    uint8_t _request_type;
     std::string _description;
     rxcpp::observable<Task::StatusMsg> _obs;
     rclcpp::TimerBase::SharedPtr _timer;
@@ -61,7 +63,8 @@ struct RequestLift
       agv::RobotContextPtr context,
       std::string lift_name,
       std::string destination,
-      rmf_traffic::Time expected_finish);
+      rmf_traffic::Time expected_finish,
+      uint8_t request_type = rmf_lift_msgs::msg::LiftRequest::REQUEST_AGV_MODE);
 
     void _init_obs();
 
@@ -78,7 +81,8 @@ struct RequestLift
       agv::RobotContextPtr context,
       std::string lift_name,
       std::string destination,
-      rmf_traffic::Time expected_finish);
+      rmf_traffic::Time expected_finish,
+      uint8_t request_type = rmf_lift_msgs::msg::LiftRequest::REQUEST_AGV_MODE);
 
     std::shared_ptr<Task::ActivePhase> begin() override;
 
@@ -92,6 +96,7 @@ struct RequestLift
     std::string _destination;
     rmf_traffic::Time _expected_finish;
     std::string _description;
+    uint8_t _request_type;
   };
 };
 

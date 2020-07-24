@@ -53,14 +53,49 @@ Node::Node()
 //==============================================================================
 void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
 {
-  // For now we will simply forward the request along
+  if (_log.find(msg->lift_name) == _log.end())
+    _log[msg->lift_name] = "None";
+  
+  std::string& curr_session = _log[msg->lift_name];
+  if (curr_session == "None")
+  {
+    if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
+    {
+      curr_session = msg->session_id;
+      _lift_request_pub->publish(*msg);
+    }
+  }
+  else
+  {
+    if (curr_session == msg->session_id)
+    {
+      if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
+        _lift_request_pub->publish(*msg);
+      else
+        curr_session = "None";
+    }
+  }
+
   // TODO(MXG): Make this more intelligent by scheduling the lift
-  _lift_request_pub->publish(*msg);
 }
 
 //==============================================================================
 void Node::_lift_state_update(LiftState::UniquePtr /*msg*/)
 {
+  /*
+  auto& lift_requests = _schedule[msg->lift_name];
+
+  if (!lift_requests.empty())
+  {
+    if ((lift_requests.front()->destination_floor == msg->current_floor) &&
+        (lift_requests.front()->door_state == msg->door_state))
+      lift_requests.pop_front();
+  }
+
+  if (!lift_requests.empty())
+    _lift_request_pub->publish(*lift_requests.front());
+  */
+
   // For now, we do not need to publish this.
 
 //  std_msgs::msg::Bool emergency_msg;
