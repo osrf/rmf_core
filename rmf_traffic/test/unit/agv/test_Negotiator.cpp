@@ -731,10 +731,10 @@ SCENARIO("A Single Lane")
           }
         });
 
-      THEN("No Proposal is found")
+      THEN("A proposal is found")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
-        REQUIRE_FALSE(proposal);
+        REQUIRE(proposal);
       }
     }
 
