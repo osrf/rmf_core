@@ -121,9 +121,11 @@ public:
 
   rmf_utils::clone_ptr<RouteValidator> validator;
   Duration min_hold_time;
-  std::shared_ptr<const bool> interrupt_flag;
   rmf_utils::optional<double> maximum_cost_estimate;
   rmf_utils::optional<std::size_t> saturation_limit;
+
+  std::function<bool()> interrupter = nullptr;
+  std::shared_ptr<const bool> interrupt_flag = nullptr;
 
 };
 
@@ -138,10 +140,28 @@ Planner::Options::Options(
       Implementation{
         std::move(validator),
         min_hold_time,
-        std::move(interrupt_flag),
         maximum_cost_estimate,
         saturation_limit
       }))
+{
+  this->interrupt_flag(std::move(interrupt_flag));
+}
+
+//==============================================================================
+Planner::Options::Options(
+  rmf_utils::clone_ptr<RouteValidator> validator,
+  const Duration min_hold_time,
+  std::function<bool()> interrupter,
+  rmf_utils::optional<double> maximum_cost_esitmate,
+  rmf_utils::optional<std::size_t> saturation_limit)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+     Implementation{
+       std::move(validator),
+       min_hold_time,
+       maximum_cost_esitmate,
+       saturation_limit,
+       std::move(interrupter)
+     }))
 {
   // Do nothing
 }
@@ -175,10 +195,34 @@ Duration Planner::Options::minimum_holding_time() const
 }
 
 //==============================================================================
+auto Planner::Options::interrupter(std::function<bool()> cb) -> Options&
+{
+  _pimpl->interrupt_flag = nullptr;
+  _pimpl->interrupter = std::move(cb);
+  return *this;
+}
+
+//==============================================================================
+const std::function<bool()>& Planner::Options::interrupter() const
+{
+  return _pimpl->interrupter;
+}
+
+//==============================================================================
 auto Planner::Options::interrupt_flag(
     std::shared_ptr<const bool> flag) -> Options&
 {
-  _pimpl->interrupt_flag = std::move(flag);
+  if (flag)
+  {
+    _pimpl->interrupt_flag = flag;
+    _pimpl->interrupter = [flag = std::move(flag)]() -> bool { return *flag; };
+  }
+  else
+  {
+    _pimpl->interrupt_flag = nullptr;
+    _pimpl->interrupter = nullptr;
+  }
+
   return *this;
 }
 
