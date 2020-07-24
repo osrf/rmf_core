@@ -48,6 +48,11 @@ rmf_traffic::agv::Graph parse_graph(
           + graph_file + "]");
   }
 
+  using Constraint = rmf_traffic::agv::Graph::OrientationConstraint;
+  using ConstraintPtr = rmf_utils::clone_ptr<Constraint>;
+  using Lane = rmf_traffic::agv::Graph::Lane;
+  using Event = Lane::Event;
+
   rmf_traffic::agv::Graph graph;
   std::unordered_map<std::string, std::vector<std::size_t>> lift_wps;
   std::size_t vnum = 0;  // To increment lane endpoint ids
@@ -94,7 +99,6 @@ rmf_traffic::agv::Graph parse_graph(
       if (lift_option)
       {
         const std::string lift_name = lift_option.as<std::string>();
-        //std::cout << lift_name << " " << wp.index() << std::endl;
         if (lift_name != "")
           lift_wps[lift_name].push_back(wp.index());
       }
@@ -103,8 +107,6 @@ rmf_traffic::agv::Graph parse_graph(
     const YAML::Node& lanes = level.second["lanes"];
     for (const auto& lane : lanes)
     {
-      using Constraint = rmf_traffic::agv::Graph::OrientationConstraint;
-      using ConstraintPtr = rmf_utils::clone_ptr<Constraint>;
 
       ConstraintPtr constraint = nullptr;
 
@@ -138,31 +140,8 @@ rmf_traffic::agv::Graph parse_graph(
         }
       }
 
-      using Lane = rmf_traffic::agv::Graph::Lane;
-      using Event = Lane::Event;
       rmf_utils::clone_ptr<Event> entry_event;
       rmf_utils::clone_ptr<Event> exit_event;
-      /*if (const YAML::Node mock_lift_option = options["demo_mock_floor_name"])
-      {
-        // TODO(MXG): Replace this with a key like lift_name when we have proper
-        // support for lifts.
-        const std::string floor_name = mock_lift_option.as<std::string>();
-        const YAML::Node lift_name_option = options["demo_mock_lift_name"];
-
-        if (!lift_name_option)
-        {
-          throw std::runtime_error(
-            "Missing [demo_mock_lift_name] parameter which is required for "
-            "mock lifts");
-        }
-
-        const std::string lift_name = lift_name_option.as<std::string>();
-        const rmf_traffic::Duration duration = std::chrono::seconds(4);
-        entry_event = Event::make(
-          Lane::LiftDoorOpen(lift_name, floor_name, duration));
-        // NOTE(MXG): We do not need an exit event for lifts
-      }
-      else*/
       std::size_t begin = lane[0].as<std::size_t>() + vnum;
       std::size_t end = lane[1].as<std::size_t>() + vnum;
 
@@ -186,7 +165,28 @@ rmf_traffic::agv::Graph parse_graph(
 
       if (!is_lift)
       {
-        if (const YAML::Node door_name_option = options["door_name"])
+        if (const YAML::Node mock_lift_option = options["demo_mock_floor_name"])
+        {
+          // NOTE: This is specifically for cases where users want to have a 
+          // mock lift in the map. It should not be used for real lifts.
+          const std::string floor_name = mock_lift_option.as<std::string>();
+          const YAML::Node lift_name_option = options["demo_mock_lift_name"];
+
+          if (!lift_name_option)
+          {
+            throw std::runtime_error(
+              "Missing [demo_mock_lift_name] parameter which is required for "
+              "mock lifts");
+          }
+
+          const std::string lift_name = lift_name_option.as<std::string>();
+          const rmf_traffic::Duration duration = std::chrono::seconds(4);
+          entry_event = Event::make(
+            Lane::LiftDoorOpen(lift_name, floor_name, duration));
+          exit_event = Event::make(
+            Lane::LiftDoorClose(lift_name, floor_name, duration));
+        }
+        else if (const YAML::Node door_name_option = options["door_name"])
         {
           const std::string name = door_name_option.as<std::string>();
           const rmf_traffic::Duration duration = std::chrono::seconds(4);
@@ -215,7 +215,6 @@ rmf_traffic::agv::Graph parse_graph(
       graph.add_lane(
         {begin, entry_event},
         {end, exit_event, std::move(constraint)});
-      //std::cout << lane[0].as<std::size_t>() << "," << lane[1].as<std::size_t>() << std::endl;
     }
     vnum += vnum_temp;
   }
@@ -225,8 +224,21 @@ rmf_traffic::agv::Graph parse_graph(
     const auto& wps = lift.second;
     for (std::size_t i = 0; i < wps.size()-1; i++)
     {
-      graph.add_lane(wps[i], wps[i+1]);
-      graph.add_lane(wps[i+1], wps[i]);
+      ConstraintPtr constraint = nullptr;
+      rmf_utils::clone_ptr<Event> entry_event;
+      rmf_utils::clone_ptr<Event> exit_event;
+      const rmf_traffic::Duration duration = std::chrono::seconds(1);
+      entry_event = Event::make(Lane::LiftMove(
+        lift.first, graph.get_waypoint(wps[i+1]).get_map_name(), duration));
+      graph.add_lane(
+        {wps[i], entry_event},
+        {wps[i+1], exit_event, constraint});
+
+      entry_event = Event::make(Lane::LiftMove(
+        lift.first, graph.get_waypoint(wps[i]).get_map_name(), duration));
+      graph.add_lane(
+        {wps[i+1], entry_event},
+        {wps[i], exit_event, constraint});
     }
   }
 
@@ -235,3 +247,26 @@ rmf_traffic::agv::Graph parse_graph(
 
 } // namespace agv
 } // namespace rmf_fleet_adapter
+
+/*for (int i = 0; i < wps.size(); i++)
+  {
+    for (int j = 0; j < wps.size(); j++)
+    {
+      if (i != j)
+      {
+        ConstraintPtr constraint = nullptr;
+        rmf_utils::clone_ptr<Event> entry_event;
+        rmf_utils::clone_ptr<Event> exit_event;
+        // int t = (1 + std::abs(i - j)) * 4;  // a rough time estimation
+        const rmf_traffic::Duration duration = std::chrono::seconds(1);
+        std::string map_name = graph.get_waypoint(wps[j]).get_map_name();
+        entry_event = Event::make(
+          Lane::LiftDoorOpen(lift.first, map_name, duration));
+
+        graph.add_lane(
+          {wps[i], entry_event},
+          {wps[j], exit_event, std::move(constraint)});
+      }
+    }
+  }
+*/
