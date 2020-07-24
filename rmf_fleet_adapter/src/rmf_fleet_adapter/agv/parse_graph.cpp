@@ -227,7 +227,8 @@ rmf_traffic::agv::Graph parse_graph(
       ConstraintPtr constraint = nullptr;
       rmf_utils::clone_ptr<Event> entry_event;
       rmf_utils::clone_ptr<Event> exit_event;
-      const rmf_traffic::Duration duration = std::chrono::seconds(1);
+      const rmf_traffic::Duration duration = std::chrono::milliseconds(1);
+
       entry_event = Event::make(Lane::LiftMove(
         lift.first, graph.get_waypoint(wps[i+1]).get_map_name(), duration));
       graph.add_lane(
@@ -247,26 +248,3 @@ rmf_traffic::agv::Graph parse_graph(
 
 } // namespace agv
 } // namespace rmf_fleet_adapter
-
-/*for (int i = 0; i < wps.size(); i++)
-  {
-    for (int j = 0; j < wps.size(); j++)
-    {
-      if (i != j)
-      {
-        ConstraintPtr constraint = nullptr;
-        rmf_utils::clone_ptr<Event> entry_event;
-        rmf_utils::clone_ptr<Event> exit_event;
-        // int t = (1 + std::abs(i - j)) * 4;  // a rough time estimation
-        const rmf_traffic::Duration duration = std::chrono::seconds(1);
-        std::string map_name = graph.get_waypoint(wps[j]).get_map_name();
-        entry_event = Event::make(
-          Lane::LiftDoorOpen(lift.first, map_name, duration));
-
-        graph.add_lane(
-          {wps[i], entry_event},
-          {wps[j], exit_event, std::move(constraint)});
-      }
-    }
-  }
-*/
