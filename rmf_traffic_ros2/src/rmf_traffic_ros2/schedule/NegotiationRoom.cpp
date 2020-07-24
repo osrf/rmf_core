@@ -22,6 +22,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <iostream>
+#include <deque>
 
 namespace rmf_traffic_ros2 {
 
@@ -255,97 +256,90 @@ rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
   for (const auto p : negotiation.participants())
     msg.participants.push_back(p);
 
+  auto convert_msg_table = [](rmf_traffic::schedule::Negotiation::ConstTablePtr ptr, 
+    int parent_index, int depth)
+    -> rmf_traffic_msgs::msg::NegotiationStatusTable
+  {
+    rmf_traffic_msgs::msg::NegotiationStatusTable table;
+
+    for (const auto v : ptr->sequence())
+      table.sequence.push_back(v.participant);
+    table.parent_index = parent_index;
+
+    /*if (static_cast<bool>(node.table_view->submission()))
+      table.status |= table.STATUS_FINISHED;*/
+    if (ptr->forfeited())
+      table.status |= table.STATUS_FORFEITED;
+    if (ptr->rejected())
+      table.status |= table.STATUS_REJECTED;
+    /*if (node.table_view->ongoing())
+      table.status |= table.STATUS_ONGOING;*/
+    if (ptr->defunct())
+      table.status |= table.STATUS_DEFUNCT;
+    table.depth = depth;
+
+    auto p = ptr->proposal();
+    //auto p = ptr->base_proposals();
+    for (auto submission : p)
+    {
+      table.proposals_id.push_back(submission.participant);
+      table.proposals.push_back(convert_itinerary(submission.itinerary));
+    }
+    return table;
+  };
   //do a breadth first traversal to assemble tables into an array
   struct Node
   {
+    rmf_traffic::schedule::Negotiation::Table::ViewerPtr table_view;
     rmf_traffic::schedule::Negotiation::ConstTablePtr table_ptr;
-    int parent_index = -1;
+    int root_parent_index = -1;
+    bool is_root = false;
   };
-  std::vector<Node> queue;
+  std::deque<Node> queue;
 
-  for (const auto p : negotiation.participants())
+  for (const auto id : negotiation.participants())
   { 
-    const auto root_table = negotiation.table(p, {});
+    auto root_table = negotiation.table(id, {});
     assert(root_table);
     assert(root_table->parent() == nullptr);
 
+    auto tableview = root_table->viewer();
+    auto participant_desc = tableview->get_description(id);
+    msg.participant_names.push_back(participant_desc->name());
+
     Node t;
     t.table_ptr = root_table;
+    t.table_view = tableview;
+    t.root_parent_index = queue.size();
+    t.is_root = true;
     queue.push_back(t);
+
+    msg.tables.push_back(convert_msg_table(root_table, -1, 0));
   }
 
-  //do breadth first processing
-  uint current_depth = 0;
-  std::vector<Node> next_depth_queue;
-  do
+  while (!queue.empty()) 
   {
-    for (auto node : queue)
-    { 
-      rmf_traffic_msgs::msg::NegotiationStatusTable table;
+    Node& node = queue.front();
 
-      for (const auto v : node.table_ptr->sequence())
-        table.sequence.push_back(v.participant);
-      table.depth = current_depth;
-      table.parent_index = node.parent_index;
-
-      if (static_cast<bool>(node.table_ptr->submission()))
-        table.status |= table.STATUS_FINISHED;
-      if (node.table_ptr->forfeited())
-        table.status |= table.STATUS_FORFEITED;
-      if (node.table_ptr->rejected())
-        table.status |= table.STATUS_REJECTED;
-      if (node.table_ptr->ongoing())
-        table.status |= table.STATUS_ONGOING;
-      if (node.table_ptr->defunct())
-        table.status |= table.STATUS_DEFUNCT;
-
-      auto p = node.table_ptr->proposal();
-      
-      for (auto submission : p)
-      {
-        table.proposals_id.push_back(submission.participant);
-        table.proposals.push_back(convert_itinerary(submission.itinerary));
-      }
-#if 0 //@TODO(ddengster): We could use table->viewer() to get a better view of itineraries
-      auto viewer = node.table_ptr->viewer();
-      std::cout << "base_proposal count: " <<viewer->base_proposals().size() << std::endl;
-      for (auto proposal : viewer->base_proposals())
-      {
-        std::cout << "proposal id:" << proposal.participant << std::endl;
-        rmf_traffic_msgs::msg::Itinerary itin_msg;
-        itin_msg.routes = convert(proposal.itinerary);
-        table.base_proposals.push_back(itin_msg);
-      }
-
-      std::cout << "alternatives count: " <<viewer->alternatives().size() << std::endl;
-      for (auto alternative : viewer->alternatives())
-      {
-
-        ParticipantId participant = alternative.first;
-        std::cout << "id :" << participant << std::endl;
-        /*auto& alternatives_ptr = alternative.second;
-        
-        rmf_traffic_msgs::msg::Itinerary itin_msg;
-        itin_msg = convert(*alternatives_ptr);
-        table.alternatives.push_back(itin_msg);*/
-      }
-#endif
-      msg.tables.push_back(table);
-
-      auto children = node.table_ptr->children();
+    const auto& children = node.table_ptr->children();
+    if (!node.is_root && children.empty())
+    {
+      // terminal node, add to msg table
+      msg.tables.push_back(convert_msg_table(node.table_ptr, node.root_parent_index, 1));
+    }
+    else
+    {
       for (auto child : children)
       {
         Node c;
         c.table_ptr = child;
-        c.parent_index = msg.tables.size() - 1;
-        next_depth_queue.push_back(c);
+        c.table_view = child->viewer();
+        c.root_parent_index = node.root_parent_index;
+        queue.push_back(c);
       }
     }
-    queue = next_depth_queue;
-    next_depth_queue.clear();
-    ++current_depth;
-
-  } while (!queue.empty());
+    queue.pop_front();
+  }
   return msg;
 }
 
