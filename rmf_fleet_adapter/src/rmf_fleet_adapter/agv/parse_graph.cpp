@@ -94,6 +94,22 @@ rmf_traffic::agv::Graph parse_graph(
           wp.set_parking_spot(true);
       }
 
+      const YAML::Node& holding_point_option = options["is_holding_point"];
+      if (holding_point_option)
+      {
+        const bool is_holding_point = holding_point_option.as<bool>();
+        if (is_holding_point)
+          wp.set_holding_point(true);
+      }
+
+      const YAML::Node& passthrough_option = options["is_passthrough_point"];
+      if (passthrough_option)
+      {
+        const bool is_passthrough_point = passthrough_option.as<bool>();
+        if (is_passthrough_point)
+          wp.set_passthrough_point(true);
+      }
+
       const YAML::Node& lift_option = options["lift"];
       if (lift_option)
       {
