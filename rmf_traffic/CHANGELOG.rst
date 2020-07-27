@@ -5,7 +5,11 @@ Changelog for package rmf_traffic
 Forthcoming
 -----------
 
-1.0.1 (2020-07-XX)
+1.0.2 (2020-07-27)
+------------------
+* Improved definition of "traffic conflict" for vechiles that start too close: [#136](https://github.com/osrf/rmf_core/pull/136)
+
+1.0.1 (2020-07-20)
 ------------------
 * Allow users to specify a callback for interrupting a planner: [#130](https://github.com/osrf/rmf_core/pull/130/)
 * Allow a Negotiation Table Viewer to know when its Table is defunct: [#130](https://github.com/osrf/rmf_core/pull/130/)
