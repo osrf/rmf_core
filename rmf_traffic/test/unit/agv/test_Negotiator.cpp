@@ -433,8 +433,6 @@ SCENARIO("Multi-participant negotiation")
 
   auto proposal = NegotiationRoom(database, intentions, 4.0)/*.print()*/.solve();
   REQUIRE(proposal);
-
-  //print_proposal(*proposal);
 }
 
 // Helper Definitions
@@ -733,10 +731,10 @@ SCENARIO("A Single Lane")
           }
         });
 
-      THEN("No Proposal is found")
+      THEN("A proposal is found")
       {
         auto proposal = NegotiationRoom(database, intentions).solve();
-        REQUIRE_FALSE(proposal);
+        REQUIRE(proposal);
       }
     }
 
