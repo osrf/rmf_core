@@ -18,10 +18,12 @@
 #ifndef RMF_FLEET_ADAPTER__AGV__TRAFFICLIGHT_HPP
 #define RMF_FLEET_ADAPTER__AGV__TRAFFICLIGHT_HPP
 
-#include <memory>
-#include <Eigen/Geometry>
+#include <rmf_fleet_adapter/agv/Waypoint.hpp>
 
-#include <rmf_traffic/Time.hpp>
+#include <memory>
+#include <vector>
+
+#include <rmf_utils/impl_ptr.hpp>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -36,29 +38,6 @@ public:
   class UpdateHandle
   {
   public:
-
-    struct Waypoint
-    {
-      /// The name of the reference map that the position is on.
-      std::string map_name;
-
-      /// A position along the robot's path where it will (or can) have zero
-      /// instantaneous velocity. This will usually be a point where the robot
-      /// needs to turn, or a point that comes before an intersection, so the
-      /// robot can come to a stop and allow other vehicles to pass.
-      Eigen::Vector3d position;
-
-      /// A delay that the robot is expected to experience once it arrives at
-      /// this waypoint. Usually this will be caused by the robots needing to
-      /// wait for doors to open or lifts to arrive.
-      rmf_traffic::Duration mandatory_delay = std::chrono::nanoseconds(0);
-
-      /// Whether or not the robot can wait at this point. If passthrough is
-      /// true, then the planner will assume that it cannot ask the robot to
-      /// wait here. If passthrough is false, the planner may request that the
-      /// robot wait here to avoid a conflict with other traffic participants.
-      bool passthrough = false;
-    };
 
     /// Update the traffic light with a new path for your robot.
     ///
@@ -92,6 +71,10 @@ public:
     void add_delay(
         std::size_t version,
         rmf_traffic::Duration delay);
+
+    class Implementation;
+  private:
+    rmf_utils::unique_impl_ptr<Implementation> _pimpl;
   };
 
   using UpdateHandlePtr = std::shared_ptr<UpdateHandle>;
