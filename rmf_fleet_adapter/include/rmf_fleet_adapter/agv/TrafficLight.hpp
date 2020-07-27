@@ -55,22 +55,18 @@ public:
     ///
     /// \param[in] new_path
     ///   Submit a new path that the robot intends to follow.
-    std::size_t update_path(
-        const std::vector<Waypoint>& new_path);
+    std::size_t update_path(const std::vector<Waypoint>& new_path);
 
     /// Call this function if the robot has been delayed along its path.
     ///
-    /// \param[in] version
-    ///   The version number of the path that has been delayed. This must be
-    ///   equal to the return value provided by the update_path(~) function.
+    /// \note This should generally not be given a negative value, because you
+    /// are obligated to have the robot pause any time it is getting ahead of
+    /// its scheduled itinerary.
     ///
     /// \param[in] delay
-    ///   The severity of the delay. This should generally not be negative,
-    ///   because you are obligated to have the robot pause any time it is
-    ///   getting ahead of its scheduled itinerary.
-    void add_delay(
-        std::size_t version,
-        rmf_traffic::Duration delay);
+    ///   The severity of the delay.
+    ///
+    void add_delay(rmf_traffic::Duration delay);
 
     class Implementation;
   private:
