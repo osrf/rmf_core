@@ -23,6 +23,8 @@
 #include <memory>
 #include <vector>
 
+#include <rclcpp/time.hpp>
+
 #include <rmf_utils/impl_ptr.hpp>
 
 namespace rmf_fleet_adapter {
@@ -111,7 +113,7 @@ public:
     ///   wait at that point).
     virtual void receive_path_timing(
         std::size_t version,
-        const std::vector<rmf_traffic::Time>& timing,
+        const std::vector<rclcpp::Time>& timing,
         ArrivalEstimator arrival_estimator) = 0;
 
     /// This function will be called when deadlock has occurred due to an

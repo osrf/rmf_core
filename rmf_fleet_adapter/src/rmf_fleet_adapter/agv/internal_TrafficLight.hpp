@@ -37,63 +37,8 @@ class TrafficLight::UpdateHandle::Implementation
 {
 public:
 
-  class Data
-  {
-  public:
-
-    std::shared_ptr<CommandHandle> command;
-
-    rmf_traffic::schedule::Participant itinerary;
-
-    rmf_traffic::agv::VehicleTraits traits;
-
-    rxcpp::schedulers::worker worker;
-
-    std::size_t current_version = 0;
-
-    std::vector<Waypoint> path;
-
-    rmf_utils::optional<rmf_traffic::agv::Plan> plan;
-
-    rmf_utils::optional<rmf_traffic::agv::Planner> planner;
-
-    std::size_t processing_version = 0;
-
-    void update_path(
-        std::size_t version,
-        const std::vector<Waypoint>& new_path);
-
-    Data(
-        std::shared_ptr<CommandHandle> command_,
-        rmf_traffic::schedule::Participant itinerary_,
-        rmf_traffic::agv::VehicleTraits traits_,
-        rxcpp::schedulers::worker worker_)
-      : command(std::move(command_)),
-        itinerary(std::move(itinerary_)),
-        traits(std::move(traits_)),
-        worker(std::move(worker_))
-    {
-      // Do nothing
-    }
-  };
-
-  class Negotiator : public rmf_traffic::schedule::Negotiator
-  {
-  public:
-
-    Negotiator(std::shared_ptr<Data> data)
-      : _data(std::move(data))
-    {
-      // Do nothing
-    }
-
-    void respond(
-        const TableViewerPtr& table_viewer,
-        const ResponderPtr& responder) final;
-
-  private:
-    std::weak_ptr<Data> _data;
-  };
+  class Data;
+  class Negotiator;
 
   std::size_t received_version = 0;
 
@@ -105,36 +50,18 @@ public:
       std::shared_ptr<CommandHandle> command_,
       rmf_traffic::schedule::Participant itinerary_,
       rmf_traffic::agv::VehicleTraits traits_,
-      rxcpp::schedulers::worker worker_)
-    : data(std::make_shared<Data>(
-             std::move(command_),
-             std::move(itinerary_),
-             std::move(traits_),
-             std::move(worker_)))
-  {
-    // Do nothing
-  }
+      std::shared_ptr<rmf_traffic::schedule::Snappable> schedule_,
+      rxcpp::schedulers::worker worker_,
+      std::shared_ptr<rclcpp::Node> node_);
 
   static std::shared_ptr<UpdateHandle> make(
       std::shared_ptr<CommandHandle> command,
       rmf_traffic::schedule::Participant itinerary,
       rmf_traffic::agv::VehicleTraits traits,
+      std::shared_ptr<rmf_traffic::schedule::Snappable> schedule,
       rxcpp::schedulers::worker worker,
-      rmf_traffic_ros2::schedule::Negotiation& negotiation)
-  {
-    std::shared_ptr<UpdateHandle> handle = std::make_shared<UpdateHandle>();
-    handle->_pimpl = rmf_utils::make_unique_impl<Implementation>(
-          std::move(command),
-          std::move(itinerary),
-          std::move(traits),
-          std::move(worker));
-
-    handle->_pimpl->negotiation_license = negotiation.register_negotiator(
-          handle->_pimpl->data->itinerary.id(),
-          std::make_unique<Negotiator>(handle->_pimpl->data));
-
-    return handle;
-  }
+      std::shared_ptr<rclcpp::Node> node,
+      rmf_traffic_ros2::schedule::Negotiation& negotiation);
 
 };
 

@@ -287,9 +287,10 @@ void Adapter::add_traffic_light(
 
   _pimpl->writer->async_make_participant(
       std::move(description),
-      [worker = _pimpl->worker,
-       command = std::move(command),
+      [command = std::move(command),
        traits = std::move(traits),
+       schedule = _pimpl->mirror_manager.snapshot_handle(),
+       worker = _pimpl->worker,
        handle_cb = std::move(handle_cb),
        negotiation = _pimpl->negotiation,
        node = _pimpl->node](
@@ -304,7 +305,9 @@ void Adapter::add_traffic_light(
           std::move(command),
           std::move(participant),
           std::move(traits),
+          std::move(schedule),
           worker,
+          node,
           *negotiation);
 
     worker.schedule(
