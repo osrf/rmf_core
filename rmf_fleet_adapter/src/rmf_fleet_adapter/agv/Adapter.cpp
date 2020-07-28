@@ -28,6 +28,8 @@
 #include <rmf_task_msgs/msg/delivery.hpp>
 #include <rmf_task_msgs/msg/loop.hpp>
 
+#include "internal_TrafficLight.hpp"
+
 #include "../load_param.hpp"
 
 namespace rmf_fleet_adapter {
@@ -252,6 +254,66 @@ std::shared_ptr<FleetUpdateHandle> Adapter::add_fleet(
 
   _pimpl->fleets.push_back(fleet);
   return fleet;
+}
+
+//==============================================================================
+void Adapter::add_traffic_light(
+  std::shared_ptr<TrafficLight::CommandHandle> command,
+  const std::string& fleet_name,
+  const std::string& robot_name,
+  rmf_traffic::agv::VehicleTraits traits,
+  rmf_traffic::Profile profile,
+  std::function<void(TrafficLight::UpdateHandlePtr)> handle_cb)
+{
+  if (!handle_cb)
+  {
+    RCLCPP_WARN(
+      _pimpl->node->get_logger(),
+      "Adapter::add_traffic_light(~) was not provided a callback to receive "
+      "the TrafficLight::UpdateHandle for the robot [%s] owned by [%s]. This "
+      "means the traffic light controller will not be able to work since you "
+      "cannot provide information about where the robot is going. We will not "
+      "create the requested traffic light controller.",
+      robot_name.c_str(), fleet_name.c_str());
+
+    return;
+  }
+
+  rmf_traffic::schedule::ParticipantDescription description(
+      robot_name,
+      fleet_name,
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile);
+
+  _pimpl->writer->async_make_participant(
+      std::move(description),
+      [worker = _pimpl->worker,
+       command = std::move(command),
+       traits = std::move(traits),
+       handle_cb = std::move(handle_cb),
+       negotiation = _pimpl->negotiation,
+       node = _pimpl->node](
+        rmf_traffic::schedule::Participant participant)
+  {
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Added a traffic light controller for [%s] with participant ID [%d]",
+      participant.description().name().c_str(), participant.id());
+
+    auto update_handle = TrafficLight::UpdateHandle::Implementation::make(
+          std::move(command),
+          std::move(participant),
+          std::move(traits),
+          worker,
+          *negotiation);
+
+    worker.schedule(
+          [handle_cb = std::move(handle_cb),
+           update_handle = std::move(update_handle)](const auto&)
+    {
+      handle_cb(update_handle);
+    });
+  });
 }
 
 //==============================================================================

@@ -33,6 +33,8 @@ class TrafficLight
 {
 public:
 
+  using Duration = rmf_traffic::Duration;
+
   /// A class for updating a traffic light manager about the intentions and
   /// state of its robot.
   class UpdateHandle
@@ -57,17 +59,6 @@ public:
     ///   Submit a new path that the robot intends to follow.
     std::size_t update_path(const std::vector<Waypoint>& new_path);
 
-    /// Call this function if the robot has been delayed along its path.
-    ///
-    /// \note This should generally not be given a negative value, because you
-    /// are obligated to have the robot pause any time it is getting ahead of
-    /// its scheduled itinerary.
-    ///
-    /// \param[in] delay
-    ///   The severity of the delay.
-    ///
-    void add_delay(rmf_traffic::Duration delay);
-
     class Implementation;
   private:
     rmf_utils::unique_impl_ptr<Implementation> _pimpl;
@@ -79,6 +70,18 @@ public:
   class CommandHandle
   {
   public:
+
+    /// Use this callback function to keep the fleet adapter up to date on the
+    /// progress of the vehicle.
+    ///
+    /// \param[in] path_index
+    ///   The index whose arrival estimate is being reported.
+    ///
+    /// \param[in] remaining_time
+    ///   An estimate of how much longer the robot will take to arrive at
+    ///   `path_index`.
+    using ArrivalEstimator =
+        std::function<void(std::size_t path_index, Duration remaining_time)>;
 
     /// Receive the required timing for a path that has been submitted.
     ///
@@ -100,9 +103,16 @@ public:
     ///   before the given time, then the robot is obligated to pause until the
     ///   given time arrives. The robot is allowed to arrive at a waypoint late,
     ///   but UpdateHandle::add_delay(~) should be called whenever that happens.
+    ///
+    /// \param[in] arrival_estimator
+    ///   Use this callback to give estimates for how long the robot will take
+    ///   to reach the path element of the specified index (give how long until
+    ///   the robot will arrive, regardless of how long the robot is supposed to
+    ///   wait at that point).
     virtual void receive_path_timing(
         std::size_t version,
-        const std::vector<rmf_traffic::Time>& timing) = 0;
+        const std::vector<rmf_traffic::Time>& timing,
+        ArrivalEstimator arrival_estimator) = 0;
 
     /// This function will be called when deadlock has occurred due to an
     /// unresolvable conflict. Human intervention may be required at this point,
