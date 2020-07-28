@@ -23,6 +23,7 @@
 #include <rmf_traffic/schedule/Negotiator.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/schedule/Snapshot.hpp>
+#include <rmf_traffic_msgs/msg/negotiation_status.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
