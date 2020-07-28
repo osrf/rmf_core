@@ -290,6 +290,11 @@ public:
   using Approvals = std::unordered_map<Version, ApprovalCallbackMap>;
   Approvals approvals;
 
+  // Status update callbacks
+  using StatusUpdateCallback =
+    std::function<void (rmf_traffic_msgs::msg::NegotiationStatus& statusmsg)>;
+  StatusUpdateCallback status_callback;
+
   Implementation(
     rclcpp::Node& node_,
     std::shared_ptr<const rmf_traffic::schedule::Snappable> viewer_,
@@ -573,7 +578,11 @@ public:
     if (!updated)
       return;
 
-    //@todo (ddengster): do status callback
+    if (status_callback)
+    {
+      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+      status_callback(status_msg);
+    }
     
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
@@ -631,7 +640,11 @@ public:
     if (!updated)
       return;
 
-    //@todo (ddengster): do status callback
+    if (status_callback)
+    {
+      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+      status_callback(status_msg);
+    }
 
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
@@ -668,7 +681,11 @@ public:
 
     table->forfeit(msg.table.back().version);
 
-    //@todo (ddengster): do status callback
+    if (status_callback)
+    {
+      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+      status_callback(status_msg);
+    }
 
     respond_to_queue(room.check_cache(*negotiators), msg.conflict_version);
   }
@@ -871,9 +888,12 @@ public:
         approvals.erase(approval_callback_it);
     }
 
-    auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
-    status_pub->publish(status_msg);
-
+    if (status_callback)
+    {
+      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+      status_callback(status_msg);
+    }
+    
     // Erase these entries because the negotiation has concluded
     negotiations.erase(negotiate_it);
   }
@@ -965,6 +985,11 @@ public:
 
     return std::make_shared<Handle>(for_participant, negotiators);
   }
+
+  void on_status_update(StatusUpdateCallback cb)
+  {
+    status_callback = cb;
+  }
 };
 
 //==============================================================================
@@ -976,6 +1001,11 @@ Negotiation::Negotiation(
            node, std::move(viewer), std::move(worker)))
 {
   // Do nothing
+}
+
+void Negotiation::on_status_update(StatusUpdateCallback cb)
+{
+  _pimpl->on_status_update(cb);
 }
 
 //==============================================================================

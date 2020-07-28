@@ -68,6 +68,15 @@ public:
   /// Get the current timeout duration setting.
   rmf_traffic::Duration timeout_duration() const;
 
+  using StatusUpdateCallback =
+    std::function<void (const rmf_traffic_msgs::msg::NegotiationStatus& msg)>;
+  /// Register a callback with this Negotiation manager that triggers
+  /// on negotiation status updates.
+  ///
+  /// \param[in] cb
+  ///   The callback function to be called upon status updates.
+  void on_status_update(StatusUpdateCallback cb);
+
   /// Register a negotiator with this Negotiation manager.
   ///
   /// \param[in] for_participant

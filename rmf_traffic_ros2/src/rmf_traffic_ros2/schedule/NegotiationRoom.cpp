@@ -252,10 +252,6 @@ rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
   rmf_traffic_msgs::msg::NegotiationStatus msg;
   msg.conflict_version = conflict_version;
 
-  //add participants
-  for (const auto p : negotiation.participants())
-    msg.participants.push_back(p);
-
   auto convert_msg_table = [](rmf_traffic::schedule::Negotiation::ConstTablePtr ptr, 
     int parent_index, int depth)
     -> rmf_traffic_msgs::msg::NegotiationStatusTable
@@ -299,6 +295,8 @@ rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
 
   for (const auto id : negotiation.participants())
   { 
+    msg.participants.push_back(id);
+
     auto root_table = negotiation.table(id, {});
     assert(root_table);
     assert(root_table->parent() == nullptr);
