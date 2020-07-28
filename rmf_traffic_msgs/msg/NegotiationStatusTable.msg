@@ -3,9 +3,6 @@
 # [to_accommodate..., for_participant]
 uint32[] sequence
 
-# indices to table array of NegotiationStatus.msg
-uint32[] children
-
 # Status of the table
 uint8 status
 uint8 STATUS_UNKNOWN = 0
