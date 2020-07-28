@@ -36,7 +36,7 @@ add_library(rmf_traffic_ros2 SHARED ${core_lib_srcs})
 
 target_link_libraries(rmf_traffic_ros2
   PUBLIC
-    rmf_traffic::rmf_traffic
+    ${rmf_traffic_LIBRARIES}
     ${rmf_traffic_msgs_LIBRARIES}
     ${rclcpp_LIBRARIES}
 )
@@ -45,6 +45,7 @@ target_include_directories(rmf_traffic_ros2
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    ${rmf_traffic_INCLUDE_DIRS}
     ${rmf_traffic_msgs_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
 )

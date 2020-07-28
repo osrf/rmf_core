@@ -12,8 +12,6 @@ endif()
 
 include(GNUInstallDirs)
 
-find_package(ament_cmake REQUIRED)
-
 add_library(rmf_utils INTERFACE)
 
 target_include_directories(rmf_utils
@@ -22,21 +20,20 @@ target_include_directories(rmf_utils
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-ament_export_interfaces(rmf_utils HAS_LIBRARY_TARGET)
-
 install(
   DIRECTORY include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-foreach(module ${extra_cmake_modules})
-  list(APPEND ${PROJECT_NAME}_CONFIG_EXTRAS cmake/${module})
-endforeach()
-
-
 install(
   TARGETS rmf_utils
-  EXPORT  rmf_utils
+  EXPORT  rmf_utils-targets
+  DESTINATION lib
+)
+
+install(
+  EXPORT rmf_utils-targets
+  DESTINATION lib/cmake/rmf_utils
 )
 
 install(
@@ -46,4 +43,27 @@ install(
 
 add_subdirectory(test/unit)
 
-ament_package()
+# Create cmake config files
+# See doc: https://cmake.org/cmake/help/latest/module/CMakePackageConfigHelpers.html#example-generating-package-files
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_utils-config.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config.cmake
+  INSTALL_DESTINATION lib/cmake/rmf_utils
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+# write_basic_package_version_file(
+#   ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config-version.cmake
+#   VERSION ${PROJECT_VERSION} COMPATIBILITY ExactVersion
+# )
+
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config.cmake
+    # ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config-version.cmake
+  DESTINATION lib/cmake/rmf_utils
+)
+export(
+  EXPORT rmf_utils-targets
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-targets.cmake
+)

@@ -4,8 +4,6 @@ project(rmf_traffic)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
-find_package(ament_cmake REQUIRED)
-
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -26,7 +24,6 @@ include(FindPkgConfig)
 pkg_check_modules(PC_FCL REQUIRED fcl)
 pkg_check_modules(PC_CCD REQUIRED ccd)
 
-find_package(ament_cmake REQUIRED)
 find_package(rmf_utils REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Threads)
@@ -37,8 +34,9 @@ add_library(rmf_traffic SHARED
   ${core_lib_srcs}
 )
 
-if(BUILD_TESTING)
-  find_package(ament_cmake_catch2 REQUIRED)
+find_package(ament_cmake_catch2 QUIET)
+find_package(rmf_cmake_uncrustify QUIET)
+if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
 
   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
 
@@ -56,7 +54,6 @@ if(BUILD_TESTING)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
   )
 
-  find_package(rmf_cmake_uncrustify REQUIRED)
   find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
 
   rmf_uncrustify(
@@ -68,7 +65,7 @@ endif()
 
 target_link_libraries(rmf_traffic
   PUBLIC
-    rmf_utils::rmf_utils
+    ${rmf_utils_LIBRARIES}
   PRIVATE
     ${PC_FCL_LIBRARIES}
     ${PC_CCD_LIBRARIES}
@@ -78,23 +75,49 @@ target_include_directories(rmf_traffic
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    ${rmf_utils_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
 )
 
-ament_export_interfaces(rmf_traffic HAS_LIBRARY_TARGET)
-ament_export_dependencies(rmf_utils)
-
 install(
-  DIRECTORY include/
+  DIRECTORY include/rmf_traffic
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 install(
   TARGETS rmf_traffic
-  EXPORT  rmf_traffic
+  EXPORT  rmf_traffic-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-ament_package()
+install(
+  EXPORT rmf_traffic-targets
+  DESTINATION lib/cmake/rmf_traffic
+)
+
+# Create cmake config files
+# See doc: https://cmake.org/cmake/help/latest/module/CMakePackageConfigHelpers.html#example-generating-package-files
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_traffic-config.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config.cmake
+  INSTALL_DESTINATION lib/cmake/rmf_traffic
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+# write_basic_package_version_file(
+#   ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config-version.cmake
+#   VERSION ${PROJECT_VERSION} COMPATIBILITY ExactVersion
+# )
+
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config.cmake
+    # ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config-version.cmake
+  DESTINATION lib/cmake/rmf_traffic
+)
+export(
+  EXPORT rmf_traffic-targets
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-targets.cmake
+)
