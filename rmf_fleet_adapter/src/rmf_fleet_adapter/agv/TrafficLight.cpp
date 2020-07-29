@@ -18,6 +18,7 @@
 #include "internal_TrafficLight.hpp"
 
 #include "../services/FindPath.hpp"
+#include "../services/Negotiate.hpp"
 
 #include <rmf_utils/Modular.hpp>
 
@@ -30,7 +31,7 @@ namespace agv {
 
 //==============================================================================
 class TrafficLight::UpdateHandle::Implementation::Data
-    : std::enable_shared_from_this<Data>
+    : public std::enable_shared_from_this<Data>
 {
 public:
 
@@ -64,15 +65,27 @@ public:
   std::shared_ptr<services::FindPath> find_path_service;
   rxcpp::subscription find_path_subscription;
 
+  struct NegotiateManagers
+  {
+    rmf_rxcpp::subscription_guard subscription;
+    rclcpp::TimerBase::SharedPtr timer;
+  };
+  using NegotiatePtr = std::shared_ptr<services::Negotiate>;
+  using NegotiateServiceMap =
+      std::unordered_map<NegotiatePtr, NegotiateManagers>;
+  NegotiateServiceMap negotiate_services;
+
   void update_path(
       std::size_t version,
       const std::vector<Waypoint>& new_path);
 
-  void update_timing(
+  rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion> update_timing(
       std::size_t version,
       std::vector<Waypoint> path_,
       rmf_traffic::agv::Plan plan_,
       std::shared_ptr<rmf_traffic::agv::Planner> planner_);
+
+  rmf_utils::optional<rmf_traffic::agv::Plan::Start> estimate_location() const;
 
   Data(
       std::shared_ptr<CommandHandle> command_,
@@ -335,17 +348,26 @@ rmf_traffic::Time interpolate_time(
     "[rmf_fleet_adapter::agv::TrafficLight] Failed to interpolate an "
     "intermediary waypoint.");
 }
+
+//==============================================================================
+double calculate_orientation(
+    const Eigen::Vector2d& p0,
+    const Eigen::Vector2d& p1)
+{
+  return std::atan2(p1.y() - p0.y(), p1.x() - p0.x());
+}
 } // anonymous namespace
 
 //==============================================================================
-void TrafficLight::UpdateHandle::Implementation::Data::update_timing(
+rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
+TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     const std::size_t version,
     std::vector<Waypoint> path_,
     rmf_traffic::agv::Plan plan_,
     std::shared_ptr<rmf_traffic::agv::Planner> planner_)
 {
   if (version != current_version)
-    return;
+    return rmf_utils::nullopt;
 
   path = std::move(path_);
   plan = std::move(plan_);
@@ -393,6 +415,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     departure_timing[current_wp] = rmf_traffic_ros2::convert(wp.time());
   }
 
+  itinerary.set(plan->get_itinerary());
+
   command->receive_path_timing(
     current_version, departure_timing,
     [w = weak_from_this(), current_version = current_version](
@@ -426,8 +450,94 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         data->itinerary.delay(time_shift);
     });
   });
+
+  return itinerary.version();
 }
 
+//==============================================================================
+rmf_utils::optional<rmf_traffic::agv::Plan::Start>
+TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
+{
+  // Estimate the current position of the robot based on its intended trajectory
+  // and the delays that it has reported.
+
+  const auto now = rmf_traffic_ros2::convert(node->now());
+
+  const auto effective_time = now - itinerary.delay();
+
+  if (rmf_traffic_ros2::convert(departure_timing.back()) < effective_time)
+  {
+    // The time that this robot is scheduled for has passed, so there's no way
+    // to estimate its position.
+    return rmf_utils::nullopt;
+  }
+
+  const auto& graph = planner->get_configuration().graph();
+  const auto& plan_waypoints = plan->get_waypoints();
+
+  rmf_traffic::agv::Plan::Start start(
+        now, 0,
+        calculate_orientation(
+          plan_waypoints[0].position().block<2,1>(0,0),
+          plan_waypoints[1].position().block<2,1>(0,0)));
+
+  if (effective_time < arrival_timing.front())
+  {
+    // The robot has not made progress from its starting point, so we'll just
+    // report its original starting conditions.
+    return start;
+  }
+
+  bool traversing_lane = false;
+  for (std::size_t i=1; i < plan_waypoints.size(); ++i)
+  {
+    const auto& last_wp = plan_waypoints[i-1];
+    assert(last_wp.graph_index());
+
+    const auto& next_wp = plan_waypoints[i];
+    assert(next_wp.graph_index());
+
+    if (last_wp.time() < effective_time && effective_time <= next_wp.time())
+    {
+      const auto gi_last = *last_wp.graph_index();
+      const auto gi_next = *next_wp.graph_index();
+
+      start.waypoint(gi_next);
+      start.orientation(
+            calculate_orientation(
+              last_wp.position().block<2,1>(0,0),
+              next_wp.position().block<2,1>(0,0)));
+
+      if (gi_next != gi_last)
+      {
+        const auto* lane = graph.lane_from(gi_last, gi_next);
+        assert(lane);
+        start.lane(lane->index());
+        traversing_lane = true;
+      }
+    }
+  }
+
+  for (const auto& route : plan->get_itinerary())
+  {
+    if (*route.trajectory().start_time() <= effective_time
+        && effective_time <= *route.trajectory().finish_time())
+    {
+      const auto motion =
+          rmf_traffic::Motion::compute_cubic_splines(route.trajectory());
+
+      const auto p = motion->compute_position(effective_time);
+      start.orientation(p[2]);
+
+      if (traversing_lane)
+        start.location(Eigen::Vector2d(p.block<2,1>(0,0)));
+    }
+  }
+
+  return start;
+}
+
+//==============================================================================
 class TrafficLight::UpdateHandle::Implementation::Negotiator
     : public rmf_traffic::schedule::Negotiator
 {
@@ -460,8 +570,72 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     return responder->forfeit({});
   }
 
-  // FIXME TODO(MXG): Reply to the negotiation here.
-  assert(false);
+  auto location = data->estimate_location();
+  if (!location)
+    return responder->forfeit({});
+
+  const auto& final_wp = data->plan->get_waypoints().back();
+  assert(*final_wp.graph_index());
+  rmf_traffic::agv::Plan::Goal goal(
+        *final_wp.graph_index(), final_wp.position()[2]);
+
+  auto approval_cb =
+      [w = data->weak_from_this(),
+       version = data->current_version](
+      const rmf_traffic::agv::Plan& plan)
+      -> rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
+  {
+    const auto data = w.lock();
+    if (!data)
+      return rmf_utils::nullopt;
+
+    return data->update_timing(version, data->path, plan, data->planner);
+  };
+
+  services::ProgressEvaluator evaluator;
+  if (table_viewer->parent_id())
+  {
+    const auto& s = table_viewer->sequence();
+    assert(s.size() >= 2);
+    evaluator.compliant_leeway_base *= s[s.size()-2].version + 1;
+  }
+
+  auto negotiate = services::Negotiate::path(
+        data->planner, {std::move(*location)}, std::move(goal),
+        table_viewer, responder, std::move(approval_cb), std::move(evaluator));
+
+  auto negotiate_sub =
+      rmf_rxcpp::make_job<services::Negotiate::Result>(negotiate)
+      .observe_on(rxcpp::identity_same_worker(data->worker))
+      .subscribe(
+        [w = data->weak_from_this()](const auto& result)
+  {
+    if (auto data = w.lock())
+    {
+      result.respond();
+      data->negotiate_services.erase(result.service);
+    }
+    else
+    {
+      result.service->responder()->forfeit({});
+    }
+  });
+
+  using namespace std::chrono_literals;
+  const auto wait_duration = 2s + table_viewer->sequence().back().version * 10s;
+  auto negotiate_timer = data->node->create_wall_timer(
+        wait_duration,
+        [s = negotiate->weak_from_this()]()
+  {
+    if (const auto service = s.lock())
+      service->interrupt();
+  });
+
+  data->negotiate_services[negotiate] =
+      Data::NegotiateManagers{
+        std::move(negotiate_sub),
+        std::move(negotiate_timer)
+  };
 }
 
 //==============================================================================s
