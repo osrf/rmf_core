@@ -1,14 +1,14 @@
 @PACKAGE_INIT@
 
+get_filename_component(rmf_traffic_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
 include(CMakeFindDependencyMacro)
+
 find_dependency(Eigen3 REQUIRED)
 find_dependency(rmf_utils REQUIRED)
 
-set(rmf_traffic_FOUND ON)
-message(STATUS "package_prefix_dir: ${PACKAGE_PREFIX_DIR}")
+if(NOT TARGET rmf_traffic::rmf_traffic)
+    include("${rmf_traffic_CMAKE_DIR}/rmf_traffic-targets.cmake")
+endif()
 
-set_and_check(rmf_traffic_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
-set_and_check(rmf_traffic_LIBRARY_DIRS "${PACKAGE_PREFIX_DIR}/lib")
-set(rmf_traffic_LIBRARIES "@PACKAGE_LIBRARIES@")
-
-include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake")
+check_required_components(rmf_traffic)

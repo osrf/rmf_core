@@ -1,10 +1,11 @@
 @PACKAGE_INIT@
 
+get_filename_component(rmf_utils_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
 include(CMakeFindDependencyMacro)
 
-set(rmf_utils_FOUND ON)
-set_and_check(rmf_utils_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
-set_and_check(rmf_utils_LIBRARY_DIRS "${PACKAGE_PREFIX_DIR}/lib")
-set(rmf_utils_LIBRARIES "@PACKAGE_LIBRARIES@")
+if(NOT TARGET rmf_utils::rmf_utils)
+  include("${rmf_utils_CMAKE_DIR}/rmf_utils-targets.cmake")
+endif()
 
-include("${CMAKE_CURRENT_LIST_DIR}/rmf_utils-targets.cmake")
+check_required_components(rmf_utils)

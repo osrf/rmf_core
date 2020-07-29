@@ -64,7 +64,7 @@ endif()
 
 target_link_libraries(rmf_traffic
   PUBLIC
-    ${rmf_utils_LIBRARIES}
+    rmf_utils::rmf_utils
   PRIVATE
     ${PC_FCL_LIBRARIES}
     ${PC_CCD_LIBRARIES}
@@ -74,13 +74,25 @@ target_include_directories(rmf_traffic
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    ${rmf_utils_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
 )
 
-install(
-  DIRECTORY include/rmf_traffic
-  DESTINATION include
+# Create cmake config files
+include(CMakePackageConfigHelpers)
+
+set(INSTALL_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/rmf_traffic/cmake")
+set(PACKAGE_CONFIG_VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config-version.cmake")
+set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config.cmake")
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_traffic-config.cmake.in"
+  ${PACKAGE_CONFIG_FILE}
+  INSTALL_DESTINATION ${INSTALL_CONFIG_DIR}
+)
+
+write_basic_package_version_file(
+  ${PACKAGE_CONFIG_VERSION_FILE}
+  COMPATIBILITY ExactVersion
 )
 
 install(
@@ -92,28 +104,28 @@ install(
 )
 
 install(
-  EXPORT rmf_traffic-targets
-  DESTINATION lib/cmake/rmf_traffic
+  DIRECTORY include/rmf_traffic
+  DESTINATION include
 )
 
-# Create cmake config files
-include(CMakePackageConfigHelpers)
-write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config-version.cmake"
-  COMPATIBILITY ExactVersion
-)
-configure_package_config_file(
-  "${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_traffic-config.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config.cmake"
-  INSTALL_DESTINATION "lib/cmake/rmf_traffic"
-)
 install(
   FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config-version.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config.cmake"
-  DESTINATION lib/cmake/rmf_traffic
+    ${PACKAGE_CONFIG_VERSION_FILE}
+    ${PACKAGE_CONFIG_FILE}
+  DESTINATION ${INSTALL_CONFIG_DIR}
 )
+
+install(
+  EXPORT rmf_traffic-targets
+  FILE rmf_traffic-targets.cmake
+  NAMESPACE rmf_traffic::
+  DESTINATION ${INSTALL_CONFIG_DIR}
+)
+
 export(
   EXPORT rmf_traffic-targets
-  FILE ${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-targets.cmake
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-targets.cmake
+  NAMESPACE rmf_traffic::
 )
+
+export(PACKAGE rmf_traffic)
