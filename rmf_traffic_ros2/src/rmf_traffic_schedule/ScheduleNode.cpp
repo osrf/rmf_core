@@ -300,7 +300,7 @@ ScheduleNode::ScheduleNode()
   std::string rmw_env_var = rcpputils::get_env_var("RMW_IMPLEMENTATION");
   if (rmw_env_var.empty() || rmw_env_var == "rmw_fastrtps_cpp")
   {
-    RCLCPP_WARN(get_logger(), "RMF is known not to work correctly when using "
+    RCLCPP_WARN(get_logger(), "RMF is known to not work correctly when using "
         "Fast RTPS or Fast DDS as the underlying middleware. Set the "
         "'RMW_IMPLEMENTATION' environment variable to an alternative "
         "middleware, such as 'rmw_cyclonedds_cpp', when launching RMF.");
