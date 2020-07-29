@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_utils)
+project(rmf_utils VERSION 1.0.2)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -21,8 +21,8 @@ target_include_directories(rmf_utils
 )
 
 install(
-  DIRECTORY include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  DIRECTORY include/rmf_utils
+  DESTINATION include
 )
 
 install(
@@ -44,26 +44,23 @@ install(
 add_subdirectory(test/unit)
 
 # Create cmake config files
-# See doc: https://cmake.org/cmake/help/latest/module/CMakePackageConfigHelpers.html#example-generating-package-files
 include(CMakePackageConfigHelpers)
-configure_package_config_file(
-  ${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_utils-config.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config.cmake
-  INSTALL_DESTINATION lib/cmake/rmf_utils
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_utils-config-version.cmake"
+  COMPATIBILITY ExactVersion
 )
-# write_basic_package_version_file(
-#   ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config-version.cmake
-#   VERSION ${PROJECT_VERSION} COMPATIBILITY ExactVersion
-# )
-
+configure_package_config_file(
+  "${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_utils-config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_utils-config.cmake"
+  INSTALL_DESTINATION "lib/cmake/rmf_utils"
+)
 install(
   FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config.cmake
-    # ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config-version.cmake
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_utils-config-version.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_utils-config.cmake"
   DESTINATION lib/cmake/rmf_utils
 )
 export(
   EXPORT rmf_utils-targets
-  FILE ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-targets.cmake
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_utils-targets.cmake
 )

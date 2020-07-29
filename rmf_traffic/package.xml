@@ -14,8 +14,8 @@
   <build_depend>libccd-dev</build_depend>
   <build_depend>libfcl-dev</build_depend>
 
-  <!-- <test_depend>ament_cmake_catch2</test_depend> -->
-  <!-- <test_depend>rmf_cmake_uncrustify</test_depend> -->
+  <test_depend>ament_cmake_catch2</test_depend>
+  <test_depend>rmf_cmake_uncrustify</test_depend>
 
   <depend>eigen</depend>
 

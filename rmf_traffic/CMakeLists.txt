@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_traffic)
+project(rmf_traffic VERSION 1.0.2)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
@@ -37,7 +37,6 @@ add_library(rmf_traffic SHARED
 find_package(ament_cmake_catch2 QUIET)
 find_package(rmf_cmake_uncrustify QUIET)
 if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
-
   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
 
   ament_add_catch2(
@@ -81,7 +80,7 @@ target_include_directories(rmf_traffic
 
 install(
   DIRECTORY include/rmf_traffic
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  DESTINATION include
 )
 
 install(
@@ -98,26 +97,23 @@ install(
 )
 
 # Create cmake config files
-# See doc: https://cmake.org/cmake/help/latest/module/CMakePackageConfigHelpers.html#example-generating-package-files
 include(CMakePackageConfigHelpers)
-configure_package_config_file(
-  ${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_traffic-config.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config.cmake
-  INSTALL_DESTINATION lib/cmake/rmf_traffic
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config-version.cmake"
+  COMPATIBILITY ExactVersion
 )
-# write_basic_package_version_file(
-#   ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config-version.cmake
-#   VERSION ${PROJECT_VERSION} COMPATIBILITY ExactVersion
-# )
-
+configure_package_config_file(
+  "${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_traffic-config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config.cmake"
+  INSTALL_DESTINATION "lib/cmake/rmf_traffic"
+)
 install(
   FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config.cmake
-    # ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-config-version.cmake
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config-version.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-config.cmake"
   DESTINATION lib/cmake/rmf_traffic
 )
 export(
   EXPORT rmf_traffic-targets
-  FILE ${CMAKE_CURRENT_BINARY_DIR}/rmf_traffic-targets.cmake
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/cmake/rmf_traffic-targets.cmake
 )

@@ -1,11 +1,14 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
+find_dependency(Eigen3 REQUIRED)
 find_dependency(rmf_utils REQUIRED)
 
-set(@PROJECT_NAME@_FOUND ON)
-set_and_check(@PROJECT_NAME@_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
-set_and_check(@PROJECT_NAME@_LIBRARY_DIRS "${PACKAGE_PREFIX_DIR}/lib")
-set(@PROJECT_NAME@_LIBRARIES "@PACKAGE_LIBRARIES@")
+set(rmf_traffic_FOUND ON)
+message(STATUS "package_prefix_dir: ${PACKAGE_PREFIX_DIR}")
+
+set_and_check(rmf_traffic_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
+set_and_check(rmf_traffic_LIBRARY_DIRS "${PACKAGE_PREFIX_DIR}/lib")
+set(rmf_traffic_LIBRARIES "@PACKAGE_LIBRARIES@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake")
