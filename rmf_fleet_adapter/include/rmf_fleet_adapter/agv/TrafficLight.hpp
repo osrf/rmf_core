@@ -77,13 +77,13 @@ public:
     /// progress of the vehicle.
     ///
     /// \param[in] path_index
-    ///   The index whose arrival estimate is being reported.
+    ///   The index of the path element that the robot is currently moving
+    ///   towards.
     ///
-    /// \param[in] remaining_time
-    ///   An estimate of how much longer the robot will take to arrive at
-    ///   `path_index`.
-    using ArrivalEstimator =
-        std::function<void(std::size_t path_index, Duration remaining_time)>;
+    /// \param[in] location
+    ///   The current (x, y, yaw) location of the robot.
+    using ProgressCallback =
+        std::function<void(std::size_t path_index, Eigen::Vector3d location)>;
 
     /// Receive the required timing for a path that has been submitted.
     ///
@@ -106,15 +106,13 @@ public:
     ///   given time arrives. The robot is allowed to arrive at a waypoint late,
     ///   but UpdateHandle::add_delay(~) should be called whenever that happens.
     ///
-    /// \param[in] arrival_estimator
-    ///   Use this callback to give estimates for how long the robot will take
-    ///   to reach the path element of the specified index (give how long until
-    ///   the robot will arrive, regardless of how long the robot is supposed to
-    ///   wait at that point).
+    /// \param[in] progress_updater
+    ///   Use this callback to update the traffic light on how the robot has
+    ///   progressed along the path.
     virtual void receive_path_timing(
         std::size_t version,
         const std::vector<rclcpp::Time>& timing,
-        ArrivalEstimator arrival_estimator) = 0;
+        ProgressCallback progress_updater) = 0;
 
     /// This function will be called when deadlock has occurred due to an
     /// unresolvable conflict. Human intervention may be required at this point,

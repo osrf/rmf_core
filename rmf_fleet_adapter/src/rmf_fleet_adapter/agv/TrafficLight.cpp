@@ -21,6 +21,7 @@
 #include "../services/Negotiate.hpp"
 
 #include <rmf_utils/Modular.hpp>
+#include <rmf_utils/math.hpp>
 
 #include <rmf_traffic_ros2/Time.hpp>
 
@@ -59,6 +60,7 @@ public:
 
   std::vector<rmf_traffic::Time> arrival_timing;
   std::vector<rclcpp::Time> departure_timing;
+  std::vector<std::size_t> plan_index;
 
   std::size_t processing_version = 0;
 
@@ -79,11 +81,17 @@ public:
       std::size_t version,
       const std::vector<Waypoint>& new_path);
 
+  void plan_timing(
+    rmf_traffic::agv::Plan::Start start,
+    std::size_t version,
+    std::vector<Waypoint> new_path,
+    std::shared_ptr<rmf_traffic::agv::Planner> new_planner);
+
   rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion> update_timing(
       std::size_t version,
-      std::vector<Waypoint> path_,
-      rmf_traffic::agv::Plan plan_,
-      std::shared_ptr<rmf_traffic::agv::Planner> planner_);
+      std::vector<Waypoint> new_path,
+      rmf_traffic::agv::Plan new_plan,
+      std::shared_ptr<rmf_traffic::agv::Planner> new_planner);
 
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> estimate_location() const;
 
@@ -162,6 +170,29 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
     itinerary.set({{new_path.front().map_name(), sit}});
   }
 
+  for (std::size_t i=1; i < new_path.size(); ++i)
+  {
+    const auto& wp0 = new_path[i-1];
+    const auto& wp1 = new_path[i];
+
+    const auto p0 = wp0.position();
+    const auto p1 = wp1.position();
+
+    const double dist = (p1 - p0).norm();
+    if (dist < 1e-3 && wp0.map_name() == wp1.map_name())
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "Traffic light controlled robot [%s] owned by [%s] was given waypoints "
+        "[%d, %d] that are too close together [%fm]",
+        itinerary.description().name().c_str(),
+        itinerary.description().owner().c_str(),
+        i-1, i, dist);
+      assert(false);
+      return;
+    }
+  }
+
   rmf_traffic::agv::Graph graph;
   for (std::size_t i=0; i < new_path.size(); ++i)
   {
@@ -191,16 +222,31 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
         rmf_traffic::agv::Plan::Options(nullptr));
 
   rmf_traffic::agv::Plan::Start start{now, 0, new_path.front().position()[2]};
+  plan_timing(std::move(start), version, new_path, std::move(new_planner));
+}
+
+//==============================================================================
+void TrafficLight::UpdateHandle::Implementation::Data::plan_timing(
+    rmf_traffic::agv::Plan::Start start,
+    const std::size_t version,
+    std::vector<Waypoint> new_path,
+    std::shared_ptr<rmf_traffic::agv::Planner> new_planner)
+{
+  rmf_traffic::agv::Plan::Goal goal(
+        new_planner->get_configuration().graph().num_waypoints()-1);
 
   find_path_service = std::make_shared<services::FindPath>(
     new_planner, rmf_traffic::agv::Plan::StartSet({std::move(start)}),
-    graph.num_waypoints()-1, schedule->snapshot(), itinerary.id(), profile);
+    std::move(goal), schedule->snapshot(), itinerary.id(), profile);
 
   find_path_subscription = rmf_rxcpp::make_job<services::FindPath::Result>(
         find_path_service)
       .observe_on(rxcpp::identity_same_worker(worker))
       .subscribe(
-        [w = weak_from_this(), version, new_path, new_planner](
+        [w = weak_from_this(),
+         version,
+         new_path = std::move(new_path),
+         new_planner](
         const services::FindPath::Result& result)
   {
     const auto data = w.lock();
@@ -256,7 +302,7 @@ rmf_utils::optional<rmf_traffic::Time> linear_interpolate_time(
   const double v = wp0.velocity().block<2,1>(0,0).norm();
   assert(std::abs(v - wp1.velocity().block<2,1>(0,0).norm()) < 1e-2);
 
-  const double r = (p - p0).norm();
+  const double r = (p1 - p0).normalized().dot(p - p0);
   const double s = r/v;
 
   assert(s <= rmf_traffic::time::to_seconds(wp1.time() - wp0.time()));
@@ -350,6 +396,126 @@ rmf_traffic::Time interpolate_time(
 }
 
 //==============================================================================
+rmf_utils::optional<rmf_traffic::Time> interpolate_time(
+  const rmf_traffic::Time now,
+  const rmf_traffic::agv::VehicleTraits& traits,
+  const rmf_traffic::agv::Plan& plan,
+  const std::size_t plan_target,
+  const Eigen::Vector3d& location)
+{
+  const Eigen::Vector2d p = location.block<2,1>(0,0);
+  const auto& waypoints = plan.get_waypoints();
+  for (std::size_t i=0; i < plan_target; ++i)
+  {
+    const auto index = plan_target - i;
+    const auto& wp0 = waypoints[index-1];
+    const auto& wp1 = waypoints[index];
+
+    const auto gi_0 = wp0.graph_index();
+    const auto gi_1 = wp1.graph_index();
+    assert(gi_1);
+
+    if (!gi_0 || (*gi_0 != *gi_1))
+    {
+      // Check if the robot is traversing a lane
+      const Eigen::Vector2d p0 = wp0.position().block<2,1>(0,0);
+      const Eigen::Vector2d p1 = wp1.position().block<2,1>(0,0);
+      const Eigen::Vector2d n = p1 - p0;
+      const double length = n.norm();
+      const Eigen::Vector2d dir = n/length;
+
+      const Eigen::Vector2d r = p - p0;
+      const double traversal = r.dot(dir);
+      const double deviation = (r - traversal*dir).norm();
+
+      // TODO(MXG): Make this threshold configurable
+      const double deviation_threshold = 1.0;
+
+      // If the vehicle has deviated significantly from the path, then we should
+      // recompute the timing information.
+      if (deviation > deviation_threshold)
+        return rmf_utils::nullopt;
+
+      // If the vehicle is behind the lane then we should recompute the timing
+      // information.
+      if (traversal < 0.0)
+        return rmf_utils::nullopt;
+
+      try
+      {
+        return interpolate_time(traits, wp0, wp1, location.block<2,1>(0,0));
+      }
+      catch (const std::exception&)
+      {
+        // TODO(MXG): This is kind of suspicious. Should we escalate the issue
+        // at this point?
+        return rmf_utils::nullopt;
+      }
+    }
+    else
+    {
+      // Check if the robot is on the target waypoint
+      const Eigen::Vector2d p0 = wp0.position().block<2,1>(0,0);
+
+      // TODO(MXG): Make this threshold configurable
+      const double distance_threshold = 0.5;
+      if ((p - p0).norm() > distance_threshold)
+        continue;
+
+      const double yaw = location[2];
+      const auto yaw0 = wp0.position()[2];
+      const auto yaw1 = wp1.position()[2];
+      const double dyaw = rmf_utils::wrap_to_pi(yaw1 - yaw0);
+
+      const auto t_min = wp0.time();
+      const auto t_max = wp1.time();
+
+      // TODO(MXG): Make this threshold configurable
+      const double waiting_threshold = 1.0*M_PI/180.0;
+      if (std::abs(dyaw) < waiting_threshold)
+      {
+        // This is a waiting segment
+
+        // TODO(MXG): Make this threshold configurable
+        const double yaw_threshold = 20.0*M_PI/180.0;
+
+        if (std::abs(yaw - yaw0) < yaw_threshold)
+        {
+          // We are waiting
+
+          // If the current time has not yet reached the end of the waiting time
+          // then we just return the current time to imply that the robot is
+          // on-time. This may leave a false shadow of an itinerary on the
+          // schedule, but that should usually be okay.
+          if (now <= t_max)
+            return now;
+
+          return t_max;
+        }
+      }
+      else
+      {
+        // This is a turning segment
+
+        // NOTE: For now we'll just approximate turns as constant-velocities
+        // while estimating. We could make this estimation more accurate in
+        // the future if this turns out to not be good enough.
+        const double s = rmf_utils::wrap_to_pi(yaw - yaw0)/dyaw;
+        const double dt = rmf_traffic::time::to_seconds(t_max - t_min);
+        const auto t = t_min + rmf_traffic::time::from_seconds(s*dt);
+        if (now <= t)
+          return now;
+
+        return t;
+      }
+    }
+  }
+
+  assert(false);
+  return rmf_utils::nullopt;
+}
+
+//==============================================================================
 double calculate_orientation(
     const Eigen::Vector2d& p0,
     const Eigen::Vector2d& p1)
@@ -383,18 +549,24 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
 
   arrival_timing.resize(path.size(), rmf_traffic_ros2::convert(last_t));
   departure_timing.resize(path.size(), last_t);
+  plan_index.resize(path.size(), 0);
 
-  std::size_t current_wp = 0;
+  rmf_utils::optional<std::size_t> current_wp;
 
   for (std::size_t i=0; i < waypoints.size(); ++i)
   {
     const auto& wp = waypoints[i];
 
-    assert(wp.graph_index());
-    if (*wp.graph_index() != current_wp)
+    if (!wp.graph_index())
+      continue;
+
+    if (!current_wp)
+      current_wp = *wp.graph_index();
+
+    if (*wp.graph_index() != *current_wp)
     {
       const std::size_t next_wp = *wp.graph_index();
-      for (std::size_t k=current_wp+1; k < next_wp; ++k)
+      for (std::size_t k=*current_wp+1; k < next_wp; ++k)
       {
         // For any intermediate waypoints that will be passed over without
         // stopping, we should try to calculate the time that the robot is
@@ -406,13 +578,14 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
       }
 
       current_wp = *wp.graph_index();
-      arrival_timing[current_wp] = wp.time();
+      arrival_timing[*current_wp] = wp.time();
     }
 
     // This might get overriden several times since a single path waypoint might
     // show up several times in a plan. We want to use the last time that is
     // associated with this path waypoint.
-    departure_timing[current_wp] = rmf_traffic_ros2::convert(wp.time());
+    departure_timing[*current_wp] = rmf_traffic_ros2::convert(wp.time());
+    plan_index[*current_wp] = i;
   }
 
   itinerary.set(plan->get_itinerary());
@@ -420,20 +593,20 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
   command->receive_path_timing(
     current_version, departure_timing,
     [w = weak_from_this(), current_version = current_version](
-        const std::size_t path_index, rmf_traffic::Duration remaining_time)
+        const std::size_t path_index, Eigen::Vector3d location)
   {
     const auto data = w.lock();
     if (!data)
       return;
 
-    const rmf_traffic::Time estimated_time =
-        rmf_traffic_ros2::convert(data->node->now() + remaining_time);
+    const auto now = rmf_traffic_ros2::convert(data->node->now());
 
     data->worker.schedule(
           [w = std::weak_ptr<Data>(data),
            current_version,
            path_index,
-           estimated_time](const auto&)
+           location,
+           now](const auto&)
     {
       const auto data = w.lock();
       if (!data)
@@ -442,12 +615,48 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
       if (current_version != data->current_version)
         return;
 
-      assert(path_index < data->arrival_timing.size());
+      if (!data->plan)
+        return;
 
-      const auto new_delay = estimated_time - data->arrival_timing[path_index];
-      const auto time_shift = new_delay - data->itinerary.delay();
-      if (time_shift > std::chrono::seconds(5))
-        data->itinerary.delay(time_shift);
+      assert(path_index < data->arrival_timing.size());
+      const auto expected_time = interpolate_time(
+            now, data->traits, *data->plan,
+            data->plan_index[path_index], location);
+
+      if (expected_time)
+      {
+        const auto new_delay = now - *expected_time;
+
+        // TODO(MXG): Make this threshold configurable
+        const auto delay_threshold = std::chrono::seconds(30);
+        if (new_delay < delay_threshold)
+        {
+          const auto time_shift = new_delay - data->itinerary.delay();
+          if (time_shift > std::chrono::seconds(5))
+            data->itinerary.delay(time_shift);
+
+          return;
+        }
+      }
+
+      // We couldn't estimate the vehicle's timing, so we'll recalculate the
+      // timing based on the current location.
+      rmf_utils::optional<std::size_t> lane;
+      if (path_index > 0)
+        lane = path_index - 1;
+
+      const Eigen::Vector2d p = location.block<2,1>(0,0);
+
+      rmf_traffic::agv::Plan::Start start(
+            now, path_index, location[2], p, lane);
+
+      RCLCPP_INFO(
+        data->node->get_logger(),
+        "Timing estimates for [%s] owned by [%s] have accumulated too much "
+        "error. We will recompute the timing commands.");
+
+      data->plan_timing(
+            std::move(start), current_version, data->path, data->planner);
     });
   });
 
