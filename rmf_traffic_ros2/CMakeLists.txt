@@ -19,7 +19,6 @@ find_package(rmf_traffic_msgs REQUIRED)
 find_package(rmf_fleet_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rcpputils REQUIRED)
 
 if(BUILD_TESTING)
   find_package(rmf_cmake_uncrustify REQUIRED)
