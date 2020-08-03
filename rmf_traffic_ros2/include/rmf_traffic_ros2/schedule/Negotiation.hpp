@@ -69,14 +69,19 @@ public:
   /// Get the current timeout duration setting.
   rmf_traffic::Duration timeout_duration() const;
 
+  using TableViewPtr = rmf_traffic::schedule::Negotiation::Table::ViewerPtr;
   using StatusUpdateCallback =
-    std::function<void (const rmf_traffic_msgs::msg::NegotiationStatus& msg)>;
+    std::function<void (uint64_t conflict_version, TableViewPtr table_view)>;
   /// Register a callback with this Negotiation manager that triggers
   /// on negotiation status updates.
   ///
   /// \param[in] cb
   ///   The callback function to be called upon status updates.
   void on_status_update(StatusUpdateCallback cb);
+
+  using StatusConclusionCallback =
+    std::function<void (uint64_t conflict_version, bool success)>;
+  void on_conclusion(StatusConclusionCallback cb);
 
   /// Register a negotiator with this Negotiation manager.
   ///

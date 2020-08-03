@@ -291,9 +291,14 @@ public:
   Approvals approvals;
 
   // Status update callbacks
+  using TableViewPtr = rmf_traffic::schedule::Negotiation::Table::ViewerPtr;
   using StatusUpdateCallback =
-    std::function<void (rmf_traffic_msgs::msg::NegotiationStatus& statusmsg)>;
+    std::function<void (uint64_t conflict_version, TableViewPtr& view)>;
   StatusUpdateCallback status_callback;
+
+  using StatusConclusionCallback =
+    std::function<void (uint64_t conflict_version, bool success)>;
+  StatusConclusionCallback conclusion_callback;
 
   Implementation(
     rclcpp::Node& node_,
@@ -580,8 +585,8 @@ public:
 
     if (status_callback)
     {
-      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
-      status_callback(status_msg);
+      auto table_view = received_table->viewer();
+      status_callback(msg.conflict_version, table_view);
     }
     
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
@@ -642,8 +647,8 @@ public:
 
     if (status_callback)
     {
-      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
-      status_callback(status_msg);
+      auto table_view = table->viewer();
+      status_callback(msg.conflict_version, table_view);
     }
 
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
@@ -683,8 +688,8 @@ public:
 
     if (status_callback)
     {
-      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
-      status_callback(status_msg);
+      auto table_view = table->viewer();
+      status_callback(msg.conflict_version, table_view);
     }
 
     respond_to_queue(room.check_cache(*negotiators), msg.conflict_version);
@@ -755,6 +760,8 @@ public:
       // We don't need to worry about concluding unknown negotiations
       return;
     }
+
+    msg.table[0].participant;
 
     const bool participating = negotiate_it->second.participating;
     auto& room = negotiate_it->second.room;
@@ -888,11 +895,8 @@ public:
         approvals.erase(approval_callback_it);
     }
 
-    if (status_callback)
-    {
-      auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
-      status_callback(status_msg);
-    }
+    if (conclusion_callback)
+      conclusion_callback(msg.conflict_version, msg.resolved);
     
     // Erase these entries because the negotiation has concluded
     negotiations.erase(negotiate_it);
@@ -990,6 +994,11 @@ public:
   {
     status_callback = cb;
   }
+
+  void on_conclusion(StatusConclusionCallback cb)
+  {
+    conclusion_callback = cb;
+  }
 };
 
 //==============================================================================
@@ -1006,6 +1015,11 @@ Negotiation::Negotiation(
 void Negotiation::on_status_update(StatusUpdateCallback cb)
 {
   _pimpl->on_status_update(cb);
+}
+
+void Negotiation::on_conclusion(StatusConclusionCallback cb)
+{
+  _pimpl->on_conclusion(cb);
 }
 
 //==============================================================================
