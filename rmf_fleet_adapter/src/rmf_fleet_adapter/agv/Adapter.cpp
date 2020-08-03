@@ -308,13 +308,13 @@ void Adapter::add_traffic_light(
           std::move(schedule),
           worker,
           node,
-          *negotiation);
+          negotiation.get());
 
     worker.schedule(
           [handle_cb = std::move(handle_cb),
            update_handle = std::move(update_handle)](const auto&)
     {
-      handle_cb(update_handle);
+      handle_cb(std::move(update_handle));
     });
   });
 }

@@ -120,6 +120,7 @@ public:
     /// level of control over the conflicting participants to resolve it.
     virtual void deadlock() = 0;
 
+    virtual ~CommandHandle() = default;
   };
 
   using CommandHandlePtr = std::shared_ptr<CommandHandle>;

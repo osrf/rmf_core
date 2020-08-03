@@ -61,7 +61,7 @@ public:
       std::shared_ptr<rmf_traffic::schedule::Snappable> schedule,
       rxcpp::schedulers::worker worker,
       std::shared_ptr<rclcpp::Node> node,
-      rmf_traffic_ros2::schedule::Negotiation& negotiation);
+      rmf_traffic_ros2::schedule::Negotiation* negotiation);
 
 };
 

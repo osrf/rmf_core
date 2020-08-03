@@ -875,7 +875,7 @@ TrafficLight::UpdateHandle::Implementation::make(
     std::shared_ptr<rmf_traffic::schedule::Snappable> schedule,
     rxcpp::schedulers::worker worker,
     std::shared_ptr<rclcpp::Node> node,
-    rmf_traffic_ros2::schedule::Negotiation& negotiation)
+    rmf_traffic_ros2::schedule::Negotiation* negotiation)
 {
   std::shared_ptr<UpdateHandle> handle = std::make_shared<UpdateHandle>();
   handle->_pimpl = rmf_utils::make_unique_impl<Implementation>(
@@ -886,9 +886,12 @@ TrafficLight::UpdateHandle::Implementation::make(
         std::move(worker),
         std::move(node));
 
-  handle->_pimpl->negotiation_license = negotiation.register_negotiator(
-        handle->_pimpl->data->itinerary.id(),
-        std::make_unique<Negotiator>(handle->_pimpl->data));
+  if (negotiation)
+  {
+    handle->_pimpl->negotiation_license = negotiation->register_negotiator(
+          handle->_pimpl->data->itinerary.id(),
+          std::make_unique<Negotiator>(handle->_pimpl->data));
+  }
 
   return handle;
 }
