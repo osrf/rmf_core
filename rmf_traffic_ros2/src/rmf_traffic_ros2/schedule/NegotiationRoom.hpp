@@ -65,10 +65,6 @@ void print_negotiation_status(
   rmf_traffic::schedule::Version conflict_version,
   const rmf_traffic::schedule::Negotiation& negotiation);
 
-rmf_traffic_msgs::msg::NegotiationStatus assemble_negotiation_status_msg(
-  rmf_traffic::schedule::Version conflict_version,
-  const rmf_traffic::schedule::Negotiation& negotiation);
-
 } // namespace schedule
 } // namespace rmf_traffic_ros2
 
