@@ -192,6 +192,9 @@ public:
       /// remain in sync with the state of the source Table.
       bool defunct() const;
 
+      bool rejected() const;
+      bool forfeited() const;
+
       class Implementation;
     private:
       Viewer();

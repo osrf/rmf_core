@@ -145,6 +145,8 @@ public:
   rmf_utils::optional<ParticipantId> parent_id;
   VersionedKeySequence sequence;
   std::shared_ptr<const bool> defunct;
+  std::weak_ptr<const bool> rejected;
+  std::weak_ptr<const bool> forfeited;
 
   Viewer::View query(
     const Query::Spacetime& spacetime,
@@ -237,8 +239,8 @@ public:
   const ParticipantId participant;
   const std::size_t depth;
   rmf_utils::optional<Itinerary> itinerary;
-  bool rejected = false;
-  bool forfeited = false;
+  std::shared_ptr<bool> rejected = std::make_shared<bool>(false);
+  std::shared_ptr<bool> forfeited = std::make_shared<bool>(false);
   DefunctFlag defunct;
   TableMap descendants;
 
@@ -422,8 +424,8 @@ public:
     }
 
     itinerary = convert_itinerary(new_itinerary);
-    rejected = false;
-    forfeited = false;
+    *rejected = false;
+    *forfeited = false;
 
     if (had_itinerary)
     {
@@ -524,7 +526,7 @@ public:
       proposal.pop_back();
     }
 
-    rejected = true;
+    *rejected = true;
     clear_descendants();
 
     if (negotiation_data)
@@ -564,7 +566,7 @@ public:
       proposal.pop_back();
     }
 
-    forfeited = true;
+    *forfeited = true;
     clear_descendants();
 
     if (negotiation_data)
@@ -1043,6 +1045,16 @@ bool Negotiation::Table::Viewer::defunct() const
   return *_pimpl->defunct;
 }
 
+bool Negotiation::Table::Viewer::rejected() const
+{
+  return _pimpl->rejected.lock().get();
+}
+
+bool Negotiation::Table::Viewer::forfeited() const
+{
+  return _pimpl->forfeited.lock().get();
+}
+
 //==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
@@ -1069,7 +1081,9 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
       _pimpl->schedule_viewer,
       parent_id,
       _pimpl->sequence,
-      _pimpl->defunct.get()));
+      _pimpl->defunct.get(),
+      std::weak_ptr<const bool>(_pimpl->rejected),
+      std::weak_ptr<const bool>(_pimpl->forfeited)));
 
   return _pimpl->cached_table_viewer;
 }
@@ -1138,7 +1152,7 @@ bool Negotiation::Table::reject(
 //==============================================================================
 bool Negotiation::Table::rejected() const
 {
-  return _pimpl->rejected;
+  return _pimpl->rejected.get();
 }
 
 //==============================================================================
@@ -1150,7 +1164,7 @@ void Negotiation::Table::forfeit(Version version)
 //==============================================================================
 bool Negotiation::Table::forfeited() const
 {
-  return _pimpl->forfeited;
+  return _pimpl->forfeited.get();
 }
 
 //==============================================================================
