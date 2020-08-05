@@ -96,22 +96,29 @@ public:
     ///   version number does not match the latest path that you submitted, then
     ///   simply ignore and discard the timing information.
     ///
-    /// \param[in] timing
+    /// \param[in] departure_timing
     ///   This is a vector of the earliest times that the vehicle is allowed to
     ///   leave a given waypoint. The entries of this vector have a 1:1 mapping
     ///   with the entries of the path vector that was submitted earlier. Each
     ///   entry represents the earliest time that a robot is allowed to move
     ///   past its corresponding waypoint. If the robot arrives at the waypoint
     ///   before the given time, then the robot is obligated to pause until the
-    ///   given time arrives. The robot is allowed to arrive at a waypoint late,
-    ///   but UpdateHandle::add_delay(~) should be called whenever that happens.
+    ///   given time arrives.
+    ///
+    ///   \warning Sometimes a vehicle may need to pause after it has already
+    ///   departed one of its waypoints but before it reaches the next one. This
+    ///   will be conveyed by increasing the departure time of the last waypoint
+    ///   that it left. If the departure timing of the last waypoint that the
+    ///   robot departed from is increased to a value greater than the current
+    ///   clock time, then the robot is obligated to stop in place (wherever it
+    ///   happens to be) until the time is reached.
     ///
     /// \param[in] progress_updater
     ///   Use this callback to update the traffic light on how the robot has
     ///   progressed along the path.
     virtual void receive_path_timing(
         std::size_t version,
-        const std::vector<rclcpp::Time>& timing,
+        const std::vector<rclcpp::Time>& departure_timing,
         ProgressCallback progress_updater) = 0;
 
     /// This function will be called when deadlock has occurred due to an
