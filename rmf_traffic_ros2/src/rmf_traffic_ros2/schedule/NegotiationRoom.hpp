@@ -24,7 +24,6 @@
 #include <rmf_traffic_msgs/msg/negotiation_rejection.hpp>
 #include <rmf_traffic_msgs/msg/negotiation_forfeit.hpp>
 #include <rmf_traffic_msgs/msg/negotiation_key.hpp>
-#include <rmf_traffic_msgs/msg/negotiation_status.hpp>
 
 #include <list>
 

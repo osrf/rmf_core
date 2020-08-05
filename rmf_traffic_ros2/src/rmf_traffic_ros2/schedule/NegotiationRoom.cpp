@@ -19,10 +19,8 @@
 
 #include <rmf_traffic_ros2/Route.hpp>
 #include <rmf_traffic_ros2/schedule/Itinerary.hpp>
-#include <rclcpp/rclcpp.hpp>
 
 #include <iostream>
-#include <deque>
 
 namespace rmf_traffic_ros2 {
 

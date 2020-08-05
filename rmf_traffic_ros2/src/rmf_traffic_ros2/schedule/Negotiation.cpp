@@ -754,8 +754,6 @@ public:
       return;
     }
 
-    msg.table[0].participant;
-
     const bool participating = negotiate_it->second.participating;
     auto& room = negotiate_it->second.room;
     Negotiation& negotiation = room.negotiation;
