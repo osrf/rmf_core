@@ -22,6 +22,3 @@ uint32[] sequence
 
 # proposals. same count as proposals_id
 Itinerary[] proposals
-
-# Array of all tables
-#NegotiationStatusTable[] tables
