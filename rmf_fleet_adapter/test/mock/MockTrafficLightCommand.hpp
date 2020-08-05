@@ -41,6 +41,7 @@ public:
     current_version = version;
     current_timing = timing;
     current_progress_updater = std::move(progress_updater);
+    ++command_counter;
     cv.notify_all();
   }
 
@@ -50,6 +51,7 @@ public:
   }
 
   rmf_utils::optional<std::size_t> current_version;
+  std::size_t command_counter = 0;
   std::vector<rclcpp::Time> current_timing;
   ProgressCallback current_progress_updater;
 

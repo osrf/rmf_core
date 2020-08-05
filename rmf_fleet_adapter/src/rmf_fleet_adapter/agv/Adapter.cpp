@@ -175,9 +175,15 @@ public:
     const auto stop_time =
         std::chrono::steady_clock::now() + *discovery_timeout;
 
-    while (rclcpp::ok() && std::chrono::steady_clock::now() < stop_time)
+    rclcpp::executor::ExecutorArgs args;
+    args.context = node_options.context();
+    rclcpp::executors::SingleThreadedExecutor executor(args);
+    executor.add_node(node);
+
+    while (rclcpp::ok(node_options.context())
+           && std::chrono::steady_clock::now() < stop_time)
     {
-      rclcpp::spin_some(node);
+      executor.spin_some();
 
       bool ready = true;
       ready &= writer->ready();

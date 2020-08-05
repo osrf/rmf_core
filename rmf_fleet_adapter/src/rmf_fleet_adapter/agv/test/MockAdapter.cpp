@@ -26,6 +26,7 @@ namespace rmf_fleet_adapter {
 namespace agv {
 namespace test {
 
+//==============================================================================
 class MockAdapter::Implementation
 {
 public:
@@ -41,7 +42,7 @@ public:
       node{Node::make(worker, node_name, node_options)},
       database{std::make_shared<rmf_traffic::schedule::Database>()}
   {
-
+    // Do nothing
   }
 
   std::vector<std::shared_ptr<FleetUpdateHandle>> fleets = {};

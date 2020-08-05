@@ -405,6 +405,7 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
 {
   const Eigen::Vector2d p = location.block<2,1>(0,0);
   const auto& waypoints = plan.get_waypoints();
+
   for (std::size_t i=0; i < plan_target; ++i)
   {
     const auto index = plan_target - i;
@@ -541,24 +542,42 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
 
   assert(!path.empty());
 
-  rclcpp::Time last_t =
+  rclcpp::Time initial_t =
       rmf_traffic_ros2::convert(plan->get_waypoints().front().time());
 
-  const auto& waypoints = plan->get_waypoints();
+  const auto& plan_waypoints = plan->get_waypoints();
   const auto& graph = planner->get_configuration().graph();
 
-  arrival_timing.resize(path.size(), rmf_traffic_ros2::convert(last_t));
-  departure_timing.resize(path.size(), last_t);
+  arrival_timing.resize(path.size(), rmf_traffic_ros2::convert(initial_t));
+  departure_timing.resize(path.size(), initial_t);
   plan_index.resize(path.size(), 0);
 
   rmf_utils::optional<std::size_t> current_wp;
 
-  for (std::size_t i=0; i < waypoints.size(); ++i)
+  const std::size_t first_wp = [&]() -> std::size_t
   {
-    const auto& wp = waypoints[i];
+    for (const auto& wp : plan_waypoints)
+    {
+      if (wp.graph_index())
+        return wp.graph_index().value();
+    }
+
+    // This should never happen
+    assert(false);
+    return 0;
+  }();
+
+  for (std::size_t i=0; i < plan_waypoints.size(); ++i)
+  {
+    const auto& wp = plan_waypoints[i];
 
     if (!wp.graph_index())
+    {
+      for (std::size_t k=0; k < first_wp; ++k)
+        departure_timing[k] = rmf_traffic_ros2::convert(wp.time());
+
       continue;
+    }
 
     if (!current_wp)
       current_wp = *wp.graph_index();
@@ -572,9 +591,10 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         // stopping, we should try to calculate the time that the robot is
         // expected to pass over it.
         const auto p = graph.get_waypoint(k).get_location();
-        const auto t = interpolate_time(traits, waypoints[i-1], wp, p);
+        const auto t = interpolate_time(traits, plan_waypoints[i-1], wp, p);
         arrival_timing[k] = t;
         departure_timing[k] = rmf_traffic_ros2::convert(t);
+        plan_index[k] = i;
       }
 
       current_wp = *wp.graph_index();
@@ -653,7 +673,9 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
       RCLCPP_INFO(
         data->node->get_logger(),
         "Timing estimates for [%s] owned by [%s] have accumulated too much "
-        "error. We will recompute the timing commands.");
+        "error. We will recompute the timing commands.",
+        data->itinerary.description().name().c_str(),
+        data->itinerary.description().owner().c_str());
 
       data->plan_timing(
             std::move(start), current_version, data->path, data->planner);
@@ -673,8 +695,10 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   const auto now = rmf_traffic_ros2::convert(node->now());
 
   const auto effective_time = now - itinerary.delay();
+  const rclcpp::Time effective_time_rcl =
+      rmf_traffic_ros2::convert(effective_time);
 
-  if (rmf_traffic_ros2::convert(departure_timing.back()) < effective_time)
+  if (departure_timing.back() < effective_time_rcl)
   {
     // The time that this robot is scheduled for has passed, so there's no way
     // to estimate its position.
@@ -682,15 +706,14 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   }
 
   const auto& graph = planner->get_configuration().graph();
-  const auto& plan_waypoints = plan->get_waypoints();
 
   rmf_traffic::agv::Plan::Start start(
         now, 0,
         calculate_orientation(
-          plan_waypoints[0].position().block<2,1>(0,0),
-          plan_waypoints[1].position().block<2,1>(0,0)));
+          path[0].position().block<2,1>(0,0),
+          path[1].position().block<2,1>(0,0)));
 
-  if (effective_time < arrival_timing.front())
+  if (effective_time_rcl <= departure_timing.front())
   {
     // The robot has not made progress from its starting point, so we'll just
     // report its original starting conditions.
@@ -698,32 +721,27 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   }
 
   bool traversing_lane = false;
-  for (std::size_t i=1; i < plan_waypoints.size(); ++i)
+  for (std::size_t i=1; i < departure_timing.size(); ++i)
   {
-    const auto& last_wp = plan_waypoints[i-1];
-    assert(last_wp.graph_index());
-
-    const auto& next_wp = plan_waypoints[i];
-    assert(next_wp.graph_index());
-
-    if (last_wp.time() < effective_time && effective_time <= next_wp.time())
+    if (effective_time_rcl < departure_timing[i])
     {
-      const auto gi_last = *last_wp.graph_index();
-      const auto gi_next = *next_wp.graph_index();
+      start.waypoint(i);
 
-      start.waypoint(gi_next);
-      start.orientation(
-            calculate_orientation(
-              last_wp.position().block<2,1>(0,0),
-              next_wp.position().block<2,1>(0,0)));
-
-      if (gi_next != gi_last)
+      if (effective_time < arrival_timing[i])
       {
-        const auto* lane = graph.lane_from(gi_last, gi_next);
+        // The vehicle is still moving towards this waypoint.
+        const auto* lane = graph.lane_from(i-1, i);
         assert(lane);
         start.lane(lane->index());
+        start.orientation(
+              calculate_orientation(
+                path[i-1].position().block<2,1>(0,0),
+                path[i].position().block<2,1>(0,0)));
+
         traversing_lane = true;
       }
+
+      break;
     }
   }
 
