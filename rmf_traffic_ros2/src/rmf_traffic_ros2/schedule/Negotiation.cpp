@@ -371,7 +371,6 @@ public:
 
     ack_pub = node.create_publisher<Ack>(
       NegotiationAckTopicName, qos);
-    );
   }
 
   void receive_repeat_request(const Repeat& msg)
