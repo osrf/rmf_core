@@ -269,9 +269,6 @@ public:
     NegotiationRoom room;
   };
 
-  using NegotiationStatus = rmf_traffic_msgs::msg::NegotiationStatus;
-  rclcpp::Publisher<NegotiationStatus>::SharedPtr status_pub;
-
   using NegotiationMap = std::unordered_map<Version, Entry>;
 
   // The negotiations that this Negotiation class is involved in
@@ -374,9 +371,6 @@ public:
 
     ack_pub = node.create_publisher<Ack>(
       NegotiationAckTopicName, qos);
-
-    status_pub = node.create_publisher<NegotiationStatus>(
-      NegotiationStatusTopicName, qos
     );
   }
 
