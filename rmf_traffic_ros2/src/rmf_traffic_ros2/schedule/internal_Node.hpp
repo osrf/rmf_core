@@ -52,7 +52,6 @@
 #include <rmf_traffic_msgs/srv/unregister_participant.hpp>
 
 #include <rmf_traffic_msgs/msg/negotiation_notice.hpp>
-#include <rmf_traffic_msgs/msg/negotiation_status.hpp>
 
 #include <rmf_utils/Modular.hpp>
 
@@ -155,9 +154,6 @@ public:
   using InconsistencyMsg = rmf_traffic_msgs::msg::ScheduleInconsistency;
   rclcpp::Publisher<InconsistencyMsg>::SharedPtr inconsistency_pub;
   void publish_inconsistencies(rmf_traffic::schedule::ParticipantId id);
-
-  using NegotiationStatusMsg = rmf_traffic_msgs::msg::NegotiationStatus;
-  rclcpp::Publisher<NegotiationStatusMsg>::SharedPtr negotiation_status_pub;
 
   void wakeup_mirrors();
 
