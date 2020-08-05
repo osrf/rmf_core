@@ -8,6 +8,7 @@ uint32 participant
 # Names of participants in the conflict. Same array size as participants
 string participant_name
 
+# Status of the current table
 uint8 status
 uint8 STATUS_UNKNOWN = 0
 uint8 STATUS_FINISHED = 1
