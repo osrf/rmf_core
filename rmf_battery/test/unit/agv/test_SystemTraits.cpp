@@ -56,3 +56,19 @@ SCENARIO("Test PowerSystem")
     CHECK_FALSE(power_system.valid());
   }
 }
+
+SCENARIO("Test SystemTraits")
+{
+  using SystemTraits = rmf_battery::agv::SystemTraits;
+  SystemTraits::BatterySystem battery_system{12, 10, 2};
+  REQUIRE(battery_system.valid());
+  SystemTraits::MechanicalSystem mechanical_system{60, 0.01, 0.3, 0.4};
+  REQUIRE(mechanical_system.valid());
+  SystemTraits::PowerSystem power_system{100, 24};
+  REQUIRE(power_system.valid());
+  SystemTraits system_traits{
+    mechanical_system, battery_system, {power_system}};
+  REQUIRE(system_traits.valid());
+
+  // TODO(YV): Tests for getters and setters 
+}

@@ -448,7 +448,7 @@ const SystemTraits::PowerSystems SystemTraits::power_systems() const
 
 bool SystemTraits::valid() const
 {
-  bool valid = false;
+  bool valid = true;
   for (const auto& power_system : _pimpl->power_systems)
     valid = valid && power_system.valid();
   return _pimpl->battery_system.valid() && _pimpl->mechanical_system.valid() &&
