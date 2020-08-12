@@ -62,7 +62,7 @@ SCENARIO("Test SystemTraits")
   using SystemTraits = rmf_battery::agv::SystemTraits;
   SystemTraits::BatterySystem battery_system{12, 10, 2};
   REQUIRE(battery_system.valid());
-  SystemTraits::MechanicalSystem mechanical_system{60, 0.01, 0.3, 0.4};
+  SystemTraits::MechanicalSystem mechanical_system{60, 10, 0.3};
   REQUIRE(mechanical_system.valid());
   SystemTraits::PowerSystem power_system{100, 24};
   REQUIRE(power_system.valid());

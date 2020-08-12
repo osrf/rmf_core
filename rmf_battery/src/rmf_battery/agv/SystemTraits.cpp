@@ -295,23 +295,20 @@ class SystemTraits::MechanicalSystem::Implementation
 {
 public:
   double mass;
+  double inertia;
   double friction_coefficient;
-  double drag_coefficient;
-  double frontal_area;
 };
 
 //==============================================================================
 SystemTraits::MechanicalSystem::MechanicalSystem(
   const double mass,
-  const double friction_coefficient,
-  const double drag_coefficient,
-  const double frontal_area)
+  const double inertia,
+  const double friction_coefficient)
 : _pimpl(rmf_utils::make_impl<Implementation>(
     Implementation{
       mass,
+      inertia,
       friction_coefficient,
-      drag_coefficient,
-      frontal_area
     }))
 {
   // Do nothing
@@ -345,38 +342,24 @@ double SystemTraits::MechanicalSystem::friction_coefficient() const
 }
 
 //==============================================================================
-auto SystemTraits::MechanicalSystem::drag_coefficient(double drag_coeff)
+auto SystemTraits::MechanicalSystem::inertia(double inertia)
 -> MechanicalSystem&
 {
-  _pimpl->drag_coefficient = drag_coeff;
+  _pimpl->inertia = inertia;
   return *this;
 }
 
 //==============================================================================
-double SystemTraits::MechanicalSystem::drag_coefficient() const
+double SystemTraits::MechanicalSystem::inertia() const
 {
-  return _pimpl->drag_coefficient;
-}
-
-//==============================================================================
-auto SystemTraits::MechanicalSystem::frontal_area(double frontal_area)
--> MechanicalSystem&
-{
-  _pimpl->frontal_area = frontal_area;
-  return *this;
-}
-
-//==============================================================================
-double SystemTraits::MechanicalSystem::frontal_area() const
-{
-  return _pimpl->frontal_area;
+  return _pimpl->inertia;
 }
 
 //==============================================================================
 bool SystemTraits::MechanicalSystem::valid() const
 {
   return _pimpl->mass > 0.0 && _pimpl->friction_coefficient > 0.0 &&
-    _pimpl->drag_coefficient > 0.0 && _pimpl->frontal_area > 0.0;
+    _pimpl->inertia > 0.0;
 }
 
 //==============================================================================

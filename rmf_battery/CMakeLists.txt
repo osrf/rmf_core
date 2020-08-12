@@ -15,7 +15,7 @@ include(GNUInstallDirs)
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rmf_utils REQUIRED)
-
+find_package(rmf_traffic REQUIRED)
 
 # ===== Battery modelling library
 file(GLOB_RECURSE core_lib_srcs "src/rmf_battery/*.cpp")
@@ -33,6 +33,7 @@ if(BUILD_TESTING)
     TIMEOUT 300)
   target_link_libraries(test_rmf_battery
       rmf_battery
+      rmf_traffic::rmf_traffic
   )
 
   target_include_directories(test_rmf_battery
@@ -53,6 +54,7 @@ endif()
 target_link_libraries(rmf_battery
   PUBLIC
     rmf_utils::rmf_utils
+    rmf_traffic::rmf_traffic
 )
 
 target_include_directories(rmf_battery

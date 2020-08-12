@@ -134,21 +134,17 @@ public:
 
     MechanicalSystem(
       double mass,
-      double friction_coefficient,
-      double drag_coefficient,
-      double frontal_area);
+      double inertia,
+      double friction_coefficient);
 
     MechanicalSystem& mass(double mass);
     double mass() const;
 
+    MechanicalSystem& inertia(double inertia);
+    double inertia() const;
+
     MechanicalSystem& friction_coefficient(double friction_coeff);
     double friction_coefficient() const;
-
-    MechanicalSystem& drag_coefficient(double drag_coeff);
-    double drag_coefficient() const;
-
-    MechanicalSystem& frontal_area(double frontal_area);
-    double frontal_area() const;
 
     /// Returns true if the values are valid, i.e. greater than zero.
     bool valid() const;
