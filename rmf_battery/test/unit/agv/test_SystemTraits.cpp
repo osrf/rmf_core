@@ -25,12 +25,14 @@ SCENARIO("Test PowerSystem")
   REQUIRE(power_system.nominal_power() - 60 == Approx(0.0));
   REQUIRE(power_system.nominal_voltage() - 12 == Approx(0.0));
   REQUIRE(power_system.efficiency() - 1.0 == Approx(0.0));
+  REQUIRE(power_system.valid());
   WHEN("Nominal power is set")
   {
     power_system.nominal_power(80);
     CHECK(power_system.nominal_power() - 80 == Approx(0.0));
     CHECK(power_system.nominal_voltage() - 12 == Approx(0.0));
     CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
+    CHECK(power_system.valid());
   }
   WHEN("Nominal voltage is set")
   {
@@ -38,6 +40,7 @@ SCENARIO("Test PowerSystem")
     CHECK(power_system.nominal_voltage() - 24 == Approx(0.0));
     CHECK(power_system.nominal_power() - 60 == Approx(0.0));
     CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
+    CHECK(power_system.valid());
   }
   WHEN("Efficiency is set")
   {
@@ -45,5 +48,11 @@ SCENARIO("Test PowerSystem")
     CHECK(power_system.nominal_voltage() - 12 == Approx(0.0));
     CHECK(power_system.nominal_power() - 60 == Approx(0.0));
     CHECK(power_system.efficiency() - 0.80 == Approx(0.0));
+    CHECK(power_system.valid());
+  }
+  WHEN("A property is negative")
+  {
+    power_system.nominal_voltage(-12);
+    CHECK_FALSE(power_system.valid());
   }
 }

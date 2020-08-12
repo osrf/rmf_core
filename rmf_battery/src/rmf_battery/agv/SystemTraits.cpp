@@ -20,6 +20,9 @@
 namespace rmf_battery {
 namespace agv {
 
+using BatteryProfile = SystemTraits::BatterySystem::BatteryProfile;
+using BatteryType = SystemTraits::BatterySystem::BatteryType;
+
 class SystemTraits::PowerSystem::Implementation
 {
 public:
@@ -78,6 +81,378 @@ auto SystemTraits::PowerSystem::efficiency(double efficiency)
 double SystemTraits::PowerSystem::efficiency() const
 {
   return _pimpl->efficiency;
+}
+
+//==============================================================================
+bool SystemTraits::PowerSystem::valid() const
+{
+  return _pimpl->nominal_power > 0.0 && _pimpl->nominal_voltage > 0.0 &&
+    _pimpl->efficiency > 0.0;
+}
+
+//==============================================================================
+class SystemTraits::BatterySystem::BatteryProfile::Implementation
+{
+public:
+  double resistance;
+  double max_voltage;
+  double exp_voltage;
+  double exp_capacity;
+};
+
+//==============================================================================
+SystemTraits::BatterySystem::BatteryProfile::BatteryProfile(
+  const double resistance,
+  const double max_voltage,
+  const double exp_voltage,
+  const double exp_capacity)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation{resistance, max_voltage, exp_voltage, exp_capacity}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto BatteryProfile::resistance(double resistance)
+-> BatteryProfile&
+{
+  _pimpl->resistance = resistance;
+  return *this;
+}
+
+//==============================================================================
+double BatteryProfile::resistance() const
+{
+  return _pimpl->resistance;
+}
+
+//==============================================================================
+auto BatteryProfile::max_voltage(double max_voltage)
+-> BatteryProfile&
+{
+  _pimpl->max_voltage = max_voltage;
+  return *this;
+}
+
+//==============================================================================
+double BatteryProfile::max_voltage() const
+{
+  return _pimpl->max_voltage;
+}
+
+//==============================================================================
+auto BatteryProfile::exp_voltage(double exp_voltage)
+-> BatteryProfile&
+{
+  _pimpl->exp_voltage = exp_voltage;
+  return *this;
+}
+
+//==============================================================================
+double BatteryProfile::exp_voltage() const
+{
+  return _pimpl->exp_voltage;
+}
+
+//==============================================================================
+auto BatteryProfile::exp_capacity(double exp_capacity)
+-> BatteryProfile&
+{
+  _pimpl->exp_capacity = exp_capacity;
+  return *this;
+}
+
+//==============================================================================
+double BatteryProfile::exp_capacity() const
+{
+  return _pimpl->exp_capacity;
+}
+
+//==============================================================================
+bool BatteryProfile::valid() const
+{
+  return _pimpl->resistance > 0.0 && _pimpl->max_voltage > 0.0 &&
+    _pimpl->exp_voltage > 0.0 && _pimpl->exp_capacity > 0.0;
+}
+
+//==============================================================================
+class SystemTraits::BatterySystem::Implementation
+{
+public:
+  double nominal_voltage;
+  double nominal_capacity;
+  double charging_current;
+  BatteryType type;
+  rmf_utils::optional<BatteryProfile> profile;
+};
+
+//==============================================================================
+SystemTraits::BatterySystem::BatterySystem(
+  const double nominal_voltage,
+  const double nominal_capacity,
+  const double charging_current,
+  BatteryType type,
+  rmf_utils::optional<BatteryProfile> profile)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation{
+      nominal_voltage,
+      nominal_capacity,
+      charging_current,
+      type,
+      std::move(profile)
+    }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto SystemTraits::BatterySystem::nominal_voltage(double nom_voltage)
+-> BatterySystem&
+{
+  _pimpl->nominal_voltage = nom_voltage;
+  return *this;
+}
+
+//==============================================================================
+double SystemTraits::BatterySystem::nominal_voltage() const
+{
+  return _pimpl->nominal_voltage;
+}
+
+//==============================================================================
+auto SystemTraits::BatterySystem::nominal_capacity(double nom_capacity)
+-> BatterySystem&
+{
+  _pimpl->nominal_capacity = nom_capacity;
+  return *this;
+}
+
+//==============================================================================
+double SystemTraits::BatterySystem::nominal_capacity() const
+{
+  return _pimpl->nominal_capacity;
+}
+
+//==============================================================================
+auto SystemTraits::BatterySystem::charging_current(double charging_current)
+-> BatterySystem&
+{
+  _pimpl->charging_current = charging_current;
+  return *this;
+}
+
+//==============================================================================
+double SystemTraits::BatterySystem::charging_current() const
+{
+  return _pimpl->charging_current;
+}
+
+//==============================================================================
+auto SystemTraits::BatterySystem::type(BatteryType type)
+-> BatterySystem&
+{
+  _pimpl->type = type;
+  return *this;
+}
+
+//==============================================================================
+BatteryType SystemTraits::BatterySystem::type() const
+{
+  return _pimpl->type;
+}
+
+//==============================================================================
+auto SystemTraits::BatterySystem::profile(
+  rmf_utils::optional<BatterySystem::BatteryProfile> profile)
+-> BatterySystem&
+{
+  _pimpl->profile = std::move(profile);
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<BatteryProfile> SystemTraits::BatterySystem::profile() const
+{
+  return _pimpl->profile;
+}
+
+//==============================================================================
+bool SystemTraits::BatterySystem::valid() const
+{
+  bool valid = _pimpl->nominal_voltage > 0.0 &&
+    _pimpl->nominal_capacity > 0.0 && _pimpl->charging_current > 0.0 &&
+    (_pimpl->type == BatteryType::LeadAcid 
+      || _pimpl->type == BatteryType::LiIon);
+  if (_pimpl->profile)
+    return valid && _pimpl->profile->valid();
+    
+  return valid;
+  
+}
+
+//==============================================================================
+class SystemTraits::MechanicalSystem::Implementation
+{
+public:
+  double mass;
+  double friction_coefficient;
+  double drag_coefficient;
+  double frontal_area;
+};
+
+//==============================================================================
+SystemTraits::MechanicalSystem::MechanicalSystem(
+  const double mass,
+  const double friction_coefficient,
+  const double drag_coefficient,
+  const double frontal_area)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation{
+      mass,
+      friction_coefficient,
+      drag_coefficient,
+      frontal_area
+    }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto SystemTraits::MechanicalSystem::mass(double mass) -> MechanicalSystem&
+{
+  _pimpl->mass = mass;
+  return *this;
+}
+
+//==============================================================================
+double SystemTraits::MechanicalSystem::mass() const
+{
+  return _pimpl->mass;
+}
+
+//==============================================================================
+auto SystemTraits::MechanicalSystem::friction_coefficient(double friction_coeff)
+-> MechanicalSystem&
+{
+  _pimpl->friction_coefficient = friction_coeff;
+  return *this;
+}
+
+//==============================================================================
+double SystemTraits::MechanicalSystem::friction_coefficient() const
+{
+  return _pimpl->friction_coefficient;
+}
+
+//==============================================================================
+auto SystemTraits::MechanicalSystem::drag_coefficient(double drag_coeff)
+-> MechanicalSystem&
+{
+  _pimpl->drag_coefficient = drag_coeff;
+  return *this;
+}
+
+//==============================================================================
+double SystemTraits::MechanicalSystem::drag_coefficient() const
+{
+  return _pimpl->drag_coefficient;
+}
+
+//==============================================================================
+auto SystemTraits::MechanicalSystem::frontal_area(double frontal_area)
+-> MechanicalSystem&
+{
+  _pimpl->frontal_area = frontal_area;
+  return *this;
+}
+
+//==============================================================================
+double SystemTraits::MechanicalSystem::frontal_area() const
+{
+  return _pimpl->frontal_area;
+}
+
+//==============================================================================
+bool SystemTraits::MechanicalSystem::valid() const
+{
+  return _pimpl->mass > 0.0 && _pimpl->friction_coefficient > 0.0 &&
+    _pimpl->drag_coefficient > 0.0 && _pimpl->frontal_area > 0.0;
+}
+
+//==============================================================================
+class SystemTraits::Implementation
+{
+public:
+  MechanicalSystem mechanical_system;
+  BatterySystem battery_system;
+  PowerSystems power_systems;
+};
+
+//==============================================================================
+SystemTraits::SystemTraits(
+  const MechanicalSystem mechanical_system,
+  const BatterySystem battery_system,
+  const PowerSystems power_systems)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation
+    {
+      std::move(mechanical_system),
+      std::move(battery_system),
+      std::move(power_systems)
+    }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto SystemTraits::mechanical_system(MechanicalSystem mechanical_system)
+-> SystemTraits&
+{
+  _pimpl->mechanical_system = std::move(mechanical_system);
+  return *this;
+}
+
+//==============================================================================
+const SystemTraits::MechanicalSystem SystemTraits::mechanical_system() const
+{
+  return _pimpl->mechanical_system;
+}
+
+//==============================================================================
+auto SystemTraits::battery_system(BatterySystem battery_system)
+-> SystemTraits&
+{
+  _pimpl->battery_system = std::move(battery_system);
+  return *this;
+}
+
+//==============================================================================
+const SystemTraits::BatterySystem SystemTraits::battery_system() const
+{
+  return _pimpl->battery_system;
+}
+
+//==============================================================================
+auto SystemTraits::power_systems(PowerSystems power_systems)
+-> SystemTraits&
+{
+  _pimpl->power_systems = std::move(power_systems);
+  return *this;
+}
+
+//==============================================================================
+const SystemTraits::PowerSystems SystemTraits::power_systems() const
+{
+  return _pimpl->power_systems;
+}
+
+bool SystemTraits::valid() const
+{
+  bool valid = false;
+  for (const auto& power_system : _pimpl->power_systems)
+    valid = valid && power_system.valid();
+  return _pimpl->battery_system.valid() && _pimpl->mechanical_system.valid() &&
+    valid;
 }
 
 } // namespace agv

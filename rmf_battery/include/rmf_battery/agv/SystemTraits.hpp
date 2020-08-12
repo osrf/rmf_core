@@ -78,7 +78,7 @@ public:
         double exp_voltage,
         double exp_capacity);
 
-      BatteryProfile& resistance(double r);
+      BatteryProfile& resistance(double resistance);
       double resistance() const;
 
       BatteryProfile& max_voltage(double max_voltage);
@@ -89,6 +89,9 @@ public:
 
       BatteryProfile& exp_capacity(double exp_capacity);
       double exp_capacity() const;
+
+      /// Returns true if the values are valid, i.e. greater than zero.
+      bool valid() const;
       
       class Implementation;
     private:
@@ -111,8 +114,8 @@ public:
     BatterySystem& charging_current(double charging_current);
     double charging_current() const;
 
-    BatterySystem& type(uint16_t type);
-    uint16_t type() const;
+    BatterySystem& type(BatteryType type);
+    BatteryType type() const;
 
     BatterySystem& profile(rmf_utils::optional<BatteryProfile> profile);
     rmf_utils::optional<BatteryProfile> profile() const;
@@ -131,10 +134,21 @@ public:
 
     MechanicalSystem(
       double mass,
-      double dynamic_friction,
+      double friction_coefficient,
       double drag_coefficient,
       double frontal_area);
 
+    MechanicalSystem& mass(double mass);
+    double mass() const;
+
+    MechanicalSystem& friction_coefficient(double friction_coeff);
+    double friction_coefficient() const;
+
+    MechanicalSystem& drag_coefficient(double drag_coeff);
+    double drag_coefficient() const;
+
+    MechanicalSystem& frontal_area(double frontal_area);
+    double frontal_area() const;
 
     /// Returns true if the values are valid, i.e. greater than zero.
     bool valid() const;
@@ -150,14 +164,14 @@ public:
     BatterySystem battery_system,
     PowerSystems power_systems);
 
-  MechanicalSystem& mechanical_system();
-  const MechanicalSystem& mechanical_system() const;
+  SystemTraits& mechanical_system(MechanicalSystem mechanical_system);
+  const MechanicalSystem mechanical_system() const;
 
-  BatterySystem& battery_system();
-  const BatterySystem& battery_system() const;
+  SystemTraits& battery_system(BatterySystem battery_system);
+  const BatterySystem battery_system() const;
 
-  PowerSystems& power_systems();
-  const PowerSystems& power_systems() const;
+  SystemTraits& power_systems(PowerSystems power_systems);
+  const PowerSystems power_systems() const;
 
   /// Returns true if the values of the traits are valid. For example, this
   /// means that all system values are greater than zero.
