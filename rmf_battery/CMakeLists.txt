@@ -16,6 +16,7 @@ include(GNUInstallDirs)
 find_package(ament_cmake REQUIRED)
 find_package(rmf_utils REQUIRED)
 find_package(rmf_traffic REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 # ===== Battery modelling library
 file(GLOB_RECURSE core_lib_srcs "src/rmf_battery/*.cpp")
