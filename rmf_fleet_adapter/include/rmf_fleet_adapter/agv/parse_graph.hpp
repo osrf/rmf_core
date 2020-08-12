@@ -32,7 +32,9 @@ namespace agv {
 /// error.
 rmf_traffic::agv::Graph parse_graph(
     const std::string& filename,
-    const rmf_traffic::agv::VehicleTraits& vehicle_traits);
+    const rmf_traffic::agv::VehicleTraits& vehicle_traits,
+    rmf_utils::optional<rmf_traffic::Duration> mandatory_wait =
+      rmf_utils::nullopt);
 
 } // namespace agv
 } // namespace rmf_fleet_adapter

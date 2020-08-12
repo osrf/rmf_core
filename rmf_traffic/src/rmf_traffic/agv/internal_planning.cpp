@@ -805,6 +805,7 @@ struct DifferentialDriveExpander
         // that there is no solution.
         assert(solution != nullptr);
 
+        std::vector<std::size_t> reverse_waypoints;
         std::vector<Eigen::Vector3d> positions;
         EuclideanExpander::NodePtr euclidean_node = solution;
         // Note: this constructs positions in reverse, but that's okay because
@@ -812,6 +813,7 @@ struct DifferentialDriveExpander
         // same duration whether it is interpolating forward or backwards.
         while (euclidean_node)
         {
+          reverse_waypoints.push_back(euclidean_node->waypoint);
           const Eigen::Vector2d p = euclidean_node->location;
           positions.push_back({p[0], p[1], 0.0});
           euclidean_node = euclidean_node->parent;
@@ -823,10 +825,27 @@ struct DifferentialDriveExpander
         const rmf_traffic::Trajectory estimate = agv::Interpolate::positions(
           context.traits, context.initial_time, positions);
 
-        const double cost_esimate = time::to_seconds(estimate.duration());
-        estimate_it.first->second = cost_esimate;
+        double cost_estimate = time::to_seconds(estimate.duration());
+        const std::size_t N_wp = reverse_waypoints.size();
+        for (std::size_t i = 1; i < N_wp; ++i)
+        {
+          const auto last = reverse_waypoints.at(i);
+          const auto next = reverse_waypoints.at(i-1);
 
-        new_costs[waypoint] = cost_esimate;
+          const auto lane_index = context.graph.lane_between.at(last).at(next);
+          const auto& lane = context.graph.lanes.at(lane_index);
+
+          const auto* entry = lane.entry().event();
+          if (entry)
+            cost_estimate += time::to_seconds(entry->duration());
+
+          const auto* exit = lane.exit().event();
+          if (exit)
+            cost_estimate += time::to_seconds(exit->duration());
+        }
+
+        estimate_it.first->second = cost_estimate;
+        new_costs[waypoint] = cost_estimate;
 
         // TODO(MXG): We could get significantly better performance if we
         // accounted for the cost of rotating when making this estimate, but

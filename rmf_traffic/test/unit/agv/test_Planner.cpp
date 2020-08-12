@@ -1842,7 +1842,7 @@ public:
     _result = _expectation == Dock;
   }
 
-  void execute(const Lane::Wait& wait) final
+  void execute(const Lane::Wait&) final
   {
     _result = _expectation == Wait;
   }

@@ -370,9 +370,18 @@ std::shared_ptr<Connections> make_fleet(
     return nullptr;
   }
 
+  const auto mandatory_wait_value =
+      rmf_fleet_adapter::get_parameter_or_default(
+        *node, "mandatory_wait", 0.0);
+
+  rmf_utils::optional<rmf_traffic::Duration> mandatory_wait;
+  if (mandatory_wait_value > 0.0)
+    mandatory_wait = rmf_traffic::time::from_seconds(mandatory_wait_value);
+
   connections->graph =
       std::make_shared<rmf_traffic::agv::Graph>(
-        rmf_fleet_adapter::agv::parse_graph(graph_file, *connections->traits));
+        rmf_fleet_adapter::agv::parse_graph(
+          graph_file, *connections->traits, mandatory_wait));
 
   std::cout << "The fleet [" << fleet_name
             << "] has the following named waypoints:\n";
