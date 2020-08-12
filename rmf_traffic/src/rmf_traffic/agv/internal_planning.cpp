@@ -727,6 +727,12 @@ struct DifferentialDriveExpander
       _event = agv::Graph::Lane::Event::make(dock);
     }
 
+    void execute(const agv::Graph::Lane::Wait& wait) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(wait);
+    }
+
     NodePtr get(DifferentialDriveExpander* expander)
     {
       assert(_event);
