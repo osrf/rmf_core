@@ -71,6 +71,7 @@ public:
   using TableViewPtr = rmf_traffic::schedule::Negotiation::Table::ViewerPtr;
   using StatusUpdateCallback =
     std::function<void (uint64_t conflict_version, TableViewPtr table_view)>;
+  
   /// Register a callback with this Negotiation manager that triggers
   /// on negotiation status updates.
   ///
@@ -80,7 +81,23 @@ public:
 
   using StatusConclusionCallback =
     std::function<void (uint64_t conflict_version, bool success)>;
+  
+  /// Register a callback with this Negotiation manager that triggers
+  /// on negotiation status conclusions.
+  ///
+  /// \param[in] cb
+  ///   The callback function to be called upon status conclusions.
   void on_conclusion(StatusConclusionCallback cb);
+
+  /// Get a Negotiation::TableView that provides a view into what participants are
+  /// proposing.
+  ///
+  /// This function does not care about table versioning.
+  ///
+  /// \sa find()
+  TableViewPtr table_view(
+    uint64_t conflict_version,
+    const std::vector<rmf_traffic::schedule::ParticipantId>& sequence);
 
   /// Register a negotiator with this Negotiation manager.
   ///

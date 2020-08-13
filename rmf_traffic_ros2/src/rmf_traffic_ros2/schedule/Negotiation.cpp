@@ -981,6 +981,30 @@ public:
     return std::make_shared<Handle>(for_participant, negotiators);
   }
 
+  TableViewPtr table_view(
+    uint64_t conflict_version,
+    const std::vector<ParticipantId>& sequence)
+  {
+    const auto negotiate_it = negotiations.find(conflict_version);
+    if (negotiate_it == negotiations.end())
+    {
+      RCLCPP_WARN(node.get_logger(), "Conflict version %llu does not exist."
+        "It may have been successful and wiped", conflict_version);
+      return TableViewPtr();
+    }
+
+    auto& room = negotiate_it->second.room;
+    Negotiation& negotiation = room.negotiation;
+    auto table = negotiation.table(sequence);
+    if (!table)
+    {
+      RCLCPP_WARN(node.get_logger(), "Table not found");
+      return TableViewPtr();
+    }
+
+    return table->viewer();
+  }
+
   void on_status_update(StatusUpdateCallback cb)
   {
     status_callback = cb;
@@ -1003,11 +1027,13 @@ Negotiation::Negotiation(
   // Do nothing
 }
 
+//==============================================================================
 void Negotiation::on_status_update(StatusUpdateCallback cb)
 {
   _pimpl->on_status_update(cb);
 }
 
+//==============================================================================
 void Negotiation::on_conclusion(StatusConclusionCallback cb)
 {
   _pimpl->on_conclusion(cb);
@@ -1024,6 +1050,14 @@ Negotiation& Negotiation::timeout_duration(rmf_traffic::Duration duration)
 rmf_traffic::Duration Negotiation::timeout_duration() const
 {
   return _pimpl->timeout;
+}
+
+//==============================================================================
+Negotiation::TableViewPtr Negotiation::table_view(
+    uint64_t conflict_version,
+    const std::vector<ParticipantId>& sequence)
+{
+  return _pimpl->table_view(conflict_version, sequence);
 }
 
 //==============================================================================
