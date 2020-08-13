@@ -297,6 +297,8 @@ public:
     std::function<void (uint64_t conflict_version, bool success)>;
   StatusConclusionCallback conclusion_callback;
 
+  uint retained_history_count = 0;
+
   Implementation(
     rclcpp::Node& node_,
     std::shared_ptr<const rmf_traffic::schedule::Snappable> viewer_,
@@ -890,7 +892,10 @@ public:
       conclusion_callback(msg.conflict_version, msg.resolved);
     
     // Erase these entries because the negotiation has concluded
-    negotiations.erase(negotiate_it);
+    // NOTE(ddengster): retained_history_count is used for testing 
+    // and doesnt have full functionality
+    if (negotiations.size() > retained_history_count)
+      negotiations.erase(negotiate_it);
   }
 
   void publish_proposal(
@@ -981,6 +986,11 @@ public:
     return std::make_shared<Handle>(for_participant, negotiators);
   }
 
+  void set_retained_history_count(uint count)
+  {
+    retained_history_count = count;
+  }
+
   TableViewPtr table_view(
     uint64_t conflict_version,
     const std::vector<ParticipantId>& sequence)
@@ -1058,6 +1068,12 @@ Negotiation::TableViewPtr Negotiation::table_view(
     const std::vector<ParticipantId>& sequence)
 {
   return _pimpl->table_view(conflict_version, sequence);
+}
+
+//==============================================================================
+void Negotiation::set_retained_history_count(uint count)
+{
+  return _pimpl->set_retained_history_count(count);
 }
 
 //==============================================================================

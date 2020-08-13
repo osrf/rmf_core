@@ -99,6 +99,12 @@ public:
     uint64_t conflict_version,
     const std::vector<rmf_traffic::schedule::ParticipantId>& sequence);
 
+  /// Set the number of negotiations to retain.
+  ///
+  /// \param[in] count
+  ///   The number of negotiations to retain
+  void set_retained_history_count(uint count);
+
   /// Register a negotiator with this Negotiation manager.
   ///
   /// \param[in] for_participant
