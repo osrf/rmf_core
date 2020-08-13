@@ -195,6 +195,8 @@ public:
       bool rejected() const;
       bool forfeited() const;
 
+      const Itinerary* submission() const;
+
       class Implementation;
     private:
       Viewer();

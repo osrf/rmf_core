@@ -147,6 +147,7 @@ public:
   std::shared_ptr<const bool> defunct;
   std::weak_ptr<const bool> rejected;
   std::weak_ptr<const bool> forfeited;
+  rmf_utils::optional<Itinerary> itinerary;
 
   Viewer::View query(
     const Query::Spacetime& spacetime,
@@ -1055,6 +1056,14 @@ bool Negotiation::Table::Viewer::forfeited() const
   return _pimpl->forfeited.lock().get();
 }
 
+const Itinerary* Negotiation::Table::Viewer::submission() const
+{
+  if (_pimpl->itinerary)
+    return &(*_pimpl->itinerary);
+
+  return nullptr;
+}
+
 //==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
@@ -1083,7 +1092,8 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
       _pimpl->sequence,
       _pimpl->defunct.get(),
       std::weak_ptr<const bool>(_pimpl->rejected),
-      std::weak_ptr<const bool>(_pimpl->forfeited)));
+      std::weak_ptr<const bool>(_pimpl->forfeited), 
+      _pimpl->itinerary));
 
   return _pimpl->cached_table_viewer;
 }
@@ -1310,7 +1320,7 @@ auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
 
     const auto& proposal = Table::Implementation::get(*table_ptr).proposal;
     assert(Table::Implementation::get(*table_ptr).itinerary);
-    assert(!Table::Implementation::get(*table_ptr).rejected);
+    assert(!*Table::Implementation::get(*table_ptr).rejected);
     assert(proposal.size() == Table::Implementation::get(*table_ptr).depth);
     assert(Table::Implementation::get(*table_ptr).descendants.empty());
 
