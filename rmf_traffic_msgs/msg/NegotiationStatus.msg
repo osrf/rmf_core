@@ -21,5 +21,3 @@ uint8 STATUS_DEFUNCT = 16
 # [to_accommodate..., for_participant]
 uint32[] sequence
 
-# proposals. same count as proposals_id
-Itinerary[] proposals
