@@ -333,7 +333,7 @@ void FleetUpdateHandle::add_robot(
         "Added a robot named [%s] with participant ID [%d]",
         context->name().c_str(), context->itinerary().id());
 
-      fleet->_pimpl->task_managers.insert({context, std::make_shared<TaskManager>(context)});
+      fleet->_pimpl->task_managers.insert({context, TaskManager::make(context)});
       if (handle_cb)
       {
         handle_cb(RobotUpdateHandle::Implementation::make(std::move(context)));

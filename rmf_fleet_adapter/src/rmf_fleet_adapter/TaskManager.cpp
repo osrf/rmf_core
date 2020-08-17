@@ -20,13 +20,13 @@
 namespace rmf_fleet_adapter {
 
 //==============================================================================
-TaskManager::TaskManager(agv::RobotContextPtr context)
-  : _context(std::move(context))
+TaskManagerPtr TaskManager::make(agv::RobotContextPtr context)
 {
-  _emergency_sub = _context->node()->emergency_notice()
-    .observe_on(rxcpp::identity_same_worker(_context->worker()))
+  auto mgr = TaskManagerPtr(new TaskManager(std::move(context)));
+  mgr->_emergency_sub = mgr->_context->node()->emergency_notice()
+    .observe_on(rxcpp::identity_same_worker(mgr->_context->worker()))
     .subscribe(
-      [w = weak_from_this()](const auto& msg)
+      [w = mgr->weak_from_this()](const auto& msg)
     {
       if (auto mgr = w.lock())
       {
@@ -37,6 +37,15 @@ TaskManager::TaskManager(agv::RobotContextPtr context)
         }
       }
     });
+
+  return mgr;
+}
+
+//==============================================================================
+TaskManager::TaskManager(agv::RobotContextPtr context)
+  : _context(std::move(context))
+{
+  // Do nothing
 }
 
 //==============================================================================
