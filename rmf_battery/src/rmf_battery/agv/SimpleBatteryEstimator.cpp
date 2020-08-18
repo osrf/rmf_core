@@ -110,41 +110,42 @@ double SimpleBatteryEstimator::compute_state_of_charge(
 
     start_time += std::chrono::milliseconds(sim_step);
     double dE = 0.0;
-    int count = 0;
     for (auto sim_time = start_time;
       sim_time <= end_time; sim_time += std::chrono::milliseconds(sim_step))
     {
-      std::cout << "  sim time: " << sim_time.time_since_epoch().count() << std:: endl;
+      // std::cout << "  sim time: " << sim_time.time_since_epoch().count() << std:: endl;
       const Eigen::Vector3d velocity = motion->compute_velocity(sim_time);
-      std::cout << "Velocity:" << velocity[0] << "," << velocity[1] << std::endl;
+      // std::cout << "  Velocity:" << velocity[0] << "," << velocity[1] << std::endl;
       v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
       w = velocity[2];
-      std::cout << "    v: " << v << " w: " << w << std::endl;
+      // std::cout << "  v: " << v << " w: " << w << std::endl;
       // Kinetic energy
+      // We assume the robot does not coast nor has regernerative braking
       const double KE = compute_kinetic_energy(mass, v, inertia, w);
-      const double dKE = KE - KE_previous;
+      const double dKE = std::abs(KE - KE_previous);
       KE_previous = KE;
       // Friction energy
       const double FE = compute_friction_energy(friction, mass, v, (sim_step/1000.0));
-      const double dFE = FE - FE_previous;
+      const double dFE = std::abs(FE - FE_previous);
       FE_previous = FE;
 
       // TODO(YV) energy from power systems
       // 
       dE += dKE + dFE;
-      std::cout << "    dKE: " << dKE << " dFE: " << dFE << std::endl;
-      count++;
+      // std::cout << "    dKE: " << dKE << " dFE: " << dFE << std::endl;
     }
 
     // Charge consumed
     const double dQ = dE / nominal_voltage;
-    std::cout << "count: " << count << std::endl;
     std::cout << "  dQ: " << dQ << std::endl;
     battery_soc -= dQ / nominal_capacity;
-    std::cout << "  Battery soc: " << battery_soc << std::endl;
     trajectory_soc.push_back(battery_soc);
   }
   std::cout << "Trajectory soc size: " << trajectory_soc.size() << std::endl;
+  for (auto it = trajectory_soc.begin(); it != trajectory_soc.end(); it++)
+  {
+    std::cout << "  soc: " << *it << std::endl;
+  }
   return trajectory_soc.back();
 }
 

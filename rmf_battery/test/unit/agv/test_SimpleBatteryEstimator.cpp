@@ -48,8 +48,8 @@ SCENARIO("Test SimpleBatteryEstimator")
         rmf_traffic::Trajectory trajectory;
         const auto start_time = std::chrono::steady_clock::now();
         trajectory.insert(start_time, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
-        trajectory.insert(start_time + 50s, {50.0, 0.0, 0.0}, {1.5, 0.0, 0.0});
-        trajectory.insert(start_time + 100s, {100.0, 0.0, 0.0}, {2.0, 0.0, 0.0});
+        trajectory.insert(start_time + 50s, {50.0, 0.0, 0.0}, {0.5, 0.0, 0.0});
+        trajectory.insert(start_time + 100s, {100.0, 0.0, 0.0}, {1.0, 0.0, 0.0});
         REQUIRE(trajectory.size() == 3);
 
         auto remaining_soc = battery_estimator.compute_state_of_charge(trajectory, 0.9);
