@@ -23,6 +23,8 @@
 #include <vector>
 #include <cmath>
 
+#include <iostream>
+
 namespace rmf_battery {
 namespace agv {
 
@@ -52,6 +54,27 @@ const SystemTraits SimpleBatteryEstimator::system_traits() const
   return _pimpl->system_traits;
 }
 
+namespace {
+double compute_kinetic_energy(
+  const double m,
+  const double v,
+  const double i,
+  const double w)
+{
+  return  0.5 * (m*pow(v, 2) + i*pow(w, 2));
+}
+
+double compute_friction_energy(
+  const double f,
+  const double m,
+  const double v,
+  const double dt)
+{
+  const double g = 9.81; // ms-1
+  return f * m * g * 2 * v * dt;
+}
+
+} // namespace anonymous
 double SimpleBatteryEstimator::compute_state_of_charge(
   const rmf_traffic::Trajectory& trajectory,
   const double initial_soc) const
@@ -68,7 +91,6 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   const double inertia = _pimpl->system_traits.mechanical_system().inertia();
   const double friction =
     _pimpl->system_traits.mechanical_system().friction_coefficient();
-  const double g = 9.81; // ms-1
   const int sim_step = 100; // milliseconds
 
   for (auto it = trajectory.begin(); it != trajectory.end(); it++)
@@ -76,33 +98,53 @@ double SimpleBatteryEstimator::compute_state_of_charge(
     auto next_it = it; ++next_it;
     if (next_it == trajectory.end())
       break;
-    const auto start_time = it->time() + std::chrono::milliseconds(sim_step);
+    auto start_time = it->time();
     const auto end_time = next_it->time();
     const auto motion = rmf_traffic::Motion::compute_cubic_splines(it, next_it);
     
-    double dE = 0.0;
+    const Eigen::Vector3d velocity = motion->compute_velocity(start_time);
+    double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
+    double w = velocity[2];
+    double KE_previous = compute_kinetic_energy(mass, v, inertia, w);
+    double FE_previous = 0.0;
 
+    start_time += std::chrono::milliseconds(sim_step);
+    double dE = 0.0;
+    int count = 0;
     for (auto sim_time = start_time;
       sim_time <= end_time; sim_time += std::chrono::milliseconds(sim_step))
     {
+      std::cout << "  sim time: " << sim_time.time_since_epoch().count() << std:: endl;
       const Eigen::Vector3d velocity = motion->compute_velocity(sim_time);
-      const double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
-      const double w = velocity[2];
+      std::cout << "Velocity:" << velocity[0] << "," << velocity[1] << std::endl;
+      v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
+      w = velocity[2];
+      std::cout << "    v: " << v << " w: " << w << std::endl;
       // Kinetic energy
-      const double dKE = 0.5 * (mass*pow(v, 2) + inertia*pow(w, 2));
+      const double KE = compute_kinetic_energy(mass, v, inertia, w);
+      const double dKE = KE - KE_previous;
+      KE_previous = KE;
       // Friction energy
-      const double dFE = friction * mass * g * 2 * v * (sim_step/1000);
+      const double FE = compute_friction_energy(friction, mass, v, (sim_step/1000.0));
+      const double dFE = FE - FE_previous;
+      FE_previous = FE;
+
       // TODO(YV) energy from power systems
       // 
       dE += dKE + dFE;
+      std::cout << "    dKE: " << dKE << " dFE: " << dFE << std::endl;
+      count++;
     }
 
     // Charge consumed
     const double dQ = dE / nominal_voltage;
+    std::cout << "count: " << count << std::endl;
+    std::cout << "  dQ: " << dQ << std::endl;
     battery_soc -= dQ / nominal_capacity;
+    std::cout << "  Battery soc: " << battery_soc << std::endl;
     trajectory_soc.push_back(battery_soc);
   }
-
+  std::cout << "Trajectory soc size: " << trajectory_soc.size() << std::endl;
   return trajectory_soc.back();
 }
 
