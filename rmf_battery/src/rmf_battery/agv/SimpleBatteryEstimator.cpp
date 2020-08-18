@@ -15,7 +15,8 @@
  *
 */
 
-#include "EstimateBatteryInternal.hpp"
+#include<rmf_battery/agv/SimpleBatteryEstimator.hpp>
+#include<rmf_battery/agv/SystemTraits.hpp>
 
 #include <rmf_traffic/Motion.hpp>
 
@@ -23,24 +24,50 @@
 #include <cmath>
 
 namespace rmf_battery {
+namespace agv {
 
-double SampleEstimator::compute_soc(
+class SimpleBatteryEstimator::Implementation
+{
+public:
+  SystemTraits system_traits;
+};
+
+SimpleBatteryEstimator::SimpleBatteryEstimator(
+  SystemTraits& system_traits)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation{std::move(system_traits)}))
+{
+  // Do nothing
+}
+
+auto SimpleBatteryEstimator::system_traits(const SystemTraits system_traits)
+-> SimpleBatteryEstimator&
+{
+  _pimpl->system_traits = std::move(system_traits);
+  return *this;
+}
+
+const SystemTraits SimpleBatteryEstimator::system_traits() const
+{
+  return _pimpl->system_traits;
+}
+
+double SimpleBatteryEstimator::compute_state_of_charge(
   const rmf_traffic::Trajectory& trajectory,
-  const rmf_battery::agv::SystemTraits& system_traits,
   const double initial_soc) const
 {
-  assert(system_traits.valid());
+  assert(_pimpl->system_traits.valid());
   std::vector<double> trajectory_soc;
   trajectory_soc.reserve(trajectory.size());
   trajectory_soc.push_back(initial_soc);
 
   double battery_soc = initial_soc;
-  double nominal_capacity = system_traits.battery_system().nominal_capacity();
-  double nominal_voltage = system_traits.battery_system().nominal_voltage();
-  const double mass = system_traits.mechanical_system().mass();
-  const double inertia = system_traits.mechanical_system().inertia();
+  double nominal_capacity = _pimpl->system_traits.battery_system().nominal_capacity();
+  double nominal_voltage = _pimpl->system_traits.battery_system().nominal_voltage();
+  const double mass = _pimpl->system_traits.mechanical_system().mass();
+  const double inertia = _pimpl->system_traits.mechanical_system().inertia();
   const double friction =
-    system_traits.mechanical_system().friction_coefficient();
+    _pimpl->system_traits.mechanical_system().friction_coefficient();
   const double g = 9.81; // ms-1
   const int sim_step = 100; // milliseconds
 
@@ -79,4 +106,5 @@ double SampleEstimator::compute_soc(
   return trajectory_soc.back();
 }
 
+} // namespace agv
 } // namespace rmf_battery

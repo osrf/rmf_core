@@ -15,32 +15,38 @@
  *
 */
 
-#ifndef RMF_BATTERY__ESTIMATEBATTERY_HPP
-#define RMF_BATTERY__ESTIMATEBATTERY_HPP
+#ifndef RMF_BATTERY__AGV__SIMPLEBATTERYESTIMATOR_HPP
+#define RMF_BATTERY__AGV__SIMPLEBATTERYESTIMATOR_HPP
 
-#include <rmf_battery/agv/SystemTraits.hpp>
+#include <rmf_battery/EstimateBattery.hpp>
 
-#include <rmf_traffic/Trajectory.hpp>
+#include<rmf_utils/impl_ptr.hpp>
 
 
 namespace rmf_battery {
+namespace agv {
 
-
-//==============================================================================
-class EstimateBattery
+class SimpleBatteryEstimator : public EstimateBattery
 {
 public:
 
+  SimpleBatteryEstimator(SystemTraits& system_traits);
 
-  /// Computes state-of-charge estimate of battery at the end of a trajectory.
-  ///
-  /// \return The fraction of remaining charge at the end of the trajectory.
-  virtual double compute_state_of_charge(
+  SimpleBatteryEstimator& system_traits(SystemTraits system_traits);
+
+  const SystemTraits system_traits() const;  
+
+  double compute_state_of_charge(
     const rmf_traffic::Trajectory& trajectory,
-    const double initial_soc) const = 0;
+    const double initial_soc) const final;
 
+  class Implementation;
+
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-} // namespace rmf_traffic
-
-#endif // RMF_BATTERY__ESTIMATEBATTERY_HPP
+} // namespace agv
+} // namespace rmf_battery
+ 
+#endif // RMF_BATTERY__AGV__SIMPLEBATTERYESTIMATOR_HPP

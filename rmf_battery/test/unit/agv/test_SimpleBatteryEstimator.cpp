@@ -15,23 +15,11 @@
  *
 */
 
-#ifndef SRC__RMF_BATTERY__ESTIMATEBATTERYINTERNAL_HPP
-#define SRC__RMF_BATTERY__ESTIMATEBATTERYINTERNAL_HPP
+#include <rmf_battery/agv/SimpleBatteryEstimator.hpp>
 
-#include <rmf_battery/EstimateBattery.hpp>
+#include <rmf_utils/catch.hpp>
 
-namespace rmf_battery {
-
-class SampleEstimator : public EstimateBattery
+SCENARIO("Test SimpleBatteryEstimator")
 {
-public:
-  double compute_soc(
-    const rmf_traffic::Trajectory& trajectory,
-    const rmf_battery::agv::SystemTraits& system_traits,
-    const double initial_soc) const final;
-};
-
-
-} // namespace rmf_battery
- 
-#endif // SRC__RMF_BATTERY__ESTIMATEBATTERYINTERNAL_HPP
+    
+}
