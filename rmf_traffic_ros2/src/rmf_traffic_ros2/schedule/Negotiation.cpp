@@ -298,6 +298,7 @@ public:
   StatusConclusionCallback conclusion_callback;
 
   uint retained_history_count = 0;
+  std::map<Version, rmf_traffic::schedule::Negotiation> history;
 
   Implementation(
     rclcpp::Node& node_,
@@ -891,11 +892,18 @@ public:
     if (conclusion_callback)
       conclusion_callback(msg.conflict_version, msg.resolved);
     
+    // add to retained history
+    if (retained_history_count > 0)
+    {
+      while (history.size() >= retained_history_count)
+        history.erase(history.begin());
+
+      history.emplace(
+        msg.conflict_version, std::move(negotiate_it->second.room.negotiation));
+    }
+    
     // Erase these entries because the negotiation has concluded
-    // NOTE(ddengster): retained_history_count is used for testing 
-    // and doesnt have full functionality
-    if (negotiations.size() > retained_history_count)
-      negotiations.erase(negotiate_it);
+    negotiations.erase(negotiate_it);
   }
 
   void publish_proposal(
@@ -996,16 +1004,27 @@ public:
     const std::vector<ParticipantId>& sequence)
   {
     const auto negotiate_it = negotiations.find(conflict_version);
+    rmf_traffic::schedule::Negotiation::TablePtr table;
+
     if (negotiate_it == negotiations.end())
     {
-      RCLCPP_WARN(node.get_logger(), "Conflict version %llu does not exist."
-        "It may have been successful and wiped", conflict_version);
-      return nullptr;
+      auto history_it = history.find(conflict_version);
+      if (history_it == history.end())
+      {
+        RCLCPP_WARN(node.get_logger(), "Conflict version %llu does not exist."
+          "It may have been successful and wiped", conflict_version);
+        return nullptr;
+      }
+      
+      table = history_it->second.table(sequence);
+    }
+    else
+    {
+      auto& room = negotiate_it->second.room;
+      Negotiation& negotiation = room.negotiation;
+      table = negotiation.table(sequence);  
     }
 
-    auto& room = negotiate_it->second.room;
-    Negotiation& negotiation = room.negotiation;
-    auto table = negotiation.table(sequence);
     if (!table)
     {
       RCLCPP_WARN(node.get_logger(), "Table not found");
