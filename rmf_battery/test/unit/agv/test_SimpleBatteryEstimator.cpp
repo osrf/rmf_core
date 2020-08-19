@@ -35,7 +35,7 @@ SCENARIO("Test SimpleBatteryEstimator")
     // Initializing system traits
     SystemTraits::BatterySystem battery_system{12, 20, 2};
     REQUIRE(battery_system.valid());
-    SystemTraits::MechanicalSystem mechanical_system{60, 10, 0.3};
+    SystemTraits::MechanicalSystem mechanical_system{20, 10, 0.03};
     REQUIRE(mechanical_system.valid());
     SystemTraits::PowerSystem power_system{100, 24};
     REQUIRE(power_system.valid());
@@ -54,12 +54,13 @@ SCENARIO("Test SimpleBatteryEstimator")
       const auto start_time = std::chrono::steady_clock::now();
       const std::vector<Eigen::Vector3d> positions = {
           Eigen::Vector3d{0.0, 0.0, 0.0},
-          Eigen::Vector3d{10, 0.0, 0.0},
+          Eigen::Vector3d{100, 0.0, 0.0},
       };
       rmf_traffic::Trajectory trajectory =
         rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-      auto remaining_soc = battery_estimator.compute_state_of_charge(trajectory, 0.9);
-      std::cout << "Start time: " << start_time.time_since_epoch().count() << " soc: " << remaining_soc << std::endl;
+      auto remaining_soc = battery_estimator.compute_state_of_charge(
+          trajectory, 1.0);
+      REQUIRE(remaining_soc > 0.99);
     }
 }

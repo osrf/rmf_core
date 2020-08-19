@@ -95,64 +95,48 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   const double sim_step = 0.1; // seconds
 
 
-    auto begin_it = it;
-    if (begin_it != trajectory.begin())
-      --begin_it;
-    auto end_it = it; ++end_it;
-    if (end_it == trajectory.end())
-      break;
-    auto start_time = begin_it->time();
-    const auto end_time = end_it->time();
-    const auto motion = rmf_traffic::Motion::compute_cubic_splines(
-        begin_it, end_it);
-    
-    const Eigen::Vector3d velocity = motion->compute_velocity(start_time);
-    double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
-    double w = velocity[2];
-    double KE_previous = compute_kinetic_energy(mass, v, inertia, w);
-    double FE_previous = 0.0;
+  auto begin_it = trajectory.begin();
+  auto end_it = --trajectory.end();
 
-    start_time = rmf_traffic::time::apply_offset(start_time, sim_step);
+  auto start_time = begin_it->time();
+  const auto end_time = end_it->time();
+  const auto motion = rmf_traffic::Motion::compute_cubic_splines(
+      begin_it, trajectory.end());
+  
+  const Eigen::Vector3d velocity = motion->compute_velocity(start_time);
+  double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
+  double w = velocity[2];
+  double KE_previous = compute_kinetic_energy(mass, v, inertia, w);
 
-    double dE = 0.0;
+  start_time = rmf_traffic::time::apply_offset(start_time, sim_step);
 
-    for (auto sim_time = start_time;
-      sim_time <= end_time;
-      sim_time = rmf_traffic::time::apply_offset(sim_time, sim_step))
-    {
-      // std::cout << "  sim time: " << sim_time.time_since_epoch().count() << std:: endl;
-      const Eigen::Vector3d velocity = motion->compute_velocity(sim_time);
-      std::cout << "  Velocity:" << velocity[0] << "," << velocity[1] << std::endl;
-      v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
-      w = velocity[2];
-      std::cout << "  v: " << v << " w: " << w << std::endl;
-      // Kinetic energy
-      // We assume the robot does not coast nor has regernerative braking
-      const double KE = compute_kinetic_energy(mass, v, inertia, w);
-      const double dKE = std::abs(KE - KE_previous);
-      KE_previous = KE;
-      // Friction energy
-      const double FE = compute_friction_energy(friction, mass, v, (sim_step/1000.0));
-      const double dFE = std::abs(FE - FE_previous);
-      FE_previous = FE;
+  double dE = 0.0;
 
-      // TODO(YV) energy from power systems
-      // 
-      dE += dKE + dFE;
-      // std::cout << "    dKE: " << dKE << " dFE: " << dFE << std::endl;
-    }
-
-    // Charge consumed
-    const double dQ = dE / nominal_voltage;
-    std::cout << "  dQ: " << dQ << std::endl;
-    battery_soc -= dQ / nominal_capacity;
-    trajectory_soc.push_back(battery_soc);
-
-  std::cout << "Trajectory soc size: " << trajectory_soc.size() << std::endl;
-  for (auto it = trajectory_soc.begin(); it != trajectory_soc.end(); it++)
+  for (auto sim_time = start_time;
+    sim_time <= end_time;
+    sim_time = rmf_traffic::time::apply_offset(sim_time, sim_step))
   {
-    std::cout << "  soc: " << *it << std::endl;
+    const Eigen::Vector3d velocity = motion->compute_velocity(sim_time);
+    v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
+    w = velocity[2];
+    // Loss through kinetic energy
+    // We assume the robot does not coast and has regernerative braking
+    const double KE = compute_kinetic_energy(mass, v, inertia, w);
+    const double dKE = KE - KE_previous;
+    KE_previous = KE;
+    // Loss through friction energy
+    const double FE = compute_friction_energy(friction, mass, v, (sim_step/1000.0));
+
+    // TODO(YV) energy loss from power systems
+    // We require a mapping between power systems and active durations
+    dE += dKE + FE;
   }
+
+  // Computing the charge consumed
+  const double dQ = dE / nominal_voltage;
+  battery_soc -= dQ / nominal_capacity;
+  trajectory_soc.push_back(battery_soc);
+  
   return trajectory_soc.back();
 }
 
