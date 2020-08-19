@@ -278,7 +278,8 @@ public:
       ///
       /// \param[in]
       ///   How long the robot will take to dock
-      Dock(std::string dock_name,
+      Dock(
+        std::string dock_name,
         Duration duration);
 
       /// Get the name of the dock
@@ -298,6 +299,27 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
+    class Wait
+    {
+    public:
+
+      /// Constructor
+      ///
+      /// \param[in] duration
+      ///   How long the wait will be.
+      Wait(Duration value);
+
+      /// Get how long the wait will be.
+      Duration duration() const;
+
+      /// Set how long the wait will be.
+      Wait& duration(Duration value);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
     /// A customizable Executor that can carry out actions based on which Event
     /// type is present.
     class Executor
@@ -310,6 +332,7 @@ public:
       using LiftDoorClose = Lane::LiftDoorClose;
       using LiftMove = Lane::LiftMove;
       using Dock = Lane::Dock;
+      using Wait = Lane::Wait;
 
       virtual void execute(const DoorOpen& open) = 0;
       virtual void execute(const DoorClose& close) = 0;
@@ -317,6 +340,7 @@ public:
       virtual void execute(const LiftDoorClose& close) = 0;
       virtual void execute(const LiftMove& move) = 0;
       virtual void execute(const Dock& dock) = 0;
+      virtual void execute(const Wait& wait) = 0;
 
       virtual ~Executor() = default;
     };
@@ -353,6 +377,7 @@ public:
       static EventPtr make(LiftDoorClose close);
       static EventPtr make(LiftMove move);
       static EventPtr make(Dock dock);
+      static EventPtr make(Wait wait);
     };
 
 

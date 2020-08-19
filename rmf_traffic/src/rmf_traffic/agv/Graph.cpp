@@ -502,6 +502,41 @@ auto Graph::Lane::Dock::duration(Duration d) -> Dock&
   return *this;
 }
 
+//==============================================================================
+class Graph::Lane::Wait::Implementation
+{
+public:
+
+  Duration duration;
+
+};
+
+//==============================================================================
+Graph::Lane::Wait::Wait(Duration value)
+  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{value}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Duration Graph::Lane::Wait::duration() const
+{
+  return _pimpl->duration;
+}
+
+//==============================================================================
+auto Graph::Lane::Wait::duration(Duration value) -> Wait&
+{
+  _pimpl->duration = value;
+  return *this;
+}
+
+//==============================================================================
+void Graph::Lane::Executor::execute(const Wait&)
+{
+  // Do nothing
+}
+
 namespace {
 //==============================================================================
 template<typename EventT>
@@ -579,6 +614,12 @@ auto Graph::Lane::Event::make(LiftMove move) -> EventPtr
 auto Graph::Lane::Event::make(Dock dock) -> EventPtr
 {
   return TemplateEvent<Dock>::make(std::move(dock));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(Wait wait) -> EventPtr
+{
+  return TemplateEvent<Wait>::make(std::move(wait));
 }
 
 //==============================================================================

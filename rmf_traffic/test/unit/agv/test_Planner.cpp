@@ -88,7 +88,7 @@ void print_trajectory_info(
   {
     int waypoint_count = 1;
     const auto& t = r.trajectory();
-    std::cout << "Trajectory [" << trajectory_count << "] in " << r.map() 
+    std::cout << "Trajectory [" << trajectory_count << "] in " << r.map()
               << " with " << t.size() << " waypoints\n";
     for (auto it = t.begin(); it != t.end(); it++)
     {
@@ -1799,7 +1799,8 @@ public:
     LiftDoorOpen,
     LiftDoorClose,
     LiftMove,
-    Dock
+    Dock,
+    Wait
   };
 
   using Lane = rmf_traffic::agv::Graph::Lane;
@@ -1839,6 +1840,11 @@ public:
   void execute(const Lane::Dock&) final
   {
     _result = _expectation == Dock;
+  }
+
+  void execute(const Lane::Wait&) final
+  {
+    _result = _expectation == Wait;
   }
 
   bool result() const
@@ -2593,4 +2599,115 @@ SCENARIO("Multilevel Planning")
     CHECK(count_events(*plan) == 2);
     CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
   }
+}
+
+SCENARIO("Close start", "[close_start]")
+{
+  using namespace std::chrono_literals;
+
+  auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
+  rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.1),
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(1.0)
+  };
+
+  auto p1 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 1",
+      "test_Negotiator",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  auto p2 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 2",
+      "test_Negotiator",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, { 0.0, -5.0}); // 0
+  graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 1
+  graph.add_waypoint(test_map_name, { 0.0, 0.0}); // 2
+  graph.add_waypoint(test_map_name, { 5.0,  0.0}); // 3
+  graph.add_waypoint(test_map_name, { 0.0, 5.0}); // 4
+  graph.add_waypoint(test_map_name, { 5.0, 5.0}); // 5
+
+  /*
+   *         4-----5
+   *         |     |
+   *         |     |
+   *   1-----2-----3
+   *         |
+   *         |
+   *         0
+   */
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+    {
+      graph.add_lane(w0, w1);
+      graph.add_lane(w1, w0);
+    };
+
+  add_bidir_lane(0, 2);
+  add_bidir_lane(1, 2);
+  add_bidir_lane(3, 2);
+  add_bidir_lane(3, 5);
+  add_bidir_lane(4, 2);
+  add_bidir_lane(4, 5);
+
+  const rmf_traffic::agv::VehicleTraits traits{
+    {0.7, 0.3},
+    {1.0, 0.45},
+    profile
+  };
+
+  const auto time = std::chrono::steady_clock::now();
+
+  rmf_traffic::agv::Planner::Configuration configuration{graph, traits};
+
+  rmf_traffic::Trajectory t_obs;
+  t_obs.insert(time, {-0.5, 0.0, 0.0}, {0.0, 0.0, 0.0});
+  t_obs.insert(time + 10min, {-0.5, 0.0, 0.0}, {0.0, 0.0, 0.0});
+  p2.set({{test_map_name, t_obs}});
+
+  rmf_traffic::agv::Planner planner{
+    configuration,
+    rmf_traffic::agv::Plan::Options{
+      rmf_traffic::agv::ScheduleRouteValidator::make(
+            database, p1.id(), p1.description().profile())
+    }
+  };
+
+  const auto result =
+      planner.plan(
+        {
+          rmf_traffic::agv::Plan::Start(time, 2, 0, Eigen::Vector2d{0.5, 0.0}),
+          rmf_traffic::agv::Plan::Start(time, 3, 0, Eigen::Vector2d{0.5, 0.0})
+        }, 4);
+
+  REQUIRE(result);
+
+  CHECK(result->get_itinerary().back().trajectory().back().time()
+        < time + 10min);
+
+  std::unordered_set<std::size_t> visited_wps;
+  for (const auto& wp : result->get_waypoints())
+  {
+    if (wp.graph_index())
+      visited_wps.insert(*wp.graph_index());
+  }
+
+  CHECK(visited_wps.size() == 3);
+  CHECK(visited_wps.count(3));
+  CHECK(visited_wps.count(5));
+  CHECK(visited_wps.count(4));
 }

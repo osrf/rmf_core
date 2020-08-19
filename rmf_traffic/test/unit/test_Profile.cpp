@@ -125,7 +125,7 @@ SCENARIO("Testing Construction")
   }
 }
 
-SCENARIO("Testing conflicts")
+SCENARIO("Testing conflicts", "[close_start]")
 {
   using Trajecotry = rmf_traffic::Trajectory;
 
@@ -193,40 +193,90 @@ SCENARIO("Testing conflicts")
         t2));
   }
 
-  GIVEN("Overlapping footprints and vicinities")
-  {
-    Trajecotry t1;
-    t1.insert(start_time, {0, 0, 0}, {0, 0, 0});
-    t1.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
-
-    Trajecotry t2;
-    t2.insert(start_time, {0, 2, 0}, {0, 0, 0});
-    t2.insert(start_time + 10s, {10, 2, 0}, {0, 0, 0});
-
-    CHECK(rmf_traffic::DetectConflict::between(
-        {circle_1, circle_2},
-        t1,
-        {circle_1, circle_2},
-        t2));
-  }
-
   GIVEN("Footprint overlaps with vicinity from the start")
   {
     Trajecotry t1;
     t1.insert(start_time, {0, 0, 0}, {0, 0, 0});
-    t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
 
     Trajecotry t2;
     t2.insert(start_time, {2.8, 0, 0}, {0, 0, 0});
-    t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
 
-    // A conflict only exists if the footprint entered the vicinity after the
-    // start of the trajectory
-    CHECK_FALSE(rmf_traffic::DetectConflict::between(
-        {circle_1, circle_2},
-        t1,
-        {circle_1},
-        t2));
+    const rmf_traffic::Profile profile{circle_1, circle_2};
+
+    // When a robot starts in another's vicinity, a conflict only happens if the
+    // robots move closer to each other.
+
+    WHEN("Vehicles sit still")
+    {
+      t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {2.8, 0, 0}, {0, 0, 0});
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("Vehicles move in parallel")
+    {
+      t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {2.8, 10, 0}, {0, 0, 0});
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("One vehicle moves away")
+    {
+      t1.insert(start_time + 10s, {0, 0, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("Vehicles move apart slightly")
+    {
+      t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {3, 10, 0}, {0, 0, 0});
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("Vehicles move apart orthogonally")
+    {
+      t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("Vehicles move apart in opposite shearing directions")
+    {
+      t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {2.8, -10, 0}, {0, 0, 0});
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("Vehicles move directly apart from each other")
+    {
+      t1.insert(start_time + 10s, {-10, 0, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
+      CHECK_FALSE(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("Vehicles move directly across each other")
+    {
+      t1.insert(start_time + 10s, {10, 0, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {-10, 0, 0}, {0, 0, 0});
+      CHECK(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
+
+    WHEN("Vehicles move a little closer")
+    {
+      t1.insert(start_time + 10s, {0, 10, 0}, {0, 0, 0});
+      t2.insert(start_time + 10s, {2.79, 10, 0}, {0, 0, 0});
+      CHECK(rmf_traffic::DetectConflict::between(
+          profile, t1, profile, t2));
+    }
   }
 
   GIVEN("Footprint overlaps with vicinity and then leaves")

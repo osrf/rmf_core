@@ -55,12 +55,12 @@ rmf_traffic::Duration GoToPlace::Active::estimate_remaining_time() const
 }
 
 //==============================================================================
-void GoToPlace::Active::emergency_alarm(const bool on)
+void GoToPlace::Active::emergency_alarm(const bool value)
 {
-  if (_emergency_active == on)
+  if (_emergency_active == value)
     return;
 
-  _emergency_active = on;
+  _emergency_active = value;
   if (_emergency_active)
   {
     cancel();
@@ -393,6 +393,11 @@ public:
   void execute(const LiftMove& /*move*/) final
   {
     // Not supported yet
+  }
+
+  void execute(const Wait&) final
+  {
+    // Do nothing
   }
 
 private:

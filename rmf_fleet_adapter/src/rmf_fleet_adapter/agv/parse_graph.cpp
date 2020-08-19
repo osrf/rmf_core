@@ -25,7 +25,8 @@ namespace agv {
 //==============================================================================
 rmf_traffic::agv::Graph parse_graph(
   const std::string& graph_file,
-  const rmf_traffic::agv::VehicleTraits& vehicle_traits)
+  const rmf_traffic::agv::VehicleTraits& vehicle_traits,
+  rmf_utils::optional<rmf_traffic::Duration> mandatory_wait)
 {
   const YAML::Node graph_config = YAML::LoadFile(graph_file);
   if (!graph_config)
@@ -156,6 +157,9 @@ rmf_traffic::agv::Graph parse_graph(
       }
 
       rmf_utils::clone_ptr<Event> entry_event;
+      if (mandatory_wait)
+        entry_event = Event::make(Lane::Wait(*mandatory_wait));
+
       rmf_utils::clone_ptr<Event> exit_event;
       std::size_t begin = lane[0].as<std::size_t>() + vnum;
       std::size_t end = lane[1].as<std::size_t>() + vnum;
