@@ -26,7 +26,7 @@ using BatteryType = SystemTraits::BatterySystem::BatteryType;
 class SystemTraits::PowerSystem::Implementation
 {
 public:
-
+  std::string name;
   double nominal_power;
   double nominal_voltage;
   double efficiency;
@@ -34,13 +34,27 @@ public:
 
 //==============================================================================
 SystemTraits::PowerSystem::PowerSystem(
+  const std::string name,
   const double nominal_power,
   const double nominal_voltage,
   const double efficiency)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{nominal_power, nominal_voltage, efficiency}))
+      Implementation{std::move(name), nominal_power, nominal_voltage, efficiency}))
 {
   // Do nothing
+}
+
+//==============================================================================
+auto SystemTraits::PowerSystem::name(std::string name) -> PowerSystem&
+{
+  _pimpl->name = name;
+  return *this;
+}
+
+//==============================================================================
+std::string SystemTraits::PowerSystem::name() const
+{
+  return _pimpl->name;
 }
 
 //==============================================================================
@@ -86,8 +100,8 @@ double SystemTraits::PowerSystem::efficiency() const
 //==============================================================================
 bool SystemTraits::PowerSystem::valid() const
 {
-  return _pimpl->nominal_power > 0.0 && _pimpl->nominal_voltage > 0.0 &&
-    _pimpl->efficiency > 0.0;
+  return !_pimpl->name.empty() && _pimpl->nominal_power > 0.0 
+    && _pimpl->nominal_voltage > 0.0 && _pimpl->efficiency > 0.0;
 }
 
 //==============================================================================
@@ -433,7 +447,7 @@ bool SystemTraits::valid() const
 {
   bool valid = true;
   for (const auto& power_system : _pimpl->power_systems)
-    valid = valid && power_system.valid();
+    valid = valid && power_system.second.valid();
   return _pimpl->battery_system.valid() && _pimpl->mechanical_system.valid() &&
     valid;
 }

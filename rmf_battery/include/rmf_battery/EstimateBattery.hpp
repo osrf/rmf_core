@@ -22,6 +22,10 @@
 
 #include <rmf_traffic/Trajectory.hpp>
 
+#include<rmf_utils/optional.hpp>
+
+#include <unordered_map>
+#include <memory>
 
 namespace rmf_battery {
 
@@ -31,13 +35,15 @@ class EstimateBattery
 {
 public:
 
-
+  using PowerMap = std::unordered_map<std::string, rmf_traffic::Trajectory>;
+  
   /// Computes state-of-charge estimate of battery at the end of a trajectory.
   ///
   /// \return The fraction of remaining charge at the end of the trajectory.
   virtual double compute_state_of_charge(
     const rmf_traffic::Trajectory& trajectory,
-    const double initial_soc) const = 0;
+    const double initial_soc,
+    rmf_utils::optional<PowerMap> power_map = rmf_utils::nullopt) const = 0;
 
 };
 

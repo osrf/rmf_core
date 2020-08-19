@@ -18,9 +18,11 @@
 #ifndef RMF_BATTERY__AGV__SYSTEMTRAITS_HPP
 #define RMF_BATTERY__AGV__SYSTEMTRAITS_HPP
 
-#include<vector>
-#include<rmf_utils/impl_ptr.hpp>
-#include<rmf_utils/optional.hpp>
+#include <vector>
+#include <unordered_map>
+
+#include <rmf_utils/impl_ptr.hpp>
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_battery {
 namespace agv {
@@ -30,17 +32,21 @@ class SystemTraits
 {
 public:
   class PowerSystem;
-  using PowerSystems = std::vector<PowerSystem>;
+  using PowerSystems = std::unordered_map<std::string, PowerSystem>;
 
   class PowerSystem
   {
   public:
 
     PowerSystem(
+      std::string name,
       double nominal_power,
       double nominal_voltage,
       double efficiency = 1.0);
 
+    PowerSystem& name(std::string name);
+    std::string name() const;
+    
     PowerSystem& nominal_power(double nom_power);
     double nominal_power() const;
 

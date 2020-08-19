@@ -23,7 +23,6 @@
 
 #include <vector>
 #include <cmath>
-
 #include <iostream>
 
 namespace rmf_battery {
@@ -78,7 +77,8 @@ double compute_friction_energy(
 } // namespace anonymous
 double SimpleBatteryEstimator::compute_state_of_charge(
   const rmf_traffic::Trajectory& trajectory,
-  const double initial_soc) const
+  const double initial_soc,
+  rmf_utils::optional<PowerMap> power_map) const
 {
   assert(_pimpl->system_traits.valid());
   std::vector<double> trajectory_soc;
@@ -86,14 +86,14 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   trajectory_soc.push_back(initial_soc);
 
   double battery_soc = initial_soc;
-  double nominal_capacity = _pimpl->system_traits.battery_system().nominal_capacity();
+  double nominal_capacity = 
+    _pimpl->system_traits.battery_system().nominal_capacity();
   double nominal_voltage = _pimpl->system_traits.battery_system().nominal_voltage();
   const double mass = _pimpl->system_traits.mechanical_system().mass();
   const double inertia = _pimpl->system_traits.mechanical_system().inertia();
   const double friction =
     _pimpl->system_traits.mechanical_system().friction_coefficient();
-  const double sim_step = 0.1; // seconds
-
+  const auto& power_systems = _pimpl->system_traits.power_systems();
 
   auto begin_it = trajectory.begin();
   auto end_it = --trajectory.end();
@@ -108,6 +108,7 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   double w = velocity[2];
   double KE_previous = compute_kinetic_energy(mass, v, inertia, w);
 
+  const double sim_step = 0.1; // seconds
   start_time = rmf_traffic::time::apply_offset(start_time, sim_step);
 
   double dE = 0.0;
@@ -127,16 +128,28 @@ double SimpleBatteryEstimator::compute_state_of_charge(
     // Loss through friction energy
     const double FE = compute_friction_energy(friction, mass, v, (sim_step/1000.0));
 
-    // TODO(YV) energy loss from power systems
-    // We require a mapping between power systems and active durations
-    dE += dKE + FE;
+    double PE = 0.0;
+    // Loss through power systems
+    if (power_map.has_value())
+    {
+      for (const auto& item : power_map.value())
+      {
+        if (item.second.find(sim_time) != item.second.end())
+        {
+          const auto it = power_systems.find(item.first);
+          assert(it != power_systems.end());
+          PE += it->second.nominal_power() * sim_step;
+        }
+      }
+    }    
+    dE += dKE + FE + PE;
   }
 
   // Computing the charge consumed
   const double dQ = dE / nominal_voltage;
-  battery_soc -= dQ / nominal_capacity;
+  battery_soc -= dQ / (nominal_capacity * 3600);
   trajectory_soc.push_back(battery_soc);
-  
+
   return trajectory_soc.back();
 }
 

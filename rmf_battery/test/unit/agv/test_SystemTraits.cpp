@@ -21,11 +21,22 @@
 
 SCENARIO("Test PowerSystem")
 {
-  rmf_battery::agv::SystemTraits::PowerSystem power_system(60, 12);
+  rmf_battery::agv::SystemTraits::PowerSystem power_system(
+    "cleaning_system", 60, 12);
+  REQUIRE(power_system.name() == "cleaning_system");
   REQUIRE(power_system.nominal_power() - 60 == Approx(0.0));
   REQUIRE(power_system.nominal_voltage() - 12 == Approx(0.0));
   REQUIRE(power_system.efficiency() - 1.0 == Approx(0.0));
   REQUIRE(power_system.valid());
+  WHEN("Name is set")
+  {
+    power_system.name("vacuuming_system");
+    CHECK(power_system.name() == "vacuuming_system");
+    CHECK(power_system.nominal_power() - 60 == Approx(0.0));
+    CHECK(power_system.nominal_voltage() - 12 == Approx(0.0));
+    CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
+    CHECK(power_system.valid());
+  }
   WHEN("Nominal power is set")
   {
     power_system.nominal_power(80);
@@ -64,10 +75,12 @@ SCENARIO("Test SystemTraits")
   REQUIRE(battery_system.valid());
   SystemTraits::MechanicalSystem mechanical_system{60, 10, 0.3};
   REQUIRE(mechanical_system.valid());
-  SystemTraits::PowerSystem power_system{100, 24};
+  SystemTraits::PowerSystem power_system{"cleaning_system", 100, 24};
   REQUIRE(power_system.valid());
+  SystemTraits::PowerSystems power_systems;
+  power_systems.insert({power_system.name(), power_system});
   SystemTraits system_traits{
-    mechanical_system, battery_system, {power_system}};
+    mechanical_system, battery_system, power_systems};
   REQUIRE(system_traits.valid());
 
   // TODO(YV): Tests for getters and setters 

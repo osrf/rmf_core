@@ -20,7 +20,7 @@
 
 #include <rmf_battery/EstimateBattery.hpp>
 
-#include<rmf_utils/impl_ptr.hpp>
+#include <rmf_utils/impl_ptr.hpp>
 
 
 namespace rmf_battery {
@@ -38,7 +38,9 @@ public:
 
   double compute_state_of_charge(
     const rmf_traffic::Trajectory& trajectory,
-    const double initial_soc) const final;
+    const double initial_soc,
+    rmf_utils::optional<PowerMap> power_map = rmf_utils::nullopt
+    ) const final;
 
   class Implementation;
 
