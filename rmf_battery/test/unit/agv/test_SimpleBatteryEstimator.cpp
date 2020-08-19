@@ -19,6 +19,8 @@
 #include <rmf_battery/agv/SystemTraits.hpp>
 
 #include <rmf_traffic/Trajectory.hpp>
+#include <rmf_traffic/agv/VehicleTraits.hpp>
+#include <rmf_traffic/agv/Interpolate.hpp>
 
 #include <rmf_utils/catch.hpp>
 
@@ -43,16 +45,21 @@ SCENARIO("Test SimpleBatteryEstimator")
 
     auto battery_estimator = SimpleBatteryEstimator{system_traits};
 
+    // Initializing vehicle traits
+    const rmf_traffic::agv::VehicleTraits traits(
+        {0.7, 0.5}, {0.3, 0.25}, {nullptr, nullptr});    
+    
     WHEN("Robot moves 100m along a straight line")
     {
-        rmf_traffic::Trajectory trajectory;
-        const auto start_time = std::chrono::steady_clock::now();
-        trajectory.insert(start_time, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0});
-        trajectory.insert(start_time + 50s, {50.0, 0.0, 0.0}, {0.5, 0.0, 0.0});
-        trajectory.insert(start_time + 100s, {100.0, 0.0, 0.0}, {1.0, 0.0, 0.0});
-        REQUIRE(trajectory.size() == 3);
+      const auto start_time = std::chrono::steady_clock::now();
+      const std::vector<Eigen::Vector3d> positions = {
+          Eigen::Vector3d{0.0, 0.0, 0.0},
+          Eigen::Vector3d{10, 0.0, 0.0},
+      };
+      rmf_traffic::Trajectory trajectory =
+        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-        auto remaining_soc = battery_estimator.compute_state_of_charge(trajectory, 0.9);
-        std::cout << "Start time: " << start_time.time_since_epoch().count() << " soc: " << remaining_soc << std::endl;
+      auto remaining_soc = battery_estimator.compute_state_of_charge(trajectory, 0.9);
+      std::cout << "Start time: " << start_time.time_since_epoch().count() << " soc: " << remaining_soc << std::endl;
     }
 }
