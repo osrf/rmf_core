@@ -1046,16 +1046,19 @@ bool Negotiation::Table::Viewer::defunct() const
   return *_pimpl->defunct;
 }
 
+//==============================================================================
 bool Negotiation::Table::Viewer::rejected() const
 {
   return _pimpl->rejected;
 }
 
+//==============================================================================
 bool Negotiation::Table::Viewer::forfeited() const
 {
   return _pimpl->forfeited;
 }
 
+//==============================================================================
 const Itinerary* Negotiation::Table::Viewer::submission() const
 {
   if (_pimpl->itinerary)

@@ -93,8 +93,13 @@ public:
   /// proposing.
   ///
   /// This function does not care about table versioning.
+  /// \param[in] conflict_version
+  ///   The conflict version of the negotiation
+  /// \param[in] sequence
+  ///   The sequence of participant ids. Follows convention of other sequences
+  ///   (ie. The last ParticipantId is the owner of the table)
   ///
-  /// \sa find()
+  /// \return A TableView into what participants are proposing.
   TableViewPtr table_view(
     uint64_t conflict_version,
     const std::vector<rmf_traffic::schedule::ParticipantId>& sequence);

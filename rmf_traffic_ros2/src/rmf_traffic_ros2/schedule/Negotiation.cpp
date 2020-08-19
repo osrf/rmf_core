@@ -1000,7 +1000,7 @@ public:
     {
       RCLCPP_WARN(node.get_logger(), "Conflict version %llu does not exist."
         "It may have been successful and wiped", conflict_version);
-      return TableViewPtr();
+      return nullptr;
     }
 
     auto& room = negotiate_it->second.room;
@@ -1009,7 +1009,7 @@ public:
     if (!table)
     {
       RCLCPP_WARN(node.get_logger(), "Table not found");
-      return TableViewPtr();
+      return nullptr;
     }
 
     return table->viewer();
