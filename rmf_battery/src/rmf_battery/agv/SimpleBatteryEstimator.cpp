@@ -23,7 +23,6 @@
 
 #include <vector>
 #include <cmath>
-#include <iostream>
 
 namespace rmf_battery {
 namespace agv {
@@ -106,7 +105,6 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   const Eigen::Vector3d velocity = motion->compute_velocity(start_time);
   double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
   double w = velocity[2];
-  // double KE_previous = compute_kinetic_energy(mass, v, inertia, w);
 
   const double sim_step = 0.1; // seconds
   start_time = rmf_traffic::time::apply_offset(start_time, sim_step);
@@ -121,10 +119,8 @@ double SimpleBatteryEstimator::compute_state_of_charge(
     v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
     w = velocity[2];
     // Loss through kinetic energy
-    // We assume the robot does not coast and has regernerative braking
     const double KE = compute_kinetic_energy(mass, v, inertia, w);
-    // const double dKE = KE - KE_previous;
-    // KE_previous = KE;
+
     // Loss through friction energy
     const double FE = compute_friction_energy(friction, mass, v, (sim_step/1000.0));
 

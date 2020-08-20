@@ -68,7 +68,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
       auto remaining_soc = battery_estimator.compute_state_of_charge(
           trajectory, 1.0, power_map);
 
-      std::cout << "Remaining soc: " << remaining_soc << std::endl;
+      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
       const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
       CHECK(ok);
     }
@@ -89,7 +89,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
       auto remaining_soc = battery_estimator.compute_state_of_charge(
           trajectory, 1.0, power_map);
 
-      std::cout << "Remaining soc: " << remaining_soc << std::endl;
+      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
       const bool ok = remaining_soc > -1 && remaining_soc < 0.05;
       CHECK(ok);
     }
@@ -137,7 +137,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
       auto remaining_soc = battery_estimator.compute_state_of_charge(
           trajectory, 1.0, power_map);
 
-      std::cout << "Remaining soc: " << remaining_soc << std::endl;
+      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
       const bool ok = remaining_soc > 0.98 && remaining_soc < 1.0;
       CHECK(ok);
     }
@@ -158,7 +158,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
       auto remaining_soc = battery_estimator.compute_state_of_charge(
           trajectory, 1.0, power_map);
 
-      std::cout << "Remaining soc: " << remaining_soc << std::endl;
+      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
       const bool ok = remaining_soc > -1.0 && remaining_soc < 0.05;
       CHECK(ok);
     }
