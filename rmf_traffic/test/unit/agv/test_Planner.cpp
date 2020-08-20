@@ -458,6 +458,159 @@ SCENARIO("Test Options", "[options]")
     CHECK(*default_options.interrupt_flag());
   }
 
+  Planner::Options default_maxcostestimate(nullptr);
+  WHEN("Maximum cost estimate is default after default construction")
+  {
+    // Converting an optional to a bool returns false if it's empty, which is
+    // the default for constructing Options
+    CHECK(!default_maxcostestimate.maximum_cost_estimate());
+  }
+
+  double local_maximum_cost_estimate(3.14159);
+  Planner::Options set_maxcostestimate(
+    nullptr,
+    Planner::Options::DefaultMinHoldingTime,
+    interrupt_flag,
+    local_maximum_cost_estimate);
+  WHEN("Maximum cost estimate is set after construction")
+  {
+    CHECK(set_maxcostestimate.maximum_cost_estimate().value()
+      == Approx(local_maximum_cost_estimate).margin(1e-6));
+  }
+
+  WHEN("Set the maximum cost estimate")
+  {
+    local_maximum_cost_estimate = 42;
+    set_maxcostestimate.maximum_cost_estimate(local_maximum_cost_estimate);
+    CHECK(set_maxcostestimate.maximum_cost_estimate().value()
+      == Approx(local_maximum_cost_estimate).margin(1e-6));
+  }
+}
+
+SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
+{
+  GIVEN("A graph")
+  {
+    const std::string test_map_name = "test_map";
+    rmf_traffic::agv::Graph graph;
+    graph.add_waypoint(test_map_name, {-5, -5}).set_passthrough_point(true); // 0
+    graph.add_waypoint(test_map_name, { 0, -5}).set_passthrough_point(true); // 1
+    graph.add_waypoint(test_map_name, { 5, -5}).set_passthrough_point(true); // 2
+    graph.add_waypoint(test_map_name, {10, -5}).set_passthrough_point(true); // 3
+    graph.add_waypoint(test_map_name, {-5, 0}); // 4
+    graph.add_waypoint(test_map_name, { 0, 0}); // 5
+    graph.add_waypoint(test_map_name, { 5, 0}); // 6
+    graph.add_waypoint(test_map_name, {10, 0}).set_passthrough_point(true); // 7
+    graph.add_waypoint(test_map_name, {10, 4}).set_passthrough_point(true); // 8
+    graph.add_waypoint(test_map_name, { 0, 8}).set_passthrough_point(true); // 9
+    graph.add_waypoint(test_map_name, { 5, 8}).set_passthrough_point(true); // 10
+    graph.add_waypoint(test_map_name, {10, 12}).set_passthrough_point(true); // 11
+    graph.add_waypoint(test_map_name, {12, 12}).set_passthrough_point(true); // 12
+    CHECK(graph.num_waypoints() == 13);
+
+    auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+      {
+        graph.add_lane(w0, w1);
+        graph.add_lane(w1, w0);
+      };
+
+    add_bidir_lane(0, 1);
+    add_bidir_lane(1, 2);
+    add_bidir_lane(2, 3);
+    add_bidir_lane(1, 5);
+    add_bidir_lane(3, 7);
+    add_bidir_lane(4, 5);
+    add_bidir_lane(6, 10);
+    add_bidir_lane(7, 8);
+    add_bidir_lane(9, 10);
+    add_bidir_lane(10, 11);
+    add_bidir_lane(5, 9);
+    add_bidir_lane(11, 12);
+
+    const rmf_traffic::Profile profile = create_test_profile(UnitCircle);
+    const rmf_traffic::agv::VehicleTraits traits(
+      {0.7, 0.3}, {1.0, 0.45}, profile);
+    auto interrupt_flag = std::make_shared<bool>(false);
+
+    WHEN("Goal from 12->1")
+    {
+      const rmf_traffic::Time time = std::chrono::steady_clock::now();
+      const auto start = rmf_traffic::agv::Planner::Start{time, 12, 0.0};
+      const auto goal = rmf_traffic::agv::Planner::Goal{1};
+
+      THEN("No cost limit succeeds")
+      {
+        auto options = rmf_traffic::agv::Planner::Options{nullptr};
+        rmf_traffic::agv::Planner planner{
+          rmf_traffic::agv::Planner::Configuration{graph, traits},
+          options
+        };
+        auto plan = planner.plan(start, goal);
+        REQUIRE(plan);
+        REQUIRE(plan.cost_estimate());
+      }
+
+      THEN("Cost limit of zero fails")
+      {
+        auto options = rmf_traffic::agv::Planner::Options{
+          nullptr,
+          rmf_traffic::agv::Planner::Options::DefaultMinHoldingTime,
+          interrupt_flag,
+          0 // Maximum cost estimate must be 0
+        };
+        rmf_traffic::agv::Planner planner{
+          rmf_traffic::agv::Planner::Configuration{graph, traits},
+          options
+        };
+        auto plan = planner.plan(start, goal);
+        CHECK(!plan);
+      }
+    }
+
+    WHEN("Goal from 12->1 and known required cost limit")
+    {
+      const rmf_traffic::Time time = std::chrono::steady_clock::now();
+      const auto start = rmf_traffic::agv::Planner::Start{time, 12, 0.0};
+      const auto goal = rmf_traffic::agv::Planner::Goal{1};
+
+      auto options = rmf_traffic::agv::Planner::Options{nullptr};
+      rmf_traffic::agv::Planner planner{
+        rmf_traffic::agv::Planner::Configuration{graph, traits},
+        options
+      };
+      auto plan = planner.plan(start, goal);
+      REQUIRE(plan);
+      REQUIRE(plan.cost_estimate());
+      auto required_cost = plan.cost_estimate().value();
+
+      THEN("Cost limit half actual required limit fails")
+      {
+
+        options.maximum_cost_estimate(required_cost / 2);
+        planner.set_default_options(options);
+        plan = planner.plan(start, goal);
+        CHECK(!plan);
+      }
+
+      THEN("Cost limit just below actual required limit fails")
+      {
+
+        options.maximum_cost_estimate(required_cost - 1e-6);
+        planner.set_default_options(options);
+        plan = planner.plan(start, goal);
+        CHECK(!plan);
+      }
+
+      THEN("Cost limit just above actual required limit succeeds")
+      {
+
+        options.maximum_cost_estimate(required_cost + 1e-6);
+        planner.set_default_options(options);
+        plan = planner.plan(start, goal);
+        CHECK(!plan);
+      }
+    }
+  }
 }
 
 SCENARIO("Test Start")
