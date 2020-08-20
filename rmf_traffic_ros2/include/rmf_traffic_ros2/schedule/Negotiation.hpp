@@ -102,7 +102,7 @@ public:
   /// \return A TableView into what participants are proposing.
   TableViewPtr table_view(
     uint64_t conflict_version,
-    const std::vector<rmf_traffic::schedule::ParticipantId>& sequence);
+    const std::vector<rmf_traffic::schedule::ParticipantId>& sequence) const;
 
   /// Set the number of negotiations to retain.
   ///

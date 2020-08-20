@@ -1323,7 +1323,7 @@ auto Negotiation::evaluate(const Evaluator& evaluator) const -> ConstTablePtr
 
     const auto& proposal = Table::Implementation::get(*table_ptr).proposal;
     assert(Table::Implementation::get(*table_ptr).itinerary);
-    assert(!*Table::Implementation::get(*table_ptr).rejected);
+    assert(!Table::Implementation::get(*table_ptr).rejected);
     assert(proposal.size() == Table::Implementation::get(*table_ptr).depth);
     assert(Table::Implementation::get(*table_ptr).descendants.empty());
 

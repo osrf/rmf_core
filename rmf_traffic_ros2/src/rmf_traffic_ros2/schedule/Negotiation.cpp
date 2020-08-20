@@ -1001,14 +1001,14 @@ public:
 
   TableViewPtr table_view(
     uint64_t conflict_version,
-    const std::vector<ParticipantId>& sequence)
+    const std::vector<ParticipantId>& sequence) const
   {
     const auto negotiate_it = negotiations.find(conflict_version);
-    rmf_traffic::schedule::Negotiation::TablePtr table;
+    rmf_traffic::schedule::Negotiation::ConstTablePtr table;
 
     if (negotiate_it == negotiations.end())
     {
-      auto history_it = history.find(conflict_version);
+      const auto history_it = history.find(conflict_version);
       if (history_it == history.end())
       {
         RCLCPP_WARN(node.get_logger(), "Conflict version %llu does not exist."
@@ -1020,8 +1020,8 @@ public:
     }
     else
     {
-      auto& room = negotiate_it->second.room;
-      Negotiation& negotiation = room.negotiation;
+      const auto& room = negotiate_it->second.room;
+      const Negotiation& negotiation = room.negotiation;
       table = negotiation.table(sequence);  
     }
 
@@ -1084,7 +1084,7 @@ rmf_traffic::Duration Negotiation::timeout_duration() const
 //==============================================================================
 Negotiation::TableViewPtr Negotiation::table_view(
     uint64_t conflict_version,
-    const std::vector<ParticipantId>& sequence)
+    const std::vector<ParticipantId>& sequence) const
 {
   return _pimpl->table_view(conflict_version, sequence);
 }
