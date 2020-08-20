@@ -21,6 +21,8 @@
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/Motion.hpp>
+#include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/catch.hpp>
 
@@ -28,138 +30,201 @@
 
 SCENARIO("Test SimpleBatteryEstimator with RobotA")
 {
-    using SystemTraits = rmf_battery::agv::SystemTraits;
-    using SimpleBatteryEstimator = rmf_battery::agv::SimpleBatteryEstimator;
-    using PowerMap = rmf_battery::EstimateBattery::PowerMap;
-    using namespace std::chrono_literals;
+  using SystemTraits = rmf_battery::agv::SystemTraits;
+  using SimpleBatteryEstimator = rmf_battery::agv::SimpleBatteryEstimator;
+  using PowerMap = rmf_battery::EstimateBattery::PowerMap;
+  using namespace std::chrono_literals;
 
-    // Initializing system traits
-    SystemTraits::BatterySystem battery_system{12, 24, 2};
-    REQUIRE(battery_system.valid());
-    SystemTraits::MechanicalSystem mechanical_system{20, 10, 0.3};
-    REQUIRE(mechanical_system.valid());
-    SystemTraits::PowerSystem power_system_1{"processor", 5, 5};
-    REQUIRE(power_system_1.valid());
-    SystemTraits::PowerSystems power_systems;
-    power_systems.insert({power_system_1.name(), power_system_1});
-    SystemTraits system_traits{
-    mechanical_system, battery_system, power_systems};
-    REQUIRE(system_traits.valid());
+  // Initializing system traits
+  SystemTraits::BatterySystem battery_system{12, 24, 2};
+  REQUIRE(battery_system.valid());
+  SystemTraits::MechanicalSystem mechanical_system{20, 10, 0.3};
+  REQUIRE(mechanical_system.valid());
+  SystemTraits::PowerSystem power_system_1{"processor", 15, 5};
+  REQUIRE(power_system_1.valid());
+  SystemTraits::PowerSystems power_systems;
+  power_systems.insert({power_system_1.name(), power_system_1});
+  SystemTraits system_traits{
+  mechanical_system, battery_system, power_systems};
+  REQUIRE(system_traits.valid());
 
-    auto battery_estimator = SimpleBatteryEstimator{system_traits};
+  auto battery_estimator = SimpleBatteryEstimator{system_traits};
 
-    // Initializing vehicle traits
-    const rmf_traffic::agv::VehicleTraits traits(
-        {0.7, 0.5}, {0.3, 0.25}, {nullptr, nullptr});    
-    
-    WHEN("Robot moves 100m along a straight line")
-    {
-      const auto start_time = std::chrono::steady_clock::now();
-      const std::vector<Eigen::Vector3d> positions = {
-          Eigen::Vector3d{0.0, 0.0, 0.0},
-          Eigen::Vector3d{100, 0.0, 0.0},
-      };
-      rmf_traffic::Trajectory trajectory =
-        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
+  // Initializing vehicle traits
+  const rmf_traffic::agv::VehicleTraits traits(
+      {0.7, 0.5}, {0.3, 0.25}, {nullptr, nullptr});    
+  
+  WHEN("Robot moves 100m along a straight line")
+  {
+    const auto start_time = std::chrono::steady_clock::now();
+    const std::vector<Eigen::Vector3d> positions = {
+        Eigen::Vector3d{0.0, 0.0, 0.0},
+        Eigen::Vector3d{100, 0.0, 0.0},
+    };
+    rmf_traffic::Trajectory trajectory =
+      rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-      rmf_utils::optional<PowerMap> power_map = PowerMap();
-      power_map.value().insert({"processor", trajectory});
+    rmf_utils::optional<PowerMap> power_map = PowerMap();
+    power_map.value().insert({"processor", trajectory});
 
-      auto remaining_soc = battery_estimator.compute_state_of_charge(
-          trajectory, 1.0, power_map);
+    auto remaining_soc = battery_estimator.compute_state_of_charge(
+        trajectory, 1.0, power_map);
 
-      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
-      const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
-      CHECK(ok);
-    }
+    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
+    CHECK(ok);
+  }
 
-    WHEN("Robot moves 15km along a straight line")
-    {
-      const auto start_time = std::chrono::steady_clock::now();
-      const std::vector<Eigen::Vector3d> positions = {
-          Eigen::Vector3d{0.0, 0.0, 0.0},
-          Eigen::Vector3d{15000, 0.0, 0.0},
-      };
-      rmf_traffic::Trajectory trajectory =
-        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
+  WHEN("Robot moves 15km along a straight line")
+  {
+    const auto start_time = std::chrono::steady_clock::now();
+    const std::vector<Eigen::Vector3d> positions = {
+        Eigen::Vector3d{0.0, 0.0, 0.0},
+        Eigen::Vector3d{15000, 0.0, 0.0},
+    };
+    rmf_traffic::Trajectory trajectory =
+      rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-      rmf_utils::optional<PowerMap> power_map = PowerMap();
-      power_map.value().insert({"processor", trajectory});
+    rmf_utils::optional<PowerMap> power_map = PowerMap();
+    power_map.value().insert({"processor", trajectory});
 
-      auto remaining_soc = battery_estimator.compute_state_of_charge(
-          trajectory, 1.0, power_map);
+    auto remaining_soc = battery_estimator.compute_state_of_charge(
+        trajectory, 1.0, power_map);
 
-      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
-      const bool ok = remaining_soc > -1 && remaining_soc < 0.05;
-      CHECK(ok);
-    }
+    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    const bool ok = remaining_soc > -1 && remaining_soc < 0.05;
+    CHECK(ok);
+  }
 }
 
 SCENARIO("Test SimpleBatteryEstimator with RobotB")
 {
-    using SystemTraits = rmf_battery::agv::SystemTraits;
-    using SimpleBatteryEstimator = rmf_battery::agv::SimpleBatteryEstimator;
-    using PowerMap = rmf_battery::EstimateBattery::PowerMap;
-    using namespace std::chrono_literals;
+  using SystemTraits = rmf_battery::agv::SystemTraits;
+  using SimpleBatteryEstimator = rmf_battery::agv::SimpleBatteryEstimator;
+  using PowerMap = rmf_battery::EstimateBattery::PowerMap;
+  using namespace std::chrono_literals;
 
-    // Initializing system traits
-    SystemTraits::BatterySystem battery_system{24, 40, 2};
-    REQUIRE(battery_system.valid());
-    SystemTraits::MechanicalSystem mechanical_system{70, 30, 0.3};
-    REQUIRE(mechanical_system.valid());
-    SystemTraits::PowerSystem power_system_1{"processor", 10, 5};
-    REQUIRE(power_system_1.valid());
-    SystemTraits::PowerSystems power_systems;
-    power_systems.insert({power_system_1.name(), power_system_1});
-    SystemTraits system_traits{
-    mechanical_system, battery_system, power_systems};
-    REQUIRE(system_traits.valid());
+  // Initializing system traits
+  SystemTraits::BatterySystem battery_system{24, 40, 2};
+  REQUIRE(battery_system.valid());
+  SystemTraits::MechanicalSystem mechanical_system{70, 40, 0.4};
+  REQUIRE(mechanical_system.valid());
+  SystemTraits::PowerSystem power_system_1{"processor", 60, 5};
+  REQUIRE(power_system_1.valid());
+  SystemTraits::PowerSystems power_systems;
+  power_systems.insert({power_system_1.name(), power_system_1});
+  SystemTraits system_traits{
+  mechanical_system, battery_system, power_systems};
+  REQUIRE(system_traits.valid());
 
-    auto battery_estimator = SimpleBatteryEstimator{system_traits};
+  auto battery_estimator = SimpleBatteryEstimator{system_traits};
 
-    // Initializing vehicle traits
-    const rmf_traffic::agv::VehicleTraits traits(
-        {1.0, 0.7}, {0.6, 0.5}, {nullptr, nullptr});    
+  // Initializing vehicle traits
+  const rmf_traffic::agv::VehicleTraits traits(
+      {1.0, 0.7}, {0.6, 0.5}, {nullptr, nullptr});    
+  
+  WHEN("Robot moves 100m along a straight line")
+  {
+    const auto start_time = std::chrono::steady_clock::now();
+    const std::vector<Eigen::Vector3d> positions = {
+        Eigen::Vector3d{0.0, 0.0, 0.0},
+        Eigen::Vector3d{100, 0.0, 0.0},
+    };
+    rmf_traffic::Trajectory trajectory =
+      rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
+
+    rmf_utils::optional<PowerMap> power_map = PowerMap();
+    power_map.value().insert({"processor", trajectory});
+
+    auto remaining_soc = battery_estimator.compute_state_of_charge(
+        trajectory, 1.0, power_map);
+
+    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    const bool ok = remaining_soc > 0.98 && remaining_soc < 1.0;
+    CHECK(ok);
+  }
+
+  WHEN("Robot moves 20km along a straight line")
+  {
+    const auto start_time = std::chrono::steady_clock::now();
+    const std::vector<Eigen::Vector3d> positions = {
+        Eigen::Vector3d{0.0, 0.0, 0.0},
+        Eigen::Vector3d{10000, 0.0, 0.0},
+    };
+    rmf_traffic::Trajectory trajectory =
+      rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
+
+    rmf_utils::optional<PowerMap> power_map = PowerMap();
+    power_map.value().insert({"processor", trajectory});
+
+    auto remaining_soc = battery_estimator.compute_state_of_charge(
+        trajectory, 1.0, power_map);
+
+    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    const bool ok = remaining_soc > -1.0 && remaining_soc < 0.05;
+    CHECK(ok);
+  }
+
+  WHEN("Robot moves 20km along a square perimeter")
+  {
+    const auto start_time = std::chrono::steady_clock::now();
+    const std::vector<Eigen::Vector3d> positions = {
+        Eigen::Vector3d{0.0, 0.0, 0.0},
+        Eigen::Vector3d{4000, 0.0, 0.0},
+        Eigen::Vector3d{4000, 4000.0, 0.0},
+        Eigen::Vector3d{0.0, 4000.0, 0.0},
+        Eigen::Vector3d{0.0, 0.0, 0.0}
+    };
+    rmf_traffic::Trajectory trajectory =
+      rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
+
+    rmf_utils::optional<PowerMap> power_map = PowerMap();
+    power_map.value().insert({"processor", trajectory});
+
+    auto remaining_soc = battery_estimator.compute_state_of_charge(
+        trajectory, 1.0, power_map);
+
+    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+  }
+
+  WHEN("Testing turning on a spot")
+  {
+    const auto start_time = std::chrono::steady_clock::now();
+    rmf_traffic::Trajectory trajectory;
+    trajectory.insert(
+      start_time,
+      {0, 0, 0},
+      {0, 0, 0});
+    trajectory.insert(
+      start_time + 5s,
+      {5, 0, M_PI},
+      {0, 0, 0});
+    REQUIRE(trajectory.size() == 2);
+    // const auto motion = rmf_traffic::Motion::compute_cubic_splines(
+    //   trajectory.begin(), trajectory.end());
+    // auto begin_it = trajectory.begin();
+    // auto end_it = --trajectory.end();
     
-    WHEN("Robot moves 100m along a straight line")
-    {
-      const auto start_time = std::chrono::steady_clock::now();
-      const std::vector<Eigen::Vector3d> positions = {
-          Eigen::Vector3d{0.0, 0.0, 0.0},
-          Eigen::Vector3d{100, 0.0, 0.0},
-      };
-      rmf_traffic::Trajectory trajectory =
-        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
+    // for (auto sim_time = start_time;
+    //   sim_time <= end_it->time();
+    //   sim_time = rmf_traffic::time::apply_offset(sim_time, 0.1))
+    
+    // {
+    //   const auto a = motion->compute_acceleration(sim_time);
+    //   std::cout << "ax: " << a[0] << " ay: " << a[1] << " aa: " << a[2] <<std::endl;
 
-      rmf_utils::optional<PowerMap> power_map = PowerMap();
-      power_map.value().insert({"processor", trajectory});
+    // }
+    rmf_utils::optional<PowerMap> power_map = PowerMap();
+    power_map.value().insert({"processor", trajectory});
 
-      auto remaining_soc = battery_estimator.compute_state_of_charge(
-          trajectory, 1.0, power_map);
+    auto remaining_soc = battery_estimator.compute_state_of_charge(
+        trajectory, 1.0, power_map);
 
-      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
-      const bool ok = remaining_soc > 0.98 && remaining_soc < 1.0;
-      CHECK(ok);
-    }
+    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
+    CHECK(ok);
+  }
 
-    WHEN("Robot moves 20km along a straight line")
-    {
-      const auto start_time = std::chrono::steady_clock::now();
-      const std::vector<Eigen::Vector3d> positions = {
-          Eigen::Vector3d{0.0, 0.0, 0.0},
-          Eigen::Vector3d{10000, 0.0, 0.0},
-      };
-      rmf_traffic::Trajectory trajectory =
-        rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
-
-      rmf_utils::optional<PowerMap> power_map = PowerMap();
-      power_map.value().insert({"processor", trajectory});
-
-      auto remaining_soc = battery_estimator.compute_state_of_charge(
-          trajectory, 1.0, power_map);
-
-      // std::cout << "Remaining soc: " << remaining_soc << std::endl;
-      const bool ok = remaining_soc > -1.0 && remaining_soc < 0.05;
-      CHECK(ok);
-    }
+  
 }
+

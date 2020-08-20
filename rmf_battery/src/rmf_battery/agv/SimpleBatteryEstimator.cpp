@@ -24,6 +24,8 @@
 #include <vector>
 #include <cmath>
 
+#include <iostream>
+
 namespace rmf_battery {
 namespace agv {
 
@@ -70,7 +72,7 @@ double compute_friction_energy(
   const double dt)
 {
   const double g = 9.81; // ms-1
-  return f * m * g * 2 * v * dt;
+  return f * m * g * v * dt;
 }
 
 } // namespace anonymous
@@ -102,12 +104,12 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   const auto motion = rmf_traffic::Motion::compute_cubic_splines(
       begin_it, trajectory.end());
   
-  const Eigen::Vector3d velocity = motion->compute_velocity(start_time);
-  double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
-  double w = velocity[2];
+  // const Eigen::Vector3d velocity = motion->compute_velocity(start_time);
+  // double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
+  // double w = velocity[2];
 
   const double sim_step = 0.1; // seconds
-  start_time = rmf_traffic::time::apply_offset(start_time, sim_step);
+  // start_time = rmf_traffic::time::apply_offset(start_time, sim_step);
 
   double dE = 0.0;
 
@@ -116,15 +118,20 @@ double SimpleBatteryEstimator::compute_state_of_charge(
     sim_time = rmf_traffic::time::apply_offset(sim_time, sim_step))
   {
     const Eigen::Vector3d velocity = motion->compute_velocity(sim_time);
-    v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
-    w = velocity[2];
-    // Loss through kinetic energy
-    const double KE = compute_kinetic_energy(mass, v, inertia, w);
+    const double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
+    const double w = velocity[2];
+    
+    const Eigen::Vector3d acceleration = motion->compute_acceleration(sim_time);
+    const double a = sqrt(pow(acceleration[0], 2) + pow(acceleration[1], 2));
+    const double alpha = acceleration[2];
 
-    // Loss through friction energy
-    const double FE = compute_friction_energy(friction, mass, v, (sim_step/1000.0));
+    // Loss through acceleration
+    const double EA = ((mass * a * v) + (inertia * alpha * w)) * sim_step;
+    // std::cout << "EA: " << EA << " alpha: " << alpha << " w: " << w << " v: " << v << std::endl;
+    // Loss through friction
+    const double EF = compute_friction_energy(friction, mass, v, sim_step);
 
-    double PE = 0.0;
+    double EP = 0.0;
     // Loss through power systems
     if (power_map.has_value())
     {
@@ -134,11 +141,11 @@ double SimpleBatteryEstimator::compute_state_of_charge(
         {
           const auto it = power_systems.find(item.first);
           assert(it != power_systems.end());
-          PE += it->second.nominal_power() * sim_step;
+          EP += it->second.nominal_power() * sim_step;
         }
       }
     }    
-    dE += KE + FE + PE;
+    dE += EA + EF + EP;
   }
 
   // Computing the charge consumed
