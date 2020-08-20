@@ -5,6 +5,10 @@ Changelog for package rmf_traffic
 Forthcoming
 -----------
 
+1.1.0 (2020-09-XX)
+------------------
+* Allow a Negotiation Table Viewer to see rejected and forfeited statuses, and to check for a submission: [#140](https://github.com/osrf/rmf_core/pull/140/)
+
 1.0.2 (2020-07-27)
 ------------------
 * Improved definition of "traffic conflict" for vechiles that start too close: [#136](https://github.com/osrf/rmf_core/pull/136)

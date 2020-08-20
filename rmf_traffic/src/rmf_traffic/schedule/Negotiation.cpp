@@ -145,6 +145,9 @@ public:
   rmf_utils::optional<ParticipantId> parent_id;
   VersionedKeySequence sequence;
   std::shared_ptr<const bool> defunct;
+  bool rejected;
+  bool forfeited;
+  rmf_utils::optional<Itinerary> itinerary;
 
   Viewer::View query(
     const Query::Spacetime& spacetime,
@@ -1044,6 +1047,27 @@ bool Negotiation::Table::Viewer::defunct() const
 }
 
 //==============================================================================
+bool Negotiation::Table::Viewer::rejected() const
+{
+  return _pimpl->rejected;
+}
+
+//==============================================================================
+bool Negotiation::Table::Viewer::forfeited() const
+{
+  return _pimpl->forfeited;
+}
+
+//==============================================================================
+const Itinerary* Negotiation::Table::Viewer::submission() const
+{
+  if (_pimpl->itinerary)
+    return &(*_pimpl->itinerary);
+
+  return nullptr;
+}
+
+//==============================================================================
 Negotiation::Table::Viewer::Viewer()
 {
   // Do nothing
@@ -1069,7 +1093,10 @@ auto Negotiation::Table::viewer() const -> ViewerPtr
       _pimpl->schedule_viewer,
       parent_id,
       _pimpl->sequence,
-      _pimpl->defunct.get()));
+      _pimpl->defunct.get(),
+      _pimpl->rejected,
+      _pimpl->forfeited,
+      _pimpl->itinerary));
 
   return _pimpl->cached_table_viewer;
 }
