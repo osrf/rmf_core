@@ -152,13 +152,13 @@ Planner::Options::Options(
   rmf_utils::clone_ptr<RouteValidator> validator,
   const Duration min_hold_time,
   std::function<bool()> interrupter,
-  rmf_utils::optional<double> maximum_cost_esitmate,
+  rmf_utils::optional<double> maximum_cost_estimate,
   rmf_utils::optional<std::size_t> saturation_limit)
 : _pimpl(rmf_utils::make_impl<Implementation>(
      Implementation{
        std::move(validator),
        min_hold_time,
-       maximum_cost_esitmate,
+       maximum_cost_estimate,
        saturation_limit,
        std::move(interrupter)
      }))
