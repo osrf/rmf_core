@@ -22,7 +22,7 @@
 
 #include <rmf_traffic/Trajectory.hpp>
 
-#include<rmf_utils/optional.hpp>
+#include <rmf_utils/optional.hpp>
 
 #include <unordered_map>
 #include <memory>
@@ -36,10 +36,22 @@ class EstimateBattery
 public:
 
   using PowerMap = std::unordered_map<std::string, rmf_traffic::Trajectory>;
-  
+
   /// Computes state-of-charge estimate of battery at the end of a trajectory.
   ///
-  /// \return The fraction of remaining charge at the end of the trajectory.
+  /// \param[in] trajectory
+  ///   A valid rmf_traffic:::Trajectory
+  ///
+  /// \param[in] initial_soc
+  ///   The initial state of charge of the robot at the beginning of the
+  ///   trajectory as a fraction of total battery capacity
+  ///
+  /// \param[in] power_map
+  ///   An optional unordered map with keys representing names of power systems
+  ///   and values of trajectories during which the power system is active.
+  ///
+  /// \return The remaining charge at the end of the trajectory as a fraction of
+  ///   total battery capacity
   virtual double compute_state_of_charge(
     const rmf_traffic::Trajectory& trajectory,
     const double initial_soc,

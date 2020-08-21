@@ -40,26 +40,26 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
   REQUIRE(battery_system.valid());
   SystemTraits::MechanicalSystem mechanical_system{20, 10, 0.3};
   REQUIRE(mechanical_system.valid());
-  SystemTraits::PowerSystem power_system_1{"processor", 15, 5};
+  SystemTraits::PowerSystem power_system_1{"processor", 10, 5};
   REQUIRE(power_system_1.valid());
   SystemTraits::PowerSystems power_systems;
   power_systems.insert({power_system_1.name(), power_system_1});
   SystemTraits system_traits{
-  mechanical_system, battery_system, power_systems};
+    mechanical_system, battery_system, power_systems};
   REQUIRE(system_traits.valid());
 
   auto battery_estimator = SimpleBatteryEstimator{system_traits};
 
   // Initializing vehicle traits
   const rmf_traffic::agv::VehicleTraits traits(
-      {0.7, 0.5}, {0.3, 0.25}, {nullptr, nullptr});    
-  
+    {0.7, 0.5}, {0.3, 0.25}, {nullptr, nullptr});
+
   WHEN("Robot moves 100m along a straight line")
   {
     const auto start_time = std::chrono::steady_clock::now();
     const std::vector<Eigen::Vector3d> positions = {
-        Eigen::Vector3d{0.0, 0.0, 0.0},
-        Eigen::Vector3d{100, 0.0, 0.0},
+      Eigen::Vector3d{0.0, 0.0, 0.0},
+      Eigen::Vector3d{100, 0.0, 0.0},
     };
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
@@ -68,7 +68,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
     power_map.value().insert({"processor", trajectory});
 
     auto remaining_soc = battery_estimator.compute_state_of_charge(
-        trajectory, 1.0, power_map);
+      trajectory, 1.0, power_map);
 
     std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
@@ -79,8 +79,8 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
   {
     const auto start_time = std::chrono::steady_clock::now();
     const std::vector<Eigen::Vector3d> positions = {
-        Eigen::Vector3d{0.0, 0.0, 0.0},
-        Eigen::Vector3d{15000, 0.0, 0.0},
+      Eigen::Vector3d{0.0, 0.0, 0.0},
+      Eigen::Vector3d{15000, 0.0, 0.0},
     };
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
@@ -89,7 +89,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
     power_map.value().insert({"processor", trajectory});
 
     auto remaining_soc = battery_estimator.compute_state_of_charge(
-        trajectory, 1.0, power_map);
+      trajectory, 1.0, power_map);
 
     std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1 && remaining_soc < 0.05;
@@ -114,21 +114,21 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
   SystemTraits::PowerSystems power_systems;
   power_systems.insert({power_system_1.name(), power_system_1});
   SystemTraits system_traits{
-  mechanical_system, battery_system, power_systems};
+    mechanical_system, battery_system, power_systems};
   REQUIRE(system_traits.valid());
 
   auto battery_estimator = SimpleBatteryEstimator{system_traits};
 
   // Initializing vehicle traits
   const rmf_traffic::agv::VehicleTraits traits(
-      {1.0, 0.7}, {0.6, 0.5}, {nullptr, nullptr});    
-  
+    {1.0, 0.7}, {0.6, 0.5}, {nullptr, nullptr});
+
   WHEN("Robot moves 100m along a straight line")
   {
     const auto start_time = std::chrono::steady_clock::now();
     const std::vector<Eigen::Vector3d> positions = {
-        Eigen::Vector3d{0.0, 0.0, 0.0},
-        Eigen::Vector3d{100, 0.0, 0.0},
+      Eigen::Vector3d{0.0, 0.0, 0.0},
+      Eigen::Vector3d{100, 0.0, 0.0},
     };
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
@@ -137,7 +137,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     power_map.value().insert({"processor", trajectory});
 
     auto remaining_soc = battery_estimator.compute_state_of_charge(
-        trajectory, 1.0, power_map);
+      trajectory, 1.0, power_map);
 
     std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.98 && remaining_soc < 1.0;
@@ -148,8 +148,8 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
   {
     const auto start_time = std::chrono::steady_clock::now();
     const std::vector<Eigen::Vector3d> positions = {
-        Eigen::Vector3d{0.0, 0.0, 0.0},
-        Eigen::Vector3d{10000, 0.0, 0.0},
+      Eigen::Vector3d{0.0, 0.0, 0.0},
+      Eigen::Vector3d{10000, 0.0, 0.0},
     };
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
@@ -158,7 +158,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     power_map.value().insert({"processor", trajectory});
 
     auto remaining_soc = battery_estimator.compute_state_of_charge(
-        trajectory, 1.0, power_map);
+      trajectory, 1.0, power_map);
 
     std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1.0 && remaining_soc < 0.05;
@@ -169,11 +169,11 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
   {
     const auto start_time = std::chrono::steady_clock::now();
     const std::vector<Eigen::Vector3d> positions = {
-        Eigen::Vector3d{0.0, 0.0, 0.0},
-        Eigen::Vector3d{4000, 0.0, 0.0},
-        Eigen::Vector3d{4000, 4000.0, 0.0},
-        Eigen::Vector3d{0.0, 4000.0, 0.0},
-        Eigen::Vector3d{0.0, 0.0, 0.0}
+      Eigen::Vector3d{0.0, 0.0, 0.0},
+      Eigen::Vector3d{4000, 0.0, 0.0},
+      Eigen::Vector3d{4000, 4000.0, 0.0},
+      Eigen::Vector3d{0.0, 4000.0, 0.0},
+      Eigen::Vector3d{0.0, 0.0, 0.0}
     };
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
@@ -182,7 +182,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     power_map.value().insert({"processor", trajectory});
 
     auto remaining_soc = battery_estimator.compute_state_of_charge(
-        trajectory, 1.0, power_map);
+      trajectory, 1.0, power_map);
 
     std::cout << "Remaining soc: " << remaining_soc << std::endl;
   }
@@ -204,11 +204,11 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     //   trajectory.begin(), trajectory.end());
     // auto begin_it = trajectory.begin();
     // auto end_it = --trajectory.end();
-    
+
     // for (auto sim_time = start_time;
     //   sim_time <= end_it->time();
     //   sim_time = rmf_traffic::time::apply_offset(sim_time, 0.1))
-    
+
     // {
     //   const auto a = motion->compute_acceleration(sim_time);
     //   std::cout << "ax: " << a[0] << " ay: " << a[1] << " aa: " << a[2] <<std::endl;
@@ -218,13 +218,10 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     power_map.value().insert({"processor", trajectory});
 
     auto remaining_soc = battery_estimator.compute_state_of_charge(
-        trajectory, 1.0, power_map);
+      trajectory, 1.0, power_map);
 
     std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
     CHECK(ok);
   }
-
-  
 }
-

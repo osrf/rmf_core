@@ -46,7 +46,7 @@ public:
 
     PowerSystem& name(std::string name);
     std::string name() const;
-    
+
     PowerSystem& nominal_power(double nom_power);
     double nominal_power() const;
 
@@ -69,10 +69,10 @@ public:
   public:
     enum class BatteryType : uint16_t
     {
-        /// The vehicle is powered by a Lead-Acid battery
-        LeadAcid,
-        /// The vehicle is powered by a Lithium-Ion battery
-        LiIon,
+      /// The vehicle is powered by a Lead-Acid battery
+      LeadAcid,
+      /// The vehicle is powered by a Lithium-Ion battery
+      LiIon,
     };
 
     class BatteryProfile
@@ -98,7 +98,7 @@ public:
 
       /// Returns true if the values are valid, i.e. greater than zero.
       bool valid() const;
-      
+
       class Implementation;
     private:
       rmf_utils::impl_ptr<Implementation> _pimpl;

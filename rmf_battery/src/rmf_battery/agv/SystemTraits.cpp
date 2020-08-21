@@ -39,7 +39,8 @@ SystemTraits::PowerSystem::PowerSystem(
   const double nominal_voltage,
   const double efficiency)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(name), nominal_power, nominal_voltage, efficiency}))
+      Implementation{std::move(name), nominal_power, nominal_voltage,
+        efficiency}))
 {
   // Do nothing
 }
@@ -100,7 +101,7 @@ double SystemTraits::PowerSystem::efficiency() const
 //==============================================================================
 bool SystemTraits::PowerSystem::valid() const
 {
-  return !_pimpl->name.empty() && _pimpl->nominal_power > 0.0 
+  return !_pimpl->name.empty() && _pimpl->nominal_power > 0.0
     && _pimpl->nominal_voltage > 0.0 && _pimpl->efficiency > 0.0;
 }
 
@@ -121,7 +122,7 @@ SystemTraits::BatterySystem::BatteryProfile::BatteryProfile(
   const double exp_voltage,
   const double exp_capacity)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{resistance, max_voltage, exp_voltage, exp_capacity}))
+      Implementation{resistance, max_voltage, exp_voltage, exp_capacity}))
 {
   // Do nothing
 }
@@ -208,13 +209,13 @@ SystemTraits::BatterySystem::BatterySystem(
   BatteryType type,
   rmf_utils::optional<BatteryProfile> profile)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{
-      nominal_voltage,
-      nominal_capacity,
-      charging_current,
-      type,
-      std::move(profile)
-    }))
+      Implementation{
+        nominal_voltage,
+        nominal_capacity,
+        charging_current,
+        type,
+        std::move(profile)
+      }))
 {
   // Do nothing
 }
@@ -295,13 +296,13 @@ bool SystemTraits::BatterySystem::valid() const
 {
   bool valid = _pimpl->nominal_voltage > 0.0 &&
     _pimpl->nominal_capacity > 0.0 && _pimpl->charging_current > 0.0 &&
-    (_pimpl->type == BatteryType::LeadAcid 
-      || _pimpl->type == BatteryType::LiIon);
+    (_pimpl->type == BatteryType::LeadAcid
+    || _pimpl->type == BatteryType::LiIon);
   if (_pimpl->profile)
     return valid && _pimpl->profile->valid();
-    
+
   return valid;
-  
+
 }
 
 //==============================================================================
@@ -319,11 +320,11 @@ SystemTraits::MechanicalSystem::MechanicalSystem(
   const double inertia,
   const double friction_coefficient)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{
-      mass,
-      inertia,
-      friction_coefficient,
-    }))
+      Implementation{
+        mass,
+        inertia,
+        friction_coefficient,
+      }))
 {
   // Do nothing
 }
@@ -391,12 +392,12 @@ SystemTraits::SystemTraits(
   const BatterySystem battery_system,
   const PowerSystems power_systems)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation
-    {
-      std::move(mechanical_system),
-      std::move(battery_system),
-      std::move(power_systems)
-    }))
+      Implementation
+      {
+        std::move(mechanical_system),
+        std::move(battery_system),
+        std::move(power_systems)
+      }))
 {
   // Do nothing
 }

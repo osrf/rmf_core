@@ -83,5 +83,5 @@ SCENARIO("Test SystemTraits")
     mechanical_system, battery_system, power_systems};
   REQUIRE(system_traits.valid());
 
-  // TODO(YV): Tests for getters and setters 
+  // TODO(YV): Tests for getters and setters
 }

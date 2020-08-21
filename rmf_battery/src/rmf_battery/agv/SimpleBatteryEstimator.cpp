@@ -15,8 +15,8 @@
  *
 */
 
-#include<rmf_battery/agv/SimpleBatteryEstimator.hpp>
-#include<rmf_battery/agv/SystemTraits.hpp>
+#include <rmf_battery/agv/SimpleBatteryEstimator.hpp>
+#include <rmf_battery/agv/SystemTraits.hpp>
 
 #include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/Time.hpp>
@@ -38,7 +38,7 @@ public:
 SimpleBatteryEstimator::SimpleBatteryEstimator(
   SystemTraits& system_traits)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{std::move(system_traits)}))
+      Implementation{std::move(system_traits)}))
 {
   // Do nothing
 }
@@ -62,7 +62,7 @@ double compute_kinetic_energy(
   const double i,
   const double w)
 {
-  return  0.5 * (m*pow(v, 2) + i*pow(w, 2));
+  return 0.5 * (m*pow(v, 2) + i*pow(w, 2));
 }
 
 double compute_friction_energy(
@@ -82,14 +82,12 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   rmf_utils::optional<PowerMap> power_map) const
 {
   assert(_pimpl->system_traits.valid());
-  std::vector<double> trajectory_soc;
-  trajectory_soc.reserve(trajectory.size());
-  trajectory_soc.push_back(initial_soc);
 
   double battery_soc = initial_soc;
-  double nominal_capacity = 
+  double nominal_capacity =
     _pimpl->system_traits.battery_system().nominal_capacity();
-  double nominal_voltage = _pimpl->system_traits.battery_system().nominal_voltage();
+  double nominal_voltage =
+    _pimpl->system_traits.battery_system().nominal_voltage();
   const double mass = _pimpl->system_traits.mechanical_system().mass();
   const double inertia = _pimpl->system_traits.mechanical_system().inertia();
   const double friction =
@@ -102,17 +100,13 @@ double SimpleBatteryEstimator::compute_state_of_charge(
   auto start_time = begin_it->time();
   const auto end_time = end_it->time();
   const auto motion = rmf_traffic::Motion::compute_cubic_splines(
-      begin_it, trajectory.end());
-  
-  // const Eigen::Vector3d velocity = motion->compute_velocity(start_time);
-  // double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
-  // double w = velocity[2];
+    begin_it, trajectory.end());
 
   const double sim_step = 0.1; // seconds
-  // start_time = rmf_traffic::time::apply_offset(start_time, sim_step);
 
   double dE = 0.0;
 
+  // TODO explore analytical solutions as opposed to numerical integration
   for (auto sim_time = start_time;
     sim_time <= end_time;
     sim_time = rmf_traffic::time::apply_offset(sim_time, sim_step))
@@ -120,7 +114,7 @@ double SimpleBatteryEstimator::compute_state_of_charge(
     const Eigen::Vector3d velocity = motion->compute_velocity(sim_time);
     const double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
     const double w = velocity[2];
-    
+
     const Eigen::Vector3d acceleration = motion->compute_acceleration(sim_time);
     const double a = sqrt(pow(acceleration[0], 2) + pow(acceleration[1], 2));
     const double alpha = acceleration[2];
@@ -144,16 +138,15 @@ double SimpleBatteryEstimator::compute_state_of_charge(
           EP += it->second.nominal_power() * sim_step;
         }
       }
-    }    
+    }
     dE += EA + EF + EP;
   }
 
   // Computing the charge consumed
   const double dQ = dE / nominal_voltage;
   battery_soc -= dQ / (nominal_capacity * 3600);
-  trajectory_soc.push_back(battery_soc);
 
-  return trajectory_soc.back();
+  return battery_soc;
 }
 
 } // namespace agv
