@@ -1454,24 +1454,52 @@ struct DifferentialDriveExpander
 
       if (const auto* event = lane.exit().event())
       {
-        if (!is_valid(route, initial_parent))
-          continue;
+        NodePtr parent_to_event;
+        if (route.trajectory.size() > 1)
+        {
+          if (!is_valid(route, initial_parent))
+            continue;
 
-        auto parent_to_event = std::make_shared<Node>(
-          Node{
-            _context.heuristic.estimate_remaining_cost(
-              _context, exit_waypoint_index),
-            compute_current_cost(initial_parent, trajectory),
-            exit_waypoint_index,
-            orientation,
-            std::move(route),
-            nullptr,
-            initial_parent
-          });
+          parent_to_event = std::make_shared<Node>(
+            Node{
+              _context.heuristic.estimate_remaining_cost(
+                _context, exit_waypoint_index),
+              compute_current_cost(initial_parent, trajectory),
+              exit_waypoint_index,
+              orientation,
+              std::move(route),
+              nullptr,
+              initial_parent
+            });
+        }
+        else
+        {
+          parent_to_event = initial_parent;
+        }
 
         event->execute(_executor.update(parent_to_event))
-        .add_if_valid(this, queue);
+          .add_if_valid(this, queue);
 
+        continue;
+      }
+      else if (route.trajectory.size() < 2)
+      {
+        // This should only happen when the map name has changed.
+        RouteData new_map_route;
+        new_map_route.map = exit_waypoint.get_map_name();
+        assert(new_map_route.map != map_name);
+
+        // FIXME TODO(MXG): This route generation is a hack that assumes that
+        // directly vertical lifts are the only things that connect two maps
+        // together. It also assumes that the parent route is simply a
+        // stationary route on the previous map.
+        //
+        // We should make map transitions more meaningful and require fewer
+        // assumptions.
+        new_map_route.trajectory = initial_parent->route_from_parent.trajectory;
+
+        add_if_valid(exit_waypoint_index, orientation, initial_parent,
+                     new_map_route, queue);
         continue;
       }
       // NOTE(MXG): We cannot move the trajectory in this function call, because
