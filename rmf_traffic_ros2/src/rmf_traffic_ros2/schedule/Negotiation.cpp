@@ -222,9 +222,7 @@ public:
 
   using Notice = rmf_traffic_msgs::msg::NegotiationNotice;
   using NoticeSub = rclcpp::Subscription<Notice>;
-  using NoticePub = rclcpp::Publisher<Notice>;
-  NoticeSub::SharedPtr notice_sub;
-  NoticePub::SharedPtr notice_pub;
+  NoticeSub::SharedPtr notice_sub; 
 
   using Refusal = rmf_traffic_msgs::msg::NegotiationRefusal;
   using RefusalPub = rclcpp::Publisher<Refusal>;
@@ -315,9 +313,6 @@ public:
       {
         this->receive_notice(*msg);
       });
-
-    notice_pub = node.create_publisher<Notice>(
-      NegotiationNoticeTopicName, qos);
 
     refusal_pub = node.create_publisher<Refusal>(
       NegotiationRefusalTopicName, qos);
