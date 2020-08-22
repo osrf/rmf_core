@@ -444,6 +444,7 @@ const SystemTraits::PowerSystems SystemTraits::power_systems() const
   return _pimpl->power_systems;
 }
 
+//==============================================================================
 bool SystemTraits::valid() const
 {
   bool valid = true;

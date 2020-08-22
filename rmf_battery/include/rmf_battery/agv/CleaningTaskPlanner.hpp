@@ -42,15 +42,31 @@ public:
   /// \param[in] planner
   ///   An instance of rmf_traffic::agv::Planner. A valid reference is to be 
   ///   maintained by the user.
+  ///
+  /// \param[in] cleaning_system
+  ///   The name of the cleaning system. The name must match one of the power
+  ///   system names as configured in SystemTraits.
+  ///
+  /// \param[in] battery_threshold
+  ///   The minimum allowable state of charge of the battery as a fraction the 
+  ///   total charge capacity
   CleaningTaskPlanner(
     SystemTraits& system_traits,
-    Planner& planner);
+    Planner& planner,
+    std::string& cleaning_system,
+    double battery_threshold = 0.0);
 
   /// Get a const reference to the rmf_battery::agv::SystemTraits instance
   const SystemTraits& system_traits() const;
 
   /// Get a const reference to the rmf_traffic::agv::Planner instance
   const Planner& planner() const;
+
+  /// Get a const reference to the name of the cleaning system
+  const std::string& cleaning_system() const;
+
+  /// Get a const reference to the battery threshold
+  const double battery_threshold() const;
 
   /// Produce a set of valid trajectories if the robot can successfully travel
   /// from start location to the cleaning waypoint, complete the cleaning
@@ -61,15 +77,14 @@ public:
   /// \param[in] start
   ///   The starting conditions
   ///
+  /// \param[in] initial_soc
+  ///   The state of charge of the robot at its start location
+  ///
   /// \param[in] cleaning_start_waypoint
   ///   The waypoint where the robot needs to reach to begin cleaning
   ///
   /// \param[in] cleaning_trajectory
   ///   The trajectory to be followed by the robot while cleaning
-  ///
-  /// \param[in] cleaning_system
-  ///   The name of the cleaning system. The name must match one of the power
-  ///   systems of the robot as configured in SystemTraits.
   ///
   /// \param[in] cleaning_end_waypoint
   ///   The waypoint where the robot stops after cleaning
@@ -79,9 +94,9 @@ public:
   ///
   std::vector<rmf_traffic::Trajectory> plan(
     const Planner::Start& start,
+    const double initial_soc,
     const std::size_t cleaning_start_waypoint,
     const rmf_traffic::Trajectory& cleaning_trajectory,
-    const std::string& cleaning_system,
     const std::size_t cleaning_end_waypoint,
     const std::size_t charging_station_waypoint);
 

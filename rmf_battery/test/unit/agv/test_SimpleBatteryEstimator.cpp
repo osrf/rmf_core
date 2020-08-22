@@ -107,7 +107,7 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
   // Initializing system traits
   SystemTraits::BatterySystem battery_system{24, 40, 2};
   REQUIRE(battery_system.valid());
-  SystemTraits::MechanicalSystem mechanical_system{70, 40, 0.2};
+  SystemTraits::MechanicalSystem mechanical_system{70, 40, 0.22};
   REQUIRE(mechanical_system.valid());
   SystemTraits::PowerSystem power_system_1{"processor", 20, 5};
   REQUIRE(power_system_1.valid());
