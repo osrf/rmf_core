@@ -463,7 +463,7 @@ SCENARIO("Test Options", "[options]")
   {
     // Converting an optional to a bool returns false if it's empty, which is
     // the default for constructing Options
-    CHECK(!default_maxcostestimate.maximum_cost_estimate());
+    CHECK_FALSE(default_max_cost_estimate_options.maximum_cost_estimate());
   }
 
   double local_maximum_cost_estimate(3.14159);
