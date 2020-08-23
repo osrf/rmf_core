@@ -607,7 +607,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
         options.maximum_cost_estimate(required_cost + 1e-6);
         planner.set_default_options(options);
         plan = planner.plan(start, goal);
-        CHECK(!plan);
+        CHECK(plan);
       }
     }
   }
