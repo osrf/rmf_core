@@ -466,7 +466,7 @@ SCENARIO("Test Options", "[options]")
     CHECK_FALSE(default_max_cost_estimate_options.maximum_cost_estimate());
   }
 
-  double local_maximum_cost_estimate(3.14159);
+  double local_maximum_cost_estimate = 3.14159;
   Planner::Options set_maxcostestimate(
     nullptr,
     Planner::Options::DefaultMinHoldingTime,
