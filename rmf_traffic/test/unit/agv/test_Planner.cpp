@@ -467,7 +467,7 @@ SCENARIO("Test Options", "[options]")
   }
 
   double local_maximum_cost_estimate = 3.14159;
-  Planner::Options set_maxcostestimate(
+  Planner::Options set_max_cost_estimate_options(
     nullptr,
     Planner::Options::DefaultMinHoldingTime,
     interrupt_flag,
