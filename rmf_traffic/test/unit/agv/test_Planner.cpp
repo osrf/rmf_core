@@ -563,7 +563,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
           options
         };
         auto plan = planner.plan(start, goal);
-        CHECK(!plan);
+        CHECK_FALSE(plan);
       }
     }
 
