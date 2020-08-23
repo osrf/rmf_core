@@ -589,7 +589,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
         options.maximum_cost_estimate(required_cost / 2);
         planner.set_default_options(options);
         plan = planner.plan(start, goal);
-        CHECK(!plan);
+        CHECK_FALSE(plan);
       }
 
       THEN("Cost limit just below actual required limit fails")
