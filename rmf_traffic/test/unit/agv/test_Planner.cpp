@@ -481,7 +481,7 @@ SCENARIO("Test Options", "[options]")
   WHEN("Set the maximum cost estimate")
   {
     local_maximum_cost_estimate = 42;
-    set_maxcostestimate.maximum_cost_estimate(local_maximum_cost_estimate);
+    set_max_cost_estimate_options.maximum_cost_estimate(local_maximum_cost_estimate);
     CHECK(set_maxcostestimate.maximum_cost_estimate().value()
       == Approx(local_maximum_cost_estimate).margin(1e-6));
   }
