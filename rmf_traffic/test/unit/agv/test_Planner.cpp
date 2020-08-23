@@ -475,7 +475,7 @@ SCENARIO("Test Options", "[options]")
   WHEN("Maximum cost estimate is set after construction")
   {
     CHECK(set_max_cost_estimate_options.maximum_cost_estimate().value()
-      == Approx(local_maximum_cost_estimate).margin(1e-6));
+      == Approx(local_maximum_cost_estimate));
   }
 
   WHEN("Set the maximum cost estimate")
