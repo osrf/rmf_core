@@ -458,7 +458,7 @@ SCENARIO("Test Options", "[options]")
     CHECK(*default_options.interrupt_flag());
   }
 
-  Planner::Options default_maxcostestimate(nullptr);
+  Planner::Options default_max_cost_estimate_options(nullptr);
   WHEN("Maximum cost estimate is default after default construction")
   {
     // Converting an optional to a bool returns false if it's empty, which is
