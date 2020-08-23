@@ -581,7 +581,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
       auto plan = planner.plan(start, goal);
       REQUIRE(plan);
       REQUIRE(plan.cost_estimate());
-      auto required_cost = plan.cost_estimate().value();
+      auto required_cost = plan->get_cost();
 
       THEN("Cost limit half actual required limit fails")
       {
