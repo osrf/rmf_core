@@ -10,5 +10,3 @@ string[] fleet_names
 
 # array of stopby place names
 string[] itinerary
-
-# string EvaluatorType (?)

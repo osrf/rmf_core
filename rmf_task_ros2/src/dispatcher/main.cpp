@@ -15,7 +15,7 @@
  *
 */
 
-#include "task_dispatcher/Dispatcher.hpp"
+#include "Dispatcher.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 

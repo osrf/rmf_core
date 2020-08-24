@@ -21,13 +21,7 @@
 
 #include <rclcpp/node.hpp>
 #include <rmf_task_ros2/StandardNames.hpp>
-// include <rmf_task_ros2/DispatchEvaluator.hpp>
-
-// rmf_task_msgs
-#include <rmf_task_msgs/msg/dispatch_notice.hpp>
-#include <rmf_task_msgs/msg/dispatch_proposal.hpp>
-#include <rmf_task_msgs/msg/dispatch_conclusion.hpp>
-#include <rmf_task_msgs/msg/dispatch_ack.hpp>
+#include <rmf_task_ros2/Nomination.hpp>
 
 #include <rmf_task_msgs/msg/loop.hpp>
 #include <rmf_task_msgs/msg/delivery.hpp>
@@ -67,19 +61,15 @@ private:
   using StationSub = rclcpp::Subscription<Station>;
   StationSub::SharedPtr _station_sub;
 
-  using DispatchNotice = rmf_task_msgs::msg::DispatchNotice;
   using DispatchNoticePub = rclcpp::Publisher<DispatchNotice>;
   DispatchNoticePub::SharedPtr _dispatch_notice_pub;
 
-  using DispatchProposal = rmf_task_msgs::msg::DispatchProposal;
   using DispatchProposalSub = rclcpp::Subscription<DispatchProposal>;
   DispatchProposalSub::SharedPtr _dispatch_proposal_sub;
 
-  using DispatchConclusion = rmf_task_msgs::msg::DispatchConclusion;
   using DispatchConclusionPub = rclcpp::Publisher<DispatchConclusion>;
   DispatchConclusionPub::SharedPtr _dispatch_conclusion_pub;
 
-  using DispatchAck = rmf_task_msgs::msg::DispatchAck;
   using DispatchAckSub = rclcpp::Subscription<DispatchAck>;
   DispatchAckSub::SharedPtr _dispatch_ack_sub;
 

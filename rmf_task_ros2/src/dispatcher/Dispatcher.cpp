@@ -25,7 +25,7 @@ namespace dispatcher {
 
 //==============================================================================
 DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
-: Node("rmf_traffic_schedule_node", options)
+: Node("rmf_task_dispatcher_node", options)
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
@@ -101,18 +101,25 @@ void DispatcherNode::receive_proposal(const DispatchProposal& msg)
   auto it = queue_tasks.find(msg.task_id);
   if (it == queue_tasks.end() )
     return;
-  
+
+  // TODO add proposal to nominees list.
+
   bool bidding_timeout = true;
   bool received_all_bidders = true;
 
   if ( !(bidding_timeout or received_all_bidders))
     return;
   
-  // Evaluate Here! 
-  // QuickestFinishEvaluator()
+  // Nominate and Evaluate Here!
+  Nomination::TaskEstimatesPtr dummy_estimates;
+  Nomination task_nomination(dummy_estimates);
+  Nomination::TaskEstimate chosen_estimate = 
+    task_nomination.evaluate(QuickestFinishEvaluator());
 
   // Sent Conclusion which will state the selected robot
   DispatchConclusion conclusion_msg;
+  conclusion_msg.fleet_name = chosen_estimate.fleet_name;
+  conclusion_msg.robot_name = chosen_estimate.robot_name;
   _dispatch_conclusion_pub->publish(conclusion_msg);
 }
 
