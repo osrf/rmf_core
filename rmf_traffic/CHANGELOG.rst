@@ -8,6 +8,7 @@ Forthcoming
 1.1.0 (2020-09-XX)
 ------------------
 * Allow a Negotiation Table Viewer to see rejected and forfeited statuses, and to check for a submission: [#140](https://github.com/osrf/rmf_core/pull/140/)
+* Improve heuristic to account for events: [#159](https://github.com/osrf/rmf_core/pull/159)
 
 1.0.2 (2020-07-27)
 ------------------
