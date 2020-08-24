@@ -84,4 +84,10 @@ SCENARIO("Test SystemTraits")
   REQUIRE(system_traits.valid());
 
   // TODO(YV): Tests for getters and setters
+  WHEN("Getting power systems")
+  {
+    const auto& power_systems = system_traits.power_systems();
+    CHECK(power_systems.size() > 0);
+  }
+
 }

@@ -38,7 +38,7 @@ public:
 SimpleBatteryEstimator::SimpleBatteryEstimator(
   SystemTraits& system_traits)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(system_traits)}))
+      Implementation{system_traits}))
 {
   // Do nothing
 }

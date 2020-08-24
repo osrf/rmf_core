@@ -42,7 +42,7 @@ CleaningTaskPlanner::CleaningTaskPlanner(
   const double battery_threshold)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        std::move(system_traits),
+        system_traits,
         std::move(planner),
         std::move(cleaning_system),
         battery_threshold
@@ -143,7 +143,8 @@ std::vector<rmf_traffic::Trajectory> CleaningTaskPlanner::plan(
   battery_soc = get_battery_soc_after_itinerary(battery_estimator,
     itinerary_1, _pimpl->system_traits, _pimpl->cleaning_system, battery_soc);
 
-  std::cout << "Battery soc after traversing to cleaning start: " << battery_soc;
+  std::cout << "Battery soc after traversing to cleaning start: " 
+            << battery_soc << std::endl;
   if (battery_soc < _pimpl->battery_threshold)
     return cleaning_plan;
 
@@ -155,7 +156,8 @@ std::vector<rmf_traffic::Trajectory> CleaningTaskPlanner::plan(
   battery_soc = battery_estimator.compute_state_of_charge(
     cleaning_trajectory, battery_soc, power_map);
 
-  std::cout << "Battery soc after cleaning: " << battery_soc;
+  std::cout << "Battery soc after cleaning: " << battery_soc
+            << std::endl;
 
   if (battery_soc < _pimpl->battery_threshold)
     return cleaning_plan;
@@ -178,7 +180,8 @@ std::vector<rmf_traffic::Trajectory> CleaningTaskPlanner::plan(
   battery_soc = get_battery_soc_after_itinerary(battery_estimator,
     itinerary_2, _pimpl->system_traits, _pimpl->cleaning_system, battery_soc);
 
-  std::cout << "Battery after returning to charger: " << battery_soc;
+  std::cout << "Battery after returning to charger: " << battery_soc 
+            <<std::endl;
 
   if (battery_soc < _pimpl->battery_threshold)
     return cleaning_plan;

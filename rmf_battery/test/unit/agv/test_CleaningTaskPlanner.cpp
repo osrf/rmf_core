@@ -67,8 +67,8 @@ SCENARIO("Test CleaningTaskPlanner")
   //          2
   const std::string map_name = "L1";
   graph.add_waypoint(map_name, {0, 0}).set_holding_point(true); // 0
-  graph.add_waypoint(map_name, {10000, 0}).set_holding_point(true); // 1
-  graph.add_waypoint(map_name, {0, -10000}).set_holding_point(true); // 2
+  graph.add_waypoint(map_name, {8000, 0}).set_holding_point(true); // 1
+  graph.add_waypoint(map_name, {0, -8000}).set_holding_point(true); // 2
   graph.add_waypoint(map_name, {-20000, 0}).set_holding_point(true); // 3
 
   graph.add_lane(0, 1);
@@ -107,7 +107,7 @@ SCENARIO("Test CleaningTaskPlanner")
     rmf_traffic::agv::Interpolate::positions(
       traits,
       start_time + 15000s,
-      {{15000, 0, 0}, {15000, 100, 0}, {15000, 0, 0}}
+      {{8000, 0, 0}, {8000, 100, 0}, {8000, 0, 0}}
     );
 
     const auto itinerary = cleaning_planner.plan(
