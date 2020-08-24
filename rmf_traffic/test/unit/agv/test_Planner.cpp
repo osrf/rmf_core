@@ -545,9 +545,8 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
           rmf_traffic::agv::Planner::Configuration{graph, traits},
           options
         };
-        auto plan = planner.plan(start, goal);
-        REQUIRE(plan);
-        REQUIRE(plan.cost_estimate());
+        auto result = planner.plan(start, goal);
+        REQUIRE(result);
       }
 
       THEN("Cost limit of zero fails")
@@ -562,8 +561,8 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
           rmf_traffic::agv::Planner::Configuration{graph, traits},
           options
         };
-        auto plan = planner.plan(start, goal);
-        CHECK_FALSE(plan);
+        auto result = planner.plan(start, goal);
+        CHECK_FALSE(result);
       }
     }
 
@@ -578,36 +577,32 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
         rmf_traffic::agv::Planner::Configuration{graph, traits},
         options
       };
-      auto plan = planner.plan(start, goal);
-      REQUIRE(plan);
-      REQUIRE(plan.cost_estimate());
-      auto required_cost = plan->get_cost();
+      auto result = planner.plan(start, goal);
+      REQUIRE(result);
+      auto required_cost = result->get_cost();
 
       THEN("Cost limit half actual required limit fails")
       {
-
         options.maximum_cost_estimate(required_cost / 2);
         planner.set_default_options(options);
-        plan = planner.plan(start, goal);
-        CHECK_FALSE(plan);
+        result = planner.plan(start, goal);
+        CHECK_FALSE(result);
       }
 
       THEN("Cost limit just below actual required limit fails")
       {
-
         options.maximum_cost_estimate(required_cost - 1e-6);
         planner.set_default_options(options);
-        plan = planner.plan(start, goal);
-        CHECK_FALSE(plan);
+        result = planner.plan(start, goal);
+        CHECK_FALSE(result);
       }
 
       THEN("Cost limit just above actual required limit succeeds")
       {
-
         options.maximum_cost_estimate(required_cost + 1e-6);
         planner.set_default_options(options);
-        plan = planner.plan(start, goal);
-        CHECK(plan);
+        result = planner.plan(start, goal);
+        CHECK(result);
       }
     }
   }
