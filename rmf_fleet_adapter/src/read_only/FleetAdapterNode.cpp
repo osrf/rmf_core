@@ -231,9 +231,8 @@ void FleetAdapterNode::update_robot(
   const RobotState& state,
   const ScheduleEntries::iterator& it)
 {
-  if (handle_delay(state, it)){
+  if (handle_delay(state, it))
     return;
-  }
 
   push_route(state, it);
 }
