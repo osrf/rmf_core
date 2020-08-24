@@ -39,14 +39,17 @@ public:
   std::string what;
 
   static invalid_trajectory_error make_segment_num_error(
-    std::size_t num_segments)
+    std::size_t num_segments,
+    std::size_t line,
+    std::string function)
   {
     invalid_trajectory_error error;
     error._pimpl->what = std::string()
       + "[rmf_traffic::invalid_trajectory_error] Attempted to check a "
       + "conflict with a Trajectory that has [" + std::to_string(num_segments)
       + "] segments. This is not supported. Trajectories must have at least "
-      + "2 segments to check them for conflicts.";
+      + "2 segments to check them for conflicts. "
+        + function + ":" + std::to_string(line);
     return error;
   }
 
@@ -710,12 +713,18 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   Interpolate /*interpolation*/,
   std::vector<Conflict>* output_conflicts)
 {
-  const std::size_t min_size =
-    std::min(trajectory_a.size(), trajectory_b.size());
-  if (min_size < 2)
+  if (trajectory_a.size() < 2)
   {
     throw invalid_trajectory_error::Implementation
-          ::make_segment_num_error(min_size);
+        ::make_segment_num_error(
+          trajectory_a.size(), __LINE__, __FUNCTION__);
+  }
+
+  if (trajectory_b.size() < 2)
+  {
+    throw invalid_trajectory_error::Implementation
+        ::make_segment_num_error(
+          trajectory_b.size(), __LINE__, __FUNCTION__);
   }
 
   const Profile::Implementation profile_a = convert_profile(input_profile_a);
