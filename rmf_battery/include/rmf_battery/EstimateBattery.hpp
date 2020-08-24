@@ -57,6 +57,7 @@ public:
     const double initial_soc,
     rmf_utils::optional<PowerMap> power_map = rmf_utils::nullopt) const = 0;
 
+  virtual ~EstimateBattery() = default;
 };
 
 } // namespace rmf_traffic
