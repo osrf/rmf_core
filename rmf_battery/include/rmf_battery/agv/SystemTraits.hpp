@@ -45,7 +45,7 @@ public:
       double efficiency = 1.0);
 
     PowerSystem& name(std::string name);
-    std::string name() const;
+    const std::string& name() const;
 
     PowerSystem& nominal_power(double nom_power);
     double nominal_power() const;
@@ -167,13 +167,13 @@ public:
     PowerSystems power_systems);
 
   SystemTraits& mechanical_system(MechanicalSystem mechanical_system);
-  const MechanicalSystem mechanical_system() const;
+  const MechanicalSystem& mechanical_system() const;
 
   SystemTraits& battery_system(BatterySystem battery_system);
-  const BatterySystem battery_system() const;
+  const BatterySystem& battery_system() const;
 
   SystemTraits& power_systems(PowerSystems power_systems);
-  const PowerSystems power_systems() const;
+  const PowerSystems& power_systems() const;
 
   /// Returns true if the values of the traits are valid. For example, this
   /// means that all system values are greater than zero.

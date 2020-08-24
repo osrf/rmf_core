@@ -39,7 +39,7 @@ SystemTraits::PowerSystem::PowerSystem(
   const double nominal_voltage,
   const double efficiency)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{std::move(name), nominal_power, nominal_voltage,
+      Implementation{name, nominal_power, nominal_voltage,
         efficiency}))
 {
   // Do nothing
@@ -53,7 +53,7 @@ auto SystemTraits::PowerSystem::name(std::string name) -> PowerSystem&
 }
 
 //==============================================================================
-std::string SystemTraits::PowerSystem::name() const
+const std::string& SystemTraits::PowerSystem::name() const
 {
   return _pimpl->name;
 }
@@ -411,7 +411,7 @@ auto SystemTraits::mechanical_system(MechanicalSystem mechanical_system)
 }
 
 //==============================================================================
-const SystemTraits::MechanicalSystem SystemTraits::mechanical_system() const
+const SystemTraits::MechanicalSystem& SystemTraits::mechanical_system() const
 {
   return _pimpl->mechanical_system;
 }
@@ -425,7 +425,7 @@ auto SystemTraits::battery_system(BatterySystem battery_system)
 }
 
 //==============================================================================
-const SystemTraits::BatterySystem SystemTraits::battery_system() const
+const SystemTraits::BatterySystem& SystemTraits::battery_system() const
 {
   return _pimpl->battery_system;
 }
@@ -439,7 +439,7 @@ auto SystemTraits::power_systems(PowerSystems power_systems)
 }
 
 //==============================================================================
-const SystemTraits::PowerSystems SystemTraits::power_systems() const
+const SystemTraits::PowerSystems& SystemTraits::power_systems() const
 {
   return _pimpl->power_systems;
 }

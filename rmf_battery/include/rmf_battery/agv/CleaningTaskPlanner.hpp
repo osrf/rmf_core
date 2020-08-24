@@ -53,8 +53,8 @@ public:
   CleaningTaskPlanner(
     SystemTraits& system_traits,
     Planner& planner,
-    std::string& cleaning_system,
-    double battery_threshold = 0.0);
+    const std::string& cleaning_system,
+    const double battery_threshold = 0.0);
 
   /// Get a const reference to the rmf_battery::agv::SystemTraits instance
   const SystemTraits& system_traits() const;
