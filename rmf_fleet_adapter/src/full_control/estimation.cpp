@@ -311,5 +311,5 @@ void estimate_waypoint(
       info.robot_name.c_str(), info.fleet_name.c_str(), nearest_dist);
   }
 
-    info.updater->update_position(closest_wp->index(), l.yaw);
+  info.updater->update_position(closest_wp->index(), l.yaw);
 }
