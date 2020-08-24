@@ -28,6 +28,7 @@
 
 namespace rmf_traffic {
 
+//==============================================================================
 /// A utility class to convert Trajectories into piecewise-splines.
 ///
 /// \warning For now this class is only meant for internal use; it is not part
@@ -77,6 +78,32 @@ public:
 private:
 
   Parameters params;
+
+};
+
+//==============================================================================
+/// This class helps compute the differentials of the distance between two
+/// splines.
+class DistanceDifferential
+{
+public:
+
+  DistanceDifferential(
+      const Spline& spline_a,
+      const Spline& spline_b);
+
+  bool initially_approaching() const;
+
+  /// Calculate the times within the relevant window when an "approach" is
+  /// occuring. This means that the vehicles are getting closer together than
+  /// they should.
+  std::vector<Time> approach_times() const;
+
+  Time start_time() const;
+  Time finish_time() const;
+
+private:
+  Spline::Parameters _params;
 
 };
 

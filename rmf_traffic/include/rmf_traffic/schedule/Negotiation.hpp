@@ -192,6 +192,15 @@ public:
       /// remain in sync with the state of the source Table.
       bool defunct() const;
 
+      /// Returns true if the proposal put on this Table has been rejected.
+      bool rejected() const;
+
+      /// Returns true if the proposer for this Table has forfeited.
+      bool forfeited() const;
+
+      /// Return the submission on this Negotiation Table if it has one.
+      const Itinerary* submission() const;
+
       class Implementation;
     private:
       Viewer();

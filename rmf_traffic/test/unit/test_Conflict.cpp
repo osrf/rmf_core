@@ -55,11 +55,10 @@ SCENARIO("DetectConflict unit tests")
       t2.insert(time, pos, vel);
       t2.insert(time + 10s, pos, vel);
 
-      THEN("The between function reports the details of conflict")
+      THEN("The robots are not approaching each other, so it is not a conflict")
       {
         const auto conflicts = get_conflicts(profile, t1, profile, t2);
-
-        CHECK(conflicts.size() == 1);
+        CHECK(conflicts.empty());
 
         std::vector<ConflictDataParams> expected_conflicts;
         expected_conflicts.push_back({
@@ -84,10 +83,10 @@ SCENARIO("DetectConflict unit tests")
       t2.insert(time, Eigen::Vector3d(dx, dx, dx), vel);
       t2.insert(time + 10s, Eigen::Vector3d(dx, dx, dx), vel);
 
-      THEN("The between function reports the details of conflict")
+      THEN("The robots are not approaching each other, so it is not a conflict")
       {
         const auto conflicts = get_conflicts(profile, t1, profile, t2);
-        CHECK(conflicts.size() == 1);
+        CHECK(conflicts.empty());
 
         std::vector<ConflictDataParams> expected_conflicts;
         expected_conflicts.push_back({
