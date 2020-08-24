@@ -51,7 +51,7 @@ SCENARIO("Test CleaningTaskPlanner")
     rmf_traffic::geometry::Circle>(1.0);
   const rmf_traffic::Profile profile{shape, shape};
 
-  const rmf_traffic::agv::VehicleTraits traits(
+  const VehicleTraits traits(
     {1.0, 0.7}, {0.6, 0.5}, profile);
 
   rmf_traffic::schedule::Database database;
@@ -61,14 +61,14 @@ SCENARIO("Test CleaningTaskPlanner")
 
   // Setup graph
   Graph graph;
-  // 3--------0------1
+  // 3--------0----1
   //          |
   //          |
   //          2
   const std::string map_name = "L1";
   graph.add_waypoint(map_name, {0, 0}).set_holding_point(true); // 0
   graph.add_waypoint(map_name, {8000, 0}).set_holding_point(true); // 1
-  graph.add_waypoint(map_name, {0, -8000}).set_holding_point(true); // 2
+  graph.add_waypoint(map_name, {0, -10000}).set_holding_point(true); // 2
   graph.add_waypoint(map_name, {-20000, 0}).set_holding_point(true); // 3
 
   graph.add_lane(0, 1);
@@ -100,11 +100,11 @@ SCENARIO("Test CleaningTaskPlanner")
 
   const auto start_time = std::chrono::steady_clock::now();
 
-  WHEN("Cleaning zone 1")
+  WHEN("Robot has sufficient charge to clean a zone and return to charger")
   {
     Planner::Start start{start_time, 0, 0.0}; // Start at 0
     rmf_traffic::Trajectory cleaning_trajectory = 
-    rmf_traffic::agv::Interpolate::positions(
+    Interpolate::positions(
       traits,
       start_time + 15000s,
       {{8000, 0, 0}, {8000, 100, 0}, {8000, 0, 0}}
@@ -120,8 +120,50 @@ SCENARIO("Test CleaningTaskPlanner")
     );
 
     CHECK(itinerary.size() > 0);
+  }
 
+  WHEN("Robot can reach a zone but has insufficient charge to finish cleaning")
+  {
+    Planner::Start start{start_time, 0, 0.0}; // Start at 0
+    rmf_traffic::Trajectory cleaning_trajectory = 
+    Interpolate::positions(
+      traits,
+      start_time + 15000s,
+      {{20000, 0, 0}, {20000, 100, 0}, {20000, 0, 0}}
+    );
 
+    const auto itinerary = cleaning_planner.plan(
+      start,
+      1.0,
+      3,
+      cleaning_trajectory,
+      3,
+      0
+    );
+
+    CHECK(itinerary.size() == 0);
+  }
+
+  WHEN("Robot can clean a zone but has insufficient charge to return to charger")
+  {
+    Planner::Start start{start_time, 0, 0.0}; // Start at 0
+    rmf_traffic::Trajectory cleaning_trajectory = 
+    Interpolate::positions(
+      traits,
+      start_time + 15000s,
+      {{0, -10000, 0}, {-100, -10000, 0}, {0, -10000, 0}}
+    );
+
+    const auto itinerary = cleaning_planner.plan(
+      start,
+      1.0,
+      2,
+      cleaning_trajectory,
+      2,
+      0
+    );
+
+    CHECK(itinerary.size() == 0);
   }
 
 }
