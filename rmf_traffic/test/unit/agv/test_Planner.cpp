@@ -2454,6 +2454,12 @@ SCENARIO("Multilevel Planning")
   using VehicleTraits = rmf_traffic::agv::VehicleTraits;
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
+  using Event = Graph::Lane::Event;
+  using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
+  using LiftDoorClose = Graph::Lane::LiftDoorClose;
+  using LiftMove = Graph::Lane::LiftMove;
+  using DoorOpen = Graph::Lane::DoorOpen;
+  using DoorClose = Graph::Lane::DoorClose;
 
   const VehicleTraits traits{
     {1.0, 0.4},
@@ -2564,8 +2570,6 @@ SCENARIO("Multilevel Planning")
 
   GIVEN("Graph with Lift")
   {
-    using Event = Graph::Lane::Event;
-    using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
     Graph graph;
     graph.add_waypoint("L1", {-5, 0}); // 0
     graph.add_waypoint("L1", {0, 0}); // 1
@@ -2598,6 +2602,164 @@ SCENARIO("Multilevel Planning")
     CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
     CHECK(count_events(*plan) == 2);
     CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
+  }
+
+  GIVEN("Graph with lift and door")
+  {
+    Graph graph;
+    graph.add_waypoint("L1", {-5, 0}); // 0
+    graph.add_waypoint("L1", {0, 0}); // 1
+    graph.add_waypoint("L2", {0, 0}); // 2
+    graph.add_waypoint("L2", {-5, 0}); // 3
+    graph.add_waypoint("L2", {-10, 0}); // 4
+    REQUIRE(graph.num_waypoints() == 5);
+
+    graph.add_lane(
+      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 1);
+    graph.add_lane(
+      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
+      {0, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+    graph.add_lane(
+      {3, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 2);
+    graph.add_lane(
+      {2, Event::make(LiftDoorOpen("Lift1", "L2", 4s))},
+      {3, Event::make(LiftDoorClose("Lift1", "L2", 4s))});
+    graph.add_lane(
+      {1, Event::make(LiftMove("Lift1", "L2", 4s))}, 2);
+    graph.add_lane(
+      {2, Event::make(LiftMove("Lift1", "L1", 4s))}, 1);
+    graph.add_lane(
+      {3, Event::make(DoorOpen("door1", 4s))},
+      {4, Event::make(DoorClose("door1", 4s))});
+    graph.add_lane(
+      {4, Event::make(DoorOpen("door1", 4s))},
+      {3, Event::make(DoorClose("door1", 4s))});
+    REQUIRE(graph.num_lanes() == 8);
+
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 3
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(4);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {-10, 0}, {0, 1, 2, 3, 4});
+    CHECK(count_events(*plan) == 6);
+    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
+    CHECK(has_event(ExpectEvent::LiftDoorClose, *plan));
+    CHECK(has_event(ExpectEvent::LiftMove, *plan));
+    CHECK(has_event(ExpectEvent::DoorOpen, *plan));
+    CHECK(has_event(ExpectEvent::DoorClose, *plan));
+  }
+}
+
+SCENARIO("Adjacent entry and exit events")
+{
+  using namespace std::chrono_literals;
+  using rmf_traffic::agv::Graph;
+  using VehicleTraits = rmf_traffic::agv::VehicleTraits;
+  using Planner = rmf_traffic::agv::Planner;
+  using Duration = std::chrono::nanoseconds;
+  using Event = Graph::Lane::Event;
+  using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
+  using LiftDoorClose = Graph::Lane::LiftDoorClose;
+  using DoorOpen = Graph::Lane::DoorOpen;
+  using DoorClose = Graph::Lane::DoorClose;
+
+  const VehicleTraits traits{
+    {1.0, 0.4},
+    {1.0, 0.5},
+    create_test_profile(UnitCircle)};
+
+  rmf_traffic::schedule::Database database;
+  const auto interrupt_flag = std::make_shared<bool>(false);
+  Duration hold_time = std::chrono::seconds(1);
+  const rmf_traffic::agv::Planner::Options default_options{
+    make_test_schedule_validator(database, traits.profile()),
+    hold_time,
+    interrupt_flag};
+
+  GIVEN("non-colinear waypoints")
+  {
+    Graph graph;
+    graph.add_waypoint("test_map", {-5, 0}); // 0
+    graph.add_waypoint("test_map", {0, 0}); // 1
+    graph.add_waypoint("test_map", {0, 5}); // 2
+    REQUIRE(graph.num_waypoints() == 3);
+
+    graph.add_lane(
+      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
+      {1, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+    graph.add_lane(
+      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
+      {0, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+    graph.add_lane(
+      {1, Event::make(DoorOpen("door1", 4s))},
+      {2, Event::make(DoorClose("door1", 4s))});
+    graph.add_lane(
+      {2, Event::make(DoorOpen("door1", 4s))},
+      {1, Event::make(DoorClose("door1", 4s))});
+    REQUIRE(graph.num_lanes() == 4);
+
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 3
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(2);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {0, 5}, {0, 1, 2});
+    CHECK(count_events(*plan) == 4);
+    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
+    CHECK(has_event(ExpectEvent::LiftDoorClose, *plan));
+    CHECK(has_event(ExpectEvent::DoorOpen, *plan));
+    CHECK(has_event(ExpectEvent::DoorClose, *plan));
+  }
+
+  GIVEN("colinear waypoints")
+  {
+    Graph graph;
+    graph.add_waypoint("test_map", {-5, 0}); // 0
+    graph.add_waypoint("test_map", {0, 0}); // 1
+    graph.add_waypoint("test_map", {5, 0}); // 2
+    REQUIRE(graph.num_waypoints() == 3);
+
+    graph.add_lane(
+      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
+      {1, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+    graph.add_lane(
+      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
+      {0, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+    graph.add_lane(
+      {1, Event::make(DoorOpen("door1", 4s))},
+      {2, Event::make(DoorClose("door1", 4s))});
+    graph.add_lane(
+      {2, Event::make(DoorOpen("door1", 4s))},
+      {1, Event::make(DoorClose("door1", 4s))});
+    REQUIRE(graph.num_lanes() == 4);
+
+    Planner planner{
+      Planner::Configuration{graph, traits},
+      default_options};
+
+    // Plan from 0 -> 3
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
+    const auto goal = rmf_traffic::agv::Planner::Goal(2);
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan.success());
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {5, 0}, {0, 1, 2});
+    CHECK(count_events(*plan) == 4);
+    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
+    CHECK(has_event(ExpectEvent::LiftDoorClose, *plan));
+    CHECK(has_event(ExpectEvent::DoorOpen, *plan));
+    CHECK(has_event(ExpectEvent::DoorClose, *plan));
   }
 }
 
