@@ -15,9 +15,8 @@
  *
 */
 
-
 // Skeleton for Task Nomination
-// This is a class to select the best taskestimate via an evaluator
+// This is a class to select the best Nominee via an evaluator
 
 #ifndef RMF_TASK_ROS2__NOMINATION_HPP
 #define RMF_TASK_ROS2__NOMINATION_HPP
@@ -29,11 +28,9 @@
 #include <rmf_task_msgs/msg/dispatch_conclusion.hpp>
 #include <rmf_task_msgs/msg/dispatch_ack.hpp>
 
-
 namespace rmf_task_ros2 {
 
 //==============================================================================
-
 
 using DispatchNotice = rmf_task_msgs::msg::DispatchNotice;
 using DispatchProposal = rmf_task_msgs::msg::DispatchProposal;
@@ -42,64 +39,64 @@ using DispatchAck = rmf_task_msgs::msg::DispatchAck;
 
 //==============================================================================
 
-// This is a client class for evaluator to select the best Task Estimates 
+// This is a client class for evaluator to select the best Task nominees 
 // from multiple submitted task estimations
 class Nomination
 {
 public:
 
   // should this be named as Nominee??
-  struct TaskEstimate
+  struct Nominee
   {
     std::string fleet_name;
     std::string robot_name;
     rmf_traffic::Time start_time;
     rmf_traffic::Time end_time;
     // resources, e.g: SOC and payload
-    double battery_soc;
+    double battery_end_soc;
   };
 
-  using TaskEstimatesPtr = std::shared_ptr<std::vector<TaskEstimate>>;
+  using NomineesPtr = std::shared_ptr<std::vector<Nominee>>;
 
   // Summit task estimations
-  /// \param[in] input submissions of all potential estimates
-  Nomination(const TaskEstimatesPtr estimates)
+  /// \param[in] input submissions of all potential nominees
+  Nomination(NomineesPtr nominees)
+    : _nominees(std::move(nominees))
   {
-    _estimates = std::move(estimates);
+    // Do Nothing
   }
 
-  /// A pure abstract interface class for choosing the best proposal.
+  /// A pure abstract interface class for choosing the best nominee.
   class Evaluator
   {
   public:
 
-    /// Given a set of proposals, choose the one that is the "best". It is up to
-    /// the implementation of the Evaluator to decide how to rank proposals.
-    virtual std::size_t choose(const TaskEstimatesPtr estimates) const = 0;
+    /// Given a list of nominee, choose the one that is the "best". It is up to
+    /// the implementation of the Evaluator to decide how to rank.
+    virtual std::size_t choose(const NomineesPtr nominees) const = 0;
 
     virtual ~Evaluator() = default;
   };
 
-  // Get the best TaskEstimate
+  // Get the best Nominee
   /// \param[in] Itinerary of the Requested Task
   /// \return Best chosen task estimate
-  TaskEstimate evaluate(const Evaluator& evaluator)
+  Nominee evaluate(const Evaluator& evaluator)
   {
-    const std::size_t choice = evaluator.choose(_estimates);
-    assert(choice < _estimates->size());
-    return (*_estimates)[choice];
+    const std::size_t choice = evaluator.choose(_nominees);
+    assert(choice < _nominees->size());
+    return (*_nominees)[choice];
   }
 
-  // Utils Function, (TODO) need to think of a better design
-  // use by dipatcher
-  static DispatchProposal convert_msg(const TaskEstimate& estimate);
+  // Conversion utils for bidder: (TODO) a better way?
+  static DispatchProposal convert_msg(const Nominee& nominee){};
 
-  // // use by bidder
-  static TaskEstimate convert_msg(const DispatchProposal& proposal);
+  // Conversion utils for dispatcher
+  static Nominee convert_msg(const DispatchProposal& proposal){};
 
 private:
 
-  TaskEstimatesPtr _estimates;
+  NomineesPtr _nominees;
 };
 
 //==============================================================================
@@ -111,9 +108,16 @@ class QuickestFinishEvaluator : public Nomination::Evaluator
 public:
 
   // Documentation inherited
-  std::size_t choose(const Nomination::TaskEstimatesPtr estimates) const final
+  std::size_t choose(const Nomination::NomineesPtr nominees) const final
   {
-    // TODO implementation Here!!! choose the least finish time 
+    std::vector<Nomination::Nominee>::iterator winner_it;
+    for (auto it = nominees->begin(); it != nominees->end(); ++it)
+    {
+      // TODO implementation Here!!! choose the least finish time 
+      winner_it = it;
+    }
+
+    return std::distance( nominees->begin(), winner_it );
   };
 
 };

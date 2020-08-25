@@ -27,6 +27,7 @@
 #include <rmf_task_msgs/msg/delivery.hpp>
 #include <rmf_task_msgs/msg/station.hpp>
 
+#include <rmf_utils/optional.hpp>
 
 namespace rmf_task_ros2 {
 namespace dispatcher {
@@ -38,14 +39,17 @@ public:
 
   DispatcherNode(const rclcpp::NodeOptions& options);
 
-  ~DispatcherNode()
-  {};
-
-
-public:
+  ~DispatcherNode(){};
 
   using Itinerary = std::vector<std::string>;
-  std::map<std::string, Itinerary> queue_tasks;
+  struct BiddingTask
+  {
+    std::string task_id;
+    std::vector<std::string> bidders;
+    Nomination::NomineesPtr nominees;
+    Itinerary itinerary;
+    rmf_traffic::Time start_time;
+  };
 
 private:
 
@@ -73,19 +77,22 @@ private:
   using DispatchAckSub = rclcpp::Subscription<DispatchAck>;
   DispatchAckSub::SharedPtr _dispatch_ack_sub;
 
-private:
+  std::vector<BiddingTask> _queue_bidding_tasks;
+  rmf_utils::optional<rmf_traffic::Duration> _bidding_timeout;
+  rclcpp::TimerBase::SharedPtr _timer;
 
   // send dispatch notice to selected bidder
-  void start_bidding();
+  void start_bidding(const BiddingTask& bidding_task);
+
+  // periodic callback
+  void check_bidding_process();
 
   // Receive proposal and evaluate
   void receive_proposal(const DispatchProposal& msg);
 
   // Receive conclusion ack
   void receive_conclusion_ack(const DispatchAck& msg);
-
 };
-
 
 //==============================================================================
 

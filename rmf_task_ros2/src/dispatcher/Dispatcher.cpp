@@ -28,40 +28,47 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
 : Node("rmf_task_dispatcher_node", options)
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
+  
+  double timeout_sec = 2;
+  _bidding_timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    std::chrono::duration<double, std::ratio<1>>(timeout_sec));
 
   _loop_sub = create_subscription<Loop>(
     rmf_task_ros2::LoopTopicName, dispatch_qos,
     [&](const Loop::UniquePtr msg)
     {   
-      Itinerary itinerary;
+      BiddingTask bidding_task;
+      bidding_task.task_id = msg->task_id;
+      bidding_task.start_time = std::chrono::steady_clock::now();
       for ( int i = 0; i < (int)msg->num_loops; i++ )
       {
-        itinerary.push_back(msg->start_name);
-        itinerary.push_back(msg->finish_name);
-      }      
-      queue_tasks[msg->task_id] = itinerary;
-      this->start_bidding();
+        bidding_task.itinerary.push_back(msg->start_name);
+        bidding_task.itinerary.push_back(msg->finish_name);
+      }
+      this->start_bidding(bidding_task);
     });
 
   _delivery_sub = create_subscription<Delivery>(
     rmf_task_ros2::DeliveryTopicName, dispatch_qos,
     [&](const Delivery::UniquePtr msg)
     {
-      Itinerary itinerary;
-      itinerary.push_back(msg->pickup_place_name);
-      itinerary.push_back(msg->dropoff_place_name);
-      queue_tasks[msg->task_id] = itinerary;      
-      this->start_bidding();
+      BiddingTask bidding_task;
+      bidding_task.task_id = msg->task_id;
+      bidding_task.start_time = std::chrono::steady_clock::now();
+      bidding_task.itinerary.push_back(msg->pickup_place_name);
+      bidding_task.itinerary.push_back(msg->dropoff_place_name);
+      this->start_bidding(bidding_task);
     });
 
   _station_sub = create_subscription<Station>(
     rmf_task_ros2::StationTopicName, dispatch_qos,
     [&](const Station::UniquePtr msg)
     {
-      Itinerary itinerary;
-      itinerary.push_back(msg->place_name);
-      queue_tasks[msg->task_id] = itinerary;
-      this->start_bidding();
+      BiddingTask bidding_task;
+      bidding_task.task_id = msg->task_id;
+      bidding_task.start_time = std::chrono::steady_clock::now();    
+      bidding_task.itinerary.push_back(msg->place_name);
+      this->start_bidding(bidding_task);
     });
 
   _dispatch_proposal_sub = create_subscription<DispatchProposal>(
@@ -81,39 +88,70 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
       this->receive_conclusion_ack(*msg);
     });
 
+  _timer = create_wall_timer(std::chrono::milliseconds(500), [this]()
+    {
+      this->check_bidding_process();
+    });
+
   _dispatch_notice_pub = create_publisher<DispatchNotice>(
     rmf_task_ros2::DispatchNoticeTopicName, dispatch_qos);
-
 }
 
-// TODO: async start bidding proccess (or make it a seperate class)
-void DispatcherNode::start_bidding()
+void DispatcherNode::start_bidding(const BiddingTask& bidding_task)
 {
-  DispatchNotice notice_msg;
-  
-  // Populate notice msg with queue_task here
+  _queue_bidding_tasks.push_back(bidding_task);  
+  std::cout << " Start Task Bidding for task_id: " 
+            << bidding_task.task_id << std::endl;
 
+  // Populate notice msg with queue_task here
+  DispatchNotice notice_msg;
+  notice_msg.itinerary = bidding_task.itinerary;
+  notice_msg.submission_time = this->now();
+  notice_msg.fleet_names = bidding_task.bidders;
   _dispatch_notice_pub->publish(notice_msg);
+}
+
+void DispatcherNode::check_bidding_process()
+{
+  std::cout << " Checking Bidding... " << std::endl;
+  
+  // check if bidding task has reached timeout... sad
+  auto task_it = std::find_if(
+    _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
+    [&](const BiddingTask& task)
+    { 
+      auto duration = std::chrono::steady_clock::now() - task.start_time;
+      return duration >= *_bidding_timeout; 
+    });
+  
+  if (task_it == _queue_bidding_tasks.end())
+    return;
+  
+  std::cout << " Timeout reached! ready to remove task_id: " 
+            << task_it->task_id << std::endl;
+  _queue_bidding_tasks.erase(task_it);
 }
 
 void DispatcherNode::receive_proposal(const DispatchProposal& msg)
 {
-  auto it = queue_tasks.find(msg.task_id);
-  if (it == queue_tasks.end() )
+  auto task_it = std::find_if(
+    _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
+    [&](const BiddingTask& task){ return task.task_id == msg.task_id;});
+
+  if (task_it == _queue_bidding_tasks.end())
     return;
 
-  // TODO add proposal to nominees list.
+  // add proposal to nominees list.
+  auto nominee = Nomination::convert_msg(msg);
+  task_it->nominees->push_back(nominee);
 
-  bool bidding_timeout = true;
-  bool received_all_bidders = true;
-
-  if ( !(bidding_timeout or received_all_bidders))
+  // check if all bidders' proposals are received
+  if ( task_it->bidders.size() != task_it->nominees->size())
     return;
   
   // Nominate and Evaluate Here!
-  Nomination::TaskEstimatesPtr dummy_estimates;
-  Nomination task_nomination(dummy_estimates);
-  Nomination::TaskEstimate chosen_estimate = 
+  Nomination task_nomination(task_it->nominees);
+  Nomination::Nominee chosen_estimate = 
     task_nomination.evaluate(QuickestFinishEvaluator());
 
   // Sent Conclusion which will state the selected robot
@@ -125,7 +163,12 @@ void DispatcherNode::receive_proposal(const DispatchProposal& msg)
 
 void DispatcherNode::receive_conclusion_ack(const DispatchAck& msg)
 {
-  // Wrap up task bidding here
+  // Finish up task bidding
+  auto task_it = std::find_if(
+    _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
+    [&](const BiddingTask& task){ return task.task_id == msg.task.task_id;});
+  
+  _queue_bidding_tasks.erase(task_it);
 }
 
 //==============================================================================

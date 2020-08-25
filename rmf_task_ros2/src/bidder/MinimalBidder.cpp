@@ -15,13 +15,16 @@
  *
 */
 
-
 // Skeleton for a TaskBidder
+
+#ifndef SRC__RMF_TASK_ROS2__BIDDER_HPP
+#define SRC__RMF_TASK_ROS2__BIDDER_HPP
 
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/Nomination.hpp>
+// #include <rmf_task_ros2/TaskManager.hpp>
 
 #include <rmf_traffic/agv/Graph.hpp>
 
@@ -30,79 +33,103 @@ namespace bidder {
 
 //==============================================================================
 
-class MinimalBidder: public rclcpp::Node
+class MinimalBidder
 {
-  public: 
-    MinimalBidder( 
-      rclcpp::Node& node, 
-      std::string& fleet_adapter_name)
+public: 
+  MinimalBidder(std::shared_ptr<rclcpp::Node> node)
+  : _node(std::move(node))
+  {
+    const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
+
+    _dispatch_notice_sub = _node->create_subscription<DispatchNotice>(
+    rmf_task_ros2::DispatchNoticeTopicName, dispatch_qos,
+    [&](const DispatchNotice::UniquePtr msg)
     {
-      // create pubsub topics 
-    }
+      this->receive_notice(*msg);
+    });
 
-    // Non-blocking abstract func, Get tasks estimation
-    /// \param[in] Itinerary of the Requested Task
-    /// \return All Robots Task Estimation
-    virtual TaskEstimationsPtr get_tasks_estimation(  
-      const Itinerary& itinerary) const = 0;
+    _dispatch_proposal_pub = _node->create_publisher<DispatchProposal>(
+      rmf_task_ros2::DispatchProposalTopicName, dispatch_qos);
 
-    // Todo, should we use this or above???
-    using ParseTaskEstimation =
-      std::function<bool(const rmf_task_msgs::msg::Delivery& request)>;
+    _dispatch_conclusion_sub = _node->create_subscription<DispatchConclusion>(
+      rmf_task_ros2::DispatchConclusionTopicName, dispatch_qos,
+      [&](const DispatchConclusion::UniquePtr msg)
+      {
+        this->receive_conclusion(*msg);
+      });
 
-    void get_estimations_callback(ParseTaskEstimation cb);
+    _dispatch_ack_pub = _node->create_publisher<DispatchAck>(
+      rmf_task_ros2::DispatchAckTopicName, dispatch_qos);
+  }
 
-    // set task manager to add awarded task to queue 
-    std::shared_ptr<TaskManager> fleet_task_manager;
+  using Itinerary = std::vector<std::string>;
+  using ParseEstimatesCallback =
+    std::function<Nomination::NomineesPtr(const Itinerary& itinerary)>;
 
-    // evaluator to use for selection
-    Nomination::Evaluator evaluator;
+  // Non-blocking abstract func, Get tasks estimation
+  /// \param[in] Itinerary of the Requested Task
+  /// \return All Robots Task Estimation
+  void get_estimations_callback(ParseEstimatesCallback cb_fn)
+  {
+    _get_estimates_fn = std::move(cb_fn);
+  };
 
-  // TODO: Place all these under Implementation(?)
-  private:
+  // TODO set task manager to add awarded task to queue 
+  // std::shared_ptr<TaskManager> fleet_task_manager;
 
-    // Callback fn when a dispatch notice is received
-    void receive_dispatch_notice(const DispatchNotice& msg)
-    {
-      // get tasks estimates
-      auto estimates = this->get_tasks_estimation(msg->itenerary)
+  // // evaluator to use for selection
+  // Nomination::Evaluator evaluator;
 
-      // Submit task estimations and get the chosen robot
-      Nomination task_nomination(estimates);
-      Nomination::TaskEstimate chosen_estimate = 
-        task_nomination.evaluate(QuickestFinishEvaluator());
+private:
+  // Pub Sub 
+  using DispatchNoticeSub = rclcpp::Subscription<DispatchNotice>;
+  DispatchNoticeSub::SharedPtr _dispatch_notice_sub;
+  
+  using DispatchProposalPub = rclcpp::Publisher<DispatchProposal>;
+  DispatchProposalPub::SharedPtr _dispatch_proposal_pub;
 
-      // Submit proposal
-      auto best_proposal = convert_msg(chosen_estimate);
-      _dispatch_proposal_pub->publish(best_proposal);
-    };
+  using DispatchConclusionSub = rclcpp::Subscription<DispatchConclusion>;
+  DispatchConclusionSub::SharedPtr _dispatch_conclusion_sub;
 
-    // Callback fn when a dispatch conclusion is received
-    void receive_dispatch_conclusion(const DispatchConclusion& msg)
-    {
-      // create a task with 
-      Task task = make_tasks(msg)
+  using DispatchAckPub = rclcpp::Publisher<DispatchAck>;
+  DispatchAckPub::SharedPtr _dispatch_ack_pub;
+  
+  std::shared_ptr<rclcpp::Node> _node;
+  ParseEstimatesCallback _get_estimates_fn;
 
-      // insert task to task_manager
-      fleet_task_manager->queue_task(task);
-      
-      // publish ack
-      _dispatch_ack_pub->publish(ack_msg);
-    }
+  // Callback fn when a dispatch notice is received
+  void receive_notice(const DispatchNotice& msg)
+  {
+    // get tasks estimates
+    auto nominees = _get_estimates_fn(msg.itinerary);
 
-    // Pub Sub 
-    using DispatchNoticeSub = rclcpp::Subscription<DispatchNotice>;
-    DispatchNoticeSub::SharedPtr _dispatch_notice_sub;
+    // Submit nominee estimations and get the chosen robot
+    Nomination task_nomination(nominees);
+    Nomination::Nominee chosen_estimate = 
+      task_nomination.evaluate(QuickestFinishEvaluator());
+
+    // Submit proposal
+    auto best_proposal = Nomination::convert_msg(chosen_estimate);
+    _dispatch_proposal_pub->publish(best_proposal);
+  };
+
+  // Callback fn when a dispatch conclusion is received
+  void receive_conclusion(const DispatchConclusion& msg)
+  {
+    // // TODO create a task with a make func
+    // Task task = make_tasks(msg)
+
+    // // TODO insert task to task_manager
+    // fleet_task_manager->queue_task(task);
     
-    using DispatchProposalPub = rclcpp::Publisher<DispatchProposal>;
-    DispatchProposalPub::SharedPtr _dispatch_proposal_pub;
-
-    using DispatchConclusionSub = rclcpp::Subscription<DispatchConclusion>;
-    DispatchConclusionSub::SharedPtr _dispatch_conclusion_sub;
-
-    using DispatchAckPub = rclcpp::Publisher<DispatchAck>;
-    DispatchAckSub::SharedPtr _dispatch_ack_sub;
-}
+    // publish ack
+    DispatchAck ack_msg;
+    ack_msg.task.task_id = msg.task_id;
+    _dispatch_ack_pub->publish(ack_msg);
+  };
+};
 
 } // namespace bidder
 } // namespace rmf_task_ros2
+
+#endif // SRC__RMF_TASK_ROS2__BIDDER_HPP
