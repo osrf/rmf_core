@@ -70,7 +70,7 @@ const std::string& CleaningTaskPlanner::cleaning_system() const
 }
 
 //==============================================================================
-const double CleaningTaskPlanner::battery_threshold() const
+double CleaningTaskPlanner::battery_threshold() const
 {
   return _pimpl->battery_threshold;
 }

@@ -56,14 +56,6 @@ const SystemTraits SimpleBatteryEstimator::system_traits() const
 }
 
 namespace {
-double compute_kinetic_energy(
-  const double m,
-  const double v,
-  const double i,
-  const double w)
-{
-  return 0.5 * (m*pow(v, 2) + i*pow(w, 2));
-}
 
 double compute_friction_energy(
   const double f,

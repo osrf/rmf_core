@@ -27,6 +27,22 @@ add_library(rmf_battery SHARED
   ${core_lib_srcs}
 )
 
+target_link_libraries(rmf_battery
+  PUBLIC
+    rmf_utils::rmf_utils
+    rmf_traffic::rmf_traffic
+)
+
+target_include_directories(rmf_battery
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    ${EIGEN3_INCLUDE_DIRS}
+)
+
+ament_export_interfaces(rmf_battery HAS_LIBRARY_TARGET)
+ament_export_dependencies(rmf_utils)
+
 if(BUILD_TESTING)
   find_package(ament_cmake_catch2 REQUIRED)
 
@@ -37,7 +53,6 @@ if(BUILD_TESTING)
     TIMEOUT 300)
   target_link_libraries(test_rmf_battery
       rmf_battery
-      rmf_traffic::rmf_traffic
   )
 
   target_include_directories(test_rmf_battery
@@ -54,22 +69,6 @@ if(BUILD_TESTING)
     MAX_LINE_LENGTH 80
   )
 endif()
-
-target_link_libraries(rmf_battery
-  PUBLIC
-    rmf_utils::rmf_utils
-    rmf_traffic::rmf_traffic
-)
-
-target_include_directories(rmf_battery
-  PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    ${EIGEN3_INCLUDE_DIRS}
-)
-
-ament_export_interfaces(rmf_battery HAS_LIBRARY_TARGET)
-ament_export_dependencies(rmf_utils)
 
 install(
   DIRECTORY include/

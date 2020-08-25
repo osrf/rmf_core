@@ -66,7 +66,7 @@ public:
   const std::string& cleaning_system() const;
 
   /// Get a const reference to the battery threshold
-  const double battery_threshold() const;
+  double battery_threshold() const;
 
   /// Produce a set of valid trajectories if the robot can successfully travel
   /// from start location to the cleaning waypoint, complete the cleaning
