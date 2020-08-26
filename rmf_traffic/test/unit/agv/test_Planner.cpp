@@ -474,6 +474,7 @@ SCENARIO("Test Options", "[options]")
     local_maximum_cost_estimate);
   WHEN("Maximum cost estimate is set after construction")
   {
+    REQUIRE(set_max_cost_estimate_options.maximum_cost_estimate());
     CHECK(set_max_cost_estimate_options.maximum_cost_estimate().value()
       == Approx(local_maximum_cost_estimate));
   }
@@ -481,6 +482,7 @@ SCENARIO("Test Options", "[options]")
   WHEN("Set the maximum cost estimate")
   {
     local_maximum_cost_estimate = 42;
+    REQUIRE(set_max_cost_estimate_options.maximum_cost_estimate());
     set_max_cost_estimate_options.maximum_cost_estimate(local_maximum_cost_estimate);
     CHECK(set_max_cost_estimate_options.maximum_cost_estimate().value()
       == Approx(local_maximum_cost_estimate));
@@ -530,7 +532,6 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
     const rmf_traffic::Profile profile = create_test_profile(UnitCircle);
     const rmf_traffic::agv::VehicleTraits traits(
       {0.7, 0.3}, {1.0, 0.45}, profile);
-    auto interrupt_flag = std::make_shared<bool>(false);
 
     WHEN("Goal from 12->1")
     {
@@ -538,7 +539,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
       const auto start = rmf_traffic::agv::Planner::Start{time, 12, 0.0};
       const auto goal = rmf_traffic::agv::Planner::Goal{1};
 
-      THEN("No cost limit succeeds")
+      THEN("Success when there is no cost limit")
       {
         auto options = rmf_traffic::agv::Planner::Options{nullptr};
         rmf_traffic::agv::Planner planner{
@@ -554,7 +555,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
         auto options = rmf_traffic::agv::Planner::Options{
           nullptr,
           rmf_traffic::agv::Planner::Options::DefaultMinHoldingTime,
-          interrupt_flag,
+          std::shared_ptr<bool>(nullptr),
           0 // Maximum cost estimate must be 0
         };
         rmf_traffic::agv::Planner planner{
@@ -584,8 +585,7 @@ SCENARIO("Maximum Cost Estimates", "[maximum_cost_estimate]")
       THEN("Cost limit half actual required limit fails")
       {
         options.maximum_cost_estimate(required_cost / 2);
-        planner.set_default_options(options);
-        result = planner.plan(start, goal);
+        result = planner.plan(start, goal, options);
         CHECK_FALSE(result);
       }
 
