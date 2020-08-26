@@ -744,18 +744,18 @@ struct DifferentialDriveExpander
         std::move(_event));
     }
 
-    LaneEventExecutor& add_if_valid(
+    LaneEventExecutor& add_exit_if_valid(
       DifferentialDriveExpander* expander,
       SearchQueue& queue)
     {
       assert(_event);
       const auto duration = _event->duration();
+      _parent->event = std::move(_event);
       expander->expand_delay(
         *_parent->waypoint,
         _parent,
         duration,
-        queue,
-        std::move(_event));
+        queue);
       return *this;
     }
 
@@ -1478,7 +1478,7 @@ struct DifferentialDriveExpander
         }
 
         event->execute(_executor.update(parent_to_event))
-          .add_if_valid(this, queue);
+          .add_exit_if_valid(this, queue);
 
         continue;
       }
