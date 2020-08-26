@@ -161,18 +161,31 @@ rmf_traffic::agv::Graph parse_graph(
       std::size_t end = lane[1].as<std::size_t>() + vnum;
 
       bool is_lift = false;
+      bool begin_in_lift, end_in_lift;
 
       for (auto& lift : lift_wps)
       {
         auto wps = lift.second;
-        if ((std::find(wps.begin(), wps.end(), begin) != wps.end()) ||
-            (std::find(wps.begin(), wps.end(), end) != wps.end()))
+        begin_in_lift = (std::find(wps.begin(), wps.end(), begin) != wps.end());
+        end_in_lift = (std::find(wps.begin(), wps.end(), end) != wps.end());
+        // Exiting lift
+        if (begin_in_lift && !end_in_lift)
         {
           const rmf_traffic::Duration duration = std::chrono::seconds(4);
           entry_event = Event::make(
             Lane::LiftDoorOpen(lift.first, map_name, duration));
           exit_event = Event::make(
             Lane::LiftDoorClose(lift.first, map_name, duration));
+          is_lift = true;
+          break;
+        }
+
+        // Entering lift
+        else if (end_in_lift && !begin_in_lift)
+        {
+          const rmf_traffic::Duration duration = std::chrono::seconds(4);
+          entry_event = Event::make(
+            Lane::LiftDoorOpen(lift.first, map_name, duration));
           is_lift = true;
           break;
         }
