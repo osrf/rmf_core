@@ -29,7 +29,7 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
   
-  double timeout_sec = 2;
+  double timeout_sec = 2.0; 
   _bidding_timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(
     std::chrono::duration<double, std::ratio<1>>(timeout_sec));
 
@@ -57,6 +57,7 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
       bidding_task.start_time = std::chrono::steady_clock::now();
       bidding_task.itinerary.push_back(msg->pickup_place_name);
       bidding_task.itinerary.push_back(msg->dropoff_place_name);
+      bidding_task.bidders.push_back("dummybot"); // todo
       this->start_bidding(bidding_task);
     });
 
@@ -88,7 +89,7 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
       this->receive_conclusion_ack(*msg);
     });
 
-  _timer = create_wall_timer(std::chrono::milliseconds(500), [this]()
+  _timer = create_wall_timer(std::chrono::milliseconds(500), [&]()
     {
       this->check_bidding_process();
     });
@@ -100,11 +101,14 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
 void DispatcherNode::start_bidding(const BiddingTask& bidding_task)
 {
   _queue_bidding_tasks.push_back(bidding_task);  
-  std::cout << " Start Task Bidding for task_id: " 
+  std::cout << "\n Start Task Bidding for task_id: " 
             << bidding_task.task_id << std::endl;
+
+  // todo: identify potential bidders
 
   // Populate notice msg with queue_task here
   DispatchNotice notice_msg;
+  notice_msg.task_id = bidding_task.task_id;
   notice_msg.itinerary = bidding_task.itinerary;
   notice_msg.submission_time = this->now();
   notice_msg.fleet_names = bidding_task.bidders;
@@ -112,9 +116,7 @@ void DispatcherNode::start_bidding(const BiddingTask& bidding_task)
 }
 
 void DispatcherNode::check_bidding_process()
-{
-  std::cout << " Checking Bidding... " << std::endl;
-  
+{ 
   // check if bidding task has reached timeout... sad
   auto task_it = std::find_if(
     _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
@@ -127,6 +129,8 @@ void DispatcherNode::check_bidding_process()
   if (task_it == _queue_bidding_tasks.end())
     return;
   
+  // todo: if nominees are not empty, trigger Nomination
+
   std::cout << " Timeout reached! ready to remove task_id: " 
             << task_it->task_id << std::endl;
   _queue_bidding_tasks.erase(task_it);
@@ -134,6 +138,9 @@ void DispatcherNode::check_bidding_process()
 
 void DispatcherNode::receive_proposal(const DispatchProposal& msg)
 {
+  std::cout << " Receive Bidding proposal for task_id: " 
+            << msg.task_id << std::endl;
+  
   auto task_it = std::find_if(
     _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
     [&](const BiddingTask& task){ return task.task_id == msg.task_id;});
@@ -143,26 +150,35 @@ void DispatcherNode::receive_proposal(const DispatchProposal& msg)
 
   // add proposal to nominees list.
   auto nominee = Nomination::convert_msg(msg);
+
   task_it->nominees->push_back(nominee);
+  // assert(task_it->bidders.size() < task_it->nominees->size());
 
   // check if all bidders' proposals are received
   if ( task_it->bidders.size() != task_it->nominees->size())
     return;
-  
+
   // Nominate and Evaluate Here!
   Nomination task_nomination(task_it->nominees);
   Nomination::Nominee chosen_estimate = 
     task_nomination.evaluate(QuickestFinishEvaluator());
 
+  std::cout << " selected robot: " 
+            << chosen_estimate.robot_name << std::endl;
+
   // Sent Conclusion which will state the selected robot
   DispatchConclusion conclusion_msg;
-  conclusion_msg.fleet_name = chosen_estimate.fleet_name;
+  conclusion_msg.task_id = msg.task_id;
+  conclusion_msg.fleet_name = "dummybot"; // chosen_estimate.fleet_name;
   conclusion_msg.robot_name = chosen_estimate.robot_name;
   _dispatch_conclusion_pub->publish(conclusion_msg);
 }
 
 void DispatcherNode::receive_conclusion_ack(const DispatchAck& msg)
 {
+  std::cout << " Done bidding! for task_id: " 
+            << msg.task.task_id << std::endl;
+
   // Finish up task bidding
   auto task_it = std::find_if(
     _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),

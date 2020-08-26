@@ -40,12 +40,11 @@ using DispatchAck = rmf_task_msgs::msg::DispatchAck;
 //==============================================================================
 
 // This is a client class for evaluator to select the best Task nominees 
-// from multiple submitted task estimations
+// from multiple submitted task estimations (nominees)
 class Nomination
 {
 public:
 
-  // should this be named as Nominee??
   struct Nominee
   {
     std::string fleet_name;
@@ -56,9 +55,10 @@ public:
     double battery_end_soc;
   };
 
-  using NomineesPtr = std::shared_ptr<std::vector<Nominee>>;
+  using Nominees = std::vector<Nominee>;
+  using NomineesPtr = std::shared_ptr<Nominees>;
 
-  // Summit task estimations
+  /// Constructor
   /// \param[in] input submissions of all potential nominees
   Nomination(NomineesPtr nominees)
     : _nominees(std::move(nominees))
@@ -78,9 +78,10 @@ public:
     virtual ~Evaluator() = default;
   };
 
-  // Get the best Nominee
-  /// \param[in] Itinerary of the Requested Task
-  /// \return Best chosen task estimate
+  /// Get the best winner from nominees
+  ///
+  /// \param[in] Evaluator 
+  /// \return Best chosen Nominee
   Nominee evaluate(const Evaluator& evaluator)
   {
     const std::size_t choice = evaluator.choose(_nominees);
@@ -89,10 +90,24 @@ public:
   }
 
   // Conversion utils for bidder: (TODO) a better way?
-  static DispatchProposal convert_msg(const Nominee& nominee){};
+  static DispatchProposal convert_msg(const Nominee& nominee)
+  {
+    DispatchProposal proposal;
+    proposal.fleet_name = nominee.fleet_name;
+    proposal.robot_name = nominee.robot_name;
+    // TODO: convert time and resources
+    return proposal;
+  };
 
   // Conversion utils for dispatcher
-  static Nominee convert_msg(const DispatchProposal& proposal){};
+  static Nominee convert_msg(const DispatchProposal& proposal)
+  {
+    Nominee nominee;
+    nominee.fleet_name = proposal.fleet_name;
+    nominee.robot_name = proposal.robot_name;
+    // TODO: convert time and resources
+    return nominee;
+  };
 
 private:
 
@@ -106,20 +121,18 @@ private:
 class QuickestFinishEvaluator : public Nomination::Evaluator
 {
 public:
-
   // Documentation inherited
   std::size_t choose(const Nomination::NomineesPtr nominees) const final
   {
-    std::vector<Nomination::Nominee>::iterator winner_it;
+    std::vector<Nomination::Nominee>::iterator winner_it = nominees->begin();
     for (auto it = nominees->begin(); it != nominees->end(); ++it)
     {
       // TODO implementation Here!!! choose the least finish time 
-      winner_it = it;
+      if (it->end_time < winner_it->end_time)
+        winner_it = it;
     }
-
     return std::distance( nominees->begin(), winner_it );
   };
-
 };
 
 } // namespace rmf_task_ros2

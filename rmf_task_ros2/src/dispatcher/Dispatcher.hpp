@@ -46,7 +46,8 @@ public:
   {
     std::string task_id;
     std::vector<std::string> bidders;
-    Nomination::NomineesPtr nominees;
+    Nomination::NomineesPtr nominees
+      = std::make_shared<Nomination::Nominees>();
     Itinerary itinerary;
     rmf_traffic::Time start_time;
   };
