@@ -64,7 +64,10 @@ void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
       if (msg->request_type != LiftRequest::REQUEST_END_SESSION)
         curr_request = std::move(msg);
       else
+      {
+        _lift_request_pub->publish(*msg);
         curr_request = nullptr;
+      }
     }
   }
   else

@@ -54,10 +54,12 @@ struct RequestLift
     std::string _lift_name;
     std::string _destination;
     rmf_traffic::Time _expected_finish;
+    rxcpp::subjects::behavior<bool> _cancelled = rxcpp::subjects::behavior<bool>(false);
     uint8_t _request_type;
     std::string _description;
     rxcpp::observable<Task::StatusMsg> _obs;
     rclcpp::TimerBase::SharedPtr _timer;
+    std::shared_ptr<RequestLift::ActivePhase> _lift_end_phase;
 
     ActivePhase(
       agv::RobotContextPtr context,

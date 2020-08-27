@@ -63,7 +63,7 @@ void RequestLift::ActivePhase::emergency_alarm(bool /*on*/)
 //==============================================================================
 void RequestLift::ActivePhase::cancel()
 {
-  // TODO: implement
+  _cancelled.get_subscriber().on_next(true);
 }
 
 //==============================================================================
@@ -152,7 +152,31 @@ void RequestLift::ActivePhase::_init_obs()
         return false;
       }
       return true;
-    }));
+    }))
+    .take_until(_cancelled.get_observable().filter([](auto b) { return b; }))
+    .concat(rxcpp::observable<>::create<Task::StatusMsg>(
+      [weak = weak_from_this()](const auto& s)
+      {
+        auto me = weak.lock();
+        if (!me)
+          return;
+
+        // FIXME: is this thread-safe?
+        if (!me->_cancelled.get_value())
+          s.on_completed();
+        else
+        {
+          auto transport = me->_context->node();
+          me->_lift_end_phase = RequestLift::ActivePhase::make(
+            me->_context,
+            me->_lift_name,
+            me->_destination,
+            me->_expected_finish,
+            rmf_lift_msgs::msg::LiftRequest::REQUEST_END_SESSION
+          );
+          me->_lift_end_phase->observe().subscribe(s);
+        }
+      }));
 }
 
 //==============================================================================
@@ -160,9 +184,13 @@ Task::StatusMsg RequestLift::ActivePhase::_get_status(
   const rmf_lift_msgs::msg::LiftState::SharedPtr& lift_state)
 {
   using rmf_lift_msgs::msg::LiftState;
+  using rmf_lift_msgs::msg::LiftRequest;
   Task::StatusMsg status{};
   status.state = Task::StatusMsg::STATE_ACTIVE;
-  if (lift_state->current_floor == _destination && lift_state->door_state == LiftState::DOOR_OPEN)
+  if (lift_state->current_floor == _destination &&
+    lift_state->door_state == LiftState::DOOR_OPEN &&
+    (_request_type == LiftRequest::REQUEST_END_SESSION ||
+      lift_state->session_id == _context->requester_id()))
   {
     status.state = Task::StatusMsg::STATE_COMPLETED;
     status.status = "success";
