@@ -475,9 +475,20 @@ void GoToPlace::Active::execute_plan(rmf_traffic::agv::Plan new_plan)
         it->event()->execute(factory);
         while (factory.moving_lift())
         {
+          const auto last_it = it;
           ++it;
           if (!it->event())
           {
+            const double dist =
+                (it->position().block<2,1>(0,0)
+                 - last_it->position().block<2,1>(0,0)).norm();
+
+            if (dist < 0.5)
+            {
+              // We'll assume that this is just a misalignment in the maps
+              continue;
+            }
+
             // TODO(MXG): Figure out how to make this more robust. The current
             // implementation would break if a plan tries to have a robot move
             // itself while the lift is moving between floors.
