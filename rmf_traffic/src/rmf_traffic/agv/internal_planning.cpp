@@ -1622,10 +1622,18 @@ struct DifferentialDriveExpander
   void expand_delay(
     const std::size_t waypoint,
     const NodePtr& parent_node,
-    const Duration delay,
+    Duration delay,
     SearchQueue& queue,
     agv::Graph::Lane::EventPtr event = nullptr)
   {
+    assert(delay >= rmf_traffic::Duration(0));
+    if (delay == rmf_traffic::Duration(0))
+    {
+      // TODO(MXG): This is a bit of a hack to avoid the edgecase of a
+      // single-waypoint trajectory. We might want a more elegant or meaningful
+      // solution than to just make the event last one nano-second.
+      delay = std::chrono::nanoseconds(1);
+    }
     const auto node = make_delay(
       waypoint, parent_node, delay, std::move(event));
 

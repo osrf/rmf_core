@@ -376,7 +376,7 @@ public:
             _context,
             open.lift_name(),
             open.floor_name(),
-            _event_start_time + open.duration(),
+            _event_start_time,
             phases::RequestLift::Located::Outside));
 
     _continuous = true;
@@ -395,6 +395,8 @@ public:
   void execute(const LiftDoorOpen& open) final
   {
     const auto node = _context->node();
+
+    // TODO(MXG): The time calculation here should be considered more carefully.
     _phases.push_back(
           std::make_unique<phases::RequestLift::PendingPhase>(
             _context,
