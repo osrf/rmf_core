@@ -84,6 +84,67 @@ const std::string& EndLiftSession::Active::description() const
 void EndLiftSession::Active::_init_obs()
 {
   using rmf_lift_msgs::msg::LiftRequest;
+  using rmf_lift_msgs::msg::LiftState;
+  _obs = _context->node()->lift_state()
+    .lift<LiftState::SharedPtr>(on_subscribe([weak = weak_from_this()]()
+    {
+      const auto me = weak.lock();
+      if (!me)
+        return;
+
+      me->_publish_session_end();
+      me->_timer = me->_context->node()->create_wall_timer(
+        std::chrono::milliseconds(1000),
+        [weak]()
+        {
+          const auto me = weak.lock();
+          if (!me)
+            return;
+
+          me->_publish_session_end();
+        });
+    }))
+    .map([weak = weak_from_this()](const LiftState::SharedPtr& state)
+    {
+      const auto me = weak.lock();
+      if (!me)
+        return Task::StatusMsg();
+
+      Task::StatusMsg msg;
+      msg.state = Task::StatusMsg::STATE_ACTIVE;
+
+      if (state->lift_name != me->_lift_name)
+        return msg;
+
+      if (state->session_id != me->_context->requester_id())
+      {
+        msg.status = "success";
+        msg.state = Task::StatusMsg::STATE_COMPLETED;
+      }
+
+      return msg;
+    })
+    .lift<Task::StatusMsg>(grab_while_active())
+    .finally([weak = weak_from_this()]()
+    {
+      const auto me = weak.lock();
+      if (!me)
+        return;
+
+      me->_timer.reset();
+    });
+}
+
+//==============================================================================
+void EndLiftSession::Active::_publish_session_end()
+{
+  rmf_lift_msgs::msg::LiftRequest msg;
+  msg.lift_name = _lift_name;
+  msg.destination_floor = _destination;
+  msg.request_type = rmf_lift_msgs::msg::LiftRequest::REQUEST_END_SESSION;
+  msg.session_id = _context->requester_id();
+
+  _context->node()->lift_request()->publish(msg);
 }
 
 //==============================================================================

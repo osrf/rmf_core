@@ -521,7 +521,6 @@ void GoToPlace::Active::execute_plan(rmf_traffic::agv::Plan new_plan)
   }
 
 
-
   _subtasks = Task::make(
         _description, std::move(sub_phases), _context->worker());
 
