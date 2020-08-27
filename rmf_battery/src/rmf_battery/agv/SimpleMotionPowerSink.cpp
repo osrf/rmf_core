@@ -15,8 +15,7 @@
  *
 */
 
-#include <rmf_battery/agv/SimpleBatteryEstimator.hpp>
-#include <rmf_battery/agv/SystemTraits.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
 
 #include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/Time.hpp>
@@ -29,32 +28,36 @@
 namespace rmf_battery {
 namespace agv {
 
-class SimpleBatteryEstimator::Implementation
+class SimpleMotionPowerSink::Implementation
 {
 public:
-  SystemTraits system_traits;
+  BatterySystem battery_system;
+  MechanicalSystem mechanical_system;
 };
 
-SimpleBatteryEstimator::SimpleBatteryEstimator(
-  SystemTraits& system_traits)
+//==============================================================================
+SimpleMotionPowerSink::SimpleMotionPowerSink(
+  BatterySystem& battery_system,
+  MechanicalSystem& mechanical_system)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{system_traits}))
+      Implementation{battery_system, mechanical_system}))
 {
   // Do nothing
 }
 
-auto SimpleBatteryEstimator::system_traits(const SystemTraits system_traits)
--> SimpleBatteryEstimator&
+//==============================================================================
+const BatterySystem& SimpleMotionPowerSink::battery_system() const
 {
-  _pimpl->system_traits = std::move(system_traits);
-  return *this;
+  return _pimpl->battery_system;
 }
 
-const SystemTraits SimpleBatteryEstimator::system_traits() const
+//==============================================================================
+const MechanicalSystem& SimpleMotionPowerSink::mechanical_system() const
 {
-  return _pimpl->system_traits;
+  return _pimpl->mechanical_system;
 }
 
+//==============================================================================
 namespace {
 
 double compute_friction_energy(
@@ -68,23 +71,19 @@ double compute_friction_energy(
 }
 
 } // namespace anonymous
-double SimpleBatteryEstimator::compute_state_of_charge(
-  const rmf_traffic::Trajectory& trajectory,
-  const double initial_soc,
-  rmf_utils::optional<PowerMap> power_map) const
-{
-  assert(_pimpl->system_traits.valid());
 
-  double battery_soc = initial_soc;
-  double nominal_capacity =
-    _pimpl->system_traits.battery_system().nominal_capacity();
-  double nominal_voltage =
-    _pimpl->system_traits.battery_system().nominal_voltage();
-  const double mass = _pimpl->system_traits.mechanical_system().mass();
-  const double inertia = _pimpl->system_traits.mechanical_system().inertia();
-  const double friction =
-    _pimpl->system_traits.mechanical_system().friction_coefficient();
-  const auto& power_systems = _pimpl->system_traits.power_systems();
+//==============================================================================
+double SimpleMotionPowerSink::compute_change_in_charge(
+  const rmf_traffic::Trajectory& trajectory) const
+{
+  assert(_pimpl->battery_system.valid());
+  assert(_pimpl->mechanical_system.valid());
+
+  const double nominal_capacity = _pimpl->battery_system.nominal_capacity();
+  const double nominal_voltage = _pimpl->battery_system.nominal_voltage();
+  const double mass = _pimpl->mechanical_system.mass();
+  const double inertia = _pimpl->mechanical_system.inertia();
+  const double friction = _pimpl->mechanical_system.friction_coefficient();
 
   auto begin_it = trajectory.begin();
   auto end_it = --trajectory.end();
@@ -96,6 +95,7 @@ double SimpleBatteryEstimator::compute_state_of_charge(
 
   const double sim_step = 0.1; // seconds
 
+  // Change in energy
   double dE = 0.0;
 
   // TODO explore analytical solutions as opposed to numerical integration
@@ -117,28 +117,14 @@ double SimpleBatteryEstimator::compute_state_of_charge(
     // Loss through friction
     const double EF = compute_friction_energy(friction, mass, v, sim_step);
 
-    double EP = 0.0;
-    // Loss through power systems
-    if (power_map.has_value())
-    {
-      for (const auto& item : power_map.value())
-      {
-        if (item.second.find(sim_time) != item.second.end())
-        {
-          const auto it = power_systems.find(item.first);
-          assert(it != power_systems.end());
-          EP += it->second.nominal_power() * sim_step;
-        }
-      }
-    }
-    dE += EA + EF + EP;
+    dE += EA + EF;
   }
 
-  // Computing the charge consumed
+  // The charge consumed
   const double dQ = dE / nominal_voltage;
-  battery_soc -= dQ / (nominal_capacity * 3600);
-
-  return battery_soc;
+  // The depleted state of charge
+  const double dSOC = dQ / (nominal_capacity * 3600.0);
+  return dSOC;
 }
 
 } // namespace agv

@@ -15,44 +15,47 @@
  *
 */
 
-#include <rmf_battery/agv/SimpleBatteryEstimator.hpp>
-#include <rmf_battery/agv/SystemTraits.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/agv/MechanicalSystem.hpp>
+#include <rmf_battery/agv/PowerSystem.hpp>
+
 
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/agv/Interpolate.hpp>
-#include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/Time.hpp>
 
 #include <rmf_utils/catch.hpp>
 
 #include <iostream>
 
-SCENARIO("Test SimpleBatteryEstimator with RobotA")
+SCENARIO("Test battery drain with RobotA")
 {
-  using SystemTraits = rmf_battery::agv::SystemTraits;
-  using SimpleBatteryEstimator = rmf_battery::agv::SimpleBatteryEstimator;
-  using PowerMap = rmf_battery::EstimateBattery::PowerMap;
+  using BatterySystem = rmf_battery::agv::BatterySystem;
+  using MechanicalSystem = rmf_battery::agv::MechanicalSystem;
+  using PowerSystem = rmf_battery::agv::PowerSystem;
+  using SimpleMotionPowerSink = rmf_battery::agv::SimpleMotionPowerSink;
+  using SimpleDevicePowerSink = rmf_battery::agv::SimpleDevicePowerSink;
   using namespace std::chrono_literals;
 
   // Initializing system traits
-  SystemTraits::BatterySystem battery_system{12, 24, 2};
+  BatterySystem battery_system{12, 24, 2};
   REQUIRE(battery_system.valid());
-  SystemTraits::MechanicalSystem mechanical_system{20, 10, 0.3};
+  MechanicalSystem mechanical_system{20, 10, 0.3};
   REQUIRE(mechanical_system.valid());
-  SystemTraits::PowerSystem power_system_1{"processor", 10, 5};
+  PowerSystem power_system_1{"processor", 10};
   REQUIRE(power_system_1.valid());
-  SystemTraits::PowerSystems power_systems;
-  power_systems.insert({power_system_1.name(), power_system_1});
-  SystemTraits system_traits{
-    mechanical_system, battery_system, power_systems};
-  REQUIRE(system_traits.valid());
-
-  auto battery_estimator = SimpleBatteryEstimator{system_traits};
+  SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
+  SimpleDevicePowerSink device_power_sink{battery_system, power_system_1};
+  
 
   // Initializing vehicle traits
   const rmf_traffic::agv::VehicleTraits traits(
     {0.7, 0.5}, {0.3, 0.25}, {nullptr, nullptr});
+
+  const double initial_soc = 1.0;
 
   WHEN("Robot moves 100m along a straight line")
   {
@@ -64,13 +67,14 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-    rmf_utils::optional<PowerMap> power_map = PowerMap();
-    power_map.value().insert({"processor", trajectory});
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    auto remaining_soc = battery_estimator.compute_state_of_charge(
-      trajectory, 1.0, power_map);
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
     CHECK(ok);
   }
@@ -85,13 +89,14 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-    rmf_utils::optional<PowerMap> power_map = PowerMap();
-    power_map.value().insert({"processor", trajectory});
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    auto remaining_soc = battery_estimator.compute_state_of_charge(
-      trajectory, 1.0, power_map);
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1 && remaining_soc < 0.05;
     CHECK(ok);
   }
@@ -99,29 +104,28 @@ SCENARIO("Test SimpleBatteryEstimator with RobotA")
 
 SCENARIO("Test SimpleBatteryEstimator with RobotB")
 {
-  using SystemTraits = rmf_battery::agv::SystemTraits;
-  using SimpleBatteryEstimator = rmf_battery::agv::SimpleBatteryEstimator;
-  using PowerMap = rmf_battery::EstimateBattery::PowerMap;
+  using BatterySystem = rmf_battery::agv::BatterySystem;
+  using MechanicalSystem = rmf_battery::agv::MechanicalSystem;
+  using PowerSystem = rmf_battery::agv::PowerSystem;
+  using SimpleMotionPowerSink = rmf_battery::agv::SimpleMotionPowerSink;
+  using SimpleDevicePowerSink = rmf_battery::agv::SimpleDevicePowerSink;
   using namespace std::chrono_literals;
 
   // Initializing system traits
-  SystemTraits::BatterySystem battery_system{24, 40, 2};
+  BatterySystem battery_system{24, 40, 2};
   REQUIRE(battery_system.valid());
-  SystemTraits::MechanicalSystem mechanical_system{70, 40, 0.22};
+  MechanicalSystem mechanical_system{70, 40, 0.22};
   REQUIRE(mechanical_system.valid());
-  SystemTraits::PowerSystem power_system_1{"processor", 20, 5};
+  PowerSystem power_system_1{"processor", 20};
   REQUIRE(power_system_1.valid());
-  SystemTraits::PowerSystems power_systems;
-  power_systems.insert({power_system_1.name(), power_system_1});
-  SystemTraits system_traits{
-    mechanical_system, battery_system, power_systems};
-  REQUIRE(system_traits.valid());
-
-  auto battery_estimator = SimpleBatteryEstimator{system_traits};
-
+  SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
+  SimpleDevicePowerSink device_power_sink{battery_system, power_system_1};
+  
   // Initializing vehicle traits
   const rmf_traffic::agv::VehicleTraits traits(
     {1.0, 0.7}, {0.6, 0.5}, {nullptr, nullptr});
+
+  const double initial_soc = 1.0;
 
   WHEN("Robot moves 100m along a straight line")
   {
@@ -133,13 +137,14 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-    rmf_utils::optional<PowerMap> power_map = PowerMap();
-    power_map.value().insert({"processor", trajectory});
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    auto remaining_soc = battery_estimator.compute_state_of_charge(
-      trajectory, 1.0, power_map);
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.98 && remaining_soc < 1.0;
     CHECK(ok);
   }
@@ -154,13 +159,14 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-    rmf_utils::optional<PowerMap> power_map = PowerMap();
-    power_map.value().insert({"processor", trajectory});
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    auto remaining_soc = battery_estimator.compute_state_of_charge(
-      trajectory, 1.0, power_map);
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1.0 && remaining_soc < 0.10;
     CHECK(ok);
   }
@@ -175,13 +181,14 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-    rmf_utils::optional<PowerMap> power_map = PowerMap();
-    power_map.value().insert({"processor", trajectory});
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    auto remaining_soc = battery_estimator.compute_state_of_charge(
-      trajectory, 1.0, power_map);
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1.0 && remaining_soc < 0.10;
     CHECK(ok);
   }
@@ -199,13 +206,14 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     rmf_traffic::Trajectory trajectory =
       rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
 
-    rmf_utils::optional<PowerMap> power_map = PowerMap();
-    power_map.value().insert({"processor", trajectory});
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    auto remaining_soc = battery_estimator.compute_state_of_charge(
-      trajectory, 1.0, power_map);
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
   }
 
   WHEN("Testing turning on a spot")
@@ -222,13 +230,14 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
       {0, 0, 0});
     REQUIRE(trajectory.size() == 2);
 
-    rmf_utils::optional<PowerMap> power_map = PowerMap();
-    power_map.value().insert({"processor", trajectory});
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    auto remaining_soc = battery_estimator.compute_state_of_charge(
-      trajectory, 1.0, power_map);
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
     CHECK(ok);
   }

@@ -15,25 +15,24 @@
  *
 */
 
-#include <rmf_battery/agv/SystemTraits.hpp>
+#include <rmf_battery/agv/PowerSystem.hpp>
 
 #include <rmf_utils/catch.hpp>
 
 SCENARIO("Test PowerSystem")
 {
-  rmf_battery::agv::SystemTraits::PowerSystem power_system(
-    "cleaning_system", 60, 12);
+  rmf_battery::agv::PowerSystem power_system(
+    "cleaning_system", 60);
   REQUIRE(power_system.name() == "cleaning_system");
   REQUIRE(power_system.nominal_power() - 60 == Approx(0.0));
-  REQUIRE(power_system.nominal_voltage() - 12 == Approx(0.0));
   REQUIRE(power_system.efficiency() - 1.0 == Approx(0.0));
   REQUIRE(power_system.valid());
+  
   WHEN("Name is set")
   {
     power_system.name("vacuuming_system");
     CHECK(power_system.name() == "vacuuming_system");
     CHECK(power_system.nominal_power() - 60 == Approx(0.0));
-    CHECK(power_system.nominal_voltage() - 12 == Approx(0.0));
     CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
     CHECK(power_system.valid());
   }
@@ -41,53 +40,20 @@ SCENARIO("Test PowerSystem")
   {
     power_system.nominal_power(80);
     CHECK(power_system.nominal_power() - 80 == Approx(0.0));
-    CHECK(power_system.nominal_voltage() - 12 == Approx(0.0));
     CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
     CHECK(power_system.valid());
   }
-  WHEN("Nominal voltage is set")
-  {
-    power_system.nominal_voltage(24);
-    CHECK(power_system.nominal_voltage() - 24 == Approx(0.0));
-    CHECK(power_system.nominal_power() - 60 == Approx(0.0));
-    CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
-    CHECK(power_system.valid());
-  }
+
   WHEN("Efficiency is set")
   {
     power_system.efficiency(0.80);
-    CHECK(power_system.nominal_voltage() - 12 == Approx(0.0));
     CHECK(power_system.nominal_power() - 60 == Approx(0.0));
     CHECK(power_system.efficiency() - 0.80 == Approx(0.0));
     CHECK(power_system.valid());
   }
   WHEN("A property is negative")
   {
-    power_system.nominal_voltage(-12);
+    power_system.nominal_power(-12);
     CHECK_FALSE(power_system.valid());
   }
-}
-
-SCENARIO("Test SystemTraits")
-{
-  using SystemTraits = rmf_battery::agv::SystemTraits;
-  SystemTraits::BatterySystem battery_system{12, 10, 2};
-  REQUIRE(battery_system.valid());
-  SystemTraits::MechanicalSystem mechanical_system{60, 10, 0.3};
-  REQUIRE(mechanical_system.valid());
-  SystemTraits::PowerSystem power_system{"cleaning_system", 100, 24};
-  REQUIRE(power_system.valid());
-  SystemTraits::PowerSystems power_systems;
-  power_systems.insert({power_system.name(), power_system});
-  SystemTraits system_traits{
-    mechanical_system, battery_system, power_systems};
-  REQUIRE(system_traits.valid());
-
-  // TODO(YV): Tests for getters and setters
-  WHEN("Getting power systems")
-  {
-    const auto& power_systems = system_traits.power_systems();
-    CHECK(power_systems.size() > 0);
-  }
-
 }
