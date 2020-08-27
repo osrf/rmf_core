@@ -1796,9 +1796,10 @@ public:
   {
     DoorOpen,
     DoorClose,
-    LiftDoorOpen,
-    LiftDoorClose,
+    LiftSessionBegin,
+    LiftSessionEnd,
     LiftMove,
+    LiftDoorOpen,
     Dock,
     Wait
   };
@@ -1822,19 +1823,24 @@ public:
     _result = _expectation == DoorClose;
   }
 
-  void execute(const Lane::LiftDoorOpen&) final
+  void execute(const Lane::LiftSessionBegin&) final
   {
-    _result = _expectation == LiftDoorOpen;
+    _result = _expectation == LiftSessionBegin;
   }
 
-  void execute(const Lane::LiftDoorClose&) final
+  void execute(const Lane::LiftSessionEnd&) final
   {
-    _result = _expectation == LiftDoorClose;
+    _result = _expectation == LiftSessionEnd;
   }
 
   void execute(const Lane::LiftMove&) final
   {
     _result = _expectation == LiftMove;
+  }
+
+  void execute(const Lane::LiftDoorOpen&) final
+  {
+    _result = _expectation == LiftDoorOpen;
   }
 
   void execute(const Lane::Dock&) final
@@ -2565,7 +2571,8 @@ SCENARIO("Multilevel Planning")
   GIVEN("Graph with Lift")
   {
     using Event = Graph::Lane::Event;
-    using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
+    using LiftSessionBegin = Graph::Lane::LiftSessionBegin;
+    using LiftSessionEnd = Graph::Lane::LiftSessionEnd;
     Graph graph;
     graph.add_waypoint("L1", {-5, 0}); // 0
     graph.add_waypoint("L1", {0, 0}); // 1
@@ -2574,13 +2581,13 @@ SCENARIO("Multilevel Planning")
     REQUIRE(graph.num_waypoints() == 4);
 
     graph.add_lane(
-      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 1);
+      {0, Event::make(LiftSessionBegin("Lift1", "L1", 4s))}, 1);
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 0);
+      {1, Event::make(LiftSessionEnd("Lift1", "L1", 4s))}, 0);
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 2);
+      {1, Event::make(LiftSessionBegin("Lift1", "L2", 4s))}, 2);
     graph.add_lane(
-      {2, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 1);
+      {2, Event::make(LiftSessionEnd("Lift1", "L2", 4s))}, 1);
     graph.add_lane(2, 3);
     graph.add_lane(3, 2);
     REQUIRE(graph.num_lanes() == 6);
@@ -2597,7 +2604,7 @@ SCENARIO("Multilevel Planning")
     REQUIRE(plan.success());
     CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
     CHECK(count_events(*plan) == 2);
-    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
+    CHECK(has_event(ExpectEvent::LiftSessionBegin, *plan));
   }
 }
 

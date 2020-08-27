@@ -53,7 +53,8 @@ rmf_traffic::agv::Graph parse_graph(
   using Event = Lane::Event;
 
   rmf_traffic::agv::Graph graph;
-  std::unordered_map<std::string, std::vector<std::size_t>> lift_wps;
+  std::unordered_map<std::string, std::vector<std::size_t>> wps_of_lift;
+  std::unordered_map<std::size_t, std::string> lift_of_wp;
   std::size_t vnum = 0;  // To increment lane endpoint ids
 
   for (const auto& level : levels)
@@ -115,7 +116,10 @@ rmf_traffic::agv::Graph parse_graph(
       {
         const std::string lift_name = lift_option.as<std::string>();
         if (lift_name != "")
-          lift_wps[lift_name].push_back(wp.index());
+        {
+          wps_of_lift[lift_name].push_back(wp.index());
+          lift_of_wp[wp.index()] = lift_name;
+        }
       }
     }
 
@@ -160,42 +164,57 @@ rmf_traffic::agv::Graph parse_graph(
       std::size_t begin = lane[0].as<std::size_t>() + vnum;
       std::size_t end = lane[1].as<std::size_t>() + vnum;
 
-      bool is_lift = false;
-      bool begin_in_lift, end_in_lift;
+      const auto lift_of_begin = lift_of_wp.find(begin);
+      const auto lift_of_end = lift_of_wp.find(end);
 
-      for (auto& lift : lift_wps)
+      const bool begin_in_lift = lift_of_begin != lift_of_wp.end();
+      const bool end_in_lift = lift_of_end != lift_of_wp.end();
+
+      const bool is_lift = begin_in_lift || end_in_lift;
+      if (is_lift)
       {
-        auto wps = lift.second;
-        begin_in_lift = (std::find(wps.begin(), wps.end(), begin) != wps.end());
-        end_in_lift = (std::find(wps.begin(), wps.end(), end) != wps.end());
-        // Exiting lift
-        if (begin_in_lift && !end_in_lift)
+        const rmf_traffic::Duration duration = std::chrono::seconds(4);
+        if (!begin_in_lift && end_in_lift)
         {
-          const rmf_traffic::Duration duration = std::chrono::seconds(4);
+          // Entering lift
+          const std::string& lift_name = lift_of_end->second;
           entry_event = Event::make(
-            Lane::LiftDoorOpen(lift.first, map_name, duration));
-          exit_event = Event::make(
-            Lane::LiftDoorClose(lift.first, map_name, duration));
-          is_lift = true;
-          break;
+                Lane::LiftSessionBegin(lift_name, map_name, duration));
         }
-
-        // Entering lift
-        else if (end_in_lift && !begin_in_lift)
+        else if (begin_in_lift && end_in_lift)
         {
-          const rmf_traffic::Duration duration = std::chrono::seconds(4);
+          if (lift_of_begin->second != lift_of_end->second)
+          {
+            // If these are two lift waypoints on the same floor, then they
+            // should be inside the same lift
+            throw std::runtime_error(
+              "Inconsistency in building map. Map [" + map_name + "] has two "
+              "connected waypoints [" + std::to_string(begin) + " -> "
+              + std::to_string(end) + "] that are in different lifts ["
+              + lift_of_begin->second + " -> " + lift_of_end->second
+              + "]. This is not supported!");
+          }
+
+          // If we make it here, then both waypoints are inside the same lift,
+          // so we don't need any event for the robots to move between these
+          // waypoints.
+        }
+        else if (begin_in_lift && !end_in_lift)
+        {
+          // Exiting lift
+          const std::string& lift_name = lift_of_begin->second;
           entry_event = Event::make(
-            Lane::LiftDoorOpen(lift.first, map_name, duration));
-          is_lift = true;
-          break;
+                Lane::LiftDoorOpen(lift_name, map_name, duration));
+          exit_event = Event::make(
+                Lane::LiftSessionEnd(lift_name, map_name,
+                                     rmf_traffic::Duration(0)));
         }
       }
-
-      if (!is_lift)
+      else
       {
         if (const YAML::Node mock_lift_option = options["demo_mock_floor_name"])
         {
-          // NOTE: This is specifically for cases where users want to have a 
+          // NOTE: This is specifically for cases where users want to have a
           // mock lift in the map. It should not be used for real lifts.
           const std::string floor_name = mock_lift_option.as<std::string>();
           const YAML::Node lift_name_option = options["demo_mock_lift_name"];
@@ -207,12 +226,19 @@ rmf_traffic::agv::Graph parse_graph(
               "mock lifts");
           }
 
+          // TODO(MXG): This implementation is not air tight. After a robot has
+          // entered the lift, a second robot could start a new lift session,
+          // which would cause problems for the robot that's in the lift.
+          //
+          // We will need to rework this implementation if we ever need to do
+          // a demo where multiple robots negotiate the use of a mock lift.
           const std::string lift_name = lift_name_option.as<std::string>();
           const rmf_traffic::Duration duration = std::chrono::seconds(4);
           entry_event = Event::make(
-            Lane::LiftDoorOpen(lift_name, floor_name, duration));
+            Lane::LiftSessionBegin(lift_name, floor_name, duration));
           exit_event = Event::make(
-            Lane::LiftDoorClose(lift_name, floor_name, duration));
+            Lane::LiftSessionEnd(lift_name, floor_name,
+                                 rmf_traffic::Duration(0)));
         }
         else if (const YAML::Node door_name_option = options["door_name"])
         {
@@ -247,12 +273,11 @@ rmf_traffic::agv::Graph parse_graph(
     vnum += vnum_temp;
   }
 
-  for (const auto& lift : lift_wps)
+  for (const auto& lift : wps_of_lift)
   {
     const auto& wps = lift.second;
     for (std::size_t i = 0; i < wps.size()-1; i++)
     {
-      ConstraintPtr constraint = nullptr;
       rmf_utils::clone_ptr<Event> entry_event;
       rmf_utils::clone_ptr<Event> exit_event;
       const rmf_traffic::Duration duration = std::chrono::seconds(1);
@@ -261,13 +286,13 @@ rmf_traffic::agv::Graph parse_graph(
         lift.first, graph.get_waypoint(wps[i+1]).get_map_name(), duration));
       graph.add_lane(
         {wps[i], entry_event},
-        {wps[i+1], exit_event, constraint});
+        {wps[i+1], exit_event});
 
       entry_event = Event::make(Lane::LiftMove(
         lift.first, graph.get_waypoint(wps[i]).get_map_name(), duration));
       graph.add_lane(
         {wps[i+1], entry_event},
-        {wps[i], exit_event, constraint});
+        {wps[i], exit_event});
     }
   }
 

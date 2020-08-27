@@ -703,16 +703,22 @@ struct DifferentialDriveExpander
       _event = agv::Graph::Lane::Event::make(close);
     }
 
-    void execute(const agv::Graph::Lane::LiftDoorOpen& open) final
+    void execute(const agv::Graph::Lane::LiftSessionBegin& open) final
     {
       assert(_parent);
       _event = agv::Graph::Lane::Event::make(open);
     }
 
-    void execute(const agv::Graph::Lane::LiftDoorClose& close) final
+    void execute(const agv::Graph::Lane::LiftSessionEnd& close) final
     {
       assert(_parent);
       _event = agv::Graph::Lane::Event::make(close);
+    }
+
+    void execute(const LiftDoorOpen& open) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(open);
     }
 
     void execute(const agv::Graph::Lane::LiftMove& move) final
