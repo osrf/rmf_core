@@ -2468,11 +2468,11 @@ SCENARIO("Multilevel Planning", "[debug]")
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
   using Event = Graph::Lane::Event;
-  using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
-  using LiftDoorClose = Graph::Lane::LiftDoorClose;
   using LiftMove = Graph::Lane::LiftMove;
   using DoorOpen = Graph::Lane::DoorOpen;
   using DoorClose = Graph::Lane::DoorClose;
+  using LiftSessionBegin = Graph::Lane::LiftSessionBegin;
+  using LiftSessionEnd = Graph::Lane::LiftSessionEnd;
 
   const std::string lift_name = "Lift1";
   const std::string L1 = "L1";
@@ -2588,8 +2588,6 @@ SCENARIO("Multilevel Planning", "[debug]")
 
   GIVEN("Graph with Lift")
   {
-    using LiftSessionBegin = Graph::Lane::LiftSessionBegin;
-    using LiftSessionEnd = Graph::Lane::LiftSessionEnd;
     Graph graph;
     graph.add_waypoint(L1, {-5, 0}); // 0
     graph.add_waypoint(L1, {0, 0}); // 1
@@ -2616,7 +2614,7 @@ SCENARIO("Multilevel Planning", "[debug]")
 
     // Exit the lift at L1
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen(lift_name, L1, 4s))},
+      {1, Event::make(LiftSessionBegin(lift_name, L1, 4s))},
       {0, Event::make(LiftSessionEnd(lift_name, L1, 4s))});
 
     // Move from L1 to L2
@@ -2629,7 +2627,7 @@ SCENARIO("Multilevel Planning", "[debug]")
 
     // Exit the lift at L2
     graph.add_lane(
-      {2, Event::make(LiftDoorOpen(lift_name, L2, 4s))},
+      {2, Event::make(LiftSessionBegin(lift_name, L2, 4s))},
       {3, Event::make(LiftSessionEnd(lift_name, L2, 4s))});
 
     // Enter the lift at L2
@@ -2646,7 +2644,7 @@ SCENARIO("Multilevel Planning", "[debug]")
 
     // Exit the lift at L3
     graph.add_lane(
-      {4, Event::make(LiftDoorOpen(lift_name, L3, 4s))},
+      {4, Event::make(LiftSessionBegin(lift_name, L3, 4s))},
       {5, Event::make(LiftSessionEnd(lift_name, L3, 4s))});
 
     // Enter the lift at L3
@@ -2681,15 +2679,15 @@ SCENARIO("Multilevel Planning", "[debug]")
     REQUIRE(graph.num_waypoints() == 5);
 
     graph.add_lane(
-      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 1);
+      {0, Event::make(LiftSessionBegin("Lift1", "L1", 4s))}, 1);
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
-      {0, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+      {1, Event::make(LiftSessionBegin("Lift1", "L1", 4s))},
+      {0, Event::make(LiftSessionEnd("Lift1", "L1", 4s))});
     graph.add_lane(
-      {3, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 2);
+      {3, Event::make(LiftSessionBegin("Lift1", "L2", 4s))}, 2);
     graph.add_lane(
-      {2, Event::make(LiftDoorOpen("Lift1", "L2", 4s))},
-      {3, Event::make(LiftDoorClose("Lift1", "L2", 4s))});
+      {2, Event::make(LiftSessionBegin("Lift1", "L2", 4s))},
+      {3, Event::make(LiftSessionEnd("Lift1", "L2", 4s))});
     graph.add_lane(
       {1, Event::make(LiftMove("Lift1", "L2", 4s))}, 2);
     graph.add_lane(
@@ -2714,8 +2712,8 @@ SCENARIO("Multilevel Planning", "[debug]")
     REQUIRE(plan.success());
     CHECK_PLAN(plan, {-5, 0}, 0.0, {-10, 0}, {0, 1, 2, 3, 4});
     CHECK(count_events(*plan) == 6);
-    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
-    CHECK(has_event(ExpectEvent::LiftDoorClose, *plan));
+    CHECK(has_event(ExpectEvent::LiftSessionBegin, *plan));
+    CHECK(has_event(ExpectEvent::LiftSessionEnd, *plan));
     CHECK(has_event(ExpectEvent::LiftMove, *plan));
     CHECK(has_event(ExpectEvent::DoorOpen, *plan));
     CHECK(has_event(ExpectEvent::DoorClose, *plan));
@@ -2730,10 +2728,10 @@ SCENARIO("Adjacent entry and exit events")
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
   using Event = Graph::Lane::Event;
-  using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
-  using LiftDoorClose = Graph::Lane::LiftDoorClose;
   using DoorOpen = Graph::Lane::DoorOpen;
   using DoorClose = Graph::Lane::DoorClose;
+  using LiftSessionBegin = Graph::Lane::LiftSessionBegin;
+  using LiftSessionEnd = Graph::Lane::LiftSessionEnd;
 
   const VehicleTraits traits{
     {1.0, 0.4},
@@ -2757,11 +2755,11 @@ SCENARIO("Adjacent entry and exit events")
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(
-      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
-      {1, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+      {0, Event::make(LiftSessionBegin("Lift1", "L1", 4s))},
+      {1, Event::make(LiftSessionEnd("Lift1", "L1", 4s))});
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
-      {0, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+      {1, Event::make(LiftSessionBegin("Lift1", "L1", 4s))},
+      {0, Event::make(LiftSessionEnd("Lift1", "L1", 4s))});
     graph.add_lane(
       {1, Event::make(DoorOpen("door1", 4s))},
       {2, Event::make(DoorClose("door1", 4s))});
@@ -2782,8 +2780,8 @@ SCENARIO("Adjacent entry and exit events")
     REQUIRE(plan.success());
     CHECK_PLAN(plan, {-5, 0}, 0.0, {0, 5}, {0, 1, 2});
     CHECK(count_events(*plan) == 4);
-    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
-    CHECK(has_event(ExpectEvent::LiftDoorClose, *plan));
+    CHECK(has_event(ExpectEvent::LiftSessionBegin, *plan));
+    CHECK(has_event(ExpectEvent::LiftSessionEnd, *plan));
     CHECK(has_event(ExpectEvent::DoorOpen, *plan));
     CHECK(has_event(ExpectEvent::DoorClose, *plan));
   }
@@ -2797,11 +2795,11 @@ SCENARIO("Adjacent entry and exit events")
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(
-      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
-      {1, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+      {0, Event::make(LiftSessionBegin("Lift1", "L1", 4s))},
+      {1, Event::make(LiftSessionEnd("Lift1", "L1", 4s))});
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))},
-      {0, Event::make(LiftDoorClose("Lift1", "L1", 4s))});
+      {1, Event::make(LiftSessionBegin("Lift1", "L1", 4s))},
+      {0, Event::make(LiftSessionEnd("Lift1", "L1", 4s))});
     graph.add_lane(
       {1, Event::make(DoorOpen("door1", 4s))},
       {2, Event::make(DoorClose("door1", 4s))});
@@ -2822,8 +2820,8 @@ SCENARIO("Adjacent entry and exit events")
     REQUIRE(plan.success());
     CHECK_PLAN(plan, {-5, 0}, 0.0, {5, 0}, {0, 1, 2});
     CHECK(count_events(*plan) == 4);
-    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
-    CHECK(has_event(ExpectEvent::LiftDoorClose, *plan));
+    CHECK(has_event(ExpectEvent::LiftSessionBegin, *plan));
+    CHECK(has_event(ExpectEvent::LiftSessionEnd, *plan));
     CHECK(has_event(ExpectEvent::DoorOpen, *plan));
     CHECK(has_event(ExpectEvent::DoorClose, *plan));
   }
