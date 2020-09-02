@@ -16,6 +16,7 @@
 */
 
 #include "RequestLift.hpp"
+#include "EndLiftSession.hpp"
 #include "RxOperators.hpp"
 
 namespace rmf_fleet_adapter {
@@ -27,7 +28,7 @@ std::shared_ptr<RequestLift::ActivePhase> RequestLift::ActivePhase::make(
   std::string lift_name,
   std::string destination,
   rmf_traffic::Time expected_finish,
-  uint8_t request_type)
+  const Located located)
 {
   auto inst = std::shared_ptr<ActivePhase>(
     new ActivePhase(
@@ -35,7 +36,7 @@ std::shared_ptr<RequestLift::ActivePhase> RequestLift::ActivePhase::make(
       std::move(lift_name),
       std::move(destination),
       std::move(expected_finish),
-      std::move(request_type)
+      located
   ));
   inst->_init_obs();
   return inst;
@@ -78,15 +79,15 @@ RequestLift::ActivePhase::ActivePhase(
   std::string lift_name,
   std::string destination,
   rmf_traffic::Time expected_finish,
-  uint8_t request_type)
+  Located located)
   : _context(std::move(context)),
     _lift_name(std::move(lift_name)),
     _destination(std::move(destination)),
     _expected_finish(std::move(expected_finish)),
-    _request_type(std::move(request_type))
+    _located(located)
 {
   std::ostringstream oss;
-  oss << "Requesting lift \"" << lift_name << "\" to \"" << destination << "\"";
+  oss << "Requesting lift [" << lift_name << "] to [" << destination << "]";
 
   _description = oss.str();
 }
@@ -162,18 +163,18 @@ void RequestLift::ActivePhase::_init_obs()
           return;
 
         // FIXME: is this thread-safe?
-        if (!me->_cancelled.get_value())
+        if (!me->_cancelled.get_value() || me->_located == Located::Inside)
+        {
           s.on_completed();
-        else
+        }
+        else if (me->_located == Located::Outside)
         {
           auto transport = me->_context->node();
-          me->_lift_end_phase = RequestLift::ActivePhase::make(
+          me->_lift_end_phase = EndLiftSession::Active::make(
             me->_context,
             me->_lift_name,
-            me->_destination,
-            me->_expected_finish,
-            rmf_lift_msgs::msg::LiftRequest::REQUEST_END_SESSION
-          );
+            me->_destination);
+
           me->_lift_end_phase->observe().subscribe(s);
         }
       }));
@@ -188,9 +189,8 @@ Task::StatusMsg RequestLift::ActivePhase::_get_status(
   Task::StatusMsg status{};
   status.state = Task::StatusMsg::STATE_ACTIVE;
   if (lift_state->current_floor == _destination &&
-    lift_state->door_state == LiftState::DOOR_OPEN &&
-    (_request_type == LiftRequest::REQUEST_END_SESSION ||
-      lift_state->session_id == _context->requester_id()))
+      lift_state->door_state == LiftState::DOOR_OPEN &&
+      lift_state->session_id == _context->requester_id())
   {
     status.state = Task::StatusMsg::STATE_COMPLETED;
     status.status = "success";
@@ -207,7 +207,7 @@ void RequestLift::ActivePhase::_do_publish()
   msg.destination_floor = _destination;
   msg.session_id = _context->requester_id();
   msg.request_time = _context->node()->now();
-  msg.request_type = _request_type;
+  msg.request_type = rmf_lift_msgs::msg::LiftRequest::REQUEST_AGV_MODE;
   msg.door_state = rmf_lift_msgs::msg::LiftRequest::DOOR_OPEN;
   _context->node()->lift_request()->publish(msg);
 }
@@ -218,12 +218,12 @@ RequestLift::PendingPhase::PendingPhase(
   std::string lift_name,
   std::string destination,
   rmf_traffic::Time expected_finish,
-  uint8_t request_type)
+  Located located)
   : _context(std::move(context)),
     _lift_name(std::move(lift_name)),
     _destination(std::move(destination)),
     _expected_finish(std::move(expected_finish)),
-    _request_type(std::move(request_type))
+    _located(located)
 {
   std::ostringstream oss;
   oss << "Requesting lift \"" << lift_name << "\" to \"" << destination << "\"";
@@ -239,7 +239,7 @@ std::shared_ptr<Task::ActivePhase> RequestLift::PendingPhase::begin()
     _lift_name,
     _destination,
     _expected_finish,
-    _request_type);
+    _located);
 }
 
 //==============================================================================

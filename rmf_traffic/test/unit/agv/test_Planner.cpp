@@ -346,9 +346,16 @@ inline void CHECK_PLAN(
   plan_indices.resize(std::distance(plan_indices.begin(), ip));
   REQUIRE(plan_indices.size() == wp_indices.size());
   for (const auto& i : plan_indices)
+  {
     CHECK(std::find(
         wp_indices.begin(), wp_indices.end(), i)
       != wp_indices.end());
+  }
+
+  for (const auto& route : plan->get_itinerary())
+  {
+    CHECK(route.trajectory().size() >= 2);
+  }
 }
 // ____________________________________________________________________________
 
@@ -1796,9 +1803,10 @@ public:
   {
     DoorOpen,
     DoorClose,
-    LiftDoorOpen,
-    LiftDoorClose,
+    LiftSessionBegin,
+    LiftSessionEnd,
     LiftMove,
+    LiftDoorOpen,
     Dock,
     Wait
   };
@@ -1822,19 +1830,24 @@ public:
     _result = _expectation == DoorClose;
   }
 
-  void execute(const Lane::LiftDoorOpen&) final
+  void execute(const Lane::LiftSessionBegin&) final
   {
-    _result = _expectation == LiftDoorOpen;
+    _result = _expectation == LiftSessionBegin;
   }
 
-  void execute(const Lane::LiftDoorClose&) final
+  void execute(const Lane::LiftSessionEnd&) final
   {
-    _result = _expectation == LiftDoorClose;
+    _result = _expectation == LiftSessionEnd;
   }
 
   void execute(const Lane::LiftMove&) final
   {
     _result = _expectation == LiftMove;
+  }
+
+  void execute(const Lane::LiftDoorOpen&) final
+  {
+    _result = _expectation == LiftDoorOpen;
   }
 
   void execute(const Lane::Dock&) final
@@ -2447,13 +2460,18 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   }
 }
 
-SCENARIO("Multilevel Planning")
+SCENARIO("Multilevel Planning", "[debug]")
 {
   using namespace std::chrono_literals;
   using rmf_traffic::agv::Graph;
   using VehicleTraits = rmf_traffic::agv::VehicleTraits;
   using Planner = rmf_traffic::agv::Planner;
   using Duration = std::chrono::nanoseconds;
+
+  const std::string lift_name = "Lift1";
+  const std::string L1 = "L1";
+  const std::string L2 = "L2";
+  const std::string L3 = "L3";
 
   const VehicleTraits traits{
     {1.0, 0.4},
@@ -2471,9 +2489,9 @@ SCENARIO("Multilevel Planning")
   GIVEN("Goal waypoint is the first waypoint on the second map")
   {
     Graph graph;
-    graph.add_waypoint("L1", {-5, 0}); // 0
-    graph.add_waypoint("L1", {0, 0}); // 1
-    graph.add_waypoint("L2", {0, -5}); // 2
+    graph.add_waypoint(L1, {-5, 0}); // 0
+    graph.add_waypoint(L1, {0, 0}); // 1
+    graph.add_waypoint(L2, {0, -5}); // 2
     REQUIRE(graph.num_waypoints() == 3);
 
     graph.add_lane(0, 1); // 0
@@ -2498,10 +2516,10 @@ SCENARIO("Multilevel Planning")
   GIVEN("Goal waypoint is the second waypoint on the second map")
   {
     Graph graph;
-    graph.add_waypoint("L1", {-5, 0}); // 0
-    graph.add_waypoint("L1", {0, 0}); // 1
-    graph.add_waypoint("L2", {0, -5}); // 2
-    graph.add_waypoint("L2", {5, -5}); // 3
+    graph.add_waypoint(L1, {-5, 0}); // 0
+    graph.add_waypoint(L1, {0, 0}); // 1
+    graph.add_waypoint(L2, {0, -5}); // 2
+    graph.add_waypoint(L2, {5, -5}); // 3
     REQUIRE(graph.num_waypoints() == 4);
 
     graph.add_lane(0, 1); // 0
@@ -2529,12 +2547,12 @@ SCENARIO("Multilevel Planning")
   {
     // L1 -> L2 -> L3
     Graph graph;
-    graph.add_waypoint("L1", {-5, 0}); // 0
-    graph.add_waypoint("L1", {0, 0}); // 1
-    graph.add_waypoint("L2", {0, -5}); // 2
-    graph.add_waypoint("L2", {5, -5}); // 3
-    graph.add_waypoint("L3", {5, -10}); // 4
-    graph.add_waypoint("L3", {10, -10}); // 5
+    graph.add_waypoint(L1, {-5, 0}); // 0
+    graph.add_waypoint(L1, {0, 0}); // 1
+    graph.add_waypoint(L2, {0, -5}); // 2
+    graph.add_waypoint(L2, {5, -5}); // 3
+    graph.add_waypoint(L3, {5, -10}); // 4
+    graph.add_waypoint(L3, {10, -10}); // 5
     REQUIRE(graph.num_waypoints() == 6);
 
     graph.add_lane(0, 1); // 0
@@ -2565,39 +2583,88 @@ SCENARIO("Multilevel Planning")
   GIVEN("Graph with Lift")
   {
     using Event = Graph::Lane::Event;
+    using LiftSessionBegin = Graph::Lane::LiftSessionBegin;
+    using LiftSessionEnd = Graph::Lane::LiftSessionEnd;
+    using LiftMove = Graph::Lane::LiftMove;
     using LiftDoorOpen = Graph::Lane::LiftDoorOpen;
     Graph graph;
-    graph.add_waypoint("L1", {-5, 0}); // 0
-    graph.add_waypoint("L1", {0, 0}); // 1
-    graph.add_waypoint("L2", {0, -5}); // 2
-    graph.add_waypoint("L2", {5, -5}); // 3
-    REQUIRE(graph.num_waypoints() == 4);
+    graph.add_waypoint(L1, {-5, 0}); // 0
+    graph.add_waypoint(L1, {0, 0}); // 1
 
+    WHEN("Perfect alignment")
+    {
+      graph.add_waypoint(L2, {0, 0}); // 2
+    }
+
+    WHEN("Broken alignment")
+    {
+      graph.add_waypoint(L2, {1.0, 0}); // 2
+    }
+
+    const Eigen::Vector2d p = graph.get_waypoint(2).get_location();
+    graph.add_waypoint(L2, p + Eigen::Vector2d(0, 5)); // 3
+    graph.add_waypoint(L3, p); // 4
+    graph.add_waypoint(L3, {5, 5}); // 5
+    REQUIRE(graph.num_waypoints() == 6);
+
+    // Enter the lift at L1
     graph.add_lane(
-      {0, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 1);
+      {0, Event::make(LiftSessionBegin(lift_name, L1, 4s))}, 1);
+
+    // Exit the lift at L1
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen("Lift1", "L1", 4s))}, 0);
+      {1, Event::make(LiftDoorOpen(lift_name, L1, 4s))},
+      {0, Event::make(LiftSessionEnd(lift_name, L1, 4s))});
+
+    // Move from L1 to L2
     graph.add_lane(
-      {1, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 2);
+      {1, Event::make(LiftMove(lift_name, L2, 4s))}, 2);
+
+    // Move from L2 to L1
     graph.add_lane(
-      {2, Event::make(LiftDoorOpen("Lift1", "L2", 4s))}, 1);
-    graph.add_lane(2, 3);
-    graph.add_lane(3, 2);
-    REQUIRE(graph.num_lanes() == 6);
+      {2, Event::make(LiftMove(lift_name, L1, 4s))}, 1);
+
+    // Exit the lift at L2
+    graph.add_lane(
+      {2, Event::make(LiftDoorOpen(lift_name, L2, 4s))},
+      {3, Event::make(LiftSessionEnd(lift_name, L2, 4s))});
+
+    // Enter the lift at L2
+    graph.add_lane(
+      {3, Event::make(LiftSessionBegin(lift_name, L2, 4s))}, 2);
+
+    // Move from L2 to L3
+    graph.add_lane(
+      {2, Event::make(LiftMove(lift_name, L3, 4s))}, 4);
+
+    // Move from L3 to L2
+    graph.add_lane(
+      {4, Event::make(LiftMove(lift_name, L2, 4s))}, 2);
+
+    // Exit the lift at L3
+    graph.add_lane(
+      {4, Event::make(LiftDoorOpen(lift_name, L3, 4s))},
+      {5, Event::make(LiftSessionEnd(lift_name, L3, 4s))});
+
+    // Enter the lift at L3
+    graph.add_lane(
+      {5, Event::make(LiftSessionBegin(lift_name, L3, 4s))}, 4);
+
+    REQUIRE(graph.num_lanes() == 10);
 
     Planner planner{
       Planner::Configuration{graph, traits},
       default_options};
 
-    // Plan from 0 -> 3
+    // Plan from 0 -> 5
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     const auto start = rmf_traffic::agv::Planner::Start(time, 0, 0.0);
-    const auto goal = rmf_traffic::agv::Planner::Goal(3);
+    const auto goal = rmf_traffic::agv::Planner::Goal(5);
     const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
-    CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
-    CHECK(count_events(*plan) == 2);
-    CHECK(has_event(ExpectEvent::LiftDoorOpen, *plan));
+    CHECK_PLAN(plan, {-5, 0}, 0.0, {5, 5}, {0, 1, 2, 4, 5});
+    CHECK(count_events(*plan) == 5);
+    CHECK(has_event(ExpectEvent::LiftSessionBegin, *plan));
   }
 }
 

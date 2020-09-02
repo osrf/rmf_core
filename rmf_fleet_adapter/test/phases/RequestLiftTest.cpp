@@ -54,7 +54,8 @@ SCENARIO_METHOD(MockAdapterFixture, "request lift phase", "[phases]")
     context,
     lift_name,
     destination,
-    rmf_traffic::Time()
+    rmf_traffic::Time(),
+    RequestLift::Located::Outside
   );
   auto active_phase = pending_phase->begin();
 

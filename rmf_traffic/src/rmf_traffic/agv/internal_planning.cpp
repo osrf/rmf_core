@@ -703,16 +703,22 @@ struct DifferentialDriveExpander
       _event = agv::Graph::Lane::Event::make(close);
     }
 
-    void execute(const agv::Graph::Lane::LiftDoorOpen& open) final
+    void execute(const agv::Graph::Lane::LiftSessionBegin& open) final
     {
       assert(_parent);
       _event = agv::Graph::Lane::Event::make(open);
     }
 
-    void execute(const agv::Graph::Lane::LiftDoorClose& close) final
+    void execute(const agv::Graph::Lane::LiftSessionEnd& close) final
     {
       assert(_parent);
       _event = agv::Graph::Lane::Event::make(close);
+    }
+
+    void execute(const LiftDoorOpen& open) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(open);
     }
 
     void execute(const agv::Graph::Lane::LiftMove& move) final
@@ -1616,10 +1622,18 @@ struct DifferentialDriveExpander
   void expand_delay(
     const std::size_t waypoint,
     const NodePtr& parent_node,
-    const Duration delay,
+    Duration delay,
     SearchQueue& queue,
     agv::Graph::Lane::EventPtr event = nullptr)
   {
+    assert(delay >= rmf_traffic::Duration(0));
+    if (delay == rmf_traffic::Duration(0))
+    {
+      // TODO(MXG): This is a bit of a hack to avoid the edgecase of a
+      // single-waypoint trajectory. We might want a more elegant or meaningful
+      // solution than to just make the event last one nano-second.
+      delay = std::chrono::nanoseconds(1);
+    }
     const auto node = make_delay(
       waypoint, parent_node, delay, std::move(event));
 
