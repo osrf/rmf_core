@@ -12,8 +12,6 @@ endif()
 
 include(GNUInstallDirs)
 
-find_package(ament_cmake REQUIRED)
-
 add_library(rmf_utils INTERFACE)
 
 target_include_directories(rmf_utils
@@ -24,8 +22,6 @@ target_include_directories(rmf_utils
 
 # Create cmake config files
 include(CMakePackageConfigHelpers)
-
-ament_export_targets(rmf_utils HAS_LIBRARY_TARGET)
 
 set(INSTALL_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/rmf_utils/cmake")
 set(PACKAGE_CONFIG_VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config-version.cmake")
@@ -73,8 +69,6 @@ export(
   NAMESPACE rmf_utils::
 )
 
-export(PACKAGE rmf_utils)
+export(PACKAGE rmf_utils-targets)
 
 add_subdirectory(test/unit)
-
-ament_package()
