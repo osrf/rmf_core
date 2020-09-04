@@ -53,10 +53,9 @@ Node::Node()
 //==============================================================================
 void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
 {
-  if (_active_sessions.find(msg->lift_name) == _active_sessions.end())
-    _active_sessions[msg->lift_name] = nullptr;
-  
-  auto& curr_request = _active_sessions[msg->lift_name];
+  auto& curr_request = _active_sessions.insert(
+    std::make_pair(msg->lift_name, nullptr)).first->second;
+
   if (curr_request)
   {
     if (curr_request->session_id == msg->session_id)
@@ -84,10 +83,8 @@ void Node::_adapter_lift_request_update(LiftRequest::UniquePtr msg)
 //==============================================================================
 void Node::_lift_state_update(LiftState::UniquePtr msg)
 {
-  if (_active_sessions.find(msg->lift_name) == _active_sessions.end())
-    _active_sessions[msg->lift_name] = nullptr;
-
-  auto& lift_request = _active_sessions[msg->lift_name];
+  auto& lift_request = _active_sessions.insert(
+    std::make_pair(msg->lift_name, nullptr)).first->second;
 
   if (lift_request)
   {
