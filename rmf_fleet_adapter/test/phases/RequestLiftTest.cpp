@@ -114,26 +114,6 @@ SCENARIO_METHOD(MockAdapterFixture, "request lift phase", "[phases]")
       }
     }
 
-    /*
-    THEN("cancelled, it should not do anything")
-    {
-      active_phase->cancel();
-      std::unique_lock<std::mutex> lk(m);
-
-      bool completed = status_updates_cv.wait_for(lk, std::chrono::seconds(1), [&]()
-      {
-        for (const auto& status : status_updates)
-        {
-          if (status.state == Task::StatusMsg::STATE_COMPLETED)
-            return true;
-        }
-        status_updates.clear();
-        return false;
-      });
-      CHECK(!completed);
-    }
-    */
-
     AND_WHEN("lift is on destination floor")
     {
       auto lift_state_pub = ros_node->create_publisher<LiftState>(LiftStateTopicName, 10);
