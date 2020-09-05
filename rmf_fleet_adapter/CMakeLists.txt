@@ -30,6 +30,7 @@ set(dep_pkgs
   rclcpp
   rmf_utils
   rmf_dispenser_msgs
+  rmf_ingestor_msgs
   rmf_door_msgs
   rmf_fleet_msgs
   rmf_lift_msgs
@@ -65,6 +66,8 @@ target_link_libraries(rmf_fleet_adapter
     ${rmf_task_msgs_LIBRARIES}
     ${rmf_door_msgs_LIBRARIES}
     ${rmf_lift_msgs_LIBRARIES}
+    ${rmf_dispenser_msgs_LIBRARIES}
+    ${rmf_ingestor_msgs_LIBRARIES}
 )
 
 target_include_directories(rmf_fleet_adapter
@@ -78,6 +81,8 @@ target_include_directories(rmf_fleet_adapter
     ${rmf_task_msgs_INCLUDE_DIRS}
     ${rmf_door_msgs_INCLUDE_DIRS}
     ${rmf_lift_msgs_INCLUDE_DIRS}
+    ${rmf_dispenser_msgs_INCLUDE_DIRS}
+    ${rmf_ingestor_msgs_INCLUDE_DIRS}
 )
 
 if (BUILD_TESTING)
@@ -87,11 +92,13 @@ if (BUILD_TESTING)
   ament_add_catch2(
     rmf_fleet_adapter_test
       test/main.cpp
+      test/adapters/test_TrafficLight.cpp
       test/phases/MockAdapterFixture.cpp
       test/phases/DoorOpenTest.cpp
       test/phases/DoorCloseTest.cpp
       test/phases/RequestLiftTest.cpp
       test/phases/DispenseItemTest.cpp
+      test/phases/IngestItemTest.cpp
       test/phases/test_GoToPlace.cpp
       test/services/test_FindEmergencyPullover.cpp
       test/services/test_FindPath.cpp
@@ -107,7 +114,8 @@ if (BUILD_TESTING)
       ${rmf_task_msgs_INCLUDE_DIRS}
       ${rmf_door_msgs_INCLUDE_DIRS}
       ${rmf_lift_msgs_INCLUDE_DIRS}
-
+      ${rmf_dispenser_msgs_INCLUDE_DIRS}
+      ${rmf_ingestor_msgs_INCLUDE_DIRS}
       ${std_msgs_INCLUDE_DIRS}
   )
   target_link_libraries(rmf_fleet_adapter_test
@@ -117,7 +125,8 @@ if (BUILD_TESTING)
       ${rmf_task_msgs_LIBRARIES}
       ${rmf_door_msgs_LIBRARIES}
       ${rmf_lift_msgs_LIBRARIES}
-
+      ${rmf_dispenser_msgs_LIBRARIES}
+      ${rmf_ingestor_msgs_LIBRARIES}
       rmf_fleet_adapter
       rmf_utils::rmf_utils
       ${std_msgs_LIBRARIES}
@@ -153,6 +162,7 @@ target_link_libraries(full_control
     rmf_fleet_adapter
     ${rmf_task_msgs_LIBRARIES}
     ${rmf_dispenser_msgs_LIBRARIES}
+    ${rmf_ingestor_msgs_LIBRARIES}
     ${rmf_door_msgs_LIBRARIES}
     ${rmf_lift_msgs_LIBRARIES}
     ${std_msgs_LIBRARIES}
@@ -162,6 +172,7 @@ target_include_directories(full_control
   PRIVATE
     ${rmf_task_msgs_INCLUDE_DIRS}
     ${rmf_dispenser_msgs_INCLUDE_DIRS}
+    ${rmf_ingestor_msgs_INCLUDE_DIRS}
     ${rmf_door_msgs_INCLUDE_DIRS}
     ${rmf_lift_msgs_INCLUDE_DIRS}
     ${std_msgs_INCLUDE_DIRS}

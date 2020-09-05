@@ -117,8 +117,11 @@ public:
   std::shared_ptr<rmf_traffic::schedule::Snappable> snappable;
   std::shared_ptr<rmf_traffic_ros2::schedule::Negotiation> negotiation;
 
+  rmf_utils::optional<rmf_traffic::Duration> default_maximum_delay =
+      std::chrono::nanoseconds(std::chrono::seconds(10));
+
   AcceptDeliveryRequest accept_delivery = nullptr;
-  std::unordered_map<RobotContextPtr, TaskManager> task_managers = {};
+  std::unordered_map<RobotContextPtr, std::shared_ptr<TaskManager>> task_managers = {};
 
   template<typename... Args>
   static std::shared_ptr<FleetUpdateHandle> make(Args&&... args)

@@ -18,6 +18,7 @@
 #include "Node.hpp"
 
 #include <rmf_fleet_adapter/StandardNames.hpp>
+#include <rmf_traffic_ros2/StandardNames.hpp>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -50,6 +51,14 @@ std::shared_ptr<Node> Node::make(
         DispenserResultTopicName, default_qos);
   node->_dispenser_state_obs = node->create_observable<DispenserState>(
         DispenserStateTopicName, default_qos);
+  node->_emergency_notice_obs = node->create_observable<EmergencyNotice>(
+        rmf_traffic_ros2::EmergencyTopicName, default_qos);
+  node->_ingestor_request_pub = node->create_publisher<IngestorRequest>(
+        IngestorRequestTopicName, default_qos);
+  node->_ingestor_result_obs = node->create_observable<IngestorResult>(
+        IngestorResultTopicName, default_qos);
+  node->_ingestor_state_obs = node->create_observable<IngestorState>(
+        IngestorStateTopicName, default_qos);
 
   return node;
 }
@@ -117,6 +126,30 @@ auto Node::dispenser_state() const -> const DispenserStateObs&
 {
   return _dispenser_state_obs;
 }
+
+//==============================================================================
+auto Node::emergency_notice() const -> const EmergencyNoticeObs&
+{
+  return _emergency_notice_obs;
+}
+
+auto Node::ingestor_request() const -> const IngestorRequestPub&
+{
+  return _ingestor_request_pub;
+}
+
+//==============================================================================
+auto Node::ingestor_result() const -> const IngestorResultObs&
+{
+  return _ingestor_result_obs;
+}
+
+//==============================================================================
+auto Node::ingestor_state() const -> const IngestorStateObs&
+{
+  return _ingestor_state_obs;
+}
+
 
 } // namespace agv
 } // namespace rmf_fleet_adapter

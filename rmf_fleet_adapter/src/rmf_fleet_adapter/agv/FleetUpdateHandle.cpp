@@ -83,7 +83,7 @@ auto FleetUpdateHandle::Implementation::estimate_delivery(
   DeliveryEstimate best;
   for (const auto& element : task_managers)
   {
-    const auto& mgr = element.second;
+    const auto& mgr = *element.second;
     auto start = mgr.expected_finish_location();
     const auto pickup_plan = planner->plan(start, pickup_goal);
     if (!pickup_plan)
@@ -132,7 +132,7 @@ void FleetUpdateHandle::Implementation::perform_delivery(
     const rmf_task_msgs::msg::Delivery& request,
     const DeliveryEstimate& estimate)
 {
-  auto& mgr = task_managers.at(estimate.robot);
+  auto& mgr = *task_managers.at(estimate.robot);
   mgr.queue_task(
         tasks::make_delivery(
           request,
@@ -175,7 +175,7 @@ auto FleetUpdateHandle::Implementation::estimate_loop(
     LoopEstimate estimate;
     estimate.robot = element.first;
 
-    const auto& mgr = element.second;
+    const auto& mgr = *element.second;
     auto start = mgr.expected_finish_location();
     const auto loop_init_plan = planner->plan(start, loop_start_goal);
     if (!loop_init_plan)
@@ -264,7 +264,7 @@ void FleetUpdateHandle::Implementation::perform_loop(
     const LoopEstimate& estimate)
 {
   auto& mgr = task_managers.at(estimate.robot);
-  mgr.queue_task(
+  mgr->queue_task(
         tasks::make_loop(
           request,
           estimate.robot,
@@ -305,7 +305,8 @@ void FleetUpdateHandle::add_robot(
             fleet->_pimpl->snappable,
             fleet->_pimpl->planner,
             fleet->_pimpl->node,
-            fleet->_pimpl->worker
+            fleet->_pimpl->worker,
+            fleet->_pimpl->default_maximum_delay
           });
 
     // We schedule the following operations on the worker to make sure we do not
@@ -332,7 +333,7 @@ void FleetUpdateHandle::add_robot(
         "Added a robot named [%s] with participant ID [%d]",
         context->name().c_str(), context->itinerary().id());
 
-      fleet->_pimpl->task_managers.insert({context, context});
+      fleet->_pimpl->task_managers.insert({context, TaskManager::make(context)});
       if (handle_cb)
       {
         handle_cb(RobotUpdateHandle::Implementation::make(std::move(context)));
@@ -356,6 +357,21 @@ FleetUpdateHandle& FleetUpdateHandle::accept_delivery_requests(
 {
   _pimpl->accept_delivery = std::move(check);
   return *this;
+}
+
+//==============================================================================
+FleetUpdateHandle& FleetUpdateHandle::default_maximum_delay(
+    rmf_utils::optional<rmf_traffic::Duration> value)
+{
+  _pimpl->default_maximum_delay = value;
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<rmf_traffic::Duration>
+FleetUpdateHandle::default_maximum_delay() const
+{
+  return _pimpl->default_maximum_delay;
 }
 
 //==============================================================================
