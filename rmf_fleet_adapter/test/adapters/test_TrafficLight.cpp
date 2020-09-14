@@ -280,7 +280,7 @@ SCENARIO("Test negotiated timing")
   std::promise<rmf_fleet_adapter::agv::TrafficLight::UpdateHandlePtr> promise_0;
   auto future_0 = promise_0.get_future();
   adapter->add_traffic_light(
-        command_0, "fleet_0", "robot_0", traits, profile,
+        command_0, "fleet_0", "robot_0", traits,
         [&promise_0](auto update_handle)
   {
     promise_0.set_value(update_handle);
@@ -291,7 +291,7 @@ SCENARIO("Test negotiated timing")
   std::promise<rmf_fleet_adapter::agv::TrafficLight::UpdateHandlePtr> promise_1;
   auto future_1 = promise_1.get_future();
   adapter->add_traffic_light(
-        command_1, "fleet_1", "robot_1", traits, profile,
+        command_1, "fleet_1", "robot_1", traits,
         [&promise_1](auto update_handle)
   {
     promise_1.set_value(update_handle);

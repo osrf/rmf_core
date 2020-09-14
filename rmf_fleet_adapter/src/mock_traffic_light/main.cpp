@@ -90,6 +90,8 @@ public:
     for (std::size_t i=0; i < departure_timing.size(); ++i)
       _current_path_request.path[i].t = departure_timing[i];
 
+    _moving = true;
+    _path_size = _current_path_request.path.size();
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
   }
@@ -105,6 +107,7 @@ public:
     std::lock_guard<std::mutex> lock(_mutex);
     _current_path_request.path.clear();
 
+    _moving = false;
     const auto& graph = _travel_info.graph;
     std::string first_level;
     for (const auto& wp : waypoints)
@@ -156,6 +159,31 @@ public:
     _path_version = _path_updater->update_path(path);
   }
 
+  void set_updater(
+      rmf_fleet_adapter::agv::TrafficLight::UpdateHandlePtr updater)
+  {
+    _path_updater = std::move(updater);
+  }
+
+  void update_state(const rmf_fleet_msgs::msg::RobotState& state)
+  {
+    std::lock_guard<std::mutex> lock(_mutex);
+
+    if (!_moving)
+      return;
+
+    if (_current_path_request.task_id != state.task_id)
+    {
+      _path_request_pub->publish(_current_path_request);
+      return;
+    }
+
+    const std::size_t target = _path_size - state.path.size();
+    const auto& l = state.location;
+    const Eigen::Vector3d p(l.x, l.y, l.yaw);
+    _progress_updater(target, p);
+  }
+
 private:
 
   rclcpp::Node* _node;
@@ -166,6 +194,8 @@ private:
 
   std::size_t _path_version = 0;
   std::size_t _command_version = 0;
+  bool _moving = false;
+  std::size_t _path_size;
 
   ProgressCallback _progress_updater;
 
@@ -174,13 +204,13 @@ private:
   rmf_fleet_adapter::agv::TrafficLight::UpdateHandlePtr _path_updater;
 };
 
+using MockTrafficLightCommandHandlePtr =
+std::shared_ptr<MockTrafficLightCommandHandle>;
+
 //==============================================================================
 /// This is an RAII class that keeps the connections to the fleet driver alive.
 struct Connections : public std::enable_shared_from_this<Connections>
 {
-  /// The API for adding new robots to the adapter
-  rmf_fleet_adapter::agv::FleetUpdateHandlePtr fleet;
-
   /// The API for running the fleet adapter
   rmf_fleet_adapter::agv::AdapterPtr adapter;
 
@@ -202,47 +232,28 @@ struct Connections : public std::enable_shared_from_this<Connections>
   rclcpp::Publisher<rmf_fleet_msgs::msg::ModeRequest>::SharedPtr
   mode_request_pub;
 
-  /// The container for robot update handles
-  std::unordered_map<std::string, FleetDriverRobotCommandHandlePtr>
-  robots;
+  std::unordered_map<std::string, MockTrafficLightCommandHandlePtr> robots;
 
   std::mutex mutex;
-
-  void add_robot(
-      const std::string& fleet_name,
-      const rmf_fleet_msgs::msg::RobotState& state)
-  {
-    const auto& robot_name = state.name;
-    const auto command = std::make_shared<FleetDriverRobotCommandHandle>(
-          *adapter->node(), fleet_name, robot_name, graph, traits,
-          path_request_pub, mode_request_pub);
-
-    const auto& l = state.location;
-    fleet->(
-          command, robot_name, traits->profile(),
-          rmf_traffic::agv::compute_plan_starts(
-            *graph, state.location.level_name, {l.x, l.y, l.yaw},
-            rmf_traffic_ros2::convert(adapter->node()->now())),
-          [c = weak_from_this(), command, robot_name = std::move(robot_name)](
-          const rmf_fleet_adapter::agv::RobotUpdateHandlePtr& updater)
-    {
-      const auto connections = c.lock();
-      if (!connections)
-        return;
-
-      std::lock_guard<std::mutex> lock(connections->mutex);
-
-      command->set_updater(updater);
-      connections->robots[robot_name] = command;
-    });
-  }
 
   void add_traffic_light(
       const std::string& fleet_name,
       const rmf_fleet_msgs::msg::RobotState& state)
   {
+    const std::string& robot_name = state.name;
+    const auto command = std::make_shared<MockTrafficLightCommandHandle>(
+          *adapter->node(), fleet_name, robot_name, graph, traits,
+          path_request_pub);
+
     adapter->add_traffic_light(
-          )
+          command, fleet_name, robot_name, *traits,
+          [c = weak_from_this(), command, robot_name = robot_name](
+          rmf_fleet_adapter::agv::TrafficLight::UpdateHandlePtr updater)
+    {
+      const auto connections = c.lock();
+      command->set_updater(std::move(updater));
+      connections->robots[robot_name] = command;
+    });
   }
 };
 
@@ -291,28 +302,6 @@ std::shared_ptr<Connections> make_fleet(
   for (const auto& key : connections->graph->keys())
     std::cout << " -- " << key.first << std::endl;
 
-  connections->fleet = adapter->add_fleet(
-        fleet_name, *connections->traits, *connections->graph);
-
-  // If the perform_deliveries parameter is true, then we just blindly accept
-  // all delivery requests.
-  if (node->declare_parameter<bool>("perform_deliveries", false))
-  {
-    connections->fleet->accept_delivery_requests(
-          [](const rmf_task_msgs::msg::Delivery&){ return true; });
-  }
-
-  if (node->declare_parameter<bool>("disable_delay_threshold", false))
-  {
-    connections->fleet->default_maximum_delay(rmf_utils::nullopt);
-  }
-  else
-  {
-    connections->fleet->default_maximum_delay(
-          rmf_fleet_adapter::get_parameter_or_default_time(
-            *node, "delay_threshold", 10.0));
-  }
-
   connections->path_request_pub = node->create_publisher<
       rmf_fleet_msgs::msg::PathRequest>(
         rmf_fleet_adapter::PathRequestTopicName, rclcpp::SystemDefaultsQoS());
@@ -342,7 +331,7 @@ std::shared_ptr<Connections> make_fleet(
       if (new_robot)
       {
         // We have not seen this robot before, so let's add it to the fleet.
-        connections->add_robot(fleet_name, state);
+        connections->add_traffic_light(fleet_name, state);
       }
 
       const auto& command = insertion.first->second;
