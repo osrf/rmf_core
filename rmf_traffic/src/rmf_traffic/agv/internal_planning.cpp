@@ -703,16 +703,22 @@ struct DifferentialDriveExpander
       _event = agv::Graph::Lane::Event::make(close);
     }
 
-    void execute(const agv::Graph::Lane::LiftDoorOpen& open) final
+    void execute(const agv::Graph::Lane::LiftSessionBegin& open) final
     {
       assert(_parent);
       _event = agv::Graph::Lane::Event::make(open);
     }
 
-    void execute(const agv::Graph::Lane::LiftDoorClose& close) final
+    void execute(const agv::Graph::Lane::LiftSessionEnd& close) final
     {
       assert(_parent);
       _event = agv::Graph::Lane::Event::make(close);
+    }
+
+    void execute(const LiftDoorOpen& open) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(open);
     }
 
     void execute(const agv::Graph::Lane::LiftMove& move) final
@@ -727,6 +733,12 @@ struct DifferentialDriveExpander
       _event = agv::Graph::Lane::Event::make(dock);
     }
 
+    void execute(const agv::Graph::Lane::Wait& wait) final
+    {
+      assert(_parent);
+      _event = agv::Graph::Lane::Event::make(wait);
+    }
+
     NodePtr get(DifferentialDriveExpander* expander)
     {
       assert(_event);
@@ -738,18 +750,18 @@ struct DifferentialDriveExpander
         std::move(_event));
     }
 
-    LaneEventExecutor& add_if_valid(
+    LaneEventExecutor& add_exit_if_valid(
       DifferentialDriveExpander* expander,
       SearchQueue& queue)
     {
       assert(_event);
       const auto duration = _event->duration();
+      _parent->event = std::move(_event);
       expander->expand_delay(
         *_parent->waypoint,
         _parent,
         duration,
-        queue,
-        std::move(_event));
+        queue);
       return *this;
     }
 
@@ -799,6 +811,7 @@ struct DifferentialDriveExpander
         // that there is no solution.
         assert(solution != nullptr);
 
+        std::vector<std::size_t> reverse_waypoints;
         std::vector<Eigen::Vector3d> positions;
         EuclideanExpander::NodePtr euclidean_node = solution;
         // Note: this constructs positions in reverse, but that's okay because
@@ -806,6 +819,7 @@ struct DifferentialDriveExpander
         // same duration whether it is interpolating forward or backwards.
         while (euclidean_node)
         {
+          reverse_waypoints.push_back(euclidean_node->waypoint);
           const Eigen::Vector2d p = euclidean_node->location;
           positions.push_back({p[0], p[1], 0.0});
           euclidean_node = euclidean_node->parent;
@@ -817,10 +831,27 @@ struct DifferentialDriveExpander
         const rmf_traffic::Trajectory estimate = agv::Interpolate::positions(
           context.traits, context.initial_time, positions);
 
-        const double cost_esimate = time::to_seconds(estimate.duration());
-        estimate_it.first->second = cost_esimate;
+        double cost_estimate = time::to_seconds(estimate.duration());
+        const std::size_t N_wp = reverse_waypoints.size();
+        for (std::size_t i = 1; i < N_wp; ++i)
+        {
+          const auto last = reverse_waypoints.at(i);
+          const auto next = reverse_waypoints.at(i-1);
 
-        new_costs[waypoint] = cost_esimate;
+          const auto lane_index = context.graph.lane_between.at(last).at(next);
+          const auto& lane = context.graph.lanes.at(lane_index);
+
+          const auto* entry = lane.entry().event();
+          if (entry)
+            cost_estimate += time::to_seconds(entry->duration());
+
+          const auto* exit = lane.exit().event();
+          if (exit)
+            cost_estimate += time::to_seconds(exit->duration());
+        }
+
+        estimate_it.first->second = cost_estimate;
+        new_costs[waypoint] = cost_estimate;
 
         // TODO(MXG): We could get significantly better performance if we
         // accounted for the cost of rotating when making this estimate, but
@@ -1429,24 +1460,52 @@ struct DifferentialDriveExpander
 
       if (const auto* event = lane.exit().event())
       {
-        if (!is_valid(route, initial_parent))
-          continue;
+        NodePtr parent_to_event;
+        if (route.trajectory.size() > 1)
+        {
+          if (!is_valid(route, initial_parent))
+            continue;
 
-        auto parent_to_event = std::make_shared<Node>(
-          Node{
-            _context.heuristic.estimate_remaining_cost(
-              _context, exit_waypoint_index),
-            compute_current_cost(initial_parent, trajectory),
-            exit_waypoint_index,
-            orientation,
-            std::move(route),
-            nullptr,
-            initial_parent
-          });
+          parent_to_event = std::make_shared<Node>(
+            Node{
+              _context.heuristic.estimate_remaining_cost(
+                _context, exit_waypoint_index),
+              compute_current_cost(initial_parent, trajectory),
+              exit_waypoint_index,
+              orientation,
+              std::move(route),
+              nullptr,
+              initial_parent
+            });
+        }
+        else
+        {
+          parent_to_event = initial_parent;
+        }
 
         event->execute(_executor.update(parent_to_event))
-        .add_if_valid(this, queue);
+          .add_exit_if_valid(this, queue);
 
+        continue;
+      }
+      else if (route.trajectory.size() < 2)
+      {
+        // This should only happen when the map name has changed.
+        RouteData new_map_route;
+        new_map_route.map = exit_waypoint.get_map_name();
+        assert(new_map_route.map != map_name);
+
+        // FIXME TODO(MXG): This route generation is a hack that assumes that
+        // directly vertical lifts are the only things that connect two maps
+        // together. It also assumes that the parent route is simply a
+        // stationary route on the previous map.
+        //
+        // We should make map transitions more meaningful and require fewer
+        // assumptions.
+        new_map_route.trajectory = initial_parent->route_from_parent.trajectory;
+
+        add_if_valid(exit_waypoint_index, orientation, initial_parent,
+                     new_map_route, queue);
         continue;
       }
       // NOTE(MXG): We cannot move the trajectory in this function call, because
@@ -1563,10 +1622,18 @@ struct DifferentialDriveExpander
   void expand_delay(
     const std::size_t waypoint,
     const NodePtr& parent_node,
-    const Duration delay,
+    Duration delay,
     SearchQueue& queue,
     agv::Graph::Lane::EventPtr event = nullptr)
   {
+    assert(delay >= rmf_traffic::Duration(0));
+    if (delay == rmf_traffic::Duration(0))
+    {
+      // TODO(MXG): This is a bit of a hack to avoid the edgecase of a
+      // single-waypoint trajectory. We might want a more elegant or meaningful
+      // solution than to just make the event last one nano-second.
+      delay = std::chrono::nanoseconds(1);
+    }
     const auto node = make_delay(
       waypoint, parent_node, delay, std::move(event));
 

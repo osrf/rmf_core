@@ -49,10 +49,12 @@ public:
     }
 
     void execute(const DoorOpen&) override { }
-    void execute(const LiftMove&) override { }
     void execute(const DoorClose&) override { }
+    void execute(const LiftSessionBegin&) override { }
+    void execute(const LiftMove&) override { }
     void execute(const LiftDoorOpen&) override { }
-    void execute(const LiftDoorClose&) override { }
+    void execute(const LiftSessionEnd&) override { }
+    void execute(const Wait&) override { }
 
   private:
     std::unordered_map<std::string, std::size_t>& _dock_to_wp;

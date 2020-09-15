@@ -10,5 +10,5 @@ string pickup_dispenser
 Behavior pickup_behavior
 
 string dropoff_place_name
-string dropoff_dispenser
+string dropoff_ingestor
 Behavior dropoff_behavior
