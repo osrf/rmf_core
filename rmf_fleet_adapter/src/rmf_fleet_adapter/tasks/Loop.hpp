@@ -21,10 +21,27 @@
 #include "../Task.hpp"
 #include "../agv/RobotContext.hpp"
 
+#include <rmf_utils/optional.hpp>
+#include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_fleet_adapter/agv/FleetUpdateHandle.hpp>
+
 #include <rmf_task_msgs/msg/loop.hpp>
 
 namespace rmf_fleet_adapter {
 namespace tasks {
+
+struct LoopEstimate
+{
+  rmf_traffic::Time time = rmf_traffic::Time::max();
+  RobotContextPtr robot = nullptr;
+  rmf_utils::optional<rmf_traffic::agv::Plan::Start> init_start;
+  rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_start;
+  rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_end;
+};
+
+rmf_utils::optional<LoopEstimate> estimate_loop(
+    const rmf_task_msgs::msg::Loop& request,
+    const std::shared_ptr<agv::FleetUpdateHandle>& fleet);
 
 //==============================================================================
 std::shared_ptr<Task> make_loop(const rmf_task_msgs::msg::Loop& request,

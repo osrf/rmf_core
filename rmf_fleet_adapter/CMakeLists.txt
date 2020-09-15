@@ -37,6 +37,7 @@ set(dep_pkgs
   rmf_task_msgs
   rmf_traffic
   rmf_traffic_ros2
+  rmf_battery
   std_msgs
 )
 foreach(pkg ${dep_pkgs})
@@ -63,6 +64,7 @@ target_link_libraries(rmf_fleet_adapter
     ${rclcpp_LIBRARIES}
   PRIVATE
     rmf_rxcpp
+    rmf_battery::rmf_battery
     ${rmf_task_msgs_LIBRARIES}
     ${rmf_door_msgs_LIBRARIES}
     ${rmf_lift_msgs_LIBRARIES}

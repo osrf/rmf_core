@@ -31,6 +31,10 @@
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/BatterySystem.hpp>
+
 namespace rmf_fleet_adapter {
 namespace agv {
 
@@ -117,6 +121,9 @@ public:
   std::shared_ptr<rmf_traffic::schedule::Snappable> snappable;
   std::shared_ptr<rmf_traffic_ros2::schedule::Negotiation> negotiation;
 
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
+  std::shared_ptr<rmf_battery::DevicePowerSink> device_sink;
+
   rmf_utils::optional<rmf_traffic::Duration> default_maximum_delay =
       std::chrono::nanoseconds(std::chrono::seconds(10));
 
@@ -132,24 +139,6 @@ public:
     return std::make_shared<FleetUpdateHandle>(std::move(handle));
   }
 
-  struct DeliveryEstimate
-  {
-    rmf_traffic::Time time = rmf_traffic::Time::max();
-    RobotContextPtr robot = nullptr;
-    rmf_utils::optional<rmf_traffic::agv::Plan::Start> pickup_start;
-    rmf_utils::optional<rmf_traffic::agv::Plan::Start> dropoff_start;
-    rmf_utils::optional<rmf_traffic::agv::Plan::Start> finish;
-  };
-
-  struct LoopEstimate
-  {
-    rmf_traffic::Time time = rmf_traffic::Time::max();
-    RobotContextPtr robot = nullptr;
-    rmf_utils::optional<rmf_traffic::agv::Plan::Start> init_start;
-    rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_start;
-    rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_end;
-  };
-
   static Implementation& get(FleetUpdateHandle& fleet)
   {
     return *fleet._pimpl;
@@ -161,15 +150,15 @@ public:
   }
 
   // TODO(MXG): Come up with a better design for task dispatch
-  rmf_utils::optional<DeliveryEstimate> estimate_delivery(
-      const rmf_task_msgs::msg::Delivery& request) const;
+  // rmf_utils::optional<DeliveryEstimate> estimate_delivery(
+  //     const rmf_task_msgs::msg::Delivery& request) const;
 
   void perform_delivery(
       const rmf_task_msgs::msg::Delivery& request,
       const DeliveryEstimate& estimate);
 
-  rmf_utils::optional<LoopEstimate> estimate_loop(
-      const rmf_task_msgs::msg::Loop& request) const;
+  // rmf_utils::optional<LoopEstimate> estimate_loop(
+  //     const rmf_task_msgs::msg::Loop& request) const;
 
   void perform_loop(
       const rmf_task_msgs::msg::Loop& request,

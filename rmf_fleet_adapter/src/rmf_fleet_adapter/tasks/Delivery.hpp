@@ -21,10 +21,28 @@
 #include "../Task.hpp"
 #include "../agv/RobotContext.hpp"
 
+#include <rmf_utils/optional.hpp>
+#include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_fleet_adapter/agv/FleetUpdateHandle.hpp>
+
 #include <rmf_task_msgs/msg/delivery.hpp>
 
 namespace rmf_fleet_adapter {
 namespace tasks {
+
+struct DeliveryEstimate
+{
+  rmf_traffic::Time time = rmf_traffic::Time::max(); 
+  RobotContextPtr robot = nullptr;
+  rmf_utils::optional<rmf_traffic::agv::Plan::Start> pickup_start;
+  rmf_utils::optional<rmf_traffic::agv::Plan::Start> dropoff_start;
+  rmf_utils::optional<rmf_traffic::agv::Plan::Start> finish;
+};
+
+// TODO(MXG): Come up with a better design for task dispatch
+rmf_utils::optional<DeliveryEstimate> estimate_delivery(
+    const rmf_task_msgs::msg::Delivery& request,
+    const std::shared_ptr<agv::FleetUpdateHandle>& fleet);
 
 //==============================================================================
 // TODO(MXG): This is a sloppy design. We should have a task estimator + factory

@@ -25,6 +25,76 @@ namespace rmf_fleet_adapter {
 namespace tasks {
 
 //==============================================================================
+rmf_utils::optional<DeliveryEstimate> estimate_delivery(
+    const rmf_task_msgs::msg::Delivery& request,
+    const std::shared_ptr<FleetUpdateHandle>& fleet)
+{
+  const auto& fimpl = FleetUpdateHandle::Implementation::get(*fleet);
+  const auto planner = fimpl.planner;
+  const auto& graph = planner->get_configuration().graph();
+
+  const auto pickup_wp = graph.find_waypoint(request.pickup_place_name);
+  if (!pickup_wp)
+    return rmf_utils::nullopt;
+
+  const auto dropoff_wp = graph.find_waypoint(request.dropoff_place_name);
+  if (!dropoff_wp)
+    return rmf_utils::nullopt;
+
+  const auto pickup_goal = rmf_traffic::agv::Plan::Goal(pickup_wp->index());
+  const auto dropoff_goal = rmf_traffic::agv::Plan::Goal(dropoff_wp->index());
+
+  // TODO(MXG): At some point we should consider parallelizing this estimation
+  // process and taking the existing schedule into account, but for now we'll
+  // try to use a very quick rough estimate.
+  DeliveryEstimate best;
+  for (const auto& element : fimpl.task_managers)
+  {
+    const auto& mgr = *element.second;
+    auto start = mgr.expected_finish_location();
+    const auto pickup_plan = planner->plan(start, pickup_goal);
+    if (!pickup_plan)
+      continue;
+
+    const auto& pickup_plan_end = pickup_plan->get_waypoints().back();
+    assert(pickup_plan_end.graph_index());
+    const auto dropoff_start = rmf_traffic::agv::Plan::Start(
+          pickup_plan_end.time(),
+          *pickup_plan_end.graph_index(),
+          pickup_plan_end.position()[2]);
+
+    const auto dropoff_plan = planner->plan(dropoff_start, dropoff_goal);
+    if (!dropoff_plan)
+      continue;
+
+    const auto& final_wp = dropoff_plan->get_waypoints().back();
+
+    const auto estimate = final_wp.time();
+    rmf_traffic::agv::Plan::Start finish{
+      estimate,
+      *final_wp.graph_index(),
+      final_wp.position()[2]
+    };
+
+    if (estimate < best.time)
+    {
+      best = DeliveryEstimate{
+        estimate,
+        element.first,
+        std::move(start.front()),
+        std::move(dropoff_start),
+        std::move(finish)
+      };
+    }
+  }
+
+  if (best.robot)
+    return best;
+
+  return rmf_utils::nullopt;
+}
+
+//==============================================================================
 std::shared_ptr<Task> make_delivery(
     const rmf_task_msgs::msg::Delivery& request,
     const agv::RobotContextPtr& context,
