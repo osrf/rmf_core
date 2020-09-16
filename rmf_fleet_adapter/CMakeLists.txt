@@ -302,6 +302,7 @@ install(
   TARGETS
     rmf_fleet_adapter
     read_only
+    mock_traffic_light
     full_control
     lift_supervisor
     door_supervisor

@@ -31,12 +31,17 @@
 #include <rmf_fleet_msgs/msg/path_request.hpp>
 #include <rmf_fleet_msgs/msg/mode_request.hpp>
 
+// Loop request message
+#include <rmf_task_msgs/msg/loop.hpp>
+
 // ROS2 utilities for rmf_traffic
 #include <rmf_traffic_ros2/Time.hpp>
 
 // Utility functions for estimating where a robot is on the graph based on
 // the information provided by fleet drivers.
 #include "../rmf_fleet_adapter/estimation.hpp"
+
+#include <deque>
 
 //==============================================================================
 class MockTrafficLightCommandHandle
@@ -56,6 +61,7 @@ public:
       std::string robot_name,
       std::shared_ptr<const rmf_traffic::agv::Graph> graph,
       std::shared_ptr<const rmf_traffic::agv::VehicleTraits> traits,
+      std::shared_ptr<const rmf_traffic::agv::Planner> planner,
       PathRequestPub path_request_pub)
     : _node(&node),
       _path_request_pub(std::move(path_request_pub))
@@ -67,6 +73,8 @@ public:
     _travel_info.traits = std::move(traits);
     _travel_info.fleet_name = std::move(fleet_name);
     _travel_info.robot_name = std::move(robot_name);
+
+    _planner = planner;
   }
 
   void receive_path_timing(
@@ -79,19 +87,39 @@ public:
       return;
 
     _progress_updater = std::move(progress_updater);
-    if(_current_path_request.path.size() != departure_timing.size())
+    if(_path_size != departure_timing.size())
     {
       throw std::runtime_error(
             "Mismatch between path request size ["
-            + std::to_string(_current_path_request.path.size())
-            + "] and timing [" + std::to_string(departure_timing.size()) + "]");
+            + std::to_string(_path_size) + "] and timing ["
+            + std::to_string(departure_timing.size()) + "]");
     }
 
-    for (std::size_t i=0; i < departure_timing.size(); ++i)
-      _current_path_request.path[i].t = departure_timing[i];
+    // Having _last_target == 0 causes problems with the index conversions below
+    // so we'll switch its value to 1 to deal with that edge case
+    if (_last_target == 0)
+      _last_target = 1;
+
+    const std::size_t N_command = _current_path_request.path.size();
+    const std::size_t N_command_desired = _path_size - _last_target + 1;
+    if (N_command_desired < N_command)
+    {
+      _current_path_request.path.erase(
+            _current_path_request.path.begin() +
+            N_command - N_command_desired);
+    }
+    _current_path_request.path.front() = _last_state.location;
+
+    for (std::size_t i=_last_target-1; i < _path_size; ++i)
+      _current_path_request.path[i+1-_last_target].t = departure_timing[i];
+
+    std::cout << " >>> Issuing timing commands: " << std::endl;
+    for (std::size_t i=0; i < _current_path_request.path.size(); ++i)
+      std::cout << " -- " << i << ": "
+                << rclcpp::Time(_current_path_request.path[i].t).seconds()
+                << std::endl;
 
     _moving = true;
-    _path_size = _current_path_request.path.size();
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
   }
@@ -101,13 +129,115 @@ public:
     RCLCPP_ERROR(_node->get_logger(), "Deadlock detected!");
   }
 
-  void follow_new_path(
-      const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints)
+  void set_updater(
+      rmf_fleet_adapter::agv::TrafficLight::UpdateHandlePtr updater)
+  {
+    _path_updater = std::move(updater);
+  }
+
+  void update_state(const rmf_fleet_msgs::msg::RobotState& state)
   {
     std::lock_guard<std::mutex> lock(_mutex);
+    _last_state = state;
+
+    if (!_moving)
+      return;
+
+    if (_current_path_request.task_id != state.task_id)
+    {
+      _path_request_pub->publish(_current_path_request);
+      return;
+    }
+
+    if (state.path.empty())
+    {
+      _moving = false;
+      _queue.pop_front();
+      _start_next_waypoint();
+      return;
+    }
+
+    assert(state.path.size() <= _path_size);
+    _last_target = _path_size - state.path.size();
+
+    const auto& l = state.location;
+    const Eigen::Vector3d p(l.x, l.y, l.yaw);
+    _progress_updater(_last_target, p);
+  }
+
+  std::size_t queue_size() const
+  {
+    return _queue.size();
+  }
+
+  void add_to_queue(const std::vector<std::string>& new_waypoints)
+  {
+    std::unique_lock<std::mutex> lock(_mutex);
+
+    const bool empty_queue = _queue.empty();
+
+    for (const auto& wp : new_waypoints)
+      _queue.push_back(wp);
+
+    if (!_moving && empty_queue)
+      _start_next_waypoint();
+  }
+
+private:
+
+  void _start_next_waypoint()
+  {
+    if (_queue.empty())
+      return;
+
+    const std::string next = std::move(_queue.front());
+
+    const auto& l = _last_state.location;
+    const auto starts = rmf_traffic::agv::compute_plan_starts(
+          _planner->get_configuration().graph(),
+          l.level_name,
+          {l.x, l.y, l.yaw},
+          rmf_traffic_ros2::convert(_node->now()));
+
+    if (starts.empty())
+    {
+      RCLCPP_ERROR(
+            _node->get_logger(),
+            "Robot [%s] is lost!",
+            _travel_info.robot_name.c_str());
+      return;
+    }
+
+    const auto goal = _planner->get_configuration().graph().find_waypoint(next);
+    if (!goal)
+    {
+      RCLCPP_ERROR(
+            _node->get_logger(),
+            "Could not find a goal named [%s] for robot [%s]",
+            next.c_str(), _travel_info.robot_name.c_str());
+      return;
+    }
+
+    const auto result = _planner->plan(starts, goal->index());
+    if (!result)
+    {
+      RCLCPP_ERROR(
+            _node->get_logger(),
+            "Could not find a plan to get robot [%s] to waypoint [%s]",
+            _travel_info.robot_name.c_str(), next.c_str());
+      return;
+    }
+
+    _follow_new_path(result->get_waypoints());
+  }
+
+  void _follow_new_path(
+      const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints)
+  {
     _current_path_request.path.clear();
 
     _moving = false;
+    _last_target = 0;
     const auto& graph = _travel_info.graph;
     std::string first_level;
     for (const auto& wp : waypoints)
@@ -152,48 +282,29 @@ public:
       location.x = p[0];
       location.y = p[1];
       location.yaw = p[2];
+      _current_path_request.path.push_back(location);
 
       path.emplace_back(map_name, p);
     }
 
+    std::cout << "Submitting path size: " << path.size() << std::endl;
     _path_version = _path_updater->update_path(path);
+    _path_size = path.size();
   }
 
-  void set_updater(
-      rmf_fleet_adapter::agv::TrafficLight::UpdateHandlePtr updater)
-  {
-    _path_updater = std::move(updater);
-  }
-
-  void update_state(const rmf_fleet_msgs::msg::RobotState& state)
-  {
-    std::lock_guard<std::mutex> lock(_mutex);
-
-    if (!_moving)
-      return;
-
-    if (_current_path_request.task_id != state.task_id)
-    {
-      _path_request_pub->publish(_current_path_request);
-      return;
-    }
-
-    const std::size_t target = _path_size - state.path.size();
-    const auto& l = state.location;
-    const Eigen::Vector3d p(l.x, l.y, l.yaw);
-    _progress_updater(target, p);
-  }
-
-private:
+  std::deque<std::string> _queue;
 
   rclcpp::Node* _node;
   PathRequestPub _path_request_pub;
   rmf_fleet_msgs::msg::PathRequest _current_path_request;
   std::chrono::steady_clock::time_point _path_requested_time;
   TravelInfo _travel_info;
+  std::shared_ptr<const rmf_traffic::agv::Planner> _planner;
+  rmf_fleet_msgs::msg::RobotState _last_state;
 
   std::size_t _path_version = 0;
   std::size_t _command_version = 0;
+  std::size_t _last_target = 0;
   bool _moving = false;
   std::size_t _path_size;
 
@@ -217,12 +328,18 @@ struct Connections : public std::enable_shared_from_this<Connections>
   /// The navigation graph for the robot
   std::shared_ptr<const rmf_traffic::agv::Graph> graph;
 
+  std::shared_ptr<const rmf_traffic::agv::Planner> planner;
+
   /// The traits of the vehicles
   std::shared_ptr<const rmf_traffic::agv::VehicleTraits> traits;
 
   /// The topic subscription for responding to new fleet states
   rclcpp::Subscription<rmf_fleet_msgs::msg::FleetState>::SharedPtr
   fleet_state_sub;
+
+  /// The topic subscription for receiving loop requests
+  rclcpp::Subscription<rmf_task_msgs::msg::Loop>::SharedPtr
+  loop_sub;
 
   /// The publisher for sending out path requests
   rclcpp::Publisher<rmf_fleet_msgs::msg::PathRequest>::SharedPtr
@@ -242,7 +359,7 @@ struct Connections : public std::enable_shared_from_this<Connections>
   {
     const std::string& robot_name = state.name;
     const auto command = std::make_shared<MockTrafficLightCommandHandle>(
-          *adapter->node(), fleet_name, robot_name, graph, traits,
+          *adapter->node(), fleet_name, robot_name, graph, traits, planner,
           path_request_pub);
 
     adapter->add_traffic_light(
@@ -302,6 +419,13 @@ std::shared_ptr<Connections> make_fleet(
   for (const auto& key : connections->graph->keys())
     std::cout << " -- " << key.first << std::endl;
 
+  connections->planner =
+      std::make_shared<rmf_traffic::agv::Planner>(
+        rmf_traffic::agv::Planner::Configuration(
+          *connections->graph,
+          *connections->traits),
+        rmf_traffic::agv::Planner::Options(nullptr));
+
   connections->path_request_pub = node->create_publisher<
       rmf_fleet_msgs::msg::PathRequest>(
         rmf_fleet_adapter::PathRequestTopicName, rclcpp::SystemDefaultsQoS());
@@ -330,6 +454,11 @@ std::shared_ptr<Connections> make_fleet(
       const bool new_robot = insertion.second;
       if (new_robot)
       {
+        RCLCPP_INFO(
+          connections->adapter->node()->get_logger(),
+          "Adding robot [%s] to the fleet",
+          state.name.c_str());
+
         // We have not seen this robot before, so let's add it to the fleet.
         connections->add_traffic_light(fleet_name, state);
       }
@@ -337,10 +466,54 @@ std::shared_ptr<Connections> make_fleet(
       const auto& command = insertion.first->second;
       if (command)
       {
-        // We are ready to command this robot, so let's update its state
+        // We are commanding this robot, so let's update its state
         command->update_state(state);
       }
     }
+  });
+
+  connections->loop_sub = node->create_subscription<
+      rmf_task_msgs::msg::Loop>(
+        rmf_fleet_adapter::LoopRequestTopicName,
+        rclcpp::SystemDefaultsQoS(),
+        [c = std::weak_ptr<Connections>(connections), fleet_name](
+        const rmf_task_msgs::msg::Loop::SharedPtr msg)
+  {
+    if (msg->robot_type != fleet_name)
+      return;
+
+    const auto connections = c.lock();
+    if (!connections)
+      return;
+
+    // This is a very dumb approach to assigning the tasks, but this adapter is
+    // only meant for testing purposes anyway.
+    MockTrafficLightCommandHandlePtr best = nullptr;
+    for (const auto& r : connections->robots)
+    {
+      const auto& candidate = r.second;
+      if (!best || candidate->queue_size() < best->queue_size())
+        best = candidate;
+    }
+
+    if (!best)
+    {
+      RCLCPP_ERROR(
+        connections->adapter->node()->get_logger(),
+        "No robot is available to fulfill the loop task request [%s]",
+        msg->task_id.c_str());
+      return;
+    }
+
+    std::vector<std::string> new_waypoints;
+    new_waypoints.reserve(2*msg->num_loops);
+    for (std::size_t i=0; i < msg->num_loops; ++i)
+    {
+      new_waypoints.push_back(msg->start_name);
+      new_waypoints.push_back(msg->finish_name);
+    }
+
+    best->add_to_queue(new_waypoints);
   });
 
   return connections;
@@ -353,5 +526,15 @@ int main(int argc, char* argv[])
   if (!adapter)
     return 1;
 
+  const auto fleet_connections = make_fleet(adapter);
+  if (!fleet_connections)
+    return 1;
 
+  RCLCPP_INFO(adapter->node()->get_logger(), "Starting Mock Traffic Light");
+
+  adapter->start().wait();
+
+  RCLCPP_INFO(adapter->node()->get_logger(), "Closing Mock Traffic Light");
+
+  rclcpp::shutdown();
 }

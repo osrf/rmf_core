@@ -351,8 +351,13 @@ rmf_traffic::Time interpolate_time(
   const rmf_traffic::agv::Plan::Waypoint& wp1,
   const Eigen::Vector2d& p)
 {
+  std::vector<Eigen::Vector3d> positions;
+  positions.resize(2, Eigen::Vector3d::Zero());
+  positions[0].block<2,1>(0,0) = wp0.position().block<2,1>(0,0);
+  positions[1].block<2,1>(0,0) = wp1.position().block<2,1>(0,0);
+
   const auto interp = rmf_traffic::agv::Interpolate::positions(
-        traits, wp0.time(), {wp0.position(), wp1.position()});
+        traits, wp0.time(), positions);
 
   // The interpolation will either be two parabolas or it will be two parabolas
   // with a linear component in the middle.
@@ -407,17 +412,24 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
   const Eigen::Vector2d p = location.block<2,1>(0,0);
   const auto& waypoints = plan.get_waypoints();
 
-  for (std::size_t i=0; i < plan_target; ++i)
+//  std::cout << "plan_target: " << plan_target << " | waypoints.size(): "
+//            << waypoints.size() << std::endl;
+  assert(plan_target < waypoints.size());
+
+  // If we end up receiving a plan_target that initiates the plan, just pretend
+  // we were given the next plan target
+  const std::size_t search_up_to = plan_target == 0? 1 : plan_target;
+
+  for (std::size_t i=0; i < search_up_to; ++i)
   {
-    const auto index = plan_target - i;
+    const auto index = search_up_to - i;
     const auto& wp0 = waypoints[index-1];
     const auto& wp1 = waypoints[index];
 
     const auto gi_0 = wp0.graph_index();
     const auto gi_1 = wp1.graph_index();
-    assert(gi_1);
 
-    if (!gi_0 || (*gi_0 != *gi_1))
+    if (gi_1 && (!gi_0 || (*gi_0 != *gi_1)))
     {
       // Check if the robot is traversing a lane
       const Eigen::Vector2d p0 = wp0.position().block<2,1>(0,0);
@@ -543,15 +555,18 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
 
   assert(!path.empty());
 
-  rclcpp::Time initial_t =
+  const rclcpp::Time initial_t =
       rmf_traffic_ros2::convert(plan->get_waypoints().front().time());
+
+  // For time that should be considered in the past
+  const rclcpp::Time passed_t = initial_t - rclcpp::Duration(3600.0);
 
   const auto& plan_waypoints = plan->get_waypoints();
   const auto& graph = planner->get_configuration().graph();
 
   arrival_timing.resize(path.size(), rmf_traffic_ros2::convert(initial_t));
   departure_timing.resize(path.size(), initial_t);
-  plan_index.resize(path.size(), 0);
+  plan_index.resize(path.size());
 
   rmf_utils::optional<std::size_t> current_wp;
 
@@ -568,6 +583,7 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     return 0;
   }();
 
+//  std::cout << " ==== Assigning plan_index values" << std::endl;
   for (std::size_t i=0; i < plan_waypoints.size(); ++i)
   {
     const auto& wp = plan_waypoints[i];
@@ -575,7 +591,10 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     if (!wp.graph_index())
     {
       for (std::size_t k=0; k < first_wp; ++k)
-        departure_timing[k] = rmf_traffic_ros2::convert(wp.time());
+      {
+        departure_timing[k] = passed_t;
+        plan_index[k] = i;
+      }
 
       continue;
     }
@@ -595,6 +614,7 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         const auto t = interpolate_time(traits, plan_waypoints[i-1], wp, p);
         arrival_timing[k] = t;
         departure_timing[k] = rmf_traffic_ros2::convert(t);
+//        std::cout << " -- " << __LINE__ << " | " << k << " --> " << i << std::endl;
         plan_index[k] = i;
       }
 
@@ -606,8 +626,13 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     // show up several times in a plan. We want to use the last time that is
     // associated with this path waypoint.
     departure_timing[*current_wp] = rmf_traffic_ros2::convert(wp.time());
+//    std::cout << " -- " << __LINE__ << " | " << *current_wp << " --> " << i << std::endl;
     plan_index[*current_wp] = i;
   }
+
+//  std::cout << " ===== Departure Timing: " << std::endl;
+//  for (std::size_t i=0; i < departure_timing.size(); ++i)
+//    std::cout << " -- " << i << ": " << departure_timing[i].seconds() << std::endl;
 
   itinerary.set(plan->get_itinerary());
 
@@ -698,6 +723,14 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   const auto effective_time = now - itinerary.delay();
   const rclcpp::Time effective_time_rcl =
       rmf_traffic_ros2::convert(effective_time);
+  std::cout << " === effective time: "
+            << rmf_traffic::time::to_seconds(effective_time.time_since_epoch())
+            << " | now: " << rmf_traffic::time::to_seconds(now.time_since_epoch())
+            << std::endl;
+
+  std::cout << "departure times:\n";
+  for (std::size_t i=0; i < departure_timing.size(); ++i)
+    std::cout << " -- " << i << ": " << departure_timing[i].seconds() << std::endl;
 
   if (departure_timing.back() < effective_time_rcl)
   {
@@ -802,6 +835,13 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
   if (!location)
     return responder->forfeit({});
 
+  std::cout << " ====== ESTIMATED LOCATION: " << location->waypoint();
+  if (location->location())
+    std::cout << " <" << location->location()->transpose() << ">";
+  if (location->lane())
+    std::cout << " lane " << *location->lane();
+  std::cout << std::endl;
+
   const auto& final_wp = data->plan->get_waypoints().back();
   assert(*final_wp.graph_index());
   rmf_traffic::agv::Plan::Goal goal(
@@ -817,7 +857,35 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     if (!data)
       return rmf_utils::nullopt;
 
-    return data->update_timing(version, data->path, plan, data->planner);
+    bool acceptable_response = false;
+    const auto current_location = data->estimate_location();
+    if (current_location)
+    {
+      acceptable_response = true;
+      const auto now = rmf_traffic_ros2::convert(data->node->now());
+      const auto current_target = current_location->waypoint();
+      for (const auto& wp : plan.get_waypoints())
+      {
+        if (!wp.graph_index() || *wp.graph_index() < current_target)
+        {
+          if (now < wp.time())
+          {
+            acceptable_response = false;
+            break;
+          }
+        }
+      }
+    }
+
+    if (acceptable_response)
+      return data->update_timing(version, data->path, plan, data->planner);
+
+    RCLCPP_WARN(
+          data->node->get_logger(),
+          "A negotiation result was issued too late for the robot [%s] to "
+          "accommodate it.", data->itinerary.description().name().c_str());
+
+    return rmf_utils::nullopt;
   };
 
   services::ProgressEvaluator evaluator;
@@ -826,6 +894,12 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     const auto& s = table_viewer->sequence();
     assert(s.size() >= 2);
     evaluator.compliant_leeway_base *= s[s.size()-2].version + 1;
+  }
+
+  if (!table_viewer->base_proposals().empty())
+  {
+    location->time(table_viewer->base_proposals()
+                   .front().itinerary.back()->trajectory().front().time());
   }
 
   auto negotiate = services::Negotiate::path(
