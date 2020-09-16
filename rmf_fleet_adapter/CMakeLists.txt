@@ -124,6 +124,7 @@ if (BUILD_TESTING)
     PRIVATE
       # private libraries of rmf_fleet_adapter
       rmf_rxcpp
+      rmf_battery::rmf_battery
       ${rmf_task_msgs_LIBRARIES}
       ${rmf_door_msgs_LIBRARIES}
       ${rmf_lift_msgs_LIBRARIES}

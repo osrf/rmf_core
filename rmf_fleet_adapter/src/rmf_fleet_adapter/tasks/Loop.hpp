@@ -33,7 +33,7 @@ namespace tasks {
 struct LoopEstimate
 {
   rmf_traffic::Time time = rmf_traffic::Time::max();
-  RobotContextPtr robot = nullptr;
+  agv::RobotContextPtr robot = nullptr;
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> init_start;
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_start;
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_end;

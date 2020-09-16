@@ -33,7 +33,7 @@ namespace tasks {
 struct DeliveryEstimate
 {
   rmf_traffic::Time time = rmf_traffic::Time::max(); 
-  RobotContextPtr robot = nullptr;
+  agv::RobotContextPtr robot = nullptr;
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> pickup_start;
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> dropoff_start;
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> finish;

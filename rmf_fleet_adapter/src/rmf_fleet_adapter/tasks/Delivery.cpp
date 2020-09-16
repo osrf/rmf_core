@@ -19,6 +19,8 @@
 #include "../phases/IngestItem.hpp"
 #include "../phases/GoToPlace.hpp"
 
+#include "../agv/internal_FleetUpdateHandle.hpp"
+
 #include "Delivery.hpp"
 
 namespace rmf_fleet_adapter {
@@ -27,9 +29,9 @@ namespace tasks {
 //==============================================================================
 rmf_utils::optional<DeliveryEstimate> estimate_delivery(
     const rmf_task_msgs::msg::Delivery& request,
-    const std::shared_ptr<FleetUpdateHandle>& fleet)
+    const std::shared_ptr<agv::FleetUpdateHandle>& fleet)
 {
-  const auto& fimpl = FleetUpdateHandle::Implementation::get(*fleet);
+  const auto& fimpl = agv::FleetUpdateHandle::Implementation::get(*fleet);
   const auto planner = fimpl.planner;
   const auto& graph = planner->get_configuration().graph();
 

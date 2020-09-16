@@ -19,9 +19,6 @@
 #include "internal_RobotUpdateHandle.hpp"
 #include "RobotContext.hpp"
 
-#include "../tasks/Delivery.hpp"
-#include "../tasks/Loop.hpp"
-
 namespace rmf_fleet_adapter {
 namespace agv {
 
@@ -130,7 +127,7 @@ public:
 //==============================================================================
 void FleetUpdateHandle::Implementation::perform_delivery(
     const rmf_task_msgs::msg::Delivery& request,
-    const DeliveryEstimate& estimate)
+    const rmf_fleet_adapter::tasks::DeliveryEstimate& estimate)
 {
   auto& mgr = *task_managers.at(estimate.robot);
   mgr.queue_task(
@@ -261,7 +258,7 @@ void FleetUpdateHandle::Implementation::perform_delivery(
 //==============================================================================
 void FleetUpdateHandle::Implementation::perform_loop(
     const rmf_task_msgs::msg::Loop& request,
-    const LoopEstimate& estimate)
+    const rmf_fleet_adapter::tasks::LoopEstimate& estimate)
 {
   auto& mgr = task_managers.at(estimate.robot);
   mgr->queue_task(
@@ -385,7 +382,7 @@ void request_delivery(
     const rmf_task_msgs::msg::Delivery& request,
     const std::vector<std::shared_ptr<FleetUpdateHandle>>& fleets)
 {
-  FleetUpdateHandle::Implementation::DeliveryEstimate best;
+  rmf_fleet_adapter::tasks::DeliveryEstimate best;
   FleetUpdateHandle::Implementation* chosen_fleet = nullptr;
 
   for (auto& fleet : fleets)
@@ -417,7 +414,7 @@ void request_loop(
     const rmf_task_msgs::msg::Loop& request,
     const std::vector<std::shared_ptr<FleetUpdateHandle>>& fleets)
 {
-  FleetUpdateHandle::Implementation::LoopEstimate best;
+  rmf_fleet_adapter::tasks::LoopEstimate best;
   FleetUpdateHandle::Implementation* chosen_fleet = nullptr;
 
   for (auto& fleet : fleets)

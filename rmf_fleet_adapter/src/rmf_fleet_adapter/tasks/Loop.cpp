@@ -17,6 +17,8 @@
 
 #include "Loop.hpp"
 
+#include "../agv/internal_FleetUpdateHandle.hpp"
+
 #include "../phases/GoToPlace.hpp"
 
 namespace rmf_fleet_adapter {
@@ -27,7 +29,7 @@ rmf_utils::optional<LoopEstimate> estimate_loop(
     const rmf_task_msgs::msg::Loop& request,
     const std::shared_ptr<agv::FleetUpdateHandle>& fleet)
 {
-  const auto& fimpl = FleetUpdateHandle::Implementation::get(*fleet);
+  const auto& fimpl = agv::FleetUpdateHandle::Implementation::get(*fleet);
   if (request.robot_type != fimpl.name)
     return rmf_utils::nullopt;
 
