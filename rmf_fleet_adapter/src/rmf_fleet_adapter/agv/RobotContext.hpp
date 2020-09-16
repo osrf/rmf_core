@@ -33,6 +33,12 @@ public:
   /// available.
   std::shared_ptr<RobotCommandHandle> command();
 
+  /// Get the motion power sink of this robot.
+  std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> motion_sink() const;
+
+  /// Get the device power sink of this robot.
+  std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> device_sink() const;
+
   /// Create a RobotUpdateHandle that reports to this RobotContext
   std::shared_ptr<RobotUpdateHandle> make_updater();
 
@@ -118,6 +124,8 @@ private:
 
   RobotContext(
     std::shared_ptr<RobotCommandHandle> command_handle,
+    std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> device_sink,
     std::vector<rmf_traffic::agv::Plan::Start> _initial_location,
     rmf_traffic::schedule::Participant itinerary,
     std::shared_ptr<const Snappable> schedule,
@@ -127,6 +135,8 @@ private:
     rmf_utils::optional<rmf_traffic::Duration> maximum_delay);
 
   std::weak_ptr<RobotCommandHandle> _command_handle;
+  std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> _motion_sink;
+  std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> _device_sink;
   std::vector<rmf_traffic::agv::Plan::Start> _location;
   rmf_traffic::schedule::Participant _itinerary;
   std::shared_ptr<const Snappable> _schedule;

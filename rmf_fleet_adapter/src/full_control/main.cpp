@@ -37,6 +37,11 @@
 // ROS2 utilities for rmf_traffic
 #include <rmf_traffic_ros2/Time.hpp>
 
+/// Robot battery utilities
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+
 // Utility functions for estimating where a robot is on the graph based on
 // the information provided by fleet drivers.
 #include "estimation.hpp"
@@ -372,9 +377,22 @@ struct Connections : public std::enable_shared_from_this<Connections>
           *adapter->node(), fleet_name, robot_name, graph, traits,
           path_request_pub, mode_request_pub);
 
+    /// TODO(AA) Placing this here temporarily while we figure out all the
+    /// needed configurations.
+    rmf_battery::agv::BatterySystem battery_system{24.0, 40.0, 8.8};
+    rmf_battery::agv::MechanicalSystem mechanical_system{70.0, 40.0, 0.22};
+    rmf_battery::agv::PowerSystem power_system{"processor", 20.0};
+    auto motion_sink =
+      std::make_shared<rmf_battery::agv::SimpleMotionPowerSink>(
+        battery_system, mechanical_system);
+    auto device_sink =
+      std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
+        battery_system, power_system);
+
     const auto& l = state.location;
     fleet->add_robot(
-          command, robot_name, traits->profile(),
+          command, std::move(motion_sink), std::move(device_sink),
+          robot_name, traits->profile(),
           rmf_traffic::agv::compute_plan_starts(
             *graph, state.location.level_name, {l.x, l.y, l.yaw},
             rmf_traffic_ros2::convert(adapter->node()->now())),

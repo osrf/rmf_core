@@ -33,6 +33,10 @@
 #include <rmf_ingestor_msgs/msg/ingestor_state.hpp>
 #include <rmf_ingestor_msgs/msg/ingestor_result.hpp>
 
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/BatterySystem.hpp>
+
 #include <rmf_utils/catch.hpp>
 
 #include "../thread_cooldown.hpp"
@@ -337,8 +341,19 @@ SCENARIO("Test Delivery")
   auto robot_cmd = std::make_shared<
       rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
 
+  rmf_battery::agv::BatterySystem battery_system{24.0, 40.0, 8.8};
+  rmf_battery::agv::MechanicalSystem mechanical_system{70.0, 40.0, 0.22};
+  rmf_battery::agv::PowerSystem power_system{"processor", 20.0};
+  auto motion_sink =
+    std::make_shared<rmf_battery::agv::SimpleMotionPowerSink>(
+      battery_system, mechanical_system);
+  auto device_sink =
+    std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
+      battery_system, power_system);
+
   fleet->add_robot(
-        robot_cmd, "T0", profile, starts,
+        robot_cmd, std::move(motion_sink), std::move(device_sink),
+        "T0", profile, starts,
         [&robot_cmd](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
   {
     robot_cmd->updater = std::move(updater);

@@ -59,12 +59,12 @@ add_library(rmf_fleet_adapter SHARED
 target_link_libraries(rmf_fleet_adapter
   PUBLIC
     rmf_traffic_ros2::rmf_traffic_ros2
+    rmf_battery::rmf_battery
     yaml-cpp
     ${rmf_fleet_msgs_LIBRARIES}
     ${rclcpp_LIBRARIES}
   PRIVATE
     rmf_rxcpp
-    rmf_battery::rmf_battery
     ${rmf_task_msgs_LIBRARIES}
     ${rmf_door_msgs_LIBRARIES}
     ${rmf_lift_msgs_LIBRARIES}
@@ -124,7 +124,6 @@ if (BUILD_TESTING)
     PRIVATE
       # private libraries of rmf_fleet_adapter
       rmf_rxcpp
-      rmf_battery::rmf_battery
       ${rmf_task_msgs_LIBRARIES}
       ${rmf_door_msgs_LIBRARIES}
       ${rmf_lift_msgs_LIBRARIES}

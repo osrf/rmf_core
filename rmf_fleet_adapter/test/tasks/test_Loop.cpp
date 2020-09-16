@@ -29,6 +29,10 @@
 #include <rmf_dispenser_msgs/msg/dispenser_state.hpp>
 #include <rmf_dispenser_msgs/msg/dispenser_result.hpp>
 
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/BatterySystem.hpp>
+
 #include <rmf_utils/catch.hpp>
 
 #include "../thread_cooldown.hpp"
@@ -217,8 +221,20 @@ SCENARIO("Test loop requests")
   const rmf_traffic::agv::Plan::StartSet starts_0 = {{now, 0, 0.0}};
   auto robot_cmd_0 = std::make_shared<
       rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
+
+  rmf_battery::agv::BatterySystem battery_system{24.0, 40.0, 8.8};
+  rmf_battery::agv::MechanicalSystem mechanical_system{70.0, 40.0, 0.22};
+  rmf_battery::agv::PowerSystem power_system{"processor", 20.0};
+  auto motion_sink =
+    std::make_shared<rmf_battery::agv::SimpleMotionPowerSink>(
+      battery_system, mechanical_system);
+  auto device_sink =
+    std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
+      battery_system, power_system);
+  
   fleet->add_robot(
-        robot_cmd_0, "T0", profile, starts_0,
+        robot_cmd_0, std::move(motion_sink), std::move(device_sink),
+        "T0", profile, starts_0,
         [&robot_cmd_0](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
   {
     robot_cmd_0->updater = std::move(updater);
@@ -228,7 +244,8 @@ SCENARIO("Test loop requests")
   auto robot_cmd_1 = std::make_shared<
       rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
   fleet->add_robot(
-        robot_cmd_1, "T1", profile, starts_1,
+        robot_cmd_1, std::move(motion_sink), std::move(device_sink),
+        "T1", profile, starts_1,
         [&robot_cmd_1](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
   {
     robot_cmd_1->updater = std::move(updater);

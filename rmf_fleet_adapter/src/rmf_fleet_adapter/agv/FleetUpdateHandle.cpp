@@ -274,6 +274,8 @@ void FleetUpdateHandle::Implementation::perform_loop(
 //==============================================================================
 void FleetUpdateHandle::add_robot(
     std::shared_ptr<RobotCommandHandle> command,
+    std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> device_sink,
     const std::string& name,
     const rmf_traffic::Profile& profile,
     rmf_traffic::agv::Plan::StartSet start,
@@ -289,6 +291,8 @@ void FleetUpdateHandle::add_robot(
         std::move(description),
         [worker = _pimpl->worker,
          command = std::move(command),
+         motion_sink = std::move(motion_sink),
+         device_sink = std::move(device_sink),
          start = std::move(start),
          handle_cb = std::move(handle_cb),
          fleet = shared_from_this()](
@@ -297,6 +301,8 @@ void FleetUpdateHandle::add_robot(
     auto context = std::make_shared<RobotContext>(
           RobotContext{
             std::move(command),
+            std::move(motion_sink),
+            std::move(device_sink),
             std::move(start),
             std::move(participant),
             fleet->_pimpl->snappable,

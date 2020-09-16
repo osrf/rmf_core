@@ -31,6 +31,20 @@ std::shared_ptr<RobotCommandHandle> RobotContext::command()
 }
 
 //==============================================================================
+std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink>
+  RobotContext::motion_sink() const
+{
+  return _motion_sink;
+}
+
+//==============================================================================
+std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink>
+  RobotContext::device_sink() const
+{
+  return _device_sink;
+}
+
+//==============================================================================
 std::shared_ptr<RobotUpdateHandle> RobotContext::make_updater()
 {
   return RobotUpdateHandle::Implementation::make(shared_from_this());
@@ -235,6 +249,8 @@ void RobotContext::respond(
 //==============================================================================
 RobotContext::RobotContext(
   std::shared_ptr<RobotCommandHandle> command_handle,
+  std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> motion_sink,
+  std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> device_sink,
   std::vector<rmf_traffic::agv::Plan::Start> _initial_location,
   rmf_traffic::schedule::Participant itinerary,
   std::shared_ptr<const Snappable> schedule,
@@ -243,6 +259,8 @@ RobotContext::RobotContext(
   const rxcpp::schedulers::worker& worker,
   rmf_utils::optional<rmf_traffic::Duration> maximum_delay)
   : _command_handle(std::move(command_handle)),
+    _motion_sink(motion_sink),
+    _device_sink(device_sink),
     _location(std::move(_initial_location)),
     _itinerary(std::move(itinerary)),
     _schedule(std::move(schedule)),

@@ -22,6 +22,10 @@
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/BatterySystem.hpp>
+
 namespace rmf_fleet_adapter {
 namespace phases {
 namespace test {
@@ -143,9 +147,21 @@ auto MockAdapterFixture::add_robot(
   RobotInfo info;
   info.command = std::make_shared<rmf_fleet_adapter_test::MockRobotCommand>(
     adapter->node(), graph);
+  
+  rmf_battery::agv::BatterySystem battery_system{24.0, 40.0, 8.8};
+  rmf_battery::agv::MechanicalSystem mechanical_system{70.0, 40.0, 0.22};
+  rmf_battery::agv::PowerSystem power_system{"processor", 20.0};
+  auto motion_sink =
+    std::make_shared<rmf_battery::agv::SimpleMotionPowerSink>(
+      battery_system, mechanical_system);
+  auto device_sink =
+    std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
+      battery_system, power_system);
 
   std::promise<bool> robot_added;
-  fleet->add_robot(info.command, name, profile, starts,
+  fleet->add_robot(
+    info.command, std::move(motion_sink), std::move(device_sink),
+    name, profile, starts,
     [&info, &robot_added](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
     {
       const auto& pimpl = agv::RobotUpdateHandle::Implementation::get(*updater);

@@ -23,6 +23,9 @@
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/agv/Graph.hpp>
 
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+
 #include <rclcpp/node.hpp>
 
 namespace rmf_fleet_adapter {

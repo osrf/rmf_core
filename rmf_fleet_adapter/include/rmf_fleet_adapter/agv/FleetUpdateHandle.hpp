@@ -21,6 +21,9 @@
 #include <rmf_fleet_adapter/agv/RobotUpdateHandle.hpp>
 #include <rmf_fleet_adapter/agv/RobotCommandHandle.hpp>
 
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+
 #include <rmf_task_msgs/msg/delivery.hpp>
 
 namespace rmf_fleet_adapter {
@@ -58,6 +61,8 @@ public:
   /// \return a handle to give the adapter updates about the robot.
   void add_robot(
       std::shared_ptr<RobotCommandHandle> command,
+      std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> motion_sink,
+      std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> device_sink,
       const std::string& name,
       const rmf_traffic::Profile& profile,
       rmf_traffic::agv::Plan::StartSet start,

@@ -33,10 +33,6 @@
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 
-#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
-#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
-#include <rmf_battery/agv/BatterySystem.hpp>
-
 namespace rmf_fleet_adapter {
 namespace agv {
 
@@ -122,9 +118,6 @@ public:
   std::shared_ptr<ParticipantFactory> writer;
   std::shared_ptr<rmf_traffic::schedule::Snappable> snappable;
   std::shared_ptr<rmf_traffic_ros2::schedule::Negotiation> negotiation;
-
-  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
-  std::shared_ptr<rmf_battery::DevicePowerSink> device_sink;
 
   rmf_utils::optional<rmf_traffic::Duration> default_maximum_delay =
       std::chrono::nanoseconds(std::chrono::seconds(10));
