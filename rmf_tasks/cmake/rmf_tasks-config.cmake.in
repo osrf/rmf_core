@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+get_filename_component(rmf_tasks_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(rmf_utils REQUIRED)
+find_dependency(rmf_traffic REQUIRED)
+
+if(NOT TARGET rmf_tasks::rmf_tasks)
+    include("${rmf_tasks_CMAKE_DIR}/rmf_tasks-targets.cmake")
+endif()
+
+check_required_components(rmf_tasks)
