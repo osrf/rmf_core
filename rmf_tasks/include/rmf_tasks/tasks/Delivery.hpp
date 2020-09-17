@@ -14,3 +14,32 @@
  * limitations under the License.
  *
 */
+
+#ifndef INCLUDE__RMF_TASKS__TASKS__DELIVERY_HPP
+#define INCLUDE__RMF_TASKS__TASKS__DELIVERY_HPP
+
+#include <rmf_traffic/Time.hpp>
+#include <rmf_traffic/agv/Planner.hpp>
+
+#include <rmf_utils/optional.hpp>
+
+#include <rmf_task_msgs/msg/delivery.hpp>
+
+namespace rmf_tasks {
+namespace tasks {
+
+class DeliveryEstimate
+{
+public:
+
+
+};
+
+
+
+
+
+} // namespace tasks
+} // namespace rmf_tasks
+
+#endif // INCLUDE__RMF_TASKS__TASKS__DELIVERY_HPP
