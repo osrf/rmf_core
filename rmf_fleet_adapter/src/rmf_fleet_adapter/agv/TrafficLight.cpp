@@ -678,7 +678,8 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         if (!max_delay || new_delay < *max_delay)
         {
           const auto time_shift = new_delay - data->itinerary.delay();
-          if (time_shift > std::chrono::seconds(5))
+          const auto threshold = std::chrono::seconds(1);
+          if (time_shift < -threshold || threshold < time_shift)
             data->itinerary.delay(time_shift);
 
           return;
@@ -831,11 +832,14 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     return responder->forfeit({});
   }
 
+  data->command->deadlock();
+
   auto location = data->estimate_location();
   if (!location)
     return responder->forfeit({});
 
-  std::cout << " ====== ESTIMATED LOCATION: " << location->waypoint();
+  std::cout << " ====== ESTIMATED LOCATION for " << data->itinerary.description().name()
+            << ": " << location->waypoint();
   if (location->location())
     std::cout << " <" << location->location()->transpose() << ">";
   if (location->lane())
@@ -857,27 +861,27 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     if (!data)
       return rmf_utils::nullopt;
 
-    bool acceptable_response = false;
-    const auto current_location = data->estimate_location();
-    if (current_location)
-    {
-      acceptable_response = true;
-      const auto now = rmf_traffic_ros2::convert(data->node->now());
-      const auto current_target = current_location->waypoint();
-      for (const auto& wp : plan.get_waypoints())
-      {
-        if (!wp.graph_index() || *wp.graph_index() < current_target)
-        {
-          if (now < wp.time())
-          {
-            acceptable_response = false;
-            break;
-          }
-        }
-      }
-    }
+//    bool acceptable_response = false;
+//    const auto current_location = data->estimate_location();
+//    if (current_location)
+//    {
+//      acceptable_response = true;
+//      const auto now = rmf_traffic_ros2::convert(data->node->now());
+//      const auto current_target = current_location->waypoint();
+//      for (const auto& wp : plan.get_waypoints())
+//      {
+//        if (!wp.graph_index() || *wp.graph_index() < current_target)
+//        {
+//          if (now < wp.time())
+//          {
+//            acceptable_response = false;
+//            break;
+//          }
+//        }
+//      }
+//    }
 
-    if (acceptable_response)
+//    if (acceptable_response)
       return data->update_timing(version, data->path, plan, data->planner);
 
     RCLCPP_WARN(

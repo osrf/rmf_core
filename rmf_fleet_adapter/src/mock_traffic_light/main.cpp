@@ -69,6 +69,9 @@ public:
     _current_path_request.fleet_name = fleet_name;
     _current_path_request.robot_name = robot_name;
 
+    _stop_request.fleet_name = fleet_name;
+    _stop_request.robot_name = robot_name;
+
     _travel_info.graph = std::move(graph);
     _travel_info.traits = std::move(traits);
     _travel_info.fleet_name = std::move(fleet_name);
@@ -86,6 +89,8 @@ public:
     if (_path_version != version)
       return;
 
+    _deadlock = false;
+
     _progress_updater = std::move(progress_updater);
     if(_path_size != departure_timing.size())
     {
@@ -95,37 +100,62 @@ public:
             + std::to_string(departure_timing.size()) + "]");
     }
 
-    // Having _last_target == 0 causes problems with the index conversions below
-    // so we'll switch its value to 1 to deal with that edge case
-    if (_last_target == 0)
-      _last_target = 1;
-
     const std::size_t N_command = _current_path_request.path.size();
-    const std::size_t N_command_desired = _path_size - _last_target + 1;
+    const std::size_t N_command_desired =
+        std::min(_path_size - _last_target + 1, _path_size);
+    const std::size_t N_offset = _path_size - N_command_desired;
+
     if (N_command_desired < N_command)
     {
       _current_path_request.path.erase(
+            _current_path_request.path.begin(),
             _current_path_request.path.begin() +
             N_command - N_command_desired);
     }
     _current_path_request.path.front() = _last_state.location;
 
-    for (std::size_t i=_last_target-1; i < _path_size; ++i)
-      _current_path_request.path[i+1-_last_target].t = departure_timing[i];
+    for (std::size_t i=0; i < N_command_desired; ++i)
+      _current_path_request.path[i].t = departure_timing[i+N_offset];
 
     std::cout << " >>> Issuing timing commands: " << std::endl;
     for (std::size_t i=0; i < _current_path_request.path.size(); ++i)
-      std::cout << " -- " << i << ": "
+      std::cout << " -- " << i+N_offset << ": "
                 << rclcpp::Time(_current_path_request.path[i].t).seconds()
                 << std::endl;
 
     _moving = true;
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
+
+    std::cout << "PUBLISHING NEW TIMING FOR " << _travel_info.robot_name << ":\n";
+    for (const auto& l : _current_path_request.path)
+      std::cout << " -- " << rclcpp::Time(l.t).seconds() << ": <" << l.x << ", " << l.y << ">" << std::endl;
   }
 
   void deadlock() final
   {
+    _deadlock = true;
+    _stop_request.path.clear();
+    _stop_request.path.push_back(_last_state.location);
+    _stop_request.task_id = std::to_string(++_command_version);
+    _path_request_pub->publish(_stop_request);
+    const auto l = _stop_request.path.front();
+    std::cout << "PUBLISHING STOP REQUEST FOR " << _travel_info.robot_name
+              << " AT <" << l.x << ", " << l.y << ">" << std::endl;
+
+    if (!_deadlock_timer)
+    {
+      _deadlock_timer = _node->create_wall_timer(
+            std::chrono::seconds(5),
+            [this]()
+      {
+        this->_deadlock_timer = nullptr;
+
+        if (this->_deadlock)
+          this->_restart_path();
+      });
+    }
+
     RCLCPP_ERROR(_node->get_logger(), "Deadlock detected!");
   }
 
@@ -140,11 +170,23 @@ public:
     std::lock_guard<std::mutex> lock(_mutex);
     _last_state = state;
 
+    if (_deadlock)
+    {
+      if (_stop_request.task_id != state.task_id)
+      {
+        std::cout << "REPUBLISHING STOP REQUEST FOR " << _travel_info.robot_name << std::endl;
+        _path_request_pub->publish(_stop_request);
+      }
+
+      return;
+    }
+
     if (!_moving)
       return;
 
     if (_current_path_request.task_id != state.task_id)
     {
+      std::cout << "REPUBLISHING PATH REQUEST FOR " << _travel_info.robot_name << std::endl;
       _path_request_pub->publish(_current_path_request);
       return;
     }
@@ -153,11 +195,12 @@ public:
     {
       _moving = false;
       _queue.pop_front();
-      _start_next_waypoint();
+      _go_to_next_waypoint();
       return;
     }
 
     assert(state.path.size() <= _path_size);
+    _last_active_state = state;
     _last_target = _path_size - state.path.size();
 
     const auto& l = state.location;
@@ -180,17 +223,13 @@ public:
       _queue.push_back(wp);
 
     if (!_moving && empty_queue)
-      _start_next_waypoint();
+      _go_to_next_waypoint();
   }
 
-private:
-
-  void _start_next_waypoint()
+  rmf_utils::optional<std::string> start_waypoint() const
   {
-    if (_queue.empty())
-      return;
-
-    const std::string next = std::move(_queue.front());
+    if (_moving || !_queue.empty())
+      return rmf_utils::nullopt;
 
     const auto& l = _last_state.location;
     const auto starts = rmf_traffic::agv::compute_plan_starts(
@@ -200,35 +239,77 @@ private:
           rmf_traffic_ros2::convert(_node->now()));
 
     if (starts.empty())
+      return rmf_utils::nullopt;
+
+    const auto* name = _planner->get_configuration().graph().get_waypoint(
+          starts.front().waypoint()).name();
+
+    if (name)
+      return *name;
+
+    return rmf_utils::nullopt;
+  }
+
+  const std::string& name() const
+  {
+    return _travel_info.robot_name;
+  }
+
+private:
+
+  void _go_to_next_waypoint()
+  {
+    while (!_queue.empty())
     {
-      RCLCPP_ERROR(
-            _node->get_logger(),
-            "Robot [%s] is lost!",
-            _travel_info.robot_name.c_str());
+      const std::string next = std::move(_queue.front());
+
+      const auto& l = _last_state.location;
+      const auto starts = rmf_traffic::agv::compute_plan_starts(
+            _planner->get_configuration().graph(),
+            l.level_name,
+            {l.x, l.y, l.yaw},
+            rmf_traffic_ros2::convert(_node->now()));
+
+      if (starts.empty())
+      {
+        RCLCPP_ERROR(
+              _node->get_logger(),
+              "Robot [%s] is lost!",
+              _travel_info.robot_name.c_str());
+        return;
+      }
+
+      const auto goal = _planner->get_configuration().graph().find_waypoint(next);
+      if (!goal)
+      {
+        RCLCPP_ERROR(
+              _node->get_logger(),
+              "Could not find a goal named [%s] for robot [%s]",
+              next.c_str(), _travel_info.robot_name.c_str());
+        _queue.pop_front();
+        continue;
+      }
+
+      const auto result = _planner->plan(starts, goal->index());
+      if (!result)
+      {
+        RCLCPP_WARN(
+              _node->get_logger(),
+              "Could not find a plan to get robot [%s] to waypoint [%s]",
+              _travel_info.robot_name.c_str(), next.c_str());
+        _queue.pop_front();
+        continue;
+      }
+
+      if (result->get_waypoints().size() < 2)
+      {
+        _queue.pop_front();
+        continue;
+      }
+
+      _follow_new_path(result->get_waypoints());
       return;
     }
-
-    const auto goal = _planner->get_configuration().graph().find_waypoint(next);
-    if (!goal)
-    {
-      RCLCPP_ERROR(
-            _node->get_logger(),
-            "Could not find a goal named [%s] for robot [%s]",
-            next.c_str(), _travel_info.robot_name.c_str());
-      return;
-    }
-
-    const auto result = _planner->plan(starts, goal->index());
-    if (!result)
-    {
-      RCLCPP_ERROR(
-            _node->get_logger(),
-            "Could not find a plan to get robot [%s] to waypoint [%s]",
-            _travel_info.robot_name.c_str(), next.c_str());
-      return;
-    }
-
-    _follow_new_path(result->get_waypoints());
   }
 
   void _follow_new_path(
@@ -287,7 +368,34 @@ private:
       path.emplace_back(map_name, p);
     }
 
-    std::cout << "Submitting path size: " << path.size() << std::endl;
+    _last_target = 0;
+    _path_version = _path_updater->update_path(path);
+    _path_size = path.size();
+  }
+
+  void _restart_path()
+  {
+    std::vector<rmf_fleet_adapter::agv::Waypoint> path;
+    path.reserve(_last_active_state.path.size() + 1);
+
+    const auto& l0 = _last_state.location;
+    path.emplace_back(l0.level_name, Eigen::Vector3d{l0.x, l0.y, l0.yaw});
+
+    _current_path_request.path.clear();
+    _current_path_request.path.push_back(l0);
+
+    const auto& last_path = _last_active_state.path;
+    for (const auto& l : last_path)
+    {
+      _current_path_request.path.push_back(l);
+      path.emplace_back(l.level_name, Eigen::Vector3d{l.x, l.y, l.yaw});
+    }
+
+    std::cout << "RESTARTING PATH FOR " << _travel_info.robot_name << ":\n";
+    for (const auto& l : _current_path_request.path)
+      std::cout << " -- <" << l.x << ", " << l.y << ">" << std::endl;
+
+    _last_target = 0;
     _path_version = _path_updater->update_path(path);
     _path_size = path.size();
   }
@@ -297,10 +405,16 @@ private:
   rclcpp::Node* _node;
   PathRequestPub _path_request_pub;
   rmf_fleet_msgs::msg::PathRequest _current_path_request;
+
+  rmf_fleet_msgs::msg::PathRequest _stop_request;
+  bool _deadlock = false;
+  std::shared_ptr<rclcpp::TimerBase> _deadlock_timer;
+
   std::chrono::steady_clock::time_point _path_requested_time;
   TravelInfo _travel_info;
   std::shared_ptr<const rmf_traffic::agv::Planner> _planner;
   rmf_fleet_msgs::msg::RobotState _last_state;
+  rmf_fleet_msgs::msg::RobotState _last_active_state;
 
   std::size_t _path_version = 0;
   std::size_t _command_version = 0;
@@ -353,11 +467,13 @@ struct Connections : public std::enable_shared_from_this<Connections>
 
   std::mutex mutex;
 
+  std::unordered_set<std::string> received_task_ids;
+
   void add_traffic_light(
       const std::string& fleet_name,
       const rmf_fleet_msgs::msg::RobotState& state)
   {
-    const std::string& robot_name = state.name;
+    const std::string robot_name = state.name;
     const auto command = std::make_shared<MockTrafficLightCommandHandle>(
           *adapter->node(), fleet_name, robot_name, graph, traits, planner,
           path_request_pub);
@@ -486,23 +602,42 @@ std::shared_ptr<Connections> make_fleet(
     if (!connections)
       return;
 
-    // This is a very dumb approach to assigning the tasks, but this adapter is
-    // only meant for testing purposes anyway.
+    if (!connections->received_task_ids.insert(msg->task_id).second)
+      return;
+
     MockTrafficLightCommandHandlePtr best = nullptr;
     for (const auto& r : connections->robots)
     {
-      const auto& candidate = r.second;
-      if (!best || candidate->queue_size() < best->queue_size())
-        best = candidate;
+      const auto start = r.second->start_waypoint();
+      if (!start)
+        continue;
+
+      if (*start == msg->start_name)
+      {
+        best = r.second;
+        break;
+      }
     }
 
     if (!best)
     {
-      RCLCPP_ERROR(
-        connections->adapter->node()->get_logger(),
-        "No robot is available to fulfill the loop task request [%s]",
-        msg->task_id.c_str());
-      return;
+      // This is a very dumb approach to assigning the tasks, but this adapter is
+      // only meant for testing purposes anyway.
+      for (const auto& r : connections->robots)
+      {
+        const auto& candidate = r.second;
+        if (!best || candidate->queue_size() < best->queue_size())
+          best = candidate;
+      }
+
+      if (!best)
+      {
+        RCLCPP_ERROR(
+          connections->adapter->node()->get_logger(),
+          "No robot is available to fulfill the loop task request [%s]",
+          msg->task_id.c_str());
+        return;
+      }
     }
 
     std::vector<std::string> new_waypoints;
@@ -512,6 +647,12 @@ std::shared_ptr<Connections> make_fleet(
       new_waypoints.push_back(msg->start_name);
       new_waypoints.push_back(msg->finish_name);
     }
+
+    RCLCPP_INFO(
+      connections->adapter->node()->get_logger(),
+      "Assigning task [%s] to robot [%s]",
+      msg->task_id.c_str(),
+      best->name().c_str());
 
     best->add_to_queue(new_waypoints);
   });
