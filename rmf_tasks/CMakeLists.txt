@@ -25,6 +25,7 @@ find_package(rmf_traffic REQUIRED)
 
 # ===== Traffic control library
 file(GLOB lib_srcs
+  "src/agv/*.cpp"
   "src/*.cpp"
 )
 

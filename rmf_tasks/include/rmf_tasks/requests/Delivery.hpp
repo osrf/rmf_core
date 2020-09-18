@@ -21,23 +21,48 @@
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include <rmf_battery/MotionPowerSink.hpp>
+#include <rmf_battery/DevicePowerSink.hpp>
+
 #include <rmf_utils/optional.hpp>
+
+#include <rmf_tasks/agv/State.hpp>
+#include <rmf_tasks/Request.hpp>
+#include <rmf_tasks/Estimate.hpp>
 
 #include <rmf_task_msgs/msg/delivery.hpp>
 
 namespace rmf_tasks {
-namespace tasks {
+namespace requests {
 
-class DeliveryEstimate
+class Delivery : public rmf_tasks::Request
 {
 public:
 
+  static rmf_tasks::Request::SharedPtr make(
+    std::size_t id,
+    std::size_t pickup_waypoint,
+    std::size_t dropoff_waypoint,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
+    std::shared_ptr<rmf_traffic::agv::Planner> planner,
+    bool drain_battery = true,
+    double start_time = 0.0);
 
+  std::size_t id() const final;
+
+  rmf_utils::optional<rmf_tasks::Estimate> estimate_finish(
+    const RobotState& initial_state) const final;
+  
+  rmf_traffic::Duration invariant_duration() const final;
+
+  rmf_traffic::Time earliest_start_time() const final;
+
+  class Implementation;
+private:
+  Delivery();
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
-
-
-
-
 
 } // namespace tasks
 } // namespace rmf_tasks
