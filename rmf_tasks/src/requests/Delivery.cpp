@@ -22,6 +22,7 @@
 namespace rmf_tasks {
 namespace requests {
 
+//==============================================================================
 class Delivery::Implementation
 {
 public:
@@ -42,6 +43,7 @@ public:
   double _invariant_battery_drain;
 };
 
+//==============================================================================
 rmf_tasks::Request::SharedPtr Delivery::make(
   std::size_t id,
   std::size_t pickup_waypoint,
@@ -92,15 +94,18 @@ rmf_tasks::Request::SharedPtr Delivery::make(
   return delivery;
 }
 
+//==============================================================================
 Delivery::Delivery()
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {}
 
+//==============================================================================
 std::size_t Delivery::id() const
 {
   return _pimpl->_id;
 }
 
+//==============================================================================
 rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   const agv::State& initial_state) const
 {
@@ -113,7 +118,9 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
 
   rmf_traffic::Duration variant_duration(0);
 
-  auto start_time = initial_state.finish_time();
+  const auto time_now = std::chrono::steady_clock::now();
+  auto start_time = time_now > initial_state.finish_time() ?
+    time_now : initial_state.finish_time();
   double battery_soc = initial_state.battery_soc();
   double dSOC_motion = 0.0;
   double dSOC_device = 0.0;
@@ -179,16 +186,18 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   return Estimate(state, wait_until);
 }
 
+//==============================================================================
 rmf_traffic::Duration Delivery::invariant_duration() const
 {
   return _pimpl->_invariant_duration;
 }
 
+//==============================================================================
 rmf_traffic::Time Delivery::earliest_start_time() const
 {
   return _pimpl->_start_time;
 }
 
-
+//==============================================================================
 } // namespace requests
 } // namespace rmf_tasks

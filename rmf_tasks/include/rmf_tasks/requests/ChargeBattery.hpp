@@ -15,14 +15,13 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASKS__REQUESTS__DELIVERY_HPP
-#define INCLUDE__RMF_TASKS__REQUESTS__DELIVERY_HPP
-
-#include <chrono>
+#ifndef INCLUDE__RMF_TASKS__REQUESTS__CHARGEBATTERY_HPP
+#define INCLUDE__RMF_TASKS__REQUESTS__CHARGEBATTERY_HPP
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include <rmf_battery/agv/BatterySystem.hpp>
 #include <rmf_battery/MotionPowerSink.hpp>
 #include <rmf_battery/DevicePowerSink.hpp>
 
@@ -35,19 +34,16 @@
 namespace rmf_tasks {
 namespace requests {
 
-class Delivery : public rmf_tasks::Request
+class ChargeBattery : public rmf_tasks::Request
 {
 public:
 
   static rmf_tasks::Request::SharedPtr make(
-    std::size_t id,
-    std::size_t pickup_waypoint,
-    std::size_t dropoff_waypoint,
+    rmf_battery::agv::BatterySystem battery_system,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
-    bool drain_battery = true,
-    rmf_traffic::Time start_time = std::chrono::steady_clock::now());
+    bool drain_battery = true);
 
   std::size_t id() const final;
 
@@ -60,11 +56,11 @@ public:
 
   class Implementation;
 private:
-  Delivery();
+  ChargeBattery();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-} // namespace tasks
+} // namespace requests
 } // namespace rmf_tasks
 
-#endif // INCLUDE__RMF_TASKS__REQUESTS__DELIVERY_HPP
+#endif // INCLUDE__RMF_TASKS__REQUESTS__CHARGEBATTERY_HPP
