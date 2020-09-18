@@ -10,6 +10,7 @@
 
   <depend>rmf_utils</depend>
   <depend>rmf_traffic</depend>
+  <depend>rmf_battery</depend>
 
   <export>
     <build_type>cmake</build_type>

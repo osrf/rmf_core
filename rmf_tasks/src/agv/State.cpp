@@ -25,25 +25,37 @@ class State::Implementation
 {
 public:
 
-  Implementation(std::size_t waypoint, std::size_t charging_waypoint)
+  Implementation(
+    std::size_t waypoint, 
+    std::size_t charging_waypoint,
+    rmf_traffic::Time finish_time,
+    double battery_soc,
+    double threshold_soc)
   : _waypoint(waypoint),
-    _charging_waypoint(charging_waypoint)
+    _charging_waypoint(charging_waypoint),
+    _finish_time(finish_time),
+    _battery_soc(battery_soc),
+    _threshold_soc(threshold_soc)
   {}
 
   std::size_t _waypoint;
   std::size_t _charging_waypoint;
-  rmf_utils::optional<rmf_traffic::Time> _finish_time;
-  rmf_utils::optional<double> _battery_soc;
-  rmf_utils::optional<double> _threshold_soc;
+  rmf_traffic::Time _finish_time;
+  double _battery_soc;
+  double _threshold_soc;
 };
 
 //==============================================================================
-State::State(std::size_t waypoint, std::size_t charging_waypoint)
+State::State(
+  std::size_t waypoint, 
+  std::size_t charging_waypoint,
+  rmf_traffic::Time finish_time,
+  double battery_soc,
+  double threshold_soc)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{waypoint, charging_waypoint}))
-{
-  // do nothing
-}
+    Implementation(
+      waypoint, charging_waypoint, finish_time, battery_soc, threshold_soc)))
+{}
 
 //==============================================================================
 std::size_t State::waypoint() const
@@ -72,7 +84,7 @@ State& State::charging_waypoint(std::size_t new_charging_waypoint)
 }
 
 //==============================================================================
-rmf_utils::optional<rmf_traffic::Time> State::finish_time() const
+rmf_traffic::Time State::finish_time() const
 {
   return _pimpl->_finish_time;
 }
@@ -85,7 +97,7 @@ State& State::finish_time(rmf_traffic::Time new_finish_time)
 }
 
 //==============================================================================
-rmf_utils::optional<double> State::battery_soc() const
+double State::battery_soc() const
 {
   return _pimpl->_battery_soc;
 }
@@ -98,7 +110,7 @@ State& State::battery_soc(double new_battery_soc)
 }
 
 //==============================================================================
-rmf_utils::optional<double> State::threshold_soc() const
+double State::threshold_soc() const
 {
   return _pimpl->_threshold_soc;
 }

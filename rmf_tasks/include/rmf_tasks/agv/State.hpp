@@ -18,6 +18,8 @@
 #ifndef INCLUDE__RMF_TASKS__AGV__STATE_HPP
 #define INCLUDE__RMF_TASKS__AGV__STATE_HPP
 
+#include <chrono>
+
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/optional.hpp>
 
@@ -34,9 +36,15 @@ public:
   ///
   /// \param[in] waypoint
   /// \param[in] charging_waypoint
+  /// \param[in] finish_time
+  /// \param[in] battery_soc
+  /// \param[in] threshold_soc
   State(
     std::size_t waypoint, 
-    std::size_t charging_waypoint);
+    std::size_t charging_waypoint,
+    rmf_traffic::Time finish_time = std::chrono::steady_clock::now(),
+    double battery_soc = 1.0,
+    double threshold_soc = 0.2);
   
   std::size_t waypoint() const;
 
@@ -46,15 +54,15 @@ public:
 
   State& charging_waypoint(std::size_t new_charging_waypoint);
 
-  rmf_utils::optional<rmf_traffic::Time> finish_time() const;
+  rmf_traffic::Time finish_time() const;
 
   State& finish_time(rmf_traffic::Time new_finish_time);
 
-  rmf_utils::optional<double> battery_soc() const;
+  double battery_soc() const;
 
   State& battery_soc(double new_battery_soc);
 
-  rmf_utils::optional<double> threshold_soc() const;
+  double threshold_soc() const;
 
   State& threshold_soc(double new_threshold_soc);
 

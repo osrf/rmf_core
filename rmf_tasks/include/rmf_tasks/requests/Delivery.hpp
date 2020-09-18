@@ -18,6 +18,8 @@
 #ifndef INCLUDE__RMF_TASKS__TASKS__DELIVERY_HPP
 #define INCLUDE__RMF_TASKS__TASKS__DELIVERY_HPP
 
+#include <chrono>
+
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
 
@@ -29,8 +31,6 @@
 #include <rmf_tasks/agv/State.hpp>
 #include <rmf_tasks/Request.hpp>
 #include <rmf_tasks/Estimate.hpp>
-
-#include <rmf_task_msgs/msg/delivery.hpp>
 
 namespace rmf_tasks {
 namespace requests {
@@ -47,13 +47,13 @@ public:
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     bool drain_battery = true,
-    double start_time = 0.0);
+    rmf_traffic::Time start_time = std::chrono::steady_clock::now());
 
   std::size_t id() const final;
 
   rmf_utils::optional<rmf_tasks::Estimate> estimate_finish(
-    const RobotState& initial_state) const final;
-  
+    const agv::State& initial_state) const final;
+
   rmf_traffic::Duration invariant_duration() const final;
 
   rmf_traffic::Time earliest_start_time() const final;

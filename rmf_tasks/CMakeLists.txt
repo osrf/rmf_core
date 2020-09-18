@@ -22,10 +22,12 @@ include(GNUInstallDirs)
 
 find_package(rmf_utils REQUIRED)
 find_package(rmf_traffic REQUIRED)
+find_package(rmf_battery REQUIRED)
 
 # ===== Traffic control library
 file(GLOB lib_srcs
   "src/agv/*.cpp"
+  "src/requests/*.cpp"
   "src/*.cpp"
 )
 
@@ -37,6 +39,7 @@ target_link_libraries(rmf_tasks
   PRIVATE
     rmf_utils::rmf_utils
     rmf_traffic::rmf_traffic
+    rmf_battery::rmf_battery
 )
 
 target_include_directories(rmf_tasks
