@@ -22,7 +22,7 @@ jobs:
       run: |
         cd ws_rmf
         rosdep update
-        rosdep install --from-paths src --ignore-src --rosdistro eloquent -yr
+        rosdep install --from-paths src --ignore-src --rosdistro foxy -yr
     - name: build
       shell: bash
       run: |
