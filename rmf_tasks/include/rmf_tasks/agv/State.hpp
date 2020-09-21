@@ -43,7 +43,7 @@ public:
   State(
     std::size_t waypoint, 
     std::size_t charging_waypoint,
-    rmf_traffic::Duration finish_duration = rmf_traffic::Duration(0),
+    rmf_traffic::Time finish_time = std::chrono::steady_clock::now(),
     double battery_soc = 1.0,
     double threshold_soc = 0.2);
   

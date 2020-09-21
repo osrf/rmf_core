@@ -16,6 +16,7 @@
 */
 
 #include <iostream>
+#include <map>
 
 #include <rmf_tasks/requests/Delivery.hpp>
 
@@ -38,6 +39,14 @@ public:
   std::shared_ptr<rmf_traffic::agv::Planner> _planner;
   bool _drain_battery;
   rmf_traffic::Time _start_time;
+
+  struct Entry
+  {
+    std::size_t candidate;
+    rmf_tasks::agv::State state;
+    rmf_traffic::Time wait_until;
+  };
+  std::multimap<rmf_traffic::Time, Entry> _map;
 
   rmf_traffic::Duration _invariant_duration;
   double _invariant_battery_drain;

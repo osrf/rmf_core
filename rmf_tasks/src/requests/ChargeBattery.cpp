@@ -57,7 +57,8 @@ rmf_tasks::Request::SharedPtr ChargeBattery::make(
   charge_battery->_pimpl->_device_sink = std::move(device_sink);
   charge_battery->_pimpl->_planner = std::move(planner);
   charge_battery->_pimpl->_drain_battery = drain_battery;
-  charge_battery->_pimpl->_invariant_duration = 0.0;
+  charge_battery->_pimpl->_invariant_duration =
+    rmf_traffic::time::from_seconds(0.0);
   return charge_battery;
 }
 
@@ -76,7 +77,7 @@ std::size_t ChargeBattery::id() const
 rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   const agv::State& initial_state) const
 {
-  if (abs(initial_state.battery_soc() - _charge_soc) < 1e-3)
+  if (abs(initial_state.battery_soc() - _pimpl->_charge_soc) < 1e-3)
   {
     std::cout << " -- Charge battery: Battery full" << std::endl;
     return rmf_utils::nullopt;
@@ -92,31 +93,31 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
 
   const auto time_now = std::chrono::steady_clock::now();
   const auto start_time =
-    rmf_traffic::Time::now() + initial_state.finish_duration();
+    std::chrono::steady_clock::now() + initial_state.finish_duration();
 
   double battery_soc = initial_state.battery_soc();
   rmf_traffic::Duration variant_duration(0);
 
-  if (initial_state.waypoint != initial_state.charging_waypoint)
+  if (initial_state.waypoint() != initial_state.charging_waypoint())
   {
     // Compute plan to charging waypoint along with battery drain
     rmf_traffic::agv::Planner::Start start{
       start_time,
-      initial_state.waypoint,
+      initial_state.waypoint(),
       0.0};
 
-    rmf_traffic::agv::Planner::Goal goal{initial_state.charging_waypoint};
+    rmf_traffic::agv::Planner::Goal goal{initial_state.charging_waypoint()};
 
-    const auto result = _planner->plan(start, goal);
+    const auto result = _pimpl->_planner->plan(start, goal);
     const auto& trajectory = result->get_itinerary().back().trajectory();
     const auto& finish_time = *trajectory.finish_time();
-    const rmf_traffic::Time variant_duration = finish_time - start_time;
+    const rmf_traffic::Duration variant_duration = finish_time - start_time;
 
     if (_pimpl->_drain_battery)
     {
-      const double dSOC_motion = _motion_sink->compute_change_in_charge(
+      const double dSOC_motion = _pimpl->_motion_sink->compute_change_in_charge(
         trajectory);
-      const double dSOC_device = _device_sink->compute_change_in_charge(
+      const double dSOC_device = _pimpl->_device_sink->compute_change_in_charge(
         rmf_traffic::time::to_seconds(variant_duration));
       battery_soc = battery_soc - dSOC_motion - dSOC_device;
     }
@@ -130,11 +131,11 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   }
 
   // Default _charge_soc = 1.0
-  double delta_soc = _charge_soc - battery_soc;
+  double delta_soc = _pimpl->_charge_soc - battery_soc;
   assert(delta_soc >= 0.0);
   double time_to_charge =
-    (3600 * delta_soc * _battery_system.nominal_capacity()) /
-    _battery_system.charging_current();
+    (3600 * delta_soc * _pimpl->_battery_system.nominal_capacity()) /
+    _pimpl->_battery_system.charging_current();
 
   const auto wait_until = initial_state.finish_duration();
   state.finish_duration(

@@ -6,6 +6,7 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(rmf_utils REQUIRED)
 find_dependency(rmf_traffic REQUIRED)
+find_dependency(rmf_battery REQUIRED)
 
 if(NOT TARGET rmf_tasks::rmf_tasks)
     include("${rmf_tasks_CMAKE_DIR}/rmf_tasks-targets.cmake")
