@@ -296,17 +296,6 @@ ScheduleNode::ScheduleNode(const rclcpp::NodeOptions& options)
         }
       }
     });
-
-  // Warning for Foxy users to not use rmw_fastrtps_cpp
-  auto rcl_context{get_node_options().context()->get_rcl_context()};
-  rmw_context_t * rmw_context = rcl_context_get_rmw_context(rcl_context.get());
-  if (0 == strncmp("rmw_fastrtps_cpp", rmw_context->implementation_identifier, 16))
-  {
-    RCLCPP_WARN(get_logger(), "RMF is known to not work correctly when using "
-        "Fast RTPS or Fast DDS as the underlying middleware. Set the "
-        "'RMW_IMPLEMENTATION' environment variable to an alternative "
-        "middleware, such as 'rmw_cyclonedds_cpp', when launching RMF.");
-  }
 }
 
 //==============================================================================
