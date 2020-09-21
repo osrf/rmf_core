@@ -22,6 +22,7 @@
 namespace rmf_tasks {
 namespace requests {
 
+//==============================================================================
 class ChargeBattery::Implementation
 {
 public:
@@ -39,10 +40,10 @@ public:
 
   // soc to always charge the battery up to
   double _charge_soc = 1.0;
-  rmf_traffic::Duration _invariant_duration; 
-  rmf_traffic::Time _start_time;
+  rmf_traffic::Duration _invariant_duration;
 };
 
+//==============================================================================
 rmf_tasks::Request::SharedPtr ChargeBattery::make(
   rmf_battery::agv::BatterySystem battery_system,
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
@@ -57,19 +58,21 @@ rmf_tasks::Request::SharedPtr ChargeBattery::make(
   charge_battery->_pimpl->_planner = std::move(planner);
   charge_battery->_pimpl->_drain_battery = drain_battery;
   charge_battery->_pimpl->_invariant_duration = 0.0;
-  charge_battery->_pimpl->_start_time = std::chrono::steady_clock::now();
   return charge_battery;
 }
 
+//==============================================================================
 ChargeBattery::ChargeBattery()
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {}
 
+//==============================================================================
 std::size_t ChargeBattery::id() const
 {
   return _pimpl->_id;
 }
 
+//==============================================================================
 rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   const agv::State& initial_state) const
 {
@@ -83,13 +86,13 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   agv::State state(
     initial_state.charging_waypoint(),
     initial_state.charging_waypoint(),
-    initial_state.finish_time(),
+    initial_state.finish_duration(),
     initial_state.battery_soc(),
     initial_state.threshold_soc());
 
   const auto time_now = std::chrono::steady_clock::now();
-  const auto start_time = time_now > initial_state.finish_time() ?
-    time_now : initial_state.finish_time();
+  const auto start_time =
+    rmf_traffic::Time::now() + initial_state.finish_duration();
 
   double battery_soc = initial_state.battery_soc();
   rmf_traffic::Duration variant_duration(0);
@@ -107,14 +110,14 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
     const auto result = _planner->plan(start, goal);
     const auto& trajectory = result->get_itinerary().back().trajectory();
     const auto& finish_time = *trajectory.finish_time();
-    const double variant_duration = finish_time - start_time;
+    const rmf_traffic::Time variant_duration = finish_time - start_time;
 
     if (_pimpl->_drain_battery)
     {
       const double dSOC_motion = _motion_sink->compute_change_in_charge(
         trajectory);
       const double dSOC_device = _device_sink->compute_change_in_charge(
-        variant_duration);
+        rmf_traffic::time::to_seconds(variant_duration));
       battery_soc = battery_soc - dSOC_motion - dSOC_device;
     }
 
@@ -133,26 +136,27 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
     (3600 * delta_soc * _battery_system.nominal_capacity()) /
     _battery_system.charging_current();
 
-  const auto wait_until = initial_state.finish_time();
-  const rmf_traffic::Time after_charging =
+  const auto wait_until = initial_state.finish_duration();
+  state.finish_duration(
     wait_until + variant_duration + 
-    rmf_traffic::time::from_seconds(time_to_charge);
-
-  state.finish_time(after_charging);
+    rmf_traffic::time::from_seconds(time_to_charge));
   state.battery_soc(_pimpl->_charge_soc);
 
   return Estimate(state, wait_until);
 }
 
+//==============================================================================
 rmf_traffic::Duration ChargeBattery::invariant_duration() const
 {
   return _pimpl->_invariant_duration;
 }
 
+//==============================================================================
 rmf_traffic::Time ChargeBattery::earliest_start_time() const
 {
-  return _pimpl->_start_time;
+  return rmf_traffic::Time::min();
 }
 
+//==============================================================================
 } // namespace requests
 } // namespace rmf_tasks
