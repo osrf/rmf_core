@@ -69,6 +69,6 @@ export(
   NAMESPACE rmf_utils::
 )
 
-export(PACKAGE rmf_utils)
+export(PACKAGE rmf_utils-targets)
 
 add_subdirectory(test/unit)
