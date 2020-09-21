@@ -4,7 +4,7 @@ jobs:
   build:
     runs-on: ubuntu-18.04
     container:
-      image: docker://ros:eloquent-ros-base-bionic
+      image: docker://ros:foxy-ros-base-bionic
       
     steps:
     - name: deps
@@ -27,5 +27,5 @@ jobs:
       shell: bash
       run: |
         cd ws_rmf
-        source /opt/ros/eloquent/setup.bash
+        source /opt/ros/foxy/setup.bash
         CXX=g++-8 colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE
