@@ -28,4 +28,4 @@ jobs:
       run: |
         cd ws_rmf
         source /opt/ros/foxy/setup.bash
-        CXX=g++-8 colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE
+        colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE
