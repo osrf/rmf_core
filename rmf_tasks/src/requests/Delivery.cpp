@@ -40,14 +40,6 @@ public:
   bool _drain_battery;
   rmf_traffic::Time _start_time;
 
-  struct Entry
-  {
-    std::size_t candidate;
-    rmf_tasks::agv::State state;
-    rmf_traffic::Time wait_until;
-  };
-  std::multimap<rmf_traffic::Time, Entry> _map;
-
   rmf_traffic::Duration _invariant_duration;
   double _invariant_battery_drain;
 };
@@ -121,14 +113,13 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   agv::State state(
     _pimpl->_dropoff_waypoint, 
     initial_state.charging_waypoint(),
-    initial_state.finish_duration(),
+    initial_state.finish_time(),
     initial_state.battery_soc(),
     initial_state.threshold_soc());
 
   rmf_traffic::Duration variant_duration(0);
 
-  const auto time_now = std::chrono::steady_clock::now();
-  auto start_time = time_now + initial_state.finish_duration();
+  rmf_traffic::Time start_time = initial_state.finish_time();
   double battery_soc = initial_state.battery_soc();
   double dSOC_motion = 0.0;
   double dSOC_device = 0.0;
@@ -170,15 +161,13 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   }
 
   const rmf_traffic::Time ideal_start = _pimpl->_start_time - variant_duration;
-  const rmf_traffic::Time without_variant =
-    _pimpl->_start_time + initial_state.finish_duration();
   const rmf_traffic::Time wait_until =
-    without_variant > ideal_start ? without_variant : ideal_start;
+    initial_state.finish_time() > ideal_start ?
+    initial_state.finish_time() : ideal_start;
 
   // Factor in invariants
-  const rmf_traffic::Time with_invariants =
-    wait_until + variant_duration + _pimpl->_invariant_duration;
-  state.finish_duration(with_invariants - _pimpl->_start_time);
+  state.finish_time(
+    wait_until + variant_duration + _pimpl->_invariant_duration);
 
   battery_soc -= _pimpl->_invariant_battery_drain;
 

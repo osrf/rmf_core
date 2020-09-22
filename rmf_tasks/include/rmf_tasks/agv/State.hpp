@@ -36,8 +36,7 @@ public:
   ///
   /// \param[in] waypoint
   /// \param[in] charging_waypoint
-  /// \param[in] finish_duration
-  ///   The duration of time until current tasks are finished.
+  /// \param[in] finish_time
   /// \param[in] battery_soc
   /// \param[in] threshold_soc
   State(
@@ -46,6 +45,8 @@ public:
     rmf_traffic::Time finish_time = std::chrono::steady_clock::now(),
     double battery_soc = 1.0,
     double threshold_soc = 0.2);
+
+  State();
   
   std::size_t waypoint() const;
 
@@ -55,9 +56,9 @@ public:
 
   State& charging_waypoint(std::size_t new_charging_waypoint);
 
-  rmf_traffic::Duration finish_duration() const;
+  rmf_traffic::Time finish_time() const;
 
-  State& finish_duration(rmf_traffic::Duration new_finish_duration);
+  State& finish_time(rmf_traffic::Time new_finish_time);
 
   double battery_soc() const;
 

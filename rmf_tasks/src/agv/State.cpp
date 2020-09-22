@@ -28,19 +28,19 @@ public:
   Implementation(
     std::size_t waypoint, 
     std::size_t charging_waypoint,
-    rmf_traffic::Duration finish_duration,
+    rmf_traffic::Time finish_time,
     double battery_soc,
     double threshold_soc)
   : _waypoint(waypoint),
     _charging_waypoint(charging_waypoint),
-    _finish_duration(finish_duration),
+    _finish_time(finish_time),
     _battery_soc(battery_soc),
     _threshold_soc(threshold_soc)
   {}
 
   std::size_t _waypoint;
   std::size_t _charging_waypoint;
-  rmf_traffic::Duration _finish_duration;
+  rmf_traffic::Time _finish_time;
   double _battery_soc;
   double _threshold_soc;
 };
@@ -49,12 +49,18 @@ public:
 State::State(
   std::size_t waypoint, 
   std::size_t charging_waypoint,
-  rmf_traffic::Duration finish_duration,
+  rmf_traffic::Time finish_time,
   double battery_soc,
   double threshold_soc)
 : _pimpl(rmf_utils::make_impl<Implementation>(
     Implementation(
-      waypoint, charging_waypoint, finish_duration, battery_soc, threshold_soc)))
+      waypoint, charging_waypoint, finish_time, battery_soc, threshold_soc)))
+{}
+
+//==============================================================================
+State::State()
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation(0, 0, std::chrono::steady_clock::now(), 0.0, 0.0)))
 {}
 
 //==============================================================================
@@ -84,15 +90,15 @@ State& State::charging_waypoint(std::size_t new_charging_waypoint)
 }
 
 //==============================================================================
-rmf_traffic::Duration State::finish_duration() const
+rmf_traffic::Time State::finish_time() const
 {
-  return _pimpl->_finish_duration;
+  return _pimpl->_finish_time;
 }
 
 //==============================================================================
-State& State::finish_duration(rmf_traffic::Duration new_finish_duration)
+State& State::finish_time(rmf_traffic::Time new_finish_time)
 {
-  _pimpl->_finish_duration = new_finish_duration;
+  _pimpl->_finish_time = new_finish_time;
   return *this;
 }
 

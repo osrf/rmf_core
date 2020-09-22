@@ -32,7 +32,7 @@ public:
 
   // fixed id for now
   std::size_t _id = 101;
-  rmf_battery::agv::BatterySystem _battery_system;
+  rmf_battery::agv::BatterySystemPtr _battery_system;
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> _device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> _planner;
@@ -52,7 +52,13 @@ rmf_tasks::Request::SharedPtr ChargeBattery::make(
   bool drain_battery)
 {
   std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery());
-  charge_battery->_pimpl->_battery_system = std::move(battery_system);
+  charge_battery->_pimpl->_battery_system =
+    rmf_battery::agv::BatterySystemPtr(new rmf_battery::agv::BatterySystem(
+      battery_system.nominal_capacity(),
+      battery_system.nominal_capacity(),
+      battery_system.charging_current(),
+      battery_system.type(),
+      battery_system.profile()));
   charge_battery->_pimpl->_motion_sink = std::move(motion_sink);
   charge_battery->_pimpl->_device_sink = std::move(device_sink);
   charge_battery->_pimpl->_planner = std::move(planner);
@@ -87,13 +93,11 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   agv::State state(
     initial_state.charging_waypoint(),
     initial_state.charging_waypoint(),
-    initial_state.finish_duration(),
+    initial_state.finish_time(),
     initial_state.battery_soc(),
     initial_state.threshold_soc());
 
-  const auto time_now = std::chrono::steady_clock::now();
-  const auto start_time =
-    std::chrono::steady_clock::now() + initial_state.finish_duration();
+  const auto start_time = initial_state.finish_time();
 
   double battery_soc = initial_state.battery_soc();
   rmf_traffic::Duration variant_duration(0);
@@ -134,12 +138,12 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   double delta_soc = _pimpl->_charge_soc - battery_soc;
   assert(delta_soc >= 0.0);
   double time_to_charge =
-    (3600 * delta_soc * _pimpl->_battery_system.nominal_capacity()) /
-    _pimpl->_battery_system.charging_current();
+    (3600 * delta_soc * _pimpl->_battery_system->nominal_capacity()) /
+    _pimpl->_battery_system->charging_current();
 
-  const auto wait_until = initial_state.finish_duration();
-  state.finish_duration(
-    wait_until + variant_duration + 
+  const rmf_traffic::Time wait_until = initial_state.finish_time();
+  state.finish_time(
+    wait_until + variant_duration +
     rmf_traffic::time::from_seconds(time_to_charge));
   state.battery_soc(_pimpl->_charge_soc);
 
