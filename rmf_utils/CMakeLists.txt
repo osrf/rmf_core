@@ -20,6 +20,8 @@ target_include_directories(rmf_utils
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
+target_compile_features(rmf_utils INTERFACE cxx_std_17)
+
 # Create cmake config files
 include(CMakePackageConfigHelpers)
 
