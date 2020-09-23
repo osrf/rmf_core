@@ -149,7 +149,11 @@ Below are the required direct runtime ROS dependencies of `rmf_traffic_ros2` and
 
 ### Direct Runtime non-ROS Dependency [5.iii]
 
-`rmf_traffic_ros2` has no direct runtime non-ROS dependencies.
+`rmf_traffic_ros2` has the following direct runtime non-ROS dependencies.
+
+#### eigen
+
+`eigen` is taken to be **Quality Level 3** due to its wide-spread use, history, use of CI, and use of testing.
 
 ## Platform Support [6]
 

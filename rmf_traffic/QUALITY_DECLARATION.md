@@ -135,6 +135,10 @@ Below are the required direct runtime ROS dependencies of `rmf_traffic` and thei
 
 Below are the required direct runtime non-ROS dependencies of `rmf_traffic` and their evaluations.
 
+#### eigen
+
+`eigen` is taken to be **Quality Level 3** due to its wide-spread use, history, use of CI, and use of testing.
+
 #### libccd-dev
 
 `rmf_traffic` uses the [`libccd` library](https://github.com/danfis/libccd).
