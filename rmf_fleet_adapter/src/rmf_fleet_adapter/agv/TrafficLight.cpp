@@ -414,8 +414,6 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
   const Eigen::Vector2d p = location.block<2,1>(0,0);
   const auto& waypoints = plan.get_waypoints();
 
-//  std::cout << "plan_target: " << plan_target << " | waypoints.size(): "
-//            << waypoints.size() << std::endl;
   assert(plan_target < waypoints.size());
 
   // If we end up receiving a plan_target that initiates the plan, just pretend
@@ -584,7 +582,6 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     return 0;
   }();
 
-//  std::cout << " ==== Assigning plan_index values" << std::endl;
   for (std::size_t i=0; i < plan_waypoints.size(); ++i)
   {
     const auto& wp = plan_waypoints[i];
@@ -615,7 +612,6 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         const auto t = interpolate_time(traits, plan_waypoints[i-1], wp, p);
         arrival_timing[k] = t;
         departure_timing[k] = rmf_traffic_ros2::convert(t);
-//        std::cout << " -- " << __LINE__ << " | " << k << " --> " << i << std::endl;
         plan_index[k] = i;
       }
 
@@ -627,13 +623,8 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     // show up several times in a plan. We want to use the last time that is
     // associated with this path waypoint.
     departure_timing[*current_wp] = rmf_traffic_ros2::convert(wp.time());
-//    std::cout << " -- " << __LINE__ << " | " << *current_wp << " --> " << i << std::endl;
     plan_index[*current_wp] = i;
   }
-
-//  std::cout << " ===== Departure Timing: " << std::endl;
-//  for (std::size_t i=0; i < departure_timing.size(); ++i)
-//    std::cout << " -- " << i << ": " << departure_timing[i].seconds() << std::endl;
 
   itinerary.set(plan->get_itinerary());
 
@@ -724,14 +715,6 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   const auto effective_time = now - itinerary.delay();
   const rclcpp::Time effective_time_rcl =
       rmf_traffic_ros2::convert(effective_time);
-  std::cout << " === effective time: "
-            << rmf_traffic::time::to_seconds(effective_time.time_since_epoch())
-            << " | now: " << rmf_traffic::time::to_seconds(now.time_since_epoch())
-            << std::endl;
-
-  std::cout << "departure times:\n";
-  for (std::size_t i=0; i < departure_timing.size(); ++i)
-    std::cout << " -- " << i << ": " << departure_timing[i].seconds() << std::endl;
 
   if (departure_timing.back() < effective_time_rcl)
   {
