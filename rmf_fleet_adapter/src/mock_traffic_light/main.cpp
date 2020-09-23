@@ -126,8 +126,6 @@ public:
     _stop_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_stop_request);
     const auto l = _stop_request.path.front();
-    std::cout << "PUBLISHING STOP REQUEST FOR " << _travel_info.robot_name
-              << " AT <" << l.x << ", " << l.y << ">" << std::endl;
 
     if (!_deadlock_timer)
     {
