@@ -37,7 +37,7 @@ struct RangeLess
 {
   using Range = Inconsistencies::Ranges::Range;
 
-  bool operator()(const Range& lhs, const Range& rhs)
+  bool operator()(const Range& lhs, const Range& rhs) const
   {
     return rmf_utils::modular(lhs.upper).less_than(rhs.upper);
   }
