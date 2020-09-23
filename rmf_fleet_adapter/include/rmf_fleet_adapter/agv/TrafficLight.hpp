@@ -73,6 +73,17 @@ public:
   {
   public:
 
+    /// After departing from a checkpoint, use this callback to keep your
+    /// location up to date.
+    ///
+    /// \param[in] location
+    ///   The current <x, y, yaw> location of your robot.
+    using Departed = std::function<void(Eigen::Vector3d location)>;
+
+    /// Use this function to indicate that your robot is waiting for its next
+    /// batch of waypoints.
+    using OnStandby = std::function<void()>;
+
     /// The Checkpoint struct contains information about when the robot may
     /// depart from a Waypoint that was passed into
     /// UpdateHandle::follow_new_path().
@@ -88,7 +99,7 @@ public:
       /// After the robot has departed from this checkpoint, you should
       /// periodically trigger this callback with the current location of the
       /// robot.
-      std::function<void(Eigen::Vector3d)> departed;
+      Departed departed;
     };
 
     /// Receive checkpoints for waypoints that have been submitted. Each
@@ -120,7 +131,7 @@ public:
     virtual void receive_checkpoints(
         std::size_t version,
         std::vector<Checkpoint> checkpoints,
-        std::function<void()> on_standby) = 0;
+        OnStandby on_standby) = 0;
 
     /// This function will be called when deadlock has occurred due to an
     /// unresolvable conflict. Human intervention may be required at this point,

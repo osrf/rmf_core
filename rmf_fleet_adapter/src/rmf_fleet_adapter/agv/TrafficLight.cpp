@@ -26,6 +26,7 @@
 #include <rmf_traffic_ros2/Time.hpp>
 
 #include <rmf_traffic/Motion.hpp>
+#include <rmf_traffic/schedule/StubbornNegotiator.hpp>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -64,8 +65,6 @@ public:
 
   std::size_t processing_version = 0;
 
-  rmf_utils::optional<rmf_traffic::Duration> maximum_delay;
-
   std::shared_ptr<services::FindPath> find_path_service;
   rxcpp::subscription find_path_subscription;
 
@@ -94,6 +93,11 @@ public:
       std::vector<Waypoint> new_path,
       rmf_traffic::agv::Plan new_plan,
       std::shared_ptr<rmf_traffic::agv::Planner> new_planner);
+
+  void update_location(
+      std::size_t version,
+      std::size_t path_index,
+      Eigen::Vector3d location);
 
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> estimate_location() const;
 
@@ -340,7 +344,6 @@ rmf_utils::optional<rmf_traffic::Time> parabolic_interpolate_time(
   if (0 <= t_plus && t_plus <= dt)
     return wp0.time() + rmf_traffic::time::from_seconds(t_plus);
 
-  assert(false);
   return rmf_utils::nullopt;
 }
 
@@ -395,7 +398,6 @@ rmf_traffic::Time interpolate_time(
     }
   }
 
-  assert(false);
   throw std::runtime_error(
     "[rmf_fleet_adapter::agv::TrafficLight] Failed to interpolate an "
     "intermediary waypoint.");
@@ -525,7 +527,6 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
     }
   }
 
-  assert(false);
   return rmf_utils::nullopt;
 }
 
@@ -636,80 +637,79 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
 
   itinerary.set(plan->get_itinerary());
 
-  command->receive_path_timing(
-    current_version, departure_timing,
-    [w = weak_from_this(), current_version = current_version](
-        const std::size_t path_index, Eigen::Vector3d location)
+  std::vector<CommandHandle::Checkpoint> checkpoints;
+  checkpoints.reserve(departure_timing.size());
+  for (std::size_t i=0; i < departure_timing.size(); ++i)
+  {
+    auto depart_cb = [
+        w = weak_from_this(),
+        version = current_version,
+        path_index = i+1](Eigen::Vector3d location)
+    {
+      // TODO(MXG): Fix the interpolate_time() function so that we can have
+      // path_index = i instead of path_index = i+1 here.
+      if (const auto data = w.lock())
+        data->update_location(version, path_index, location);
+    };
+
+    checkpoints.push_back({i, departure_timing[i], std::move(depart_cb)});
+  }
+
+  command->receive_checkpoints(current_version, checkpoints, [](){ });
+
+  return itinerary.version();
+}
+
+//==============================================================================
+void TrafficLight::UpdateHandle::Implementation::Data::update_location(
+    const std::size_t version,
+    const std::size_t path_index,
+    const Eigen::Vector3d location)
+{
+  const auto now = rmf_traffic_ros2::convert(node->now());
+
+  worker.schedule(
+        [w = weak_from_this(),
+         version,
+         path_index,
+         location,
+         now](const auto&)
   {
     const auto data = w.lock();
     if (!data)
       return;
 
-    const auto now = rmf_traffic_ros2::convert(data->node->now());
+    if (version != data->current_version)
+      return;
 
-    data->worker.schedule(
-          [w = std::weak_ptr<Data>(data),
-           current_version,
-           path_index,
-           location,
-           now](const auto&)
+    if (!data->plan)
+      return;
+
+    assert(path_index < data->arrival_timing.size());
+    const auto expected_time = interpolate_time(
+          now, data->traits, *data->plan,
+          data->plan_index[path_index], location);
+
+    if (expected_time)
     {
-      const auto data = w.lock();
-      if (!data)
-        return;
+      const auto new_delay = now - *expected_time;
+      const auto time_shift = new_delay - data->itinerary.delay();
+      const auto threshold = std::chrono::seconds(1);
+      if (time_shift < -threshold || threshold < time_shift)
+        data->itinerary.delay(time_shift);
 
-      if (current_version != data->current_version)
-        return;
+      return;
+    }
 
-      if (!data->plan)
-        return;
-
-      assert(path_index < data->arrival_timing.size());
-      const auto expected_time = interpolate_time(
-            now, data->traits, *data->plan,
-            data->plan_index[path_index], location);
-
-      if (expected_time)
-      {
-        const auto new_delay = now - *expected_time;
-
-        // TODO(MXG): Make this threshold configurable
-        const auto max_delay = data->maximum_delay;
-        if (!max_delay || new_delay < *max_delay)
-        {
-          const auto time_shift = new_delay - data->itinerary.delay();
-          const auto threshold = std::chrono::seconds(1);
-          if (time_shift < -threshold || threshold < time_shift)
-            data->itinerary.delay(time_shift);
-
-          return;
-        }
-      }
-
-      // We couldn't estimate the vehicle's timing, so we'll recalculate the
-      // timing based on the current location.
-      rmf_utils::optional<std::size_t> lane;
-      if (path_index > 0)
-        lane = path_index - 1;
-
-      const Eigen::Vector2d p = location.block<2,1>(0,0);
-
-      rmf_traffic::agv::Plan::Start start(
-            now, path_index, location[2], p, lane);
-
-      RCLCPP_INFO(
-        data->node->get_logger(),
-        "Timing estimates for [%s] owned by [%s] have accumulated too much "
-        "error. We will recompute the timing commands.",
-        data->itinerary.description().name().c_str(),
-        data->itinerary.description().owner().c_str());
-
-      data->plan_timing(
-            std::move(start), current_version, data->path, data->planner);
-    });
+    // TODO(MXG): If interpolate_time() is changed to use the departure
+    RCLCPP_WARN(
+      data->node->get_logger(),
+      "Failed to compute timing estimate for [%s] owned by [%s] "
+      "moving towards path index [%d]",
+      data->itinerary.description().name().c_str(),
+      data->itinerary.description().owner().c_str(),
+      path_index);
   });
-
-  return itinerary.version();
 }
 
 //==============================================================================
@@ -832,116 +832,8 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     return responder->forfeit({});
   }
 
-  data->command->deadlock();
-
-  auto location = data->estimate_location();
-  if (!location)
-    return responder->forfeit({});
-
-  std::cout << " ====== ESTIMATED LOCATION for " << data->itinerary.description().name()
-            << ": " << location->waypoint();
-  if (location->location())
-    std::cout << " <" << location->location()->transpose() << ">";
-  if (location->lane())
-    std::cout << " lane " << *location->lane();
-  std::cout << std::endl;
-
-  const auto& final_wp = data->plan->get_waypoints().back();
-  assert(*final_wp.graph_index());
-  rmf_traffic::agv::Plan::Goal goal(
-        *final_wp.graph_index(), final_wp.position()[2]);
-
-  auto approval_cb =
-      [w = data->weak_from_this(),
-       version = data->current_version](
-      const rmf_traffic::agv::Plan& plan)
-      -> rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
-  {
-    const auto data = w.lock();
-    if (!data)
-      return rmf_utils::nullopt;
-
-//    bool acceptable_response = false;
-//    const auto current_location = data->estimate_location();
-//    if (current_location)
-//    {
-//      acceptable_response = true;
-//      const auto now = rmf_traffic_ros2::convert(data->node->now());
-//      const auto current_target = current_location->waypoint();
-//      for (const auto& wp : plan.get_waypoints())
-//      {
-//        if (!wp.graph_index() || *wp.graph_index() < current_target)
-//        {
-//          if (now < wp.time())
-//          {
-//            acceptable_response = false;
-//            break;
-//          }
-//        }
-//      }
-//    }
-
-//    if (acceptable_response)
-      return data->update_timing(version, data->path, plan, data->planner);
-
-    RCLCPP_WARN(
-          data->node->get_logger(),
-          "A negotiation result was issued too late for the robot [%s] to "
-          "accommodate it.", data->itinerary.description().name().c_str());
-
-    return rmf_utils::nullopt;
-  };
-
-  services::ProgressEvaluator evaluator;
-  if (table_viewer->parent_id())
-  {
-    const auto& s = table_viewer->sequence();
-    assert(s.size() >= 2);
-    evaluator.compliant_leeway_base *= s[s.size()-2].version + 1;
-  }
-
-  if (!table_viewer->base_proposals().empty())
-  {
-    location->time(table_viewer->base_proposals()
-                   .front().itinerary.back()->trajectory().front().time());
-  }
-
-  auto negotiate = services::Negotiate::path(
-        data->planner, {std::move(*location)}, std::move(goal),
-        table_viewer, responder, std::move(approval_cb), std::move(evaluator));
-
-  auto negotiate_sub =
-      rmf_rxcpp::make_job<services::Negotiate::Result>(negotiate)
-      .observe_on(rxcpp::identity_same_worker(data->worker))
-      .subscribe(
-        [w = data->weak_from_this()](const auto& result)
-  {
-    if (auto data = w.lock())
-    {
-      result.respond();
-      data->negotiate_services.erase(result.service);
-    }
-    else
-    {
-      result.service->responder()->forfeit({});
-    }
-  });
-
-  using namespace std::chrono_literals;
-  const auto wait_duration = 2s + table_viewer->sequence().back().version * 10s;
-  auto negotiate_timer = data->node->create_wall_timer(
-        wait_duration,
-        [s = negotiate->weak_from_this()]()
-  {
-    if (const auto service = s.lock())
-      service->interrupt();
-  });
-
-  data->negotiate_services[negotiate] =
-      Data::NegotiateManagers{
-        std::move(negotiate_sub),
-        std::move(negotiate_timer)
-  };
+  rmf_traffic::schedule::StubbornNegotiator(data->itinerary)
+      .respond(table_viewer, responder);
 }
 
 //==============================================================================s
@@ -994,7 +886,7 @@ TrafficLight::UpdateHandle::Implementation::make(
 }
 
 //==============================================================================
-std::size_t TrafficLight::UpdateHandle::update_path(
+std::size_t TrafficLight::UpdateHandle::follow_new_path(
     const std::vector<Waypoint>& new_path)
 {
   const std::size_t version = ++_pimpl->received_version;
@@ -1005,26 +897,6 @@ std::size_t TrafficLight::UpdateHandle::update_path(
   });
 
   return version;
-}
-
-//==============================================================================
-auto TrafficLight::UpdateHandle::maximum_delay(
-    rmf_utils::optional<rmf_traffic::Duration> value) -> UpdateHandle&
-{
-  _pimpl->data->worker.schedule(
-        [data = _pimpl->data, value](const auto&)
-  {
-    data->maximum_delay = value;
-  });
-
-  return *this;
-}
-
-//==============================================================================
-rmf_utils::optional<rmf_traffic::Duration>
-TrafficLight::UpdateHandle::maximum_delay() const
-{
-  return _pimpl->data->maximum_delay;
 }
 
 } // namespace agv

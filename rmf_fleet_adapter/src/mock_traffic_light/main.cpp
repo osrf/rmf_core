@@ -80,10 +80,10 @@ public:
     _planner = planner;
   }
 
-  void receive_path_timing(
+  void receive_checkpoints(
     const std::size_t version,
-    const std::vector<rclcpp::Time>& departure_timing,
-    ProgressCallback progress_updater) final
+    std::vector<Checkpoint> checkpoints,
+    OnStandby on_standby) final
   {
     std::lock_guard<std::mutex> lock(_mutex);
     if (_path_version != version)
@@ -91,45 +91,31 @@ public:
 
     _deadlock = false;
 
-    _progress_updater = std::move(progress_updater);
-    if(_path_size != departure_timing.size())
+    _checkpoints = std::move(checkpoints);
+    _on_standby = std::move(on_standby);
+
+    _current_path_request.path.clear();
+    _current_path_request.path.reserve(_checkpoints.size());
+
+    for (const auto& c : _checkpoints)
     {
-      throw std::runtime_error(
-            "Mismatch between path request size ["
-            + std::to_string(_path_size) + "] and timing ["
-            + std::to_string(departure_timing.size()) + "]");
+      const auto i = c.waypoint_index;
+      assert(i < _current_path.size());
+
+      const auto& p = _current_path.at(i).position();
+
+      rmf_fleet_msgs::msg::Location location;
+      location.t = c.departure_time;
+      location.x = p[0];
+      location.y = p[1];
+      location.yaw = p[2];
+      location.level_name = _current_path[i].map_name();
+      _current_path_request.path.push_back(location);
     }
 
-    const std::size_t N_command = _current_path_request.path.size();
-    const std::size_t N_command_desired =
-        std::min(_path_size - _last_target + 1, _path_size);
-    const std::size_t N_offset = _path_size - N_command_desired;
-
-    if (N_command_desired < N_command)
-    {
-      _current_path_request.path.erase(
-            _current_path_request.path.begin(),
-            _current_path_request.path.begin() +
-            N_command - N_command_desired);
-    }
-    _current_path_request.path.front() = _last_state.location;
-
-    for (std::size_t i=0; i < N_command_desired; ++i)
-      _current_path_request.path[i].t = departure_timing[i+N_offset];
-
-    std::cout << " >>> Issuing timing commands: " << std::endl;
-    for (std::size_t i=0; i < _current_path_request.path.size(); ++i)
-      std::cout << " -- " << i+N_offset << ": "
-                << rclcpp::Time(_current_path_request.path[i].t).seconds()
-                << std::endl;
-
-    _moving = true;
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
-
-    std::cout << "PUBLISHING NEW TIMING FOR " << _travel_info.robot_name << ":\n";
-    for (const auto& l : _current_path_request.path)
-      std::cout << " -- " << rclcpp::Time(l.t).seconds() << ": <" << l.x << ", " << l.y << ">" << std::endl;
+    _moving = true;
   }
 
   void deadlock() final
@@ -173,10 +159,7 @@ public:
     if (_deadlock)
     {
       if (_stop_request.task_id != state.task_id)
-      {
-        std::cout << "REPUBLISHING STOP REQUEST FOR " << _travel_info.robot_name << std::endl;
         _path_request_pub->publish(_stop_request);
-      }
 
       return;
     }
@@ -186,26 +169,47 @@ public:
 
     if (_current_path_request.task_id != state.task_id)
     {
-      std::cout << "REPUBLISHING PATH REQUEST FOR " << _travel_info.robot_name << std::endl;
       _path_request_pub->publish(_current_path_request);
       return;
     }
 
     if (state.path.empty())
     {
-      _moving = false;
-      _queue.pop_front();
-      _go_to_next_waypoint();
-      return;
+      if (_on_standby)
+      {
+        _on_standby();
+        _on_standby = nullptr;
+      }
+
+      assert(!_checkpoints.empty());
+      if (_checkpoints.back().waypoint_index == _current_path.size()-1)
+      {
+        _checkpoints.clear();
+        _moving = false;
+        _queue.pop_front();
+        _go_to_next_waypoint();
+        return;
+      }
     }
 
-    assert(state.path.size() <= _path_size);
     _last_active_state = state;
-    _last_target = _path_size - state.path.size();
+    const std::size_t ideal_checkpoint_num = state.path.size() + 1;
+    if (_checkpoints.size() < ideal_checkpoint_num)
+    {
+      // This means the robot has not started following its path yet
+      return;
+    }
+    else if (ideal_checkpoint_num < _checkpoints.size())
+    {
+      const std::size_t remove_N = _checkpoints.size() - ideal_checkpoint_num;
+
+      _checkpoints.erase(
+            _checkpoints.begin(),
+            _checkpoints.begin() + remove_N);
+    }
 
     const auto& l = state.location;
-    const Eigen::Vector3d p(l.x, l.y, l.yaw);
-    _progress_updater(_last_target, p);
+    _checkpoints.front().departed({l.x, l.y, l.yaw});
   }
 
   std::size_t queue_size() const
@@ -338,16 +342,16 @@ private:
       return first_level;
     };
 
-    std::vector<rmf_fleet_adapter::agv::Waypoint> path;
-    path.reserve(waypoints.size());
+    _current_path.clear();
+    _current_path.reserve(waypoints.size());
 
     for (std::size_t i=0; i < waypoints.size(); ++i)
     {
       const auto& wp = waypoints[i];
       if (i > 0)
       {
-        const auto last_x = _current_path_request.path.back().x;
-        const auto last_y = _current_path_request.path.back().y;
+        const auto last_x = _current_path.back().position().x();
+        const auto last_y = _current_path.back().position().y();
         const auto delta =
             (wp.position().block<2,1>(0,0)
              - Eigen::Vector2d(last_x, last_y)).norm();
@@ -358,28 +362,21 @@ private:
 
       const auto p = wp.position();
       const auto map_name = get_map_name(wp.graph_index());
-
-      rmf_fleet_msgs::msg::Location location;
-      location.x = p[0];
-      location.y = p[1];
-      location.yaw = p[2];
-      _current_path_request.path.push_back(location);
-
-      path.emplace_back(map_name, p);
+      _current_path.emplace_back(map_name, p);
     }
 
     _last_target = 0;
-    _path_version = _path_updater->update_path(path);
-    _path_size = path.size();
+    _path_version = _path_updater->follow_new_path(_current_path);
   }
 
   void _restart_path()
   {
-    std::vector<rmf_fleet_adapter::agv::Waypoint> path;
-    path.reserve(_last_active_state.path.size() + 1);
+    _current_path.clear();
+    _current_path.reserve(_last_active_state.path.size() + 1);
 
     const auto& l0 = _last_state.location;
-    path.emplace_back(l0.level_name, Eigen::Vector3d{l0.x, l0.y, l0.yaw});
+    _current_path.emplace_back(
+          l0.level_name, Eigen::Vector3d{l0.x, l0.y, l0.yaw});
 
     _current_path_request.path.clear();
     _current_path_request.path.push_back(l0);
@@ -387,17 +384,12 @@ private:
     const auto& last_path = _last_active_state.path;
     for (const auto& l : last_path)
     {
-      _current_path_request.path.push_back(l);
-      path.emplace_back(l.level_name, Eigen::Vector3d{l.x, l.y, l.yaw});
+      _current_path.emplace_back(
+            l.level_name, Eigen::Vector3d{l.x, l.y, l.yaw});
     }
 
-    std::cout << "RESTARTING PATH FOR " << _travel_info.robot_name << ":\n";
-    for (const auto& l : _current_path_request.path)
-      std::cout << " -- <" << l.x << ", " << l.y << ">" << std::endl;
-
     _last_target = 0;
-    _path_version = _path_updater->update_path(path);
-    _path_size = path.size();
+    _path_version = _path_updater->follow_new_path(_current_path);
   }
 
   std::deque<std::string> _queue;
@@ -420,9 +412,10 @@ private:
   std::size_t _command_version = 0;
   std::size_t _last_target = 0;
   bool _moving = false;
-  std::size_t _path_size;
+  std::vector<rmf_fleet_adapter::agv::Waypoint> _current_path;
 
-  ProgressCallback _progress_updater;
+  std::vector<Checkpoint> _checkpoints;
+  OnStandby _on_standby;
 
   std::mutex _mutex;
 
