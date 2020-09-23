@@ -51,7 +51,7 @@ public:
     /// possible to get responses for old path updates that you no longer care
     /// about because you are operating off of a new path now. Save the return
     /// value of this function, and ignore all calls to
-    /// CommandHandle::receive_path_timing(~) whose version number is different
+    /// CommandHandle::receive_checkpoints(~) whose version number is different
     /// from the return value of your latest call to update_path(~).
     ///
     /// This function should be called any time the robot changes the path that
@@ -117,7 +117,7 @@ public:
     ///   Trigger this callback when the robot has arrived at the first waypoint
     ///   that it has not received a checkpoint for, or when the robot has
     ///   arrived at the last waypoint in its path.
-    virtual void receive_path_timing(
+    virtual void receive_checkpoints(
         std::size_t version,
         std::vector<Checkpoint> checkpoints,
         std::function<void()> on_standby) = 0;
