@@ -93,7 +93,7 @@ double SimpleMotionPowerSink::compute_change_in_charge(
   const auto motion = rmf_traffic::Motion::compute_cubic_splines(
     begin_it, trajectory.end());
 
-  const double sim_step = 0.1; // seconds
+  const double sim_step = 0.5; // seconds
 
   // Change in energy
   double dE = 0.0;
