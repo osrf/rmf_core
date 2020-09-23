@@ -48,34 +48,6 @@ target_include_directories(rmf_tasks
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-# find_package(ament_cmake_catch2 QUIET)
-# find_package(rmf_cmake_uncrustify QUIET)
-# if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
-#   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
-
-#   ament_add_catch2(
-#     test_rmf_traffic test/main.cpp ${unit_test_srcs}
-#     TIMEOUT 300)
-#   target_link_libraries(test_rmf_traffic
-#       rmf_traffic
-#       ${PC_FCL_LIBRARIES}
-#       Threads::Threads
-#   )
-
-#   target_include_directories(test_rmf_traffic
-#     PRIVATE
-#       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
-#   )
-
-#   find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
-
-#   rmf_uncrustify(
-#     ARGN include src test
-#     CONFIG_FILE ${uncrustify_config_file}
-#     MAX_LINE_LENGTH 80
-#   )
-# endif()
-
 # Create cmake config files
 include(CMakePackageConfigHelpers)
 
