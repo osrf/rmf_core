@@ -12,6 +12,7 @@ Forthcoming
 * Fix an issue with moving robots between floors: [#163](https://github.com/osrf/rmf_core/pull/163/)
 * Add a generic waiting event: [#158](https://github.com/osrf/rmf_core/pull/158)
 * Fix bug that caused exit events to get skipped sometimes: [#166](https://github.com/osrf/rmf_core/pull/166)
+* Bump to C++17 and migrate to `std::optional`: [#177](https://github.com/osrf/rmf_core/pull/177)
 
 1.0.2 (2020-07-27)
 ------------------
