@@ -19,11 +19,13 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+namespace rmf_task_ros2 {
+
 int main(int argc, char* argv[])
 {
   rclcpp::init(argc, argv);
 
-  const auto node = rmf_task_ros2::dispatcher::make_node();
+  auto node = dispatcher::DispatcherNode::make_node();
 
   RCLCPP_INFO(
     node->get_logger(),
@@ -37,3 +39,5 @@ int main(int argc, char* argv[])
 
   rclcpp::shutdown();
 }
+
+} // namespace rmf_task_ros2

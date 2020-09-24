@@ -22,11 +22,20 @@
 
 namespace rmf_task_ros2 {
 
+enum class TaskType { 
+    Delivery, 
+    Charging, 
+    Station, 
+    Cleaning 
+};
+
 const std::string Prefix = "rmf_task/";
-const std::string DispatchNoticeTopicName = Prefix + "dispatch_notice";  
-const std::string DispatchProposalTopicName = Prefix + "dispatch_proposal";
-const std::string DispatchConclusionTopicName = Prefix + "dispatch_conclusion";
-const std::string DispatchAckTopicName = Prefix + "dispatch_ack";
+const std::string BidNoticeTopicName = Prefix + "bid_notice";  
+const std::string BidProposalTopicName = Prefix + "bid_proposal";
+const std::string DispatchRequestTopicName = Prefix + "dispatch_request";
+const std::string DispatchCancelTopicName = Prefix + "dispatch_cancel";
+const std::string DispatchStatusTopicName = Prefix + "dispatch_status";
+const std::string DispatchResultTopicName = Prefix + "dispatch_result";
 
 const std::string DeliveryTopicName = "delivery_requests";
 const std::string LoopTopicName = "loop_requests";

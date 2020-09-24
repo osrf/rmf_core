@@ -25,10 +25,15 @@ set(msg_files
   "msg/TaskSummary.msg"
   "msg/Tasks.msg"
   "msg/Loop.msg"
-  "msg/DispatchNotice.msg"
-  "msg/DispatchProposal.msg"
-  "msg/DispatchConclusion.msg"
-  "msg/DispatchAck.msg"
+  # New task Msgs
+  "msg/TaskType.msg"
+  "msg/Task.msg"
+  "msg/BidNotice.msg"
+  "msg/BidProposal.msg"
+  "msg/DispatchRequest.msg"
+  "msg/DispatchCancel.msg"
+  "msg/DispatchStatus.msg"
+  "msg/DispatchResult.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

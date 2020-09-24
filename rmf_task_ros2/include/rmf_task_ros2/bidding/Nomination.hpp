@@ -23,19 +23,10 @@
 
 #include <rmf_traffic/Time.hpp>
 
-#include <rmf_task_msgs/msg/dispatch_notice.hpp>
-#include <rmf_task_msgs/msg/dispatch_proposal.hpp>
-#include <rmf_task_msgs/msg/dispatch_conclusion.hpp>
-#include <rmf_task_msgs/msg/dispatch_ack.hpp>
+#include <rmf_task_msgs/msg/bid_notice.hpp>
+#include <rmf_task_msgs/msg/bid_proposal.hpp>
 
 namespace rmf_task_ros2 {
-
-//==============================================================================
-
-using DispatchNotice = rmf_task_msgs::msg::DispatchNotice;
-using DispatchProposal = rmf_task_msgs::msg::DispatchProposal;
-using DispatchConclusion = rmf_task_msgs::msg::DispatchConclusion;
-using DispatchAck = rmf_task_msgs::msg::DispatchAck;
 
 //==============================================================================
 
@@ -48,7 +39,7 @@ public:
   struct Nominee
   {
     std::string fleet_name;
-    std::string robot_name;
+    std::string robot_name; // will i need this? todo
     rmf_traffic::Time start_time;
     rmf_traffic::Time end_time;
     // resources, e.g: SOC and payload
@@ -89,34 +80,15 @@ public:
     return (*_nominees)[choice];
   }
 
-  // Conversion utils for bidder: (TODO) a better way?
-  static DispatchProposal convert_msg(const Nominee& nominee)
-  {
-    DispatchProposal proposal;
-    proposal.fleet_name = nominee.fleet_name;
-    proposal.robot_name = nominee.robot_name;
-    // TODO: convert time and resources
-    return proposal;
-  };
-
-  // Conversion utils for dispatcher
-  static Nominee convert_msg(const DispatchProposal& proposal)
-  {
-    Nominee nominee;
-    nominee.fleet_name = proposal.fleet_name;
-    nominee.robot_name = proposal.robot_name;
-    // TODO: convert time and resources
-    return nominee;
-  };
-
 private:
 
   NomineesPtr _nominees;
 };
 
 //==============================================================================
-// Sample Evaluator
-// QuickestWithBatteryLimitEvaluator
+// LowestFleetCostEvaluator
+
+// LowestFleetDiffCostEvaluator
 
 class QuickestFinishEvaluator : public Nomination::Evaluator
 {

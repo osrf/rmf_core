@@ -26,7 +26,7 @@ if (rmf_traffic_FOUND)
   message(STATUS "rmf_traffic_INCLUDE_DIRS: ${rmf_traffic_INCLUDE_DIRS}")
 endif()
 
-file(GLOB_RECURSE core_lib_srcs "src/dispatcher/*.cpp" )
+file(GLOB_RECURSE core_lib_srcs "src/bidding/*.cpp" )
 add_library(rmf_task_ros2 SHARED ${core_lib_srcs})
 
 target_link_libraries(rmf_task_ros2
@@ -49,14 +49,18 @@ ament_export_dependencies(rmf_traffic rmf_task_msgs rclcpp)
 
 #===============================================================================
 
-add_executable(rmf_task_dispatcher src/dispatcher/main.cpp)
+add_executable(rmf_task_dispatcher 
+  src/dispatcher/main.cpp
+  src/bidding/Auctioneer.cpp
+  src/dispatcher/Dispatcher.cpp
+)
 target_link_libraries(rmf_task_dispatcher PUBLIC rmf_task_ros2)
 
 #===============================================================================
 
 add_executable(rmf_bidder_node 
-  src/bidder/main.cpp 
-  src/bidder/MinimalBidder.cpp
+  src/bidding/main.cpp  # todo: bidder node, move this to a test dir
+  src/bidding/MinimalBidder.cpp
 )
 target_link_libraries(rmf_bidder_node PUBLIC rmf_task_ros2)
 
@@ -67,7 +71,7 @@ install(
 )
 
 install(
-  TARGETS rmf_task_ros2 rmf_task_dispatcher rmf_bidder_node
+  TARGETS rmf_task_ros2 rmf_bidder_node rmf_task_dispatcher
   EXPORT rmf_task_ros2
   RUNTIME DESTINATION lib/rmf_task_ros2
   LIBRARY DESTINATION lib

@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/bidder/MinimalBidder.hpp>
+#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -33,24 +33,34 @@ int main(int argc, char* argv[])
     node->get_logger(),
     "Beginning example task bidder node");
 
-  bidder::MinimalBidder bidder(node);
-  bidder.add_bidder("dummybot", 
-    [](const bidder::MinimalBidder::Itinerary& iti )
+  bidding::MinimalBidder::Profile profile{
+    "dummy_fleet",
+    {TaskType::Station, TaskType::Charging, TaskType::Cleaning}
+  };
+  bidding::MinimalBidder bidder(profile, node);
+  
+  bidder.call_for_bid(
+    [](const bidding::BidNotice& notice )
     {
+      // Here user will provice the best robot as a bid submission
+      std::cout << "providing best estimates" << std::endl;
+      
       auto now = std::chrono::steady_clock::now();
-      std::cout << "providing estimates" << std::endl;
-      auto nominees = std::make_shared<Nomination::Nominees>();
-      Nomination::Nominee nominee;
-      nominee.robot_name = "dumb";
-      nominee.end_time = rmf_traffic::time::apply_offset(now, 5);
-      nominees->push_back(nominee);
-      return nominees;
-    },
-    [](const DispatchConclusion& msg)
-    {
-      std::cout << "Execution!! " << msg.task_id << std::endl;
+      bidding::Submission best_robot_estimate;
+      best_robot_estimate.robot_name = "dumb";
+      best_robot_estimate.end_time = rmf_traffic::time::apply_offset(now, 5);     
+      return best_robot_estimate;
     }
   );
+
+  // RMF task action server (TODO)
+  // task_action.ActionServer action_server(profile, node);
+  // action_server.request_callback(
+  //   [](const Task& task)
+  //   {
+  //     // action: initiate/cancel
+  //   }
+  // );
 
   rclcpp::spin(node);
 

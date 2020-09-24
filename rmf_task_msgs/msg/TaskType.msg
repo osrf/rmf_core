@@ -1,0 +1,7 @@
+# type of task
+uint32 value
+
+uint32 DELIVERY_TASK=0
+uint32 CHARGING_TASK=0
+uint32 STATION_TASK=1
+uint32 CLEANING_TASK=2

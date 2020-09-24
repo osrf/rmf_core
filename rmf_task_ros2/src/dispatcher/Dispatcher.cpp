@@ -24,14 +24,17 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
-DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
-: Node("rmf_task_dispatcher_node", options)
+
+std::shared_ptr<DispatcherNode> DispatcherNode::make_node()
+{
+  return std::shared_ptr<DispatcherNode>(new DispatcherNode);
+}
+
+DispatcherNode::DispatcherNode()
+: Node("rmf_task_dispatcher_node"),
+ _auctioneer(enable_shared_from_this<DispatcherNode>::shared_from_this())
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
-  
-  double timeout_sec = 2.0; 
-  _bidding_timeout = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    std::chrono::duration<double, std::ratio<1>>(timeout_sec));
 
   _loop_sub = create_subscription<Loop>(
     rmf_task_ros2::LoopTopicName, dispatch_qos,
@@ -45,7 +48,7 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
         bidding_task.itinerary.push_back(msg->start_name);
         bidding_task.itinerary.push_back(msg->finish_name);
       }
-      this->start_bidding(bidding_task);
+      _auctioneer.start_bidding(bidding_task);
     });
 
   _delivery_sub = create_subscription<Delivery>(
@@ -58,7 +61,7 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
       bidding_task.itinerary.push_back(msg->pickup_place_name);
       bidding_task.itinerary.push_back(msg->dropoff_place_name);
       bidding_task.bidders.push_back("dummybot"); // todo
-      this->start_bidding(bidding_task);
+      _auctioneer.start_bidding(bidding_task);
     });
 
   _station_sub = create_subscription<Station>(
@@ -69,130 +72,42 @@ DispatcherNode::DispatcherNode(const rclcpp::NodeOptions& options)
       bidding_task.task_id = msg->task_id;
       bidding_task.start_time = std::chrono::steady_clock::now();    
       bidding_task.itinerary.push_back(msg->place_name);
-      this->start_bidding(bidding_task);
+      _auctioneer.start_bidding(bidding_task);
     });
-
-  _dispatch_proposal_sub = create_subscription<DispatchProposal>(
-    rmf_task_ros2::DispatchProposalTopicName, dispatch_qos,
-    [&](const DispatchProposal::UniquePtr msg)
-    {
-      this->receive_proposal(*msg);
-    });
-
-  _dispatch_conclusion_pub = create_publisher<DispatchConclusion>(
-    rmf_task_ros2::DispatchConclusionTopicName, dispatch_qos);
-
-  _dispatch_ack_sub = create_subscription<DispatchAck>(
-    rmf_task_ros2::DispatchAckTopicName, dispatch_qos,
-    [&](const DispatchAck::UniquePtr msg)
-    {
-      this->receive_conclusion_ack(*msg);
-    });
-
-  _timer = create_wall_timer(std::chrono::milliseconds(500), [&]()
-    {
-      this->check_bidding_process();
-    });
-
-  _dispatch_notice_pub = create_publisher<DispatchNotice>(
-    rmf_task_ros2::DispatchNoticeTopicName, dispatch_qos);
-}
-
-void DispatcherNode::start_bidding(const BiddingTask& bidding_task)
-{
-  _queue_bidding_tasks.push_back(bidding_task);  
-  std::cout << "\n Start Task Bidding for task_id: " 
-            << bidding_task.task_id << std::endl;
-
-  // todo: identify potential bidders
-
-  // Populate notice msg with queue_task here
-  DispatchNotice notice_msg;
-  notice_msg.task_id = bidding_task.task_id;
-  notice_msg.itinerary = bidding_task.itinerary;
-  notice_msg.submission_time = this->now();
-  notice_msg.fleet_names = bidding_task.bidders;
-  _dispatch_notice_pub->publish(notice_msg);
-}
-
-void DispatcherNode::check_bidding_process()
-{ 
-  // check if bidding task has reached timeout... sad
-  auto task_it = std::find_if(
-    _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
-    [&](const BiddingTask& task)
-    { 
-      auto duration = std::chrono::steady_clock::now() - task.start_time;
-      return duration >= *_bidding_timeout; 
-    });
-  
-  if (task_it == _queue_bidding_tasks.end())
-    return;
-  
-  // todo: if nominees are not empty, trigger Nomination
-
-  std::cout << " Timeout reached! ready to remove task_id: " 
-            << task_it->task_id << std::endl;
-  _queue_bidding_tasks.erase(task_it);
-}
-
-void DispatcherNode::receive_proposal(const DispatchProposal& msg)
-{
-  std::cout << " Receive Bidding proposal for task_id: " 
-            << msg.task_id << std::endl;
-  
-  auto task_it = std::find_if(
-    _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
-    [&](const BiddingTask& task){ return task.task_id == msg.task_id;});
-
-  if (task_it == _queue_bidding_tasks.end())
-    return;
-
-  // add proposal to nominees list.
-  auto nominee = Nomination::convert_msg(msg);
-
-  task_it->nominees->push_back(nominee);
-  // assert(task_it->bidders.size() < task_it->nominees->size());
-
-  // check if all bidders' proposals are received
-  if ( task_it->bidders.size() != task_it->nominees->size())
-    return;
-
-  // Nominate and Evaluate Here!
-  Nomination task_nomination(task_it->nominees);
-  Nomination::Nominee chosen_estimate = 
-    task_nomination.evaluate(QuickestFinishEvaluator());
-
-  std::cout << " selected robot: " 
-            << chosen_estimate.robot_name << std::endl;
-
-  // Sent Conclusion which will state the selected robot
-  DispatchConclusion conclusion_msg;
-  conclusion_msg.task_id = msg.task_id;
-  conclusion_msg.fleet_name = "dummybot"; // chosen_estimate.fleet_name;
-  conclusion_msg.robot_name = chosen_estimate.robot_name;
-  _dispatch_conclusion_pub->publish(conclusion_msg);
-}
-
-void DispatcherNode::receive_conclusion_ack(const DispatchAck& msg)
-{
-  std::cout << " Done bidding! for task_id: " 
-            << msg.task.task_id << std::endl;
-
-  // Finish up task bidding
-  auto task_it = std::find_if(
-    _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
-    [&](const BiddingTask& task){ return task.task_id == msg.task.task_id;});
-  
-  _queue_bidding_tasks.erase(task_it);
-}
-
-//==============================================================================
-
-std::shared_ptr<rclcpp::Node> make_node(const rclcpp::NodeOptions& options)
-{
-  return std::make_shared<DispatcherNode>(options);
 }
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2
+
+//==============================================================================
+// Trash Codes, TOdo remove!
+
+  // // Nominate and Evaluate Here!
+  // Nomination task_nomination(task_it->nominees);
+  // Nomination::Nominee chosen_estimate = 
+  //   task_nomination.evaluate(QuickestFinishEvaluator());
+
+  // std::cout << " selected robot: " 
+  //           << chosen_estimate.robot_name << std::endl;
+
+  // // todo: this will need to change
+  // // Sent Conclusion which will state the selected robot
+  // DispatchRequest conclusion_msg;
+  // conclusion_msg.task_id = msg.task_id;
+  // conclusion_msg.fleet_name = "dummybot"; // chosen_estimate.fleet_name;
+  // conclusion_msg.robot_name = chosen_estimate.robot_name;
+  // _dispatch_conclusion_pub->publish(conclusion_msg);
+// }
+
+// void DispatcherNode::receive_conclusion_ack(const DispatchStatus& msg)
+// {
+//   std::cout << " Task is active, Done bidding! for task_id: " 
+//             << msg.task.task_id << std::endl;
+
+//   // Finish up task bidding
+//   auto task_it = std::find_if(
+//     _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
+//     [&](const BiddingTask& task){ return task.task_id == msg.task.task_id;});
+  
+//   _queue_bidding_tasks.erase(task_it);
+// }

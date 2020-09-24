@@ -21,7 +21,7 @@
 
 #include <rclcpp/node.hpp>
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/Nomination.hpp>
+#include <rmf_task_ros2/bidding/Auctioneer.hpp>
 
 #include <rmf_task_msgs/msg/loop.hpp>
 #include <rmf_task_msgs/msg/delivery.hpp>
@@ -33,24 +33,17 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
-class DispatcherNode : public rclcpp::Node
+class DispatcherNode 
+    : public rclcpp::Node, 
+      public std::enable_shared_from_this<DispatcherNode>
 {
 public:
 
-  DispatcherNode(const rclcpp::NodeOptions& options);
+  static std::shared_ptr<DispatcherNode> make_node();
+
+  DispatcherNode();
 
   ~DispatcherNode(){};
-
-  using Itinerary = std::vector<std::string>;
-  struct BiddingTask
-  {
-    std::string task_id;
-    std::vector<std::string> bidders;
-    Nomination::NomineesPtr nominees
-      = std::make_shared<Nomination::Nominees>();
-    Itinerary itinerary;
-    rmf_traffic::Time start_time;
-  };
 
 private:
 
@@ -66,41 +59,11 @@ private:
   using StationSub = rclcpp::Subscription<Station>;
   StationSub::SharedPtr _station_sub;
 
-  using DispatchNoticePub = rclcpp::Publisher<DispatchNotice>;
-  DispatchNoticePub::SharedPtr _dispatch_notice_pub;
+  bidding::Auctioneer _auctioneer;
 
-  using DispatchProposalSub = rclcpp::Subscription<DispatchProposal>;
-  DispatchProposalSub::SharedPtr _dispatch_proposal_sub;
-
-  using DispatchConclusionPub = rclcpp::Publisher<DispatchConclusion>;
-  DispatchConclusionPub::SharedPtr _dispatch_conclusion_pub;
-
-  using DispatchAckSub = rclcpp::Subscription<DispatchAck>;
-  DispatchAckSub::SharedPtr _dispatch_ack_sub;
-
-  std::vector<BiddingTask> _queue_bidding_tasks;
-  rmf_utils::optional<rmf_traffic::Duration> _bidding_timeout;
-  rclcpp::TimerBase::SharedPtr _timer;
-
-  // send dispatch notice to selected bidder
-  void start_bidding(const BiddingTask& bidding_task);
-
-  // periodic callback
-  void check_bidding_process();
-
-  // Receive proposal and evaluate
-  void receive_proposal(const DispatchProposal& msg);
-
-  // Receive conclusion ack
-  void receive_conclusion_ack(const DispatchAck& msg);
 };
 
 //==============================================================================
-
-/// Make a DispatcherNode instance
-std::shared_ptr<rclcpp::Node> make_node(
-  const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
-
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2

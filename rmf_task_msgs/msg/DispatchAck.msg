@@ -1,3 +1,6 @@
-# TODO: Think of how to design this....
+string fleet_name
+uint32 request_version
 
-TaskSummary task
+int8 response
+int8 ACCEPTED=1
+int8 REJECTED=0
