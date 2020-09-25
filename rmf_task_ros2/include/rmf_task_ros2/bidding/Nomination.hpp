@@ -22,39 +22,27 @@
 #define RMF_TASK_ROS2__NOMINATION_HPP
 
 #include <rmf_traffic/Time.hpp>
-
-#include <rmf_task_msgs/msg/bid_notice.hpp>
-#include <rmf_task_msgs/msg/bid_proposal.hpp>
+#include <rmf_task_ros2/bidding/Bidding.hpp>
 
 namespace rmf_task_ros2 {
-
+namespace bidding {
 //==============================================================================
+
+using Submissions = std::vector<Submission>;
 
 // This is a client class for evaluator to select the best Task nominees 
 // from multiple submitted task estimations (nominees)
 class Nomination
 {
 public:
-
-  struct Nominee
-  {
-    std::string fleet_name;
-    std::string robot_name; // will i need this? todo
-    rmf_traffic::Time start_time;
-    rmf_traffic::Time end_time;
-    // resources, e.g: SOC and payload
-    double battery_end_soc;
-  };
-
-  using Nominees = std::vector<Nominee>;
-  using NomineesPtr = std::shared_ptr<Nominees>;
-
   /// Constructor
+  ///
   /// \param[in] input submissions of all potential nominees
-  Nomination(NomineesPtr nominees)
-    : _nominees(std::move(nominees))
+  Nomination( const Submissions& submissions)
+    : _submissions(submissions)
   {
-    // Do Nothing
+    std::cout << " Submitted submissions for evaluation! size: " 
+              << _submissions.size()<<  std::endl;
   }
 
   /// A pure abstract interface class for choosing the best nominee.
@@ -64,7 +52,7 @@ public:
 
     /// Given a list of nominee, choose the one that is the "best". It is up to
     /// the implementation of the Evaluator to decide how to rank.
-    virtual std::size_t choose(const NomineesPtr nominees) const = 0;
+    virtual std::size_t choose(const Submissions& submissions) const = 0;
 
     virtual ~Evaluator() = default;
   };
@@ -72,41 +60,73 @@ public:
   /// Get the best winner from nominees
   ///
   /// \param[in] Evaluator 
-  /// \return Best chosen Nominee
-  Nominee evaluate(const Evaluator& evaluator)
+  /// \return Winner
+  Submission evaluate(const Evaluator& evaluator)
   {
-    const std::size_t choice = evaluator.choose(_nominees);
-    assert(choice < _nominees->size());
-    return (*_nominees)[choice];
+    const std::size_t choice = evaluator.choose(_submissions);
+    assert(choice < _submissions.size());
+    return (_submissions)[choice];
   }
 
 private:
 
-  NomineesPtr _nominees;
+  Submissions _submissions;
 };
 
 //==============================================================================
-// LowestFleetCostEvaluator
+class LeastFleetCostEvaluator : public Nomination::Evaluator
+{
+public:
+  std::size_t choose(const Submissions& submissions) const final
+  {
+    auto winner_it = submissions.begin();
+    for ( auto nominee_it = submissions.begin(); 
+          nominee_it != submissions.end(); ++nominee_it)
+    {
+      if (nominee_it->new_cost < winner_it->new_cost)
+        winner_it = nominee_it;
+    }
+    return std::distance( submissions.begin(), winner_it );    
+  };
+};
 
-// LowestFleetDiffCostEvaluator
+class LeastFleetDiffCostEvaluator : public Nomination::Evaluator
+{
+public:
+  std::size_t choose(const Submissions& submissions) const final
+  {
+    auto winner_it = submissions.begin();
+    float winner_cost_diff = winner_it->new_cost - winner_it->prev_cost;
+    for ( auto nominee_it = submissions.begin(); 
+          nominee_it != submissions.end(); ++nominee_it)
+    {
+      float nominee_cost_diff = nominee_it->new_cost - nominee_it->prev_cost;
+      if (nominee_cost_diff < winner_cost_diff)
+        winner_it = nominee_it;
+    }
+    return std::distance( submissions.begin(), winner_it );    
+  };
+};
 
 class QuickestFinishEvaluator : public Nomination::Evaluator
 {
 public:
   // Documentation inherited
-  std::size_t choose(const Nomination::NomineesPtr nominees) const final
+  std::size_t choose(const Submissions& submissions) const final
   {
-    std::vector<Nomination::Nominee>::iterator winner_it = nominees->begin();
-    for (auto it = nominees->begin(); it != nominees->end(); ++it)
+    auto winner_it = submissions.begin();
+    for ( auto nominee_it = submissions.begin(); 
+          nominee_it != submissions.end(); ++nominee_it)
     {
       // TODO implementation Here!!! choose the least finish time 
-      if (it->end_time < winner_it->end_time)
-        winner_it = it;
+      if (nominee_it->end_time < winner_it->end_time)
+        winner_it = nominee_it;
     }
-    return std::distance( nominees->begin(), winner_it );
+    return std::distance( submissions.begin(), winner_it );    
   };
 };
 
+} // namespace bidding
 } // namespace rmf_task_ros2
 
 #endif // RMF_TASK_ROS2__NOMINATION_HPP

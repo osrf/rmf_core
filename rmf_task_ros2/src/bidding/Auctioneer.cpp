@@ -95,12 +95,20 @@ void Auctioneer::check_bidding_process()
   {
     auto duration = std::chrono::steady_clock::now() - bid_tsk->submission_time;
     if (duration > bid_tsk->time_window )
-      this->determine_winner(bid_tsk); 
+    {
+      std::cout << " - Deadline reached"<< std::endl;
+      this->determine_winner(bid_tsk);
+      continue;
+    }
     
     if (!bid_tsk->announce_all)
     {
       if ( bid_tsk->submissions.size() == bid_tsk->bidders.size())
+      {
+        std::cout << " - Received all bids"<< std::endl;
         this->determine_winner(bid_tsk);
+        continue;
+      }
     }
   }
   std::cout << "Remaining: " << _queue_bidding_tasks.size() 
@@ -109,13 +117,19 @@ void Auctioneer::check_bidding_process()
 
 void Auctioneer::determine_winner(BiddingTaskPtr bidding_task)
 { 
-  // Nominate and Evaluate Here! TODO
-  // Nomination task_nomination(task_it->nominees);
-  // Nomination::Nominee chosen_estimate = 
-  //   task_nomination.evaluate(QuickestFinishEvaluator());
-  
-  //todo if winner is nullopt
-  Submission winner;
+  if(bidding_task->submissions.size() == 0)
+  {
+    std::cout << " No received bids for this task"<< std::endl;
+    _queue_bidding_tasks.erase(bidding_task->task_id);
+    // todo need to send nullopt to public function 
+    return;
+  }
+
+  // Nominate and Evaluate Here
+  Nomination task_nomination(bidding_task->submissions);
+  Submission winner = 
+    task_nomination.evaluate(QuickestFinishEvaluator());
+  //todo check if winner is nullopt?
   std::cout << "Found winning Fleet Adapter: " 
             << winner.fleet_name << std::endl;
   

@@ -51,12 +51,12 @@ void MinimalBidder::receive_notice(const BidNotice& msg)
   std::cout << " Receive Bidding notice for task_id: " 
             << msg.task_id << std::endl;
   
-
-  // check supported TaskClass
+  // check if tasktype is supported by this F.A
   auto req_type = static_cast<TaskType>(msg.type.value);
-  if (_profile.valid_tasks.find(req_type) == _profile.valid_tasks.end());
+  if (!_profile.valid_tasks.count(req_type));
   {
-    std::cout << _profile.fleet_name<< ": task type is invalid" << std::endl;
+    std::cout << _profile.fleet_name << ": task type "
+              << msg.type.value << " is invalid" << std::endl;
     return;
   }
 

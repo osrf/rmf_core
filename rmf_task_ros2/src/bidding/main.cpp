@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 
   bidding::MinimalBidder::Profile profile{
     "dummy_fleet",
-    {TaskType::Station, TaskType::Charging, TaskType::Cleaning}
+    { TaskType::Station, TaskType::Charging, TaskType::Delivery  }
   };
   bidding::MinimalBidder bidder(profile, node);
   
@@ -49,6 +49,8 @@ int main(int argc, char* argv[])
       bidding::Submission best_robot_estimate;
       best_robot_estimate.robot_name = "dumb";
       best_robot_estimate.end_time = rmf_traffic::time::apply_offset(now, 5);     
+      best_robot_estimate.prev_cost = 10.2;     
+      best_robot_estimate.new_cost = 13.5;     
       return best_robot_estimate;
     }
   );
