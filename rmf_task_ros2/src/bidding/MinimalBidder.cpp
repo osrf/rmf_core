@@ -51,21 +51,25 @@ void MinimalBidder::receive_notice(const BidNotice& msg)
   std::cout << " Receive Bidding notice for task_id: " 
             << msg.task_id << std::endl;
   
-  // check is it for me??
-  auto bidders = msg.fleet_names;
-  auto it = std::find(bidders.begin(), bidders.end(), _profile.fleet_name);
-  if (it == bidders.end())
-  {
-    std::cout << "not me!" <<  _profile.fleet_name<< std::endl;
-    return;
-  }
 
   // check supported TaskClass
   auto req_type = static_cast<TaskType>(msg.type.value);
   if (_profile.valid_tasks.find(req_type) == _profile.valid_tasks.end());
   {
-    std::cout << "task type is invalid" <<  _profile.fleet_name<< std::endl;
+    std::cout << _profile.fleet_name<< ": task type is invalid" << std::endl;
     return;
+  }
+
+  // check is the bidding annoucment is for me
+  if (!msg.announce_all)
+  {
+    auto bidders = msg.fleet_names;
+    auto it = std::find(bidders.begin(), bidders.end(), _profile.fleet_name);
+    if (it == bidders.end())
+    {
+      std::cout << "not me!" <<  _profile.fleet_name<< std::endl;
+      return;
+    }
   }
 
   // get tasks estimates
@@ -74,54 +78,18 @@ void MinimalBidder::receive_notice(const BidNotice& msg)
 
   auto bid_submission = _get_submission_fn(msg);
   
-  // TODO
-  // check if within deadline
+  // TODO: check if within deadline
   auto now = std::chrono::steady_clock::now();
 
   // check if cost and end_time is infinite
   
   // Submit proposal
   auto best_proposal = convert(bid_submission);
-  // BidProposal best_proposal;
   best_proposal.fleet_name = _profile.fleet_name;
   best_proposal.task_id = msg.task_id;
   best_proposal.submission_time = _node->now();
   _dispatch_proposal_pub->publish(best_proposal);
 }
-
-//// ====================================================================]
-// to trash
-
-// _dispatch_conclusion_sub = _node->create_subscription<DispatchRequest>(
-//   rmf_task_ros2::DispatchRequestTopicName, dispatch_qos,
-//   [&](const DispatchRequest::UniquePtr msg)
-//   {
-//     this->receive_conclusion(*msg);
-//   });
-
-// _dispatch_ack_pub = _node->create_publisher<DispatchStatus>(
-//   rmf_task_ros2::DispatchStatusTopicName, dispatch_qos);
-
-
-// void MinimalBidder::receive_conclusion(const DispatchRequest& msg)
-// {
-//   std::cout << " Receive Bidding conclusion for task_id: " 
-//             << msg.task_id << std::endl;
-  
-//   if (_profile.fleet_name != msg.fleet_name)
-//     return;
-
-//   // get tasks estimates
-//   if (!_execute_task_fn)
-//     return;
-
-//   this->_execute_task_fn(msg);
-  
-//   // publish ack
-//   DispatchStatus ack_msg;
-//   ack_msg.task.task_id = msg.task_id;
-//   _dispatch_ack_pub->publish(ack_msg);
-// }
 
 } // namespace bidder
 } // namespace rmf_task_ros2

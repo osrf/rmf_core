@@ -19,7 +19,7 @@
 #define RMF_TASK_ROS2__BIDDING_HPP
 
 #include <rmf_traffic/Time.hpp>
-
+#include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_msgs/msg/bid_notice.hpp>
 #include <rmf_task_msgs/msg/bid_proposal.hpp>
 
@@ -29,10 +29,12 @@ namespace bidding {
 //==============================================================================
 using BidNotice = rmf_task_msgs::msg::BidNotice;
 using BidProposal = rmf_task_msgs::msg::BidProposal;
+using TaskID = std::string;
 
 //==============================================================================
 struct Submission
 {
+  std::string fleet_name;
   std::string robot_name; // optional
   float prev_cost;
   float new_cost;
@@ -40,10 +42,35 @@ struct Submission
   rmf_traffic::Time end_time;
 };
 
+struct BiddingTask
+{
+  TaskID task_id;
+  TaskType task_type;
+  bool announce_all;
+  std::vector<std::string> bidders;
+  std::vector<bidding::Submission> submissions;
+  std::vector<std::string> itinerary;
+  rmf_traffic::Time submission_time;
+  rmf_traffic::Duration time_window = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    std::chrono::duration<double, std::ratio<1>>(2.0)); // 2s
+};
+
 //==============================================================================
+static BidNotice convert(const BiddingTask& from)
+{
+  BidNotice notice_msg;
+  notice_msg.task_id = from.task_id;
+  notice_msg.type.value = static_cast<uint8_t>(from.task_type);
+  notice_msg.announce_all = from.announce_all; 
+  notice_msg.itinerary = from.itinerary;
+  // todo: convert time;
+  return notice_msg;
+}
+
 static BidProposal convert(const Submission& from)
 {
   bidding::BidProposal proposal_msg;
+  proposal_msg.fleet_name = from.fleet_name;
   proposal_msg.robot_name = from.robot_name;
   proposal_msg.prev_cost = from.prev_cost;
   proposal_msg.new_cost = from.new_cost;
@@ -54,10 +81,11 @@ static BidProposal convert(const Submission& from)
 static Submission convert(const BidProposal& from)
 {
   Submission submission;
+  submission.fleet_name = from.fleet_name;
   submission.robot_name = from.robot_name;
   submission.prev_cost = from.prev_cost;
   submission.new_cost = from.new_cost;
-  // todo
+  // todo, time conversion
   return submission;
 }
 

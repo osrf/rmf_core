@@ -24,60 +24,62 @@
 #include <rclcpp/node.hpp>
 #include <rmf_utils/optional.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
-#include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Nomination.hpp>
 
 namespace rmf_task_ros2 {
-
-// todo: move this to a correct namespace
-using Itinerary = std::vector<std::string>;
-
-struct BiddingTask
-{
-  std::string task_id;
-  std::vector<std::string> bidders;
-  Nomination::NomineesPtr nominees
-    = std::make_shared<Nomination::Nominees>();
-  Itinerary itinerary;
-  rmf_traffic::Time start_time;
-};
-
-//==============================================================================
 namespace bidding {
+//==============================================================================
 
-class Auctioneer
+using BiddingTaskPtr = std::shared_ptr<BiddingTask>;
+
+class Auctioneer: public std::enable_shared_from_this<Auctioneer>
 {
 public: 
-  Auctioneer(std::shared_ptr<rclcpp::Node> node);
 
-  /// Start a bidding process
+  /// Create an instance of the Auctioneer. Handling all the bidding mechanism
+  ///
+  /// \param[in] ros2 node which will manage the pub sub
+  static std::shared_ptr<Auctioneer> make(std::shared_ptr<rclcpp::Node> node);
+
+  /// Start a bidding process 
+  ///
+  /// \param[in] Task to bid
   void start_bidding(const BiddingTask& bidding_task);
 
-  /// callback when a bid is completed
-  void bidding_result_callback(
-      std::function<void(const Submission& winner)> result_callback);
+  /// callback which will provide the winner when a bid is concluded
+  ///
+  /// \param[out] single winner submission
+  using BiddingResultCallback = 
+    std::function<void(const Submission& winner)>;
+
+  /// Provide a callback fn which will be called when a bid is concluded
+  ///
+  /// \param[in] bid result callback fn
+  void receive_bidding_result(BiddingResultCallback result_callback);
 
 private:
   std::shared_ptr<rclcpp::Node> _node;
-  std::vector<BiddingTask> _queue_bidding_tasks;
-  rmf_utils::optional<rmf_traffic::Duration> _bidding_timeout;
   rclcpp::TimerBase::SharedPtr _timer;
+  BiddingResultCallback _bidding_result_callback;
+  std::map<TaskID, BiddingTaskPtr> _queue_bidding_tasks;
 
-  // Biding msg 
   using BidNoticePub = rclcpp::Publisher<BidNotice>;
   BidNoticePub::SharedPtr _bid_notice_pub;
 
   using BidProposalSub = rclcpp::Subscription<BidProposal>;
   BidProposalSub::SharedPtr _bid_proposal_sub;
+  
+  // Class Constuctor
+  Auctioneer(std::shared_ptr<rclcpp::Node> node);
 
   // Receive proposal and evaluate // todo think
-  void receive_proposal(const bidding::BidProposal& msg);
+  void receive_proposal(const BidProposal& msg);
 
   // periodic callback
   void check_bidding_process();
 
-  // void evaluate_proposal()
-
+  // determine the winner within a bidding task instance
+  void determine_winner(BiddingTaskPtr bidding_task);
 };
 
 } // namespace bidding

@@ -27,87 +27,68 @@ namespace dispatcher {
 
 std::shared_ptr<DispatcherNode> DispatcherNode::make_node()
 {
-  return std::shared_ptr<DispatcherNode>(new DispatcherNode);
+  auto node = std::shared_ptr<DispatcherNode>(new DispatcherNode);
+  node->_auctioneer = rmf_task_ros2::bidding::Auctioneer::make(node);
+
+  // bidding result callback
+  using namespace std::placeholders;
+  node->_auctioneer->receive_bidding_result(
+    std::bind(&DispatcherNode::receive_bidding_winner_callback, node, _1));
+
+  return node;
 }
 
 DispatcherNode::DispatcherNode()
-: Node("rmf_task_dispatcher_node"),
- _auctioneer(enable_shared_from_this<DispatcherNode>::shared_from_this())
+: Node("rmf_task_dispatcher_node")
 {
+  std::cout << "~Initializing Dispatcher Node~" << std::endl;
+
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   _loop_sub = create_subscription<Loop>(
     rmf_task_ros2::LoopTopicName, dispatch_qos,
     [&](const Loop::UniquePtr msg)
     {   
-      BiddingTask bidding_task;
+      bidding::BiddingTask bidding_task;
       bidding_task.task_id = msg->task_id;
-      bidding_task.start_time = std::chrono::steady_clock::now();
+      bidding_task.task_type = TaskType::Loop;
+      bidding_task.announce_all = true;
+      bidding_task.submission_time = std::chrono::steady_clock::now();
       for ( int i = 0; i < (int)msg->num_loops; i++ )
       {
         bidding_task.itinerary.push_back(msg->start_name);
         bidding_task.itinerary.push_back(msg->finish_name);
       }
-      _auctioneer.start_bidding(bidding_task);
+      _auctioneer->start_bidding(bidding_task);
     });
 
   _delivery_sub = create_subscription<Delivery>(
     rmf_task_ros2::DeliveryTopicName, dispatch_qos,
     [&](const Delivery::UniquePtr msg)
     {
-      BiddingTask bidding_task;
+      bidding::BiddingTask bidding_task;
       bidding_task.task_id = msg->task_id;
-      bidding_task.start_time = std::chrono::steady_clock::now();
+      bidding_task.task_type = TaskType::Delivery;
+      bidding_task.announce_all = true;
+      bidding_task.submission_time = std::chrono::steady_clock::now();
       bidding_task.itinerary.push_back(msg->pickup_place_name);
       bidding_task.itinerary.push_back(msg->dropoff_place_name);
-      bidding_task.bidders.push_back("dummybot"); // todo
-      _auctioneer.start_bidding(bidding_task);
+      _auctioneer->start_bidding(bidding_task);
     });
 
   _station_sub = create_subscription<Station>(
     rmf_task_ros2::StationTopicName, dispatch_qos,
     [&](const Station::UniquePtr msg)
     {
-      BiddingTask bidding_task;
+      bidding::BiddingTask bidding_task;
       bidding_task.task_id = msg->task_id;
-      bidding_task.start_time = std::chrono::steady_clock::now();    
+      bidding_task.task_type = TaskType::Station;
+      bidding_task.announce_all = true;
+      bidding_task.submission_time = std::chrono::steady_clock::now();    
       bidding_task.itinerary.push_back(msg->place_name);
-      _auctioneer.start_bidding(bidding_task);
+      _auctioneer->start_bidding(bidding_task);
     });
 }
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2
-
-//==============================================================================
-// Trash Codes, TOdo remove!
-
-  // // Nominate and Evaluate Here!
-  // Nomination task_nomination(task_it->nominees);
-  // Nomination::Nominee chosen_estimate = 
-  //   task_nomination.evaluate(QuickestFinishEvaluator());
-
-  // std::cout << " selected robot: " 
-  //           << chosen_estimate.robot_name << std::endl;
-
-  // // todo: this will need to change
-  // // Sent Conclusion which will state the selected robot
-  // DispatchRequest conclusion_msg;
-  // conclusion_msg.task_id = msg.task_id;
-  // conclusion_msg.fleet_name = "dummybot"; // chosen_estimate.fleet_name;
-  // conclusion_msg.robot_name = chosen_estimate.robot_name;
-  // _dispatch_conclusion_pub->publish(conclusion_msg);
-// }
-
-// void DispatcherNode::receive_conclusion_ack(const DispatchStatus& msg)
-// {
-//   std::cout << " Task is active, Done bidding! for task_id: " 
-//             << msg.task.task_id << std::endl;
-
-//   // Finish up task bidding
-//   auto task_it = std::find_if(
-//     _queue_bidding_tasks.begin(), _queue_bidding_tasks.end(),
-//     [&](const BiddingTask& task){ return task.task_id == msg.task.task_id;});
-  
-//   _queue_bidding_tasks.erase(task_it);
-// }

@@ -33,19 +33,16 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
-class DispatcherNode 
-    : public rclcpp::Node, 
-      public std::enable_shared_from_this<DispatcherNode>
+class DispatcherNode : public rclcpp::Node
 {
 public:
-
+  /// Create the node of a Task Dispatcher, inherited of rclcpp node
+  ///
+  /// \return Pointer to the dispatcher node
   static std::shared_ptr<DispatcherNode> make_node();
 
-  DispatcherNode();
-
-  ~DispatcherNode(){};
-
 private:
+  std::shared_ptr<bidding::Auctioneer> _auctioneer;
 
   using Loop = rmf_task_msgs::msg::Loop;
   using LoopSub = rclcpp::Subscription<Loop>;
@@ -59,7 +56,16 @@ private:
   using StationSub = rclcpp::Subscription<Station>;
   StationSub::SharedPtr _station_sub;
 
-  bidding::Auctioneer _auctioneer;
+  DispatcherNode();
+
+  // Callback when a bidding winner is provided
+  void receive_bidding_winner_callback(const bidding::Submission& winner)
+  {
+    std::cout << " BiddingResultCallback: got a winner from auctioneer! "
+              << winner.fleet_name << std::endl;
+
+    // we will start a task action here! (TODO)
+  };
 
 };
 

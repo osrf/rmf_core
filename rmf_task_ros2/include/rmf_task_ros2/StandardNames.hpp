@@ -23,10 +23,12 @@
 namespace rmf_task_ros2 {
 
 enum class TaskType { 
-    Delivery, 
-    Charging, 
     Station, 
-    Cleaning 
+    Loop, 
+    Delivery,
+    Charging, 
+    Cleaning,
+    Patrol
 };
 
 const std::string Prefix = "rmf_task/";
