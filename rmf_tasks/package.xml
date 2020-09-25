@@ -8,8 +8,6 @@
   <license>Apache License 2.0</license>
   <author>Aaron</author>
 
-  <depend>rmf_utils</depend>
-  <depend>rmf_traffic</depend>
   <depend>rmf_battery</depend>
 
   <export>

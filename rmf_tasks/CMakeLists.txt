@@ -37,8 +37,6 @@ add_library(rmf_tasks SHARED
 
 target_link_libraries(rmf_tasks
   PRIVATE
-    rmf_utils::rmf_utils
-    rmf_traffic::rmf_traffic
     rmf_battery::rmf_battery
 )
 
