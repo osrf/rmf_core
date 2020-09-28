@@ -2,9 +2,6 @@
 Changelog for package rmf_lift_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
-
 1.0.0 (2020-06-23)
 ------------------
 * Initial set of messages for communicating with lifts over ROS2

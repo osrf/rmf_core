@@ -2,8 +2,9 @@
 Changelog for package rmf_task_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2020-09-24)
+------------------
+* Add Ingestor Messages (`#164 <https://github.com/osrf/rmf_core/issues/164>`_)
 
 1.0.0 (2020-06-23)
 ------------------
