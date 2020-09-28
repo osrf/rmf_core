@@ -23,6 +23,8 @@
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 
+#include <rmf_task_ros2/action/ActionInterface.hpp>
+
 #include <rmf_task_msgs/msg/loop.hpp>
 #include <rmf_task_msgs/msg/delivery.hpp>
 #include <rmf_task_msgs/msg/station.hpp>
@@ -43,6 +45,7 @@ public:
 
 private:
   std::shared_ptr<bidding::Auctioneer> _auctioneer;
+  std::shared_ptr<action::TaskActionClient> _action_client;
 
   using Loop = rmf_task_msgs::msg::Loop;
   using LoopSub = rclcpp::Subscription<Loop>;
@@ -59,14 +62,30 @@ private:
   DispatcherNode();
 
   // Callback when a bidding winner is provided
-  void receive_bidding_winner_callback(const bidding::Submission& winner)
+  void receive_bidding_winner_callback(
+      const bidding::TaskID& task_id, 
+      const rmf_utils::optional<bidding::Submission> winner)
   {
-    std::cout << " BiddingResultCallback: got a winner from auctioneer! "
-              << winner.fleet_name << std::endl;
+    std::cout << "BiddingResultCallback | task: " << task_id;
+    if (!winner)
+    {
+      std::cerr << " | No winner found!" << std::endl;
+      return;
+    }
 
-    // we will start a task action here! (TODO)
+    std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
+    
+    // we will initiate a task via task action here! (TODO)
+    action::TaskMsg task;
+    std::future<action::ResultResponse> test_fut;
+
+    _action_client->add_task(
+        winner->fleet_name,
+        task_id,
+        task,
+        test_fut
+    );
   };
-
 };
 
 //==============================================================================

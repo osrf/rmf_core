@@ -34,10 +34,7 @@ enum class TaskType {
 const std::string Prefix = "rmf_task/";
 const std::string BidNoticeTopicName = Prefix + "bid_notice";  
 const std::string BidProposalTopicName = Prefix + "bid_proposal";
-const std::string DispatchRequestTopicName = Prefix + "dispatch_request";
-const std::string DispatchCancelTopicName = Prefix + "dispatch_cancel";
-const std::string DispatchStatusTopicName = Prefix + "dispatch_status";
-const std::string DispatchResultTopicName = Prefix + "dispatch_result";
+const std::string DispatchActionTopicName = Prefix + "dispatch";
 
 const std::string DeliveryTopicName = "delivery_requests";
 const std::string LoopTopicName = "loop_requests";

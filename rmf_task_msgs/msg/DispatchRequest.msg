@@ -1,23 +1,17 @@
-# This msg is will be received by Fleet Adapter
-
-string task_id
-uint32 request_version # random generated number
+# Publish by Task Dispatcher Node
+# This msg is will be received by Fleet Adapter to initiate/cancel a task
+# a DispatchRequest will be provided when the task is completed
 
 # Selected Fleet Adapter / Target server
-string fleet_name
+string server_id
 
-# action
-uint8 action
-uint8 CANCEL_TASK=0
-uint8 QUEUE_TASK=1
+# if task is dispatched via bidding, this should be the same
+Task task
 
-# submission_time is when the request was submitted to rmf_core
-builtin_interfaces/Time submission_time
+# add or cancel a task
+uint8 method
+uint8 CHECK=0   # to check a task
+uint8 ADD=1     # to add a task
+uint8 CANCEL=2  # to cancel and remove a task
 
-# task type
-TaskType type
-
-# array of stopby place names
-string[] itinerary
-
-# Behavior # ??
+# Behavior # ?? todo

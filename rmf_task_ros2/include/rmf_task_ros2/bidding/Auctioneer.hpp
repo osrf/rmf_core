@@ -50,7 +50,8 @@ public:
   ///
   /// \param[out] single winner submission
   using BiddingResultCallback = 
-    std::function<void(const Submission& winner)>;
+    std::function<void( const TaskID& task_id, 
+                        const rmf_utils::optional<Submission> winner)>;
 
   /// Provide a callback fn which will be called when a bid is concluded
   ///

@@ -53,7 +53,7 @@ void MinimalBidder::receive_notice(const BidNotice& msg)
   
   // check if tasktype is supported by this F.A
   auto req_type = static_cast<TaskType>(msg.type.value);
-  if (!_profile.valid_tasks.count(req_type));
+  if (!_profile.valid_tasks.count(req_type))
   {
     std::cout << _profile.fleet_name << ": task type "
               << msg.type.value << " is invalid" << std::endl;
@@ -72,16 +72,10 @@ void MinimalBidder::receive_notice(const BidNotice& msg)
     }
   }
 
-  // get tasks estimates
+  // check if get submission function is declared
   if (!_get_submission_fn)
     return;
-
   auto bid_submission = _get_submission_fn(msg);
-  
-  // TODO: check if within deadline
-  auto now = std::chrono::steady_clock::now();
-
-  // check if cost and end_time is infinite
   
   // Submit proposal
   auto best_proposal = convert(bid_submission);

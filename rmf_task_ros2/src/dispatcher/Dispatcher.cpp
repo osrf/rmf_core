@@ -28,12 +28,14 @@ namespace dispatcher {
 std::shared_ptr<DispatcherNode> DispatcherNode::make_node()
 {
   auto node = std::shared_ptr<DispatcherNode>(new DispatcherNode);
-  node->_auctioneer = rmf_task_ros2::bidding::Auctioneer::make(node);
+  node->_auctioneer = bidding::Auctioneer::make(node);
+  node->_action_client = 
+    action::TaskActionClient::make(node, DispatchActionTopicName);
 
   // bidding result callback
   using namespace std::placeholders;
   node->_auctioneer->receive_bidding_result(
-    std::bind(&DispatcherNode::receive_bidding_winner_callback, node, _1));
+    std::bind(&DispatcherNode::receive_bidding_winner_callback, node, _1, _2));
 
   return node;
 }

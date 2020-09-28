@@ -63,8 +63,7 @@ void Auctioneer::start_bidding(const BiddingTask& bidding_task)
   _bid_notice_pub->publish(notice_msg);
 }
 
-void Auctioneer::receive_bidding_result(
-    std::function<void(const Submission& winner)> result_callback)
+void Auctioneer::receive_bidding_result(BiddingResultCallback result_callback)
 {
   _bidding_result_callback = std::move(result_callback);
 }
@@ -117,30 +116,27 @@ void Auctioneer::check_bidding_process()
 
 void Auctioneer::determine_winner(BiddingTaskPtr bidding_task)
 { 
+  rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
+  
   if(bidding_task->submissions.size() == 0)
   {
-    std::cout << " No received bids for this task"<< std::endl;
-    _queue_bidding_tasks.erase(bidding_task->task_id);
-    // todo need to send nullopt to public function 
-    return;
+    std::cerr << " Bidding task has not received any bids"<< std::endl;
+  }
+  else
+  {
+    // Nominate and Evaluate Here
+    Nomination task_nomination(bidding_task->submissions);
+    winner = task_nomination.evaluate(QuickestFinishEvaluator());
+    std::cout << "Found winning Fleet Adapter: " 
+              << winner->fleet_name << std::endl;
   }
 
-  // Nominate and Evaluate Here
-  Nomination task_nomination(bidding_task->submissions);
-  Submission winner = 
-    task_nomination.evaluate(QuickestFinishEvaluator());
-  //todo check if winner is nullopt?
-  std::cout << "Found winning Fleet Adapter: " 
-            << winner.fleet_name << std::endl;
-  
   // remove completed task from queue
   _queue_bidding_tasks.erase(bidding_task->task_id);
   
   // check if _bidding_result_callback fn is initailized
-  if (!_bidding_result_callback)
-    return;
-  
-  this->_bidding_result_callback(winner);
+  if (_bidding_result_callback)
+    this->_bidding_result_callback(bidding_task->task_id, winner);
 }
 
 } // namespace bidding

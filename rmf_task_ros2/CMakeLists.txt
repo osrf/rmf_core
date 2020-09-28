@@ -26,7 +26,7 @@ if (rmf_traffic_FOUND)
   message(STATUS "rmf_traffic_INCLUDE_DIRS: ${rmf_traffic_INCLUDE_DIRS}")
 endif()
 
-file(GLOB_RECURSE core_lib_srcs "src/bidding/*.cpp")
+file(GLOB_RECURSE core_lib_srcs "src/bidding/*.cpp" "src/action/*.cpp")
 add_library(rmf_task_ros2 SHARED ${core_lib_srcs})
 
 target_link_libraries(rmf_task_ros2

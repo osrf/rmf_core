@@ -16,6 +16,7 @@
 */
 
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
+#include <rmf_task_ros2/action/ActionInterface.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -43,7 +44,7 @@ int main(int argc, char* argv[])
     [](const bidding::BidNotice& notice )
     {
       // Here user will provice the best robot as a bid submission
-      std::cout << "providing best estimates" << std::endl;
+      std::cout << "[Bidding] Providing best estimates" << std::endl;
       
       auto now = std::chrono::steady_clock::now();
       bidding::Submission best_robot_estimate;
@@ -56,13 +57,24 @@ int main(int argc, char* argv[])
   );
 
   // RMF task action server (TODO)
-  // task_action.ActionServer action_server(profile, node);
-  // action_server.request_callback(
-  //   [](const Task& task)
-  //   {
-  //     // action: initiate/cancel
-  //   }
-  // );
+  std::shared_ptr<action::TaskActionServer> action_server =
+    action::TaskActionServer::make(
+        node, profile.fleet_name, DispatchActionTopicName);
+
+  action_server->register_callbacks(
+    [](const action::TaskMsg& task)
+    {
+      std::cout << " [Action] ~Start Executing Task: "
+                << task.task_id<<std::endl;
+      return action::ResultResponse::ACCEPTED;
+    },
+    [](const std::string& task_id)
+    {
+      std::cout << " [Action] ~Cancel Executing Task: "
+                << task_id<<std::endl;
+      return action::ResultResponse::ACCEPTED;
+    }
+  );
 
   rclcpp::spin(node);
 

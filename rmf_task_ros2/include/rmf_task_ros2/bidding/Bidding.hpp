@@ -32,7 +32,7 @@ using BidProposal = rmf_task_msgs::msg::BidProposal;
 using TaskID = std::string;
 
 //==============================================================================
-struct Submission
+struct Submission // todo. const?
 {
   std::string fleet_name;
   std::string robot_name; // optional
@@ -48,7 +48,7 @@ struct BiddingTask
   TaskType task_type;
   bool announce_all;
   std::vector<std::string> bidders;
-  std::vector<bidding::Submission> submissions;
+  std::vector<bidding::Submission> submissions; // this will be populated during output
   std::vector<std::string> itinerary;
   rmf_traffic::Time submission_time;
   rmf_traffic::Duration time_window = std::chrono::duration_cast<std::chrono::nanoseconds>(

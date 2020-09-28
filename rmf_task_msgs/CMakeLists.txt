@@ -31,7 +31,6 @@ set(msg_files
   "msg/BidNotice.msg"
   "msg/BidProposal.msg"
   "msg/DispatchRequest.msg"
-  "msg/DispatchCancel.msg"
   "msg/DispatchStatus.msg"
   "msg/DispatchResult.msg"
 )
