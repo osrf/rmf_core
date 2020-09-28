@@ -6,13 +6,7 @@ Changelog for package rmf_utils
 ------------------
 * Replace rmf_utils::optional with std::optional (`#177 <https://github.com/osrf/rmf_core/issues/177>`_)
 * Foxy Support (`#133 <https://github.com/osrf/rmf_core/issues/133>`_)
-* Feature/remove ros2 dep (`#142 <https://github.com/osrf/rmf_core/issues/142>`_)
-  * Having trouble including dirs from rmf_traffic into rmf_traffic_ros2
-  * Issues with loading exported library include targets
-  * Linking and includes are working without ros2 dep and ament cmake
-* Traffic Light API (`#147 <https://github.com/osrf/rmf_core/issues/147>`_)
-  * Introduce the Traffic Light API
-  * Bump to version 1.1.0
+* Remove ros2 dependency (`#142 <https://github.com/osrf/rmf_core/issues/142>`_)
 * Contributors: Aaron Chong, Grey, Yadu
 
 1.0.0 (2020-06-23)
