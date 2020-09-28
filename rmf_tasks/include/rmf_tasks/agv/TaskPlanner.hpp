@@ -24,6 +24,7 @@
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <vector>
+#include <future>
 
 namespace rmf_tasks {
 namespace agv {
@@ -57,13 +58,20 @@ public:
     ///   The type of filter used for planning
     Configuration(
       Request::SharedPtr charge_battery_request,
-      const FilterType filter_type= FilterType::Hash);
+      FilterType filter_type= FilterType::Hash);
 
     /// Get the pointer to the ChargeBattery request
     Request::SharedPtr charge_battery_request() const;
 
     /// Set the pointer to the ChargeBattery request
     Configuration& charge_battery_request(Request::SharedPtr charge_battery);
+
+    /// Get the filter type
+    FilterType filter_type() const;
+
+    /// Set the filter type
+    Configuration& filter_type(FilterType filter_type);
+
     class Implementation;
 
   private:
@@ -91,10 +99,13 @@ public:
 
       
     // Get a const reference to the task_id
-    const std::size_t task_id() const;
+    std::size_t task_id() const;
 
     // Get a const reference to the state
     const State& state() const;
+
+    // Get a const reference to the earliest start time
+    const rmf_traffic::Time& earliest_start_time() const;
 
     class Implementation;
   
@@ -104,15 +115,37 @@ public:
 
   using Assignments = std::vector<std::vector<Assignment>>;
 
-  // Forward declaration
-  class Result;
+  /// Constructor
+  ///
+  /// \param[in] config
+  /// The configuration for the planner
+  TaskPlanner(Configuration config);
 
-  TaskPlanner(Configuration configuration);
+  using Result = std::pair<Assignments, std::future<Assignments>>;
 
+  /// Return a pair containting the greedy solution and a future to the optimal 
+  /// solution for a set of initial states and requests
   Result plan(
     std::vector<State> initial_states,
     std::vector<Request::SharedPtr> requests);
 
+  /// Get the greedy planner based assignments for a set of initial states and 
+  /// requests
+  Assignments greedy_plan(
+    std::vector<State> initial_states,
+    std::vector<Request::SharedPtr> requests);
+
+  /// Get the optimal planner based assignments for a set of initial states and 
+  /// requests
+  /// \note When the number of requests exceed 10 for the same start time
+  /// segment, this plan may take a while to be generated. Hence, it is
+  /// recommended to call plan() method and use the greedy solution for bidding.
+  /// If a bid is awarded, the optimal solution may be used for assignments.
+  Assignments optimal_plan(
+    std::vector<State> initial_states,
+    std::vector<Request::SharedPtr> requests);
+
+  double compute_cost(const Assignments);
 
   class Implementation;
 
@@ -121,15 +154,6 @@ private:
 
 };
 
-
-class TaskPlanner::Result
-{
-public:
-  // Get the results of the greedy algorithm based planner
-  Assignments& greedy_solution() const;
-  
-
-}
 
 } // namespace agv
 } // namespace rmf_tasks

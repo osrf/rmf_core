@@ -24,7 +24,7 @@ find_package(rmf_utils REQUIRED)
 find_package(rmf_traffic REQUIRED)
 find_package(rmf_battery REQUIRED)
 
-# ===== Traffic control library
+# ===== RMF Tasks library
 file(GLOB lib_srcs
   "src/agv/*.cpp"
   "src/requests/*.cpp"
