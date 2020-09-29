@@ -18,11 +18,19 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+
+
 include(GNUInstallDirs)
 
 find_package(rmf_utils REQUIRED)
 find_package(rmf_traffic REQUIRED)
 find_package(rmf_battery REQUIRED)
+find_package(Eigen3 REQUIRED)
+
+find_package(ament_cmake_catch2 QUIET)
+find_package(rmf_cmake_uncrustify QUIET)
 
 # ===== RMF Tasks library
 file(GLOB lib_srcs
@@ -36,7 +44,7 @@ add_library(rmf_tasks SHARED
 )
 
 target_link_libraries(rmf_tasks
-  PRIVATE
+  PUBLIC
     rmf_battery::rmf_battery
 )
 
@@ -44,7 +52,35 @@ target_include_directories(rmf_tasks
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    ${EIGEN3_INCLUDE_DIRS}
 )
+
+if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
+  file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
+
+  ament_add_catch2(
+    test_rmf_tasks test/main.cpp ${unit_test_srcs}
+    TIMEOUT 300)
+  target_link_libraries(test_rmf_tasks
+      rmf_tasks
+      rmf_utils::rmf_utils
+      rmf_traffic::rmf_traffic
+  )
+
+  target_include_directories(test_rmf_tasks
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
+  )
+
+  find_file(uncrustify_config_file NAMES "share/format/rmf_code_style.cfg")
+
+  rmf_uncrustify(
+    ARGN include src test
+    CONFIG_FILE ${uncrustify_config_file}
+    MAX_LINE_LENGTH 80
+  )
+endif()
+
 
 # Create cmake config files
 include(CMakePackageConfigHelpers)

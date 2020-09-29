@@ -85,7 +85,7 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
 {
   if (abs(initial_state.battery_soc() - _pimpl->_charge_soc) < 1e-3)
   {
-    std::cout << " -- Charge battery: Battery full" << std::endl;
+    // std::cout << " -- Charge battery: Battery full" << std::endl;
     return rmf_utils::nullopt;
   }
 
@@ -129,7 +129,7 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
     if (battery_soc <= state.threshold_soc())
     {
       // If a robot cannot reach its charging dock given its initial battery soc
-      std::cout << " -- Charge battery: Unable to reach charger" << std::endl;
+      // std::cout << " -- Charge battery: Unable to reach charger" << std::endl;
       return rmf_utils::nullopt;
     }
   }

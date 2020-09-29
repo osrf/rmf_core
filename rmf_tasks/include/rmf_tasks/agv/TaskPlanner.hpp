@@ -24,7 +24,8 @@
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <vector>
-#include <future>
+#include <memory>
+#include <functional>
 
 namespace rmf_tasks {
 namespace agv {
@@ -119,15 +120,7 @@ public:
   ///
   /// \param[in] config
   /// The configuration for the planner
-  TaskPlanner(Configuration config);
-
-  using Result = std::pair<Assignments, std::future<Assignments>>;
-
-  /// Return a pair containting the greedy solution and a future to the optimal 
-  /// solution for a set of initial states and requests
-  Result plan(
-    std::vector<State> initial_states,
-    std::vector<Request::SharedPtr> requests);
+  TaskPlanner(std::shared_ptr<Configuration> config);
 
   /// Get the greedy planner based assignments for a set of initial states and 
   /// requests
@@ -143,9 +136,10 @@ public:
   /// If a bid is awarded, the optimal solution may be used for assignments.
   Assignments optimal_plan(
     std::vector<State> initial_states,
-    std::vector<Request::SharedPtr> requests);
+    std::vector<Request::SharedPtr> requests,
+    std::function<bool()> interrupter);
 
-  double compute_cost(const Assignments);
+  double compute_cost(const Assignments& assignments);
 
   class Implementation;
 
