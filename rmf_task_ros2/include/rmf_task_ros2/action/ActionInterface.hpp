@@ -49,7 +49,7 @@ enum class ResultResponse : uint8_t {
 struct State
 {
   enum class Active : uint8_t {
-    INVALID,
+    INVALID, // e.g. during bidding 
     QUEUED,
     EXECUTING,
     CANCELING
@@ -81,7 +81,7 @@ public:
       const std::string& prefix_topic);
   
   using StatusCallback = 
-    std::function<void(const std::vector<TaskMsg>& status)>;
+    std::function<void(const std::vector<TaskMsg>& tasks)>;
   using TerminationCallback = 
     std::function<void(const TaskMsg& task, const State::Terminal state)>;
 

@@ -15,12 +15,19 @@
  *
 */
 
+#include <rmf_task_ros2/bidding/Bidding.hpp>
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
 
 //==============================================================================
+std::shared_ptr<MinimalBidder> MinimalBidder::make(
+    const Profile& profile,
+    std::shared_ptr<rclcpp::Node> node)
+{
+  return std::shared_ptr<MinimalBidder>(new MinimalBidder(profile, node));
+}
 
 MinimalBidder::MinimalBidder(
   const Profile& profile,

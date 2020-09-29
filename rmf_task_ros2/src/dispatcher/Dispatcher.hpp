@@ -46,6 +46,10 @@ public:
 private:
   std::shared_ptr<bidding::Auctioneer> _auctioneer;
   std::shared_ptr<action::TaskActionClient> _action_client;
+  
+  using TaskStatePair = std::pair<bidding::BiddingTask, action::State::Active>;
+  using ActiveTasksTrack = std::map<bidding::TaskID, TaskStatePair>;
+  ActiveTasksTrack _active_tasks;
 
   using Loop = rmf_task_msgs::msg::Loop;
   using LoopSub = rclcpp::Subscription<Loop>;
@@ -59,36 +63,26 @@ private:
   using StationSub = rclcpp::Subscription<Station>;
   StationSub::SharedPtr _station_sub;
 
+  // Private constructor
   DispatcherNode();
 
   // Callback when a bidding winner is provided
-  void receive_bidding_winner_callback(
+  void receive_bidding_winner_cb(
       const bidding::TaskID& task_id, 
-      const rmf_utils::optional<bidding::Submission> winner)
-  {
-    std::cout << "BiddingResultCallback | task: " << task_id;
-    if (!winner)
-    {
-      std::cerr << " | No winner found!" << std::endl;
-      return;
-    }
+      const rmf_utils::optional<bidding::Submission> winner);
 
-    std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
-    
-    // we will initiate a task via task action here! (TODO)
-    action::TaskMsg task;
-    std::future<action::ResultResponse> test_fut;
+  // task action status callback
+  void action_status_cb(
+      const std::vector<action::TaskMsg>& tasks);
 
-    _action_client->add_task(
-        winner->fleet_name,
-        task_id,
-        task,
-        test_fut
-    );
-  };
+  // task action finish callback
+  void action_finish_cb(
+      const action::TaskMsg& task, 
+      const action::State::Terminal state);
 };
 
 //==============================================================================
+action::TaskMsg convert_task(const bidding::BiddingTask& bid);
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2

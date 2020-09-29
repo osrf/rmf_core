@@ -8,8 +8,8 @@ TaskType type
 # submission_time is when the task was submitted to rmf_core
 builtin_interfaces/Time submission_time
 
-# time which bidding will close
-builtin_interfaces/Time deadline
+# Duration which bidding is open
+builtin_interfaces/Duration time_window
 
 # Announce bidding task to all bidder
 bool announce_all

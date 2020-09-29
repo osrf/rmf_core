@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2020 Open Source Robotics Foundation
  *
@@ -16,6 +15,7 @@
  *
 */
 
+#include <rmf_task_ros2/bidding/Bidding.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 
 namespace rmf_task_ros2 {
@@ -86,7 +86,6 @@ void Auctioneer::receive_proposal(const BidProposal& msg)
   _queue_bidding_tasks[msg.task_id]->submissions.push_back(submission);
 }
 
-
 void Auctioneer::check_bidding_process()
 {
   // check if timeout is reached
@@ -110,8 +109,8 @@ void Auctioneer::check_bidding_process()
       }
     }
   }
-  std::cout << "Remaining: " << _queue_bidding_tasks.size() 
-            << " bidding tasks" << std::endl;
+  // std::cout << "Remaining: " << _queue_bidding_tasks.size() 
+  //           << " bidding tasks" << std::endl;
 }
 
 void Auctioneer::determine_winner(BiddingTaskPtr bidding_task)

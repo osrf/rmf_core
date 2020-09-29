@@ -14,9 +14,9 @@ endif()
 include(GNUInstallDirs)
 
 find_package(ament_cmake REQUIRED)
-find_package(rmf_task_msgs REQUIRED)
 find_package(rmf_traffic REQUIRED)
-find_package(rmf_traffic_msgs REQUIRED)
+find_package(rmf_traffic_ros2 REQUIRED)
+find_package(rmf_task_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 
@@ -26,12 +26,13 @@ if (rmf_traffic_FOUND)
   message(STATUS "rmf_traffic_INCLUDE_DIRS: ${rmf_traffic_INCLUDE_DIRS}")
 endif()
 
-file(GLOB_RECURSE core_lib_srcs "src/bidding/*.cpp" "src/action/*.cpp")
+file(GLOB_RECURSE core_lib_srcs "src/rmf_task_ros2/*.cpp")
 add_library(rmf_task_ros2 SHARED ${core_lib_srcs})
 
 target_link_libraries(rmf_task_ros2
   PUBLIC
     rmf_traffic::rmf_traffic
+    rmf_traffic_ros2::rmf_traffic_ros2
     ${rmf_task_msgs_LIBRARIES}
     ${rclcpp_LIBRARIES}
 )
@@ -40,6 +41,7 @@ target_include_directories(rmf_task_ros2
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    ${rmf_traffic_ros2_INCLUDE_DIRS}
     ${rmf_task_msgs_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
 )
@@ -50,8 +52,7 @@ ament_export_dependencies(rmf_traffic rmf_task_msgs rclcpp)
 #===============================================================================
 
 add_executable(rmf_bidder_node 
-  src/bidding/main.cpp  # todo: bidder node, move this to a test dir
-  src/bidding/MinimalBidder.cpp
+  src/bidder/main.cpp
 )
 target_link_libraries(rmf_bidder_node PUBLIC rmf_task_ros2)
 
@@ -59,7 +60,6 @@ target_link_libraries(rmf_bidder_node PUBLIC rmf_task_ros2)
 
 add_executable(rmf_task_dispatcher 
   src/dispatcher/main.cpp
-  src/bidding/Auctioneer.cpp
   src/dispatcher/Dispatcher.cpp
 )
 target_link_libraries(rmf_task_dispatcher PUBLIC rmf_task_ros2)

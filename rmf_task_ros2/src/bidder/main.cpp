@@ -38,13 +38,19 @@ int main(int argc, char* argv[])
     "dummy_fleet",
     { TaskType::Station, TaskType::Charging, TaskType::Delivery  }
   };
-  bidding::MinimalBidder bidder(profile, node);
   
-  bidder.call_for_bid(
+  //============================================================================
+  // Create Bidder instance
+
+  std::shared_ptr<bidding::MinimalBidder> bidder =
+    bidding::MinimalBidder::make(profile, node);
+
+  bidder->call_for_bid(
     [](const bidding::BidNotice& notice )
     {
       // Here user will provice the best robot as a bid submission
-      std::cout << "[Bidding] Providing best estimates" << std::endl;
+      std::cout << "[Bidding] Itinery wp size: " << notice.itinerary.size()
+                << "Providing best estimates" << std::endl;
       
       auto now = std::chrono::steady_clock::now();
       bidding::Submission best_robot_estimate;
@@ -56,7 +62,9 @@ int main(int argc, char* argv[])
     }
   );
 
-  // RMF task action server (TODO)
+  //============================================================================
+  // Create RMF task action server (TODO)
+  
   std::shared_ptr<action::TaskActionServer> action_server =
     action::TaskActionServer::make(
         node, profile.fleet_name, DispatchActionTopicName);
@@ -64,13 +72,13 @@ int main(int argc, char* argv[])
   action_server->register_callbacks(
     [](const action::TaskMsg& task)
     {
-      std::cout << " [Action] ~Start Executing Task: "
+      std::cout << "[Action] ~Start Executing Task: "
                 << task.task_id<<std::endl;
       return action::ResultResponse::ACCEPTED;
     },
     [](const std::string& task_id)
     {
-      std::cout << " [Action] ~Cancel Executing Task: "
+      std::cout << "[Action] ~Cancel Executing Task: "
                 << task_id<<std::endl;
       return action::ResultResponse::ACCEPTED;
     }

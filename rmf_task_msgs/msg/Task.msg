@@ -4,10 +4,17 @@ string task_id
 # ============================================================================
 # Complusory fields during task reqeust (ADD method) and status update
 
-TaskType type
-
 # submission_time is when the task was first submited
 builtin_interfaces/Time submission_time
+
+# e.g. Delivery, Station.....
+TaskType type
+
+# array of stopby place/waypoints names
+string[] itinerary
+
+# ============================================================================
+# Populated only by task action server after the task is queued
 
 # when the task is first executed the task
 # if the task is queued, this will be an estimate
@@ -17,12 +24,6 @@ builtin_interfaces/Time start_time
 # an estimate. When this message is a summary of a completed or failed task,
 # end_time is the actual time.
 builtin_interfaces/Time end_time
-
-# array of stopby place names
-string[] itinerary
-
-# ============================================================================
-# Populated only by task action server after the task is queued
 
 # optional field
 string robot_name # ???

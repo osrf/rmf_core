@@ -35,8 +35,10 @@ std::shared_ptr<DispatcherNode> DispatcherNode::make_node()
   // bidding result callback
   using namespace std::placeholders;
   node->_auctioneer->receive_bidding_result(
-    std::bind(&DispatcherNode::receive_bidding_winner_callback, node, _1, _2));
-
+    std::bind(&DispatcherNode::receive_bidding_winner_cb, node, _1, _2));
+  node->_action_client->register_callbacks(
+    std::bind(&DispatcherNode::action_status_cb, node, _1),
+    std::bind(&DispatcherNode::action_finish_cb, node, _1, _2));
   return node;
 }
 
@@ -61,6 +63,9 @@ DispatcherNode::DispatcherNode()
         bidding_task.itinerary.push_back(msg->start_name);
         bidding_task.itinerary.push_back(msg->finish_name);
       }
+
+      TaskStatePair task_state(bidding_task, action::State::Active::INVALID);
+      _active_tasks[msg->task_id] = task_state;
       _auctioneer->start_bidding(bidding_task);
     });
 
@@ -75,6 +80,9 @@ DispatcherNode::DispatcherNode()
       bidding_task.submission_time = std::chrono::steady_clock::now();
       bidding_task.itinerary.push_back(msg->pickup_place_name);
       bidding_task.itinerary.push_back(msg->dropoff_place_name);
+      
+      TaskStatePair task_state(bidding_task, action::State::Active::INVALID);
+      _active_tasks[msg->task_id] = task_state;
       _auctioneer->start_bidding(bidding_task);
     });
 
@@ -88,8 +96,72 @@ DispatcherNode::DispatcherNode()
       bidding_task.announce_all = true;
       bidding_task.submission_time = std::chrono::steady_clock::now();    
       bidding_task.itinerary.push_back(msg->place_name);
+
+      TaskStatePair task_state(bidding_task, action::State::Active::INVALID);
+      _active_tasks[msg->task_id] = task_state;
       _auctioneer->start_bidding(bidding_task);
     });
+}
+
+//==============================================================================
+// Callback when a bidding winner is provided
+void DispatcherNode::receive_bidding_winner_cb(
+    const bidding::TaskID& task_id, 
+    const rmf_utils::optional<bidding::Submission> winner)
+{
+  std::cout << "[BiddingResultCallback] | task: " << task_id;
+  if (!winner)
+  {
+    std::cerr << " | No winner found!" << std::endl;
+    return;
+  }
+  std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
+
+  // we will initiate a task via task action here! (TODO)
+  action::TaskMsg task = convert_task(_active_tasks[task_id].first);
+  std::future<action::ResultResponse> test_fut;
+
+  _action_client->add_task(
+      winner->fleet_name, task_id, task, test_fut);
+
+  // when fut is received, change task state as queued
+  _active_tasks[task_id].second = action::State::Active::QUEUED;
+}
+
+//==============================================================================
+// task action callback
+
+void DispatcherNode::action_status_cb(
+    const std::vector<action::TaskMsg>& tasks)
+{
+  std::cout << "[action status] number of on-going tasks"
+            << tasks.size() << std::endl;
+  // update task status here, todo: update estimated finish time?
+  for(auto tsk : tasks)
+  {
+    _active_tasks[tsk.task_id].second = 
+      static_cast<action::State::Active>(tsk.active_state);
+  }
+}
+
+void DispatcherNode::action_finish_cb(
+    const action::TaskMsg& task, 
+    const action::State::Terminal state)
+{
+  std::cout << "[action result] completed task: " << task.task_id 
+            << " state: " << static_cast<uint8_t>(state) << std::endl;
+  _active_tasks.erase(task.task_id); // todo check if within
+}
+
+//==============================================================================
+action::TaskMsg convert_task(const bidding::BiddingTask& bid)
+{
+  action::TaskMsg task;
+  task.task_id = bid.task_id;
+  task.submission_time = rmf_traffic_ros2::convert(bid.submission_time);
+  task.type.value = static_cast<uint8_t>(bid.task_type);
+  task.itinerary = bid.itinerary;
+  return task;
 }
 
 } // namespace dispatcher
