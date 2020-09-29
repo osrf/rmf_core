@@ -22,6 +22,7 @@
 
 #include <rmf_tasks/Estimate.hpp>
 #include <rmf_tasks/agv/State.hpp>
+#include <rmf_tasks/agv/StateConfig.hpp>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_utils/impl_ptr.hpp>
@@ -41,7 +42,8 @@ public:
   // Estimate the state of the robot when the task is finished along with the
   // time the robot has to wait before commencing the task
   virtual rmf_utils::optional<Estimate> estimate_finish(
-    const agv::State& initial_state) const = 0;
+    const agv::State& initial_state,
+    const agv::StateConfig& state_config) const = 0;
 
   // Estimate the invariant component of the task's duration
   virtual rmf_traffic::Duration invariant_duration() const = 0;

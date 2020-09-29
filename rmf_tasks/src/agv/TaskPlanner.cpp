@@ -163,6 +163,7 @@ public:
 
   static Candidates make(
       const std::vector<State>& initial_states,
+      const std::vector<StateConfig>& state_configs,
       const rmf_tasks::Request& request);
 
   Candidates(const Candidates& other)
@@ -248,13 +249,15 @@ private:
 
 Candidates Candidates::make(
     const std::vector<State>& initial_states,
+    const std::vector<StateConfig>& state_configs,
     const rmf_tasks::Request& request)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
   {
     const auto& state = initial_states[i];
-    const auto finish = request.estimate_finish(state);
+    const auto& state_config = state_configs[i];
+    const auto finish = request.estimate_finish(state, state_config);
     if (finish.has_value())
     {
       initial_map.insert(
@@ -272,10 +275,11 @@ Candidates Candidates::make(
 struct PendingTask
 {
   PendingTask(
-      std::vector<rmf_tasks::agv::State> initial_states,
+      std::vector<rmf_tasks::agv::State>& initial_states,
+      std::vector<rmf_tasks::agv::StateConfig>& state_configs,
       rmf_tasks::Request::SharedPtr request_)
     : request(std::move(request_)),
-      candidates(Candidates::make(initial_states, *request)),
+      candidates(Candidates::make(initial_states, state_configs, *request)),
       earliest_start_time(request->earliest_start_time())
   {
     // Do nothing
@@ -569,14 +573,16 @@ public:
   }
   
   Assignments complete_solve(
-    std::vector<State> initial_states,
-    std::vector<Request::SharedPtr> requests,
-    std::function<bool()> interrupter,
+    std::vector<State>& initial_states,
+    const std::vector<StateConfig>& state_configs,
+    const std::vector<Request::SharedPtr>& requests,
+    const std::function<bool()> interrupter,
     bool greedy)
-
   {
+    assert(initial_states.size() == state_configs.size());
+
     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
-    auto node = make_initial_node(initial_states, requests, start_time);
+    auto node = make_initial_node(initial_states, state_configs, requests, start_time);
 
     Node::AssignedTasks complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
@@ -584,9 +590,9 @@ public:
     while (node)
     {
       if (greedy)
-        node = greedy_solve(node, initial_states, start_time);
+        node = greedy_solve(node, initial_states, state_configs, start_time);
       else
-        node = solve(node, initial_states, requests.size(), start_time, interrupter);
+        node = solve(node, initial_states, state_configs, requests.size(), start_time, interrupter);
 
       if (!node)
       {
@@ -632,7 +638,7 @@ public:
           estimates[i] = assignments.back().state();        
       }
 
-      node = make_initial_node(estimates, new_tasks, start_time);
+      node = make_initial_node(estimates, state_configs, new_tasks, start_time);
       initial_states = estimates;
     }
 
@@ -705,6 +711,7 @@ public:
 
   ConstNodePtr make_initial_node(
     std::vector<State> initial_states,
+    std::vector<StateConfig> state_configs,
     std::vector<Request::SharedPtr> requests,
     rmf_traffic::Time relative_start_time)
   {
@@ -714,7 +721,7 @@ public:
 
     for (const auto& request : requests)
       initial_node->unassigned_tasks.insert(
-        {request->id(), PendingTask(initial_states, request)});
+        {request->id(), PendingTask(initial_states, state_configs, request)});
 
     initial_node->cost_estimate = compute_f(*initial_node, relative_start_time);
 
@@ -772,7 +779,8 @@ public:
     const Node::UnassignedTasks::value_type& u,
     const ConstNodePtr& parent,
     Filter* filter,
-    rmf_traffic::Time relative_start_time)
+    rmf_traffic::Time relative_start_time,
+    const std::vector<StateConfig>& state_configs)
 
   {
     const auto& entry = it->second;
@@ -797,7 +805,8 @@ public:
     for (auto& new_u : new_node->unassigned_tasks)
     {
       const auto finish =
-        new_u.second.request->estimate_finish(entry.state);
+        new_u.second.request->estimate_finish(
+          entry.state, state_configs[entry.candidate]);
       if (finish.has_value())
       {
         new_u.second.candidates.update_candidate(
@@ -828,7 +837,8 @@ public:
   ConstNodePtr expand_charger(
     ConstNodePtr parent,
     const std::size_t agent,
-    const std::vector<State> initial_states,
+    const std::vector<State>& initial_states,
+    const std::vector<StateConfig>& state_configs,
     rmf_traffic::Time relative_start_time)
   {
     auto new_node = std::make_shared<Node>(*parent);
@@ -845,7 +855,8 @@ public:
       state = initial_states[agent];
     }
 
-    auto estimate = config->charge_battery_request()->estimate_finish(state);
+    auto estimate = config->charge_battery_request()->estimate_finish(
+      state, state_configs[agent]);
     if (estimate.has_value())
     {
       new_node->assigned_tasks[agent].push_back(
@@ -857,7 +868,8 @@ public:
       for (auto& new_u : new_node->unassigned_tasks)
       {
         const auto finish =
-          new_u.second.request->estimate_finish(estimate.value().finish_state());
+          new_u.second.request->estimate_finish(
+            estimate.value().finish_state(), state_configs[agent]);
         if (finish.has_value())
         {
           new_u.second.candidates.update_candidate(
@@ -879,7 +891,8 @@ public:
 
   ConstNodePtr greedy_solve(
     ConstNodePtr node,
-    const std::vector<State> initial_states,
+    const std::vector<State>& initial_states,
+    const std::vector<StateConfig>& state_configs,
     rmf_traffic::Time relative_start_time)
   {
     while (!finished(*node))
@@ -890,7 +903,8 @@ public:
         const auto& range = u.second.candidates.best_candidates();
         for (auto it = range.begin; it != range.end; ++it)
         {
-          if (auto n = expand_candidate(it, u, node, nullptr, relative_start_time))
+          if (auto n = expand_candidate(
+            it, u, node, nullptr, relative_start_time, state_configs))
           {
             if (!next_node || (n->cost_estimate < next_node->cost_estimate))
               {
@@ -905,7 +919,11 @@ public:
             if (node->latest_time + segmentation_threshold > it->second.wait_until)
             {
               const auto charge_node = expand_charger(
-                node, it->second.candidate, initial_states, relative_start_time);
+                node,
+                it->second.candidate,
+                initial_states,
+                state_configs,
+                relative_start_time);
               if (charge_node)
               {
                 next_node = std::move(charge_node);
@@ -933,7 +951,11 @@ public:
                     auto& assignments = parent_node->assigned_tasks[it->second.candidate];
                     assignments.pop_back();
                     auto new_charge_node = expand_charger(
-                      parent_node, it->second.candidate, initial_states, relative_start_time);
+                      parent_node,
+                      it->second.candidate,
+                      initial_states,
+                      state_configs,
+                      relative_start_time);
                     if (new_charge_node)
                     {
                       next_node = std::move(new_charge_node);
@@ -957,7 +979,8 @@ public:
   std::vector<ConstNodePtr> expand(
     ConstNodePtr parent,
     Filter& filter,
-    const std::vector<State> initial_states,
+    const std::vector<State>& initial_states,
+    const std::vector<StateConfig>& state_configs,
     rmf_traffic::Time relative_start_time)
   {
     std::vector<ConstNodePtr> new_nodes;
@@ -968,7 +991,8 @@ public:
       const auto& range = u.second.candidates.best_candidates();
       for (auto it = range.begin; it!= range.end; it++)
       {
-        if (auto new_node = expand_candidate(it, u, parent, &filter, relative_start_time))
+        if (auto new_node = expand_candidate(
+          it, u, parent, &filter, relative_start_time, state_configs))
           new_nodes.push_back(std::move(new_node));
       }
     }
@@ -976,7 +1000,8 @@ public:
     // Assign charging task to each robot
     for (std::size_t i = 0; i < parent->assigned_tasks.size(); ++i)
     {
-      if (auto new_node = expand_charger(parent, i, initial_states, relative_start_time))
+      if (auto new_node = expand_charger(
+        parent, i, initial_states, state_configs, relative_start_time))
         new_nodes.push_back(new_node);
     }
 
@@ -1001,7 +1026,8 @@ public:
 
   ConstNodePtr solve(
     ConstNodePtr initial_node,
-    const std::vector<State> initial_states,
+    const std::vector<State>& initial_states,
+    const std::vector<StateConfig>& state_configs,
     const std::size_t num_tasks,
     rmf_traffic::Time relative_start_time,
     std::function<bool()> interrupter)
@@ -1031,7 +1057,8 @@ public:
       }
 
       // Apply possible actions to expand the node
-      const auto new_nodes = expand(top, filter, initial_states, relative_start_time);
+      const auto new_nodes = expand(
+        top, filter, initial_states, state_configs, relative_start_time);
 
       // Add copies and with a newly assigned task to queue
       for (const auto&n : new_nodes)
@@ -1055,10 +1082,12 @@ TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 
 auto TaskPlanner::greedy_plan(
   std::vector<State> initial_states,
+  std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests) -> Assignments
 {
   return _pimpl->complete_solve(
     initial_states,
+    state_configs,
     requests,
     nullptr,
     true);
@@ -1066,11 +1095,13 @@ auto TaskPlanner::greedy_plan(
 
 auto TaskPlanner::optimal_plan(
   std::vector<State> initial_states,
+  std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests,
   std::function<bool()> interrupter) -> Assignments
 {
   return _pimpl->complete_solve(
     initial_states,
+    state_configs,
     requests,
     interrupter,
     false);

@@ -15,53 +15,26 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASKS__AGV__STATE_HPP
-#define INCLUDE__RMF_TASKS__AGV__STATE_HPP
-
-#include <chrono>
+#ifndef INCLUDE__RMF_TASKS__AGV__STATECONFIG_HPP
+#define INCLUDE__RMF_TASKS__AGV__STATECONFIG_HPP
 
 #include <rmf_utils/impl_ptr.hpp>
-#include <rmf_utils/optional.hpp>
-
-#include <rmf_traffic/Time.hpp>
 
 namespace rmf_tasks {
 namespace agv {
 
-class State
+class StateConfig
 {
 public:
 
   /// Constructor
   ///
-  /// \param[in] waypoint
-  /// \param[in] charging_waypoint
-  /// \param[in] finish_time
-  /// \param[in] battery_soc
   /// \param[in] threshold_soc
-  State(
-    std::size_t waypoint, 
-    std::size_t charging_waypoint,
-    rmf_traffic::Time finish_time = std::chrono::steady_clock::now(),
-    double battery_soc = 1.0);
+  StateConfig(double threshold_soc);
 
-  State();
-  
-  std::size_t waypoint() const;
+  double threshold_soc() const;
 
-  State& waypoint(std::size_t new_waypoint);
-
-  std::size_t charging_waypoint() const;
-
-  State& charging_waypoint(std::size_t new_charging_waypoint);
-
-  rmf_traffic::Time finish_time() const;
-
-  State& finish_time(rmf_traffic::Time new_finish_time);
-
-  double battery_soc() const;
-
-  State& battery_soc(double new_battery_soc);
+  StateConfig& threshold_soc(double threshold_soc);
 
   class Implementation;
 private:

@@ -29,20 +29,17 @@ public:
     std::size_t waypoint, 
     std::size_t charging_waypoint,
     rmf_traffic::Time finish_time,
-    double battery_soc,
-    double threshold_soc)
+    double battery_soc)
   : _waypoint(waypoint),
     _charging_waypoint(charging_waypoint),
     _finish_time(finish_time),
-    _battery_soc(battery_soc),
-    _threshold_soc(threshold_soc)
+    _battery_soc(battery_soc)
   {}
 
   std::size_t _waypoint;
   std::size_t _charging_waypoint;
   rmf_traffic::Time _finish_time;
   double _battery_soc;
-  double _threshold_soc;
 };
 
 //==============================================================================
@@ -50,17 +47,16 @@ State::State(
   std::size_t waypoint, 
   std::size_t charging_waypoint,
   rmf_traffic::Time finish_time,
-  double battery_soc,
-  double threshold_soc)
+  double battery_soc)
 : _pimpl(rmf_utils::make_impl<Implementation>(
     Implementation(
-      waypoint, charging_waypoint, finish_time, battery_soc, threshold_soc)))
+      waypoint, charging_waypoint, finish_time, battery_soc)))
 {}
 
 //==============================================================================
 State::State()
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation(0, 0, std::chrono::steady_clock::now(), 0.0, 0.0)))
+    Implementation(0, 0, std::chrono::steady_clock::now(), 0.0)))
 {}
 
 //==============================================================================
@@ -115,19 +111,5 @@ State& State::battery_soc(double new_battery_soc)
   return *this;
 }
 
-//==============================================================================
-double State::threshold_soc() const
-{
-  return _pimpl->_threshold_soc;
-}
-
-//==============================================================================
-State& State::threshold_soc(double new_threshold_soc)
-{
-  _pimpl->_threshold_soc = new_threshold_soc;
-  return *this;
-}
-
-//==============================================================================
 } // namespace agv
 } // namespace rmf_tasks

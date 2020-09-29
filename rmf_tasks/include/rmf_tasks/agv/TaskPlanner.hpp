@@ -20,6 +20,7 @@
 
 #include <rmf_tasks/Request.hpp>
 #include <rmf_tasks/agv/State.hpp>
+#include <rmf_tasks/agv/StateConfig.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
@@ -114,6 +115,7 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  /// Container for assignments for each agent
   using Assignments = std::vector<std::vector<Assignment>>;
 
   /// Constructor
@@ -126,6 +128,7 @@ public:
   /// requests
   Assignments greedy_plan(
     std::vector<State> initial_states,
+    std::vector<StateConfig> state_configs,
     std::vector<Request::SharedPtr> requests);
 
   /// Get the optimal planner based assignments for a set of initial states and 
@@ -136,6 +139,7 @@ public:
   /// If a bid is awarded, the optimal solution may be used for assignments.
   Assignments optimal_plan(
     std::vector<State> initial_states,
+    std::vector<StateConfig> state_configs,
     std::vector<Request::SharedPtr> requests,
     std::function<bool()> interrupter);
 

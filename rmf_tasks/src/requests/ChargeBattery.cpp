@@ -81,7 +81,8 @@ std::size_t ChargeBattery::id() const
 
 //==============================================================================
 rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
-  const agv::State& initial_state) const
+  const agv::State& initial_state,
+  const agv::StateConfig& state_config) const
 {
   if (abs(initial_state.battery_soc() - _pimpl->_charge_soc) < 1e-3)
   {
@@ -94,8 +95,7 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
     initial_state.charging_waypoint(),
     initial_state.charging_waypoint(),
     initial_state.finish_time(),
-    initial_state.battery_soc(),
-    initial_state.threshold_soc());
+    initial_state.battery_soc());
 
   const auto start_time = initial_state.finish_time();
 
@@ -126,7 +126,7 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
       battery_soc = battery_soc - dSOC_motion - dSOC_device;
     }
 
-    if (battery_soc <= state.threshold_soc())
+    if (battery_soc <= state_config.threshold_soc())
     {
       // If a robot cannot reach its charging dock given its initial battery soc
       // std::cout << " -- Charge battery: Unable to reach charger" << std::endl;

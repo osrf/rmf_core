@@ -108,14 +108,14 @@ std::size_t Delivery::id() const
 
 //==============================================================================
 rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
-  const agv::State& initial_state) const
+  const agv::State& initial_state,
+  const agv::StateConfig& state_config) const
 {
   agv::State state(
     _pimpl->_dropoff_waypoint, 
     initial_state.charging_waypoint(),
     initial_state.finish_time(),
-    initial_state.battery_soc(),
-    initial_state.threshold_soc());
+    initial_state.battery_soc());
 
   rmf_traffic::Duration variant_duration(0);
 
@@ -151,9 +151,9 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
       battery_soc = battery_soc - dSOC_motion - dSOC_device;
     }
 
-    if (battery_soc <= state.threshold_soc())
+    if (battery_soc <= state_config.threshold_soc())
     {
-      std::cout << " -- Delivery: Unable to reach pickup" << std::endl;
+      // std::cout << " -- Delivery: Unable to reach pickup" << std::endl;
       return rmf_utils::nullopt;
     }
 
@@ -171,9 +171,9 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
 
   battery_soc -= _pimpl->_invariant_battery_drain;
 
-  if (battery_soc <= state.threshold_soc())
+  if (battery_soc <= state_config.threshold_soc())
   {
-    std::cout << " -- Delivery: Unable to reach dropoff" << std::endl;
+    // std::cout << " -- Delivery: Unable to reach dropoff" << std::endl;
     return rmf_utils::nullopt;
   }
   

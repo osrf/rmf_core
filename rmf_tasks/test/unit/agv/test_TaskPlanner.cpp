@@ -17,6 +17,8 @@
 
 
 #include <rmf_tasks/agv/TaskPlanner.hpp>
+#include <rmf_tasks/agv/State.hpp>
+#include <rmf_tasks/agv/StateConfig.hpp>
 #include <rmf_tasks/requests/Delivery.hpp>
 #include <rmf_tasks/requests/ChargeBattery.hpp>
 
@@ -138,6 +140,12 @@ SCENARIO("Grid World")
       rmf_tasks::agv::State{2, 2}
     };
 
+    std::vector<rmf_tasks::agv::StateConfig> state_configs =
+    {
+      rmf_tasks::agv::StateConfig{0.2},
+      rmf_tasks::agv::StateConfig{0.2}
+    };
+
     std::vector<rmf_tasks::Request::SharedPtr> requests =
     {
       rmf_tasks::requests::Delivery::make(
@@ -176,11 +184,11 @@ SCENARIO("Grid World")
     rmf_tasks::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(
-      initial_states, requests);
+      initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
 
     const auto optimal_assignments = task_planner.optimal_plan(
-      initial_states, requests, nullptr);
+      initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
     
     display_solution("Greedy", greedy_assignments, greedy_cost);
@@ -197,6 +205,12 @@ SCENARIO("Grid World")
     {
       rmf_tasks::agv::State{13, 13},
       rmf_tasks::agv::State{2, 2}
+    };
+
+    std::vector<rmf_tasks::agv::StateConfig> state_configs =
+    {
+      rmf_tasks::agv::StateConfig{0.2},
+      rmf_tasks::agv::StateConfig{0.2}
     };
 
     std::vector<rmf_tasks::Request::SharedPtr> requests =
@@ -327,11 +341,11 @@ SCENARIO("Grid World")
     rmf_tasks::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(
-      initial_states, requests);
+      initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
 
     const auto optimal_assignments = task_planner.optimal_plan(
-      initial_states, requests, nullptr);
+      initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
     
     display_solution("Greedy", greedy_assignments, greedy_cost);
