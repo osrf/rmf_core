@@ -23,16 +23,16 @@ namespace bidding {
 
 //==============================================================================
 std::shared_ptr<MinimalBidder> MinimalBidder::make(
-    const Profile& profile,
-    std::shared_ptr<rclcpp::Node> node)
+    std::shared_ptr<rclcpp::Node> node,
+    const Profile& profile)
 {
-  return std::shared_ptr<MinimalBidder>(new MinimalBidder(profile, node));
+  return std::shared_ptr<MinimalBidder>(new MinimalBidder(node, profile));
 }
 
 MinimalBidder::MinimalBidder(
-  const Profile& profile,
-  std::shared_ptr<rclcpp::Node> node)
-: _profile(profile), _node(std::move(node))
+  std::shared_ptr<rclcpp::Node> node,
+  const Profile& profile)
+: _node(std::move(node)), _profile(profile)
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
@@ -55,7 +55,7 @@ void MinimalBidder::call_for_bid(
 
 void MinimalBidder::receive_notice(const BidNotice& msg)
 {
-  std::cout << " Receive Bidding notice for task_id: " 
+  std::cout << " [Bidder] Received Bidding notice for task_id: " 
             << msg.task_id << std::endl;
   
   // check if tasktype is supported by this F.A

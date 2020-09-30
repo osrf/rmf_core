@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
   // Create Bidder instance
 
   std::shared_ptr<bidding::MinimalBidder> bidder =
-    bidding::MinimalBidder::make(profile, node);
+    bidding::MinimalBidder::make(node, profile);
 
   bidder->call_for_bid(
     [](const bidding::BidNotice& notice )
@@ -55,9 +55,10 @@ int main(int argc, char* argv[])
       auto now = std::chrono::steady_clock::now();
       bidding::Submission best_robot_estimate;
       best_robot_estimate.robot_name = "dumb";
+      best_robot_estimate.start_time = now;
       best_robot_estimate.end_time = rmf_traffic::time::apply_offset(now, 5);     
       best_robot_estimate.prev_cost = 10.2;     
-      best_robot_estimate.new_cost = 13.5;     
+      best_robot_estimate.new_cost = 13.5;
       return best_robot_estimate;
     }
   );

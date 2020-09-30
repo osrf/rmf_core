@@ -45,8 +45,8 @@ public:
   /// \param[in] bidder profile
   /// \param[in] ros2 node
   static std::shared_ptr<MinimalBidder> make(
-      const Profile& profile,
-      std::shared_ptr<rclcpp::Node> node);
+      std::shared_ptr<rclcpp::Node> node,
+      const Profile& profile);
   
   /// Callback function which user provide a bid submission after receiving 
   /// a bid notice from the autioneer
@@ -62,9 +62,8 @@ public:
   void call_for_bid(ParseSubmissionCallback submission_cb);
 
 private:
-  Profile _profile;
   std::shared_ptr<rclcpp::Node> _node;
-  
+  Profile _profile;
   ParseSubmissionCallback _get_submission_fn;
 
   using BidNoticeSub = rclcpp::Subscription<BidNotice>;
@@ -75,8 +74,8 @@ private:
   
   // private constructor
   MinimalBidder(
-      const Profile& profile,
-      std::shared_ptr<rclcpp::Node> node);
+      std::shared_ptr<rclcpp::Node> node,
+      const Profile& profile);
 
   // Callback fn when a dispatch notice is received
   void receive_notice(const BidNotice& msg);

@@ -51,6 +51,27 @@ ament_export_dependencies(rmf_traffic rmf_task_msgs rclcpp)
 
 #===============================================================================
 
+find_package(ament_cmake_catch2 QUIET)
+if(BUILD_TESTING AND ament_cmake_catch2_FOUND)
+  file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
+
+  ament_add_catch2(
+    test_rmf_tasks test/main.cpp ${unit_test_srcs}
+    TIMEOUT 300)
+  target_link_libraries(test_rmf_tasks
+      rmf_task_ros2
+      rmf_traffic::rmf_traffic
+      rmf_traffic_ros2::rmf_traffic_ros2
+  )
+
+  target_include_directories(test_rmf_tasks
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
+  )
+endif()
+
+#===============================================================================
+
 add_executable(rmf_bidder_node 
   src/bidder/main.cpp
 )

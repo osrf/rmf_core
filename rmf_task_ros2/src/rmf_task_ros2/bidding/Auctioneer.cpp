@@ -73,7 +73,7 @@ void Auctioneer::receive_bidding_result(BiddingResultCallback result_callback)
 
 void Auctioneer::receive_proposal(const BidProposal& msg)
 {
-  std::cout << " Receive Bidding proposal for task_id: " 
+  std::cout << "[Auctioneer] Receive proposal for task_id: " 
             << msg.task_id << std::endl;
   
   // check if bidding task is "mine"

@@ -21,7 +21,6 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_utils/optional.hpp>
 
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
 #include <rmf_task_msgs/msg/dispatch_status.hpp>

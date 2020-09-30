@@ -21,7 +21,9 @@
 #ifndef RMF_TASK_ROS2__NOMINATION_HPP
 #define RMF_TASK_ROS2__NOMINATION_HPP
 
+#include <iostream>
 #include <rmf_traffic/Time.hpp>
+#include <rmf_utils/optional.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
 
 namespace rmf_task_ros2 {
@@ -61,10 +63,16 @@ public:
   ///
   /// \param[in] Evaluator 
   /// \return Winner
-  Submission evaluate(const Evaluator& evaluator)
+  rmf_utils::optional<Submission> evaluate(const Evaluator& evaluator)
   {
+    if(_submissions.size()==0)
+      return rmf_utils::nullopt;
+    
     const std::size_t choice = evaluator.choose(_submissions);
-    assert(choice < _submissions.size());
+    
+    if(choice > _submissions.size())
+      return rmf_utils::nullopt;
+    
     return (_submissions)[choice];
   }
 
@@ -102,7 +110,10 @@ public:
     {
       float nominee_cost_diff = nominee_it->new_cost - nominee_it->prev_cost;
       if (nominee_cost_diff < winner_cost_diff)
+      {
         winner_it = nominee_it;
+        winner_cost_diff = nominee_cost_diff;
+      }
     }
     return std::distance( submissions.begin(), winner_it );    
   };

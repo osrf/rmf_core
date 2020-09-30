@@ -33,12 +33,12 @@ using BidProposal = rmf_task_msgs::msg::BidProposal;
 using TaskID = std::string;
 
 //==============================================================================
-struct Submission // todo. const?
+struct Submission
 {
-  std::string fleet_name;
-  std::string robot_name; // optional
-  float prev_cost;
-  float new_cost;
+  std::string fleet_name = "";
+  std::string robot_name = ""; // optional
+  float prev_cost = 0.0;
+  float new_cost = std::numeric_limits<float>::max();
   rmf_traffic::Time start_time;
   rmf_traffic::Time end_time;
 };
