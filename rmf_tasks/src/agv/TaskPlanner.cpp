@@ -29,6 +29,7 @@
 #include <unordered_map>
 #include <limits>
 #include <queue>
+#include <iostream>
 
 namespace rmf_tasks {
 namespace agv {
@@ -164,7 +165,8 @@ public:
   static Candidates make(
       const std::vector<State>& initial_states,
       const std::vector<StateConfig>& state_configs,
-      const rmf_tasks::Request& request);
+      const rmf_tasks::Request& request,
+      const rmf_tasks::Request& charge_battery_request);
 
   Candidates(const Candidates& other)
   {
@@ -250,7 +252,8 @@ private:
 Candidates Candidates::make(
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
-    const rmf_tasks::Request& request)
+    const rmf_tasks::Request& request,
+    const rmf_tasks::Request& charge_battery_request)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
@@ -260,12 +263,31 @@ Candidates Candidates::make(
     const auto finish = request.estimate_finish(state, state_config);
     if (finish.has_value())
     {
-      initial_map.insert(
-        {
-          finish.value().finish_state().finish_time(),
-          Entry{i, finish.value().finish_state(), finish.value().wait_until()}
-        });
+      initial_map.insert({
+        finish.value().finish_state().finish_time(),
+        Entry{i, finish.value().finish_state(), finish.value().wait_until()}});
     }
+    else
+    {
+      auto battery_estimate =
+        charge_battery_request.estimate_finish(state, state_config);
+      if (battery_estimate.has_value())
+      {
+        auto new_finish = request.estimate_finish(
+          battery_estimate.value().finish_state(), state_config);
+        assert(new_finish.has_value());
+        initial_map.insert(
+          {new_finish.value().finish_state().finish_time(),
+          Entry{i, new_finish.value().finish_state(), new_finish.value().wait_until()}});
+      }
+      else
+      {
+        std::cerr << "Unable to create entry for candidate [" << i 
+                  << "] and request [" << request.id() << " ]" << std::endl;
+        assert(false);
+      }
+    }  
+    
   }
 
   return Candidates(std::move(initial_map));
@@ -277,9 +299,11 @@ struct PendingTask
   PendingTask(
       std::vector<rmf_tasks::agv::State>& initial_states,
       std::vector<rmf_tasks::agv::StateConfig>& state_configs,
-      rmf_tasks::Request::SharedPtr request_)
+      rmf_tasks::Request::SharedPtr request_,
+      rmf_tasks::Request::SharedPtr charge_battery_request)
     : request(std::move(request_)),
-      candidates(Candidates::make(initial_states, state_configs, *request)),
+      candidates(Candidates::make(
+        initial_states, state_configs, *request, *charge_battery_request)),
       earliest_start_time(request->earliest_start_time())
   {
     // Do nothing
@@ -723,7 +747,10 @@ public:
 
     for (const auto& request : requests)
       initial_node->unassigned_tasks.insert(
-        {request->id(), PendingTask(initial_states, state_configs, request)});
+        {
+          request->id(),
+          PendingTask(initial_states, state_configs, request, config->charge_battery_request())
+        });
 
     initial_node->cost_estimate = compute_f(*initial_node, relative_start_time);
 
@@ -804,11 +831,12 @@ public:
     new_node->pop_unassigned(u.first);
 
     // Update states of unassigned tasks for the candidate
+    const auto& state_config = state_configs[entry.candidate];
     for (auto& new_u : new_node->unassigned_tasks)
     {
       const auto finish =
         new_u.second.request->estimate_finish(
-          entry.state, state_configs[entry.candidate]);
+          entry.state, state_config);
       if (finish.has_value())
       {
         new_u.second.candidates.update_candidate(
