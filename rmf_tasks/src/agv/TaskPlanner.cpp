@@ -597,6 +597,48 @@ public:
 
     return cost;
   }
+
+  Assignments correct_assignments(
+    Assignments& assignments, 
+    const std::vector<StateConfig>& state_configs)
+  {
+    for (std::size_t a = 0; a < assignments.size(); ++a)
+    {
+      if (assignments[a].empty())
+        continue;
+      
+      // Remove charging task at end of assignments if any
+      if (assignments[a].back().task_id() == config->charge_battery_request()->id())
+        assignments[a].pop_back();
+
+      // Insert missing charging tasks if any
+      if (assignments[a].size() > 1)
+      {
+        auto it = ++assignments[a].begin();
+        for (; it != assignments[a].end(); ++it)
+        {
+          auto prev_it = it; --prev_it;
+          if (it->state().battery_soc() > prev_it->state().battery_soc() && 
+            it->task_id() != config->charge_battery_request()->id())
+          {
+            auto estimate = config->charge_battery_request()->estimate_finish(
+              prev_it->state(), state_configs[a]);
+            assert(estimate.has_value());
+            assignments[a].insert(
+              it,
+              Assignment
+              {
+                config->charge_battery_request()->id(),
+                estimate.value().finish_state(),
+                estimate.value().wait_until()
+              });
+          }
+        }
+      }
+    }
+
+    return assignments;
+  }
   
   Assignments complete_solve(
     std::vector<State>& initial_states,
@@ -639,7 +681,7 @@ public:
       }
 
       if (node->unassigned_tasks.empty())
-        return complete_assignments;
+        return correct_assignments(complete_assignments, state_configs);
 
       // std::unordered_map<std::size_t, std::size_t> new_task_id_map;
       std::vector<Request::SharedPtr> new_tasks;
@@ -846,7 +888,27 @@ public:
       }
       else
       {
-        return nullptr;
+        // return nullptr;
+
+        auto battery_estimate =
+          config->charge_battery_request()->estimate_finish(entry.state, state_config);
+        if (battery_estimate.has_value())
+        {
+          auto new_finish =
+            new_u.second.request->estimate_finish(
+              battery_estimate.value().finish_state(),
+              state_config);
+          assert(new_finish.has_value());
+          new_u.second.candidates.update_candidate(
+            entry.candidate,
+            new_finish.value().finish_state(),
+            new_finish.value().wait_until());
+        }
+        else
+        {
+          // unable to reach charger
+          return nullptr;
+        }
       }
     }
 
@@ -872,17 +934,15 @@ public:
     rmf_traffic::Time relative_start_time)
   {
     auto new_node = std::make_shared<Node>(*parent);
-    // Assign charging task to an agent
-    const auto& assignments = new_node->assigned_tasks[agent];
-    State state;
+     // Assign charging task to an agent
+    State state = initial_states[agent];
+    auto& assignments = new_node->assigned_tasks[agent];
+
     if (!assignments.empty())
     {
+      if (assignments.back().task_id() == config->charge_battery_request()->id())
+        return nullptr;
       state = assignments.back().state();
-    }
-    else
-    {
-      // We use the initial state of the robot
-      state = initial_states[agent];
     }
 
     auto estimate = config->charge_battery_request()->estimate_finish(
