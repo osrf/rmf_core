@@ -21,6 +21,7 @@
 #include <set>
 
 #include <rclcpp/node.hpp>
+#include <rmf_utils/impl_ptr.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
@@ -61,24 +62,11 @@ public:
   /// \param[in] callback function to provide bid proposal
   void call_for_bid(ParseSubmissionCallback submission_cb);
 
-private:
-  std::shared_ptr<rclcpp::Node> _node;
-  Profile _profile;
-  ParseSubmissionCallback _get_submission_fn;
+  class Implementation;
 
-  using BidNoticeSub = rclcpp::Subscription<BidNotice>;
-  BidNoticeSub::SharedPtr _dispatch_notice_sub;
-  
-  using BidProposalPub = rclcpp::Publisher<BidProposal>;
-  BidProposalPub::SharedPtr _dispatch_proposal_pub;
-  
-  // private constructor
-  MinimalBidder(
-      std::shared_ptr<rclcpp::Node> node,
-      const Profile& profile);
-
-  // Callback fn when a dispatch notice is received
-  void receive_notice(const BidNotice& msg);
+private: 
+  MinimalBidder();
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace bidder

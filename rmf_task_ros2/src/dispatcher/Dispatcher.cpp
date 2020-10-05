@@ -42,6 +42,44 @@ std::shared_ptr<DispatcherNode> DispatcherNode::make_node()
   return node;
 }
 
+//==============================================================================
+void DispatcherNode::submit_task(const bidding::BiddingTask& task)
+{
+  TaskStatePair task_state(task, action::State::Active::INVALID);
+  _active_tasks[task.task_id] = task_state;
+  _auctioneer->start_bidding(task);
+}
+
+bool DispatcherNode::cancel_task(bidding::TaskID task_id)
+{
+  // check if key doesnt exist
+  if (!_active_tasks.count(task_id))
+    return false;
+
+  // todo: need to cancel bidding
+  if (_active_tasks[task_id].second == action::State::Active::INVALID)
+    return false;
+
+  std::future<action::ResultResponse> test_fut;
+
+  assert(_active_tasks[task_id].first.submissions.size() != 0);
+  auto server_id = _active_tasks[task_id].first.submissions[0].fleet_name;
+  _action_client->cancel_task( server_id, task_id, test_fut);
+
+  return true;
+}
+
+rmf_utils::optional<action::State::Active> DispatcherNode::get_task_status(
+    bidding::TaskID task_id)
+{
+  // check if key doesnt exist
+  if (!_active_tasks.count(task_id))
+    return rmf_utils::nullopt;
+
+  return _active_tasks[task_id].second;
+}
+
+//==============================================================================
 DispatcherNode::DispatcherNode()
 : Node("rmf_task_dispatcher_node")
 {
@@ -63,10 +101,7 @@ DispatcherNode::DispatcherNode()
         bidding_task.itinerary.push_back(msg->start_name);
         bidding_task.itinerary.push_back(msg->finish_name);
       }
-
-      TaskStatePair task_state(bidding_task, action::State::Active::INVALID);
-      _active_tasks[msg->task_id] = task_state;
-      _auctioneer->start_bidding(bidding_task);
+      this->submit_task(bidding_task);
     });
 
   _delivery_sub = create_subscription<Delivery>(
@@ -80,10 +115,7 @@ DispatcherNode::DispatcherNode()
       bidding_task.submission_time = std::chrono::steady_clock::now();
       bidding_task.itinerary.push_back(msg->pickup_place_name);
       bidding_task.itinerary.push_back(msg->dropoff_place_name);
-      
-      TaskStatePair task_state(bidding_task, action::State::Active::INVALID);
-      _active_tasks[msg->task_id] = task_state;
-      _auctioneer->start_bidding(bidding_task);
+      this->submit_task(bidding_task);
     });
 
   _station_sub = create_subscription<Station>(
@@ -96,10 +128,7 @@ DispatcherNode::DispatcherNode()
       bidding_task.announce_all = true;
       bidding_task.submission_time = std::chrono::steady_clock::now();    
       bidding_task.itinerary.push_back(msg->place_name);
-
-      TaskStatePair task_state(bidding_task, action::State::Active::INVALID);
-      _active_tasks[msg->task_id] = task_state;
-      _auctioneer->start_bidding(bidding_task);
+      this->submit_task(bidding_task);
     });
 }
 
@@ -118,6 +147,7 @@ void DispatcherNode::receive_bidding_winner_cb(
   std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
 
   // we will initiate a task via task action here! (TODO)
+  _active_tasks[task_id].first.submissions.push_back(*winner);
   action::TaskMsg task = convert_task(_active_tasks[task_id].first);
   std::future<action::ResultResponse> test_fut;
 

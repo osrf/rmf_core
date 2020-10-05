@@ -25,117 +25,160 @@ namespace bidding {
 
 std::shared_ptr<Auctioneer> Auctioneer::make(std::shared_ptr<rclcpp::Node> node)
 {
-  return std::shared_ptr<Auctioneer>(new Auctioneer(node));
-}
+  auto pimpl = rmf_utils::make_unique_impl<Implementation>(node);
 
-Auctioneer::Auctioneer(std::shared_ptr<rclcpp::Node> node)
-: _node(node)
-{
-  const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
-
-  _bid_notice_pub = _node->create_publisher<BidNotice>(
-    rmf_task_ros2::BidNoticeTopicName, dispatch_qos);
-
-  _bid_proposal_sub = _node->create_subscription<BidProposal>(
-    rmf_task_ros2::BidProposalTopicName, dispatch_qos,
-    [&](const BidProposal::UniquePtr msg)
-    {
-      this->receive_proposal(*msg);
-    });
-  
-  _timer = _node->create_wall_timer(std::chrono::milliseconds(1000), [&]()
-    {
-      this->check_bidding_process();
-    });
-}
-
-/// Start a bidding process
-void Auctioneer::start_bidding(const BiddingTask& bidding_task)
-{
-  std::cout << "\n Add Bidding Task for task_id: " 
-            << bidding_task.task_id << " to queue"<< std::endl;
-  _queue_bidding_tasks[bidding_task.task_id] = 
-    std::make_shared<BiddingTask>(bidding_task);
-
-  // todo: think if this reallly sequencial
-  BidNotice notice_msg = convert(bidding_task);
-  notice_msg.submission_time = _node->now();
-  _bid_notice_pub->publish(notice_msg);
-}
-
-void Auctioneer::receive_bidding_result(BiddingResultCallback result_callback)
-{
-  _bidding_result_callback = std::move(result_callback);
-}
-
-//==============================================================================
-// private zone
-
-void Auctioneer::receive_proposal(const BidProposal& msg)
-{
-  std::cout << "[Auctioneer] Receive proposal for task_id: " 
-            << msg.task_id << std::endl;
-  
-  // check if bidding task is "mine"
-  auto task_it = _queue_bidding_tasks.find(msg.task_id);
-  if (task_it == _queue_bidding_tasks.end())
-    return; // not found
-
-  // add submited proposal to the current bidding task
-  auto submission = convert(msg);
-  _queue_bidding_tasks[msg.task_id]->submissions.push_back(submission);
-}
-
-void Auctioneer::check_bidding_process()
-{
-  // check if timeout is reached
-  for( auto const& [id, bid_tsk] : _queue_bidding_tasks )
+  if (pimpl)
   {
-    auto duration = std::chrono::steady_clock::now() - bid_tsk->submission_time;
-    if (duration > bid_tsk->time_window )
-    {
-      std::cout << " - Deadline reached"<< std::endl;
-      this->determine_winner(bid_tsk);
-      continue;
-    }
-    
-    if (!bid_tsk->announce_all)
-    {
-      if ( bid_tsk->submissions.size() == bid_tsk->bidders.size())
+    auto auctioneer = std::shared_ptr<Auctioneer>(new Auctioneer());
+    auctioneer->_pimpl = std::move(pimpl);
+    return auctioneer;
+  }
+}
+
+class Auctioneer::Implementation
+{
+public:
+
+  std::shared_ptr<rclcpp::Node> node;
+  rclcpp::TimerBase::SharedPtr timer;
+  BiddingResultCallback bidding_result_callback;
+  // Nomination::Evaluator _evaluator;
+  std::map<TaskID, BiddingTaskPtr> queue_bidding_tasks;
+
+  using BidNoticePub = rclcpp::Publisher<BidNotice>;
+  BidNoticePub::SharedPtr bid_notice_pub;
+
+  using BidProposalSub = rclcpp::Subscription<BidProposal>;
+  BidProposalSub::SharedPtr bid_proposal_sub;
+
+  Implementation(std::shared_ptr<rclcpp::Node> node_)
+  : node(node_)
+  {
+    const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
+
+    bid_notice_pub = node->create_publisher<BidNotice>(
+      rmf_task_ros2::BidNoticeTopicName, dispatch_qos);
+
+    bid_proposal_sub = node->create_subscription<BidProposal>(
+      rmf_task_ros2::BidProposalTopicName, dispatch_qos,
+      [&](const BidProposal::UniquePtr msg)
       {
-        std::cout << " - Received all bids"<< std::endl;
+        this->receive_proposal(*msg);
+      });
+    
+    timer = node->create_wall_timer(std::chrono::milliseconds(1000), [&]()
+      {
+        this->check_bidding_process();
+      });
+  }
+
+  /// Start a bidding process
+  void start_bidding(const BiddingTask& bidding_task)
+  {
+    std::cout << "\n Add Bidding Task for task_id: " 
+              << bidding_task.task_id << " to queue"<< std::endl;
+    queue_bidding_tasks[bidding_task.task_id] = 
+      std::make_shared<BiddingTask>(bidding_task);
+
+    // todo: think if this reallly sequencial
+    BidNotice notice_msg = convert(bidding_task);
+    notice_msg.submission_time = node->now();
+    bid_notice_pub->publish(notice_msg);
+  }
+
+  // Receive proposal and evaluate // todo think
+  void receive_proposal(const BidProposal& msg)
+  {
+    std::cout << "[Auctioneer] Receive proposal for task_id: " 
+              << msg.task_id << std::endl;
+
+    // check if bidding task is "mine"
+    auto task_it = queue_bidding_tasks.find(msg.task_id);
+    if (task_it == queue_bidding_tasks.end())
+      return; // not found
+
+    // add submited proposal to the current bidding task
+    auto submission = convert(msg);
+    queue_bidding_tasks[msg.task_id]->submissions.push_back(submission);
+  }
+
+  // determine the winner within a bidding task instance
+  void check_bidding_process()
+  {
+    // check if timeout is reached
+    for( auto const& [id, bid_tsk] : queue_bidding_tasks )
+    {
+      auto duration = std::chrono::steady_clock::now() - bid_tsk->submission_time;
+      if (duration > bid_tsk->time_window )
+      {
+        std::cout << " - Deadline reached"<< std::endl;
         this->determine_winner(bid_tsk);
         continue;
       }
+      
+      if (!bid_tsk->announce_all)
+      {
+        if ( bid_tsk->submissions.size() == bid_tsk->bidders.size())
+        {
+          std::cout << " - Received all bids"<< std::endl;
+          this->determine_winner(bid_tsk);
+          continue;
+        }
+      }
     }
+    // std::cout << "Remaining: " << queue_bidding_tasks.size() 
+    //           << " bidding tasks" << std::endl;
   }
-  // std::cout << "Remaining: " << _queue_bidding_tasks.size() 
-  //           << " bidding tasks" << std::endl;
+
+  void determine_winner(BiddingTaskPtr bidding_task)
+  { 
+    rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
+    
+    if(bidding_task->submissions.size() == 0)
+    {
+      std::cerr << " Bidding task has not received any bids"<< std::endl;
+    }
+    else
+    {
+      // Nominate and Evaluate Here
+      Nomination task_nomination(bidding_task->submissions);
+      auto _evaluator = LeastFleetDiffCostEvaluator();
+      winner = task_nomination.evaluate(_evaluator);
+      std::cout << "Found winning Fleet Adapter: " 
+                << winner->fleet_name << std::endl;
+    }
+
+    // remove completed task from queue
+    queue_bidding_tasks.erase(bidding_task->task_id);
+    
+    // check if bidding_result_callback fn is initailized
+    if (bidding_result_callback)
+      this->bidding_result_callback(bidding_task->task_id, winner);
+  }
+};
+
+//==============================================================================
+void Auctioneer::start_bidding(const BiddingTask& bidding_task)
+{
+  _pimpl->start_bidding(bidding_task);
 }
 
-void Auctioneer::determine_winner(BiddingTaskPtr bidding_task)
-{ 
-  rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
-  
-  if(bidding_task->submissions.size() == 0)
-  {
-    std::cerr << " Bidding task has not received any bids"<< std::endl;
-  }
-  else
-  {
-    // Nominate and Evaluate Here
-    Nomination task_nomination(bidding_task->submissions);
-    winner = task_nomination.evaluate(QuickestFinishEvaluator());
-    std::cout << "Found winning Fleet Adapter: " 
-              << winner->fleet_name << std::endl;
-  }
+//==============================================================================
+void Auctioneer::receive_bidding_result(BiddingResultCallback result_callback)
+{
+  _pimpl->bidding_result_callback = std::move(result_callback);
+}
 
-  // remove completed task from queue
-  _queue_bidding_tasks.erase(bidding_task->task_id);
-  
-  // check if _bidding_result_callback fn is initailized
-  if (_bidding_result_callback)
-    this->_bidding_result_callback(bidding_task->task_id, winner);
+//==============================================================================
+// void Auctioneer::select_evaluator(const Nomination::Evaluator& evaluator)
+// {
+//   _evaluator = evaluator;
+// }
+
+//==============================================================================
+Auctioneer::Auctioneer()
+{
+  // do nothing
 }
 
 } // namespace bidding

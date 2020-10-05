@@ -35,6 +35,7 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
+// (TODO) new dispatcher lib
 class DispatcherNode : public rclcpp::Node
 {
 public:
@@ -42,6 +43,23 @@ public:
   ///
   /// \return Pointer to the dispatcher node
   static std::shared_ptr<DispatcherNode> make_node();
+  
+  /// submit task to dispatcher
+  ///
+  /// \param [in] task to dispatch
+  void submit_task(const bidding::BiddingTask& task);
+
+  /// cancel task in dispatcher
+  ///
+  /// \param [in] task to dispatch
+  bool cancel_task(bidding::TaskID task_id);
+
+  /// check status of a submited task
+  ///
+  /// \param [in] to identify task_id
+  /// \return State of the task (invalid: in bidding, nullopt: not avail)
+  rmf_utils::optional<action::State::Active> get_task_status(
+      bidding::TaskID task_id);
 
 private:
   std::shared_ptr<bidding::Auctioneer> _auctioneer;

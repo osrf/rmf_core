@@ -35,7 +35,13 @@ set(msg_files
   "msg/DispatchResult.msg"
 )
 
+set(srv_files
+  "srv/PostTask.srv"
+  "srv/GetTask.srv"
+)
+  
 rosidl_generate_interfaces(${PROJECT_NAME}
+  ${srv_files}
   ${msg_files}
   DEPENDENCIES
     builtin_interfaces

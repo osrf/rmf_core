@@ -23,6 +23,7 @@
 
 #include <rclcpp/node.hpp>
 #include <rmf_utils/optional.hpp>
+#include <rmf_utils/impl_ptr.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
 #include <rmf_task_ros2/bidding/Nomination.hpp>
 
@@ -35,7 +36,6 @@ using BiddingTaskPtr = std::shared_ptr<BiddingTask>;
 class Auctioneer: public std::enable_shared_from_this<Auctioneer>
 {
 public: 
-
   /// Create an instance of the Auctioneer. Handling all the bidding mechanism
   ///
   /// \param[in] ros2 node which will manage the pub sub
@@ -58,29 +58,14 @@ public:
   /// \param[in] bid result callback fn
   void receive_bidding_result(BiddingResultCallback result_callback);
 
-private:
-  std::shared_ptr<rclcpp::Node> _node;
-  rclcpp::TimerBase::SharedPtr _timer;
-  BiddingResultCallback _bidding_result_callback;
-  std::map<TaskID, BiddingTaskPtr> _queue_bidding_tasks;
+  // /// Provide a custom evaluator which will be used to choose the best bid
+  // void select_evaluator(const Evaluator& evaluator);
 
-  using BidNoticePub = rclcpp::Publisher<BidNotice>;
-  BidNoticePub::SharedPtr _bid_notice_pub;
+  class Implementation;
 
-  using BidProposalSub = rclcpp::Subscription<BidProposal>;
-  BidProposalSub::SharedPtr _bid_proposal_sub;
-  
-  // Class Constuctor
-  Auctioneer(std::shared_ptr<rclcpp::Node> node);
-
-  // Receive proposal and evaluate // todo think
-  void receive_proposal(const BidProposal& msg);
-
-  // periodic callback
-  void check_bidding_process();
-
-  // determine the winner within a bidding task instance
-  void determine_winner(BiddingTaskPtr bidding_task);
+private: 
+  Auctioneer();
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace bidding

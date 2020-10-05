@@ -26,7 +26,9 @@ builtin_interfaces/Time start_time
 builtin_interfaces/Time end_time
 
 # optional field
+string fleet_name # ??? 
 string robot_name # ???
+# todo: phase?
 
 # state
 uint8 active_state
@@ -34,8 +36,3 @@ uint8 INVALID=0
 uint8 QUEUED=1
 uint8 EXECUTING=2
 uint8 CANCELING=3
-
-# todo: phase?
-
-# a brief summary of the current status of the task, for UI's
-string status

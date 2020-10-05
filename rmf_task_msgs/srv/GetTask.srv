@@ -1,0 +1,40 @@
+# Task to Get service call
+# Note: Still in design
+
+# Whom that request this task
+string requester
+
+# Search Type
+uint8 search_type
+uint8 ALL=0
+uint8 TASK_ID=1
+uint8 TASK_TYPE=2
+uint8 TASK_STATE=3
+uint8 TIME_WINDOW=4
+uint8 FLEET_NAME=1
+
+# number of result results
+int8 max_results
+
+# =========================================
+# Optional fields depends on "search_type"
+
+string[] task_ids
+TaskType[] task_types
+uint8[] task_states
+string[] fleet_names
+builtin_interfaces/Time[] time_window # min and max
+
+---
+
+bool success
+
+string[] fleet_names # ??
+Task[] tasks
+
+# uint8 QUEUED_TASKS=2
+# uint8 EXECUTING_TASKS=3
+# uint8 CANCELING_TASKS=4
+# uint8 FAILED_TASKS=5
+# uint8 CANCELED_TASKS=6
+# uint8 COMPLETED_TASKS=7

@@ -27,83 +27,118 @@ using namespace rmf_task_ros2;
 using namespace rmf_task_ros2::bidding;
 
 //==============================================================================
-MinimalBidder::Profile bidder_profile1 {
+MinimalBidder::Profile bidder1_profile {
   "bidder1",  { TaskType::Station, TaskType::Delivery }
 };
-MinimalBidder::Profile bidder_profile2 {
+MinimalBidder::Profile bidder2_profile {
   "bidder2",  { TaskType::Delivery, TaskType::Cleaning }
 };
 
-auto bid_now = std::chrono::steady_clock::now();
-
 BiddingTask bidding_task1{
-  "bid1", TaskType::Delivery, true, {}, {}, {"place1", "place2"}, bid_now
+  "bid1", TaskType::Station, true, {}, {}, {"place1", "place2"}
+};
+BiddingTask bidding_task2{
+  "bid2", TaskType::Delivery, true, {}, {}, {"place1", "place2"}
 };
 
 //==============================================================================
-SCENARIO("Auction with 1 Bid", "[OneBid]")
+SCENARIO("Auction with 2 Bids", "[TwoBids]")
 {
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_selfbidding");
   auto auctioneer = Auctioneer::make(node);
-  auto bidder = MinimalBidder::make(node, bidder_profile1);
-  
-  // received msg
-  std::string res_bid_notice = "";
-  std::string res_bidder_taskid = "";
-  std::string res_bidder_name = "";
+  auto bidder1 = MinimalBidder::make(node, bidder1_profile);
+  auto bidder2 = MinimalBidder::make(node, bidder2_profile);
 
+  // received msg
+  std::string r_notice_bidder1_id = "";
+  std::string r_notice_bidder2_id = "";
+  std::string r_result_id = "";
+  std::string r_result_winner = "";
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
 
-  bidder->call_for_bid(
-    [&res_bid_notice](const BidNotice& notice)
+  bidder1->call_for_bid(
+    [&r_notice_bidder1_id](const BidNotice& notice)
     {
       Submission best_robot_estimate;
-      res_bid_notice = notice.task_id;
+      r_notice_bidder1_id = notice.task_id;
+      return best_robot_estimate;
+    }
+  );
+  bidder2->call_for_bid(
+    [&r_notice_bidder2_id](const BidNotice& notice)
+    {
+      // TaskType should not be supported
+      Submission best_robot_estimate;
+      best_robot_estimate.new_cost = 2.3; // lower cost than bidder1
+      r_notice_bidder2_id = notice.task_id;
       return best_robot_estimate;
     }
   );
   auctioneer->receive_bidding_result(
-    [&res_bidder_taskid, &res_bidder_name](
+    [&r_result_id, &r_result_winner](
       const TaskID& task_id, const rmf_utils::optional<Submission> winner)
     {
-      res_bidder_taskid = task_id;
-      res_bidder_name = winner->fleet_name;
+      if (!winner) return;
+      r_result_id = task_id;
+      r_result_winner = winner->fleet_name;
       return;
     }
   );
 
-  auctioneer->start_bidding(bidding_task1);
+  WHEN("First 'Station' Task Bid")
+  {
+    // start bidding
+    bidding_task1.submission_time = std::chrono::steady_clock::now();
+    auctioneer->start_bidding(bidding_task1);
 
-  // todo: use spin till timeout
-  executor.spin_some();
-  std::this_thread::sleep_for (std::chrono::milliseconds(500)); 
-  executor.spin_some();
+    // todo: use spin till timeout
+    executor.spin_some();
+    std::this_thread::sleep_for (std::chrono::milliseconds(500)); 
+    executor.spin_some();
 
-  // Check if bidder received Bid notice
-  REQUIRE( res_bid_notice == "bid1");
+    // Check if bidder 1 & 2 receive BidNotice
+    REQUIRE(r_notice_bidder1_id == "bid1"); // this is valid
+    REQUIRE(r_notice_bidder2_id == ""); // bidder2 doesnt support tasktype
 
-  // todo: wait till timeout is reached: default 2s
-  std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-  executor.spin_some();
-  std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-  executor.spin_some();
+    // todo: wait till timeout is reached: default 2s
+    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
+    executor.spin_some();
+    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
+    executor.spin_some();
 
-  // Check if Auctioneer received Bid from bidder
-  REQUIRE( res_bidder_name == "bidder1");
-  REQUIRE( res_bidder_taskid == "bid1");
-}
+    // Check if Auctioneer received Bid from bidder1
+    REQUIRE(r_result_winner == "bidder1");
+    REQUIRE(r_result_id == "bid1");
+  }
+  
+  WHEN("Second 'Delivery' Task bid")
+  {
+    // start bidding
+    bidding_task2.submission_time = std::chrono::steady_clock::now();
+    auctioneer->start_bidding(bidding_task2);
 
-//==============================================================================
-SCENARIO("Auction with no Bid", "[NoBid]")
-{
-  REQUIRE(true); // reach timeout
-}
+    // todo: use spin till timeout
+    executor.spin_some();
+    std::this_thread::sleep_for (std::chrono::milliseconds(500)); 
+    executor.spin_some();
 
-//==============================================================================
-SCENARIO("Auction with 2 Bids", "[TwoBids]")
-{
-  REQUIRE(true); // select the quickest robot
+    // Check if bidder 1 & 2 receive BidNotice
+    REQUIRE(r_notice_bidder1_id == "bid2"); // this is valid
+    REQUIRE(r_notice_bidder2_id == "bid2"); // bidder2 doesnt support tasktype
+
+    // todo: wait till timeout is reached: default 2s
+    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
+    executor.spin_some();
+    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
+    executor.spin_some();
+
+    // Check if Auctioneer received Bid from bidder1
+    REQUIRE(r_result_winner == "bidder2");
+    REQUIRE(r_result_id == "bid2");
+  }
+
+  rclcpp::shutdown();
 }

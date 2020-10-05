@@ -22,74 +22,105 @@ namespace rmf_task_ros2 {
 namespace bidding {
 
 //==============================================================================
+class MinimalBidder::Implementation
+{
+public:
+  
+  std::shared_ptr<rclcpp::Node> node;
+  Profile profile;
+  ParseSubmissionCallback get_submission_fn;
+
+  using BidNoticeSub = rclcpp::Subscription<BidNotice>;
+  BidNoticeSub::SharedPtr dispatch_notice_sub ;
+  
+  using BidProposalPub = rclcpp::Publisher<BidProposal>;
+  BidProposalPub::SharedPtr dispatch_proposal_pub;
+
+  Implementation(
+    std::shared_ptr<rclcpp::Node> node_,
+    const Profile& profile)
+  : node(std::move(node_)), profile(profile)
+  {
+    const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
+
+    dispatch_notice_sub  = node->create_subscription<BidNotice>(
+    rmf_task_ros2::BidNoticeTopicName, dispatch_qos,
+    [&](const BidNotice::UniquePtr msg)
+    {
+      this->receive_notice(*msg);
+    });
+
+    dispatch_proposal_pub = node->create_publisher<BidProposal>(
+      rmf_task_ros2::BidProposalTopicName, dispatch_qos);
+  }
+
+  // Callback fn when a dispatch notice is received
+  void receive_notice(const BidNotice& msg)
+  {
+    std::cout << " [Bidder] Received Bidding notice for task_id: " 
+              << msg.task_id << std::endl;
+    
+    // check if tasktype is supported by this F.A
+    auto req_type = static_cast<TaskType>(msg.type.value);
+    if (!profile.valid_tasks.count(req_type))
+    {
+      std::cout << profile.fleet_name << ": task type "
+                << msg.type.value << " is invalid" << std::endl;
+      return;
+    }
+
+    // check is the bidding annoucment is for me
+    if (!msg.announce_all)
+    {
+      auto bidders = msg.fleet_names;
+      auto it = std::find(bidders.begin(), bidders.end(), profile.fleet_name);
+      if (it == bidders.end())
+      {
+        std::cout << "not me!" <<  profile.fleet_name<< std::endl;
+        return;
+      }
+    }
+
+    // check if get submission function is declared
+    if (!get_submission_fn)
+      return;
+    auto bid_submission = get_submission_fn(msg);
+    
+    // Submit proposal
+    auto best_proposal = convert(bid_submission);
+    best_proposal.fleet_name = profile.fleet_name;
+    best_proposal.task_id = msg.task_id;
+    best_proposal.submission_time = node->now();
+    dispatch_proposal_pub->publish(best_proposal);
+  }
+};
+
+//==============================================================================
 std::shared_ptr<MinimalBidder> MinimalBidder::make(
     std::shared_ptr<rclcpp::Node> node,
     const Profile& profile)
 {
-  return std::shared_ptr<MinimalBidder>(new MinimalBidder(node, profile));
-}
+  auto pimpl = rmf_utils::make_unique_impl<Implementation>(node, profile);
 
-MinimalBidder::MinimalBidder(
-  std::shared_ptr<rclcpp::Node> node,
-  const Profile& profile)
-: _node(std::move(node)), _profile(profile)
-{
-  const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
-
-  _dispatch_notice_sub = _node->create_subscription<BidNotice>(
-  rmf_task_ros2::BidNoticeTopicName, dispatch_qos,
-  [&](const BidNotice::UniquePtr msg)
+  if (pimpl)
   {
-    this->receive_notice(*msg);
-  });
-
-  _dispatch_proposal_pub = _node->create_publisher<BidProposal>(
-    rmf_task_ros2::BidProposalTopicName, dispatch_qos);
+    auto bidder = std::shared_ptr<MinimalBidder>(new MinimalBidder());
+    bidder->_pimpl = std::move(pimpl);
+    return bidder;
+  }
 }
 
+//==============================================================================
 void MinimalBidder::call_for_bid(
   ParseSubmissionCallback submission_cb)
 {
-  _get_submission_fn = std::move(submission_cb);
+  _pimpl->get_submission_fn = std::move(submission_cb);
 }
 
-void MinimalBidder::receive_notice(const BidNotice& msg)
+//==============================================================================
+MinimalBidder::MinimalBidder()
 {
-  std::cout << " [Bidder] Received Bidding notice for task_id: " 
-            << msg.task_id << std::endl;
-  
-  // check if tasktype is supported by this F.A
-  auto req_type = static_cast<TaskType>(msg.type.value);
-  if (!_profile.valid_tasks.count(req_type))
-  {
-    std::cout << _profile.fleet_name << ": task type "
-              << msg.type.value << " is invalid" << std::endl;
-    return;
-  }
-
-  // check is the bidding annoucment is for me
-  if (!msg.announce_all)
-  {
-    auto bidders = msg.fleet_names;
-    auto it = std::find(bidders.begin(), bidders.end(), _profile.fleet_name);
-    if (it == bidders.end())
-    {
-      std::cout << "not me!" <<  _profile.fleet_name<< std::endl;
-      return;
-    }
-  }
-
-  // check if get submission function is declared
-  if (!_get_submission_fn)
-    return;
-  auto bid_submission = _get_submission_fn(msg);
-  
-  // Submit proposal
-  auto best_proposal = convert(bid_submission);
-  best_proposal.fleet_name = _profile.fleet_name;
-  best_proposal.task_id = msg.task_id;
-  best_proposal.submission_time = _node->now();
-  _dispatch_proposal_pub->publish(best_proposal);
+  // do nothing
 }
 
 } // namespace bidder

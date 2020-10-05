@@ -1,0 +1,17 @@
+# Submit Task | POST service call
+# NOTE: Still in design
+
+# Whom that request this task
+string requester
+
+# Target task
+Task task
+
+uint8 method
+uint8 ADD=1     # to add a task
+uint8 CANCEL=2  # to cancel and remove a task
+
+---
+
+# Confirmation that this service call is processed
+bool success
