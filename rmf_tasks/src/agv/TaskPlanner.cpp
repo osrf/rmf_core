@@ -598,7 +598,7 @@ public:
     return cost;
   }
 
-  Assignments correct_assignments(
+  Assignments prune_assignments(
     Assignments& assignments, 
     const std::vector<StateConfig>& state_configs)
   {
@@ -612,29 +612,29 @@ public:
         assignments[a].pop_back();
 
       // Insert missing charging tasks if any
-      if (assignments[a].size() > 1)
-      {
-        auto it = ++assignments[a].begin();
-        for (; it != assignments[a].end(); ++it)
-        {
-          auto prev_it = it; --prev_it;
-          if (it->state().battery_soc() > prev_it->state().battery_soc() && 
-            it->task_id() != config->charge_battery_request()->id())
-          {
-            auto estimate = config->charge_battery_request()->estimate_finish(
-              prev_it->state(), state_configs[a]);
-            assert(estimate.has_value());
-            assignments[a].insert(
-              it,
-              Assignment
-              {
-                config->charge_battery_request()->id(),
-                estimate.value().finish_state(),
-                estimate.value().wait_until()
-              });
-          }
-        }
-      }
+      // if (assignments[a].size() > 1)
+      // {
+      //   auto it = ++assignments[a].begin();
+      //   for (; it != assignments[a].end(); ++it)
+      //   {
+      //     auto prev_it = it; --prev_it;
+      //     if (it->state().battery_soc() > prev_it->state().battery_soc() && 
+      //       it->task_id() != config->charge_battery_request()->id())
+      //     {
+      //       auto estimate = config->charge_battery_request()->estimate_finish(
+      //         prev_it->state(), state_configs[a]);
+      //       assert(estimate.has_value());
+      //       assignments[a].insert(
+      //         it,
+      //         Assignment
+      //         {
+      //           config->charge_battery_request()->id(),
+      //           estimate.value().finish_state(),
+      //           estimate.value().wait_until()
+      //         });
+      //     }
+      //   }
+      // }
     }
 
     return assignments;
@@ -681,7 +681,8 @@ public:
       }
 
       if (node->unassigned_tasks.empty())
-        return correct_assignments(complete_assignments, state_configs);
+        return prune_assignments(complete_assignments, state_configs);
+        // return complete_assignments;
 
       // std::unordered_map<std::size_t, std::size_t> new_task_id_map;
       std::vector<Request::SharedPtr> new_tasks;
@@ -874,11 +875,13 @@ public:
 
     // Update states of unassigned tasks for the candidate
     const auto& state_config = state_configs[entry.candidate];
+    bool add_charger = false;
     for (auto& new_u : new_node->unassigned_tasks)
     {
       const auto finish =
         new_u.second.request->estimate_finish(
           entry.state, state_config);
+
       if (finish.has_value())
       {
         new_u.second.candidates.update_candidate(
@@ -888,27 +891,65 @@ public:
       }
       else
       {
-        // return nullptr;
+        // TODO(YV): Revisit this strategy
+        // auto battery_estimate =
+        //   config->charge_battery_request()->estimate_finish(entry.state, state_config);
+        // if (battery_estimate.has_value())
+        // {
+        //   auto new_finish =
+        //     new_u.second.request->estimate_finish(
+        //       battery_estimate.value().finish_state(),
+        //       state_config);
+        //   assert(new_finish.has_value());
+        //   new_u.second.candidates.update_candidate(
+        //     entry.candidate,
+        //     new_finish.value().finish_state(),
+        //     new_finish.value().wait_until());
+        // }
+        // else
+        // {
+        //   // Unable to reach charger
+        //   return nullptr;
+        // }
 
-        auto battery_estimate =
-          config->charge_battery_request()->estimate_finish(entry.state, state_config);
-        if (battery_estimate.has_value())
+        add_charger = true;
+        break;
+      }
+    }
+
+    if (add_charger)
+    {
+      auto battery_estimate = config->charge_battery_request()->estimate_finish(entry.state, state_config);
+      if (battery_estimate.has_value())
+      {
+        new_node->assigned_tasks[entry.candidate].push_back(
+          Assignment
+          {
+            config->charge_battery_request()->id(),
+            battery_estimate.value().finish_state(),
+            battery_estimate.value().wait_until()
+          });
+        for (auto& new_u : new_node->unassigned_tasks)
         {
-          auto new_finish =
-            new_u.second.request->estimate_finish(
-              battery_estimate.value().finish_state(),
-              state_config);
-          assert(new_finish.has_value());
-          new_u.second.candidates.update_candidate(
-            entry.candidate,
-            new_finish.value().finish_state(),
-            new_finish.value().wait_until());
+          const auto finish =
+            new_u.second.request->estimate_finish(battery_estimate.value().finish_state(), state_config);
+          if (finish.has_value())
+          {
+            new_u.second.candidates.update_candidate(
+              entry.candidate, finish.value().finish_state(), finish.value().wait_until());
+          }
+          else
+          {
+            // We should stop expanding this node
+            return nullptr;
+          }
         }
-        else
-        {
-          // unable to reach charger
-          return nullptr;
-        }
+        
+      }
+      else
+      {
+        // Agent cannot make it back to the charger
+        return nullptr;
       }
     }
 
@@ -1004,56 +1045,27 @@ public:
           else
           {
             // expand_candidate returned nullptr either due to start time
-            // segmentation or insufficient charge to complete task. For the 
-            // later case, we assign a charging task to the agent
+            // segmentation or insufficient charge to return to its charger. 
+            // For the later case, we aim to backtrack and assign a charging
+            // task to the agent.
             if (node->latest_time + segmentation_threshold > it->second.wait_until)
             {
-              const auto charge_node = expand_charger(
-                node,
-                it->second.candidate,
-                initial_states,
-                state_configs,
-                relative_start_time);
-              if (charge_node)
+              auto parent_node = std::make_shared<Node>(*node);
+              while (!parent_node->assigned_tasks[it->second.candidate].empty())
               {
-                next_node = std::move(charge_node);
+                parent_node->assigned_tasks[it->second.candidate].pop_back();
+                auto new_charge_node = expand_charger(
+                  parent_node,
+                  it->second.candidate,
+                  initial_states,
+                  state_configs,
+                  relative_start_time);
+                if (new_charge_node)
+                {
+                  next_node = std::move(new_charge_node);
+                  break;
+                }
               }
-              else
-              {
-                // agent has either full battery or insufficient charge to reach 
-                // its charger. If later, we pop assigned task until
-                // we can make it to the charger
-                auto parent_node = std::make_shared<Node>(*node);
-                State state;
-                if (parent_node->assigned_tasks[it->second.candidate].empty())
-                {
-                  state = initial_states[it->second.candidate];
-                }
-                else
-                {
-                  state = parent_node->assigned_tasks[it->second.candidate].back().state();
-                }
-                
-                if (state.battery_soc() < 0.99)
-                {
-                  while (!parent_node->assigned_tasks[it->second.candidate].empty())
-                  {
-                    auto& assignments = parent_node->assigned_tasks[it->second.candidate];
-                    assignments.pop_back();
-                    auto new_charge_node = expand_charger(
-                      parent_node,
-                      it->second.candidate,
-                      initial_states,
-                      state_configs,
-                      relative_start_time);
-                    if (new_charge_node)
-                    {
-                      next_node = std::move(new_charge_node);
-                      break;
-                    }
-                  }
-                }
-              } 
             }
           }
         }
