@@ -89,7 +89,7 @@ rmf_tasks::Request::SharedPtr Delivery::make(
     const double dSOC_device =
       delivery->_pimpl->_device_sink->compute_change_in_charge(
         rmf_traffic::time::to_seconds(delivery->_pimpl->_invariant_duration));
-    delivery->_pimpl->_invariant_battery_drain = dSOC_motion + dSOC_device;
+    delivery->_pimpl->_invariant_battery_drain = dSOC_motion + dSOC_device;  
   }
 
   return delivery;
@@ -119,7 +119,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
 
   rmf_traffic::Duration variant_duration(0);
 
-  rmf_traffic::Time start_time = initial_state.finish_time();
+  const rmf_traffic::Time start_time = initial_state.finish_time();
   double battery_soc = initial_state.battery_soc();
   double dSOC_motion = 0.0;
   double dSOC_device = 0.0;
@@ -156,8 +156,6 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
       // std::cout << " -- Delivery: Unable to reach pickup" << std::endl;
       return rmf_utils::nullopt;
     }
-
-    start_time = finish_time;
   }
 
   const rmf_traffic::Time ideal_start = _pimpl->_start_time - variant_duration;
@@ -169,17 +167,44 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   state.finish_time(
     wait_until + variant_duration + _pimpl->_invariant_duration);
 
-  battery_soc -= _pimpl->_invariant_battery_drain;
-
-  if (battery_soc <= state_config.threshold_soc())
+  if (_pimpl->_drain_battery)
   {
-    // std::cout << " -- Delivery: Unable to reach dropoff" << std::endl;
-    return rmf_utils::nullopt;
-  }
-  
-  state.battery_soc(battery_soc);
+    battery_soc -= _pimpl->_invariant_battery_drain;
+    if (battery_soc <= state_config.threshold_soc())
+    {
+      // std::cout << " -- Delivery: Unable to reach dropoff" << std::endl;
+      return rmf_utils::nullopt;
+    }
 
-  // TODO: Check if we have enough charge to head back to nearest charger
+    // Check if we have enough charge to head back to nearest charger
+    double retreat_battery_drain = 0.0;
+    if ( _pimpl->_dropoff_waypoint != state.charging_waypoint())
+    {
+      rmf_traffic::agv::Planner::Start start{
+        state.finish_time(),
+        _pimpl->_dropoff_waypoint,
+        0.0};
+
+      rmf_traffic::agv::Planner::Goal goal{state.charging_waypoint()};
+
+      const auto result_to_charger = _pimpl->_planner->plan(start, goal);
+      // We assume we can always compute a plan
+      const auto& trajectory =
+          result_to_charger->get_itinerary().back().trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+        const rmf_traffic::Duration retreat_duration = finish_time - state.finish_time();
+      
+      dSOC_motion = _pimpl->_motion_sink->compute_change_in_charge(trajectory);
+      dSOC_device = _pimpl->_device_sink->compute_change_in_charge(
+          rmf_traffic::time::to_seconds(retreat_duration));
+      retreat_battery_drain = dSOC_motion + dSOC_device;
+    }
+
+    if (battery_soc - retreat_battery_drain <= state_config.threshold_soc())
+      return rmf_utils::nullopt;
+    
+    state.battery_soc(battery_soc);
+  }
 
   return Estimate(state, wait_until);
 }
