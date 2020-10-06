@@ -176,7 +176,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
       return rmf_utils::nullopt;
     }
 
-    // Check if we have enough charge to head back to nearest charger
+    // Check if the robot has enough charge to head back to nearest charger
     double retreat_battery_drain = 0.0;
     if ( _pimpl->_dropoff_waypoint != state.charging_waypoint())
     {
@@ -192,7 +192,8 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
       const auto& trajectory =
           result_to_charger->get_itinerary().back().trajectory();
       const auto& finish_time = *trajectory.finish_time();
-        const rmf_traffic::Duration retreat_duration = finish_time - state.finish_time();
+      const rmf_traffic::Duration retreat_duration =
+        finish_time - state.finish_time();
       
       dSOC_motion = _pimpl->_motion_sink->compute_change_in_charge(trajectory);
       dSOC_device = _pimpl->_device_sink->compute_change_in_charge(
