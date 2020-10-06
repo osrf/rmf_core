@@ -37,8 +37,8 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> _device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> _planner;
-  bool _drain_battery;
   rmf_traffic::Time _start_time;
+  bool _drain_battery;
 
   rmf_traffic::Duration _invariant_duration;
   double _invariant_battery_drain;
@@ -52,8 +52,8 @@ rmf_tasks::Request::SharedPtr Delivery::make(
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
-  bool drain_battery,
-  rmf_traffic::Time start_time)
+  rmf_traffic::Time start_time,
+  bool drain_battery)
 {
   std::shared_ptr<Delivery> delivery(new Delivery());
   delivery->_pimpl->_id = id;
@@ -62,8 +62,8 @@ rmf_tasks::Request::SharedPtr Delivery::make(
   delivery->_pimpl->_motion_sink = std::move(motion_sink);
   delivery->_pimpl->_device_sink = std::move(device_sink);
   delivery->_pimpl->_planner = std::move(planner);
-  delivery->_pimpl->_drain_battery = drain_battery;
   delivery->_pimpl->_start_time = start_time;
+  delivery->_pimpl->_drain_battery = drain_battery;
 
   // Calculate duration of invariant component of task
   const auto plan_start_time = std::chrono::steady_clock::now();

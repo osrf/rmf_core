@@ -29,14 +29,25 @@ class Estimate
 {
 public:
 
+  /// Constructor of an estimate of a task request.
+  ///
+  /// \param[in] finish_state
+  ///   Finish state of the robot once it completes the task request.
+  ///
+  /// \param[in] wait_until
+  ///   The ideal time the robot starts executing this task.
   Estimate(agv::State finish_state, rmf_traffic::Time wait_until);
 
+  /// Finish state of the robot once it completes the task request.
   agv::State finish_state() const;
 
+  /// Sets a new finish state for the robot.
   Estimate& finish_state(agv::State new_finish_state);
 
+  /// The ideal time the robot starts executing this task.
   rmf_traffic::Time wait_until() const;
 
+  /// Sets a new starting time for the robot to execute the task request.
   Estimate& wait_until(rmf_traffic::Time new_wait_until);
 
   class Implementation;

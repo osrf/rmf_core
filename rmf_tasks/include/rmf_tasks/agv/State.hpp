@@ -28,6 +28,7 @@
 namespace rmf_tasks {
 namespace agv {
 
+/// This state representation is used for task planning.
 class State
 {
 public:
@@ -35,32 +36,49 @@ public:
   /// Constructor
   ///
   /// \param[in] waypoint
+  ///   Current state's location waypoint index.
+  ///
   /// \param[in] charging_waypoint
-  /// \param[in] finish_time
+  ///   The charging waypoint index of this robot.
+  ///
+  /// \param[in] finish_duration
+  ///   Time left until the robot finishes it's current task, or until the
+  ///   agent is ready to take on another task.
+  ///
   /// \param[in] battery_soc
-  /// \param[in] threshold_soc
+  ///   Current battery state of charge of the robot. This value needs to be
+  ///   between 0.0 to 1.0.
   State(
     std::size_t waypoint, 
     std::size_t charging_waypoint,
-    rmf_traffic::Time finish_time = std::chrono::steady_clock::now(),
-    double battery_soc = 1.0);
-
-  State();
+    rmf_traffic::Duration finish_duration,
+    double battery_soc);
   
+  /// The current location waypoint index.
   std::size_t waypoint() const;
 
+  /// Sets the current location waypoint index.
   State& waypoint(std::size_t new_waypoint);
 
+  /// Robot's charging waypoint index.
   std::size_t charging_waypoint() const;
 
+  /// Sets the charging waypoint index.
   State& charging_waypoint(std::size_t new_charging_waypoint);
 
-  rmf_traffic::Time finish_time() const;
+  /// The duration until the robot finishes it's current task or when it is
+  /// ready for a new task.
+  rmf_traffic::Duration finish_duration() const;
 
-  State& finish_time(rmf_traffic::Time new_finish_time);
+  /// Sets the finish duration for the robot.
+  State& finish_time(rmf_traffic::Duration new_finish_duration);
 
+  /// The current battery state of charge of the robot. This value is between
+  /// 0.0 and 1.0.
   double battery_soc() const;
 
+  /// Sets a new battery state of charge value. This value needs to be between
+  /// 0.0 and 1.0.
   State& battery_soc(double new_battery_soc);
 
   class Implementation;
