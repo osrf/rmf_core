@@ -365,9 +365,8 @@ ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers)
 
     for (const auto& dep : it->second)
     {
-      const auto opt_eval = dep.constraint->partial_evaluate(test_state);
-      assert(opt_eval);
-      if (opt_eval.value())
+      std::optional<bool> opt_eval = dep.constraint->partial_evaluate(test_state);
+      if (!opt_eval.has_value() || opt_eval.value())
         continue;
 
       // This constraint is blocked by holding here, so we'll add it to the
