@@ -107,6 +107,10 @@ double State::battery_soc() const
 //==============================================================================
 State& State::battery_soc(double new_battery_soc)
 {
+  if (new_battery_soc < 0.0 || new_battery_soc > 1.0)
+    throw std::invalid_argument(
+      "Battery State of Charge needs be between 0.0 and 1.0.");
+
   _pimpl->_battery_soc = new_battery_soc;
   return *this;
 }

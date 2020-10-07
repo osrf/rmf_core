@@ -15,6 +15,8 @@
  *
 */
 
+#include <stdexcept>
+
 #include <rmf_tasks/agv/StateConfig.hpp>
 
 namespace rmf_tasks {
@@ -34,7 +36,9 @@ StateConfig::StateConfig(double threshold_soc)
       threshold_soc
     }))
 {
-  // Do nothing
+  if (threshold_soc < 0.0 || threshold_soc > 1.0)
+    throw std::invalid_argument(
+      "Battery State of Charge threshold needs be between 0.0 and 1.0.");
 }
 
 double StateConfig::threshold_soc() const
@@ -44,6 +48,10 @@ double StateConfig::threshold_soc() const
 
 auto StateConfig::threshold_soc(double threshold_soc) -> StateConfig&
 {
+  if (threshold_soc < 0.0 || threshold_soc > 1.0)
+    throw std::invalid_argument(
+      "Battery State of Charge threshold needs be between 0.0 and 1.0.");
+
   _pimpl->threshold_soc = threshold_soc;
   return *this;
 }
