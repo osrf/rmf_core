@@ -70,7 +70,7 @@ struct BlockageEndCondition
 //==============================================================================
 std::shared_ptr<Constraint> blockage(
     std::size_t blocked_by,
-    std::size_t blocker_hold_point,
+    std::optional<std::size_t> blocker_hold_point,
     std::optional<BlockageEndCondition> end_condition);
 
 //==============================================================================
@@ -106,15 +106,13 @@ private:
 };
 
 //==============================================================================
-struct Blockage
-{
-  std::size_t index;
-  ConstConstraintPtr constraint;
-};
+using IndexToConstraint = std::unordered_map<std::size_t, ConstConstraintPtr>;
 
 //==============================================================================
-ConstConstraintPtr compute_gridlock_constraint(
-    const std::unordered_map<std::size_t, Blockage>& blockers);
+using Blockers = std::unordered_map<std::size_t, IndexToConstraint>;
+
+//==============================================================================
+ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers);
 
 } // namespace blockade
 } // namespace rmf_traffic

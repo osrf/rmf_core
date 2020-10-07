@@ -17,6 +17,9 @@
 
 #include "Constraint.hpp"
 
+#include <vector>
+#include <cassert>
+
 namespace rmf_traffic {
 namespace blockade {
 
@@ -27,7 +30,7 @@ public:
 
   BlockageConstraint(
       std::size_t blocked_by,
-      std::size_t blocker_hold_point,
+      std::optional<std::size_t> blocker_hold_point,
       std::optional<BlockageEndCondition> end_condition)
     : _blocked_by(blocked_by),
       _blocker_hold_point(blocker_hold_point),
@@ -42,7 +45,8 @@ public:
     if (it == state.end())
     {
       const auto blocker = std::to_string(_blocked_by);
-      const auto h = std::to_string(_blocker_hold_point);
+      const auto h = _blocker_hold_point?
+            std::to_string(*_blocker_hold_point) : std::string("null");
       std::string error = "Failed to evaluate BlockageConstraint ";
       error += blocker + ":(" + h;
       if (_end_condition)
@@ -94,8 +98,11 @@ private:
 
   bool _evaluate(const ReservedRange& range) const
   {
-    if (range.end <= _blocker_hold_point)
-      return true;
+    if (_blocker_hold_point)
+    {
+      if (range.end <= _blocker_hold_point)
+        return true;
+    }
 
     if (_end_condition)
     {
@@ -119,11 +126,21 @@ private:
   }
 
   std::size_t _blocked_by;
-  std::size_t _blocker_hold_point;
+  std::optional<std::size_t> _blocker_hold_point;
   std::optional<BlockageEndCondition> _end_condition;
   std::unordered_set<std::size_t> _dependencies;
 
 };
+
+//==============================================================================
+std::shared_ptr<Constraint> blockage(
+    std::size_t blocked_by,
+    std::optional<std::size_t> blocker_hold_point,
+    std::optional<BlockageEndCondition> end_condition)
+{
+  return std::make_shared<BlockageConstraint>(
+        blocked_by, blocker_hold_point, end_condition);
+}
 
 //==============================================================================
 class AlwaysValid : public Constraint
@@ -237,11 +254,143 @@ std::optional<bool> OrConstraint::partial_evaluate(const State& state) const
   return std::nullopt;
 }
 
-//==============================================================================
-ConstConstraintPtr compute_gridlock_constraint(
-    const std::unordered_map<std::size_t, Blockage>& blockers)
-{
+namespace {
 
+//==============================================================================
+using Cache = std::unordered_map<std::size_t, std::unordered_set<std::size_t>>;
+
+//==============================================================================
+struct GridlockNode;
+using GridlockNodePtr = std::shared_ptr<const GridlockNode>;
+
+//==============================================================================
+struct Blocker
+{
+  std::size_t participant;
+  std::size_t index;
+  ConstConstraintPtr constraint;
+
+  bool operator==(const Blocker& other) const
+  {
+    return participant == other.participant && index == other.index;
+  }
+
+  bool operator!=(const Blocker& other) const
+  {
+    return !(*this == other);
+  }
+};
+
+//==============================================================================
+struct GridlockNode
+{
+  Blocker blocker;
+  GridlockNodePtr parent;
+  Cache visited;
+};
+
+} // anonymous namespace
+
+//==============================================================================
+ConstConstraintPtr compute_gridlock_constraint(GridlockNodePtr node)
+{
+  auto or_constraint = std::make_shared<OrConstraint>();
+  const auto target_blocker = node->blocker;
+
+  do
+  {
+    or_constraint->add(node->blocker.constraint);
+    node = node->parent;
+    assert(node);
+  } while (target_blocker != node->blocker);
+
+  return or_constraint;
+}
+
+//==============================================================================
+ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers)
+{
+  std::vector<GridlockNodePtr> queue;
+  std::unordered_map<std::size_t, std::vector<Blocker>> dependents;
+  for (const auto& b : blockers)
+  {
+    const auto participant = b.first;
+    const auto& points = b.second;
+    for (const auto& p : points)
+    {
+      const auto index = p.first;
+      const auto constraint = p.second;
+      Blocker blocker{participant, index, constraint};
+
+      for (const std::size_t dependency : constraint->dependencies())
+      {
+        auto& v = dependents.insert({dependency, {}}).first->second;
+        v.push_back(blocker);
+      }
+
+      auto node = std::make_shared<GridlockNode>(
+            GridlockNode{blocker, nullptr, {}});
+      node->visited[participant].insert(index);
+
+      queue.push_back(std::move(node));
+    }
+  }
+
+  Cache expanded_nodes;
+  State test_state;
+
+  std::vector<ConstConstraintPtr> gridlock_constraints;
+
+  while (!queue.empty())
+  {
+    const auto top = queue.back();
+    queue.pop_back();
+
+    const bool is_new_node = expanded_nodes
+        .insert({top->blocker.participant, {}})
+        .first->second.insert(top->blocker.index).second;
+
+    if (!is_new_node)
+      continue;
+
+    const auto participant = top->blocker.participant;
+    const auto index = top->blocker.index;
+
+    const auto it = dependents.find(top->blocker.participant);
+    if (it == dependents.end())
+      continue;
+
+    test_state.clear();
+    test_state[participant] = ReservedRange{index, index};
+
+    for (const auto& dep : it->second)
+    {
+      const auto opt_eval = dep.constraint->partial_evaluate(test_state);
+      assert(opt_eval);
+      if (opt_eval.value())
+        continue;
+
+      // This constraint is blocked by holding here, so we'll add it to the
+      // chain
+      Cache new_visited = top->visited;
+      const bool loop_found = !new_visited[dep.participant]
+          .insert(dep.index).second;
+
+      auto next = std::make_shared<GridlockNode>(
+            GridlockNode{dep, top, std::move(new_visited)});
+
+      if (loop_found)
+        gridlock_constraints.push_back(compute_gridlock_constraint(next));
+      else
+        queue.push_back(next);
+    }
+  }
+
+  auto final_gridlock_constraint = std::make_shared<AndConstraint>();
+  for (const auto& c : gridlock_constraints)
+    final_gridlock_constraint->add(c);
+
+  return final_gridlock_constraint;
 }
 
 } // namespace blockade
