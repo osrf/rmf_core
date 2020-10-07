@@ -166,7 +166,8 @@ public:
       const std::vector<State>& initial_states,
       const std::vector<StateConfig>& state_configs,
       const rmf_tasks::Request& request,
-      const rmf_tasks::Request& charge_battery_request);
+      const rmf_tasks::Request& charge_battery_request,
+      rmf_traffic::Time relative_start_time);
 
   Candidates(const Candidates& other)
   {
@@ -215,13 +216,14 @@ public:
   void update_candidate(
     std::size_t candidate,
     State state,
-    rmf_traffic::Time wait_until)
+    rmf_traffic::Time wait_until,
+    rmf_traffic::Time relative_start_time)
   {
     const auto it = _candidate_map.at(candidate);
     _value_map.erase(it);
     _candidate_map[candidate] = _value_map.insert(
       {
-        state.finish_time(),
+        relative_start_time + state.finish_duration(),
         Entry{candidate, state, wait_until}
       });
   }
@@ -253,31 +255,37 @@ Candidates Candidates::make(
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const rmf_tasks::Request& request,
-    const rmf_tasks::Request& charge_battery_request)
+    const rmf_tasks::Request& charge_battery_request,
+    rmf_traffic::Time relative_start_time)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
   {
     const auto& state = initial_states[i];
     const auto& state_config = state_configs[i];
-    const auto finish = request.estimate_finish(state, state_config);
+    const auto finish =
+      request.estimate_finish(relative_start_time, state, state_config);
     if (finish.has_value())
     {
       initial_map.insert({
-        finish.value().finish_state().finish_time(),
+        relative_start_time + finish.value().finish_state().finish_duration(),
         Entry{i, finish.value().finish_state(), finish.value().wait_until()}});
     }
     else
     {
       auto battery_estimate =
-        charge_battery_request.estimate_finish(state, state_config);
+        charge_battery_request.estimate_finish(
+          relative_start_time, state, state_config);
       if (battery_estimate.has_value())
       {
-        auto new_finish = request.estimate_finish(
-          battery_estimate.value().finish_state(), state_config);
+        auto new_finish =
+          request.estimate_finish(
+            relative_start_time,
+            battery_estimate.value().finish_state(),
+            state_config);
         assert(new_finish.has_value());
         initial_map.insert(
-          {new_finish.value().finish_state().finish_time(),
+          {relative_start_time + new_finish.value().finish_state().finish_duration(),
           Entry{i, new_finish.value().finish_state(), new_finish.value().wait_until()}});
       }
       else
@@ -300,10 +308,11 @@ struct PendingTask
       std::vector<rmf_tasks::agv::State>& initial_states,
       std::vector<rmf_tasks::agv::StateConfig>& state_configs,
       rmf_tasks::Request::SharedPtr request_,
-      rmf_tasks::Request::SharedPtr charge_battery_request)
+      rmf_tasks::Request::SharedPtr charge_battery_request,
+      rmf_traffic::Time relative_start_time)
     : request(std::move(request_)),
       candidates(Candidates::make(
-        initial_states, state_configs, *request, *charge_battery_request)),
+        initial_states, state_configs, *request, *charge_battery_request, relative_start_time)),
       earliest_start_time(request->earliest_start_time())
   {
     // Do nothing
@@ -582,7 +591,7 @@ public:
 
   std::shared_ptr<Configuration> config;
 
-  double compute_g(const Assignments& assigned_tasks)
+  double compute_g(const Assignments& assigned_tasks, rmf_traffic::Time relative_start_time)
   {
     double cost = 0.0;
     for (const auto& agent : assigned_tasks)
@@ -591,7 +600,7 @@ public:
       {
         cost +=
           rmf_traffic::time::to_seconds(
-            assignment.state().finish_time() - assignment.earliest_start_time());
+            relative_start_time + assignment.state().finish_duration() - assignment.earliest_start_time());
       }
     }
 
@@ -641,6 +650,7 @@ public:
   }
   
   Assignments complete_solve(
+    rmf_traffic::Time relative_start_time,
     std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const std::vector<Request::SharedPtr>& requests,
@@ -648,9 +658,8 @@ public:
     bool greedy)
   {
     assert(initial_states.size() == state_configs.size());
-
-    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
-    auto node = make_initial_node(initial_states, state_configs, requests, start_time);
+  
+    auto node = make_initial_node(initial_states, state_configs, requests, relative_start_time);
 
     Node::AssignedTasks complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
@@ -658,9 +667,9 @@ public:
     while (node)
     {
       if (greedy)
-        node = greedy_solve(node, initial_states, state_configs, start_time);
+        node = greedy_solve(node, initial_states, state_configs, relative_start_time);
       else
-        node = solve(node, initial_states, state_configs, requests.size(), start_time, interrupter);
+        node = solve(node, initial_states, state_configs, requests.size(), relative_start_time, interrupter);
 
       if (!node)
       {
@@ -697,7 +706,9 @@ public:
 
       // copy final state estimates 
       std::vector<State> estimates;
-      estimates.resize(node->assigned_tasks.size());
+      estimates.resize(
+        node->assigned_tasks.size(),
+        State(0, 0, rmf_traffic::Duration(0), 0.0));
       for (std::size_t i = 0; i < node->assigned_tasks.size(); ++i)
       {
         const auto& assignments = node->assigned_tasks[i];
@@ -707,16 +718,16 @@ public:
           estimates[i] = assignments.back().state();        
       }
 
-      node = make_initial_node(estimates, state_configs, new_tasks, start_time);
+      node = make_initial_node(estimates, state_configs, new_tasks, relative_start_time);
       initial_states = estimates;
     }
 
     return complete_assignments;
   }
 
-  double compute_g(const Node& node)
+  double compute_g(const Node& node, const rmf_traffic::Time relative_start_time)
   {
-    return compute_g(node.assigned_tasks);
+    return compute_g(node.assigned_tasks, relative_start_time);
   }
 
   double compute_h(const Node& node, const rmf_traffic::Time relative_start_time)
@@ -757,8 +768,7 @@ public:
           value = 0.0;
         else
           value =
-            rmf_traffic::time::to_seconds(
-              assignments.back().state().finish_time() - relative_start_time);
+            rmf_traffic::time::to_seconds(assignments.back().state().finish_duration());
       }
     }
 
@@ -775,7 +785,7 @@ public:
 
   double compute_f(const Node& n, const rmf_traffic::Time relative_start_time)
   {
-    return compute_g(n) + compute_h(n, relative_start_time);
+    return compute_g(n, relative_start_time) + compute_h(n, relative_start_time);
   }
 
   ConstNodePtr make_initial_node(
@@ -792,7 +802,7 @@ public:
       initial_node->unassigned_tasks.insert(
         {
           request->id(),
-          PendingTask(initial_states, state_configs, request, config->charge_battery_request())
+          PendingTask(initial_states, state_configs, request, config->charge_battery_request(), relative_start_time)
         });
 
     initial_node->cost_estimate = compute_f(*initial_node, relative_start_time);
@@ -804,8 +814,8 @@ public:
       rmf_traffic::Time latest = rmf_traffic::Time::min();
       for (const auto& s : initial_states)
       {
-        if (latest < s.finish_time())
-          latest = s.finish_time();
+        if (latest < relative_start_time + s.finish_duration())
+          latest = relative_start_time + s.finish_duration();
       }
 
       return latest;
@@ -829,7 +839,7 @@ public:
     return initial_node;
   }
 
-  rmf_traffic::Time get_latest_time(const Node& node)
+  rmf_traffic::Time get_latest_time(const Node& node, rmf_traffic::Time relative_start_time)
   {
     rmf_traffic::Time latest = rmf_traffic::Time::min();
     for (const auto& a : node.assigned_tasks)
@@ -837,7 +847,7 @@ public:
       if (a.empty())
         continue;
       
-      const auto finish_time = a.back().state().finish_time();
+      const auto finish_time = relative_start_time + a.back().state().finish_duration();
       if (latest < finish_time)
         latest = finish_time;
     }
@@ -880,14 +890,15 @@ public:
     {
       const auto finish =
         new_u.second.request->estimate_finish(
-          entry.state, state_config);
+          relative_start_time, entry.state, state_config);
 
       if (finish.has_value())
       {
         new_u.second.candidates.update_candidate(
           entry.candidate,
           finish.value().finish_state(),
-          finish.value().wait_until());
+          finish.value().wait_until(),
+          relative_start_time);
       }
       else
       {
@@ -919,7 +930,9 @@ public:
 
     if (add_charger)
     {
-      auto battery_estimate = config->charge_battery_request()->estimate_finish(entry.state, state_config);
+      auto battery_estimate =
+        config->charge_battery_request()->estimate_finish(
+          relative_start_time, entry.state, state_config);
       if (battery_estimate.has_value())
       {
         new_node->assigned_tasks[entry.candidate].push_back(
@@ -932,11 +945,17 @@ public:
         for (auto& new_u : new_node->unassigned_tasks)
         {
           const auto finish =
-            new_u.second.request->estimate_finish(battery_estimate.value().finish_state(), state_config);
+            new_u.second.request->estimate_finish(
+              relative_start_time,
+              battery_estimate.value().finish_state(),
+              state_config);
           if (finish.has_value())
           {
             new_u.second.candidates.update_candidate(
-              entry.candidate, finish.value().finish_state(), finish.value().wait_until());
+              entry.candidate,
+              finish.value().finish_state(),
+              finish.value().wait_until(),
+              relative_start_time);
           }
           else
           {
@@ -955,7 +974,7 @@ public:
 
     // Update the cost estimate for new_node
     new_node->cost_estimate = compute_f(*new_node, relative_start_time);
-    new_node->latest_time = get_latest_time(*new_node);
+    new_node->latest_time = get_latest_time(*new_node, relative_start_time);
 
     // Apply filter
     if (filter && filter->ignore(*new_node))
@@ -987,7 +1006,7 @@ public:
     }
 
     auto estimate = config->charge_battery_request()->estimate_finish(
-      state, state_configs[agent]);
+      relative_start_time, state, state_configs[agent]);
     if (estimate.has_value())
     {
       new_node->assigned_tasks[agent].push_back(
@@ -1000,11 +1019,16 @@ public:
       {
         const auto finish =
           new_u.second.request->estimate_finish(
-            estimate.value().finish_state(), state_configs[agent]);
+            relative_start_time,
+            estimate.value().finish_state(),
+            state_configs[agent]);
         if (finish.has_value())
         {
           new_u.second.candidates.update_candidate(
-            agent, finish.value().finish_state(), finish.value().wait_until());
+            agent,
+            finish.value().finish_state(),
+            finish.value().wait_until(),
+            relative_start_time);
         }
         else
         {
@@ -1013,7 +1037,7 @@ public:
       }
 
       new_node->cost_estimate = compute_f(*new_node, relative_start_time);
-      new_node->latest_time = get_latest_time(*new_node);
+      new_node->latest_time = get_latest_time(*new_node, relative_start_time);
       return new_node;
     }
 
@@ -1183,11 +1207,13 @@ TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 }
 
 auto TaskPlanner::greedy_plan(
+  rmf_traffic::Time relative_start_time,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests) -> Assignments
 {
   return _pimpl->complete_solve(
+    relative_start_time,
     initial_states,
     state_configs,
     requests,
@@ -1196,12 +1222,14 @@ auto TaskPlanner::greedy_plan(
 }
 
 auto TaskPlanner::optimal_plan(
+  rmf_traffic::Time relative_start_time,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests,
   std::function<bool()> interrupter) -> Assignments
 {
   return _pimpl->complete_solve(
+    relative_start_time,
     initial_states,
     state_configs,
     requests,
@@ -1209,9 +1237,10 @@ auto TaskPlanner::optimal_plan(
     false);
 }
 
-auto TaskPlanner::compute_cost(const Assignments& assignments) -> double
+double TaskPlanner::compute_cost(
+  const Assignments& assignments, rmf_traffic::Time relative_start_time)
 {
-  return _pimpl->compute_g(assignments);
+  return _pimpl->compute_g(assignments, relative_start_time);
 }
 
 

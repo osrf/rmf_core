@@ -127,6 +127,7 @@ public:
   /// Get the greedy planner based assignments for a set of initial states and 
   /// requests
   Assignments greedy_plan(
+    rmf_traffic::Time relative_start_time,
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
     std::vector<Request::SharedPtr> requests);
@@ -138,12 +139,15 @@ public:
   /// recommended to call plan() method and use the greedy solution for bidding.
   /// If a bid is awarded, the optimal solution may be used for assignments.
   Assignments optimal_plan(
+    rmf_traffic::Time relative_start_time,
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
     std::vector<Request::SharedPtr> requests,
     std::function<bool()> interrupter);
 
-  double compute_cost(const Assignments& assignments);
+  double compute_cost(
+    const Assignments& assignments,
+    rmf_traffic::Time relative_start_time);
 
   class Implementation;
 

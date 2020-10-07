@@ -108,18 +108,21 @@ std::size_t Delivery::id() const
 
 //==============================================================================
 rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
+  rmf_traffic::Time relative_start_time,
   const agv::State& initial_state,
   const agv::StateConfig& state_config) const
 {
   agv::State state(
     _pimpl->_dropoff_waypoint, 
     initial_state.charging_waypoint(),
-    initial_state.finish_time(),
+    initial_state.finish_duration(),
     initial_state.battery_soc());
 
   rmf_traffic::Duration variant_duration(0);
 
-  const rmf_traffic::Time start_time = initial_state.finish_time();
+  const rmf_traffic::Time start_time =
+    relative_start_time + initial_state.finish_duration();
+
   double battery_soc = initial_state.battery_soc();
   double dSOC_motion = 0.0;
   double dSOC_device = 0.0;
@@ -159,13 +162,15 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   }
 
   const rmf_traffic::Time ideal_start = _pimpl->_start_time - variant_duration;
-  const rmf_traffic::Time wait_until =
-    initial_state.finish_time() > ideal_start ?
-    initial_state.finish_time() : ideal_start;
+  const rmf_traffic::Time state_finish_time =
+    relative_start_time + initial_state.finish_duration();
+  const rmf_traffic::Time wait_until = state_finish_time > ideal_start ?
+    state_finish_time : ideal_start;
 
   // Factor in invariants
-  state.finish_time(
-    wait_until + variant_duration + _pimpl->_invariant_duration);
+  const rmf_traffic::Time new_finish_time =
+    wait_until + variant_duration + _pimpl->_invariant_duration;
+  state.finish_duration(new_finish_time - relative_start_time);
 
   if (_pimpl->_drain_battery)
   {
@@ -181,7 +186,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
     if ( _pimpl->_dropoff_waypoint != state.charging_waypoint())
     {
       rmf_traffic::agv::Planner::Start start{
-        state.finish_time(),
+        relative_start_time + state.finish_duration(),
         _pimpl->_dropoff_waypoint,
         0.0};
 
@@ -193,7 +198,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
           result_to_charger->get_itinerary().back().trajectory();
       const auto& finish_time = *trajectory.finish_time();
       const rmf_traffic::Duration retreat_duration =
-        finish_time - state.finish_time();
+        finish_time - (relative_start_time + state.finish_duration());
       
       dSOC_motion = _pimpl->_motion_sink->compute_change_in_charge(trajectory);
       dSOC_device = _pimpl->_device_sink->compute_change_in_charge(

@@ -92,7 +92,7 @@ rmf_traffic::Duration State::finish_duration() const
 }
 
 //==============================================================================
-State& State::finish_time(rmf_traffic::Duration new_finish_duration)
+State& State::finish_duration(rmf_traffic::Duration new_finish_duration)
 {
   _pimpl->_finish_duration = new_finish_duration;
   return *this;

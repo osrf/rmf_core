@@ -71,7 +71,7 @@ public:
   rmf_traffic::Duration finish_duration() const;
 
   /// Sets the finish duration for the robot.
-  State& finish_time(rmf_traffic::Duration new_finish_duration);
+  State& finish_duration(rmf_traffic::Duration new_finish_duration);
 
   /// The current battery state of charge of the robot. This value is between
   /// 0.0 and 1.0.

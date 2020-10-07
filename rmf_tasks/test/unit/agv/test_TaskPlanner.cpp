@@ -44,7 +44,8 @@
 inline void display_solution(
   std::string parent,
   const rmf_tasks::agv::TaskPlanner::Assignments& assignments,
-  const double cost)
+  const double cost,
+  rmf_traffic::Time relative_start_time)
 {
   std::cout << parent << " cost: " << cost << std::endl;
   std::cout << parent << " assignments:" << std::endl;
@@ -55,7 +56,8 @@ inline void display_solution(
     {
       const auto& s = a.state();
       const double start_seconds = a.earliest_start_time().time_since_epoch().count()/1e9;
-      const double finish_seconds = s.finish_time().time_since_epoch().count()/1e9;
+      const rmf_traffic::Time finish_time = relative_start_time + s.finish_duration();
+      const double finish_seconds = finish_time.time_since_epoch().count()/1e9;
       std::cout << "    <" << a.task_id() << ": " << start_seconds 
                 << ", "<< finish_seconds << ", " << 100* s.battery_soc() 
                 << "%>" << std::endl;
@@ -139,8 +141,8 @@ SCENARIO("Grid World")
 
     std::vector<rmf_tasks::agv::State> initial_states =
     {
-      rmf_tasks::agv::State{13, 13},
-      rmf_tasks::agv::State{2, 2}
+      rmf_tasks::agv::State{13, 13, rmf_traffic::Duration(0), 1.0},
+      rmf_tasks::agv::State{2, 2, rmf_traffic::Duration(0), 1.0}
     };
 
     std::vector<rmf_tasks::agv::StateConfig> state_configs =
@@ -158,8 +160,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         2,
@@ -168,8 +170,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         3,
@@ -178,8 +180,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0))
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery)
     };
 
     std::shared_ptr<rmf_tasks::agv::TaskPlanner::Configuration>  task_config =
@@ -187,15 +189,15 @@ SCENARIO("Grid World")
     rmf_tasks::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(
-      initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+      now, initial_states, state_configs, requests);
+    const double greedy_cost = task_planner.compute_cost(greedy_assignments, now);
 
     const auto optimal_assignments = task_planner.optimal_plan(
-      initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+      now, initial_states, state_configs, requests, nullptr);
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments, now);
     
-    display_solution("Greedy", greedy_assignments, greedy_cost);
-    display_solution("Optimal", optimal_assignments, optimal_cost);
+    display_solution("Greedy", greedy_assignments, greedy_cost, now);
+    display_solution("Optimal", optimal_assignments, optimal_cost, now);
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -206,8 +208,8 @@ SCENARIO("Grid World")
 
     std::vector<rmf_tasks::agv::State> initial_states =
     {
-      rmf_tasks::agv::State{13, 13},
-      rmf_tasks::agv::State{2, 2}
+      rmf_tasks::agv::State{13, 13, std::chrono::seconds(0), 1.0},
+      rmf_tasks::agv::State{2, 2, std::chrono::seconds(0), 1.0}
     };
 
     std::vector<rmf_tasks::agv::StateConfig> state_configs =
@@ -225,8 +227,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         2,
@@ -235,8 +237,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         3,
@@ -245,8 +247,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         3,
@@ -255,8 +257,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         4,
@@ -265,8 +267,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(50000)),
+        now + rmf_traffic::time::from_seconds(50000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         5,
@@ -275,8 +277,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(50000)),
+        now + rmf_traffic::time::from_seconds(50000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         6,
@@ -285,8 +287,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         7,
@@ -295,8 +297,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         8,
@@ -305,8 +307,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         9,
@@ -315,8 +317,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         10,
@@ -325,8 +327,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         11,
@@ -335,8 +337,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000))
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery)
     };
 
     std::shared_ptr<rmf_tasks::agv::TaskPlanner::Configuration>  task_config =
@@ -344,15 +346,15 @@ SCENARIO("Grid World")
     rmf_tasks::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(
-      initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+      now, initial_states, state_configs, requests);
+    const double greedy_cost = task_planner.compute_cost(greedy_assignments, now);
 
     const auto optimal_assignments = task_planner.optimal_plan(
-      initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+      now, initial_states, state_configs, requests, nullptr);
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments, now);
   
-    display_solution("Greedy", greedy_assignments, greedy_cost);
-    display_solution("Optimal", optimal_assignments, optimal_cost);
+    display_solution("Greedy", greedy_assignments, greedy_cost, now);
+    display_solution("Optimal", optimal_assignments, optimal_cost, now);
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
