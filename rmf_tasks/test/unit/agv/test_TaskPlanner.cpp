@@ -54,7 +54,10 @@ inline void display_solution(
     for (const auto& a : assignments[i])
     {
       const auto& s = a.state();
-      std::cout << "    <" << a.task_id() << ": " << 100* s.battery_soc() 
+      const double start_seconds = a.earliest_start_time().time_since_epoch().count()/1e9;
+      const double finish_seconds = s.finish_time().time_since_epoch().count()/1e9;
+      std::cout << "    <" << a.task_id() << ": " << start_seconds 
+                << ", "<< finish_seconds << ", " << 100* s.battery_soc() 
                 << "%>" << std::endl;
     }
   }
