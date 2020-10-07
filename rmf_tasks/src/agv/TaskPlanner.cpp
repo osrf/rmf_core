@@ -598,43 +598,16 @@ public:
     return cost;
   }
 
-  Assignments prune_assignments(
-    Assignments& assignments, 
-    const std::vector<StateConfig>& state_configs)
+  Assignments prune_assignments(Assignments& assignments)
   {
     for (std::size_t a = 0; a < assignments.size(); ++a)
     {
       if (assignments[a].empty())
         continue;
-      
+
       // Remove charging task at end of assignments if any
       if (assignments[a].back().task_id() == config->charge_battery_request()->id())
         assignments[a].pop_back();
-
-      // Insert missing charging tasks if any
-      // if (assignments[a].size() > 1)
-      // {
-      //   auto it = ++assignments[a].begin();
-      //   for (; it != assignments[a].end(); ++it)
-      //   {
-      //     auto prev_it = it; --prev_it;
-      //     if (it->state().battery_soc() > prev_it->state().battery_soc() && 
-      //       it->task_id() != config->charge_battery_request()->id())
-      //     {
-      //       auto estimate = config->charge_battery_request()->estimate_finish(
-      //         prev_it->state(), state_configs[a]);
-      //       assert(estimate.has_value());
-      //       assignments[a].insert(
-      //         it,
-      //         Assignment
-      //         {
-      //           config->charge_battery_request()->id(),
-      //           estimate.value().finish_state(),
-      //           estimate.value().wait_until()
-      //         });
-      //     }
-      //   }
-      // }
     }
 
     return assignments;
@@ -663,10 +636,7 @@ public:
         node = solve(node, initial_states, state_configs, requests.size(), start_time, interrupter);
 
       if (!node)
-      {
-        // std::cout << "No solution found!" << std::endl;
         return {};
-      }
 
       assert(complete_assignments.size() == node->assigned_tasks.size());
       for (std::size_t i = 0; i < complete_assignments.size(); ++i)
@@ -681,19 +651,11 @@ public:
       }
 
       if (node->unassigned_tasks.empty())
-        return prune_assignments(complete_assignments, state_configs);
-        // return complete_assignments;
+        return prune_assignments(complete_assignments);
 
-      // std::unordered_map<std::size_t, std::size_t> new_task_id_map;
       std::vector<Request::SharedPtr> new_tasks;
-      // std::size_t task_counter = 0;
       for (const auto& u : node->unassigned_tasks)
-      {
         new_tasks.push_back(u.second.request);
-        // new_task_id_map[task_counter++] = task_id_map[u.first];
-      }
-
-      // task_id_map = std::move(new_task_id_map);
 
       // copy final state estimates 
       std::vector<State> estimates;

@@ -15,7 +15,6 @@
  *
 */
 
-#include <iostream>
 #include <map>
 
 #include <rmf_tasks/requests/Delivery.hpp>
@@ -152,10 +151,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
     }
 
     if (battery_soc <= state_config.threshold_soc())
-    {
-      // std::cout << " -- Delivery: Unable to reach pickup" << std::endl;
       return rmf_utils::nullopt;
-    }
   }
 
   const rmf_traffic::Time ideal_start = _pimpl->_start_time - variant_duration;
@@ -171,10 +167,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   {
     battery_soc -= _pimpl->_invariant_battery_drain;
     if (battery_soc <= state_config.threshold_soc())
-    {
-      // std::cout << " -- Delivery: Unable to reach dropoff" << std::endl;
       return rmf_utils::nullopt;
-    }
 
     // Check if the robot has enough charge to head back to nearest charger
     double retreat_battery_drain = 0.0;
