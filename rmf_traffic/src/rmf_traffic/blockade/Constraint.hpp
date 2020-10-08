@@ -31,6 +31,11 @@ struct ReservedRange
 {
   std::size_t begin;
   std::size_t end;
+
+  bool operator==(const ReservedRange& other) const
+  {
+    return (begin == other.begin) && (end == other.end);
+  }
 };
 
 //==============================================================================
