@@ -15,8 +15,6 @@
  *
 */
 
-#include <iostream>
-
 #include <rmf_tasks/requests/ChargeBattery.hpp>
 
 namespace rmf_tasks {
@@ -31,7 +29,7 @@ public:
   {}
 
   // fixed id for now
-  std::size_t _id = 101;
+  std::size_t _id = 1001;
   rmf_battery::agv::BatterySystemPtr _battery_system;
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> _device_sink;
@@ -86,10 +84,7 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   const agv::StateConfig& state_config) const
 {
   if (abs(initial_state.battery_soc() - _pimpl->_charge_soc) < 1e-3)
-  {
-    // std::cout << " -- Charge battery: Battery full" << std::endl;
     return rmf_utils::nullopt;
-  }
 
   // Compute time taken to reach charging waypoint from current location
   agv::State state(
@@ -127,12 +122,9 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
       battery_soc = battery_soc - dSOC_motion - dSOC_device;
     }
 
+    // If a robot cannot reach its charging dock given its initial battery soc
     if (battery_soc <= state_config.threshold_soc())
-    {
-      // If a robot cannot reach its charging dock given its initial battery soc
-      // std::cout << " -- Charge battery: Unable to reach charger" << std::endl;
       return rmf_utils::nullopt;
-    }
   }
 
   // Default _charge_soc = 1.0

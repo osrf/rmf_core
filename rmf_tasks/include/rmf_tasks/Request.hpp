@@ -51,6 +51,8 @@ public:
 
   /// Get the earliest start time that this task may begin
   virtual rmf_traffic::Time earliest_start_time() const = 0;
+
+  virtual ~Request() = default;
 };
 
 } // namespace rmf_tasks

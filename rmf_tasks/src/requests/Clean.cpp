@@ -15,7 +15,6 @@
  *
 */
 
-#include <iostream>
 #include <map>
 
 #include <rmf_tasks/requests/Clean.hpp>
@@ -155,10 +154,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Clean::estimate_finish(
       battery_soc = battery_soc - dSOC_motion - dSOC_ambient;
 
       if (battery_soc <= state_config.threshold_soc())
-      {
-        // std::cout << " -- Clean: Unable to reach start" << std::endl;
         return rmf_utils::nullopt;
-      }
     }
   }
 
@@ -179,10 +175,7 @@ rmf_utils::optional<rmf_tasks::Estimate> Clean::estimate_finish(
   {
     battery_soc -= _pimpl->invariant_battery_drain;
     if (battery_soc <= state_config.threshold_soc())
-    {
-      // std::cout << " -- Delivery: Unable to reach dropoff" << std::endl;
       return rmf_utils::nullopt;
-    }
 
     // Check if the robot has enough charge to head back to nearest charger
     double retreat_battery_drain = 0.0;
