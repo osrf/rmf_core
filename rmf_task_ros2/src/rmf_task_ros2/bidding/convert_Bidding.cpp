@@ -24,11 +24,7 @@ namespace bidding {
 BidNotice convert(const BiddingTask& from)
 {
   bidding::BidNotice notice_msg;
-  notice_msg.task_id = from.task_id;
-  notice_msg.type.value = static_cast<uint8_t>(from.task_type);
-  notice_msg.announce_all = from.announce_all; 
-  notice_msg.itinerary = from.itinerary;
-  notice_msg.submission_time = rmf_traffic_ros2::convert(from.submission_time);
+  notice_msg.task_profile = convert(from.task_profile);
   notice_msg.time_window = rmf_traffic_ros2::convert(from.time_window);
   return notice_msg;
 }
@@ -36,24 +32,22 @@ BidNotice convert(const BiddingTask& from)
 BidProposal convert(const Submission& from)
 {
   bidding::BidProposal proposal_msg;
-  proposal_msg.fleet_name = from.fleet_name;
+  proposal_msg.bidder_name = from.bidder_name;
   proposal_msg.robot_name = from.robot_name;
   proposal_msg.prev_cost = from.prev_cost;
   proposal_msg.new_cost = from.new_cost;
-  proposal_msg.start_time = rmf_traffic_ros2::convert(from.start_time);
-  proposal_msg.end_time = rmf_traffic_ros2::convert(from.end_time);
+  proposal_msg.finish_time = rmf_traffic_ros2::convert(from.finish_time);
   return proposal_msg;
 }
 
 Submission convert(const BidProposal& from)
 {
   Submission submission;
-  submission.fleet_name = from.fleet_name;
+  submission.bidder_name = from.bidder_name;
   submission.robot_name = from.robot_name;
   submission.prev_cost = from.prev_cost;
   submission.new_cost = from.new_cost;
-  submission.start_time = rmf_traffic_ros2::convert(from.start_time);
-  submission.end_time = rmf_traffic_ros2::convert(from.end_time);
+  submission.finish_time = rmf_traffic_ros2::convert(from.finish_time);
   return submission;
 }
 

@@ -55,30 +55,19 @@ public:
   }
 
   // Callback fn when a dispatch notice is received
+  // todo change to taskprofile
   void receive_notice(const BidNotice& msg)
   {
     std::cout << " [Bidder] Received Bidding notice for task_id: " 
-              << msg.task_id << std::endl;
+              << msg.task_profile.task_id << std::endl;
     
     // check if tasktype is supported by this F.A
-    auto req_type = static_cast<TaskType>(msg.type.value);
+    auto req_type = static_cast<TaskType>(msg.task_profile.type.value);
     if (!profile.valid_tasks.count(req_type))
     {
-      std::cout << profile.fleet_name << ": task type "
-                << msg.type.value << " is invalid" << std::endl;
+      std::cout << profile.bidder_name << ": task type "
+                << msg.task_profile.type.value << " is invalid" << std::endl;
       return;
-    }
-
-    // check is the bidding annoucment is for me
-    if (!msg.announce_all)
-    {
-      auto bidders = msg.fleet_names;
-      auto it = std::find(bidders.begin(), bidders.end(), profile.fleet_name);
-      if (it == bidders.end())
-      {
-        std::cout << "not me!" <<  profile.fleet_name<< std::endl;
-        return;
-      }
     }
 
     // check if get submission function is declared
@@ -88,9 +77,8 @@ public:
     
     // Submit proposal
     auto best_proposal = convert(bid_submission);
-    best_proposal.fleet_name = profile.fleet_name;
-    best_proposal.task_id = msg.task_id;
-    best_proposal.submission_time = node->now();
+    best_proposal.bidder_name = profile.bidder_name;
+    best_proposal.task_profile = msg.task_profile;
     dispatch_proposal_pub->publish(best_proposal);
   }
 };
@@ -108,6 +96,7 @@ std::shared_ptr<MinimalBidder> MinimalBidder::make(
     bidder->_pimpl = std::move(pimpl);
     return bidder;
   }
+  return nullptr;
 }
 
 //==============================================================================

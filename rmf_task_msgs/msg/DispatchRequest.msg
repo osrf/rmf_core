@@ -6,11 +6,10 @@
 string server_id
 
 # if task is dispatched via bidding, this should be the same
-Task task
+TaskProfile task_profile
 
 # add or cancel a task
 uint8 method
-uint8 CHECK=0   # to check a task
 uint8 ADD=1     # to add a task
 uint8 CANCEL=2  # to cancel and remove a task
 

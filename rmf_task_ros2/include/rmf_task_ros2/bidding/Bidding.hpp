@@ -20,7 +20,8 @@
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
-#include <rmf_task_ros2/StandardNames.hpp>
+#include <rmf_task_ros2/TaskProfile.hpp>
+
 #include <rmf_task_msgs/msg/bid_notice.hpp>
 #include <rmf_task_msgs/msg/bid_proposal.hpp>
 
@@ -30,31 +31,22 @@ namespace bidding {
 //==============================================================================
 using BidNotice = rmf_task_msgs::msg::BidNotice;
 using BidProposal = rmf_task_msgs::msg::BidProposal;
-using TaskID = std::string;
 
 //==============================================================================
 struct Submission
 {
-  std::string fleet_name = "";
+  std::string bidder_name = "";
   std::string robot_name = ""; // optional
   float prev_cost = 0.0;
   float new_cost = std::numeric_limits<float>::max();
-  rmf_traffic::Time start_time;
-  rmf_traffic::Time end_time;
+  rmf_traffic::Time finish_time;
 };
 
 //==============================================================================
 struct BiddingTask
 {
-  TaskID task_id;
-  TaskType task_type;
-  bool announce_all;
-  std::vector<std::string> bidders;
-  std::vector<bidding::Submission> submissions; // this will be populated during output
-  std::vector<std::string> itinerary;
-  rmf_traffic::Time submission_time;
-  rmf_traffic::Duration time_window = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    std::chrono::duration<double, std::ratio<1>>(2.0)); // 2s
+  TaskProfile task_profile;
+  rmf_traffic::Duration time_window = rmf_traffic::time::from_seconds(2.0); // 2s
 };
 
 //==============================================================================

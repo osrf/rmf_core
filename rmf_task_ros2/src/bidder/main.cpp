@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 
   bidding::MinimalBidder::Profile profile{
     "dummy_fleet",
-    { TaskType::Station, TaskType::Charging, TaskType::Delivery  }
+    { TaskType::Station, TaskType::Charging, TaskType::Delivery }
   };
   
   //============================================================================
@@ -49,14 +49,12 @@ int main(int argc, char* argv[])
     [](const bidding::BidNotice& notice )
     {
       // Here user will provice the best robot as a bid submission
-      std::cout << "[Bidding] Itinery wp size: " << notice.itinerary.size()
-                << "Providing best estimates" << std::endl;
+      std::cout << "[Bidding] Providing best estimates" << std::endl;
       
       auto now = std::chrono::steady_clock::now();
       bidding::Submission best_robot_estimate;
       best_robot_estimate.robot_name = "dumb";
-      best_robot_estimate.start_time = now;
-      best_robot_estimate.end_time = rmf_traffic::time::apply_offset(now, 5);     
+      best_robot_estimate.finish_time = rmf_traffic::time::apply_offset(now, 5);     
       best_robot_estimate.prev_cost = 10.2;     
       best_robot_estimate.new_cost = 13.5;
       return best_robot_estimate;
@@ -68,19 +66,19 @@ int main(int argc, char* argv[])
   
   std::shared_ptr<action::TaskActionServer> action_server =
     action::TaskActionServer::make(
-        node, profile.fleet_name, DispatchActionTopicName);
+        node, profile.bidder_name, DispatchActionTopicName);
 
   action_server->register_callbacks(
-    [](const action::TaskMsg& task)
+    [](const TaskProfile& task_profile)
     {
       std::cout << "[Action] ~Start Executing Task: "
-                << task.task_id<<std::endl;
+                << task_profile.task_id<<std::endl;
       return action::ResultResponse::ACCEPTED;
     },
-    [](const std::string& task_id)
+    [](const TaskProfile& task_profile)
     {
       std::cout << "[Action] ~Cancel Executing Task: "
-                << task_id<<std::endl;
+                << task_profile.task_id<<std::endl;
       return action::ResultResponse::ACCEPTED;
     }
   );

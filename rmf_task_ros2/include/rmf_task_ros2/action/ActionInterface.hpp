@@ -21,6 +21,8 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
+#include <rmf_task_ros2/TaskProfile.hpp>
+#include <rmf_traffic/Time.hpp>
 
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
 #include <rmf_task_msgs/msg/dispatch_status.hpp>
@@ -48,18 +50,38 @@ enum class ResultResponse : uint8_t {
 struct State
 {
   enum class Active : uint8_t {
-    INVALID, // e.g. during bidding 
+    INVALID=0, // e.g. during bidding 
     QUEUED,
     EXECUTING,
     CANCELING
   };
 
   enum class Terminal : uint8_t{
-    INVALID,
+    INVALID=0,
     COMPLETED,
     FAILED,
     CANCELED
   };
+};
+
+// TODO
+struct ActionTask
+{
+  enum class ActiveState : uint8_t {
+    INVALID=0, // e.g. during bidding 
+    QUEUED,
+    EXECUTING,
+    CANCELING
+  };
+
+  std::string task_id;
+  rmf_traffic::Time submission_time;
+  TaskType task_type;
+  std::vector<std::string> itinerary;
+  // ------ runtime updates ------
+  rmf_traffic::Time start_time;
+  rmf_traffic::Time end_time;
+  ActiveState state;
 };
 
 //==============================================================================
@@ -95,23 +117,21 @@ public:
   /// add a task to a targetted server
   ///
   /// \param[in] target server which will complete this task
-  /// \param[in] task unique id
-  /// \param[in] task description
+  /// \param[in] task profile to execute
   /// \param[in] response function when a add_task() method is completed
   void add_task(
       const std::string& server_id, 
-      const std::string& task_id, 
-      const TaskMsg& task_description,
+      const TaskProfile& task_profile,
       std::future<ResultResponse>& future_res);
   
   /// cancel an added task
   ///
   /// \param[in] target server which will cancel this task
-  /// \param[in] task unique id
+  /// \param[in] task profile to cancel
   /// \param[in] response function when a cancel_task() method is completed
   void cancel_task(
       const std::string& server_id, 
-      const std::string& task_id, 
+      const TaskProfile& task_profile,
       std::future<ResultResponse>& future_res);
 
 private:
@@ -155,9 +175,9 @@ public:
       const std::string& prefix_topic);
 
   using AddTaskCallback = 
-      std::function<ResultResponse(const TaskMsg& task)>;
+      std::function<ResultResponse(const TaskProfile& task_profile)>;
   using CancelTaskCallback = 
-      std::function<ResultResponse(const std::string& task_id)>;
+      std::function<ResultResponse(const TaskProfile& task_profile)>;
 
   /// Add event callback fns
   ///
@@ -195,9 +215,9 @@ private:
       const std::string& server_id,
       const std::string& prefix_topic);
 
-  void add_task_impl(const TaskMsg& task);
+  void add_task_impl(const TaskProfileMsg& task_profile);
 
-  void cancel_task_impl(const TaskMsg& task);
+  void cancel_task_impl(const TaskProfileMsg& task_profile);
 };
 
 } // namespace action

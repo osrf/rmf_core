@@ -59,7 +59,7 @@ TaskActionClient::TaskActionClient(
       {
         // todo: check if server_id and task_id match
         if (_request_msg.server_id != msg->server_id) return;
-        if (_request_msg.task.task_id != msg->task.task_id) return;
+        if (_request_msg.task_profile.task_id != msg->task.task_profile.task_id) return;
 
         auto res = static_cast<ResultResponse>(msg->response);
         _ack_promise.set_value(res);
@@ -86,8 +86,7 @@ void TaskActionClient::register_callbacks(
 
 void TaskActionClient::add_task(
     const std::string& server_id, 
-    const std::string& task_id, 
-    const TaskMsg& task_description,
+    const TaskProfile& task_profile,
     std::future<ResultResponse>& future_res)
 {
   // reinitiaze promise
@@ -95,9 +94,8 @@ void TaskActionClient::add_task(
   
   // send request and wait for acknowledgement
   _request_msg.server_id = server_id;
-  _request_msg.task = task_description;
+  _request_msg.task_profile = convert(task_profile);
   _request_msg.method = RequestMsg::ADD;
-  _request_msg.task.task_id = task_id; // need?
   _request_msg_pub->publish(_request_msg);
   future_res = _ack_promise.get_future();
   return;
@@ -105,7 +103,7 @@ void TaskActionClient::add_task(
 
 void TaskActionClient::cancel_task(
     const std::string& server_id, 
-    const std::string& task_id, 
+    const TaskProfile& task_profile,
     std::future<ResultResponse>& future_res)
 {
   // reinitiaze promise
@@ -113,7 +111,7 @@ void TaskActionClient::cancel_task(
 
   // send cancel and wait for acknowledgement
   _request_msg.server_id = server_id;
-  _request_msg.task.task_id = task_id;
+  _request_msg.task_profile = convert(task_profile);
   _request_msg.method = RequestMsg::CANCEL;
   _request_msg_pub->publish(_request_msg);
   future_res = _ack_promise.get_future();
@@ -144,9 +142,9 @@ TaskActionServer::TaskActionServer(
     [&](const RequestMsg::UniquePtr msg)
     {
       if(msg->method == RequestMsg::ADD)
-        this->add_task_impl(msg->task);
+        this->add_task_impl(msg->task_profile);
       else if(msg->method == RequestMsg::CANCEL)
-        this->cancel_task_impl(msg->task);
+        this->cancel_task_impl(msg->task_profile);
       else
         std::cerr << "Request Method is not supported!!!"<< std::endl;
     });
@@ -185,26 +183,28 @@ void TaskActionServer::terminate_task(
   _result_msg_pub->publish(result_msg);
 }
 
-void TaskActionServer::add_task_impl(const TaskMsg& task)
+void TaskActionServer::add_task_impl(const TaskProfileMsg& task_profile)
 {
   if(!_add_task_cb_fn) 
     return;
-  auto res = _add_task_cb_fn(task);
+  auto res = _add_task_cb_fn(convert(task_profile));
   
   ResultMsg result_msg;
-  result_msg.task = task;
+  result_msg.task.task_profile = task_profile;
+  // todo? status?
   result_msg.response = static_cast<uint8_t>(res);
   _result_msg_pub->publish(result_msg);
 }
 
-void TaskActionServer::cancel_task_impl(const TaskMsg& task)
+void TaskActionServer::cancel_task_impl(const TaskProfileMsg& task_profile)
 {
   if(!_cancel_task_cb_fn) 
     return;
-  auto res = _cancel_task_cb_fn(task.task_id);
+  auto res = _cancel_task_cb_fn(convert(task_profile));
   
   ResultMsg result_msg;
-  result_msg.task = task;
+  result_msg.task.task_profile = task_profile;
+  // todo? status?
   result_msg.response = static_cast<uint8_t>(res);
   _result_msg_pub->publish(result_msg);
 }

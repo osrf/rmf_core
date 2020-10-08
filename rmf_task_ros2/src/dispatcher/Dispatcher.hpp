@@ -36,6 +36,28 @@ namespace dispatcher {
 
 //==============================================================================
 // (TODO) new dispatcher lib
+
+enum class DispatchState{
+  Invalid, 
+  Queued, 
+  Active,
+  Completed,
+  Failed,
+  Canceled,
+  Bidding
+};
+
+struct DispatchTask
+{
+  TaskProfile profile;
+  bidding::Submission winner;
+  double progress; // 0 - 1.0
+  DispatchState dispatch_state;
+};
+using DispatchTasks = std::map<TaskID, DispatchTask>;
+
+//==============================================================================
+
 class DispatcherNode : public rclcpp::Node
 {
 public:
@@ -47,46 +69,45 @@ public:
   /// submit task to dispatcher
   ///
   /// \param [in] task to dispatch
-  void submit_task(const bidding::BiddingTask& task);
+  /// \return generated task_id
+  TaskID submit_task(const TaskProfile& task);
 
   /// cancel task in dispatcher
   ///
   /// \param [in] task to dispatch
-  bool cancel_task(bidding::TaskID task_id);
+  bool cancel_task(const TaskID& task_id);
 
   /// check status of a submited task
   ///
   /// \param [in] to identify task_id
   /// \return State of the task (invalid: in bidding, nullopt: not avail)
   rmf_utils::optional<action::State::Active> get_task_status(
-      bidding::TaskID task_id);
+      const TaskID& task_id);
+
+  // DispatchTasks get_active_tasks(
+  //   DispatchState query_state=DispatchState::Invalid);
+
+  // DispatchTasks get_terminated_tasks(
+  //   DispatchState query_state=DispatchState::Invalid);
 
 private:
   std::shared_ptr<bidding::Auctioneer> _auctioneer;
   std::shared_ptr<action::TaskActionClient> _action_client;
   
-  using TaskStatePair = std::pair<bidding::BiddingTask, action::State::Active>;
-  using ActiveTasksTrack = std::map<bidding::TaskID, TaskStatePair>;
-  ActiveTasksTrack _active_tasks;
+  // todo, should use action task?
+  using ActiveTaskState = std::pair<TaskProfile, action::State::Active>;
+  using ActiveTasksMap = std::map<TaskID, ActiveTaskState>;
+  ActiveTasksMap _active_tasks;
 
-  using Loop = rmf_task_msgs::msg::Loop;
-  using LoopSub = rclcpp::Subscription<Loop>;
-  LoopSub::SharedPtr _loop_sub;
-
-  using Delivery = rmf_task_msgs::msg::Delivery;
-  using DeliverySub = rclcpp::Subscription<Delivery>;
-  DeliverySub::SharedPtr _delivery_sub;
-
-  using Station = rmf_task_msgs::msg::Station;
-  using StationSub = rclcpp::Subscription<Station>;
-  StationSub::SharedPtr _station_sub;
+  DispatchTasks active_dispatch_tasks;
+  DispatchTasks terminal_dispatch_tasks;
 
   // Private constructor
   DispatcherNode();
 
   // Callback when a bidding winner is provided
   void receive_bidding_winner_cb(
-      const bidding::TaskID& task_id, 
+      const TaskID& task_id, 
       const rmf_utils::optional<bidding::Submission> winner);
 
   // task action status callback
@@ -100,7 +121,7 @@ private:
 };
 
 //==============================================================================
-action::TaskMsg convert_task(const bidding::BiddingTask& bid);
+// action::TaskMsg convert_task(const bidding::BiddingTask& bid);
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2

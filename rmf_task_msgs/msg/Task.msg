@@ -1,17 +1,5 @@
 # Unique ID to differentiate the task
-string task_id
-
-# ============================================================================
-# Complusory fields during task reqeust (ADD method) and status update
-
-# submission_time is when the task was first submited
-builtin_interfaces/Time submission_time
-
-# e.g. Delivery, Station.....
-TaskType type
-
-# array of stopby place/waypoints names
-string[] itinerary
+TaskProfile task_profile
 
 # ============================================================================
 # Populated only by task action server after the task is queued
@@ -26,8 +14,7 @@ builtin_interfaces/Time start_time
 builtin_interfaces/Time end_time
 
 # optional field
-string fleet_name # ??? 
-string robot_name # ???
+string robot_name 
 # todo: phase?
 
 # state

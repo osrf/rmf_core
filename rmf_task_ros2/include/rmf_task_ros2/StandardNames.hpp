@@ -22,13 +22,15 @@
 
 namespace rmf_task_ros2 {
 
-enum class TaskType { 
-    Station, 
-    Loop, 
-    Delivery,
-    Charging, 
-    Cleaning,
-    Patrol
+enum class TaskState {
+  INVALID,
+  ACTIVE_QUEUED,
+  ACTIVE_EXECUTING,
+  ACTIVE_CANCELING,
+  TERMINAL_COMPLETED,
+  TERMINAL_CANCELED,
+  TERMINAL_FAILED,
+  BIDDING
 };
 
 const std::string Prefix = "rmf_task/";

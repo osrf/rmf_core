@@ -15,3 +15,5 @@ uint8 CANCEL=2  # to cancel and remove a task
 
 # Confirmation that this service call is processed
 bool success
+
+string task_id

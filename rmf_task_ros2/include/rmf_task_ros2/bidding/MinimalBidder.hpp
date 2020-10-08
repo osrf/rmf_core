@@ -24,6 +24,7 @@
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
+#include <rmf_task_ros2/TaskProfile.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
 
 namespace rmf_task_ros2 {
@@ -37,7 +38,7 @@ class MinimalBidder
 public: 
   struct Profile
   {
-    std::string fleet_name;
+    std::string bidder_name;
     std::set<TaskType> valid_tasks;
   };
 

@@ -24,6 +24,8 @@
 #include <rclcpp/node.hpp>
 #include <rmf_utils/optional.hpp>
 #include <rmf_utils/impl_ptr.hpp>
+
+#include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
 #include <rmf_task_ros2/bidding/Nomination.hpp>
 
@@ -31,7 +33,7 @@ namespace rmf_task_ros2 {
 namespace bidding {
 //==============================================================================
 
-using BiddingTaskPtr = std::shared_ptr<BiddingTask>;
+using BiddingTaskPtr = std::shared_ptr<BiddingTask>; // toberemoved
 
 class Auctioneer: public std::enable_shared_from_this<Auctioneer>
 {
@@ -48,9 +50,10 @@ public:
 
   /// callback which will provide the winner when a bid is concluded
   ///
+  /// \param[in] bidding task
   /// \param[out] single winner submission
   using BiddingResultCallback = 
-    std::function<void( const TaskID& task_id, 
+    std::function<void( const TaskID& task_id, // change to bidding task
                         const rmf_utils::optional<Submission> winner)>;
 
   /// Provide a callback fn which will be called when a bid is concluded

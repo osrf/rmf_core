@@ -24,19 +24,19 @@ using namespace rmf_task_ros2::bidding;
 auto now = std::chrono::steady_clock::now();
 
 Submission submission1{
-  "fleet1", "", 2.3, 3.4, now, rmf_traffic::time::apply_offset(now, 5)
+  "fleet1", "", 2.3, 3.4, rmf_traffic::time::apply_offset(now, 5)
 };
 Submission submission2{
-  "fleet2", "", 3.5, 3.6, now, rmf_traffic::time::apply_offset(now, 5.5)
+  "fleet2", "", 3.5, 3.6, rmf_traffic::time::apply_offset(now, 5.5)
 };
 Submission submission3{
-  "fleet3", "", 0.0, 1.4, now, rmf_traffic::time::apply_offset(now, 3)
+  "fleet3", "", 0.0, 1.4, rmf_traffic::time::apply_offset(now, 3)
 };
 Submission submission4{
-  "fleet4", "", 5.0, 5.4, now, rmf_traffic::time::apply_offset(now, 4)
+  "fleet4", "", 5.0, 5.4, rmf_traffic::time::apply_offset(now, 4)
 };
 Submission submission5{
-  "fleet5", "", 0.5, 0.8, now, rmf_traffic::time::apply_offset(now, 3.5)
+  "fleet5", "", 0.5, 0.8, rmf_traffic::time::apply_offset(now, 3.5)
 };
 
 //==============================================================================
@@ -55,7 +55,7 @@ SCENARIO("Quickest Finish Time Evaluator", "[MinFinishTime]")
       submission1, submission2, submission3, submission4, submission5 };
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(QuickestFinishEvaluator());
-    REQUIRE(winner->fleet_name == "fleet3"); // fastest agent
+    REQUIRE(winner->bidder_name == "fleet3"); // fastest agent
   }
 }
 
@@ -75,7 +75,7 @@ SCENARIO("Least Diff Cost Evaluator", "[MinDiffCost]")
       submission1, submission2, submission3, submission4, submission5 };
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(LeastFleetDiffCostEvaluator());
-    REQUIRE(winner->fleet_name == "fleet2"); // least diff cost agent
+    REQUIRE(winner->bidder_name == "fleet2"); // least diff cost agent
   }
 }
 
@@ -95,6 +95,6 @@ SCENARIO("Least Fleet Cost Evaluator", "[MinNewCost]")
       submission1, submission2, submission3, submission4, submission5 };
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(LeastFleetCostEvaluator());
-    REQUIRE(winner->fleet_name == "fleet5"); // least new cost agent
+    REQUIRE(winner->bidder_name == "fleet5"); // least new cost agent
   }
 }

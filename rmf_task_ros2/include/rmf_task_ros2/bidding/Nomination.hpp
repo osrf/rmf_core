@@ -130,7 +130,7 @@ public:
           nominee_it != submissions.end(); ++nominee_it)
     {
       // TODO implementation Here!!! choose the least finish time 
-      if (nominee_it->end_time < winner_it->end_time)
+      if (nominee_it->finish_time < winner_it->finish_time)
         winner_it = nominee_it;
     }
     return std::distance( submissions.begin(), winner_it );    

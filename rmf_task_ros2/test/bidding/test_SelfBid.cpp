@@ -25,6 +25,7 @@
 
 using namespace rmf_task_ros2;
 using namespace rmf_task_ros2::bidding;
+using namespace rmf_task_ros2::bidding;
 
 //==============================================================================
 MinimalBidder::Profile bidder1_profile {
@@ -34,12 +35,10 @@ MinimalBidder::Profile bidder2_profile {
   "bidder2",  { TaskType::Delivery, TaskType::Cleaning }
 };
 
-BiddingTask bidding_task1{
-  "bid1", TaskType::Station, true, {}, {}, {"place1", "place2"}
-};
-BiddingTask bidding_task2{
-  "bid2", TaskType::Delivery, true, {}, {}, {"place1", "place2"}
-};
+auto submision_time = std::chrono::steady_clock::now();
+BiddingTask bidding_task1{{"bid1", submision_time, TaskType::Station }};
+BiddingTask bidding_task2{{"bid2", submision_time, TaskType::Delivery }};
+
 
 //==============================================================================
 SCENARIO("Auction with 2 Bids", "[TwoBids]")
@@ -63,7 +62,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     [&r_notice_bidder1_id](const BidNotice& notice)
     {
       Submission best_robot_estimate;
-      r_notice_bidder1_id = notice.task_id;
+      r_notice_bidder1_id = notice.task_profile.task_id;
       return best_robot_estimate;
     }
   );
@@ -73,7 +72,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
       // TaskType should not be supported
       Submission best_robot_estimate;
       best_robot_estimate.new_cost = 2.3; // lower cost than bidder1
-      r_notice_bidder2_id = notice.task_id;
+      r_notice_bidder2_id = notice.task_profile.task_id;
       return best_robot_estimate;
     }
   );
@@ -83,31 +82,33 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     {
       if (!winner) return;
       r_result_id = task_id;
-      r_result_winner = winner->fleet_name;
+      r_result_winner = winner->bidder_name;
       return;
     }
   );
 
+  // forever incompleted future
+  std::promise<void> ready_promise;
+  std::shared_future<void> ready_future(ready_promise.get_future());
+  // replacement of this method --->
+  // std::this_thread::sleep_for (std::chrono::milliseconds(1000));
+  // executor.spin_some();
+
   WHEN("First 'Station' Task Bid")
   {
     // start bidding
-    bidding_task1.submission_time = std::chrono::steady_clock::now();
+    bidding_task1.task_profile.submission_time = std::chrono::steady_clock::now();
     auctioneer->start_bidding(bidding_task1);
 
-    // todo: use spin till timeout
-    executor.spin_some();
-    std::this_thread::sleep_for (std::chrono::milliseconds(500)); 
-    executor.spin_some();
+    executor.spin_until_future_complete(ready_future, 
+      rmf_traffic::time::from_seconds(0.5));
 
     // Check if bidder 1 & 2 receive BidNotice
     REQUIRE(r_notice_bidder1_id == "bid1"); // this is valid
     REQUIRE(r_notice_bidder2_id == ""); // bidder2 doesnt support tasktype
 
-    // todo: wait till timeout is reached: default 2s
-    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-    executor.spin_some();
-    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-    executor.spin_some();
+    executor.spin_until_future_complete(ready_future, 
+      rmf_traffic::time::from_seconds(2.5));
 
     // Check if Auctioneer received Bid from bidder1
     REQUIRE(r_result_winner == "bidder1");
@@ -117,23 +118,18 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   WHEN("Second 'Delivery' Task bid")
   {
     // start bidding
-    bidding_task2.submission_time = std::chrono::steady_clock::now();
+    bidding_task2.task_profile.submission_time = std::chrono::steady_clock::now();
     auctioneer->start_bidding(bidding_task2);
 
-    // todo: use spin till timeout
-    executor.spin_some();
-    std::this_thread::sleep_for (std::chrono::milliseconds(500)); 
-    executor.spin_some();
+    executor.spin_until_future_complete(ready_future, 
+      rmf_traffic::time::from_seconds(0.5));
 
     // Check if bidder 1 & 2 receive BidNotice
     REQUIRE(r_notice_bidder1_id == "bid2"); // this is valid
     REQUIRE(r_notice_bidder2_id == "bid2"); // bidder2 doesnt support tasktype
 
-    // todo: wait till timeout is reached: default 2s
-    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-    executor.spin_some();
-    std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-    executor.spin_some();
+    executor.spin_until_future_complete(ready_future, 
+      rmf_traffic::time::from_seconds(2.5));
 
     // Check if Auctioneer received Bid from bidder1
     REQUIRE(r_result_winner == "bidder2");

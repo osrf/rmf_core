@@ -56,15 +56,15 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND)
   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
 
   ament_add_catch2(
-    test_rmf_tasks test/main.cpp ${unit_test_srcs}
+    test_rmf_task_ros2 test/main.cpp ${unit_test_srcs}
     TIMEOUT 300)
-  target_link_libraries(test_rmf_tasks
+  target_link_libraries(test_rmf_task_ros2
       rmf_task_ros2
       rmf_traffic::rmf_traffic
       rmf_traffic_ros2::rmf_traffic_ros2
   )
 
-  target_include_directories(test_rmf_tasks
+  target_include_directories(test_rmf_task_ros2
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
   )
