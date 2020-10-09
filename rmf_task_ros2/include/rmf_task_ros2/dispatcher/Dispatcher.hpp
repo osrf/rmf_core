@@ -38,13 +38,16 @@ namespace dispatcher {
 // (TODO) new dispatcher lib
 
 enum class DispatchState{
-  Invalid, 
-  Queued, 
-  Active,
-  Completed,
-  Failed,
-  Canceled,
-  Bidding
+  // inherited from Action Task State
+  Invalid,    // null
+  Queued,     // active
+  Executing,  // active
+  Completed,  // active
+  Failed,     // terminated
+  Canceled,   // terminated
+
+  // Additional State
+  Bidding = 10  // active
 };
 
 struct DispatchTask
@@ -58,13 +61,14 @@ using DispatchTasks = std::map<TaskID, DispatchTask>;
 
 //==============================================================================
 
-class DispatcherNode : public rclcpp::Node
+class Dispatcher
 {
 public:
   /// Create the node of a Task Dispatcher, inherited of rclcpp node
   ///
   /// \return Pointer to the dispatcher node
-  static std::shared_ptr<DispatcherNode> make_node();
+  static std::shared_ptr<Dispatcher> make(
+    std::shared_ptr<rclcpp::Node> node);
   
   /// submit task to dispatcher
   ///
@@ -81,29 +85,31 @@ public:
   ///
   /// \param [in] to identify task_id
   /// \return State of the task (invalid: in bidding, nullopt: not avail)
-  rmf_utils::optional<action::State::Active> get_task_status(
+  rmf_utils::optional<DispatchState> get_task_status(
       const TaskID& task_id);
 
+  // TODO get pointer (populating tasks)
   // DispatchTasks get_active_tasks(
   //   DispatchState query_state=DispatchState::Invalid);
-
+  
   // DispatchTasks get_terminated_tasks(
   //   DispatchState query_state=DispatchState::Invalid);
 
 private:
+  std::shared_ptr<rclcpp::Node> _node;
   std::shared_ptr<bidding::Auctioneer> _auctioneer;
   std::shared_ptr<action::TaskActionClient> _action_client;
   
   // todo, should use action task?
-  using ActiveTaskState = std::pair<TaskProfile, action::State::Active>;
+  using ActiveTaskState = std::pair<TaskProfile, DispatchState>;
   using ActiveTasksMap = std::map<TaskID, ActiveTaskState>;
   ActiveTasksMap _active_tasks;
 
-  DispatchTasks active_dispatch_tasks;
-  DispatchTasks terminal_dispatch_tasks;
+  // DispatchTasks active_dispatch_tasks;
+  // DispatchTasks terminal_dispatch_tasks;
 
   // Private constructor
-  DispatcherNode();
+  Dispatcher(std::shared_ptr<rclcpp::Node> node_);
 
   // Callback when a bidding winner is provided
   void receive_bidding_winner_cb(
@@ -117,11 +123,8 @@ private:
   // task action finish callback
   void action_finish_cb(
       const action::TaskMsg& task, 
-      const action::State::Terminal state);
+      const bool success);
 };
-
-//==============================================================================
-// action::TaskMsg convert_task(const bidding::BiddingTask& bid);
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2

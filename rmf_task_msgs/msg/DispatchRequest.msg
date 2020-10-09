@@ -12,5 +12,3 @@ TaskProfile task_profile
 uint8 method
 uint8 ADD=1     # to add a task
 uint8 CANCEL=2  # to cancel and remove a task
-
-# Behavior # ?? todo

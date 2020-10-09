@@ -80,8 +80,7 @@ target_link_libraries(rmf_bidder_node PUBLIC rmf_task_ros2)
 #===============================================================================
 
 add_executable(rmf_task_dispatcher 
-  src/dispatcher/main.cpp
-  src/dispatcher/Dispatcher.cpp
+  src/dispatcher_node/main.cpp
 )
 target_link_libraries(rmf_task_dispatcher PUBLIC rmf_task_ros2)
 

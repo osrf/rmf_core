@@ -16,7 +16,7 @@
 */
 
 
-#include "Dispatcher.hpp"
+#include <rmf_task_ros2/dispatcher/Dispatcher.hpp>
 
 #include <rclcpp/node.hpp>
 
@@ -24,25 +24,30 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
-std::shared_ptr<DispatcherNode> DispatcherNode::make_node()
+std::shared_ptr<Dispatcher> Dispatcher::make(
+    std::shared_ptr<rclcpp::Node> node)
 {
-  auto node = std::shared_ptr<DispatcherNode>(new DispatcherNode);
-  node->_auctioneer = bidding::Auctioneer::make(node);
-  node->_action_client = 
+  // this->Dispatcher(node);
+
+  auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher(node));
+
+  // auto node = std::shared_ptr<Dispatcher>(new Dispatcher);
+  dispatcher->_auctioneer = bidding::Auctioneer::make(node);
+  dispatcher->_action_client = 
     action::TaskActionClient::make(node, DispatchActionTopicName);
 
   // bidding result callback
   using namespace std::placeholders;
-  node->_auctioneer->receive_bidding_result(
-    std::bind(&DispatcherNode::receive_bidding_winner_cb, node, _1, _2));
-  node->_action_client->register_callbacks(
-    std::bind(&DispatcherNode::action_status_cb, node, _1),
-    std::bind(&DispatcherNode::action_finish_cb, node, _1, _2));
-  return node;
+  dispatcher->_auctioneer->receive_bidding_result(
+    std::bind(&Dispatcher::receive_bidding_winner_cb, dispatcher, _1, _2));
+  dispatcher->_action_client->register_callbacks(
+    std::bind(&Dispatcher::action_status_cb, dispatcher, _1),
+    std::bind(&Dispatcher::action_finish_cb, dispatcher, _1, _2));
+  return dispatcher;
 }
 
 //==============================================================================
-TaskID DispatcherNode::submit_task(const TaskProfile& task)
+TaskID Dispatcher::submit_task(const TaskProfile& task)
 {
   // auto generate a taskid
   auto auction_task = task;
@@ -51,7 +56,7 @@ TaskID DispatcherNode::submit_task(const TaskProfile& task)
     std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
       p1.time_since_epoch()).count());
 
-  ActiveTaskState task_state(auction_task, action::State::Active::INVALID);
+  ActiveTaskState task_state(auction_task, DispatchState::Bidding);
   _active_tasks[auction_task.task_id] = task_state;
   bidding::BiddingTask bidding_task;
   bidding_task.task_profile = auction_task;
@@ -59,28 +64,28 @@ TaskID DispatcherNode::submit_task(const TaskProfile& task)
   return task.task_id;
 }
 
-bool DispatcherNode::cancel_task(const TaskID& task_id)
+bool Dispatcher::cancel_task(const TaskID& task_id)
 {
   // check if key doesnt exist
   if (!_active_tasks.count(task_id))
     return false;
 
   // todo: need to cancel bidding
-  if (_active_tasks[task_id].second == action::State::Active::INVALID)
+  if (_active_tasks[task_id].second == DispatchState::Bidding)
     return false;
 
-  std::future<action::ResultResponse> test_fut;
+  std::future<bool> fut_task_success;
 
   // assert(_active_tasks[task_id].first.submissions.size() != 0);
   // auto server_id = _active_tasks[task_id].first.submissions[0].bidder_name;
 
   // TODO!!! fix indentify server_id
   _action_client->cancel_task( 
-      "server_id", _active_tasks[task_id].first, test_fut);
+      "server_id", _active_tasks[task_id].first, fut_task_success);
   return true;
 }
 
-rmf_utils::optional<action::State::Active> DispatcherNode::get_task_status(
+rmf_utils::optional<DispatchState> Dispatcher::get_task_status(
     const TaskID& task_id)
 {
   // check if key doesnt exist
@@ -91,15 +96,15 @@ rmf_utils::optional<action::State::Active> DispatcherNode::get_task_status(
 }
 
 //==============================================================================
-DispatcherNode::DispatcherNode()
-: Node("rmf_task_dispatcher_node")
+Dispatcher::Dispatcher(std::shared_ptr<rclcpp::Node> node_)
+: _node(std::move(node_))
 {
-  std::cout << "~Initializing Dispatcher Node~" << std::endl;
+  std::cout << "~Initializing RMF Dispatcher~" << std::endl;
 }
 
 //==============================================================================
 // Callback when a bidding winner is provided
-void DispatcherNode::receive_bidding_winner_cb(
+void Dispatcher::receive_bidding_winner_cb(
     const TaskID& task_id, 
     const rmf_utils::optional<bidding::Submission> winner)
 {
@@ -114,18 +119,18 @@ void DispatcherNode::receive_bidding_winner_cb(
   // we will initiate a task via task action here! (TODO)
   // _active_tasks[task_id].first.submissions.push_back(*winner);
   // action::TaskMsg task = convert_task(_active_tasks[task_id].first);
-  std::future<action::ResultResponse> test_fut;
+  std::future<bool> fut_task_success;
 
   _action_client->add_task(
-      winner->bidder_name, _active_tasks[task_id].first, test_fut);
+      winner->bidder_name, _active_tasks[task_id].first, fut_task_success);
 
   // when fut is received, change task state as queued
-  _active_tasks[task_id].second = action::State::Active::QUEUED;
+  _active_tasks[task_id].second = DispatchState::Queued;
 }
 
 //==============================================================================
 // task action callback
-void DispatcherNode::action_status_cb(
+void Dispatcher::action_status_cb(
     const std::vector<action::TaskMsg>& tasks)
 {
   std::cout << "[action status] number of on-going tasks"
@@ -134,28 +139,18 @@ void DispatcherNode::action_status_cb(
   for(auto tsk : tasks)
   {
     _active_tasks[tsk.task_profile.task_id].second = 
-      static_cast<action::State::Active>(tsk.active_state);
+      static_cast<DispatchState>(tsk.state);
   }
 }
 
-void DispatcherNode::action_finish_cb(
+void Dispatcher::action_finish_cb(
     const action::TaskMsg& task, 
-    const action::State::Terminal state)
+    const bool success)
 {
   std::cout << "[action result] completed task: " << task.task_profile.task_id 
-            << " state: " << static_cast<uint8_t>(state) << std::endl;
+            << " scucess?: " << success << std::endl;
   _active_tasks.erase(task.task_profile.task_id); // todo check if within
 }
-
-//==============================================================================
-// action::TaskMsg convert_task(const bidding::BiddingTask& bid)
-// {
-//   action::TaskMsg task;
-//   task.task_id = bid.task_id;
-//   task.submission_time = rmf_traffic_ros2::convert(bid.submission_time);
-//   task.type.value = static_cast<uint8_t>(bid.task_type);
-//   return task;
-// }
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2

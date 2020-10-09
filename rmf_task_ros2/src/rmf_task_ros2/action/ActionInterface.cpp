@@ -52,26 +52,23 @@ TaskActionClient::TaskActionClient(
     prefix_topic + "_result", dispatch_qos,
     [&](const ResultMsg::UniquePtr msg)
     {
-      bool is_terminated = (msg->response == ResultMsg::TERMINATED);
-
-      // Acknowledgment mode
-      if(!is_terminated)
+      // find task_profile if is waiting for ack list
+      auto task_profile = convert(msg->task.task_profile);
+      if (_task_request_fut_ack.count(task_profile))
       {
-        // todo: check if server_id and task_id match
-        if (_request_msg.server_id != msg->server_id) return;
-        if (_request_msg.task_profile.task_id != msg->task.task_profile.task_id) return;
-
-        auto res = static_cast<ResultResponse>(msg->response);
-        _ack_promise.set_value(res);
-        return;
+        if (msg->task.state != TaskMsg::TERMINAL_FAILED)
+          _task_request_fut_ack[task_profile].set_value(true);
+        else
+          _task_request_fut_ack[task_profile].set_value(false);
+        
+        _task_request_fut_ack.erase(task_profile);
       }
 
       // termination mode
       if(_termination_callback_fn)
       {
-        _termination_callback_fn(
-          msg->task,
-          static_cast<State::Terminal>(msg->terminal_state));
+        bool is_success = (msg->task.state == TaskMsg::TERMINAL_COMPLETED);
+        _termination_callback_fn( msg->task, is_success);
       }
     });
 }
@@ -87,34 +84,38 @@ void TaskActionClient::register_callbacks(
 void TaskActionClient::add_task(
     const std::string& server_id, 
     const TaskProfile& task_profile,
-    std::future<ResultResponse>& future_res)
+    std::future<bool>& future_res)
 {
   // reinitiaze promise
-  _ack_promise = std::promise<ResultResponse>(); 
+  _ack_promise = std::promise<bool>(); 
   
   // send request and wait for acknowledgement
   _request_msg.server_id = server_id;
   _request_msg.task_profile = convert(task_profile);
   _request_msg.method = RequestMsg::ADD;
   _request_msg_pub->publish(_request_msg);
-  future_res = _ack_promise.get_future();
+
+  _task_request_fut_ack[task_profile] = std::promise<bool>();
+  future_res = _task_request_fut_ack[task_profile].get_future();
   return;
 }
 
 void TaskActionClient::cancel_task(
     const std::string& server_id, 
     const TaskProfile& task_profile,
-    std::future<ResultResponse>& future_res)
+    std::future<bool>& future_res)
 {
   // reinitiaze promise
-  _ack_promise = std::promise<ResultResponse>(); 
+  _ack_promise = std::promise<bool>(); 
 
   // send cancel and wait for acknowledgement
   _request_msg.server_id = server_id;
   _request_msg.task_profile = convert(task_profile);
   _request_msg.method = RequestMsg::CANCEL;
   _request_msg_pub->publish(_request_msg);
-  future_res = _ack_promise.get_future();
+
+  _task_request_fut_ack[task_profile] = std::promise<bool>();
+  future_res = _task_request_fut_ack[task_profile].get_future();
   return;
 }
 
@@ -174,38 +175,48 @@ void TaskActionServer::update_progress(const std::vector<TaskMsg>& tasks)
 
 void TaskActionServer::terminate_task(
     const TaskMsg& task,
-    const State::Terminal state)
+    const bool success)
 {
   ResultMsg result_msg;
   result_msg.task = task;
-  result_msg.response = ResultMsg::TERMINATED;
-  result_msg.terminal_state = static_cast<uint8_t>(state);
+
+  if (success)
+    result_msg.task.state = TaskMsg::ACTIVE_QUEUED;
+  else
+    result_msg.task.state = TaskMsg::TERMINAL_FAILED;
+
   _result_msg_pub->publish(result_msg);
 }
 
 void TaskActionServer::add_task_impl(const TaskProfileMsg& task_profile)
 {
+  ResultMsg result_msg;
+  result_msg.task.task_profile = task_profile; 
+  
   if(!_add_task_cb_fn) 
     return;
-  auto res = _add_task_cb_fn(convert(task_profile));
-  
-  ResultMsg result_msg;
-  result_msg.task.task_profile = task_profile;
-  // todo? status?
-  result_msg.response = static_cast<uint8_t>(res);
+
+  if(_add_task_cb_fn(convert(task_profile)))
+    result_msg.task.state = TaskMsg::ACTIVE_QUEUED;
+  else
+    result_msg.task.state = TaskMsg::TERMINAL_FAILED;
+
   _result_msg_pub->publish(result_msg);
 }
 
 void TaskActionServer::cancel_task_impl(const TaskProfileMsg& task_profile)
 {
-  if(!_cancel_task_cb_fn) 
-    return;
-  auto res = _cancel_task_cb_fn(convert(task_profile));
-  
   ResultMsg result_msg;
   result_msg.task.task_profile = task_profile;
-  // todo? status?
-  result_msg.response = static_cast<uint8_t>(res);
+  
+  if(!_cancel_task_cb_fn)
+    return;
+
+  if(_cancel_task_cb_fn(convert(task_profile)))
+    result_msg.task.state = TaskMsg::TERMINAL_CANCELED;
+  else
+    result_msg.task.state = TaskMsg::TERMINAL_FAILED;
+
   _result_msg_pub->publish(result_msg);
 }
 

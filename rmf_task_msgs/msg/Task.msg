@@ -18,8 +18,10 @@ string robot_name
 # todo: phase?
 
 # state
-uint8 active_state
+uint8 state
 uint8 INVALID=0
-uint8 QUEUED=1
-uint8 EXECUTING=2
-uint8 CANCELING=3
+uint8 ACTIVE_QUEUED=1
+uint8 ACTIVE_EXECUTING=2
+uint8 TERMINAL_COMPLETED=3  # hooray
+uint8 TERMINAL_FAILED=4     # oh no
+uint8 TERMINAL_CANCELED=5

@@ -41,44 +41,15 @@ using StatusMsg = rmf_task_msgs::msg::DispatchStatus;
 using ResultMsg = rmf_task_msgs::msg::DispatchResult;
 using TaskMsg = rmf_task_msgs::msg::Task;
 
-enum class ResultResponse : uint8_t {
-  REJECTED,
-  ACCEPTED
-  // TERMINATED // wont be used
-};
-
-struct State
+// TODO: user define? to replace TaskMsg
+struct ActionTaskStatus
 {
-  enum class Active : uint8_t {
-    INVALID=0, // e.g. during bidding 
-    QUEUED,
-    EXECUTING,
-    CANCELING
+  enum class ActiveState : uint8_t
+  {
+    QUEUED = TaskMsg::ACTIVE_QUEUED,
+    EXECUTING = TaskMsg::ACTIVE_EXECUTING
   };
 
-  enum class Terminal : uint8_t{
-    INVALID=0,
-    COMPLETED,
-    FAILED,
-    CANCELED
-  };
-};
-
-// TODO
-struct ActionTask
-{
-  enum class ActiveState : uint8_t {
-    INVALID=0, // e.g. during bidding 
-    QUEUED,
-    EXECUTING,
-    CANCELING
-  };
-
-  std::string task_id;
-  rmf_traffic::Time submission_time;
-  TaskType task_type;
-  std::vector<std::string> itinerary;
-  // ------ runtime updates ------
   rmf_traffic::Time start_time;
   rmf_traffic::Time end_time;
   ActiveState state;
@@ -104,7 +75,7 @@ public:
   using StatusCallback = 
     std::function<void(const std::vector<TaskMsg>& tasks)>;
   using TerminationCallback = 
-    std::function<void(const TaskMsg& task, const State::Terminal state)>;
+    std::function<void(const TaskMsg& task, const bool success)>;
 
   /// Add event callback fns
   ///
@@ -122,7 +93,7 @@ public:
   void add_task(
       const std::string& server_id, 
       const TaskProfile& task_profile,
-      std::future<ResultResponse>& future_res);
+      std::future<bool>& future_success);
   
   /// cancel an added task
   ///
@@ -132,7 +103,7 @@ public:
   void cancel_task(
       const std::string& server_id, 
       const TaskProfile& task_profile,
-      std::future<ResultResponse>& future_res);
+      std::future<bool>& future_success);
 
 private:
   std::shared_ptr<rclcpp::Node> _node;
@@ -149,8 +120,10 @@ private:
       const std::string& prefix_topic);
 
   // wait acknowledgment
+  std::map<TaskProfile, std::promise<bool>> _task_request_fut_ack;
+
   RequestMsg _request_msg; //todo, a better approach
-  std::promise<ResultResponse> _ack_promise;
+  std::promise<bool> _ack_promise;
 
   // ResultResponse wait_result_ack_impl(const std::string& task_id);
 };
@@ -175,9 +148,9 @@ public:
       const std::string& prefix_topic);
 
   using AddTaskCallback = 
-      std::function<ResultResponse(const TaskProfile& task_profile)>;
+      std::function<bool(const TaskProfile& task_profile)>;
   using CancelTaskCallback = 
-      std::function<ResultResponse(const TaskProfile& task_profile)>;
+      std::function<bool(const TaskProfile& task_profile)>;
 
   /// Add event callback fns
   ///
@@ -196,8 +169,8 @@ public:
   /// use this to inform client that the task is terminated
   ///
   /// \param[in] Terminated task
-  /// \param[in] Terminal state
-  void terminate_task(const TaskMsg& task, const State::Terminal state);
+  /// \param[in] success
+  void terminate_task(const TaskMsg& task, const bool success);
 
 private:
   std::shared_ptr<rclcpp::Node> _node;

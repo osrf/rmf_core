@@ -73,13 +73,13 @@ int main(int argc, char* argv[])
     {
       std::cout << "[Action] ~Start Executing Task: "
                 << task_profile.task_id<<std::endl;
-      return action::ResultResponse::ACCEPTED;
+      return true; //successs
     },
     [](const TaskProfile& task_profile)
     {
       std::cout << "[Action] ~Cancel Executing Task: "
                 << task_profile.task_id<<std::endl;
-      return action::ResultResponse::ACCEPTED;
+      return true; //success
     }
   );
 

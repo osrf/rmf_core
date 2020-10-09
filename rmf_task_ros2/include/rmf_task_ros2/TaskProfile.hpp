@@ -48,6 +48,18 @@ struct TaskProfile
   TaskType task_type;
   bool priority;
   TaskParams task_params;
+
+  bool operator==(const TaskProfile& tsk) const
+  {
+    if(this->task_id == tsk.task_id)
+      return true;
+    return false;
+  }
+
+  bool operator<(const TaskProfile& tsk) const
+  {
+    return (this->task_id < tsk.task_id);
+  }
 };
 
 //==============================================================================

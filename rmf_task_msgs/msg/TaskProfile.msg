@@ -5,7 +5,7 @@ string task_id
 builtin_interfaces/Time submission_time
 
 # e.g. Delivery, Station.....
-TaskType type
+TaskType type  # enum here?
 
 # is this a priority
 bool priority
