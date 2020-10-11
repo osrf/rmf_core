@@ -55,8 +55,8 @@ rmf_tasks::Request::SharedPtr Clean::make(
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
-  bool drain_battery,
-  rmf_traffic::Time start_time)
+  rmf_traffic::Time start_time,
+  bool drain_battery)
 {
   std::shared_ptr<Clean> clean(new Clean());
   clean->_pimpl->id = id;
