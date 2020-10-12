@@ -28,10 +28,10 @@ class State::Implementation
 public:
 
   Implementation(
-    rmf_traffic::agv::Plan::Start plan_start,
+    rmf_traffic::agv::Plan::Start location,
     std::size_t charging_waypoint,
     double battery_soc)
-  : _plan_start(std::move(plan_start)),
+  : _location(std::move(location)),
     _charging_waypoint(charging_waypoint),
     _battery_soc(battery_soc)
   {
@@ -40,30 +40,30 @@ public:
         "Battery State of Charge needs be between 0.0 and 1.0.");
   }
 
-  rmf_traffic::agv::Plan::Start _plan_start;
+  rmf_traffic::agv::Plan::Start _location;
   std::size_t _charging_waypoint;
   double _battery_soc;
 };
 
 //==============================================================================
 State::State(
-  rmf_traffic::agv::Plan::Start plan_start,
+  rmf_traffic::agv::Plan::Start location,
   std::size_t charging_waypoint,
   double battery_soc)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation(std::move(plan_start), charging_waypoint, battery_soc)))
+    Implementation(std::move(location), charging_waypoint, battery_soc)))
 {}
 
 //==============================================================================
-rmf_traffic::agv::Plan::Start State::plan_start() const
+rmf_traffic::agv::Plan::Start State::location() const
 {
-  return _pimpl->_plan_start;
+  return _pimpl->_location;
 }
 
 //==============================================================================
-State& State::plan_start(rmf_traffic::agv::Plan::Start new_plan_start)
+State& State::location(rmf_traffic::agv::Plan::Start new_location)
 {
-  _pimpl->_plan_start = std::move(new_plan_start);
+  _pimpl->_location = std::move(new_location);
   return *this;
 }
 
@@ -100,26 +100,26 @@ State& State::battery_soc(double new_battery_soc)
 //==============================================================================
 std::size_t State::waypoint() const
 {
-  return _pimpl->_plan_start.waypoint();
+  return _pimpl->_location.waypoint();
 }
 
 //==============================================================================
 State& State::waypoint(std::size_t new_waypoint)
 {
-  _pimpl->_plan_start.waypoint(new_waypoint);
+  _pimpl->_location.waypoint(new_waypoint);
   return *this;
 }
 
 //==============================================================================
 rmf_traffic::Time State::finish_time() const
 {
-  return _pimpl->_plan_start.time();
+  return _pimpl->_location.time();
 }
 
 //==============================================================================
 State& State::finish_time(rmf_traffic::Time new_finish_time)
 {
-  _pimpl->_plan_start.time(new_finish_time);
+  _pimpl->_location.time(new_finish_time);
   return *this;
 }
 

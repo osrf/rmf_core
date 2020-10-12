@@ -89,7 +89,7 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   rmf_traffic::agv::Plan::Start final_plan_start{
     initial_state.finish_time(),
     initial_state.charging_waypoint(),
-    initial_state.plan_start().orientation()};
+    initial_state.location().orientation()};
   agv::State state{
     std::move(final_plan_start),
     initial_state.charging_waypoint(),

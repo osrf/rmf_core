@@ -36,9 +36,9 @@ public:
 
   /// Constructor
   ///
-  /// \param[in] plan_start
-  ///   Current state's next start for new plans, includes the time which
-  ///   the plan can feasibly start, according to the finishing time of any
+  /// \param[in] location
+  ///   Current state's location, which includes the time that the robot can
+  ///   feasibly take on a new task, according to the finishing time of any
   ///   tasks that the robot is currently performing.
   ///
   /// \param[in] charging_waypoint
@@ -48,15 +48,15 @@ public:
   ///   Current battery state of charge of the robot. This value needs to be
   ///   between 0.0 to 1.0.
   State(
-    rmf_traffic::agv::Plan::Start plan_start,
+    rmf_traffic::agv::Plan::Start location,
     std::size_t charging_waypoint,
     double battery_soc);
   
-  /// The next plan start based on the current state.
-  rmf_traffic::agv::Plan::Start plan_start() const;
+  /// The current state's location.
+  rmf_traffic::agv::Plan::Start location() const;
 
-  /// Sets the next plan start.
-  State& plan_start(rmf_traffic::agv::Plan::Start new_plan_start);
+  /// Sets the state's location.
+  State& location(rmf_traffic::agv::Plan::Start new_location);
 
   /// Robot's charging waypoint index.
   std::size_t charging_waypoint() const;
