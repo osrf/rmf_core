@@ -139,13 +139,13 @@ SCENARIO("Grid World")
     const auto now = std::chrono::steady_clock::now();
     const double default_orientation = 0.0;
 
-    rmf_traffic::agv::Plan::Start first_start(now, 13, default_orientation);
-    rmf_traffic::agv::Plan::Start second_start(now, 2, default_orientation);
+    rmf_traffic::agv::Plan::Start first_start{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_start{now, 2, default_orientation};
 
     std::vector<rmf_tasks::agv::State> initial_states =
     {
-      rmf_tasks::agv::State{std::move(first_start), 13, 1.0},
-      rmf_tasks::agv::State{std::move(second_start), 2, 1.0}
+      rmf_tasks::agv::State{first_start, 13, 1.0},
+      rmf_tasks::agv::State{second_start, 2, 1.0}
     };
 
     std::vector<rmf_tasks::agv::StateConfig> state_configs =
@@ -193,11 +193,11 @@ SCENARIO("Grid World")
 
     const auto greedy_assignments = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments, now);
+    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
 
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments, now);
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
     
     display_solution("Greedy", greedy_assignments, greedy_cost);
     display_solution("Optimal", optimal_assignments, optimal_cost);
@@ -210,13 +210,13 @@ SCENARIO("Grid World")
     const auto now = std::chrono::steady_clock::now();
     const double default_orientation = 0.0;
 
-    rmf_traffic::agv::Plan::Start first_start(now, 13, default_orientation);
-    rmf_traffic::agv::Plan::Start second_start(now, 2, default_orientation);
+    rmf_traffic::agv::Plan::Start first_start{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_start{now, 2, default_orientation};
 
     std::vector<rmf_tasks::agv::State> initial_states =
     {
-      rmf_tasks::agv::State{std::move(first_start), 13, 1.0},
-      rmf_tasks::agv::State{std::move(second_start), 2, 1.0}
+      rmf_tasks::agv::State{first_start, 13, 1.0},
+      rmf_tasks::agv::State{second_start, 2, 1.0}
     };
 
     std::vector<rmf_tasks::agv::StateConfig> state_configs =
@@ -354,11 +354,11 @@ SCENARIO("Grid World")
 
     const auto greedy_assignments = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments, now);
+    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
 
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments, now);
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
   
     display_solution("Greedy", greedy_assignments, greedy_cost);
     display_solution("Optimal", optimal_assignments, optimal_cost);

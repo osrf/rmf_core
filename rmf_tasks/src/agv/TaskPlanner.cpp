@@ -166,8 +166,7 @@ public:
       const std::vector<State>& initial_states,
       const std::vector<StateConfig>& state_configs,
       const rmf_tasks::Request& request,
-      const rmf_tasks::Request& charge_battery_request,
-      rmf_traffic::Time relative_start_time);
+      const rmf_tasks::Request& charge_battery_request);
 
   Candidates(const Candidates& other)
   {
@@ -216,8 +215,7 @@ public:
   void update_candidate(
     std::size_t candidate,
     State state,
-    rmf_traffic::Time wait_until,
-    rmf_traffic::Time relative_start_time)
+    rmf_traffic::Time wait_until)
   {
     const auto it = _candidate_map.at(candidate);
     _value_map.erase(it);
@@ -255,8 +253,7 @@ Candidates Candidates::make(
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const rmf_tasks::Request& request,
-    const rmf_tasks::Request& charge_battery_request,
-    rmf_traffic::Time relative_start_time)
+    const rmf_tasks::Request& charge_battery_request)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
@@ -306,11 +303,10 @@ struct PendingTask
       std::vector<rmf_tasks::agv::State>& initial_states,
       std::vector<rmf_tasks::agv::StateConfig>& state_configs,
       rmf_tasks::Request::SharedPtr request_,
-      rmf_tasks::Request::SharedPtr charge_battery_request,
-      rmf_traffic::Time relative_start_time)
+      rmf_tasks::Request::SharedPtr charge_battery_request)
     : request(std::move(request_)),
       candidates(Candidates::make(
-        initial_states, state_configs, *request, *charge_battery_request, relative_start_time)),
+        initial_states, state_configs, *request, *charge_battery_request)),
       earliest_start_time(request->earliest_start_time())
   {
     // Do nothing
@@ -589,7 +585,7 @@ public:
 
   std::shared_ptr<Configuration> config;
 
-  double compute_g(const Assignments& assigned_tasks, rmf_traffic::Time relative_start_time)
+  double compute_g(const Assignments& assigned_tasks)
   {
     double cost = 0.0;
     for (const auto& agent : assigned_tasks)
@@ -666,11 +662,11 @@ public:
 
       // copy final state estimates 
       std::vector<State> estimates;
-      rmf_traffic::agv::Plan::Start empty_new_start(
-        relative_start_time, 0, 0.0);
+      rmf_traffic::agv::Plan::Start empty_new_start{
+        relative_start_time, 0, 0.0};
       estimates.resize(
         node->assigned_tasks.size(),
-        State(empty_new_start, 0, 0.0));
+        State{empty_new_start, 0, 0.0});
       for (std::size_t i = 0; i < node->assigned_tasks.size(); ++i)
       {
         const auto& assignments = node->assigned_tasks[i];
@@ -680,16 +676,17 @@ public:
           estimates[i] = assignments.back().state();        
       }
 
-      node = make_initial_node(estimates, state_configs, new_tasks, relative_start_time);
+      node = make_initial_node(
+        estimates, state_configs, new_tasks, relative_start_time);
       initial_states = estimates;
     }
 
     return complete_assignments;
   }
 
-  double compute_g(const Node& node, const rmf_traffic::Time relative_start_time)
+  double compute_g(const Node& node)
   {
-    return compute_g(node.assigned_tasks, relative_start_time);
+    return compute_g(node.assigned_tasks);
   }
 
   double compute_h(const Node& node, const rmf_traffic::Time relative_start_time)
@@ -748,7 +745,7 @@ public:
 
   double compute_f(const Node& n, const rmf_traffic::Time relative_start_time)
   {
-    return compute_g(n, relative_start_time) + compute_h(n, relative_start_time);
+    return compute_g(n) + compute_h(n, relative_start_time);
   }
 
   ConstNodePtr make_initial_node(
@@ -765,7 +762,7 @@ public:
       initial_node->unassigned_tasks.insert(
         {
           request->id(),
-          PendingTask(initial_states, state_configs, request, config->charge_battery_request(), relative_start_time)
+          PendingTask(initial_states, state_configs, request, config->charge_battery_request())
         });
 
     initial_node->cost_estimate = compute_f(*initial_node, relative_start_time);
@@ -802,7 +799,7 @@ public:
     return initial_node;
   }
 
-  rmf_traffic::Time get_latest_time(const Node& node, rmf_traffic::Time relative_start_time)
+  rmf_traffic::Time get_latest_time(const Node& node)
   {
     rmf_traffic::Time latest = rmf_traffic::Time::min();
     for (const auto& a : node.assigned_tasks)
@@ -859,8 +856,7 @@ public:
         new_u.second.candidates.update_candidate(
           entry.candidate,
           finish.value().finish_state(),
-          finish.value().wait_until(),
-          relative_start_time);
+          finish.value().wait_until());
       }
       else
       {
@@ -914,8 +910,7 @@ public:
             new_u.second.candidates.update_candidate(
               entry.candidate,
               finish.value().finish_state(),
-              finish.value().wait_until(),
-              relative_start_time);
+              finish.value().wait_until());
           }
           else
           {
@@ -934,7 +929,7 @@ public:
 
     // Update the cost estimate for new_node
     new_node->cost_estimate = compute_f(*new_node, relative_start_time);
-    new_node->latest_time = get_latest_time(*new_node, relative_start_time);
+    new_node->latest_time = get_latest_time(*new_node);
 
     // Apply filter
     if (filter && filter->ignore(*new_node))
@@ -986,8 +981,7 @@ public:
           new_u.second.candidates.update_candidate(
             agent,
             finish.value().finish_state(),
-            finish.value().wait_until(),
-            relative_start_time);
+            finish.value().wait_until());
         }
         else
         {
@@ -996,7 +990,7 @@ public:
       }
 
       new_node->cost_estimate = compute_f(*new_node, relative_start_time);
-      new_node->latest_time = get_latest_time(*new_node, relative_start_time);
+      new_node->latest_time = get_latest_time(*new_node);
       return new_node;
     }
 
@@ -1196,10 +1190,9 @@ auto TaskPlanner::optimal_plan(
     false);
 }
 
-double TaskPlanner::compute_cost(
-  const Assignments& assignments, rmf_traffic::Time relative_start_time)
+double TaskPlanner::compute_cost(const Assignments& assignments)
 {
-  return _pimpl->compute_g(assignments, relative_start_time);
+  return _pimpl->compute_g(assignments);
 }
 
 

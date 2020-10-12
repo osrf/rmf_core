@@ -145,9 +145,7 @@ public:
     std::vector<Request::SharedPtr> requests,
     std::function<bool()> interrupter);
 
-  double compute_cost(
-    const Assignments& assignments,
-    rmf_traffic::Time relative_start_time);
+  double compute_cost(const Assignments& assignments);
 
   class Implementation;
 

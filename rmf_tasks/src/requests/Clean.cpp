@@ -112,14 +112,14 @@ rmf_utils::optional<rmf_tasks::Estimate> Clean::estimate_finish(
   const agv::State& initial_state,
   const agv::StateConfig& state_config) const
 {
-  rmf_traffic::agv::Plan::Start final_plan_start(
+  rmf_traffic::agv::Plan::Start final_plan_start{
     initial_state.finish_time(),
     _pimpl->end_waypoint,
-    initial_state.plan_start().orientation());
-  agv::State state(
+    initial_state.plan_start().orientation()};
+  agv::State state{
     std::move(final_plan_start),
     initial_state.charging_waypoint(),
-    initial_state.battery_soc());
+    initial_state.battery_soc()};
 
   rmf_traffic::Duration variant_duration(0);
 
