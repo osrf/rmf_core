@@ -86,11 +86,14 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
     return rmf_utils::nullopt;
 
   // Compute time taken to reach charging waypoint from current location
-  agv::State state(
-    initial_state.charging_waypoint(),
-    initial_state.charging_waypoint(),
+  rmf_traffic::agv::Plan::Start final_plan_start{
     initial_state.finish_time(),
-    initial_state.battery_soc());
+    initial_state.charging_waypoint(),
+    initial_state.plan_start().orientation()};
+  agv::State state{
+    std::move(final_plan_start),
+    initial_state.charging_waypoint(),
+    initial_state.battery_soc()};
 
   const auto start_time = initial_state.finish_time();
 

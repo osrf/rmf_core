@@ -30,10 +30,15 @@ public:
   /// Constructor
   ///
   /// \param[in] threshold_soc
+  ///   Minimum charge level the battery is allowed to deplete to. This
+  ///   value needs to be between 0.0 and 1.0.
   StateConfig(double threshold_soc);
 
+  /// Gets the battery state of charge threshold value.
   double threshold_soc() const;
 
+  /// Sets a new battery state of charge threshold value. This value needs to be
+  /// between 0.0 and 1.0.
   StateConfig& threshold_soc(double threshold_soc);
 
   class Implementation;

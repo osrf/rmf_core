@@ -614,6 +614,7 @@ public:
   }
   
   Assignments complete_solve(
+    rmf_traffic::Time relative_start_time,
     std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const std::vector<Request::SharedPtr>& requests,
@@ -659,14 +660,18 @@ public:
 
       // copy final state estimates 
       std::vector<State> estimates;
-      estimates.resize(node->assigned_tasks.size());
+      rmf_traffic::agv::Plan::Start empty_new_start{
+        relative_start_time, 0, 0.0};
+      estimates.resize(
+        node->assigned_tasks.size(),
+        State{empty_new_start, 0, 0.0});
       for (std::size_t i = 0; i < node->assigned_tasks.size(); ++i)
       {
         const auto& assignments = node->assigned_tasks[i];
         if (assignments.empty())
           estimates[i] = initial_states[i];
         else
-          estimates[i] = assignments.back().state();        
+          estimates[i] = assignments.back().state();
       }
 
       node = make_initial_node(estimates, state_configs, new_tasks, start_time);
@@ -1145,11 +1150,13 @@ TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 }
 
 auto TaskPlanner::greedy_plan(
+  rmf_traffic::Time relative_start_time,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests) -> Assignments
 {
   return _pimpl->complete_solve(
+    relative_start_time,
     initial_states,
     state_configs,
     requests,
@@ -1158,12 +1165,14 @@ auto TaskPlanner::greedy_plan(
 }
 
 auto TaskPlanner::optimal_plan(
+  rmf_traffic::Time relative_start_time,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests,
   std::function<bool()> interrupter) -> Assignments
 {
   return _pimpl->complete_solve(
+    relative_start_time,
     initial_states,
     state_configs,
     requests,

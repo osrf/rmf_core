@@ -49,8 +49,8 @@ public:
     std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
-    bool drain_battery = true,
-    rmf_traffic::Time start_time = std::chrono::steady_clock::now());
+    rmf_traffic::Time start_time,
+    bool drain_battery = true);
 
   std::size_t id() const final;
 
