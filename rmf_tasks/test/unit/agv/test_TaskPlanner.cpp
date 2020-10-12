@@ -55,7 +55,8 @@ inline void display_solution(
     {
       const auto& s = a.state();
       const double start_seconds = a.earliest_start_time().time_since_epoch().count()/1e9;
-      const double finish_seconds = s.finish_time().time_since_epoch().count()/1e9;
+      const rmf_traffic::Time finish_time = s.finish_time();
+      const double finish_seconds = finish_time.time_since_epoch().count()/1e9;
       std::cout << "    <" << a.task_id() << ": " << start_seconds 
                 << ", "<< finish_seconds << ", " << 100* s.battery_soc() 
                 << "%>" << std::endl;
@@ -136,11 +137,15 @@ SCENARIO("Grid World")
   WHEN("Planning for 3 requests and 2 agents")
   {
     const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
 
     std::vector<rmf_tasks::agv::State> initial_states =
     {
-      rmf_tasks::agv::State{13, 13},
-      rmf_tasks::agv::State{2, 2}
+      rmf_tasks::agv::State{first_location, 13, 1.0},
+      rmf_tasks::agv::State{second_location, 2, 1.0}
     };
 
     std::vector<rmf_tasks::agv::StateConfig> state_configs =
@@ -158,8 +163,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         2,
@@ -168,8 +173,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         3,
@@ -178,8 +183,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0))
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery)
     };
 
     std::shared_ptr<rmf_tasks::agv::TaskPlanner::Configuration>  task_config =
@@ -187,11 +192,11 @@ SCENARIO("Grid World")
     rmf_tasks::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(
-      initial_states, state_configs, requests);
+      now, initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
 
     const auto optimal_assignments = task_planner.optimal_plan(
-      initial_states, state_configs, requests, nullptr);
+      now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
     
     display_solution("Greedy", greedy_assignments, greedy_cost);
@@ -203,11 +208,15 @@ SCENARIO("Grid World")
   WHEN("Planning for 11 requests and 2 agents")
   {
     const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
 
     std::vector<rmf_tasks::agv::State> initial_states =
     {
-      rmf_tasks::agv::State{13, 13},
-      rmf_tasks::agv::State{2, 2}
+      rmf_tasks::agv::State{first_location, 13, 1.0},
+      rmf_tasks::agv::State{second_location, 2, 1.0}
     };
 
     std::vector<rmf_tasks::agv::StateConfig> state_configs =
@@ -225,8 +234,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         2,
@@ -235,8 +244,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         3,
@@ -245,8 +254,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         3,
@@ -255,8 +264,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(0)),
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         4,
@@ -265,8 +274,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(50000)),
+        now + rmf_traffic::time::from_seconds(50000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         5,
@@ -275,8 +284,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(50000)),
+        now + rmf_traffic::time::from_seconds(50000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         6,
@@ -285,8 +294,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         7,
@@ -295,8 +304,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         8,
@@ -305,8 +314,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         9,
@@ -315,8 +324,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         10,
@@ -325,8 +334,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000)),
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery),
 
       rmf_tasks::requests::Delivery::make(
         11,
@@ -335,8 +344,8 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        drain_battery,
-        now + rmf_traffic::time::from_seconds(60000))
+        now + rmf_traffic::time::from_seconds(60000),
+        drain_battery)
     };
 
     std::shared_ptr<rmf_tasks::agv::TaskPlanner::Configuration>  task_config =
@@ -344,11 +353,11 @@ SCENARIO("Grid World")
     rmf_tasks::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(
-      initial_states, state_configs, requests);
+      now, initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
 
     const auto optimal_assignments = task_planner.optimal_plan(
-      initial_states, state_configs, requests, nullptr);
+      now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
   
     display_solution("Greedy", greedy_assignments, greedy_cost);

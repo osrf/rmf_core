@@ -51,8 +51,8 @@ rmf_tasks::Request::SharedPtr Delivery::make(
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
-  bool drain_battery,
-  rmf_traffic::Time start_time)
+  rmf_traffic::Time start_time,
+  bool drain_battery)
 {
   std::shared_ptr<Delivery> delivery(new Delivery());
   delivery->_pimpl->_id = id;
@@ -110,11 +110,14 @@ rmf_utils::optional<rmf_tasks::Estimate> Delivery::estimate_finish(
   const agv::State& initial_state,
   const agv::StateConfig& state_config) const
 {
-  agv::State state(
-    _pimpl->_dropoff_waypoint, 
-    initial_state.charging_waypoint(),
+  rmf_traffic::agv::Plan::Start final_plan_start{
     initial_state.finish_time(),
-    initial_state.battery_soc());
+    _pimpl->_dropoff_waypoint,
+    initial_state.location().orientation()};
+  agv::State state{
+    std::move(final_plan_start),
+    initial_state.charging_waypoint(),
+    initial_state.battery_soc()};
 
   rmf_traffic::Duration variant_duration(0);
 

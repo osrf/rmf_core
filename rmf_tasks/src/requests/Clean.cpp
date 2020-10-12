@@ -55,8 +55,8 @@ rmf_tasks::Request::SharedPtr Clean::make(
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
-  bool drain_battery,
-  rmf_traffic::Time start_time)
+  rmf_traffic::Time start_time,
+  bool drain_battery)
 {
   std::shared_ptr<Clean> clean(new Clean());
   clean->_pimpl->id = id;
@@ -112,11 +112,14 @@ rmf_utils::optional<rmf_tasks::Estimate> Clean::estimate_finish(
   const agv::State& initial_state,
   const agv::StateConfig& state_config) const
 {
-  agv::State state(
-    _pimpl->end_waypoint, 
-    initial_state.charging_waypoint(),
+  rmf_traffic::agv::Plan::Start final_plan_start{
     initial_state.finish_time(),
-    initial_state.battery_soc());
+    _pimpl->end_waypoint,
+    initial_state.location().orientation()};
+  agv::State state{
+    std::move(final_plan_start),
+    initial_state.charging_waypoint(),
+    initial_state.battery_soc()};
 
   rmf_traffic::Duration variant_duration(0);
 

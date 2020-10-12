@@ -614,6 +614,7 @@ public:
   }
   
   Assignments complete_solve(
+    rmf_traffic::Time time_now,
     std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const std::vector<Request::SharedPtr>& requests,
@@ -622,8 +623,7 @@ public:
   {
     assert(initial_states.size() == state_configs.size());
 
-    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
-    auto node = make_initial_node(initial_states, state_configs, requests, start_time);
+    auto node = make_initial_node(initial_states, state_configs, requests, time_now);
 
     Node::AssignedTasks complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
@@ -631,9 +631,9 @@ public:
     while (node)
     {
       if (greedy)
-        node = greedy_solve(node, initial_states, state_configs, start_time);
+        node = greedy_solve(node, initial_states, state_configs, time_now);
       else
-        node = solve(node, initial_states, state_configs, requests.size(), start_time, interrupter);
+        node = solve(node, initial_states, state_configs, requests.size(), time_now, interrupter);
 
       if (!node)
         return {};
@@ -659,17 +659,21 @@ public:
 
       // copy final state estimates 
       std::vector<State> estimates;
-      estimates.resize(node->assigned_tasks.size());
+      rmf_traffic::agv::Plan::Start empty_new_location{
+        time_now, 0, 0.0};
+      estimates.resize(
+        node->assigned_tasks.size(),
+        State{empty_new_location, 0, 0.0});
       for (std::size_t i = 0; i < node->assigned_tasks.size(); ++i)
       {
         const auto& assignments = node->assigned_tasks[i];
         if (assignments.empty())
           estimates[i] = initial_states[i];
         else
-          estimates[i] = assignments.back().state();        
+          estimates[i] = assignments.back().state();
       }
 
-      node = make_initial_node(estimates, state_configs, new_tasks, start_time);
+      node = make_initial_node(estimates, state_configs, new_tasks, time_now);
       initial_states = estimates;
     }
 
@@ -681,7 +685,7 @@ public:
     return compute_g(node.assigned_tasks);
   }
 
-  double compute_h(const Node& node, const rmf_traffic::Time relative_start_time)
+  double compute_h(const Node& node, const rmf_traffic::Time time_now)
   {
     std::vector<double> initial_queue_values;
     initial_queue_values.resize(
@@ -696,7 +700,7 @@ public:
           u.second.candidates.best_finish_time()
           - u.second.request->invariant_duration();
       const double variant_value =
-        rmf_traffic::time::to_seconds(variant_time - relative_start_time);
+        rmf_traffic::time::to_seconds(variant_time - time_now);
 
       const auto& range = u.second.candidates.best_candidates();
       for (auto it = range.begin; it != range.end; ++it)
@@ -720,7 +724,7 @@ public:
         else
           value =
             rmf_traffic::time::to_seconds(
-              assignments.back().state().finish_time() - relative_start_time);
+              assignments.back().state().finish_time() - time_now);
       }
     }
 
@@ -735,16 +739,16 @@ public:
     return queue.compute_cost();
   }
 
-  double compute_f(const Node& n, const rmf_traffic::Time relative_start_time)
+  double compute_f(const Node& n, const rmf_traffic::Time time_now)
   {
-    return compute_g(n) + compute_h(n, relative_start_time);
+    return compute_g(n) + compute_h(n, time_now);
   }
 
   ConstNodePtr make_initial_node(
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
     std::vector<Request::SharedPtr> requests,
-    rmf_traffic::Time relative_start_time)
+    rmf_traffic::Time time_now)
   {
     auto initial_node = std::make_shared<Node>();
 
@@ -757,7 +761,7 @@ public:
           PendingTask(initial_states, state_configs, request, config->charge_battery_request())
         });
 
-    initial_node->cost_estimate = compute_f(*initial_node, relative_start_time);
+    initial_node->cost_estimate = compute_f(*initial_node, time_now);
 
     initial_node->sort_invariants();
 
@@ -813,7 +817,7 @@ public:
     const Node::UnassignedTasks::value_type& u,
     const ConstNodePtr& parent,
     Filter* filter,
-    rmf_traffic::Time relative_start_time,
+    rmf_traffic::Time time_now,
     const std::vector<StateConfig>& state_configs)
 
   {
@@ -916,7 +920,7 @@ public:
     }
 
     // Update the cost estimate for new_node
-    new_node->cost_estimate = compute_f(*new_node, relative_start_time);
+    new_node->cost_estimate = compute_f(*new_node, time_now);
     new_node->latest_time = get_latest_time(*new_node);
 
     // Apply filter
@@ -934,7 +938,7 @@ public:
     const std::size_t agent,
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
-    rmf_traffic::Time relative_start_time)
+    rmf_traffic::Time time_now)
   {
     auto new_node = std::make_shared<Node>(*parent);
      // Assign charging task to an agent
@@ -974,7 +978,7 @@ public:
         }
       }
 
-      new_node->cost_estimate = compute_f(*new_node, relative_start_time);
+      new_node->cost_estimate = compute_f(*new_node, time_now);
       new_node->latest_time = get_latest_time(*new_node);
       return new_node;
     }
@@ -986,7 +990,7 @@ public:
     ConstNodePtr node,
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
-    rmf_traffic::Time relative_start_time)
+    rmf_traffic::Time time_now)
   {
     while (!finished(*node))
     {
@@ -997,7 +1001,7 @@ public:
         for (auto it = range.begin; it != range.end; ++it)
         {
           if (auto n = expand_candidate(
-            it, u, node, nullptr, relative_start_time, state_configs))
+            it, u, node, nullptr, time_now, state_configs))
           {
             if (!next_node || (n->cost_estimate < next_node->cost_estimate))
               {
@@ -1021,7 +1025,7 @@ public:
                   it->second.candidate,
                   initial_states,
                   state_configs,
-                  relative_start_time);
+                  time_now);
                 if (new_charge_node)
                 {
                   next_node = std::move(new_charge_node);
@@ -1045,7 +1049,7 @@ public:
     Filter& filter,
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
-    rmf_traffic::Time relative_start_time)
+    rmf_traffic::Time time_now)
   {
     std::vector<ConstNodePtr> new_nodes;
     new_nodes.reserve(
@@ -1056,7 +1060,7 @@ public:
       for (auto it = range.begin; it!= range.end; it++)
       {
         if (auto new_node = expand_candidate(
-          it, u, parent, &filter, relative_start_time, state_configs))
+          it, u, parent, &filter, time_now, state_configs))
           new_nodes.push_back(std::move(new_node));
       }
     }
@@ -1065,7 +1069,7 @@ public:
     for (std::size_t i = 0; i < parent->assigned_tasks.size(); ++i)
     {
       if (auto new_node = expand_charger(
-        parent, i, initial_states, state_configs, relative_start_time))
+        parent, i, initial_states, state_configs, time_now))
         new_nodes.push_back(new_node);
     }
 
@@ -1093,7 +1097,7 @@ public:
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const std::size_t num_tasks,
-    rmf_traffic::Time relative_start_time,
+    rmf_traffic::Time time_now,
     std::function<bool()> interrupter)
   {
     using PriorityQueue = std::priority_queue<
@@ -1122,7 +1126,7 @@ public:
 
       // Apply possible actions to expand the node
       const auto new_nodes = expand(
-        top, filter, initial_states, state_configs, relative_start_time);
+        top, filter, initial_states, state_configs, time_now);
 
       // Add copies and with a newly assigned task to queue
       for (const auto&n : new_nodes)
@@ -1145,11 +1149,13 @@ TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 }
 
 auto TaskPlanner::greedy_plan(
+  rmf_traffic::Time time_now,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests) -> Assignments
 {
   return _pimpl->complete_solve(
+    time_now,
     initial_states,
     state_configs,
     requests,
@@ -1158,12 +1164,14 @@ auto TaskPlanner::greedy_plan(
 }
 
 auto TaskPlanner::optimal_plan(
+  rmf_traffic::Time time_now,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<Request::SharedPtr> requests,
   std::function<bool()> interrupter) -> Assignments
 {
   return _pimpl->complete_solve(
+    time_now,
     initial_states,
     state_configs,
     requests,

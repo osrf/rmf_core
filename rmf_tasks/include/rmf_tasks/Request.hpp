@@ -29,26 +29,26 @@
 
 namespace rmf_tasks {
 
-/// Implement this for new tasks
+/// Implement this for new type of requests.
 class Request
 {
 public:
 
   using SharedPtr = std::shared_ptr<Request>;
 
-  // Get the id of the task
+  /// Get the id of the task
   virtual std::size_t id() const = 0;
 
-  // Estimate the state of the robot when the task is finished along with the
-  // time the robot has to wait before commencing the task
+  /// Estimate the state of the robot when the task is finished along with the
+  /// time the robot has to wait before commencing the task
   virtual rmf_utils::optional<Estimate> estimate_finish(
     const agv::State& initial_state,
     const agv::StateConfig& state_config) const = 0;
 
-  // Estimate the invariant component of the task's duration
+  /// Estimate the invariant component of the task's duration
   virtual rmf_traffic::Duration invariant_duration() const = 0;
 
-  // Get the earliest start time that this task may begin
+  /// Get the earliest start time that this task may begin
   virtual rmf_traffic::Time earliest_start_time() const = 0;
 
   virtual ~Request() = default;
