@@ -52,7 +52,6 @@ public:
   std::size_t id() const final;
 
   rmf_utils::optional<rmf_tasks::Estimate> estimate_finish(
-    rmf_traffic::Time relative_start_time,
     const agv::State& initial_state,
     const agv::StateConfig& state_config) const final;
 

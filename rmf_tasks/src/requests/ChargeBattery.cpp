@@ -79,7 +79,6 @@ std::size_t ChargeBattery::id() const
 
 //==============================================================================
 rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
-  rmf_traffic::Time relative_start_time,
   const agv::State& initial_state,
   const agv::StateConfig& state_config) const
 {
@@ -87,13 +86,16 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
     return rmf_utils::nullopt;
 
   // Compute time taken to reach charging waypoint from current location
+  rmf_traffic::agv::Plan::Start final_plan_start(
+    initial_state.finish_time(),
+    initial_state.charging_waypoint(),
+    initial_state.plan_start().orientation());
   agv::State state(
+    std::move(final_plan_start),
     initial_state.charging_waypoint(),
-    initial_state.charging_waypoint(),
-    initial_state.finish_duration(),
     initial_state.battery_soc());
 
-  const auto start_time = relative_start_time + initial_state.finish_duration();
+  const auto start_time = initial_state.finish_time();
 
   double battery_soc = initial_state.battery_soc();
   rmf_traffic::Duration variant_duration(0);
@@ -134,15 +136,12 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
     (3600 * delta_soc * _pimpl->_battery_system->nominal_capacity()) /
     _pimpl->_battery_system->charging_current();
 
-  const rmf_traffic::Time wait_until =
-    relative_start_time + initial_state.finish_duration();
+  const rmf_traffic::Time wait_until = initial_state.finish_time();
 
   const rmf_traffic::Time new_finish_time =
     wait_until + variant_duration +
     rmf_traffic::time::from_seconds(time_to_charge);
-  const rmf_traffic::Duration new_finish_duration =
-    new_finish_time - relative_start_time;
-  state.finish_duration(new_finish_duration);
+  state.finish_time(new_finish_time);
   state.battery_soc(_pimpl->_charge_soc);
 
   return Estimate(state, wait_until);

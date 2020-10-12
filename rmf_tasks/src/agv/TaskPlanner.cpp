@@ -223,7 +223,7 @@ public:
     _value_map.erase(it);
     _candidate_map[candidate] = _value_map.insert(
       {
-        relative_start_time + state.finish_duration(),
+        state.finish_time(),
         Entry{candidate, state, wait_until}
       });
   }
@@ -264,28 +264,26 @@ Candidates Candidates::make(
     const auto& state = initial_states[i];
     const auto& state_config = state_configs[i];
     const auto finish =
-      request.estimate_finish(relative_start_time, state, state_config);
+      request.estimate_finish(state, state_config);
     if (finish.has_value())
     {
       initial_map.insert({
-        relative_start_time + finish.value().finish_state().finish_duration(),
+        finish.value().finish_state().finish_time(),
         Entry{i, finish.value().finish_state(), finish.value().wait_until()}});
     }
     else
     {
       auto battery_estimate =
-        charge_battery_request.estimate_finish(
-          relative_start_time, state, state_config);
+        charge_battery_request.estimate_finish(state, state_config);
       if (battery_estimate.has_value())
       {
         auto new_finish =
           request.estimate_finish(
-            relative_start_time,
             battery_estimate.value().finish_state(),
             state_config);
         assert(new_finish.has_value());
         initial_map.insert(
-          {relative_start_time + new_finish.value().finish_state().finish_duration(),
+          {new_finish.value().finish_state().finish_time(),
           Entry{i, new_finish.value().finish_state(), new_finish.value().wait_until()}});
       }
       else
@@ -600,7 +598,7 @@ public:
       {
         cost +=
           rmf_traffic::time::to_seconds(
-            relative_start_time + assignment.state().finish_duration() - assignment.earliest_start_time());
+            assignment.state().finish_time() - assignment.earliest_start_time());
       }
     }
 
@@ -668,9 +666,11 @@ public:
 
       // copy final state estimates 
       std::vector<State> estimates;
+      rmf_traffic::agv::Plan::Start empty_new_start(
+        relative_start_time, 0, 0.0);
       estimates.resize(
         node->assigned_tasks.size(),
-        State(0, 0, rmf_traffic::Duration(0), 0.0));
+        State(empty_new_start, 0, 0.0));
       for (std::size_t i = 0; i < node->assigned_tasks.size(); ++i)
       {
         const auto& assignments = node->assigned_tasks[i];
@@ -730,7 +730,8 @@ public:
           value = 0.0;
         else
           value =
-            rmf_traffic::time::to_seconds(assignments.back().state().finish_duration());
+            rmf_traffic::time::to_seconds(
+              relative_start_time - assignments.back().state().finish_time());
       }
     }
 
@@ -776,8 +777,8 @@ public:
       rmf_traffic::Time latest = rmf_traffic::Time::min();
       for (const auto& s : initial_states)
       {
-        if (latest < relative_start_time + s.finish_duration())
-          latest = relative_start_time + s.finish_duration();
+        if (latest < s.finish_time())
+          latest = s.finish_time();
       }
 
       return latest;
@@ -809,7 +810,7 @@ public:
       if (a.empty())
         continue;
       
-      const auto finish_time = relative_start_time + a.back().state().finish_duration();
+      const auto finish_time = a.back().state().finish_time();
       if (latest < finish_time)
         latest = finish_time;
     }
@@ -851,8 +852,7 @@ public:
     for (auto& new_u : new_node->unassigned_tasks)
     {
       const auto finish =
-        new_u.second.request->estimate_finish(
-          relative_start_time, entry.state, state_config);
+        new_u.second.request->estimate_finish(entry.state, state_config);
 
       if (finish.has_value())
       {
@@ -893,8 +893,7 @@ public:
     if (add_charger)
     {
       auto battery_estimate =
-        config->charge_battery_request()->estimate_finish(
-          relative_start_time, entry.state, state_config);
+        config->charge_battery_request()->estimate_finish(entry.state, state_config);
       if (battery_estimate.has_value())
       {
         new_node->assigned_tasks[entry.candidate].push_back(
@@ -908,7 +907,6 @@ public:
         {
           const auto finish =
             new_u.second.request->estimate_finish(
-              relative_start_time,
               battery_estimate.value().finish_state(),
               state_config);
           if (finish.has_value())
@@ -968,7 +966,7 @@ public:
     }
 
     auto estimate = config->charge_battery_request()->estimate_finish(
-      relative_start_time, state, state_configs[agent]);
+      state, state_configs[agent]);
     if (estimate.has_value())
     {
       new_node->assigned_tasks[agent].push_back(
@@ -981,7 +979,6 @@ public:
       {
         const auto finish =
           new_u.second.request->estimate_finish(
-            relative_start_time,
             estimate.value().finish_state(),
             state_configs[agent]);
         if (finish.has_value())

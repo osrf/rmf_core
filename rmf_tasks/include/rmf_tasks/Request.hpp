@@ -42,7 +42,6 @@ public:
   /// Estimate the state of the robot when the task is finished along with the
   /// time the robot has to wait before commencing the task
   virtual rmf_utils::optional<Estimate> estimate_finish(
-    rmf_traffic::Time time_now,
     const agv::State& initial_state,
     const agv::StateConfig& state_config) const = 0;
 

@@ -24,6 +24,7 @@
 #include <rmf_utils/optional.hpp>
 
 #include <rmf_traffic/Time.hpp>
+#include <rmf_traffic/agv/Planner.hpp>
 
 namespace rmf_tasks {
 namespace agv {
@@ -35,43 +36,33 @@ public:
 
   /// Constructor
   ///
-  /// \param[in] waypoint
-  ///   Current state's location waypoint index.
+  /// \param[in] plan_start
+  ///   Current state's next start for new plans, includes the time which
+  ///   the plan can feasibly start, according to the finishing time of any
+  ///   tasks that the robot is currently performing.
   ///
   /// \param[in] charging_waypoint
   ///   The charging waypoint index of this robot.
-  ///
-  /// \param[in] finish_duration
-  ///   Time left until the robot finishes it's current task, or until the
-  ///   agent is ready to take on another task.
   ///
   /// \param[in] battery_soc
   ///   Current battery state of charge of the robot. This value needs to be
   ///   between 0.0 to 1.0.
   State(
-    std::size_t waypoint, 
+    rmf_traffic::agv::Plan::Start plan_start,
     std::size_t charging_waypoint,
-    rmf_traffic::Duration finish_duration,
     double battery_soc);
   
-  /// The current location waypoint index.
-  std::size_t waypoint() const;
+  /// The next plan start based on the current state.
+  rmf_traffic::agv::Plan::Start plan_start() const;
 
-  /// Sets the current location waypoint index.
-  State& waypoint(std::size_t new_waypoint);
+  /// Sets the next plan start.
+  State& plan_start(rmf_traffic::agv::Plan::Start new_plan_start);
 
   /// Robot's charging waypoint index.
   std::size_t charging_waypoint() const;
 
   /// Sets the charging waypoint index.
   State& charging_waypoint(std::size_t new_charging_waypoint);
-
-  /// The duration until the robot finishes it's current task or when it is
-  /// ready for a new task.
-  rmf_traffic::Duration finish_duration() const;
-
-  /// Sets the finish duration for the robot.
-  State& finish_duration(rmf_traffic::Duration new_finish_duration);
 
   /// The current battery state of charge of the robot. This value is between
   /// 0.0 and 1.0.
@@ -80,6 +71,19 @@ public:
   /// Sets a new battery state of charge value. This value needs to be between
   /// 0.0 and 1.0.
   State& battery_soc(double new_battery_soc);
+
+  /// The current location waypoint index.
+  std::size_t waypoint() const;
+
+  /// Sets the current location waypoint index.
+  State& waypoint(std::size_t new_waypoint);
+
+  /// The time which the robot finishes its current task or when it is ready for
+  /// a new task.
+  rmf_traffic::Time finish_time() const;
+
+  /// Sets the finish time for the robot.
+  State& finish_time(rmf_traffic::Time new_finish_time);
 
   class Implementation;
 private:

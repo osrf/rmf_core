@@ -28,13 +28,11 @@ class State::Implementation
 public:
 
   Implementation(
-    std::size_t waypoint, 
+    rmf_traffic::agv::Plan::Start plan_start,
     std::size_t charging_waypoint,
-    rmf_traffic::Duration finish_duration,
     double battery_soc)
-  : _waypoint(waypoint),
+  : _plan_start(std::move(plan_start)),
     _charging_waypoint(charging_waypoint),
-    _finish_duration(finish_duration),
     _battery_soc(battery_soc)
   {
     if (_battery_soc < 0.0 || _battery_soc > 1.0)
@@ -42,33 +40,30 @@ public:
         "Battery State of Charge needs be between 0.0 and 1.0.");
   }
 
-  std::size_t _waypoint;
+  rmf_traffic::agv::Plan::Start _plan_start;
   std::size_t _charging_waypoint;
-  rmf_traffic::Duration _finish_duration;
   double _battery_soc;
 };
 
 //==============================================================================
 State::State(
-  std::size_t waypoint, 
+  rmf_traffic::agv::Plan::Start plan_start,
   std::size_t charging_waypoint,
-  rmf_traffic::Duration finish_duration,
   double battery_soc)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation(
-      waypoint, charging_waypoint, finish_duration, battery_soc)))
+    Implementation(std::move(plan_start), charging_waypoint, battery_soc)))
 {}
 
 //==============================================================================
-std::size_t State::waypoint() const
+rmf_traffic::agv::Plan::Start State::plan_start() const
 {
-  return _pimpl->_waypoint;
+  return _pimpl->_plan_start;
 }
 
 //==============================================================================
-State& State::waypoint(std::size_t new_waypoint)
+State& State::plan_start(rmf_traffic::agv::Plan::Start new_plan_start)
 {
-  _pimpl->_waypoint = new_waypoint;
+  _pimpl->_plan_start = std::move(new_plan_start);
   return *this;
 }
 
@@ -82,19 +77,6 @@ std::size_t State::charging_waypoint() const
 State& State::charging_waypoint(std::size_t new_charging_waypoint)
 {
   _pimpl->_charging_waypoint = new_charging_waypoint;
-  return *this;
-}
-
-//==============================================================================
-rmf_traffic::Duration State::finish_duration() const
-{
-  return _pimpl->_finish_duration;
-}
-
-//==============================================================================
-State& State::finish_duration(rmf_traffic::Duration new_finish_duration)
-{
-  _pimpl->_finish_duration = new_finish_duration;
   return *this;
 }
 
@@ -115,5 +97,32 @@ State& State::battery_soc(double new_battery_soc)
   return *this;
 }
 
+//==============================================================================
+std::size_t State::waypoint() const
+{
+  return _pimpl->_plan_start.waypoint();
+}
+
+//==============================================================================
+State& State::waypoint(std::size_t new_waypoint)
+{
+  _pimpl->_plan_start.waypoint(new_waypoint);
+  return *this;
+}
+
+//==============================================================================
+rmf_traffic::Time State::finish_time() const
+{
+  return _pimpl->_plan_start.time();
+}
+
+//==============================================================================
+State& State::finish_time(rmf_traffic::Time new_finish_time)
+{
+  _pimpl->_plan_start.time(new_finish_time);
+  return *this;
+}
+
+//==============================================================================
 } // namespace agv
 } // namespace rmf_tasks
