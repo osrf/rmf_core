@@ -623,8 +623,7 @@ public:
   {
     assert(initial_states.size() == state_configs.size());
 
-    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
-    auto node = make_initial_node(initial_states, state_configs, requests, start_time);
+    auto node = make_initial_node(initial_states, state_configs, requests, relative_start_time);
 
     Node::AssignedTasks complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
@@ -632,9 +631,9 @@ public:
     while (node)
     {
       if (greedy)
-        node = greedy_solve(node, initial_states, state_configs, start_time);
+        node = greedy_solve(node, initial_states, state_configs, relative_start_time);
       else
-        node = solve(node, initial_states, state_configs, requests.size(), start_time, interrupter);
+        node = solve(node, initial_states, state_configs, requests.size(), relative_start_time, interrupter);
 
       if (!node)
         return {};
@@ -674,7 +673,7 @@ public:
           estimates[i] = assignments.back().state();
       }
 
-      node = make_initial_node(estimates, state_configs, new_tasks, start_time);
+      node = make_initial_node(estimates, state_configs, new_tasks, relative_start_time);
       initial_states = estimates;
     }
 
