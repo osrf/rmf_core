@@ -46,12 +46,15 @@ struct ActionTaskStatus
 {
   enum class ActiveState : uint8_t
   {
+    INVALID = TaskMsg::INVALID,
     QUEUED = TaskMsg::ACTIVE_QUEUED,
     EXECUTING = TaskMsg::ACTIVE_EXECUTING
   };
 
+
   rmf_traffic::Time start_time;
   rmf_traffic::Time end_time;
+  std::string robot_name;
   ActiveState state;
 };
 
@@ -72,10 +75,27 @@ public:
       std::shared_ptr<rclcpp::Node> node,
       const std::string& prefix_topic);
   
+  // TODO: Design this
+
+  /// Provide all task status msg published by task action servers
+  ///
+  /// \param[in] action server id
+  /// \param[in] all active tasks
   using StatusCallback = 
-    std::function<void(const std::vector<TaskMsg>& tasks)>;
+    std::function<void(
+        const std::string& server_id, 
+        const std::vector<TaskMsg>& tasks)>;
+
+  /// Provide the task which is terminated by the action server
+  ///
+  /// \param[in] action server id
+  /// \param[in] terminated task
+  /// \param[in] task is completed or failed
   using TerminationCallback = 
-    std::function<void(const TaskMsg& task, const bool success)>;
+    std::function<void(
+        const std::string& server_id, 
+        const TaskMsg& task,
+        const bool success)>;
 
   /// Add event callback fns
   ///
@@ -89,21 +109,21 @@ public:
   ///
   /// \param[in] target server which will complete this task
   /// \param[in] task profile to execute
-  /// \param[in] response function when a add_task() method is completed
+  /// \param[in] bool which indicate if add task is success
   void add_task(
       const std::string& server_id, 
       const TaskProfile& task_profile,
-      std::future<bool>& future_success);
+      std::future<bool>& add_success);
   
   /// cancel an added task
   ///
   /// \param[in] target server which will cancel this task
   /// \param[in] task profile to cancel
-  /// \param[in] response function when a cancel_task() method is completed
+  /// \param[in] bool which indicate if cancel task is success
   void cancel_task(
       const std::string& server_id, 
       const TaskProfile& task_profile,
-      std::future<bool>& future_success);
+      std::future<bool>& cancel_success);
 
 private:
   std::shared_ptr<rclcpp::Node> _node;
@@ -121,11 +141,7 @@ private:
 
   // wait acknowledgment
   std::map<TaskProfile, std::promise<bool>> _task_request_fut_ack;
-
-  RequestMsg _request_msg; //todo, a better approach
   std::promise<bool> _ack_promise;
-
-  // ResultResponse wait_result_ack_impl(const std::string& task_id);
 };
 
 // ==============================================================================
@@ -169,8 +185,10 @@ public:
   /// use this to inform client that the task is terminated
   ///
   /// \param[in] Terminated task
-  /// \param[in] success
-  void terminate_task(const TaskMsg& task, const bool success);
+  /// \param[in] success/completed
+  void terminate_task(
+      const TaskMsg& task, 
+      const bool success);
 
 private:
   std::shared_ptr<rclcpp::Node> _node;

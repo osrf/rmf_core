@@ -25,10 +25,6 @@
 
 #include <rmf_task_ros2/action/ActionInterface.hpp>
 
-#include <rmf_task_msgs/msg/loop.hpp>
-#include <rmf_task_msgs/msg/delivery.hpp>
-#include <rmf_task_msgs/msg/station.hpp>
-
 #include <rmf_utils/optional.hpp>
 
 namespace rmf_task_ros2 {
@@ -52,12 +48,14 @@ enum class DispatchState{
 
 struct DispatchTask
 {
-  TaskProfile profile;
-  bidding::Submission winner;
-  double progress; // 0 - 1.0
+  TaskProfile task_profile;
   DispatchState dispatch_state;
+  rmf_utils::optional<bidding::Submission> winner;
+  // rmf_utils::optional<action::TaskMsg> task_status; TODO
+  double progress; // 0 - 1.0
 };
 using DispatchTasks = std::map<TaskID, DispatchTask>;
+using DispatchTasksPtr = std::shared_ptr<DispatchTasks>;
 
 //==============================================================================
 
@@ -84,16 +82,19 @@ public:
   /// check status of a submited task
   ///
   /// \param [in] to identify task_id
-  /// \return State of the task (invalid: in bidding, nullopt: not avail)
-  rmf_utils::optional<DispatchState> get_task_status(
+  /// \return State of the task
+  rmf_utils::optional<DispatchState> get_task_dispatch_state(
       const TaskID& task_id);
 
-  // TODO get pointer (populating tasks)
-  // DispatchTasks get_active_tasks(
-  //   DispatchState query_state=DispatchState::Invalid);
-  
-  // DispatchTasks get_terminated_tasks(
-  //   DispatchState query_state=DispatchState::Invalid);
+  /// Get current active tasks map list
+  ///
+  /// \return Ptr to active tasks
+  DispatchTasksPtr get_active_tasks();
+
+  /// Get current terminated tasks map list
+  ///
+  /// \return Ptr to terminated tasks
+  DispatchTasksPtr get_terminated_tasks();
 
 private:
   std::shared_ptr<rclcpp::Node> _node;
@@ -105,8 +106,8 @@ private:
   using ActiveTasksMap = std::map<TaskID, ActiveTaskState>;
   ActiveTasksMap _active_tasks;
 
-  // DispatchTasks active_dispatch_tasks;
-  // DispatchTasks terminal_dispatch_tasks;
+  DispatchTasks _active_dispatch_tasks;
+  DispatchTasks _terminal_dispatch_tasks; // todo limit size
 
   // Private constructor
   Dispatcher(std::shared_ptr<rclcpp::Node> node_);
@@ -118,10 +119,12 @@ private:
 
   // task action status callback
   void action_status_cb(
+      const std::string& server_id, 
       const std::vector<action::TaskMsg>& tasks);
 
   // task action finish callback
   void action_finish_cb(
+      const std::string& server_id,
       const action::TaskMsg& task, 
       const bool success);
 };

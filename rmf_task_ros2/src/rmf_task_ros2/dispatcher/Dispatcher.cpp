@@ -27,11 +27,8 @@ namespace dispatcher {
 std::shared_ptr<Dispatcher> Dispatcher::make(
     std::shared_ptr<rclcpp::Node> node)
 {
-  // this->Dispatcher(node);
-
   auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher(node));
 
-  // auto node = std::shared_ptr<Dispatcher>(new Dispatcher);
   dispatcher->_auctioneer = bidding::Auctioneer::make(node);
   dispatcher->_action_client = 
     action::TaskActionClient::make(node, DispatchActionTopicName);
@@ -41,25 +38,27 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
   dispatcher->_auctioneer->receive_bidding_result(
     std::bind(&Dispatcher::receive_bidding_winner_cb, dispatcher, _1, _2));
   dispatcher->_action_client->register_callbacks(
-    std::bind(&Dispatcher::action_status_cb, dispatcher, _1),
-    std::bind(&Dispatcher::action_finish_cb, dispatcher, _1, _2));
+    std::bind(&Dispatcher::action_status_cb, dispatcher, _1, _2),
+    std::bind(&Dispatcher::action_finish_cb, dispatcher, _1, _2, _3));
   return dispatcher;
 }
 
 //==============================================================================
 TaskID Dispatcher::submit_task(const TaskProfile& task)
 {
-  // auto generate a taskid
-  auto auction_task = task;
+  auto submitted_task = task;
+  
+  // auto generate a taskid with timestamp
   const auto p1 = std::chrono::system_clock::now();
-  auction_task.task_id = "task-" +
+  submitted_task.task_id = "task-" +
     std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
       p1.time_since_epoch()).count());
 
-  ActiveTaskState task_state(auction_task, DispatchState::Bidding);
-  _active_tasks[auction_task.task_id] = task_state;
+  DispatchTask dispatch_task {
+    submitted_task, DispatchState::Bidding, rmf_utils::nullopt, 0.0 };
+  _active_dispatch_tasks[submitted_task.task_id] = dispatch_task;
   bidding::BiddingTask bidding_task;
-  bidding_task.task_profile = auction_task;
+  bidding_task.task_profile = submitted_task;
   _auctioneer->start_bidding(bidding_task);
   return task.task_id;
 }
@@ -67,39 +66,47 @@ TaskID Dispatcher::submit_task(const TaskProfile& task)
 bool Dispatcher::cancel_task(const TaskID& task_id)
 {
   // check if key doesnt exist
-  if (!_active_tasks.count(task_id))
+  if (!_active_dispatch_tasks.count(task_id))
     return false;
 
   // todo: need to cancel bidding
-  if (_active_tasks[task_id].second == DispatchState::Bidding)
+  if (_active_dispatch_tasks[task_id].dispatch_state == DispatchState::Bidding)
     return false;
 
-  std::future<bool> fut_task_success;
-
-  // assert(_active_tasks[task_id].first.submissions.size() != 0);
-  // auto server_id = _active_tasks[task_id].first.submissions[0].bidder_name;
-
-  // TODO!!! fix indentify server_id
-  _action_client->cancel_task( 
-      "server_id", _active_tasks[task_id].first, fut_task_success);
+  assert(_active_dispatch_tasks[task_id].winner);
+  std::future<bool> fut_task_success; // todo, confirm ack
+  _action_client->cancel_task(
+      _active_dispatch_tasks[task_id].winner->bidder_name,
+      _active_dispatch_tasks[task_id].task_profile,
+      fut_task_success);
   return true;
 }
 
-rmf_utils::optional<DispatchState> Dispatcher::get_task_status(
+rmf_utils::optional<DispatchState> Dispatcher::get_task_dispatch_state(
     const TaskID& task_id)
 {
   // check if key doesnt exist
-  if (!_active_tasks.count(task_id))
+  if (!_active_dispatch_tasks.count(task_id))
     return rmf_utils::nullopt;
 
-  return _active_tasks[task_id].second;
+  return _active_dispatch_tasks[task_id].dispatch_state;
+}
+
+DispatchTasksPtr Dispatcher::get_active_tasks()
+{
+  return std::make_shared<DispatchTasks>(_active_dispatch_tasks);
+}
+
+DispatchTasksPtr Dispatcher::get_terminated_tasks()
+{
+  return std::make_shared<DispatchTasks>(_terminal_dispatch_tasks);
 }
 
 //==============================================================================
 Dispatcher::Dispatcher(std::shared_ptr<rclcpp::Node> node_)
 : _node(std::move(node_))
 {
-  std::cout << "~Initializing RMF Dispatcher~" << std::endl;
+  // Do Nothing
 }
 
 //==============================================================================
@@ -116,21 +123,23 @@ void Dispatcher::receive_bidding_winner_cb(
   }
   std::cout << " | Found a winner! " << winner->bidder_name << std::endl;
 
-  // we will initiate a task via task action here! (TODO)
-  // _active_tasks[task_id].first.submissions.push_back(*winner);
-  // action::TaskMsg task = convert_task(_active_tasks[task_id].first);
-  std::future<bool> fut_task_success;
+  // we will initiate a task via task action here!
+  _active_dispatch_tasks[task_id].winner = *winner;
 
+  std::future<bool> fut_task_success; // todo, confirm ack
   _action_client->add_task(
-      winner->bidder_name, _active_tasks[task_id].first, fut_task_success);
+      winner->bidder_name,
+      _active_dispatch_tasks[task_id].task_profile, 
+      fut_task_success);
 
   // when fut is received, change task state as queued
-  _active_tasks[task_id].second = DispatchState::Queued;
+  _active_dispatch_tasks[task_id].dispatch_state = DispatchState::Queued;
 }
 
 //==============================================================================
 // task action callback
 void Dispatcher::action_status_cb(
+    const std::string& server_id,
     const std::vector<action::TaskMsg>& tasks)
 {
   std::cout << "[action status] number of on-going tasks"
@@ -138,18 +147,29 @@ void Dispatcher::action_status_cb(
   // update task status here, todo: update estimated finish time?
   for(auto tsk : tasks)
   {
-    _active_tasks[tsk.task_profile.task_id].second = 
+    _active_dispatch_tasks[tsk.task_profile.task_id].dispatch_state = 
       static_cast<DispatchState>(tsk.state);
   }
 }
 
 void Dispatcher::action_finish_cb(
+    const std::string& server_id, 
     const action::TaskMsg& task, 
     const bool success)
 {
-  std::cout << "[action result] completed task: " << task.task_profile.task_id 
+  auto finish_task_id = task.task_profile.task_id;
+
+  // check if key doesnt exist
+  if (!_active_dispatch_tasks.count(finish_task_id)) return;
+
+  _active_dispatch_tasks[finish_task_id].dispatch_state = 
+      static_cast<DispatchState>(task.state);
+  std::cout << "[action result] completed task: " << finish_task_id 
             << " scucess?: " << success << std::endl;
-  _active_tasks.erase(task.task_profile.task_id); // todo check if within
+
+  _terminal_dispatch_tasks[finish_task_id] = 
+      _active_dispatch_tasks[finish_task_id];
+  _active_dispatch_tasks.erase(finish_task_id);
 }
 
 } // namespace dispatcher

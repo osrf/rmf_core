@@ -51,9 +51,7 @@ struct TaskProfile
 
   bool operator==(const TaskProfile& tsk) const
   {
-    if(this->task_id == tsk.task_id)
-      return true;
-    return false;
+    return (this->task_id == tsk.task_id);
   }
 
   bool operator<(const TaskProfile& tsk) const

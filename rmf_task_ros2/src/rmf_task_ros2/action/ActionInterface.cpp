@@ -45,7 +45,7 @@ TaskActionClient::TaskActionClient(
     [&](const StatusMsg::UniquePtr msg)
     {   
       if(_status_callback_fn)
-        _status_callback_fn(msg->tasks);
+        _status_callback_fn(msg->server_id, msg->tasks);
     });
   
   _result_msg_sub = _node->create_subscription<ResultMsg>(
@@ -68,7 +68,7 @@ TaskActionClient::TaskActionClient(
       if(_termination_callback_fn)
       {
         bool is_success = (msg->task.state == TaskMsg::TERMINAL_COMPLETED);
-        _termination_callback_fn( msg->task, is_success);
+        _termination_callback_fn(msg->server_id, msg->task, is_success);
       }
     });
 }
@@ -84,41 +84,44 @@ void TaskActionClient::register_callbacks(
 void TaskActionClient::add_task(
     const std::string& server_id, 
     const TaskProfile& task_profile,
-    std::future<bool>& future_res)
+    std::future<bool>& add_success)
 {
   // reinitiaze promise
   _ack_promise = std::promise<bool>(); 
   
   // send request and wait for acknowledgement
-  _request_msg.server_id = server_id;
-  _request_msg.task_profile = convert(task_profile);
-  _request_msg.method = RequestMsg::ADD;
-  _request_msg_pub->publish(_request_msg);
+  RequestMsg request_msg;
+  request_msg.server_id = server_id;
+  request_msg.task_profile = convert(task_profile);
+  request_msg.method = RequestMsg::ADD;
+  _request_msg_pub->publish(request_msg);
 
   _task_request_fut_ack[task_profile] = std::promise<bool>();
-  future_res = _task_request_fut_ack[task_profile].get_future();
+  add_success = _task_request_fut_ack[task_profile].get_future();
   return;
 }
 
 void TaskActionClient::cancel_task(
     const std::string& server_id, 
     const TaskProfile& task_profile,
-    std::future<bool>& future_res)
+    std::future<bool>& cancel_success)
 {
   // reinitiaze promise
   _ack_promise = std::promise<bool>(); 
 
   // send cancel and wait for acknowledgement
-  _request_msg.server_id = server_id;
-  _request_msg.task_profile = convert(task_profile);
-  _request_msg.method = RequestMsg::CANCEL;
-  _request_msg_pub->publish(_request_msg);
+  RequestMsg request_msg;
+  request_msg.server_id = server_id;
+  request_msg.task_profile = convert(task_profile);
+  request_msg.method = RequestMsg::CANCEL;
+  _request_msg_pub->publish(request_msg);
 
   _task_request_fut_ack[task_profile] = std::promise<bool>();
-  future_res = _task_request_fut_ack[task_profile].get_future();
+  cancel_success = _task_request_fut_ack[task_profile].get_future();
   return;
 }
 
+//==============================================================================
 //==============================================================================
 
 std::shared_ptr<TaskActionServer> TaskActionServer::make(
@@ -142,12 +145,21 @@ TaskActionServer::TaskActionServer(
     prefix_topic + "_request", dispatch_qos,
     [&](const RequestMsg::UniquePtr msg)
     {
-      if(msg->method == RequestMsg::ADD)
-        this->add_task_impl(msg->task_profile);
-      else if(msg->method == RequestMsg::CANCEL)
-        this->cancel_task_impl(msg->task_profile);
-      else
-        std::cerr << "Request Method is not supported!!!"<< std::endl;
+      if (msg->server_id != _server_id)
+        return; // not me
+
+      std::cout << "[action] Receive a task request!!!"<< std::endl;
+      switch(msg->method)
+      {
+        case RequestMsg::ADD: 
+          this->add_task_impl(msg->task_profile);
+          break;
+        case RequestMsg::CANCEL: 
+          this->cancel_task_impl(msg->task_profile);
+          break;
+        default:
+          std::cerr << "Request Method is not supported!!!"<< std::endl;
+      }
     });
 
   _status_msg_pub = _node->create_publisher<StatusMsg>(
@@ -178,21 +190,24 @@ void TaskActionServer::terminate_task(
     const bool success)
 {
   ResultMsg result_msg;
+  result_msg.server_id = _server_id;
   result_msg.task = task;
 
   if (success)
-    result_msg.task.state = TaskMsg::ACTIVE_QUEUED;
+    result_msg.task.state = TaskMsg::TERMINAL_COMPLETED;
   else
     result_msg.task.state = TaskMsg::TERMINAL_FAILED;
 
   _result_msg_pub->publish(result_msg);
 }
 
+//==============================================================================
 void TaskActionServer::add_task_impl(const TaskProfileMsg& task_profile)
 {
   ResultMsg result_msg;
   result_msg.task.task_profile = task_profile; 
-  
+  result_msg.server_id = _server_id;
+
   if(!_add_task_cb_fn) 
     return;
 
@@ -208,6 +223,7 @@ void TaskActionServer::cancel_task_impl(const TaskProfileMsg& task_profile)
 {
   ResultMsg result_msg;
   result_msg.task.task_profile = task_profile;
+  result_msg.server_id = _server_id;
   
   if(!_cancel_task_cb_fn)
     return;

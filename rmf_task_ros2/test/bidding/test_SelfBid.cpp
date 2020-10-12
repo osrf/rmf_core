@@ -39,7 +39,6 @@ auto submision_time = std::chrono::steady_clock::now();
 BiddingTask bidding_task1{{"bid1", submision_time, TaskType::Station }};
 BiddingTask bidding_task2{{"bid2", submision_time, TaskType::Delivery }};
 
-
 //==============================================================================
 SCENARIO("Auction with 2 Bids", "[TwoBids]")
 {
@@ -50,29 +49,30 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   auto bidder1 = MinimalBidder::make(node, bidder1_profile);
   auto bidder2 = MinimalBidder::make(node, bidder2_profile);
 
-  // received msg
-  std::string r_notice_bidder1_id = "";
-  std::string r_notice_bidder2_id = "";
+  // test received msg
+  rmf_utils::optional<TaskProfile> test_notice_bidder1;
+  rmf_utils::optional<TaskProfile> test_notice_bidder2;
   std::string r_result_id = "";
   std::string r_result_winner = "";
+
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
 
   bidder1->call_for_bid(
-    [&r_notice_bidder1_id](const BidNotice& notice)
+    [&test_notice_bidder1](const BidNotice& notice)
     {
       Submission best_robot_estimate;
-      r_notice_bidder1_id = notice.task_profile.task_id;
+      test_notice_bidder1 = convert(notice.task_profile);
       return best_robot_estimate;
     }
   );
   bidder2->call_for_bid(
-    [&r_notice_bidder2_id](const BidNotice& notice)
+    [&test_notice_bidder2](const BidNotice& notice)
     {
       // TaskType should not be supported
       Submission best_robot_estimate;
       best_robot_estimate.new_cost = 2.3; // lower cost than bidder1
-      r_notice_bidder2_id = notice.task_profile.task_id;
+      test_notice_bidder2 = convert(notice.task_profile);
       return best_robot_estimate;
     }
   );
@@ -87,7 +87,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     }
   );
 
-  // forever incompleted future
+  // ROS Spin: forever incompleted future
   std::promise<void> ready_promise;
   std::shared_future<void> ready_future(ready_promise.get_future());
   // replacement of this method --->
@@ -103,9 +103,10 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(0.5));
 
-    // Check if bidder 1 & 2 receive BidNotice
-    REQUIRE(r_notice_bidder1_id == "bid1"); // this is valid
-    REQUIRE(r_notice_bidder2_id == ""); // bidder2 doesnt support tasktype
+    // Check if bidder 1 & 2 receive BidNotice1
+    REQUIRE(test_notice_bidder1);
+    REQUIRE(*test_notice_bidder1 == bidding_task1.task_profile);
+    REQUIRE(!test_notice_bidder2); // bidder2 doesnt support tasktype
 
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(2.5));
@@ -124,9 +125,9 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(0.5));
 
-    // Check if bidder 1 & 2 receive BidNotice
-    REQUIRE(r_notice_bidder1_id == "bid2"); // this is valid
-    REQUIRE(r_notice_bidder2_id == "bid2"); // bidder2 doesnt support tasktype
+    // Check if bidder 1 & 2 receive BidNotice2
+    REQUIRE(*test_notice_bidder1 == bidding_task2.task_profile);
+    REQUIRE(*test_notice_bidder2 == bidding_task2.task_profile);
 
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(2.5));
