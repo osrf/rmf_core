@@ -107,6 +107,16 @@ private:
 
 };
 
+Eigen::Vector3d compute_position(
+  const std::array<Eigen::Vector4d, 3>& params,
+  const double time);
+
+Eigen::Vector3d compute_velocity(
+  const std::array<Eigen::Vector4d, 3>& params,
+  const double time);
+
+std::vector<double> compute_roots_in_unit_domain(const Eigen::Vector3d coeffs);
+
 } // namespace rmf_traffic
 
 #endif // SRC__RMF_TRAFFIC__SPLINE_HPP

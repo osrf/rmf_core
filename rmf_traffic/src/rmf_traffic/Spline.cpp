@@ -21,9 +21,88 @@
 
 namespace rmf_traffic {
 
-namespace {
+//==============================================================================
+Eigen::Vector3d compute_position(
+  const std::array<Eigen::Vector4d, 3>& coeffs,
+  const double time)
+{
+  Eigen::Vector3d result = Eigen::Vector3d::Zero();
+  for (int i = 0; i < 3; ++i)
+  {
+    const Eigen::Vector4d coeff = coeffs[i];
+    for (int j = 0; j < 4; ++j)
+      result[i] += coeff[j] * pow(time, j);
+  }
+
+  return result;
+}
+
+//==============================================================================
+Eigen::Vector3d compute_velocity(
+  const std::array<Eigen::Vector4d, 3>& coeffs,
+  const double time)
+{
+  Eigen::Vector3d result = Eigen::Vector3d::Zero();
+  for (int i = 0; i < 3; ++i)
+  {
+    const Eigen::Vector4d coeff = coeffs[i];
+    // Note: This is computing the derivative of the polynomial w.r.t. time
+    for (int j = 1; j < 4; ++j)
+      result[i] += j * coeff[j] * pow(time, j-1);
+  }
+  return result;
+}
 
 const double time_tolerance = 1e-4;
+
+//==============================================================================
+/// Get the quadratic roots of the coefficients, but only if they fall in the
+/// domain t = [0, 1]
+// TODO(MXG): This will always return 2, 1, or 0 results, so a bounded vector
+// would be preferable for a return value.
+std::vector<double> compute_roots_in_unit_domain(const Eigen::Vector3d coeffs)
+{
+  const double tol = 1e-5;
+
+  const double a = coeffs[2];
+  const double b = coeffs[1];
+  const double c = coeffs[0];
+
+  if (std::abs(a) < tol)
+  {
+    if (std::abs(b) < tol)
+    {
+      return {};
+    }
+
+    const double t = -c/b;
+    if (0.0 <= t && t <= 1.0)
+    {
+      return {t};
+    }
+
+    return {};
+  }
+
+  const double determinate = (b*b - 4*a*c);
+  if (determinate < 0.0)
+  {
+    return {};
+  }
+
+  std::vector<double> output;
+  const double t_m = (-b - std::sqrt(determinate))/(2*a);
+  if (0.0 <= t_m && t_m <= 1.0)
+    output.push_back(t_m);
+
+  const double t_p = (-b + std::sqrt(determinate))/(2*a);
+  if (0.0 <= t_p && t_p <= 1.0 && std::abs(t_p - t_m) > time_tolerance)
+    output.push_back(t_p);
+
+  return output;
+}
+
+namespace {
 
 //==============================================================================
 Eigen::Matrix4d make_M_inv()
@@ -150,39 +229,6 @@ Time compute_real_time(
 }
 
 //==============================================================================
-Eigen::Vector3d compute_position(
-  const Spline::Parameters& params,
-  const double time)
-{
-  Eigen::Vector3d result = Eigen::Vector3d::Zero();
-  for (int i = 0; i < 3; ++i)
-  {
-    const Eigen::Vector4d coeffs = params.coeffs[i];
-    for (int j = 0; j < 4; ++j)
-      result[i] += coeffs[j] * pow(time, j);
-  }
-
-  return result;
-}
-
-//==============================================================================
-Eigen::Vector3d compute_velocity(
-  const Spline::Parameters& params,
-  const double time)
-{
-  Eigen::Vector3d result = Eigen::Vector3d::Zero();
-  for (int i = 0; i < 3; ++i)
-  {
-    const Eigen::Vector4d coeffs = params.coeffs[i];
-    // Note: This is computing the derivative of the polynomial w.r.t. time
-    for (int j = 1; j < 4; ++j)
-      result[i] += j * coeffs[j] * pow(time, j-1);
-  }
-
-  return result;
-}
-
-//==============================================================================
 Eigen::Vector3d compute_acceleration(
   const Spline::Parameters& params,
   const double time)
@@ -232,13 +278,13 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
   const double scaled_finish_time = compute_scaled_time(finish_time, params);
 
   const Eigen::Vector3d x0 =
-    rmf_traffic::compute_position(params, scaled_start_time);
+    rmf_traffic::compute_position(params.coeffs, scaled_start_time);
   const Eigen::Vector3d x1 =
-    rmf_traffic::compute_position(params, scaled_finish_time);
+    rmf_traffic::compute_position(params.coeffs, scaled_finish_time);
   const Eigen::Vector3d v0 =
-    scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_start_time);
+    scaled_delta_t * rmf_traffic::compute_velocity(params.coeffs, scaled_start_time);
   const Eigen::Vector3d v1 =
-    scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_finish_time);
+    scaled_delta_t * rmf_traffic::compute_velocity(params.coeffs, scaled_finish_time);
 
   const std::array<Eigen::Vector4d, 3> subspline_coeffs =
     compute_coefficients(x0, x1, v0, v1);
@@ -291,7 +337,7 @@ Time Spline::finish_time() const
 Eigen::Vector3d Spline::compute_position(const Time at_time) const
 {
   return rmf_traffic::compute_position(
-    params, compute_scaled_time(at_time, params));
+    params.coeffs, compute_scaled_time(at_time, params));
 }
 
 //==============================================================================
@@ -299,7 +345,7 @@ Eigen::Vector3d Spline::compute_velocity(const Time at_time) const
 {
   const double delta_t_inv = 1.0/params.delta_t;
   return delta_t_inv * rmf_traffic::compute_velocity(
-    params, compute_scaled_time(at_time, params));
+    params.coeffs, compute_scaled_time(at_time, params));
 }
 
 //==============================================================================
@@ -347,7 +393,7 @@ DistanceDifferential::DistanceDifferential(
   _params.coeffs[1] = coeffs_a[1] - coeffs_b[1];
   // we ignore rotation when calculating distance
   _params.coeffs[2] = Eigen::Vector4d::Zero();
-
+  
   _params.time_range[0] = t0;
   _params.time_range[1] = t1;
   _params.delta_t = delta_t;
@@ -360,11 +406,10 @@ double compute_derivative(
     const Spline::Parameters& params)
 {
   const Eigen::Vector2d dp =
-      compute_position(params, scaled_time).block<2,1>(0,0);
+      rmf_traffic::compute_position(params.coeffs, scaled_time).block<2,1>(0,0);
 
   const Eigen::Vector2d dv =
-      compute_velocity(params, scaled_time).block<2,1>(0,0);
-
+      compute_velocity(params.coeffs, scaled_time).block<2,1>(0,0);
   return dp.dot(dv);
 }
 
@@ -381,62 +426,14 @@ bool is_second_derivative_of_distance_negative(
     const double t)
 {
   const Eigen::Vector2d dp =
-      compute_position(params, t).block<2,1>(0,0);
+      rmf_traffic::compute_position(params.coeffs, t).block<2,1>(0,0);
 
   const Eigen::Vector2d dv =
-      compute_velocity(params, t).block<2,1>(0,0);
+      compute_velocity(params.coeffs, t).block<2,1>(0,0);
 
   const Eigen::Vector2d da =
       compute_acceleration(params, t).block<2,1>(0,0);
-
   return (dv.dot(dv) + dp.dot(da) < 0.0);
-}
-
-//==============================================================================
-/// Get the quadratic roots of the coefficients, but only if they fall in the
-/// domain t = [0, 1]
-// TODO(MXG): This will always return 2, 1, or 0 results, so a bounded vector
-// would be preferable for a return value.
-std::vector<double> compute_roots_in_unit_domain(const Eigen::Vector3d coeffs)
-{
-  const double tol = 1e-5;
-
-  const double a = coeffs[2];
-  const double b = coeffs[1];
-  const double c = coeffs[0];
-
-  if (std::abs(a) < tol)
-  {
-    if (std::abs(b) < tol)
-    {
-      return {};
-    }
-
-    const double t = -c/b;
-    if (0.0 <= t && t <= 1.0)
-    {
-      return {t};
-    }
-
-    return {};
-  }
-
-  const double determinate = (b*b - 4*a*c);
-  if (determinate < 0.0)
-  {
-    return {};
-  }
-
-  std::vector<double> output;
-  const double t_m = (-b - std::sqrt(determinate))/(2*a);
-  if (0.0 <= t_m && t_m <= 1.0)
-    output.push_back(t_m);
-
-  const double t_p = (-b + std::sqrt(determinate))/(2*a);
-  if (0.0 <= t_p && t_p <= 1.0 && std::abs(t_p - t_m) > time_tolerance)
-    output.push_back(t_p);
-
-  return output;
 }
 
 //==============================================================================
@@ -536,8 +533,8 @@ std::vector<Time> DistanceDifferential::approach_times() const
   const Eigen::Vector3d vx_coeffs = compute_deriv_coeffs(_params.coeffs[0]);
   const Eigen::Vector3d vy_coeffs = compute_deriv_coeffs(_params.coeffs[1]);
 
-  const auto t_vx_zero = compute_roots_in_unit_domain(vx_coeffs);
-  auto t_vy_zero = compute_roots_in_unit_domain(vy_coeffs);
+  const auto t_vx_zero = rmf_traffic::compute_roots_in_unit_domain(vx_coeffs);
+  auto t_vy_zero = rmf_traffic::compute_roots_in_unit_domain(vy_coeffs);
 
   std::vector<double> t_full_zero;
   const double zero_tolerance = 1e-3;
@@ -546,7 +543,7 @@ std::vector<Time> DistanceDifferential::approach_times() const
 
   for (const double t : t_vx_zero)
   {
-    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dv = compute_velocity(_params.coeffs, t).block<2,1>(0,0);
     if (std::abs(dv.y()) < zero_tolerance)
     {
       insert_if_missing(t_full_zero, t);
@@ -554,7 +551,7 @@ std::vector<Time> DistanceDifferential::approach_times() const
     }
 
     // This is (vx: 0, vy: anything)
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = rmf_traffic::compute_position(_params.coeffs, t).block<2,1>(0,0);
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, M_PI/2.0, -M_PI/2.0)
         || is_negative_derivative(t, _params))
@@ -565,14 +562,14 @@ std::vector<Time> DistanceDifferential::approach_times() const
 
   for (const double t : t_vy_zero)
   {
-    const Eigen::Vector2d dv = compute_velocity(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dv = compute_velocity(_params.coeffs, t).block<2,1>(0,0);
     if (std::abs(dv.x()) < zero_tolerance)
     {
       insert_if_missing(t_full_zero, t);
       continue;
     }
 
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = rmf_traffic::compute_position(_params.coeffs, t).block<2,1>(0,0);
 
     double theta = std::atan2(dp.y(), dp.x());
     if (theta < -M_PI/2.0)
@@ -595,14 +592,14 @@ std::vector<Time> DistanceDifferential::approach_times() const
     }
   }
 
-  const auto t_vx_p_vy = compute_roots_in_unit_domain(vx_coeffs + vy_coeffs);
+  const auto t_vx_p_vy = rmf_traffic::compute_roots_in_unit_domain(vx_coeffs + vy_coeffs);
   for (const double t : t_vx_p_vy)
   {
     if (contains(t_full_zero, t))
       continue;
 
     // This is (vx + vy = 0)
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = rmf_traffic::compute_position(_params.coeffs, t).block<2,1>(0,0);
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, M_PI/4.0, -3.0*M_PI/4.0)
         || is_negative_derivative(t, _params))
@@ -611,14 +608,14 @@ std::vector<Time> DistanceDifferential::approach_times() const
     }
   }
 
-  const auto t_vx_m_vy = compute_roots_in_unit_domain(vx_coeffs - vy_coeffs);
+  const auto t_vx_m_vy = rmf_traffic::compute_roots_in_unit_domain(vx_coeffs - vy_coeffs);
   for (const double t : t_vx_m_vy)
   {
     if (contains(t_full_zero, t))
       continue;
 
     // This is (vx - vy = 0)
-    const Eigen::Vector2d dp = compute_position(_params, t).block<2,1>(0,0);
+    const Eigen::Vector2d dp = rmf_traffic::compute_position(_params.coeffs, t).block<2,1>(0,0);
     const double theta = std::atan2(dp.y(), dp.x());
     if (is_in_eighth(theta, 3.0*M_PI/4.0, -M_PI/4.0)
         || is_negative_derivative(t, _params))
