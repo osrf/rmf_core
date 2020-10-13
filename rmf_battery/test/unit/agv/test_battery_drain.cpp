@@ -188,7 +188,6 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
 
-    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1.0 && remaining_soc < 0.10;
     CHECK(ok);
   }
@@ -212,8 +211,8 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
       rmf_traffic::time::to_seconds(trajectory.duration()));
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
-
-    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
+    const bool ok = remaining_soc > -1.0 && remaining_soc < 0.10;
+    CHECK(ok);
   }
 
   WHEN("Testing turning on a spot")

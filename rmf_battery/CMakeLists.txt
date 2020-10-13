@@ -45,7 +45,7 @@ target_include_directories(rmf_battery
     ${EIGEN3_INCLUDE_DIRS}
 )
 
-ament_export_interfaces(rmf_battery HAS_LIBRARY_TARGET)
+ament_export_targets(rmf_battery HAS_LIBRARY_TARGET)
 ament_export_dependencies(rmf_utils)
 
 if(BUILD_TESTING)

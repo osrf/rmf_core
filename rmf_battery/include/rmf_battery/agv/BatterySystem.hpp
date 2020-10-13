@@ -57,11 +57,17 @@ public:
     /// \param[in] exp_capacity
     ///   The capacity of the battery in Ah at the end of the exponential zone
     ///   in its discharge profile
+    ///
+    /// \param[in] nominal_capacity
+    ///   The capacity of the battery in Ah at the end of the exponential zone
+    ///   in its discharge profile
     BatteryProfile(
       double resistance,
       double max_voltage,
       double exp_voltage,
-      double exp_capacity);
+      double exp_capacity,
+      double nominal_capacity,
+      double discharge_current);
 
     BatteryProfile& resistance(double resistance);
     double resistance() const;
@@ -74,6 +80,12 @@ public:
 
     BatteryProfile& exp_capacity(double exp_capacity);
     double exp_capacity() const;
+
+    BatteryProfile& nominal_capacity(double nominal_capacity);
+    double nominal_capacity() const;
+
+    BatteryProfile& discharge_current(double discharge_current);
+    double discharge_current() const;
 
     /// Returns true if the values are valid, i.e. greater than zero.
     bool valid() const;
@@ -88,29 +100,34 @@ public:
   /// \param[in] nominal_voltage
   ///   The nominal voltage of the battery in volts
   ///
-  /// \param[in] nominal_capacity
+  /// \param[in] capacity
   ///   The nominal capacity of the battery in Ah
   ///
   /// \param[in] charging_current
   ///   The rated current in A for charging the battery
   ///
   /// \param[in] type
-  /// The chemisty type of the battery
+  ///   The chemisty type of the battery
   ///
   /// \param[in] profile
-  ///   The battery profile for this battery
+  ///   The battery profile for this battery. This is only required for calling
+  ///   the get_voltage() method
   BatterySystem(
     double nominal_voltage,
-    double nominal_capacity,
+    double capacity,
     double charging_current,
     BatteryType type = BatteryType::LeadAcid,
     rmf_utils::optional<BatteryProfile> profile = rmf_utils::nullopt);
 
+  /// Estimate the voltage of the battery given its state of charge. This function
+  /// will return a nullopt if the battery profile is not defined
+  rmf_utils::optional<double> estimate_voltage(const double soc) const;
+
   BatterySystem& nominal_voltage(double nominal_voltage);
   double nominal_voltage() const;
 
-  BatterySystem& nominal_capacity(double nominal_capacity);
-  double nominal_capacity() const;
+  BatterySystem& capacity(double nominal_capacity);
+  double capacity() const;
 
   BatterySystem& charging_current(double charging_current);
   double charging_current() const;

@@ -79,7 +79,7 @@ double SimpleMotionPowerSink::compute_change_in_charge(
   assert(_pimpl->battery_system.valid());
   assert(_pimpl->mechanical_system.valid());
 
-  const double nominal_capacity = _pimpl->battery_system.nominal_capacity();
+  const double capacity = _pimpl->battery_system.capacity();
   const double nominal_voltage = _pimpl->battery_system.nominal_voltage();
   const double mass = _pimpl->mechanical_system.mass();
   const double inertia = _pimpl->mechanical_system.inertia();
@@ -113,7 +113,6 @@ double SimpleMotionPowerSink::compute_change_in_charge(
 
     // Loss through acceleration
     const double EA = ((mass * a * v) + (inertia * alpha * w)) * sim_step;
-    // std::cout << "EA: " << EA << " alpha: " << alpha << " w: " << w << " v: " << v << std::endl;
     // Loss through friction
     const double EF = compute_friction_energy(friction, mass, v, sim_step);
 
@@ -123,7 +122,7 @@ double SimpleMotionPowerSink::compute_change_in_charge(
   // The charge consumed
   const double dQ = dE / nominal_voltage;
   // The depleted state of charge
-  const double dSOC = dQ / (nominal_capacity * 3600.0);
+  const double dSOC = dQ / (capacity * 3600.0);
   return dSOC;
 }
 

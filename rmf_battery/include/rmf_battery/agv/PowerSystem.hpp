@@ -36,21 +36,15 @@ public:
   /// \param[in] nominal_power
   ///   The rated nominal power consumption in Watts for this power system
   ///
-  /// \param[in] efficiency
-  ///   The efficiency of this power system
   PowerSystem(
     std::string name,
-    double nominal_power,
-    double efficiency = 1.0);
+    double nominal_power);
 
   PowerSystem& name(std::string name);
   const std::string& name() const;
 
   PowerSystem& nominal_power(double nom_power);
   double nominal_power() const;
-
-  PowerSystem& efficiency(double efficiency);
-  double efficiency() const;
 
   /// Returns true if the values are valid, i.e. greater than zero.
   bool valid() const;
