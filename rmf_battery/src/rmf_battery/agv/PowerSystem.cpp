@@ -25,16 +25,14 @@ class PowerSystem::Implementation
 public:
   std::string name;
   double nominal_power;
-  double efficiency;
 };
 
 //==============================================================================
 PowerSystem::PowerSystem(
   const std::string name,
-  const double nominal_power,
-  const double efficiency)
+  const double nominal_power)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{name, nominal_power, efficiency}))
+      Implementation{name, nominal_power}))
 {
   // Do nothing
 }
@@ -66,24 +64,9 @@ double PowerSystem::nominal_power() const
 }
 
 //==============================================================================
-auto PowerSystem::efficiency(double efficiency)
-->PowerSystem&
-{
-  _pimpl->efficiency = efficiency;
-  return *this;
-}
-
-//==============================================================================
-double PowerSystem::efficiency() const
-{
-  return _pimpl->efficiency;
-}
-
-//==============================================================================
 bool PowerSystem::valid() const
 {
-  return !_pimpl->name.empty() && _pimpl->nominal_power > 0.0
-    && _pimpl->efficiency > 0.0;
+  return !_pimpl->name.empty() && _pimpl->nominal_power > 0.0;
 }
 
 

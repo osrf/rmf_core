@@ -61,13 +61,13 @@ double SimpleDevicePowerSink::compute_change_in_charge(
   assert(_pimpl->battery_system.valid());
   assert(_pimpl->power_system.valid());
 
-  const double nominal_capacity = _pimpl->battery_system.nominal_capacity();
+  const double capacity = _pimpl->battery_system.capacity();
   const double nominal_voltage = _pimpl->battery_system.nominal_voltage();
   const double nominal_power = _pimpl->power_system.nominal_power();
 
   const double dE = nominal_power * run_time;
   const double dQ = dE / nominal_voltage;
-  const double dSOC = dQ / (nominal_capacity * 3600.0);
+  const double dSOC = dQ / (capacity * 3600.0);
 
   return dSOC;
 }

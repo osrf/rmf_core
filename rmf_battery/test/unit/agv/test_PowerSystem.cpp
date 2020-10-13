@@ -25,7 +25,6 @@ SCENARIO("Test PowerSystem")
     "cleaning_system", 60);
   REQUIRE(power_system.name() == "cleaning_system");
   REQUIRE(power_system.nominal_power() - 60 == Approx(0.0));
-  REQUIRE(power_system.efficiency() - 1.0 == Approx(0.0));
   REQUIRE(power_system.valid());
   
   WHEN("Name is set")
@@ -33,24 +32,15 @@ SCENARIO("Test PowerSystem")
     power_system.name("vacuuming_system");
     CHECK(power_system.name() == "vacuuming_system");
     CHECK(power_system.nominal_power() - 60 == Approx(0.0));
-    CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
     CHECK(power_system.valid());
   }
   WHEN("Nominal power is set")
   {
     power_system.nominal_power(80);
     CHECK(power_system.nominal_power() - 80 == Approx(0.0));
-    CHECK(power_system.efficiency() - 1.0 == Approx(0.0));
     CHECK(power_system.valid());
   }
 
-  WHEN("Efficiency is set")
-  {
-    power_system.efficiency(0.80);
-    CHECK(power_system.nominal_power() - 60 == Approx(0.0));
-    CHECK(power_system.efficiency() - 0.80 == Approx(0.0));
-    CHECK(power_system.valid());
-  }
   WHEN("A property is negative")
   {
     power_system.nominal_power(-12);
