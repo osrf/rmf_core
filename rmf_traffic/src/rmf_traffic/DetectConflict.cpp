@@ -796,7 +796,7 @@ bool detect_conflicts(
               << "that should never happen. Please alert the RMF developers."
               << std::endl;
     throw invalid_trajectory_error::Implementation
-          ::make_segment_num_error(trajectory.size());
+          ::make_segment_num_error(trajectory.size(), __LINE__, __FUNCTION__);
   }
 #endif // NDEBUG
 
