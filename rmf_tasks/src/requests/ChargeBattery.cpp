@@ -52,8 +52,8 @@ rmf_tasks::Request::SharedPtr ChargeBattery::make(
   std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery());
   charge_battery->_pimpl->_battery_system =
     rmf_battery::agv::BatterySystemPtr(new rmf_battery::agv::BatterySystem(
-      battery_system.nominal_capacity(),
-      battery_system.nominal_capacity(),
+      battery_system.nominal_voltage(),
+      battery_system.capacity(),
       battery_system.charging_current(),
       battery_system.type(),
       battery_system.profile()));
@@ -133,7 +133,7 @@ rmf_utils::optional<rmf_tasks::Estimate> ChargeBattery::estimate_finish(
   double delta_soc = _pimpl->_charge_soc - battery_soc;
   assert(delta_soc >= 0.0);
   double time_to_charge =
-    (3600 * delta_soc * _pimpl->_battery_system->nominal_capacity()) /
+    (3600 * delta_soc * _pimpl->_battery_system->capacity()) /
     _pimpl->_battery_system->charging_current();
 
   const rmf_traffic::Time wait_until = initial_state.finish_time();
