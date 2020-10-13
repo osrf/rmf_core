@@ -15,10 +15,13 @@
  *
 */
 
+#include <rclcpp/rclcpp.hpp>
 #include <rmf_task_ros2/dispatcher/Dispatcher.hpp>
 
-#include <rclcpp/rclcpp.hpp>
+#include <rmf_task_msgs/srv/post_task.hpp>
+#include <rmf_task_msgs/srv/get_task.hpp>
 
+// todo: create srv call for get/post req
 class DispatcherNode : public rclcpp::Node
 {
 public: 

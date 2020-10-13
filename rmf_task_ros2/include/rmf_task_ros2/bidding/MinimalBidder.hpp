@@ -47,7 +47,7 @@ public:
   /// \param[in] bidder profile
   /// \param[in] ros2 node
   static std::shared_ptr<MinimalBidder> make(
-      std::shared_ptr<rclcpp::Node> node,
+      const std::shared_ptr<rclcpp::Node>& node,
       const Profile& profile);
   
   /// Callback function which user provide a bid submission after receiving 

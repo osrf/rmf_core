@@ -85,7 +85,7 @@ public:
 
 //==============================================================================
 std::shared_ptr<MinimalBidder> MinimalBidder::make(
-    std::shared_ptr<rclcpp::Node> node,
+    const std::shared_ptr<rclcpp::Node>& node,
     const Profile& profile)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(node, profile);

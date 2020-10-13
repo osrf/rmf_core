@@ -24,6 +24,7 @@
 #include <rclcpp/node.hpp>
 #include <rmf_utils/optional.hpp>
 #include <rmf_utils/impl_ptr.hpp>
+#include <rmf_traffic_ros2/Time.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
@@ -41,7 +42,8 @@ public:
   /// Create an instance of the Auctioneer. Handling all the bidding mechanism
   ///
   /// \param[in] ros2 node which will manage the pub sub
-  static std::shared_ptr<Auctioneer> make(std::shared_ptr<rclcpp::Node> node);
+  static std::shared_ptr<Auctioneer> make(
+    const std::shared_ptr<rclcpp::Node>& node);
 
   /// Start a bidding process 
   ///

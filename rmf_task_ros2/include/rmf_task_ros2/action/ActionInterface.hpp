@@ -51,7 +51,6 @@ struct ActionTaskStatus
     EXECUTING = TaskMsg::ACTIVE_EXECUTING
   };
 
-
   rmf_traffic::Time start_time;
   rmf_traffic::Time end_time;
   std::string robot_name;

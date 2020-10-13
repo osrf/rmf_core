@@ -4,8 +4,8 @@
 # Whom that request this task
 string requester
 
-# Target task
-Task task
+# Target task to dispatch
+TaskProfile dispatch_task
 
 uint8 method
 uint8 ADD=1     # to add a task
@@ -16,4 +16,5 @@ uint8 CANCEL=2  # to cancel and remove a task
 # Confirmation that this service call is processed
 bool success
 
+# generated task ID by dispatcher node
 string task_id

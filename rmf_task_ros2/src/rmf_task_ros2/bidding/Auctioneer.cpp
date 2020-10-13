@@ -45,7 +45,7 @@ public:
   using BidProposalSub = rclcpp::Subscription<BidProposal>;
   BidProposalSub::SharedPtr bid_proposal_sub;
 
-  Implementation(std::shared_ptr<rclcpp::Node> node_)
+  Implementation(const std::shared_ptr<rclcpp::Node>& node_)
   : node(node_)
   {
     const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
@@ -143,7 +143,8 @@ public:
 };
 
 //==============================================================================
-std::shared_ptr<Auctioneer> Auctioneer::make(std::shared_ptr<rclcpp::Node> node)
+std::shared_ptr<Auctioneer> Auctioneer::make(
+    const std::shared_ptr<rclcpp::Node>& node)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(node);
 
