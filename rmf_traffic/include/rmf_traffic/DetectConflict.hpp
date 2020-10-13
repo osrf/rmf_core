@@ -22,6 +22,10 @@
 #include <rmf_traffic/Profile.hpp>
 #include <exception>
 
+#include <fcl/continuous_collision.h>
+#include <fcl/ccd/motion.h>
+#include <fcl/collision.h>
+
 namespace rmf_traffic {
 
 //==============================================================================
@@ -59,7 +63,22 @@ public:
     Interpolate interpolation = Interpolate::CubicSpline);
 
   class Implementation;
+
+  static rmf_utils::optional<fcl::FCL_REAL> check_collision_fcl(
+    const geometry::FinalConvexShape& shape_a,
+    const std::shared_ptr<fcl::SplineMotion>& motion_a,
+    const geometry::FinalConvexShape& shape_b,
+    const std::shared_ptr<fcl::SplineMotion>& motion_b);
+
+  static rmf_utils::optional<double> check_collision_piecewise_sweep(
+    double radius_a,
+    const std::array<Eigen::Vector4d, 3>& motion_a,
+    double radius_b,
+    const std::array<Eigen::Vector4d, 3>& motion_b);
 };
+
+
+
 
 } // namespace rmf_traffic
 

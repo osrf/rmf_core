@@ -50,6 +50,17 @@ public:
     Interpolate interpolation,
     std::vector<Conflict>* output_conflicts = nullptr);
 
+  static rmf_utils::optional<fcl::FCL_REAL> check_collision_fcl(
+    const geometry::FinalConvexShape& shape_a,
+    const std::shared_ptr<fcl::SplineMotion>& motion_a,
+    const geometry::FinalConvexShape& shape_b,
+    const std::shared_ptr<fcl::SplineMotion>& motion_b);
+
+  static rmf_utils::optional<double> check_collision_piecewise_sweep(
+    double radius_a,
+    const std::array<Eigen::Vector4d, 3>& motion_a,
+    double radius_b,
+    const std::array<Eigen::Vector4d, 3>& motion_b);
 };
 
 namespace internal {
@@ -71,7 +82,9 @@ bool detect_conflicts(
   const Spacetime& region,
   DetectConflict::Implementation::Conflicts* output_conflicts = nullptr);
 
+
 } // namespace internal
+
 
 } // namespace rmf_traffic
 

@@ -27,6 +27,8 @@
 #include <fcl/ccd/motion.h>
 #include <fcl/collision.h>
 
+#include <ccd/ccd.h>
+
 #include <unordered_map>
 
 namespace rmf_traffic {
@@ -368,6 +370,190 @@ rmf_utils::optional<fcl::FCL_REAL> check_collision(
   return rmf_utils::nullopt;
 }
 
+
+rmf_utils::optional<fcl::FCL_REAL> check_collision_fcl(
+  const geometry::FinalConvexShape& shape_a,
+  const std::shared_ptr<fcl::SplineMotion>& motion_a,
+  const geometry::FinalConvexShape& shape_b,
+  const std::shared_ptr<fcl::SplineMotion>& motion_b)
+{
+  return check_collision(shape_a, motion_a, shape_b, motion_b,
+    make_fcl_request());
+}
+
+inline bool circle_ray_intersection(
+  Eigen::Vector2d ray_dir, Eigen::Vector2d ray_origin,
+  Eigen::Vector2d circle_center, double circle_radius, double& interp)
+{
+  Eigen::Vector2d ray_to_circle_center = circle_center - ray_origin;
+  double ray_to_circle_sqdist = ray_to_circle_center.squaredNorm();
+  double circle_radiussq = circle_radius * circle_radius;
+
+  double ray_length = ray_dir.norm();
+  if (ray_length <= 1e-07f)
+    return ray_to_circle_sqdist <= circle_radiussq;
+
+  Eigen::Vector2d ray_dir_normalized = ray_dir / ray_length;
+  double projected_len = ray_to_circle_center.dot(ray_dir_normalized);
+  
+  // circle behind ray and outside of circle
+  if (projected_len < 0.f && ray_to_circle_sqdist > circle_radiussq)
+    return false;
+
+  // check if circle collides with ray segment via checking minimum distance
+  // from circle to ray
+  double footlengthsq = ray_to_circle_sqdist - projected_len * projected_len;
+  if (footlengthsq > circle_radiussq)
+    return false;
+
+  // we intersected (on a positive-infinate ray), compute the point of first peneration with circle by ray
+  // reframe the problem as a line going through a circle and you're computing an inner triangle
+  // with the point of intersection as a part of the triangle and circle_radiussq as the hypothenuse
+  double r_sq = circle_radiussq - footlengthsq;
+  double len_to_intersect = projected_len - sqrt(r_sq);
+
+  //interPt = (ray_dir_normalized * len_to_intersect) + ray_origin;
+
+  // time of intersection is intersected length / total length
+  interp = len_to_intersect / ray_length;
+  if (interp > 1.0 || interp < 0.0)
+    return false;
+  return true;
+}
+
+inline bool swept_circle_intersection(
+      Eigen::Vector2d a_pt1, Eigen::Vector2d a_velstep,
+      Eigen::Vector2d b_pt1, Eigen::Vector2d b_velstep,
+      double radius_a, double radius_b,
+      double& interp)
+{
+  //redefine the problem as ray with relative velocity - pillar with combined radius 
+  Eigen::Vector2d ray_dir = a_velstep - b_velstep;
+  Eigen::Vector2d ray_origin = a_pt1;
+
+  Eigen::Vector2d pillar_center = b_pt1;
+  double pillar_radius = radius_a + radius_b;
+
+  return circle_ray_intersection(ray_dir, ray_origin, pillar_center, pillar_radius, interp);
+}
+
+rmf_utils::optional<double> check_collision_piecewise_sweep(
+  double radius_a,
+  const std::array<Eigen::Vector4d, 3>& motion_a,
+  double radius_b,
+  const std::array<Eigen::Vector4d, 3>& motion_b)
+{
+  // re-parameterize the spline into arc-length, then do sweep circle tests
+  double minradius_sq = (radius_a + radius_b) * (radius_a + radius_b);
+
+  auto compute_spline_arclength = [](
+    std::array<Eigen::Vector4d, 3> spline_coeff, double percent)
+  {
+    // Compute arc-length using Gaussian quadrature
+    // see: https://medium.com/@all2one/how-to-compute-the-length-of-a-spline-e44f5f04c40
+    // Compute a length of a spline segment by using 5-point Legendre-Gauss quadrature
+    // https://en.wikipedia.org/wiki/Gaussian_quadrature
+
+    struct LegendreGaussCoefficient
+    {
+      double abscissa;
+      double weight;
+    };
+
+    static const LegendreGaussCoefficient legendre_gauss_coefficients[] =
+    {
+      { 0.0f, 0.5688889 },
+      { -0.5384693, 0.47862867 },
+      { 0.5384693, 0.47862867 },
+      { -0.90617985, 0.23692688 },
+      { 0.90617985, 0.23692688 }
+    };
+
+    //special case for straight line segments
+
+    double length = 0.0f;
+    for (const auto& lcoeff : legendre_gauss_coefficients)
+    {
+      // interval range switch from [-1, 1] to [0,1]
+      double t = 0.5f * (1.f + lcoeff.abscissa);
+      // do a weighted sum
+      Eigen::Vector3d derivative = rmf_traffic::compute_velocity(spline_coeff, t);
+      length += derivative.norm() * lcoeff.weight;
+    }
+    return 0.5f * length * percent;
+  };
+
+  auto arclength_param_to_spline_param = [compute_spline_arclength](
+    std::array<Eigen::Vector4d, 3> spline_coeff, double arclengthparam, double arclength)
+    -> double
+  {
+    //convert from s(arclength param) to t
+    double s = arclengthparam / arclength;
+    for (uint i = 0; i < 2; ++i)
+    {
+      Eigen::Vector3d derivative = rmf_traffic::compute_velocity(spline_coeff, s);
+      double tangentmag = derivative.norm();
+      if (tangentmag > 0.f)
+      {
+        s -= (compute_spline_arclength(spline_coeff, s) - arclengthparam) / tangentmag;
+        s = s < 0.f ? 0.f : s;
+        s = s > 1.f ? 1.f : s;
+      }
+    }
+    return s;
+  };
+
+  double motion_a_length = compute_spline_arclength(motion_a, 1.0f);
+  double motion_b_length = compute_spline_arclength(motion_b, 1.0f);
+
+  uint steps = 4;
+
+  double motion_a_len = 0.0f, motion_b_len = 0.0f;
+  double motion_a_length_delta = motion_a_length / (double)steps;
+  double motion_b_length_delta = motion_b_length / (double)steps;
+  for (uint i = 0; i < steps; ++i)
+  {
+    // compute before and after step and 
+    double a_t1 = arclength_param_to_spline_param(motion_a, motion_a_len, motion_a_length);
+    double a_t2 = arclength_param_to_spline_param(motion_a, motion_a_len + motion_a_length_delta, motion_a_length);
+    Eigen::Vector3d motion_a_seg_pt1 = rmf_traffic::compute_position(motion_a, a_t1);
+    Eigen::Vector3d motion_a_seg_pt2 = rmf_traffic::compute_position(motion_a, a_t2);
+
+    double b_t1 = arclength_param_to_spline_param(motion_b, motion_b_len, motion_b_length);
+    double b_t2 = arclength_param_to_spline_param(motion_b, motion_b_len + motion_b_length_delta, motion_b_length);
+    Eigen::Vector3d motion_b_seg_pt1 = rmf_traffic::compute_position(motion_b, b_t1);
+    Eigen::Vector3d motion_b_seg_pt2 = rmf_traffic::compute_position(motion_b, b_t2);
+
+    // do capsule-capsule between st lines on motion
+    Eigen::Vector2d motion_a_seg_pt1_2d(motion_a_seg_pt1.x(), motion_a_seg_pt1.y());
+    Eigen::Vector2d motion_b_seg_pt1_2d(motion_b_seg_pt1.x(), motion_b_seg_pt1.y());
+
+    Eigen::Vector2d motion_a_seg_pt2_2d(motion_a_seg_pt2.x(), motion_a_seg_pt2.y());
+    Eigen::Vector2d motion_b_seg_pt2_2d(motion_b_seg_pt2.x(), motion_b_seg_pt2.y());
+
+    //LOG("a_t1: %g b_t1: %g", a_t1, b_t1);
+    
+    double interp = 0.0f;
+    if (swept_circle_intersection(
+      motion_a_seg_pt1_2d, motion_a_seg_pt2_2d - motion_a_seg_pt1_2d,
+      motion_b_seg_pt1_2d, motion_b_seg_pt2_2d - motion_b_seg_pt1_2d,
+      radius_a, radius_b, interp))
+    {
+      //printf("intersect! interp: %g\n", interp);
+      double t_interp = a_t1 + interp * (a_t2 - a_t1);
+
+      //t_interp = spline.ArcLengthParamToSplineParam(lparam, length);
+      //t_interp = interp;
+      return t_interp;
+    }
+
+    motion_a_len = motion_a_length_delta * ((double)i + 1.0);
+    motion_b_len = motion_b_length_delta * ((double)i + 1.0);
+  }
+    
+  return rmf_utils::nullopt;
+}
+
 //==============================================================================
 Profile::Implementation convert_profile(const Profile& profile)
 {
@@ -407,6 +593,28 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
     interpolation);
 }
 
+rmf_utils::optional<fcl::FCL_REAL> DetectConflict::check_collision_fcl(
+    const geometry::FinalConvexShape& shape_a,
+    const std::shared_ptr<fcl::SplineMotion>& motion_a,
+    const geometry::FinalConvexShape& shape_b,
+    const std::shared_ptr<fcl::SplineMotion>& motion_b)
+{
+  return Implementation::check_collision_fcl(
+    shape_a, motion_a,
+    shape_b, motion_b);
+}
+
+rmf_utils::optional<double> DetectConflict::check_collision_piecewise_sweep(
+    double radius_a,
+    const std::array<Eigen::Vector4d, 3>& motion_a,
+    double radius_b,
+    const std::array<Eigen::Vector4d, 3>& motion_b)
+{
+  return Implementation::check_collision_piecewise_sweep(
+    radius_a, motion_a,
+    radius_b, motion_b);
+}
+
 namespace {
 //==============================================================================
 fcl::Transform3f convert(Eigen::Vector3d p)
@@ -424,30 +632,222 @@ bool check_overlap(
   const Spline& spline_b,
   const Time time)
 {
-  using ConvexPair = std::array<geometry::ConstFinalConvexShapePtr, 2>;
   // TODO(MXG): If footprint and vicinity are equal, we can probably reduce this
   // to just one check.
-  std::array<ConvexPair, 2> pairs = {
-    ConvexPair{profile_a.footprint, profile_b.vicinity},
-    ConvexPair{profile_a.vicinity, profile_b.footprint}
+  auto position_a = spline_a.compute_position(time);
+  auto position_b = spline_b.compute_position(time);
+
+  auto vec_a_b = position_b - position_a;
+  Eigen::Vector2d vec_a_b_2d { vec_a_b.x(), vec_a_b.y() };
+  double dist_sq = vec_a_b_2d.dot(vec_a_b_2d);
+
+  double a_footprint = profile_a.footprint->get_characteristic_length();
+  double b_footprint = profile_b.footprint->get_characteristic_length();
+
+  double a_vicinity = profile_a.vicinity->get_characteristic_length();
+  double b_vicinity = profile_b.vicinity->get_characteristic_length();
+  
+  double min_dist[2] = { a_footprint + b_vicinity, a_vicinity + b_footprint };
+  double min_dist_sq[2] = { min_dist[0] * min_dist[0], min_dist[1] * min_dist[1] };
+  
+  return dist_sq <= min_dist_sq[0] || dist_sq <= min_dist_sq[1];
+}
+
+void convert_to_ccd_from_eigen_2d(ccd_vec3_t& out, const Eigen::Vector3d& in)
+{
+  out.v[0] = in[0];
+  out.v[1] = in[1];
+  out.v[2] = in[2];
+}
+
+//==============================================================================
+bool check_overlap_capsules(
+  const Profile::Implementation& profile_a,
+  const Spline& spline_a,
+  const Profile::Implementation& profile_b,
+  const Spline& spline_b,
+  const Time time)
+{
+  //printf("======\n");
+  struct SplineCapsule
+  {
+    double radius = 0.0f;
+    const Spline& spline;
   };
 
-  fcl::CollisionRequest request;
-  fcl::CollisionResult result;
-  for (const auto pair : pairs)
+  struct Circle
   {
-    fcl::CollisionObject obj_a(
-      geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
-      convert(spline_a.compute_position(time)));
+    double radius = 0.f;
+    ccd_vec3_t position;
+  };
+  
+  // setup ccd and the support functions
+  ccd_t ccd;
+  CCD_INIT(&ccd);
 
-    fcl::CollisionObject obj_b(
-      geometry::FinalConvexShape::Implementation::get_collision(*pair[1]),
-      convert(spline_b.compute_position(time)));
+  //ccd.first_dir; //may need this for determinism?
+  ccd.support1 = [](const void *obj, const ccd_vec3_t *dir,
+                    ccd_vec3_t *pt_on_obj) 
+  {
+    double v = ccdVec3Len2(dir);
+    printf("support1: %g %g %g lengthsq:%g\n", dir->v[0], dir->v[1], dir->v[2], v);
+    // support function for circles
+    const Circle* c = reinterpret_cast<const Circle*>(obj);
+    printf("  circle: %g %g %g radius: %g\n", 
+      c->position.v[0], c->position.v[1], c->position.v[2], c->radius);
+    
+    // project onto normalized direction
+    ccd_real_t len_extend = (c->radius / std::sqrt(ccdVec3Len2(dir)));
+    
+    ccdVec3Copy(pt_on_obj, dir);
+    ccdVec3Scale(pt_on_obj, len_extend);
+    ccdVec3Add(pt_on_obj, &c->position);
+    printf("  pt_on_obj: %g %g %g\n", pt_on_obj->v[0], pt_on_obj->v[1], pt_on_obj->v[2]);
+  };
+#if 0
+  ccd.support2 = [](const void *obj, const ccd_vec3_t *dir,
+                    ccd_vec3_t *pt_on_obj)
+  {
+    double v = ccdVec3Len2(dir);
+    printf("support2 dir: %g %g %g lengthsq:%g\n", dir->v[0], dir->v[1], dir->v[2], v);
+    
+    // support function for spline capsules
+    const SplineCapsule* spc = reinterpret_cast<const SplineCapsule*>(obj);
+    const Spline::Parameters& params = spc->spline.get_params();
 
-    if (fcl::collide(&obj_a, &obj_b, request, result) > 0)
-      return true;
+    {
+      auto start = rmf_traffic::compute_position(params, 0.0);
+      auto end = rmf_traffic::compute_position(params, 1.0);
+      printf("  support2 capsule: (%g %g %g) to (%g %g %g), radius: %g\n", start.x(), start.y(), start.z(),
+        end.x(), end.y(), end.z(), spc->radius);
+    }
+
+    ccd_vec3_t vec_extend;
+    ccdVec3Copy(&vec_extend, dir);
+    ccd_real_t len_extend = (spc->radius / std::sqrt(ccdVec3Len2(dir)));
+    ccdVec3Scale(&vec_extend, len_extend);
+
+    //get perpendicular
+    ccd_vec3_t dir_perp;
+    ccdVec3Copy(&dir_perp, dir);
+    double temp = dir_perp.v[0];
+    dir_perp.v[0] = -dir_perp.v[1];
+    dir_perp.v[1] = temp;
+
+    // Essentially, we're solving a quadratic equation for t where the eqn is:
+    // dir_perp.v[axis] = a * t^2 + b * t + c
+    
+    for (int axis = 0; axis < 2; ++axis)
+    {
+      double a = params.coeffs[axis][3];
+      double b = params.coeffs[axis][2];
+      double c = params.coeffs[axis][1];
+      c = c - dir_perp.v[axis];
+
+      std::vector<double> roots = rmf_traffic::compute_roots_in_unit_domain({c, b, a});
+      if (roots.empty())
+        continue; // no answer
+      else
+      {
+        // at least 1 solution, at max 2
+        auto compute_root_point_and_projection = 
+          [&params, dir, spc](double root, ccd_vec3_t& point_out, ccd_real_t& projection)
+        {
+          Eigen::Vector3d pt = rmf_traffic::compute_position(params, root);
+
+          convert_to_ccd_from_eigen_2d(point_out, pt);
+          projection = ccdVec3Dot(&point_out, dir);
+          return projection;
+        };
+
+        ccd_vec3_t point_on_spline[2];
+        ccd_real_t projection[2] = { 0.0, 0.0 };
+        ccd_vec3_t* final_pt_on_spline = nullptr;
+        
+        compute_root_point_and_projection(roots[0], point_on_spline[0], projection[0]);
+        if (roots.size() > 1)
+        {
+          compute_root_point_and_projection(roots[1], point_on_spline[1], projection[1]);
+          final_pt_on_spline = projection[0] > projection[1] ? &point_on_spline[0] : &point_on_spline[1];
+        }
+        else
+          final_pt_on_spline = &point_on_spline[0];
+
+        std::cout << "  done! root count: " << roots.size() << std::endl;
+        ccdVec3Copy(pt_on_obj, &vec_extend);
+        ccdVec3Add(pt_on_obj, final_pt_on_spline);
+        printf("  pt_on_obj: %g %g %g\n", pt_on_obj->v[0], pt_on_obj->v[1], pt_on_obj->v[2]);
+        return; // found an answer, we can return
+      }
+    }
+
+    // if we reach here, we've not found an answer to the roots
+    // so we assume?
+    std::cout << "  NO ANSWERS, treating as capsule!" << std::endl;
+    
+    // project onto normalized direction
+    ccd_vec3_t pt[2];
+    Eigen::Vector3d e_pt0 = rmf_traffic::compute_position(params, 0.0);
+    convert_to_ccd_from_eigen_2d(pt[0], e_pt0);
+    ccd_real_t projection0 = ccdVec3Dot(&pt[0], dir);
+    
+    Eigen::Vector3d e_pt1 = rmf_traffic::compute_position(params, 1.0);
+    convert_to_ccd_from_eigen_2d(pt[1], e_pt1);
+    ccd_real_t projection1 = ccdVec3Dot(&pt[1], dir);
+
+    ccd_vec3_t* final_pt = projection0 > projection1 ? &pt[0] : &pt[1];
+
+    printf("  projection0: %g projection1: %g\n", projection0, projection1);
+    ccdVec3Copy(pt_on_obj, &vec_extend);
+    ccdVec3Add(pt_on_obj, final_pt);
+    printf("  final pt: %g %g %g\n", pt_on_obj->v[0], pt_on_obj->v[1], pt_on_obj->v[2]);
+  };
+#endif
+  ccd.support2 = ccd.support1;
+  ccd.max_iterations = 100;
+
+
+  // setup shapes
+  Circle obj1_circle;
+  obj1_circle.radius = profile_a.footprint->get_characteristic_length();
+  convert_to_ccd_from_eigen_2d(obj1_circle.position, spline_a.compute_position(time));
+  SplineCapsule obj1_spline_capsule { obj1_circle.radius, spline_a };
+
+  Circle obj2_circle;
+  obj2_circle.radius = profile_b.vicinity->get_characteristic_length();
+  convert_to_ccd_from_eigen_2d(obj2_circle.position, spline_b.compute_position(time));  
+  SplineCapsule obj2_spline_capsule { obj2_circle.radius, spline_b };
+
+  printf("=====\n");
+  printf("obj1: %g %g %g radius: %g obj2: %g %g %g radius: %g\n",
+    obj1_circle.position.v[0], obj1_circle.position.v[1], obj1_circle.position.v[2], obj1_circle.radius,
+    obj2_circle.position.v[0], obj2_circle.position.v[1], obj2_circle.position.v[2], obj2_circle.radius);
+
+  // perform intersections
+  int intersect = ccdGJKIntersect(&obj1_circle, &obj2_circle, &ccd);
+  if (intersect != 0)
+  {
+    printf("result: true #1\n");
+    return true;
   }
 
+  obj1_circle.radius = profile_a.vicinity->get_characteristic_length();
+  obj2_circle.radius = profile_a.footprint->get_characteristic_length();
+  intersect = ccdGJKIntersect(&obj1_circle, &obj2_circle, &ccd);
+  if (intersect != 0)
+  {
+    printf("result: true #1\n");
+    return true;
+  }
+
+  /*intersect = ccdGJKIntersect(&obj2_circle, &obj1_spline_capsule, &ccd);
+  if (intersect != 0)
+  {
+    printf("result: true #2\n");
+    return true;
+  }*/
+
+  printf("result: false\n");
   return false;
 }
 
@@ -524,7 +924,13 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
       if (const auto collision = check_collision(
           *profile_a.footprint, motion_a,
           *profile_b.vicinity, motion_b, request))
+      /*if (const auto collision = check_collision_piecewise_sweep(
+          profile_a.footprint->get_characteristic_length(), *spline_a,
+          profile_b.vicinity->get_characteristic_length(), *spline_b))*/
       {
+        // std::cout << "sads2 start: " << start_time.time_since_epoch().count()
+        //   << " fin: " << finish_time.time_since_epoch().count() << "\n";
+        //std::cout << finish_time.time_since_epoch().count() - start_time.time_since_epoch().count() << std::endl;
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
@@ -536,6 +942,7 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
     if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
     {
+      //printf("sads2\n");
       if (const auto collision = check_collision(
           *profile_a.vicinity, motion_a,
           *profile_b.footprint, motion_b, request))
@@ -704,6 +1111,25 @@ rmf_utils::optional<rmf_traffic::Time> detect_approach(
 
 } // anonymous namespace
 
+rmf_utils::optional<fcl::FCL_REAL> DetectConflict::Implementation::check_collision_fcl(
+  const geometry::FinalConvexShape& shape_a,
+  const std::shared_ptr<fcl::SplineMotion>& motion_a,
+  const geometry::FinalConvexShape& shape_b,
+  const std::shared_ptr<fcl::SplineMotion>& motion_b)
+{
+  return rmf_traffic::check_collision(shape_a, motion_a, shape_b, motion_b,
+    make_fcl_request());
+}
+
+rmf_utils::optional<double> DetectConflict::Implementation::check_collision_piecewise_sweep(
+  double radius_a,
+  const std::array<Eigen::Vector4d, 3>& motion_a,
+  double radius_b,
+  const std::array<Eigen::Vector4d, 3>& motion_b)
+{
+  return rmf_traffic::check_collision_piecewise_sweep(radius_a, motion_a, radius_b, motion_b);
+}
+
 //==============================================================================
 rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
   const Profile& input_profile_a,
@@ -764,6 +1190,7 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::Implementation::between(
           trajectory_b.end(),
           output_conflicts);
   }
+  //printf("- close_start is false -\n");
 
   // If the vehicles are starting an acceptable distance from each other, then
   // check if either one invades the vicinity of the other.
