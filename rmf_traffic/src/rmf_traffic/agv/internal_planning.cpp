@@ -1009,6 +1009,12 @@ struct DifferentialDriveExpander
           to_3d(wp_location, orientation),
           _context.interpolate.translation_thresh);
 
+        // If any approach route has less than 2 waypoints, then the robot is
+        // already on top of the waypoint. We shouldn't return any initial
+        // approach routes in this case.
+        if (approach_route.trajectory.size() < 2)
+          return {};
+
         output.emplace_back(std::move(approach_route));
       }
     }
@@ -1132,7 +1138,7 @@ struct DifferentialDriveExpander
           Eigen::Vector3d::Zero());
 
       rmf_utils::optional<std::size_t> start_node_wp = rmf_utils::nullopt;
-      if (!start.location())
+      if (!start.location() || initial_routes.empty())
         start_node_wp = initial_waypoint;
 
       queue.push(std::make_shared<Node>(

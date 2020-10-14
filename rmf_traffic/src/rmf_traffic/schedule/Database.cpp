@@ -400,7 +400,7 @@ rmf_utils::optional<Writer::Input> Database::Debug::get_itinerary(
   for (const RouteId route : state.active_routes)
     itinerary.push_back({route, state.storage.at(route).entry->route});
 
-  return std::move(itinerary);
+  return itinerary;
 }
 
 //==============================================================================
@@ -1034,7 +1034,7 @@ rmf_utils::optional<Itinerary> Database::get_itinerary(
   for (const RouteId route : state.active_routes)
     itinerary.push_back(state.storage.at(route).entry->route);
 
-  return std::move(itinerary);
+  return itinerary;
 }
 
 //==============================================================================

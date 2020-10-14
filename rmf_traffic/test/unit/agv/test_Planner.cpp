@@ -2546,9 +2546,6 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
       Eigen::Vector2d{-4, 3.5};
 
     Planner::Start start3{initial_time, 1, -M_PI_2, start_location1};
-    // Displaced 0.5m along lane 1
-    rmf_utils::optional<Eigen::Vector2d> start_location2 =
-      Eigen::Vector2d{-3.6, 2.7};
     Planner::Start start4{initial_time, 1, -0.64, start_location1};
 
     std::vector<Planner::Start> starts{start1, start2, start3, start4};

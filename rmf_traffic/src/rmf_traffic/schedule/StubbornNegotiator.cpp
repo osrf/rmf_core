@@ -42,6 +42,12 @@ void StubbornNegotiator::respond(
     const schedule::Negotiation::Table::ViewerPtr& table_viewer,
     const ResponderPtr& responder)
 {
+  if (table_viewer->rejected())
+  {
+    // If one of our proposals has been rejected, then all we can do is forfeit.
+    return responder->forfeit({});
+  }
+
   const auto& itinerary = _pimpl->participant->itinerary();
   const auto& profile = _pimpl->participant->description().profile();
   const auto& proposal = table_viewer->base_proposals();

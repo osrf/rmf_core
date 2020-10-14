@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_utils VERSION 1.0.2)
+project(rmf_utils VERSION 1.1.0)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -19,6 +19,8 @@ target_include_directories(rmf_utils
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+target_compile_features(rmf_utils INTERFACE cxx_std_17)
 
 # Create cmake config files
 include(CMakePackageConfigHelpers)
@@ -69,6 +71,6 @@ export(
   NAMESPACE rmf_utils::
 )
 
-export(PACKAGE rmf_utils)
+export(PACKAGE rmf_utils-targets)
 
 add_subdirectory(test/unit)
