@@ -29,10 +29,10 @@ double compute_smallest_distance_squared(
     const Eigen::Vector2d n_other,
     const double c_other)
 {
-  const double u_star = n_other.dot(p)/c_other;
+  const double u_star = n_other.dot(p - p_other0)/c_other;
   const double u = std::max(0.0, std::min(1.0, u_star));
-  const Eigen::Vector2d n = u*n_other + p_other0;
-  return n.dot(n);
+  const Eigen::Vector2d dp = u*n_other + p_other0 - p;
+  return dp.dot(dp);
 }
 
 //==============================================================================
@@ -51,6 +51,7 @@ ConflictInfo detect_conflict(
 
   const double c_ab = n_a.dot(n_b);
   const double angle = std::acos(c_ab/(n_a.norm()*n_b.norm()));
+
   if (angle <= angle_threshold)
     return ConflictInfo::no_conflict();
 

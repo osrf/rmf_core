@@ -39,6 +39,7 @@ public:
     Eigen::Vector2d finish;
     double radius;
     std::array<rmf_traffic::Time, 2> time_range;
+    bool can_hold_at_finish;
   };
 
 
