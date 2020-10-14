@@ -46,7 +46,6 @@ struct TaskProfile
   TaskID task_id;
   rmf_traffic::Time submission_time;
   TaskType task_type;
-  bool priority;
   TaskParams task_params;
 
   bool operator==(const TaskProfile& tsk) const
@@ -67,7 +66,6 @@ inline TaskProfile convert(const TaskProfileMsg& from)
   profile.task_id = from.task_id;
   profile.task_type = static_cast<TaskType>(from.type.value);
   profile.submission_time = rmf_traffic_ros2::convert(from.submission_time);
-  profile.priority = from.priority;
   for(auto param : from.task_params)
   {
     profile.task_params[param.name] = param.value;
@@ -83,7 +81,6 @@ inline TaskProfileMsg convert(const TaskProfile& from)
   profile_msg.task_id = from.task_id;
   profile_msg.type.value = static_cast<uint8_t>(from.task_type);
   profile_msg.submission_time = rmf_traffic_ros2::convert(from.submission_time);
-  profile_msg.priority = from.priority;
   for(auto param : from.task_params)
   {
     rmf_task_msgs::msg::BehaviorParameter param_msg; 

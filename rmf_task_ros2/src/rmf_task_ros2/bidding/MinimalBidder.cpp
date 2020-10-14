@@ -65,7 +65,7 @@ public:
     auto req_type = static_cast<TaskType>(msg.task_profile.type.value);
     if (!profile.valid_tasks.count(req_type))
     {
-      std::cout << profile.bidder_name << ": task type "
+      std::cout << profile.fleet_name << ": task type "
                 << msg.task_profile.type.value << " is invalid" << std::endl;
       return;
     }
@@ -77,7 +77,7 @@ public:
     
     // Submit proposal
     auto best_proposal = convert(bid_submission);
-    best_proposal.bidder_name = profile.bidder_name;
+    best_proposal.fleet_name = profile.fleet_name;
     best_proposal.task_profile = msg.task_profile;
     dispatch_proposal_pub->publish(best_proposal);
   }

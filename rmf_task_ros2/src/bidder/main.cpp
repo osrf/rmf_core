@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
   
   std::shared_ptr<action::TaskActionServer> action_server =
     action::TaskActionServer::make(
-        node, profile.bidder_name, DispatchActionTopicName);
+        node, profile.fleet_name, DispatchActionTopicName);
 
   action_server->register_callbacks(
     [](const TaskProfile& task_profile)

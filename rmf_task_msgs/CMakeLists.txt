@@ -28,16 +28,15 @@ set(msg_files
   # New task Msgs
   "msg/TaskType.msg"
   "msg/TaskProfile.msg"
-  "msg/Task.msg"
   "msg/BidNotice.msg"
   "msg/BidProposal.msg"
   "msg/DispatchRequest.msg"
   "msg/DispatchStatus.msg"
-  "msg/DispatchResult.msg"
 )
 
 set(srv_files
-  "srv/PostTask.srv"
+  "srv/SubmitTask.srv"
+  "srv/CancelTask.srv"
   "srv/GetTask.srv"
 )
   

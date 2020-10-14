@@ -38,7 +38,7 @@ class MinimalBidder
 public: 
   struct Profile
   {
-    std::string bidder_name;
+    std::string fleet_name;
     std::set<TaskType> valid_tasks;
   };
 

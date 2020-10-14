@@ -35,7 +35,7 @@ using BidProposal = rmf_task_msgs::msg::BidProposal;
 //==============================================================================
 struct Submission
 {
-  std::string bidder_name = "";
+  std::string fleet_name = "";
   std::string robot_name = ""; // optional
   float prev_cost = 0.0;
   float new_cost = std::numeric_limits<float>::max();

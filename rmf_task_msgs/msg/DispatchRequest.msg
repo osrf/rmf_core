@@ -2,8 +2,8 @@
 # This msg is will be received by Fleet Adapter to initiate/cancel a task
 # a DispatchRequest will be provided when the task is completed
 
-# Selected Fleet Adapter / Target server
-string server_id
+# Selected Fleet Adapter server name
+string fleet_name
 
 # if task is dispatched via bidding, this should be the same
 TaskProfile task_profile

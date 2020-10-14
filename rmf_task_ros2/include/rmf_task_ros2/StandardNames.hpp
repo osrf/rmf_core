@@ -22,25 +22,11 @@
 
 namespace rmf_task_ros2 {
 
-enum class TaskState {
-  INVALID,
-  ACTIVE_QUEUED,
-  ACTIVE_EXECUTING,
-  ACTIVE_CANCELING,
-  TERMINAL_COMPLETED,
-  TERMINAL_CANCELED,
-  TERMINAL_FAILED,
-  BIDDING
-};
-
 const std::string Prefix = "rmf_task/";
 const std::string BidNoticeTopicName = Prefix + "bid_notice";  
 const std::string BidProposalTopicName = Prefix + "bid_proposal";
 const std::string DispatchActionTopicName = Prefix + "dispatch";
 
-const std::string DeliveryTopicName = "delivery_requests";
-const std::string LoopTopicName = "loop_requests";
-const std::string StationTopicName = "station_requests";
 const std::string TaskSummaryTopicName = "task_summaries";
 
 } // namespace rmf_task_ros2

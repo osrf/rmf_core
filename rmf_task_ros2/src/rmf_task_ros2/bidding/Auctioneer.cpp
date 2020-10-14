@@ -130,7 +130,7 @@ public:
       auto _evaluator = LeastFleetDiffCostEvaluator();
       winner = task_nomination.evaluate(_evaluator);
       std::cout << "Found winning Fleet Adapter: " 
-                << winner->bidder_name << std::endl;
+                << winner->fleet_name << std::endl;
     }
 
     // remove completed task from queue

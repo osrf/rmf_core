@@ -31,10 +31,6 @@ public:
   std::shared_ptr<bidding::Auctioneer> auctioneer;
   std::shared_ptr<action::TaskActionClient> action_client;
   
-  // todo, should use action task?
-  using ActiveTaskState = std::pair<TaskProfile, DispatchState>;
-  using ActiveTasksMap = std::map<TaskID, ActiveTaskState>;
-
   DispatchTasks active_dispatch_tasks;
   DispatchTasks terminal_dispatch_tasks; // todo limit size
 
@@ -55,7 +51,7 @@ public:
         p1.time_since_epoch()).count());
 
     DispatchTask dispatch_task {
-      submitted_task, DispatchState::Bidding, rmf_utils::nullopt, 0.0 };
+      submitted_task, DispatchState::Bidding, rmf_utils::nullopt };
     active_dispatch_tasks[submitted_task.task_id] = dispatch_task;
     bidding::BiddingTask bidding_task;
     bidding_task.task_profile = submitted_task;
@@ -76,7 +72,6 @@ public:
     assert(active_dispatch_tasks[task_id].winner);
     std::future<bool> fut_task_success; // todo, confirm ack
     action_client->cancel_task(
-        active_dispatch_tasks[task_id].winner->bidder_name,
         active_dispatch_tasks[task_id].task_profile,
         fut_task_success);
     return true;
@@ -102,61 +97,23 @@ public:
       std::cerr << " | No winner found!" << std::endl;
       return;
     }
-    std::cout << " | Found a winner! " << winner->bidder_name << std::endl;
+    std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
 
     // we will initiate a task via task action here!
     active_dispatch_tasks[task_id].winner = *winner;
-
+    
     std::future<bool> fut_task_success; // todo, confirm ack
     action_client->add_task(
-        winner->bidder_name,
+        winner->fleet_name,
         active_dispatch_tasks[task_id].task_profile, 
-        fut_task_success);
+        fut_task_success,
+        std::make_shared<action::TaskStatus>(
+          active_dispatch_tasks[task_id].task_status));
 
     // when fut is received, change task state as queued
     active_dispatch_tasks[task_id].dispatch_state = DispatchState::Queued;
-  }
 
-  void action_status_cb(
-      const std::string& server_id,
-      const std::vector<action::TaskMsg>& tasks)
-  {
-    std::cout << "[action status] fleet server" << server_id
-              << "number of on-going tasks: " << tasks.size() << std::endl;
-    
-    auto now = std::chrono::steady_clock::now(); // sim time?
-    for(auto tsk : tasks)
-    {
-      active_dispatch_tasks[tsk.task_profile.task_id].dispatch_state = 
-        static_cast<DispatchState>(tsk.state);
-      
-      // compute progress 
-      auto total_duration = rmf_traffic_ros2::convert(tsk.end_time) - 
-          rmf_traffic_ros2::convert(tsk.start_time);
-      auto taken_time = now - rmf_traffic_ros2::convert(tsk.start_time);
-      active_dispatch_tasks[tsk.task_profile.task_id].progress = 
-        taken_time/total_duration;
-    }
-  }
-
-  void action_finish_cb(
-      const std::string& server_id, 
-      const action::TaskMsg& task, 
-      const bool success)
-  {
-    auto finish_task_id = task.task_profile.task_id;
-
-    // check if key doesnt exist
-    if (!active_dispatch_tasks.count(finish_task_id)) return;
-
-    active_dispatch_tasks[finish_task_id].dispatch_state = 
-        static_cast<DispatchState>(task.state);
-    std::cout << "[action result] completed task: " << finish_task_id 
-              << " scucess?: " << success << std::endl;
-
-    terminal_dispatch_tasks[finish_task_id] = 
-        active_dispatch_tasks[finish_task_id];
-    active_dispatch_tasks.erase(finish_task_id);
+    // todo: find a way to move active to termination
   }
 };
 
@@ -180,9 +137,6 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
     using namespace std::placeholders;
     dispatcher->_pimpl->auctioneer->receive_bidding_result(
       std::bind(&Implementation::receive_bidding_winner_cb, pimpl, _1, _2));
-    dispatcher->_pimpl->action_client->register_callbacks(
-      std::bind(&Implementation::action_status_cb, pimpl, _1, _2),
-      std::bind(&Implementation::action_finish_cb, pimpl, _1, _2, _3));
     return dispatcher;
   }
   return nullptr;

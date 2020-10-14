@@ -32,7 +32,7 @@ BidNotice convert(const BiddingTask& from)
 BidProposal convert(const Submission& from)
 {
   bidding::BidProposal proposal_msg;
-  proposal_msg.bidder_name = from.bidder_name;
+  proposal_msg.fleet_name = from.fleet_name;
   proposal_msg.robot_name = from.robot_name;
   proposal_msg.prev_cost = from.prev_cost;
   proposal_msg.new_cost = from.new_cost;
@@ -43,7 +43,7 @@ BidProposal convert(const Submission& from)
 Submission convert(const BidProposal& from)
 {
   Submission submission;
-  submission.bidder_name = from.bidder_name;
+  submission.fleet_name = from.fleet_name;
   submission.robot_name = from.robot_name;
   submission.prev_cost = from.prev_cost;
   submission.new_cost = from.new_cost;

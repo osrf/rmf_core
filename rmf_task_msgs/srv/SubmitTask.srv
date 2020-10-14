@@ -4,12 +4,14 @@
 # Whom that request this task
 string requester
 
-# Target task to dispatch
-TaskProfile dispatch_task
+# submission_time is when the task was first submited
+builtin_interfaces/Time start_time
 
-uint8 method
-uint8 ADD=1     # to add a task
-uint8 CANCEL=2  # to cancel and remove a task
+# e.g. Delivery, Station.....
+TaskType type
+
+# Params
+BehaviorParameter[] task_params
 
 ---
 

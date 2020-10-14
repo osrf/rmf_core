@@ -1,0 +1,13 @@
+# Submit Task | POST service call
+# NOTE: Still in design
+
+# Whom that request this task
+string requester
+
+# generated task ID by dispatcher node
+string task_id
+
+---
+
+# Confirmation that this service call is processed
+bool success

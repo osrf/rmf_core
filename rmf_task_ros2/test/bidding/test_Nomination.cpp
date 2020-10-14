@@ -55,7 +55,7 @@ SCENARIO("Quickest Finish Time Evaluator", "[MinFinishTime]")
       submission1, submission2, submission3, submission4, submission5 };
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(QuickestFinishEvaluator());
-    REQUIRE(winner->bidder_name == "fleet3"); // fastest agent
+    REQUIRE(winner->fleet_name == "fleet3"); // fastest agent
   }
 }
 
@@ -75,7 +75,7 @@ SCENARIO("Least Diff Cost Evaluator", "[MinDiffCost]")
       submission1, submission2, submission3, submission4, submission5 };
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(LeastFleetDiffCostEvaluator());
-    REQUIRE(winner->bidder_name == "fleet2"); // least diff cost agent
+    REQUIRE(winner->fleet_name == "fleet2"); // least diff cost agent
   }
 }
 
@@ -95,6 +95,6 @@ SCENARIO("Least Fleet Cost Evaluator", "[MinNewCost]")
       submission1, submission2, submission3, submission4, submission5 };
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(LeastFleetCostEvaluator());
-    REQUIRE(winner->bidder_name == "fleet5"); // least new cost agent
+    REQUIRE(winner->fleet_name == "fleet5"); // least new cost agent
   }
 }

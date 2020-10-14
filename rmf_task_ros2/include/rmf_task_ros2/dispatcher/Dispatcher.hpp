@@ -49,8 +49,7 @@ struct DispatchTask
   TaskProfile task_profile;
   DispatchState dispatch_state;
   rmf_utils::optional<bidding::Submission> winner;
-  // rmf_utils::optional<action::TaskMsg> task_status; TODO
-  double progress; // 0 - 1.0
+  action::TaskStatus task_status; // tothink
 };
 
 using DispatchTasks = std::map<TaskID, DispatchTask>;

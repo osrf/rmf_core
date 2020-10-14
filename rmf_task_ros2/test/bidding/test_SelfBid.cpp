@@ -82,7 +82,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     {
       if (!winner) return;
       r_result_id = task_id;
-      r_result_winner = winner->bidder_name;
+      r_result_winner = winner->fleet_name;
       return;
     }
   );
