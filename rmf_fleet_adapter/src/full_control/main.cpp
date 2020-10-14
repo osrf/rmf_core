@@ -38,6 +38,12 @@
 // the information provided by fleet drivers.
 #include "../rmf_fleet_adapter/estimation.hpp"
 
+// Public rmf_traffic API headers
+#include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/Route.hpp>
+
+#include <Eigen/Geometry>
+
 //==============================================================================
 class FleetDriverRobotCommandHandle
     : public rmf_fleet_adapter::agv::RobotCommandHandle
@@ -282,6 +288,23 @@ public:
         _dock_finished_callback();
         _dock_finished_callback = nullptr;
       }
+
+      // Update the schedule with the docking path of the robot
+      std::vector<Eigen::Vector3d> positions;
+      positions.push_back(
+        {state.location.x, state.location.y, state.location.yaw});
+      for (const auto& p : state.path)
+        positions.push_back({p.x, p.y, p.yaw});
+
+      const rmf_traffic::Trajectory trajectory =
+        rmf_traffic::agv::Interpolate::positions(
+          *_travel_info.traits,
+          rmf_traffic_ros2::convert(state.location.t),
+          positions);
+
+      auto& participant = _travel_info.updater->get_participant();
+      participant.set(
+          {rmf_traffic::Route{state.location.level_name, trajectory}});
     }
     else
     {

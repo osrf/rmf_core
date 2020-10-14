@@ -189,6 +189,17 @@ RobotUpdateHandle::maximum_delay() const
 }
 
 //==============================================================================
+rmf_traffic::schedule::Participant&
+RobotUpdateHandle::get_participant()
+{
+  if (const auto context = _pimpl->get_context())
+  {
+    auto& itinerary = context->itinerary();
+    return itinerary;
+  }
+}
+
+//==============================================================================
 RobotUpdateHandle::RobotUpdateHandle()
 {
   // Do nothing
