@@ -28,6 +28,7 @@
 
 #include <vector>
 #include <memory>
+#include <functional>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -101,7 +102,8 @@ public:
   rmf_utils::optional<rmf_traffic::Duration> maximum_delay() const;
 
   /// Get the schedule participant of this robot
-  rmf_traffic::schedule::Participant& get_participant();
+  rmf_utils::optional<std::reference_wrapper<rmf_traffic::schedule::Participant>>
+    get_participant();
 
   class Implementation;
 private:

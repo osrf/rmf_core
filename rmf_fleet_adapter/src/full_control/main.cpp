@@ -302,9 +302,10 @@ public:
           rmf_traffic_ros2::convert(state.location.t),
           positions);
 
-      auto& participant = _travel_info.updater->get_participant();
-      participant.set(
-          {rmf_traffic::Route{state.location.level_name, trajectory}});
+      auto participant = _travel_info.updater->get_participant();
+      if (participant)
+        participant.value().get().set(
+            {rmf_traffic::Route{state.location.level_name, trajectory}});
     }
     else
     {
