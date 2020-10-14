@@ -69,7 +69,7 @@ public:
   /// Start a bidding process
   void start_bidding(const BiddingTask& bidding_task)
   {
-    std::cout << "\n Add Bidding Task for task_id: " 
+    std::cout << "\n Add Bidding task_id: " 
               << bidding_task.task_profile.task_id << " to queue"<< std::endl;
     queue_bidding_tasks[bidding_task.task_profile.task_id] = {bidding_task};
 
@@ -82,35 +82,40 @@ public:
   // Receive proposal and evaluate // todo think
   void receive_proposal(const BidProposal& msg)
   {
+    auto id_ = msg.task_profile.task_id;
     std::cout << "[Auctioneer] Receive proposal for task_id: " 
-              << msg.task_profile.task_id << std::endl;
+              << id_ << std::endl;
 
     // check if bidding task is "mine"
-    auto task_it = queue_bidding_tasks.find(msg.task_profile.task_id);
+    auto task_it = queue_bidding_tasks.find(id_);
     if (task_it == queue_bidding_tasks.end())
       return; // not found
 
     // add submited proposal to the current bidding task
     auto submission = convert(msg);
-    queue_bidding_tasks[msg.task_profile.task_id].submissions.push_back(submission);
+    queue_bidding_tasks[id_].submissions.push_back(submission);
   }
 
   // determine the winner within a bidding task instance
   void check_bidding_process()
   {
     // check if timeout is reached
-    for( auto const& [id, tsk] : queue_bidding_tasks )
+    for ( auto it = queue_bidding_tasks.begin();
+          it != queue_bidding_tasks.end();)
     {
       auto duration = std::chrono::steady_clock::now() 
-        - tsk.bidding_task.task_profile.submission_time;
-      if (duration > tsk.bidding_task.time_window )
+        - it->second.bidding_task.task_profile.submission_time;
+
+      if ( duration > it->second.bidding_task.time_window )
       {
         std::cout << " - Deadline reached"<< std::endl;
-        this->determine_winner(id, tsk.submissions);
+        this->determine_winner(it->first, it->second.submissions);
+        it = queue_bidding_tasks.erase(it);
       }
+      else
+        ++it;
     }
-    // std::cout << "Remaining: " << queue_bidding_tasks.size() 
-    //           << " bidding tasks" << std::endl;
+    std::cout << "...";
   }
 
   void determine_winner(
@@ -132,9 +137,6 @@ public:
       std::cout << "Found winning Fleet Adapter: " 
                 << winner->fleet_name << std::endl;
     }
-
-    // remove completed task from queue
-    queue_bidding_tasks.erase(task_id);
     
     // check if bidding_result_callback fn is initailized
     if (bidding_result_callback)

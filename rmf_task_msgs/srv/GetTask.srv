@@ -12,5 +12,5 @@ string[] task_id
 
 bool success
 
-TaskSummary[] active_tasks
-TaskSummary[] terminated_tasks
+DispatchStatus[] active_tasks
+DispatchStatus[] terminated_tasks

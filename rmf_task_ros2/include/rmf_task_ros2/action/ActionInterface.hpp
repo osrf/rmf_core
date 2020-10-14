@@ -41,7 +41,7 @@ struct TaskStatus
 {
   enum class State : uint8_t
   {
-    Invalid = StatusMsg::INVALID,
+    Pending = StatusMsg::PENDING,
     Queued = StatusMsg::ACTIVE_QUEUED,
     Executing = StatusMsg::ACTIVE_EXECUTING,
     Completed = StatusMsg::TERMINAL_COMPLETED,
@@ -55,7 +55,7 @@ struct TaskStatus
   rmf_traffic::Time end_time;
   std::string robot_name;
   std::string status; // verbose msg
-  State state = State::Invalid; // default
+  State state = State::Pending; // default
 };
 
 using TaskStatusPtr = std::shared_ptr<TaskStatus>;
@@ -181,10 +181,10 @@ private:
 } // namespace action
 
 // ==============================================================================
-inline action::TaskStatus convert(const action::StatusMsg& from);
+action::TaskStatus convert(const action::StatusMsg& from);
 
 // ==============================================================================
-inline action::StatusMsg convert(const action::TaskStatus& from);
+action::StatusMsg convert(const action::TaskStatus& from);
 
 } // namespace rmf_task_ros2
 

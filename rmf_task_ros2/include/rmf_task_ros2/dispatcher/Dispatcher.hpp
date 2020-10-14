@@ -31,29 +31,9 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
-
-enum class DispatchState: uint8_t{
-  // inherited from Action Task State
-  Invalid,    // null
-  Queued,     // active
-  Executing,  // active
-  Completed,  // active
-  Failed,     // terminated
-  Canceled,   // terminated
-  // Additional State
-  Bidding = 10  // active
-};
-
-struct DispatchTask
-{
-  TaskProfile task_profile;
-  DispatchState dispatch_state;
-  rmf_utils::optional<bidding::Submission> winner;
-  action::TaskStatus task_status; // tothink
-};
-
-using DispatchTasks = std::map<TaskID, DispatchTask>;
+using DispatchTasks = std::map<TaskID, action::TaskStatusPtr>;
 using DispatchTasksPtr = std::shared_ptr<DispatchTasks>;
+using DispatchState = action::TaskStatus::State;
 
 //==============================================================================
 
@@ -87,18 +67,19 @@ public:
   /// Get active tasks map list ref
   ///
   /// \return const ref to active tasks
-  const DispatchTasks& get_active_tasks();
+  const DispatchTasksPtr get_active_tasks();
 
   /// Get terminated tasks map list ref
   ///
   /// \return const ref to terminated tasks
-  const DispatchTasks&  get_terminated_tasks();
+  const DispatchTasksPtr get_terminated_tasks();
 
   class Implementation;
 
 private: 
   Dispatcher();
   std::shared_ptr<Implementation> _pimpl;
+  // rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace dispatcher

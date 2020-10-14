@@ -7,7 +7,7 @@ string fleet_name
 TaskProfile task_profile
 
 uint8 state
-uint8 INVALID=0
+uint8 PENDING=0
 uint8 ACTIVE_QUEUED=1
 uint8 ACTIVE_EXECUTING=2
 uint8 TERMINAL_COMPLETED=3  # hooray

@@ -149,12 +149,13 @@ void TaskActionClient::cancel_task(
 
 int TaskActionClient::size()
 {
-  for (auto const& status : _active_task_status)
+  for (auto it = _active_task_status.begin(); it != _active_task_status.end();)
   {
-    if(status.second.expired()) //todo iterate rm not clean
-      _active_task_status.erase(status.first);
+    if (it->second.expired())
+      it = _active_task_status.erase(it);
+    else
+      ++it;
   }
-
   std::cout << " status: " << _active_task_status.size()
             << " promise: " << _task_request_fut_ack.size() << std::endl;
   return _active_task_status.size();
@@ -258,7 +259,7 @@ void TaskActionServer::cancel_task_impl(const TaskProfileMsg& task_profile)
 } // namespace action
 
 // ==============================================================================
-inline action::TaskStatus convert(const action::StatusMsg& from)
+action::TaskStatus convert(const action::StatusMsg& from)
 {
   action::TaskStatus status;
   status.fleet_name = from.fleet_name;
@@ -272,7 +273,7 @@ inline action::TaskStatus convert(const action::StatusMsg& from)
 }
 
 // ==============================================================================
-inline action::StatusMsg convert(const action::TaskStatus& from)
+action::StatusMsg convert(const action::TaskStatus& from)
 {
   action::StatusMsg status;
   status.fleet_name = from.fleet_name;
