@@ -15,49 +15,48 @@
  *
 */
 
-#include <fcl/continuous_collision.h>
-#include <fcl/shape/geometric_shapes.h>
-#include <fcl/ccd/motion.h>
+#include <fcl/narrowphase/continuous_collision.h>
+#include <fcl/narrowphase/continuous_collision_object.h>
 
 #include <rmf_utils/catch.hpp>
 
 TEST_CASE("Verify that FCL can handle continuous collisions")
 {
   // Make sphere
-  std::shared_ptr<fcl::CollisionGeometry> sphere_geom =
-    std::make_shared<fcl::Sphere>(0.5);
+  std::shared_ptr<fcl::CollisionGeometryd> sphere_geom =
+    std::make_shared<fcl::Sphered>(0.5);
 
-  std::shared_ptr<fcl::CollisionObject> object_1 =
-    std::make_shared<fcl::CollisionObject>(sphere_geom);
+  std::shared_ptr<fcl::CollisionObjectd> object_1 =
+    std::make_shared<fcl::CollisionObjectd>(sphere_geom);
 
   fcl::Transform3f tf_sphere_start;
-  tf_sphere_start.setTranslation(fcl::Vec3f(1.0, 0.0, 0.0));
+  tf_sphere_start.setTranslation(fcl::Vector3d(1.0, 0.0, 0.0));
   object_1->setTransform(tf_sphere_start);
 
   fcl::Transform3f tf_sphere_final = tf_sphere_start;
 
   // Make box
-  std::shared_ptr<fcl::CollisionGeometry> box_geom =
-    std::make_shared<fcl::Box>(1.0, 1.0, 1.0);
+  std::shared_ptr<fcl::CollisionGeometryd> box_geom =
+    std::make_shared<fcl::Boxd>(1.0, 1.0, 1.0);
 
-  std::shared_ptr<fcl::CollisionObject> object_2 =
-    std::make_shared<fcl::CollisionObject>(box_geom);
+  std::shared_ptr<fcl::CollisionObjectd> object_2 =
+    std::make_shared<fcl::CollisionObjectd>(box_geom);
 
   fcl::Transform3f tf_box_start;
-  tf_box_start.setTranslation(fcl::Vec3f(0.0, 5.0, 0.0));
+  tf_box_start.setTranslation(fcl::Vector3d(0.0, 5.0, 0.0));
   object_2->setTransform(tf_box_start);
 
   fcl::Transform3f tf_box_final = tf_box_start;
-  tf_box_final.setTranslation(fcl::Vec3f(0.0, -5.0, 0.0));
+  tf_box_final.setTranslation(fcl::Vector3d(0.0, -5.0, 0.0));
 
   fcl::Quaternion3f R_box;
-  R_box.fromAxisAngle(fcl::Vec3f(0.0, 0.0, 1.0), 90.0*M_PI/180.0);
+  R_box.fromAxisAngle(fcl::Vector3d(0.0, 0.0, 1.0), 90.0*M_PI/180.0);
 
   tf_box_final.setQuatRotation(R_box);
 
-  fcl::ContinuousCollisionRequest request(100);
+  fcl::ContinuousCollisionRequestd request(100);
   request.ccd_motion_type = fcl::CCDM_LINEAR;
-  fcl::ContinuousCollisionResult result;
+  fcl::ContinuousCollisionResultd result;
 
   fcl::continuousCollide(
     object_1.get(), tf_sphere_final,

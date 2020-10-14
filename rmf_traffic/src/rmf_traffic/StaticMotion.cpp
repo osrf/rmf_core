@@ -26,13 +26,11 @@ namespace internal {
 StaticMotion::StaticMotion(const Eigen::Isometry2d& tf)
 {
   const Eigen::Vector2d& p = tf.translation();
-  const auto x = fcl::Vec3f(p[0], p[1], 0.0);
+  const auto x = fcl::Vector3d(p[0], p[1], 0.0);
 
   Eigen::Rotation2Dd R{tf.rotation()};
-  fcl::Quaternion3f q;
-  q.fromAxisAngle(fcl::Vec3f(0.0, 0.0, 1.0), R.angle());
 
-  _tf.setTransform(q, x);
+  _tf = fcl::Translation3d(x) * fcl::AngleAxisd(R.angle(), fcl::Vector3d::UnitZ());
 }
 
 //==============================================================================
@@ -43,8 +41,8 @@ bool StaticMotion::integrate(double /*dt*/) const
 }
 
 //==============================================================================
-fcl::FCL_REAL StaticMotion::computeMotionBound(
-  const fcl::BVMotionBoundVisitor&) const
+double StaticMotion::computeMotionBound(
+  const fcl::BVMotionBoundVisitor<double>&) const
 {
   // TODO(MXG): Investigate the legitimacy of this implementation. Make sure
   // that this function truly should always return 0.
@@ -52,8 +50,8 @@ fcl::FCL_REAL StaticMotion::computeMotionBound(
 }
 
 //==============================================================================
-fcl::FCL_REAL StaticMotion::computeMotionBound(
-  const fcl::TriangleMotionBoundVisitor&) const
+double StaticMotion::computeMotionBound(
+  const fcl::TriangleMotionBoundVisitor<double>&) const
 {
   std::cout <<
     " ----- OH NO, WE'RE USING StaticMotion::computeMotionBound(TriangleMotionBoundVisitor)!! ----- "
@@ -65,13 +63,13 @@ fcl::FCL_REAL StaticMotion::computeMotionBound(
 }
 
 //==============================================================================
-void StaticMotion::getCurrentTransform(fcl::Transform3f& tf) const
+void StaticMotion::getCurrentTransform(fcl::Transform3d& tf) const
 {
   tf = _tf;
 }
 
 //==============================================================================
-void StaticMotion::getTaylorModel(fcl::TMatrix3&, fcl::TVector3&) const
+void StaticMotion::getTaylorModel(fcl::TMatrix3<double>&, fcl::TVector3<double>&) const
 {
   std::cout <<
     " ----- OH NO, WE'RE USING StaticMotion::getTaylorModel()!! ----- "

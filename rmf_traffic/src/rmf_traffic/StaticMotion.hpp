@@ -20,13 +20,13 @@
 
 #include "DetectConflictInternal.hpp"
 
-#include <fcl/ccd/motion.h>
+#include <fcl/math/motion/motion_base.h>
 
 namespace rmf_traffic {
 namespace internal {
 
 //==============================================================================
-class StaticMotion : public fcl::MotionBase
+class StaticMotion : public fcl::MotionBase<double>
 {
 public:
 
@@ -34,21 +34,21 @@ public:
 
   StaticMotion(const Eigen::Isometry2d& tf);
 
-  bool integrate(double dt) const final;
+  virtual bool integrate(double dt) const final;
 
-  fcl::FCL_REAL computeMotionBound(
-    const fcl::BVMotionBoundVisitor&) const final;
+  virtual double computeMotionBound(
+    const fcl::BVMotionBoundVisitor<double>&) const final;
 
-  fcl::FCL_REAL computeMotionBound(
-    const fcl::TriangleMotionBoundVisitor&) const final;
+  virtual double computeMotionBound(
+    const fcl::TriangleMotionBoundVisitor<double>&) const final;
 
-  void getCurrentTransform(fcl::Transform3f& tf) const final;
+  void getCurrentTransform(fcl::Transform3d& tf) const final;
 
-  void getTaylorModel(fcl::TMatrix3&, fcl::TVector3&) const final;
+  void getTaylorModel(fcl::TMatrix3<double>&, fcl::TVector3<double>&) const final;
 
 private:
 
-  fcl::Transform3f _tf;
+  fcl::Transform3d _tf;
 
 };
 

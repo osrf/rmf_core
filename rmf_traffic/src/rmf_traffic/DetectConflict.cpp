@@ -23,9 +23,9 @@
 
 #include "DetectConflictInternal.hpp"
 
-#include <fcl/continuous_collision.h>
-#include <fcl/ccd/motion.h>
-#include <fcl/collision.h>
+#include <fcl/narrowphase/continuous_collision.h>
+#include <fcl/math/motion/spline_motion.h>
+#include <fcl/narrowphase/collision.h>
 
 #include <unordered_map>
 
@@ -318,25 +318,25 @@ bool overlap(
 }
 
 //==============================================================================
-std::shared_ptr<fcl::SplineMotion> make_uninitialized_fcl_spline_motion()
+std::shared_ptr<fcl::SplineMotion<double>> make_uninitialized_fcl_spline_motion()
 {
   // This function is only necessary because SplineMotion does not provide a
   // default constructor, and we want to be able to instantiate one before
   // we have any paramters to provide to it.
-  fcl::Matrix3f R;
-  fcl::Vec3f T;
+  fcl::Matrix3d R;
+  fcl::Vector3d T;
 
   // The constructor that we are using is a no-op (apparently it was declared,
   // but its definition is just `// TODO`, so we don't need to worry about
   // unintended consequences. If we update the version of FCL, this may change,
   // so I'm going to leave a FIXME tag here to keep us aware of that.
-  return std::make_shared<fcl::SplineMotion>(R, T, R, T);
+  return std::make_shared<fcl::SplineMotion<double>>(R, T, R, T);
 }
 
 //==============================================================================
-fcl::ContinuousCollisionRequest make_fcl_request()
+fcl::ContinuousCollisionRequestd make_fcl_request()
 {
-  fcl::ContinuousCollisionRequest request;
+  fcl::ContinuousCollisionRequestd request;
   request.ccd_solver_type = fcl::CCDC_CONSERVATIVE_ADVANCEMENT;
   request.gjk_solver_type = fcl::GST_LIBCCD;
 
@@ -344,27 +344,212 @@ fcl::ContinuousCollisionRequest make_fcl_request()
 }
 
 //==============================================================================
-rmf_utils::optional<fcl::FCL_REAL> check_collision(
+rmf_utils::optional<double> check_collision(
   const geometry::FinalConvexShape& shape_a,
-  const std::shared_ptr<fcl::SplineMotion>& motion_a,
+  const std::shared_ptr<fcl::SplineMotion<double>>& motion_a,
   const geometry::FinalConvexShape& shape_b,
-  const std::shared_ptr<fcl::SplineMotion>& motion_b,
-  const fcl::ContinuousCollisionRequest& request)
+  const std::shared_ptr<fcl::SplineMotion<double>>& motion_b,
+  const fcl::ContinuousCollisionRequestd& request)
 {
-  const auto obj_a = fcl::ContinuousCollisionObject(
+  const auto obj_a = fcl::ContinuousCollisionObjectd(
     geometry::FinalConvexShape::Implementation::get_collision(shape_a),
     motion_a);
 
-  const auto obj_b = fcl::ContinuousCollisionObject(
+  const auto obj_b = fcl::ContinuousCollisionObjectd(
     geometry::FinalConvexShape::Implementation::get_collision(shape_b),
     motion_b);
 
-  fcl::ContinuousCollisionResult result;
+  fcl::ContinuousCollisionResultd result;
   fcl::collide(&obj_a, &obj_b, request, result);
 
   if (result.is_collide)
     return result.time_of_contact;
 
+  return rmf_utils::nullopt;
+}
+
+
+rmf_utils::optional<double> check_collision_fcl(
+  const geometry::FinalConvexShape& shape_a,
+  const std::shared_ptr<fcl::SplineMotion<double>>& motion_a,
+  const geometry::FinalConvexShape& shape_b,
+  const std::shared_ptr<fcl::SplineMotion<double>>& motion_b)
+{
+  return check_collision(shape_a, motion_a, shape_b, motion_b,
+    make_fcl_request());
+}
+
+inline bool circle_ray_intersection(
+  Eigen::Vector2d ray_dir, Eigen::Vector2d ray_origin,
+  Eigen::Vector2d circle_center, double circle_radius, double& interp)
+{
+  Eigen::Vector2d ray_to_circle_center = circle_center - ray_origin;
+  double ray_to_circle_sqdist = ray_to_circle_center.squaredNorm();
+  double circle_radiussq = circle_radius * circle_radius;
+
+  double ray_length = ray_dir.norm();
+  if (ray_length <= 1e-07f)
+    return ray_to_circle_sqdist <= circle_radiussq;
+
+  Eigen::Vector2d ray_dir_normalized = ray_dir / ray_length;
+  double projected_len = ray_to_circle_center.dot(ray_dir_normalized);
+  
+  // circle behind ray and outside of circle
+  if (projected_len < 0.f && ray_to_circle_sqdist > circle_radiussq)
+    return false;
+
+  // check if circle collides with ray segment via checking minimum distance
+  // from circle to ray
+  double footlengthsq = ray_to_circle_sqdist - projected_len * projected_len;
+  if (footlengthsq > circle_radiussq)
+    return false;
+
+  // we intersected (on a positive-infinate ray), compute the point of first peneration with circle by ray
+  // reframe the problem as a line going through a circle and you're computing an inner triangle
+  // with the point of intersection as a part of the triangle and circle_radiussq as the hypothenuse
+  double r_sq = circle_radiussq - footlengthsq;
+  double len_to_intersect = projected_len - sqrt(r_sq);
+
+  //interPt = (ray_dir_normalized * len_to_intersect) + ray_origin;
+
+  // time of intersection is intersected length / total length
+  interp = len_to_intersect / ray_length;
+  if (interp > 1.0 || interp < 0.0)
+    return false;
+  return true;
+}
+
+inline bool swept_circle_intersection(
+      Eigen::Vector2d a_pt1, Eigen::Vector2d a_velstep,
+      Eigen::Vector2d b_pt1, Eigen::Vector2d b_velstep,
+      double radius_a, double radius_b,
+      double& interp)
+{
+  //redefine the problem as ray with relative velocity - pillar with combined radius 
+  Eigen::Vector2d ray_dir = a_velstep - b_velstep;
+  Eigen::Vector2d ray_origin = a_pt1;
+
+  Eigen::Vector2d pillar_center = b_pt1;
+  double pillar_radius = radius_a + radius_b;
+
+  return circle_ray_intersection(ray_dir, ray_origin, pillar_center, pillar_radius, interp);
+}
+
+rmf_utils::optional<double> check_collision_piecewise_sweep(
+  double radius_a,
+  const std::array<Eigen::Vector4d, 3>& motion_a,
+  double radius_b,
+  const std::array<Eigen::Vector4d, 3>& motion_b)
+{
+#if 0
+  // re-parameterize the spline into arc-length, then do sweep circle tests
+  double minradius_sq = (radius_a + radius_b) * (radius_a + radius_b);
+
+  auto compute_spline_arclength = [](
+    std::array<Eigen::Vector4d, 3> spline_coeff, double percent)
+  {
+    // Compute arc-length using Gaussian quadrature
+    // see: https://medium.com/@all2one/how-to-compute-the-length-of-a-spline-e44f5f04c40
+    // Compute a length of a spline segment by using 5-point Legendre-Gauss quadrature
+    // https://en.wikipedia.org/wiki/Gaussian_quadrature
+
+    struct LegendreGaussCoefficient
+    {
+      double abscissa;
+      double weight;
+    };
+
+    static const LegendreGaussCoefficient legendre_gauss_coefficients[] =
+    {
+      { 0.0f, 0.5688889 },
+      { -0.5384693, 0.47862867 },
+      { 0.5384693, 0.47862867 },
+      { -0.90617985, 0.23692688 },
+      { 0.90617985, 0.23692688 }
+    };
+
+    //special case for straight line segments
+
+    double length = 0.0f;
+    for (const auto& lcoeff : legendre_gauss_coefficients)
+    {
+      // interval range switch from [-1, 1] to [0,1]
+      double t = 0.5f * (1.f + lcoeff.abscissa);
+      // do a weighted sum
+      Eigen::Vector3d derivative = rmf_traffic::compute_velocity(spline_coeff, t);
+      length += derivative.norm() * lcoeff.weight;
+    }
+    return 0.5f * length * percent;
+  };
+
+  auto arclength_param_to_spline_param = [compute_spline_arclength](
+    std::array<Eigen::Vector4d, 3> spline_coeff, double arclengthparam, double arclength)
+    -> double
+  {
+    //convert from s(arclength param) to t
+    double s = arclengthparam / arclength;
+    for (uint i = 0; i < 2; ++i)
+    {
+      Eigen::Vector3d derivative = rmf_traffic::compute_velocity(spline_coeff, s);
+      double tangentmag = derivative.norm();
+      if (tangentmag > 0.f)
+      {
+        s -= (compute_spline_arclength(spline_coeff, s) - arclengthparam) / tangentmag;
+        s = s < 0.f ? 0.f : s;
+        s = s > 1.f ? 1.f : s;
+      }
+    }
+    return s;
+  };
+
+  double motion_a_length = compute_spline_arclength(motion_a, 1.0f);
+  double motion_b_length = compute_spline_arclength(motion_b, 1.0f);
+
+  uint steps = 3;
+
+  double motion_a_len = 0.0f, motion_b_len = 0.0f;
+  double motion_a_length_delta = motion_a_length / (double)steps;
+  double motion_b_length_delta = motion_b_length / (double)steps;
+  for (uint i = 0; i < steps; ++i)
+  {
+    // compute before and after step and 
+    double a_t1 = arclength_param_to_spline_param(motion_a, motion_a_len, motion_a_length);
+    double a_t2 = arclength_param_to_spline_param(motion_a, motion_a_len + motion_a_length_delta, motion_a_length);
+    Eigen::Vector3d motion_a_seg_pt1 = rmf_traffic::compute_position(motion_a, a_t1);
+    Eigen::Vector3d motion_a_seg_pt2 = rmf_traffic::compute_position(motion_a, a_t2);
+
+    double b_t1 = arclength_param_to_spline_param(motion_b, motion_b_len, motion_b_length);
+    double b_t2 = arclength_param_to_spline_param(motion_b, motion_b_len + motion_b_length_delta, motion_b_length);
+    Eigen::Vector3d motion_b_seg_pt1 = rmf_traffic::compute_position(motion_b, b_t1);
+    Eigen::Vector3d motion_b_seg_pt2 = rmf_traffic::compute_position(motion_b, b_t2);
+
+    // do capsule-capsule between st lines on motion
+    Eigen::Vector2d motion_a_seg_pt1_2d(motion_a_seg_pt1.x(), motion_a_seg_pt1.y());
+    Eigen::Vector2d motion_b_seg_pt1_2d(motion_b_seg_pt1.x(), motion_b_seg_pt1.y());
+
+    Eigen::Vector2d motion_a_seg_pt2_2d(motion_a_seg_pt2.x(), motion_a_seg_pt2.y());
+    Eigen::Vector2d motion_b_seg_pt2_2d(motion_b_seg_pt2.x(), motion_b_seg_pt2.y());
+
+    //LOG("a_t1: %g b_t1: %g", a_t1, b_t1);
+    
+    double interp = 0.0f;
+    if (swept_circle_intersection(
+      motion_a_seg_pt1_2d, motion_a_seg_pt2_2d - motion_a_seg_pt1_2d,
+      motion_b_seg_pt1_2d, motion_b_seg_pt2_2d - motion_b_seg_pt1_2d,
+      radius_a, radius_b, interp))
+    {
+      //printf("intersect! interp: %g\n", interp);
+      double t_interp = a_t1 + interp * (a_t2 - a_t1);
+
+      //t_interp = spline.ArcLengthParamToSplineParam(lparam, length);
+      //t_interp = interp;
+      return t_interp;
+    }
+
+    motion_a_len = motion_a_length_delta * ((double)i + 1.0);
+    motion_b_len = motion_b_length_delta * ((double)i + 1.0);
+  }
+#endif 
   return rmf_utils::nullopt;
 }
 
@@ -380,7 +565,7 @@ Profile::Implementation convert_profile(const Profile& profile)
 
 //==============================================================================
 Time compute_time(
-  const fcl::FCL_REAL scaled_time,
+  const double scaled_time,
   const Time start_time,
   const Time finish_time)
 {
@@ -409,11 +594,18 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
 
 namespace {
 //==============================================================================
-fcl::Transform3f convert(Eigen::Vector3d p)
+fcl::Transform3d convert(Eigen::Vector3d p)
 {
-  fcl::Matrix3f R;
-  R.setEulerZYX(0.0, 0.0, p[2]);
-  return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
+  //Eigen::Matrix<double, 3, 3> R(Eigen::EulerAngles(0.0, 0.0, p[2]));
+  
+  // fcl::Matrix3d R;
+  // R.EulerAngles(0.0, 0.0, p[2]);
+  //return fcl::Transform3f(R, fcl::Vector3d(p[0], p[1], 0.0));
+
+  fcl::Transform3d t;
+  t = fcl::AngleAxisd(p[2], Eigen::Vector3d::UnitZ());
+  t.pretranslate(p);
+  return t;
 }
 
 //==============================================================================
@@ -432,15 +624,15 @@ bool check_overlap(
     ConvexPair{profile_a.vicinity, profile_b.footprint}
   };
 
-  fcl::CollisionRequest request;
-  fcl::CollisionResult result;
+  fcl::CollisionRequestd request;
+  fcl::CollisionResultd result;
   for (const auto pair : pairs)
   {
-    fcl::CollisionObject obj_a(
+    fcl::CollisionObjectd obj_a(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
       convert(spline_a.compute_position(time)));
 
-    fcl::CollisionObject obj_b(
+    fcl::CollisionObjectd obj_b(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[1]),
       convert(spline_b.compute_position(time)));
 
@@ -483,9 +675,9 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
   rmf_utils::optional<Spline> spline_a;
   rmf_utils::optional<Spline> spline_b;
 
-  std::shared_ptr<fcl::SplineMotion> motion_a =
+  std::shared_ptr<fcl::SplineMotion<double>> motion_a =
     make_uninitialized_fcl_spline_motion();
-  std::shared_ptr<fcl::SplineMotion> motion_b =
+  std::shared_ptr<fcl::SplineMotion<double>> motion_b =
     make_uninitialized_fcl_spline_motion();
 
   const fcl::ContinuousCollisionRequest request = make_fcl_request();
@@ -796,7 +988,7 @@ bool detect_conflicts(
               << "that should never happen. Please alert the RMF developers."
               << std::endl;
     throw invalid_trajectory_error::Implementation
-          ::make_segment_num_error(trajectory.size(), __LINE__, __FUNCTION__);
+          ::make_segment_num_error(trajectory.size(), 0, "");
   }
 #endif // NDEBUG
 
@@ -831,14 +1023,14 @@ bool detect_conflicts(
     finish_time < trajectory_finish_time ?
     ++trajectory.find(finish_time) : trajectory.end();
 
-  std::shared_ptr<fcl::SplineMotion> motion_trajectory =
+  std::shared_ptr<fcl::SplineMotion<double>> motion_trajectory =
     make_uninitialized_fcl_spline_motion();
   std::shared_ptr<internal::StaticMotion> motion_region =
     std::make_shared<internal::StaticMotion>(region.pose);
 
-  const fcl::ContinuousCollisionRequest request = make_fcl_request();
+  const fcl::ContinuousCollisionRequestd request = make_fcl_request();
 
-  const std::shared_ptr<fcl::CollisionGeometry> vicinity_geom =
+  const std::shared_ptr<fcl::CollisionGeometryd> vicinity_geom =
     geometry::FinalConvexShape::Implementation::get_collision(*vicinity);
 
   if (output_conflicts)
@@ -856,7 +1048,7 @@ bool detect_conflicts(
     *motion_trajectory = spline_trajectory.to_fcl(
       spline_start_time, spline_finish_time);
 
-    const auto obj_trajectory = fcl::ContinuousCollisionObject(
+    const auto obj_trajectory = fcl::ContinuousCollisionObjectd(
       vicinity_geom, motion_trajectory);
 
     assert(region.shape);
@@ -864,13 +1056,13 @@ bool detect_conflicts(
       ::get_collisions(*region.shape);
     for (const auto& region_shape : region_shapes)
     {
-      const auto obj_region = fcl::ContinuousCollisionObject(
+      const auto obj_region = fcl::ContinuousCollisionObjectd(
         region_shape, motion_region);
 
       // TODO(MXG): We should do a broadphase test here before using
       // fcl::collide
 
-      fcl::ContinuousCollisionResult result;
+      fcl::ContinuousCollisionResult<double> result;
       fcl::collide(&obj_trajectory, &obj_region, request, result);
       if (result.is_collide)
       {

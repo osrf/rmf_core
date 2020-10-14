@@ -20,7 +20,7 @@
 //#include <rmf_traffic/geometry/SimplePolygon.hpp>
 #include "SimplePolygon.hpp"
 
-#include <fcl/shape/geometric_shapes.h>
+#include <fcl/geometry/shape/convex.h>
 
 #include <sstream>
 
@@ -375,54 +375,54 @@ bool is_polygon_convex(const std::vector<Eigen::Vector2d>& polygon)
 }
 
 //==============================================================================
-class ConvexWrapper : public fcl::Convex
+class ConvexWrapper : public fcl::Convexd
 {
 public:
+  using PointArray = std::vector<fcl::Vector3d>;
 
-  ConvexWrapper(std::unique_ptr<fcl::Vec3f[]> points_, int num_points_)
-  : fcl::Convex(nullptr, nullptr, 0, points_.get(), num_points_, nullptr),
+  ConvexWrapper(const std::shared_ptr<const PointArray>& points_)
+  : fcl::Convexd(points_, 0, std::shared_ptr<const std::vector<int>>()),
     point_storage(std::move(points_))
   {
     // Do nothing
   }
 
-  static std::shared_ptr<fcl::Convex> make(
+  static std::shared_ptr<fcl::Convexd> make(
     const std::vector<Eigen::Vector2d>& points)
   {
     // Create an array with double the points, because we need to place the
     // points at both ground level and ceiling level.
-    std::unique_ptr<fcl::Vec3f[]> fcl_points =
-      std::make_unique<fcl::Vec3f[]>(2*points.size());
+    auto fcl_points = std::make_shared<PointArray>(2*points.size());
 
     for (std::size_t i = 0; i < points.size(); ++i)
     {
       const Eigen::Vector2d& p = points[i];
-      fcl_points[2*i] = fcl::Vec3f(p[0], p[1], 0.0);
-      fcl_points[2*i + 1] = fcl::Vec3f(p[0], p[1], 1.0);
+      (*fcl_points)[2*i] = fcl::Vector3d(p[0], p[1], 0.0);
+      (*fcl_points)[2*i + 1] = fcl::Vector3d(p[0], p[1], 1.0);
     }
 
     return std::make_shared<ConvexWrapper>(
-      std::move(fcl_points), 2*points.size());
+      std::move(fcl_points));
   }
 
-  std::unique_ptr<fcl::Vec3f[]> point_storage;
+  std::shared_ptr<const PointArray> point_storage;
 
 };
 
 //==============================================================================
-std::shared_ptr<fcl::Convex> make_convex(
+std::shared_ptr<fcl::Convexd> make_convex(
   const std::vector<Eigen::Vector2d>& polygon)
 {
   return ConvexWrapper::make(polygon);
 }
 
 //==============================================================================
-std::vector<std::shared_ptr<fcl::Convex>> make_triangulation(
+std::vector<std::shared_ptr<fcl::Convexd>> make_triangulation(
   const std::vector<Eigen::Vector2d>& polygon)
 {
   const std::vector<Triangle> triangles = decompose_polygon(polygon);
 
-  std::vector<std::shared_ptr<fcl::Convex>> triangulation;
+  std::vector<std::shared_ptr<fcl::Convexd>> triangulation;
 
   std::vector<Eigen::Vector2d> points;
   points.reserve(3);

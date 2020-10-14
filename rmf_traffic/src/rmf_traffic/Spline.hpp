@@ -22,7 +22,7 @@
 
 #include <rmf_traffic/Trajectory.hpp>
 
-#include <fcl/ccd/motion.h>
+#include <fcl/math/motion/spline_motion.h>
 
 #include <array>
 
@@ -51,7 +51,7 @@ public:
   std::array<Eigen::Vector3d, 4> compute_knots(
     const Time start_time, const Time finish_time) const;
 
-  fcl::SplineMotion to_fcl(const Time start_time, const Time finish_time) const;
+  fcl::SplineMotion<double> to_fcl(const Time start_time, const Time finish_time) const;
 
   Time start_time() const;
   Time finish_time() const;
