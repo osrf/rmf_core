@@ -21,7 +21,7 @@
 
 #include <iostream>
 
-SCENARIO("Test geometry calculations")
+SCENARIO("Test geometry calculations for direct conflicts")
 {
   using namespace rmf_traffic::blockade;
 
@@ -137,4 +137,136 @@ SCENARIO("Test geometry calculations")
 
   for (std::size_t i=1; i < s_B.size(); ++i)
     CHECK_FALSE(detect_conflict(s_A[7], s_B[i], max_angle).has_conflict);
+}
+
+SCENARIO("Test geometry conflicts for skimming conflicts")
+{
+  using namespace rmf_traffic::blockade;
+
+  const double radius = 0.1;
+  const double half_r = 0.05;
+  const double max_angle = 1.0*M_PI/180.0;
+
+  std::array<Eigen::Vector2d, 6> A;
+  A[0] = { 0,  0};
+  A[1] = { 5,  0};
+  A[2] = { 8,  5};
+  A[3] = {16,  5};
+  A[4] = {20,  0};
+  A[5] = {25,  0};
+
+  std::array<Segment, 5> s_A;
+  for (std::size_t i=0; i < A.size()-1; ++i)
+    s_A[i] = Segment{A[i], A[i+1], radius};
+
+  const double b_height = 5 + half_r;
+  std::array<Eigen::Vector2d, 6> B;
+  for (std::size_t i=0; i < B.size(); ++i)
+    B[i] = {5.0*i, b_height};
+
+  WHEN("B goes forward")
+  {
+    std::array<Segment, 5> s_B;
+    for (std::size_t i=0; i < B.size()-1; ++i)
+      s_B[i] = Segment{B[i], B[i+1], radius};
+
+    {
+      const auto info = detect_conflict(s_A[1], s_B[1], max_angle);
+      CHECK(info.has_conflict);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+      CHECK(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+    }
+
+    for (std::size_t i=0; i < s_A.size(); ++i)
+    {
+      for (std::size_t j=0; j < s_B.size(); ++j)
+      {
+        if (i==1 && j==1)
+          continue;
+
+        CHECK_FALSE(detect_conflict(s_A[i], s_B[j], max_angle).has_conflict);
+      }
+    }
+  }
+
+  WHEN("B goes backward")
+  {
+    std::reverse(B.begin(), B.end());
+
+    std::array<Segment, 5> s_B;
+    for (std::size_t i=0; i < B.size()-1; ++i)
+      s_B[i] = Segment{B[i], B[i+1], radius};
+
+    for (std::size_t i=0; i < s_B.size(); ++i)
+      CHECK_FALSE(detect_conflict(s_A[0], s_B[i], max_angle).has_conflict);
+
+    {
+      const auto info = detect_conflict(s_A[1], s_B[3], max_angle);
+      CHECK(info.has_conflict);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+      CHECK(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+    }
+
+    for (std::size_t i=0; i < s_B.size(); ++i)
+    {
+      if (i == 3)
+        continue;
+
+      CHECK_FALSE(detect_conflict(s_A[1], s_B[i], max_angle).has_conflict);
+    }
+
+    {
+      const auto info = detect_conflict(s_A[2], s_B[3], max_angle);
+      CHECK(info.has_conflict);
+      CHECK(info.include_cap_a[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK(info.include_cap_b[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+    }
+
+    {
+      const auto info = detect_conflict(s_A[2], s_B[2], max_angle);
+      CHECK(info.has_conflict);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK(info.include_cap_b[ConflictInfo::Start]);
+      CHECK(info.include_cap_b[ConflictInfo::Finish]);
+    }
+
+    {
+      const auto info = detect_conflict(s_A[2], s_B[1], max_angle);
+      CHECK(info.has_conflict);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+      CHECK(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+      CHECK(info.include_cap_b[ConflictInfo::Finish]);
+    }
+
+    for (std::size_t i : {0, 4})
+      CHECK_FALSE(detect_conflict(s_A[2], s_B[i], max_angle).has_conflict);
+
+    {
+      const auto info = detect_conflict(s_A[3], s_B[1], max_angle);
+      CHECK(info.has_conflict);
+      CHECK(info.include_cap_a[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+    }
+
+    for (std::size_t i=0; i < s_B.size(); ++i)
+    {
+      if (i==1)
+        continue;
+
+      CHECK_FALSE(detect_conflict(s_A[3], s_B[i], max_angle).has_conflict);
+    }
+
+    for (std::size_t i=0; i < s_B.size(); ++i)
+      CHECK_FALSE(detect_conflict(s_A[4], s_B[i], max_angle).has_conflict);
+  }
 }
