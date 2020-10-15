@@ -21,7 +21,7 @@
 
 #include <iostream>
 
-SCENARIO("Test geometry calculations for direct conflicts")
+SCENARIO("Test blockade geometry calculations for direct conflicts")
 {
   using namespace rmf_traffic::blockade;
 
@@ -139,12 +139,12 @@ SCENARIO("Test geometry calculations for direct conflicts")
     CHECK_FALSE(detect_conflict(s_A[7], s_B[i], max_angle).has_conflict);
 }
 
-SCENARIO("Test geometry conflicts for skimming conflicts")
+SCENARIO("Test blockade geometry conflicts for skimming conflicts")
 {
   using namespace rmf_traffic::blockade;
 
   const double radius = 0.1;
-  const double half_r = 0.05;
+  const double half_r = radius/2.0;
   const double max_angle = 1.0*M_PI/180.0;
 
   std::array<Eigen::Vector2d, 6> A;
@@ -268,5 +268,124 @@ SCENARIO("Test geometry conflicts for skimming conflicts")
 
     for (std::size_t i=0; i < s_B.size(); ++i)
       CHECK_FALSE(detect_conflict(s_A[4], s_B[i], max_angle).has_conflict);
+  }
+}
+
+SCENARIO("Simple blockade geometry tests")
+{
+  using namespace rmf_traffic::blockade;
+  const double radius = 0.1;
+  const double max_angle = 1.0*M_PI/180.0;
+
+  GIVEN("Simple cross-over")
+  {
+    const Segment A{{-5, 0}, {5, 0}, radius};
+    const Segment B{{0, -5}, {0, 5}, radius};
+
+    const auto info = detect_conflict(A, B, max_angle);
+    CHECK(info.has_conflict);
+    CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+    CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+    CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+    CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+  }
+
+  GIVEN("Tight initial cross-over")
+  {
+    const Segment A{{-0.01, 0}, {5, 0}, radius};
+    const Segment B{{0, -0.01}, {0, 5}, radius};
+
+    const auto info = detect_conflict(A, B, max_angle);
+    CHECK(info.has_conflict);
+    CHECK(info.include_cap_a[ConflictInfo::Start]);
+    CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+    CHECK(info.include_cap_b[ConflictInfo::Start]);
+    CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+  }
+
+  GIVEN("Tight final cross-over")
+  {
+    const Segment A{{5, 0}, {-0.01, 0}, radius};
+    const Segment B{{0, 5}, {0, -0.01}, radius};
+
+    const auto info = detect_conflict(A, B, max_angle);
+    CHECK(info.has_conflict);
+    CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+    CHECK(info.include_cap_a[ConflictInfo::Finish]);
+    CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+    CHECK(info.include_cap_b[ConflictInfo::Finish]);
+  }
+
+  GIVEN("Tight initial-final cross-over")
+  {
+    const Segment A{{-0.01, 0}, {5, 0}, radius};
+    const Segment B{{0, 5}, {0, -0.01}, radius};
+
+    const auto info = detect_conflict(A, B, max_angle);
+    CHECK(info.has_conflict);
+    CHECK(info.include_cap_a[ConflictInfo::Start]);
+    CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+    CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+    CHECK(info.include_cap_b[ConflictInfo::Finish]);
+  }
+
+  GIVEN("Acute angle cross-over")
+  {
+    const double length = 20.0;
+    const double separation = 4.0;
+    const double half_s = 0.5*separation;
+    const Segment A{{0,  half_s}, {length, -half_s}, radius};
+    const Segment B{{0, -half_s}, {length,  half_s}, radius};
+
+    {
+      const auto info = detect_conflict(A, B, max_angle);
+      CHECK(info.has_conflict);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+    }
+
+    const double angle = 2.0*atan2(separation, length);
+    CHECK_FALSE(detect_conflict(A, B, angle + 1e-6).has_conflict);
+
+    const Segment C{{length, half_s}, {0, -half_s}, radius};
+    for (const double a : {max_angle, angle})
+    {
+      const auto info = detect_conflict(A, C, a);
+      CHECK(info.has_conflict);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+      CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
+    }
+  }
+
+  GIVEN("Corner convergence")
+  {
+    const Segment A{{5, 0}, {0, 0}, radius};
+    const Segment B{{0, 5}, {0, 0}, radius};
+
+    const auto info = detect_conflict(A, B, max_angle);
+    CHECK(info.has_conflict);
+    CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
+    CHECK(info.include_cap_a[ConflictInfo::Finish]);
+    CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
+    CHECK(info.include_cap_b[ConflictInfo::Finish]);
+  }
+
+  GIVEN("Corner divergence")
+  {
+    const Segment A{{0, 0}, {5, 0}, radius};
+    const Segment B{{0, 0}, {0, 5}, radius};
+    CHECK_FALSE(detect_conflict(A, B, max_angle).has_conflict);
+  }
+
+  GIVEN("Near miss")
+  {
+    const double h = 2*radius + 1e-4;
+    const Segment A{{0, 0}, {5, 0}, radius};
+    const Segment B{{5, h}, {0, h}, radius};
+    CHECK_FALSE(detect_conflict(A, B, max_angle).has_conflict);
   }
 }
