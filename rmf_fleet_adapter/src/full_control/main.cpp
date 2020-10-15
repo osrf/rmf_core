@@ -38,6 +38,12 @@
 // the information provided by fleet drivers.
 #include "../rmf_fleet_adapter/estimation.hpp"
 
+// Public rmf_traffic API headers
+#include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/Route.hpp>
+
+#include <Eigen/Geometry>
+
 //==============================================================================
 class FleetDriverRobotCommandHandle
     : public rmf_fleet_adapter::agv::RobotCommandHandle
@@ -260,10 +266,10 @@ public:
     }
     else if (_dock_finished_callback)
     {
+      const auto now = std::chrono::steady_clock::now();
       // If we have a _dock_finished_callback, then the robot should be docking
       if (state.task_id != _current_dock_request.task_id)
       {
-        const auto now = std::chrono::steady_clock::now();
         if (std::chrono::milliseconds(200) < now - _dock_requested_time)
         {
           // We published the request a while ago, so we'll send it again in
@@ -281,6 +287,33 @@ public:
         _travel_info.last_known_wp = *_dock_target_wp;
         _dock_finished_callback();
         _dock_finished_callback = nullptr;
+
+        return;
+      }
+
+      // Update the schedule with the docking path of the robot
+      if (!state.path.empty() &&
+        std::chrono::seconds(1) < now - _dock_schedule_time)
+      {
+        std::vector<Eigen::Vector3d> positions;
+        positions.push_back(
+          {state.location.x, state.location.y, state.location.yaw});
+        for (const auto& p : state.path)
+          positions.push_back({p.x, p.y, p.yaw});
+
+        const rmf_traffic::Trajectory trajectory =
+          rmf_traffic::agv::Interpolate::positions(
+            *_travel_info.traits,
+            rmf_traffic_ros2::convert(state.location.t),
+            positions);
+        assert(trajectory.size() > 1);
+
+        if (auto participant = _travel_info.updater->get_participant())
+        {
+          participant.value().get().set(
+            {rmf_traffic::Route{state.location.level_name, trajectory}});
+          _dock_schedule_time = now;
+        }
       }
     }
     else
@@ -309,6 +342,8 @@ private:
   rmf_fleet_msgs::msg::ModeRequest _current_dock_request;
   rmf_utils::optional<std::size_t> _dock_target_wp;
   std::chrono::steady_clock::time_point _dock_requested_time;
+  std::chrono::steady_clock::time_point _dock_schedule_time =
+    std::chrono::steady_clock::now();
   RequestCompleted _dock_finished_callback;
   ModeRequestPub _mode_request_pub;
 
