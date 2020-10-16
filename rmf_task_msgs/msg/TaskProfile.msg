@@ -11,4 +11,4 @@ builtin_interfaces/Time start_time
 TaskType type
 
 # Params
-BehaviorParameter[] task_params
+BehaviorParameter[] params

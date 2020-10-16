@@ -21,7 +21,10 @@
 #include <unordered_map>
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
+
 #include <rmf_task_msgs/msg/task_profile.hpp>
+#include <rmf_task_msgs/msg/dispatch_request.hpp>
+#include <rmf_task_msgs/msg/dispatch_status.hpp>
 
 namespace rmf_task_ros2 {
 
@@ -37,17 +40,18 @@ enum class TaskType {
 
 //==============================================================================
 using TaskProfileMsg = rmf_task_msgs::msg::TaskProfile;
-using TaskParams = std::unordered_map<std::string, std::string>;
 using TaskID = std::string;
 
 //==============================================================================
 struct TaskProfile
 {
+  using TaskParams = std::unordered_map<std::string, std::string>;
+  
   TaskID task_id;
   rmf_traffic::Time submission_time;
   TaskType task_type;
   rmf_traffic::Time start_time;
-  TaskParams task_params;
+  TaskParams params;
 
   bool operator==(const TaskProfile& tsk) const
   {
@@ -61,38 +65,44 @@ struct TaskProfile
 };
 
 //==============================================================================
-inline TaskProfile convert(const TaskProfileMsg& from)
+using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
+using StatusMsg = rmf_task_msgs::msg::DispatchStatus;
+//==============================================================================
+
+struct TaskStatus
 {
-  TaskProfile profile;
-  profile.task_id = from.task_id;
-  profile.task_type = (TaskType)from.type.value;
-  profile.start_time = rmf_traffic_ros2::convert(from.start_time);
-  profile.submission_time = rmf_traffic_ros2::convert(from.submission_time);
-  for(auto param : from.task_params)
+  enum class State : uint8_t
   {
-    profile.task_params[param.name] = param.value;
-  }
-  return profile;
-}
+    Pending = StatusMsg::PENDING,
+    Queued = StatusMsg::ACTIVE_QUEUED,
+    Executing = StatusMsg::ACTIVE_EXECUTING,
+    Completed = StatusMsg::TERMINAL_COMPLETED,
+    Failed = StatusMsg::TERMINAL_FAILED,
+    Canceled = StatusMsg::TERMINAL_CANCELED
+  };
+
+  std::string fleet_name;
+  TaskProfile task_profile;
+  rmf_traffic::Time start_time;
+  rmf_traffic::Time end_time;
+  std::string robot_name;
+  std::string status; // verbose msg
+  State state = State::Pending; // default
+};
+
+using TaskStatusPtr = std::shared_ptr<TaskStatus>;
 
 //==============================================================================
-// Vice Versa
-inline TaskProfileMsg convert(const TaskProfile& from)
-{
-  TaskProfileMsg profile_msg;
-  profile_msg.task_id = from.task_id;
-  profile_msg.type.value = (uint8_t)from.task_type;
-  profile_msg.start_time = rmf_traffic_ros2::convert(from.start_time);
-  profile_msg.submission_time = rmf_traffic_ros2::convert(from.submission_time);
-  for(auto param : from.task_params)
-  {
-    rmf_task_msgs::msg::BehaviorParameter param_msg; 
-    param_msg.name = param.first;
-    param_msg.value = param.second;
-    profile_msg.task_params.push_back(param_msg);
-  }
-  return profile_msg;
-}
+TaskProfile convert(const TaskProfileMsg& from);
+
+//==============================================================================
+TaskProfileMsg convert(const TaskProfile& from);
+
+// ==============================================================================
+TaskStatus convert(const StatusMsg& from);
+
+// ==============================================================================
+StatusMsg convert(const TaskStatus& from);
 
 } // namespace rmf_task_ros2
 

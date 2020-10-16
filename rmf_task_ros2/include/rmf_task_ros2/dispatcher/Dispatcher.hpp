@@ -31,9 +31,9 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
-using DispatchTasks = std::map<TaskID, action::TaskStatusPtr>;
+using DispatchTasks = std::map<TaskID, TaskStatusPtr>;
 using DispatchTasksPtr = std::shared_ptr<DispatchTasks>;
-using DispatchState = action::TaskStatus::State;
+using DispatchState = TaskStatus::State;
 
 //==============================================================================
 
@@ -67,19 +67,18 @@ public:
   /// Get active tasks map list ref
   ///
   /// \return const ref to active tasks
-  const DispatchTasksPtr get_active_tasks();
+  const DispatchTasksPtr get_active_tasks() const;
 
   /// Get terminated tasks map list ref
   ///
   /// \return const ref to terminated tasks
-  const DispatchTasksPtr get_terminated_tasks();
+  const DispatchTasksPtr get_terminated_tasks() const;
 
   class Implementation;
 
 private: 
   Dispatcher();
-  std::shared_ptr<Implementation> _pimpl;
-  // rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace dispatcher

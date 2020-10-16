@@ -25,7 +25,7 @@ namespace dispatcher {
 
 //==============================================================================
 class Dispatcher::Implementation
-{ 
+{
 public:
   std::shared_ptr<rclcpp::Node> node;
   std::shared_ptr<bidding::Auctioneer> auctioneer;
@@ -38,6 +38,7 @@ public:
   : node(std::move(node_))
   {
     active_dispatch_tasks = std::make_shared<DispatchTasks>();
+    terminal_dispatch_tasks = std::make_shared<DispatchTasks>();
   }
 
   TaskID submit_task(const TaskProfile& task)
@@ -46,16 +47,16 @@ public:
     
     // auto generate a taskid with timestamp
     const auto now = std::chrono::steady_clock::now();
-    submitted_task.task_id = "task-" +
-      std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
+    submitted_task.task_id = "task" + std::to_string((int)task.task_type)
+       + "-" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
         now.time_since_epoch()).count());
     submitted_task.submission_time = now;
 
     // add task to internal cache
-    action::TaskStatus status;
+    TaskStatus status;
     status.task_profile = submitted_task;
-    (*active_dispatch_tasks)[submitted_task.task_id] 
-      = std::make_shared<action::TaskStatus>(status);
+    (*active_dispatch_tasks)[submitted_task.task_id] = 
+        std::make_shared<TaskStatus>(status);
 
     // using default 2s timewindow
     bidding::BiddingTask bid_notice;
@@ -71,14 +72,14 @@ public:
     if (!(*active_dispatch_tasks).count(task_id))
       return false;
 
-    // todo: need to cancel bidding
+    // Cancel bidding
     if ((*active_dispatch_tasks)[task_id]->state == DispatchState::Pending)
-      return false;
+      terminate_task((*active_dispatch_tasks)[task_id]);
 
-    std::future<bool> fut_task_success; // todo, confirm ack
-    action_client->cancel_task(
-        (*active_dispatch_tasks)[task_id]->task_profile,
-        fut_task_success);
+    // Confirm ack future : todo
+    auto success = action_client->cancel_task(
+        (*active_dispatch_tasks)[task_id]->task_profile);
+
     return true;
   }
 
@@ -96,32 +97,41 @@ public:
       const TaskID& task_id, 
       const rmf_utils::optional<bidding::Submission> winner)
   {
+    if (!(*active_dispatch_tasks).count(task_id))
+      return;
+
     std::cout << "[Dispatch::BiddingResultCb] | task: " << task_id;
     if (!winner)
     {
-      std::cerr << " | No winner found" << std::endl;
-      RCLCPP_WARN(node->get_logger(),"FAILED Task!! ID: %s", task_id.c_str());
-
-      //todo terminate the task
+      std::cerr << " | No winner found :( " <<  std::endl;
       (*active_dispatch_tasks)[task_id]->state = DispatchState::Failed;
+      terminate_task((*active_dispatch_tasks)[task_id]);
       return;
     }
+
+    // action_client->size(); // debugging
 
     // now we know which fleet will execute the task
     std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
     (*active_dispatch_tasks)[task_id]->fleet_name = winner->fleet_name;
 
-    std::future<bool> fut_task_success; // todo, confirm ack
-    action_client->add_task(
+    // todo, confirm ack future
+    auto success = action_client->add_task(
         winner->fleet_name,
         (*active_dispatch_tasks)[task_id]->task_profile, 
-        fut_task_success,
         (*active_dispatch_tasks)[task_id]);
 
-    // when fut is received, change task state as queued
-    // (*active_dispatch_tasks)[task_id].state = DispatchState::Queued;
+    // when fut is received, change task state as queued (todo)
+    (*active_dispatch_tasks)[task_id]->state = DispatchState::Queued;
+  }
 
-    // todo: find a way to move active to termination
+  void terminate_task(const TaskStatusPtr terminate_status)
+  {
+    auto id = terminate_status->task_profile.task_id;
+    RCLCPP_WARN(node->get_logger()," Terminated Task!! ID: %s", id.c_str());
+    (*terminal_dispatch_tasks)[id] = std::move((*active_dispatch_tasks)[id]);
+    active_dispatch_tasks->erase(id);
+    return;
   }
 };
 
@@ -129,8 +139,7 @@ public:
 std::shared_ptr<Dispatcher> Dispatcher::make(
     std::shared_ptr<rclcpp::Node> node)
 {
-  auto pimpl = std::shared_ptr<Implementation>(new Implementation(node));
-  // auto pimpl = rmf_utils::make_unique_impl<Implementation>(node);
+  auto pimpl = rmf_utils::make_impl<Implementation>(node);
 
   if (pimpl)
   {
@@ -139,13 +148,16 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
       action::TaskActionClient::make(node, DispatchActionTopicName);
 
     auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
-    dispatcher->_pimpl = std::move(pimpl);
+    dispatcher->_pimpl = pimpl;
 
     // bidding result callback
     using namespace std::placeholders;
     dispatcher->_pimpl->auctioneer->receive_bidding_result(
         std::bind(&Implementation::receive_bidding_winner_cb,
         dispatcher->_pimpl, _1, _2));
+    dispatcher->_pimpl->action_client->on_terminate(
+        std::bind(&Implementation::terminate_task,
+        dispatcher->_pimpl, _1));        
     return dispatcher;
   }
   return nullptr;
@@ -171,13 +183,13 @@ rmf_utils::optional<DispatchState> Dispatcher::get_task_state(
 }
 
 //==============================================================================
-const DispatchTasksPtr Dispatcher::get_active_tasks()
+const DispatchTasksPtr Dispatcher::get_active_tasks() const
 {
   return _pimpl->active_dispatch_tasks;
 }
 
 //==============================================================================
-const DispatchTasksPtr Dispatcher::get_terminated_tasks() // const
+const DispatchTasksPtr Dispatcher::get_terminated_tasks() const
 {
   return _pimpl->terminal_dispatch_tasks;
 }

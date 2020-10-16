@@ -35,7 +35,12 @@ public:
   {
     auto node = std::shared_ptr<DispatcherNode>(new DispatcherNode);
     node->_dispatcher = rmf_task_ros2::dispatcher::Dispatcher::make(node);
-    node->_tasks_tracker = std::move(node->_dispatcher->get_active_tasks());
+    
+    node->_active_tasks_tracker = 
+      std::move(node->_dispatcher->get_active_tasks());
+    node->_terminated_tasks_tracker = 
+      std::move(node->_dispatcher->get_terminated_tasks());
+
     return node;
   };
 
@@ -46,7 +51,8 @@ private:
   rclcpp::Service<CancelTaskSrv>::SharedPtr _cancel_task_srv;
   rclcpp::Service<GetTaskSrv>::SharedPtr _get_task_srv;
 
-  rmf_task_ros2::dispatcher::DispatchTasksPtr _tasks_tracker; // test
+  rmf_task_ros2::dispatcher::DispatchTasksPtr _active_tasks_tracker;
+  rmf_task_ros2::dispatcher::DispatchTasksPtr _terminated_tasks_tracker;
 
   DispatcherNode()
   : Node("rmf_task_dispatcher_node")
@@ -54,7 +60,7 @@ private:
     std::cout << "~Initializing Dispatcher Node~" << std::endl;
     
     _submit_task_srv =create_service<SubmitTaskSrv>(
-      "submit_task", 
+      rmf_task_ros2::SubmitTaskSrvName,
       [this]( 
           const std::shared_ptr<SubmitTaskSrv::Request> request,
           std::shared_ptr<SubmitTaskSrv::Response>      response)
@@ -63,29 +69,30 @@ private:
         rmf_task_ros2::TaskProfileMsg msg;
         msg.type = request->type;
         msg.start_time = request->start_time;
-        msg.task_params = request->task_params;
+        msg.params = request->params;
 
         auto id = _dispatcher->submit_task(rmf_task_ros2::convert(msg));
-        RCLCPP_INFO(get_logger(),"Submit New Task!!! ID %s", id.c_str());
-        response->task_id = id;        
+        RCLCPP_WARN(get_logger(),"Submit New Task!!! ID %s", id.c_str());
+        response->task_id = id;
         response->success = true;
       }
     );
 
     _cancel_task_srv =create_service<CancelTaskSrv>(
-      "cancel_task", 
-      [this]( 
+      rmf_task_ros2::CancelTaskSrvName,
+      [this](
           const std::shared_ptr<CancelTaskSrv::Request> request,
           std::shared_ptr<CancelTaskSrv::Response>      response)
       {
         auto id  = request->task_id;
-        RCLCPP_INFO(get_logger(),"Cancel Task!!! ID %s", id.c_str());       
+        std::cout << "\n";
+        RCLCPP_WARN(get_logger(),"Cancel Task!!! ID %s", id.c_str());       
         response->success = _dispatcher->cancel_task(id);
       }
     );
 
     _get_task_srv =create_service<GetTaskSrv>(
-      "get_task", 
+      rmf_task_ros2::GetTaskSrvName,
       [this]( 
         const std::shared_ptr<GetTaskSrv::Request> request,
         std::shared_ptr<GetTaskSrv::Response>      response)
@@ -96,19 +103,33 @@ private:
           printout = printout + " " + id;
 
         // currently return all tasks
-        for(auto task : *_tasks_tracker)
+        std::cout << "\n - Active Tasks >>>> ";
+        for(auto task : *_active_tasks_tracker)
         {
           std::cout << " {" << task.first << " * " 
                     << (int)task.second->state << "} ";
-          rmf_task_ros2::action::TaskStatus status;
           response->active_tasks.push_back( 
             rmf_task_ros2::convert(*(task.second)));
         }
         std::cout << std::endl;
-        response->success = true;
+        
+        // Terminated Tasks
+        std::cout << " - Teminated Tasks >>>> ";
+        for(auto task : *_terminated_tasks_tracker)
+        {
+          std::cout << " {" << task.first << " * " 
+                    << (int)task.second->state << "} ";
+          response->terminated_tasks.push_back( 
+            rmf_task_ros2::convert(*(task.second)));
+        }
+        std::cout << std::endl;
 
-        RCLCPP_WARN(get_logger(),"Get Task!!! ID %s | %d active tasks",
-          printout.c_str(), _tasks_tracker->size());
+        RCLCPP_WARN(get_logger(),"Get Task!!! ID %s | %d active | %d done",
+          printout.c_str(), 
+          _active_tasks_tracker->size(), 
+          _terminated_tasks_tracker->size());
+        
+        response->success = true;
       }
     );
   };

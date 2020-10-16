@@ -1,5 +1,7 @@
-# Publish by a action server (Fleet Adapter) in a periodic manner.
-# Describes all on-going tasks which are handled by the server
+# Publish by a action server (Fleet Adapter) in a on-change event mannner.
+# Describes the task status of a on-going task
+
+# Note: This is similar to the TaskSummary.msg (Might be a substitute)
 
 # Fleet Adapter name
 string fleet_name

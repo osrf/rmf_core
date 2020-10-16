@@ -52,44 +52,54 @@ TaskActionClient::TaskActionClient(
         if(auto weak_status = _active_task_status[task_profile].lock())
         {
           *weak_status = convert(*msg);
+          
+          if (_on_change_callback)
+            _on_change_callback(weak_status);
+
+          // if active task terminated
+          if( (msg->state == StatusMsg::TERMINAL_FAILED) || 
+              (msg->state == StatusMsg::TERMINAL_COMPLETED) ||
+              (msg->state == StatusMsg::TERMINAL_CANCELED))
+          {
+            std::cout << "[action] Done Terminated Task: " 
+                      << task_profile.task_id << std::endl;
+            _active_task_status.erase(task_profile);
+
+            if (_on_terminate_callback)
+              _on_terminate_callback(weak_status);
+          }
         }
         else
         {
           std::cout << "weak status has expired\n";
           _active_task_status.erase(task_profile);
         }
-
-        // if active task terminated
-        if( (msg->state == StatusMsg::TERMINAL_FAILED) || 
-            (msg->state == StatusMsg::TERMINAL_COMPLETED) ||
-            (msg->state == StatusMsg::TERMINAL_CANCELED)
-        )
-        {
-          std::cout << "[action] Done Terminated Task: " 
-                    << task_profile.task_id << std::endl;
-          _active_task_status.erase(task_profile);
-        }
       }
 
-      // check if waiting for ack, TODO: think!!!
+      // TODO Think
+      // check if waiting for ack during an add and cancel request
       if (_task_request_fut_ack.count(task_profile))
       {
-        if (msg->state == StatusMsg::TERMINAL_FAILED)
-          _task_request_fut_ack[task_profile].set_value(false);
-        else
+        if ((msg->state == StatusMsg::ACTIVE_QUEUED) ||
+            (msg->state == StatusMsg::ACTIVE_EXECUTING) ||
+            (msg->state == StatusMsg::TERMINAL_CANCELED))
           _task_request_fut_ack[task_profile].set_value(true);
+        else
+          _task_request_fut_ack[task_profile].set_value(false);
         
         _task_request_fut_ack.erase(task_profile);
       }
     });
 }
 
-void TaskActionClient::add_task(
+std::future<bool> TaskActionClient::add_task(
     const std::string& fleet_name, 
     const TaskProfile& task_profile,
-    std::future<bool>& add_success,
     TaskStatusPtr status_ptr)
 {
+  // todo:  std::async
+  std::future<bool> add_success;
+
    // send request and wait for acknowledgement
   RequestMsg request_msg;
   request_msg.fleet_name = fleet_name;
@@ -104,14 +114,15 @@ void TaskActionClient::add_task(
   status_ptr->fleet_name = fleet_name;
   status_ptr->task_profile = task_profile;
   _active_task_status[task_profile] = status_ptr;
-  std::cout<< " ~ Add Task: "<< task_profile.task_id << std::endl;
-  return;
+  std::cout<< " ~ Add Action Task: "<< task_profile.task_id << std::endl;
+  return add_success;
 }
 
-void TaskActionClient::cancel_task(
-    const TaskProfile& task_profile,
-    std::future<bool>& cancel_success)
+std::future<bool> TaskActionClient::cancel_task(
+    const TaskProfile& task_profile)
 {
+  std::future<bool> cancel_success;
+
   // check if task is previously added
   if (!_active_task_status.count(task_profile))
   {
@@ -119,7 +130,7 @@ void TaskActionClient::cancel_task(
     std::promise<bool> prom;
     cancel_success = prom.get_future();
     prom.set_value(false);
-    return;
+    return cancel_success;
   }
 
   if(auto weak_status = _active_task_status[task_profile].lock())
@@ -144,21 +155,45 @@ void TaskActionClient::cancel_task(
     _active_task_status.erase(task_profile);
   }
 
-  return;
+  return cancel_success;
 }
 
 int TaskActionClient::size()
 {
   for (auto it = _active_task_status.begin(); it != _active_task_status.end();)
   {
-    if (it->second.expired())
-      it = _active_task_status.erase(it);
+    if ( auto weak_status = it->second.lock() )
+    {
+      if ((weak_status->state == TaskStatus::State::Failed) || 
+          (weak_status->state == TaskStatus::State::Completed) ||
+          (weak_status->state == TaskStatus::State::Canceled))
+        it = _active_task_status.erase(it);
+      else
+      {
+        std::cout << "[Action Debug] active "
+                  << weak_status->task_profile.task_id << "  state: "
+                  << (int)weak_status->state  << std::endl;
+        ++it;
+      }
+    }
     else
-      ++it;
+      it = _active_task_status.erase(it);
   }
   std::cout << " status: " << _active_task_status.size()
             << " promise: " << _task_request_fut_ack.size() << std::endl;
   return _active_task_status.size();
+}
+
+/// Callback when a task is changed
+void TaskActionClient::on_change(StatusCallback status_cb_fn)
+{
+  _on_change_callback = std::move(status_cb_fn);
+}
+  
+  /// Callback when a task is terminated
+void TaskActionClient::on_terminate(StatusCallback status_cb_fn)
+{
+  _on_terminate_callback = std::move(status_cb_fn);
 }
 
 //==============================================================================
@@ -257,33 +292,4 @@ void TaskActionServer::cancel_task_impl(const TaskProfileMsg& task_profile)
 }
 
 } // namespace action
-
-// ==============================================================================
-action::TaskStatus convert(const action::StatusMsg& from)
-{
-  action::TaskStatus status;
-  status.fleet_name = from.fleet_name;
-  status.task_profile = convert(from.task_profile);
-  status.start_time = rmf_traffic_ros2::convert(from.start_time);
-  status.end_time = rmf_traffic_ros2::convert(from.end_time);
-  status.robot_name = from.robot_name;
-  status.status = from.status;
-  status.state = (action::TaskStatus::State)from.state;
-  return status;
-}
-
-// ==============================================================================
-action::StatusMsg convert(const action::TaskStatus& from)
-{
-  action::StatusMsg status;
-  status.fleet_name = from.fleet_name;
-  status.task_profile = convert(from.task_profile);
-  status.start_time = rmf_traffic_ros2::convert(from.start_time);
-  status.end_time = rmf_traffic_ros2::convert(from.end_time);
-  status.robot_name = from.robot_name;
-  status.status = from.status;
-  status.state = (uint8_t)from.state;
-  return status;
-}
-
 } // namespace rmf_task_ros2

@@ -27,6 +27,10 @@ const std::string BidNoticeTopicName = Prefix + "bid_notice";
 const std::string BidProposalTopicName = Prefix + "bid_proposal";
 const std::string DispatchActionTopicName = Prefix + "dispatch";
 
+const std::string SubmitTaskSrvName = "submit_task";
+const std::string CancelTaskSrvName = "cancel_task";
+const std::string GetTaskSrvName = "get_task";
+
 const std::string TaskSummaryTopicName = "task_summaries";
 
 } // namespace rmf_task_ros2

@@ -108,14 +108,14 @@ public:
 
       if ( duration > it->second.bidding_task.time_window )
       {
-        std::cout << " - Deadline reached"<< std::endl;
+        std::cout << " - Deadline reached: "<< it->first << std::endl;
         this->determine_winner(it->first, it->second.submissions);
         it = queue_bidding_tasks.erase(it);
       }
       else
         ++it;
     }
-    std::cout << "...";
+    std::cout << "." <<std::flush;
   }
 
   void determine_winner(

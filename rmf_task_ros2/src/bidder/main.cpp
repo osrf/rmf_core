@@ -15,6 +15,8 @@
  *
 */
 
+/// This is a testing bidder node script
+
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 #include <rmf_task_ros2/action/ActionInterface.hpp>
 
@@ -69,17 +71,38 @@ int main(int argc, char* argv[])
         node, profile.fleet_name, DispatchActionTopicName);
 
   action_server->register_callbacks(
-    [](const TaskProfile& task_profile)
+    [&action_server](const TaskProfile& task_profile)
     {
-      std::cout << "[Action] ~Start Executing Task: "
+      std::cout << "[Action] ~Start Queue Task: "
                 << task_profile.task_id<<std::endl;
-      return true; //successs
+
+      // async on executing task
+      // auto _ = std::async(std::launch::async, 
+      auto t = std::thread(
+        [&action_server](auto profile){
+          TaskStatus status;
+          status.task_profile = profile;
+          std::cout << " [impl] Queued " << profile.task_id << std::endl;
+          std::this_thread::sleep_for(std::chrono::seconds(2));
+          std::cout << " [impl] Executing " << profile.task_id << std::endl;
+          status.state = TaskStatus::State::Executing;
+          action_server->update_status(status);
+          
+          std::this_thread::sleep_for(std::chrono::seconds(5));
+          std::cout << " [impl] Completed " << profile.task_id << std::endl;
+          status.state = TaskStatus::State::Completed;
+          action_server->update_status(status);
+        }, task_profile
+      );
+      t.detach();
+
+      return true; //successs (send State::Queued)
     },
-    [](const TaskProfile& task_profile)
+    [&action_server](const TaskProfile& task_profile)
     {
       std::cout << "[Action] ~Cancel Executing Task: "
                 << task_profile.task_id<<std::endl;
-      return true; //success
+      return true; //success , send State::Canceled
     }
   );
 

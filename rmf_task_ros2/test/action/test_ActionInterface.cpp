@@ -70,11 +70,10 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   WHEN("Add Task")
   {
     // Add invalid Task!
-    std::future<bool> test_fut;
     TaskStatusPtr status_ptr(new TaskStatus);
 
-    action_client->add_task(
-      "wrong_server", task_profile1, test_fut, status_ptr);
+    std::future<bool> test_fut = 
+      action_client->add_task("wrong_server", task_profile1, status_ptr);
 
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(0.5));
@@ -84,8 +83,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(status == std::future_status::timeout); // no promise val being returned
 
     // send valid task
-    action_client->add_task(
-      "test_server", task_profile1, test_fut, status_ptr);
+    test_fut = action_client->add_task("test_server", task_profile1, status_ptr);
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(0.5));
 
@@ -95,7 +93,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(test_fut.get());
 
     // check status
-    REQUIRE( status_ptr->state == action::TaskStatus::State::Queued );
+    REQUIRE( status_ptr->state == TaskStatus::State::Queued );
     
     // status ptr is destroyed, should not have anymore tracking
     status_ptr.reset();
@@ -106,32 +104,31 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   {
     // send valid task
     TaskStatusPtr status_ptr(new TaskStatus);
-    std::future<bool> test_fut;
-
-    action_client->add_task(
-      "test_server", task_profile2, test_fut, status_ptr);
+    auto test_fut = action_client->add_task(
+      "test_server", task_profile2, status_ptr);
 
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(0.5));
 
     // Invalid Cancel Task!
-    action_client->cancel_task(task_profile1, test_fut);
+    test_fut = action_client->cancel_task(task_profile1);
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(0.5));
     REQUIRE(!test_cancel_task);
     REQUIRE(test_fut.valid());
-    REQUIRE(test_fut.get() == false); // failed
+    REQUIRE(test_fut.get() == false); // cancel failed
+    REQUIRE(action_client->size() == 1);
 
     // Valid Cancel task
-    action_client->cancel_task(task_profile2, test_fut);
+    test_fut = action_client->cancel_task(task_profile2);
     executor.spin_until_future_complete(ready_future, 
       rmf_traffic::time::from_seconds(0.5));
 
     REQUIRE(test_cancel_task);
     REQUIRE(*test_cancel_task == task_profile2);
     REQUIRE(test_fut.valid());
-    REQUIRE(test_fut.get()); // success
-
+    REQUIRE(test_fut.get()); // cancel success
+    REQUIRE(action_client->size() == 0);
   }
   
 //==============================================================================  

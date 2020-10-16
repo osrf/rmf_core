@@ -1,6 +1,5 @@
 # Publish by Task Dispatcher Node
-# This msg is will be received by Fleet Adapter to initiate/cancel a task
-# a DispatchRequest will be provided when the task is completed
+# This msg is will be received by a Fleet Adapter to initiate/cancel a task
 
 # Selected Fleet Adapter server name
 string fleet_name
