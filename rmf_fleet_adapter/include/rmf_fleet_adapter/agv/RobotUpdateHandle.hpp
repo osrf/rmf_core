@@ -22,9 +22,13 @@
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/optional.hpp>
 
+#include <rmf_traffic/schedule/Participant.hpp>
+
 #include <Eigen/Geometry>
 
 #include <vector>
+#include <memory>
+#include <functional>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -96,6 +100,10 @@ public:
   /// it may take some time for the return value of this getter to match the
   /// value that was given to the setter.
   rmf_utils::optional<rmf_traffic::Duration> maximum_delay() const;
+
+  /// Get the schedule participant of this robot
+  rmf_utils::optional<std::reference_wrapper<rmf_traffic::schedule::Participant>>
+    get_participant();
 
   class Implementation;
 private:
