@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
   rclcpp::init(argc, argv);
   std::string node_name = "example_bidder" + std::string(argv[argc-1]);
 
-  std::shared_ptr<rclcpp::Node> node = 
+  std::shared_ptr<rclcpp::Node> node =
     rclcpp::Node::make_shared(node_name);
 
   RCLCPP_INFO(
@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
     "dummy_fleet",
     { TaskType::Station, TaskType::Charging, TaskType::Delivery }
   };
-  
+
   //============================================================================
   // Create Bidder instance
 
@@ -48,16 +48,16 @@ int main(int argc, char* argv[])
     bidding::MinimalBidder::make(node, profile);
 
   bidder->call_for_bid(
-    [](const bidding::BidNotice& notice )
+    [](const bidding::BidNotice& notice)
     {
       // Here user will provice the best robot as a bid submission
       std::cout << "[Bidding] Providing best estimates" << std::endl;
-      
+
       auto now = std::chrono::steady_clock::now();
       bidding::Submission best_robot_estimate;
       best_robot_estimate.robot_name = "dumb";
-      best_robot_estimate.finish_time = rmf_traffic::time::apply_offset(now, 5);     
-      best_robot_estimate.prev_cost = 10.2;     
+      best_robot_estimate.finish_time = rmf_traffic::time::apply_offset(now, 5);
+      best_robot_estimate.prev_cost = 10.2;
       best_robot_estimate.new_cost = 13.5;
       return best_robot_estimate;
     }
@@ -65,10 +65,10 @@ int main(int argc, char* argv[])
 
   //============================================================================
   // Create RMF task action server (TODO)
-  
+
   std::shared_ptr<action::TaskActionServer> action_server =
     action::TaskActionServer::make(
-        node, profile.fleet_name, DispatchActionTopicName);
+    node, profile.fleet_name);
 
   action_server->register_callbacks(
     [&action_server](const TaskProfile& task_profile)
@@ -77,9 +77,10 @@ int main(int argc, char* argv[])
                 << task_profile.task_id<<std::endl;
 
       // async on executing task
-      // auto _ = std::async(std::launch::async, 
+      // auto _ = std::async(std::launch::async,
       auto t = std::thread(
-        [&action_server](auto profile){
+        [&action_server](auto profile)
+        {
           TaskStatus status;
           status.task_profile = profile;
           std::cout << " [impl] Queued " << profile.task_id << std::endl;
@@ -87,7 +88,7 @@ int main(int argc, char* argv[])
           std::cout << " [impl] Executing " << profile.task_id << std::endl;
           status.state = TaskStatus::State::Executing;
           action_server->update_status(status);
-          
+
           std::this_thread::sleep_for(std::chrono::seconds(5));
           std::cout << " [impl] Completed " << profile.task_id << std::endl;
           status.state = TaskStatus::State::Completed;

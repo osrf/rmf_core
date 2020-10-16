@@ -35,14 +35,14 @@ public:
   {
     auto node = std::shared_ptr<DispatcherNode>(new DispatcherNode);
     node->_dispatcher = rmf_task_ros2::dispatcher::Dispatcher::make(node);
-    
-    node->_active_tasks_tracker = 
+
+    node->_active_tasks_tracker =
       std::move(node->_dispatcher->get_active_tasks());
-    node->_terminated_tasks_tracker = 
+    node->_terminated_tasks_tracker =
       std::move(node->_dispatcher->get_terminated_tasks());
 
     return node;
-  };
+  }
 
 private:
   std::shared_ptr<rmf_task_ros2::dispatcher::Dispatcher> _dispatcher;
@@ -58,12 +58,12 @@ private:
   : Node("rmf_task_dispatcher_node")
   {
     std::cout << "~Initializing Dispatcher Node~" << std::endl;
-    
-    _submit_task_srv =create_service<SubmitTaskSrv>(
+
+    _submit_task_srv = create_service<SubmitTaskSrv>(
       rmf_task_ros2::SubmitTaskSrvName,
-      [this]( 
-          const std::shared_ptr<SubmitTaskSrv::Request> request,
-          std::shared_ptr<SubmitTaskSrv::Response>      response)
+      [this](
+        const std::shared_ptr<SubmitTaskSrv::Request> request,
+        std::shared_ptr<SubmitTaskSrv::Response> response)
       {
         // convert
         rmf_task_ros2::TaskProfileMsg msg;
@@ -72,30 +72,30 @@ private:
         msg.params = request->params;
 
         auto id = _dispatcher->submit_task(rmf_task_ros2::convert(msg));
-        RCLCPP_WARN(get_logger(),"Submit New Task!!! ID %s", id.c_str());
+        RCLCPP_WARN(get_logger(), "Submit New Task!!! ID %s", id.c_str());
         response->task_id = id;
         response->success = true;
       }
     );
 
-    _cancel_task_srv =create_service<CancelTaskSrv>(
+    _cancel_task_srv = create_service<CancelTaskSrv>(
       rmf_task_ros2::CancelTaskSrvName,
       [this](
-          const std::shared_ptr<CancelTaskSrv::Request> request,
-          std::shared_ptr<CancelTaskSrv::Response>      response)
+        const std::shared_ptr<CancelTaskSrv::Request> request,
+        std::shared_ptr<CancelTaskSrv::Response> response)
       {
-        auto id  = request->task_id;
+        auto id = request->task_id;
         std::cout << "\n";
-        RCLCPP_WARN(get_logger(),"Cancel Task!!! ID %s", id.c_str());       
+        RCLCPP_WARN(get_logger(), "Cancel Task!!! ID %s", id.c_str());
         response->success = _dispatcher->cancel_task(id);
       }
     );
 
-    _get_task_srv =create_service<GetTaskSrv>(
+    _get_task_srv = create_service<GetTaskSrv>(
       rmf_task_ros2::GetTaskSrvName,
-      [this]( 
+      [this](
         const std::shared_ptr<GetTaskSrv::Request> request,
-        std::shared_ptr<GetTaskSrv::Response>      response)
+        std::shared_ptr<GetTaskSrv::Response> response)
       {
         auto ids = request->task_id;
         std::string printout = " | ID: ";
@@ -104,35 +104,35 @@ private:
 
         // currently return all tasks
         std::cout << "\n - Active Tasks >>>> ";
-        for(auto task : *_active_tasks_tracker)
+        for (auto task : *_active_tasks_tracker)
         {
-          std::cout << " {" << task.first << " * " 
+          std::cout << " {" << task.first << " * "
                     << (int)task.second->state << "} ";
-          response->active_tasks.push_back( 
-            rmf_task_ros2::convert(*(task.second)));
-        }
-        std::cout << std::endl;
-        
-        // Terminated Tasks
-        std::cout << " - Teminated Tasks >>>> ";
-        for(auto task : *_terminated_tasks_tracker)
-        {
-          std::cout << " {" << task.first << " * " 
-                    << (int)task.second->state << "} ";
-          response->terminated_tasks.push_back( 
+          response->active_tasks.push_back(
             rmf_task_ros2::convert(*(task.second)));
         }
         std::cout << std::endl;
 
-        RCLCPP_WARN(get_logger(),"Get Task!!! ID %s | %d active | %d done",
-          printout.c_str(), 
-          _active_tasks_tracker->size(), 
-          _terminated_tasks_tracker->size());
-        
+        // Terminated Tasks
+        std::cout << " - Teminated Tasks >>>> ";
+        for (auto task : *_terminated_tasks_tracker)
+        {
+          std::cout << " {" << task.first << " * "
+                    << (int)task.second->state << "} ";
+          response->terminated_tasks.push_back(
+            rmf_task_ros2::convert(*(task.second)));
+        }
+        std::cout << std::endl;
+
+        RCLCPP_WARN(get_logger(), "Get Task!!! ID %s | %d active | %d done",
+        printout.c_str(),
+        _active_tasks_tracker->size(),
+        _terminated_tasks_tracker->size());
+
         response->success = true;
       }
     );
-  };
+  }
 };
 
 //==============================================================================

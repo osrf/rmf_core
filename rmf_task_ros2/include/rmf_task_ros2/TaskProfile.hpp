@@ -26,10 +26,13 @@
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
 #include <rmf_task_msgs/msg/dispatch_status.hpp>
 
+#include <rmf_task_msgs/msg/task_summary.hpp>
+
 namespace rmf_task_ros2 {
 
 //==============================================================================
-enum class TaskType { 
+enum class TaskType
+{
   Station,
   Loop,
   Delivery,
@@ -46,7 +49,7 @@ using TaskID = std::string;
 struct TaskProfile
 {
   using TaskParams = std::unordered_map<std::string, std::string>;
-  
+
   TaskID task_id;
   rmf_traffic::Time submission_time;
   TaskType task_type;
@@ -55,30 +58,31 @@ struct TaskProfile
 
   bool operator==(const TaskProfile& tsk) const
   {
-    return (this->task_id == tsk.task_id);
+    return this->task_id == tsk.task_id;
   }
 
   bool operator<(const TaskProfile& tsk) const
   {
-    return (this->task_id < tsk.task_id);
+    return this->task_id < tsk.task_id;
   }
 };
 
 //==============================================================================
 using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
-using StatusMsg = rmf_task_msgs::msg::DispatchStatus;
+using StatusMsg = rmf_task_msgs::msg::TaskSummary;
 //==============================================================================
 
+// replication of TaskSummary / DispatchStatus
 struct TaskStatus
 {
   enum class State : uint8_t
   {
-    Pending = StatusMsg::PENDING,
-    Queued = StatusMsg::ACTIVE_QUEUED,
-    Executing = StatusMsg::ACTIVE_EXECUTING,
-    Completed = StatusMsg::TERMINAL_COMPLETED,
-    Failed = StatusMsg::TERMINAL_FAILED,
-    Canceled = StatusMsg::TERMINAL_CANCELED
+    Pending = StatusMsg::STATE_PENDING,
+    Queued = StatusMsg::STATE_QUEUED,
+    Executing = StatusMsg::STATE_ACTIVE,
+    Completed = StatusMsg::STATE_COMPLETED,   // terminal
+    Failed = StatusMsg::STATE_FAILED,         // terminal
+    Canceled = StatusMsg::STATE_CANCELED      // terminal
   };
 
   std::string fleet_name;
@@ -88,6 +92,11 @@ struct TaskStatus
   std::string robot_name;
   std::string status; // verbose msg
   State state = State::Pending; // default
+
+  void next_state()
+  {
+    // todo: enforcement of state machine
+  }
 };
 
 using TaskStatusPtr = std::shared_ptr<TaskStatus>;

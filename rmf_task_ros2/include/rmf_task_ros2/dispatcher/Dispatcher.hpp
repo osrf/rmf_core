@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2020 Open Source Robotics Foundation
  *
@@ -37,46 +36,57 @@ using DispatchState = TaskStatus::State;
 
 //==============================================================================
 
-class Dispatcher: public std::enable_shared_from_this<Dispatcher>
+class Dispatcher : public std::enable_shared_from_this<Dispatcher>
 {
 public:
   /// Create the node of a Task Dispatcher, inherited of rclcpp node
   ///
-  /// \return Pointer to the dispatcher node
+  /// \param[in] node
+  ///   The ROS 2 node to manage the Dispatching of Task
+  ///
+  /// \sa make()
   static std::shared_ptr<Dispatcher> make(
     std::shared_ptr<rclcpp::Node> node);
-  
-  /// submit task to dispatcher
+
+  /// Submit task to dispatcher
   ///
-  /// \param [in] task to dispatch
-  /// \return generated task_id
+  /// \param [in] task
+  ///   Submit a task to dispatch
+  ///
+  /// \return task_id
+  ///   self-generated task_id
   TaskID submit_task(const TaskProfile& task);
 
-  /// cancel task in dispatcher
+  /// Cancel task in dispatcher
   ///
-  /// \param [in] task to dispatch
+  /// \param [in] task_id
+  ///   Task to cancel
+  ///
+  /// \return true if success
   bool cancel_task(const TaskID& task_id);
 
   /// check status of a submited task
   ///
-  /// \param [in] to identify task_id
+  /// \param [in] task_id
+  ///   request task id
+  ///
   /// \return State of the task
   rmf_utils::optional<DispatchState> get_task_state(
-      const TaskID& task_id);
+    const TaskID& task_id);
 
-  /// Get active tasks map list ref
+  /// Get active tasks map list
   ///
-  /// \return const ref to active tasks
+  /// \return ptr to a map of active tasks
   const DispatchTasksPtr get_active_tasks() const;
 
-  /// Get terminated tasks map list ref
+  /// Get terminated tasks map list
   ///
-  /// \return const ref to terminated tasks
+  /// \return ptr to a map of terminated tasks
   const DispatchTasksPtr get_terminated_tasks() const;
 
   class Implementation;
 
-private: 
+private:
   Dispatcher();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };

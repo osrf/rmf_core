@@ -32,7 +32,7 @@ namespace bidding {
 
 using Submissions = std::vector<Submission>;
 
-// This is a client class for evaluator to select the best Task nominees 
+// This is a client class for evaluator to select the best Task nominees
 // from multiple submitted task estimations (nominees)
 class Nomination
 {
@@ -40,10 +40,10 @@ public:
   /// Constructor
   ///
   /// \param[in] input submissions of all potential nominees
-  Nomination( const Submissions& submissions)
-    : _submissions(submissions)
+  Nomination(const Submissions& submissions)
+  : _submissions(submissions)
   {
-    std::cout << " Submitted submissions for evaluation! size: " 
+    std::cout << " Submitted submissions for evaluation! size: "
               << _submissions.size()<<  std::endl;
   }
 
@@ -61,18 +61,18 @@ public:
 
   /// Get the best winner from nominees
   ///
-  /// \param[in] Evaluator 
+  /// \param[in] Evaluator
   /// \return Winner
   rmf_utils::optional<Submission> evaluate(const Evaluator& evaluator)
   {
-    if(_submissions.size()==0)
+    if (_submissions.size() == 0)
       return rmf_utils::nullopt;
-    
+
     const std::size_t choice = evaluator.choose(_submissions);
-    
-    if(choice > _submissions.size())
+
+    if (choice > _submissions.size())
       return rmf_utils::nullopt;
-    
+
     return (_submissions)[choice];
   }
 
@@ -88,14 +88,14 @@ public:
   std::size_t choose(const Submissions& submissions) const final
   {
     auto winner_it = submissions.begin();
-    for ( auto nominee_it = submissions.begin(); 
-          nominee_it != submissions.end(); ++nominee_it)
+    for (auto nominee_it = submissions.begin();
+      nominee_it != submissions.end(); ++nominee_it)
     {
       if (nominee_it->new_cost < winner_it->new_cost)
         winner_it = nominee_it;
     }
-    return std::distance( submissions.begin(), winner_it );    
-  };
+    return std::distance(submissions.begin(), winner_it);
+  }
 };
 
 class LeastFleetDiffCostEvaluator : public Nomination::Evaluator
@@ -105,8 +105,8 @@ public:
   {
     auto winner_it = submissions.begin();
     float winner_cost_diff = winner_it->new_cost - winner_it->prev_cost;
-    for ( auto nominee_it = submissions.begin(); 
-          nominee_it != submissions.end(); ++nominee_it)
+    for (auto nominee_it = submissions.begin();
+      nominee_it != submissions.end(); ++nominee_it)
     {
       float nominee_cost_diff = nominee_it->new_cost - nominee_it->prev_cost;
       if (nominee_cost_diff < winner_cost_diff)
@@ -115,8 +115,8 @@ public:
         winner_cost_diff = nominee_cost_diff;
       }
     }
-    return std::distance( submissions.begin(), winner_it );    
-  };
+    return std::distance(submissions.begin(), winner_it);
+  }
 };
 
 class QuickestFinishEvaluator : public Nomination::Evaluator
@@ -126,15 +126,15 @@ public:
   std::size_t choose(const Submissions& submissions) const final
   {
     auto winner_it = submissions.begin();
-    for ( auto nominee_it = submissions.begin(); 
-          nominee_it != submissions.end(); ++nominee_it)
+    for (auto nominee_it = submissions.begin();
+      nominee_it != submissions.end(); ++nominee_it)
     {
-      // TODO implementation Here!!! choose the least finish time 
+      // TODO implementation Here!!! choose the least finish time
       if (nominee_it->finish_time < winner_it->finish_time)
         winner_it = nominee_it;
     }
-    return std::distance( submissions.begin(), winner_it );    
-  };
+    return std::distance(submissions.begin(), winner_it);
+  }
 };
 
 } // namespace bidding

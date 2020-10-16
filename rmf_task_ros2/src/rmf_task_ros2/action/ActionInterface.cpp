@@ -16,6 +16,7 @@
 */
 
 #include <rmf_task_ros2/action/ActionInterface.hpp>
+#include <rmf_task_ros2/StandardNames.hpp>
 
 namespace rmf_task_ros2 {
 namespace action {
@@ -23,45 +24,42 @@ namespace action {
 //==============================================================================
 
 std::shared_ptr<TaskActionClient> TaskActionClient::make(
-    std::shared_ptr<rclcpp::Node> node,
-    const std::string& prefix_topic)
+  std::shared_ptr<rclcpp::Node> node)
 {
-  return std::shared_ptr<TaskActionClient>(new 
-    TaskActionClient(node, prefix_topic));
+  return std::shared_ptr<TaskActionClient>(new TaskActionClient(node));
 }
 
 TaskActionClient::TaskActionClient(
-    std::shared_ptr<rclcpp::Node> node,
-    const std::string& prefix_topic)
-  : _node(node)
+  std::shared_ptr<rclcpp::Node> node)
+: _node(node)
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   _request_msg_pub = _node->create_publisher<RequestMsg>(
-    prefix_topic + "_request", dispatch_qos);
+    TaskRequestTopicName, dispatch_qos);
 
   _status_msg_sub = _node->create_subscription<StatusMsg>(
-    prefix_topic + "_status", dispatch_qos,
+    TaskStatusTopicName, dispatch_qos,
     [&](const StatusMsg::UniquePtr msg)
-    {   
+    {
       auto task_profile = convert(msg->task_profile);
-      
+
       // status update mode
       if (_active_task_status.count(task_profile))
       {
-        if(auto weak_status = _active_task_status[task_profile].lock())
+        if (auto weak_status = _active_task_status[task_profile].lock())
         {
           *weak_status = convert(*msg);
-          
+
           if (_on_change_callback)
             _on_change_callback(weak_status);
 
           // if active task terminated
-          if( (msg->state == StatusMsg::TERMINAL_FAILED) || 
-              (msg->state == StatusMsg::TERMINAL_COMPLETED) ||
-              (msg->state == StatusMsg::TERMINAL_CANCELED))
+          if ( (weak_status->state == TaskStatus::State::Failed) ||
+          (weak_status->state == TaskStatus::State::Completed) ||
+          (weak_status->state == TaskStatus::State::Canceled))
           {
-            std::cout << "[action] Done Terminated Task: " 
+            std::cout << "[action] Done Terminated Task: "
                       << task_profile.task_id << std::endl;
             _active_task_status.erase(task_profile);
 
@@ -76,31 +74,31 @@ TaskActionClient::TaskActionClient(
         }
       }
 
-      // TODO Think
-      // check if waiting for ack during an add and cancel request
+      // TODO: check if waiting for ack during an add and cancel request
       if (_task_request_fut_ack.count(task_profile))
       {
-        if ((msg->state == StatusMsg::ACTIVE_QUEUED) ||
-            (msg->state == StatusMsg::ACTIVE_EXECUTING) ||
-            (msg->state == StatusMsg::TERMINAL_CANCELED))
+        auto status = convert(*msg);
+        if ((status.state == TaskStatus::State::Queued) ||
+        (status.state == TaskStatus::State::Executing) ||
+        (status.state == TaskStatus::State::Canceled))
           _task_request_fut_ack[task_profile].set_value(true);
         else
           _task_request_fut_ack[task_profile].set_value(false);
-        
+
         _task_request_fut_ack.erase(task_profile);
       }
     });
 }
 
 std::future<bool> TaskActionClient::add_task(
-    const std::string& fleet_name, 
-    const TaskProfile& task_profile,
-    TaskStatusPtr status_ptr)
+  const std::string& fleet_name,
+  const TaskProfile& task_profile,
+  TaskStatusPtr status_ptr)
 {
   // todo:  std::async
   std::future<bool> add_success;
 
-   // send request and wait for acknowledgement
+  // send request and wait for acknowledgement
   RequestMsg request_msg;
   request_msg.fleet_name = fleet_name;
   request_msg.task_profile = convert(task_profile);
@@ -109,7 +107,7 @@ std::future<bool> TaskActionClient::add_task(
 
   _task_request_fut_ack[task_profile] = std::promise<bool>();
   add_success = _task_request_fut_ack[task_profile].get_future();
-  
+
   // status
   status_ptr->fleet_name = fleet_name;
   status_ptr->task_profile = task_profile;
@@ -119,7 +117,7 @@ std::future<bool> TaskActionClient::add_task(
 }
 
 std::future<bool> TaskActionClient::cancel_task(
-    const TaskProfile& task_profile)
+  const TaskProfile& task_profile)
 {
   std::future<bool> cancel_success;
 
@@ -133,7 +131,7 @@ std::future<bool> TaskActionClient::cancel_task(
     return cancel_success;
   }
 
-  if(auto weak_status = _active_task_status[task_profile].lock())
+  if (auto weak_status = _active_task_status[task_profile].lock())
   {
     // send cancel and wait for acknowledgement
     RequestMsg request_msg;
@@ -160,13 +158,13 @@ std::future<bool> TaskActionClient::cancel_task(
 
 int TaskActionClient::size()
 {
-  for (auto it = _active_task_status.begin(); it != _active_task_status.end();)
+  for (auto it = _active_task_status.begin(); it != _active_task_status.end(); )
   {
-    if ( auto weak_status = it->second.lock() )
+    if (auto weak_status = it->second.lock() )
     {
-      if ((weak_status->state == TaskStatus::State::Failed) || 
-          (weak_status->state == TaskStatus::State::Completed) ||
-          (weak_status->state == TaskStatus::State::Canceled))
+      if ((weak_status->state == TaskStatus::State::Failed) ||
+        (weak_status->state == TaskStatus::State::Completed) ||
+        (weak_status->state == TaskStatus::State::Canceled))
         it = _active_task_status.erase(it);
       else
       {
@@ -189,8 +187,8 @@ void TaskActionClient::on_change(StatusCallback status_cb_fn)
 {
   _on_change_callback = std::move(status_cb_fn);
 }
-  
-  /// Callback when a task is terminated
+
+/// Callback when a task is terminated
 void TaskActionClient::on_terminate(StatusCallback status_cb_fn)
 {
   _on_terminate_callback = std::move(status_cb_fn);
@@ -200,36 +198,34 @@ void TaskActionClient::on_terminate(StatusCallback status_cb_fn)
 //==============================================================================
 
 std::shared_ptr<TaskActionServer> TaskActionServer::make(
-    std::shared_ptr<rclcpp::Node> node,
-    const std::string& fleet_name,
-    const std::string& prefix_topic)
+  std::shared_ptr<rclcpp::Node> node,
+  const std::string& fleet_name)
 {
-  return std::shared_ptr<TaskActionServer>(new 
-    TaskActionServer(node, fleet_name, prefix_topic));
+  return std::shared_ptr<TaskActionServer>(new
+      TaskActionServer(node, fleet_name));
 }
 
 TaskActionServer::TaskActionServer(
-    std::shared_ptr<rclcpp::Node> node,
-    const std::string& fleet_name,
-    const std::string& prefix_topic)
-  : _node(node), _fleet_name(fleet_name)
+  std::shared_ptr<rclcpp::Node> node,
+  const std::string& fleet_name)
+: _node(node), _fleet_name(fleet_name)
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   _request_msg_sub = _node->create_subscription<RequestMsg>(
-    prefix_topic + "_request", dispatch_qos,
+    TaskRequestTopicName, dispatch_qos,
     [&](const RequestMsg::UniquePtr msg)
     {
       if (msg->fleet_name != _fleet_name)
-        return; // not me
+        return;// not me
 
       std::cout << "[action] Receive a task request!!!"<< std::endl;
-      switch(msg->method)
+      switch (msg->method)
       {
-        case RequestMsg::ADD: 
+        case RequestMsg::ADD:
           this->add_task_impl(msg->task_profile);
           break;
-        case RequestMsg::CANCEL: 
+        case RequestMsg::CANCEL:
           this->cancel_task_impl(msg->task_profile);
           break;
         default:
@@ -238,12 +234,12 @@ TaskActionServer::TaskActionServer(
     });
 
   _status_msg_pub = _node->create_publisher<StatusMsg>(
-    prefix_topic + "_status", dispatch_qos);
+    TaskStatusTopicName, dispatch_qos);
 }
 
 void TaskActionServer::register_callbacks(
-    AddTaskCallback add_task_cb_fn, 
-    CancelTaskCallback cancel_task_cb_fn)
+  AddTaskCallback add_task_cb_fn,
+  CancelTaskCallback cancel_task_cb_fn)
 {
   _add_task_cb_fn = std::move(add_task_cb_fn);
   _cancel_task_cb_fn = std::move(cancel_task_cb_fn);
@@ -260,16 +256,16 @@ void TaskActionServer::update_status(const TaskStatus& task_status)
 void TaskActionServer::add_task_impl(const TaskProfileMsg& task_profile)
 {
   StatusMsg status_msg;
-  status_msg.task_profile = task_profile; 
+  status_msg.task_profile = task_profile;
   status_msg.fleet_name = _fleet_name;
 
-  if(!_add_task_cb_fn) 
+  if (!_add_task_cb_fn)
     return;
 
-  if(_add_task_cb_fn(convert(task_profile)))
-    status_msg.state = StatusMsg::ACTIVE_QUEUED;
+  if (_add_task_cb_fn(convert(task_profile)))
+    status_msg.state = (uint8_t)TaskStatus::State::Queued;
   else
-    status_msg.state = StatusMsg::TERMINAL_FAILED;
+    status_msg.state = (uint8_t)TaskStatus::State::Failed;
 
   _status_msg_pub->publish(status_msg);
 }
@@ -279,14 +275,14 @@ void TaskActionServer::cancel_task_impl(const TaskProfileMsg& task_profile)
   StatusMsg status_msg;
   status_msg.task_profile = task_profile;
   status_msg.fleet_name = _fleet_name;
-  
-  if(!_cancel_task_cb_fn)
+
+  if (!_cancel_task_cb_fn)
     return;
 
-  if(_cancel_task_cb_fn(convert(task_profile)))
-    status_msg.state = StatusMsg::TERMINAL_CANCELED;
+  if (_cancel_task_cb_fn(convert(task_profile)))
+    status_msg.state = (uint8_t)TaskStatus::State::Canceled;
   else
-    status_msg.state = StatusMsg::TERMINAL_FAILED;
+    status_msg.state = (uint8_t)TaskStatus::State::Failed;
 
   _status_msg_pub->publish(status_msg);
 }

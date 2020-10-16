@@ -41,8 +41,8 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_ActionInferface");
-  auto action_server = TaskActionServer::make(node, "test_server", "topic");
-  auto action_client = TaskActionClient::make(node, "topic");
+  auto action_server = TaskActionServer::make(node, "test_server");
+  auto action_client = TaskActionClient::make(node);
 
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
@@ -63,7 +63,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     }
   );
 
-  // ROS Spin: forever incompleted future 
+  // ROS Spin: forever incompleted future
   std::promise<void> ready_promise;
   std::shared_future<void> ready_future(ready_promise.get_future());
 
@@ -72,19 +72,21 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     // Add invalid Task!
     TaskStatusPtr status_ptr(new TaskStatus);
 
-    std::future<bool> test_fut = 
+    std::future<bool> test_fut =
       action_client->add_task("wrong_server", task_profile1, status_ptr);
 
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     REQUIRE(!test_add_task); // should not receive cuz incorrect serverid
-    std::future_status status = test_fut.wait_for(std::chrono::milliseconds(100));
+    std::future_status status =
+      test_fut.wait_for(std::chrono::milliseconds(100));
     REQUIRE(status == std::future_status::timeout); // no promise val being returned
 
     // send valid task
-    test_fut = action_client->add_task("test_server", task_profile1, status_ptr);
-    executor.spin_until_future_complete(ready_future, 
+    test_fut =
+      action_client->add_task("test_server", task_profile1, status_ptr);
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     REQUIRE(test_add_task);
@@ -93,11 +95,11 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(test_fut.get());
 
     // check status
-    REQUIRE( status_ptr->state == TaskStatus::State::Queued );
-    
+    REQUIRE(status_ptr->state == TaskStatus::State::Queued);
+
     // status ptr is destroyed, should not have anymore tracking
     status_ptr.reset();
-    REQUIRE( action_client->size() == 0);
+    REQUIRE(action_client->size() == 0);
   }
 
   WHEN("Cancel Task")
@@ -107,12 +109,12 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     auto test_fut = action_client->add_task(
       "test_server", task_profile2, status_ptr);
 
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     // Invalid Cancel Task!
     test_fut = action_client->cancel_task(task_profile1);
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
     REQUIRE(!test_cancel_task);
     REQUIRE(test_fut.valid());
@@ -121,7 +123,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
 
     // Valid Cancel task
     test_fut = action_client->cancel_task(task_profile2);
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     REQUIRE(test_cancel_task);
@@ -130,8 +132,8 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(test_fut.get()); // cancel success
     REQUIRE(action_client->size() == 0);
   }
-  
-//==============================================================================  
+
+//==============================================================================
 
   // // new Test taskMsg
   // rmf_utils::optional<TaskMsg> test_task_completion;
@@ -160,9 +162,9 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     // completed_task.task_profile = convert(task_profile1);
     // action_server->terminate_task(completed_task, true);
 
-    // executor.spin_until_future_complete(ready_future, 
+    // executor.spin_until_future_complete(ready_future,
     //   rmf_traffic::time::from_seconds(0.5));
-    
+
     // REQUIRE(test_task_completion);
     // REQUIRE(test_task_completion->state == TaskMsg::TERMINAL_COMPLETED);
   }

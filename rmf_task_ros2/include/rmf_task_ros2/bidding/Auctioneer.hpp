@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2020 Open Source Robotics Foundation
  *
@@ -36,31 +35,39 @@ namespace bidding {
 
 using BiddingTaskPtr = std::shared_ptr<BiddingTask>; // toberemoved
 
-class Auctioneer: public std::enable_shared_from_this<Auctioneer>
+class Auctioneer : public std::enable_shared_from_this<Auctioneer>
 {
-public: 
+public:
   /// Create an instance of the Auctioneer. Handling all the bidding mechanism
   ///
-  /// \param[in] ros2 node which will manage the pub sub
+  /// \param[in] node
+  ///   ros2 node which will manage the bidding
+  ///
+  /// \sa make()
   static std::shared_ptr<Auctioneer> make(
     const std::shared_ptr<rclcpp::Node>& node);
 
-  /// Start a bidding process 
+  /// Start a bidding process
   ///
-  /// \param[in] Task to bid
+  /// \param[in] bidding_task
+  ///   The task to bid
   void start_bidding(const BiddingTask& bidding_task);
 
   /// callback which will provide the winner when a bid is concluded
   ///
-  /// \param[in] bidding task
-  /// \param[out] single winner submission
-  using BiddingResultCallback = 
-    std::function<void( const TaskID& task_id, // change to bidding task
-                        const rmf_utils::optional<Submission> winner)>;
+  /// \param[in] task_id
+  ///   bidding task id
+  ///
+  /// \param[in] winner
+  ///   single winner from all submissions. nullopt if non
+  using BiddingResultCallback =
+    std::function<void( const TaskID& task_id,
+      const rmf_utils::optional<Submission> winner)>;
 
   /// Provide a callback fn which will be called when a bid is concluded
   ///
-  /// \param[in] bid result callback fn
+  /// \param[in] result_callback
+  ///   This fn will be called when a bidding result is derived
   void receive_bidding_result(BiddingResultCallback result_callback);
 
   // /// Provide a custom evaluator which will be used to choose the best bid
@@ -68,7 +75,7 @@ public:
 
   class Implementation;
 
-private: 
+private:
   Auctioneer();
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };

@@ -30,8 +30,7 @@ public:
   rclcpp::TimerBase::SharedPtr timer;
   BiddingResultCallback bidding_result_callback;
   // Nomination::Evaluator _evaluator;
-  // std::map<TaskID, BiddingTaskPtr> queue_bidding_tasks;
-  
+
   struct BiddingTaskSubmissions
   {
     BiddingTask bidding_task;
@@ -59,17 +58,17 @@ public:
       {
         this->receive_proposal(*msg);
       });
-    
+
     timer = node->create_wall_timer(std::chrono::milliseconds(1000), [&]()
-      {
-        this->check_bidding_process();
-      });
+        {
+          this->check_bidding_process();
+        });
   }
 
   /// Start a bidding process
   void start_bidding(const BiddingTask& bidding_task)
   {
-    std::cout << "\n Add Bidding task_id: " 
+    std::cout << "\n Add Bidding task_id: "
               << bidding_task.task_profile.task_id << " to queue"<< std::endl;
     queue_bidding_tasks[bidding_task.task_profile.task_id] = {bidding_task};
 
@@ -83,13 +82,13 @@ public:
   void receive_proposal(const BidProposal& msg)
   {
     auto id_ = msg.task_profile.task_id;
-    std::cout << "[Auctioneer] Receive proposal for task_id: " 
+    std::cout << "[Auctioneer] Receive proposal for task_id: "
               << id_ << std::endl;
 
     // check if bidding task is "mine"
     auto task_it = queue_bidding_tasks.find(id_);
     if (task_it == queue_bidding_tasks.end())
-      return; // not found
+      return;// not found
 
     // add submited proposal to the current bidding task
     auto submission = convert(msg);
@@ -100,13 +99,13 @@ public:
   void check_bidding_process()
   {
     // check if timeout is reached
-    for ( auto it = queue_bidding_tasks.begin();
-          it != queue_bidding_tasks.end();)
+    for (auto it = queue_bidding_tasks.begin();
+      it != queue_bidding_tasks.end(); )
     {
-      auto duration = std::chrono::steady_clock::now() 
+      auto duration = std::chrono::steady_clock::now()
         - it->second.bidding_task.task_profile.submission_time;
 
-      if ( duration > it->second.bidding_task.time_window )
+      if (duration > it->second.bidding_task.time_window)
       {
         std::cout << " - Deadline reached: "<< it->first << std::endl;
         this->determine_winner(it->first, it->second.submissions);
@@ -119,12 +118,12 @@ public:
   }
 
   void determine_winner(
-      const TaskID& task_id, 
-      const std::vector<Submission>& submissions)
-  { 
+    const TaskID& task_id,
+    const std::vector<Submission>& submissions)
+  {
     rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
-    
-    if(submissions.size() == 0)
+
+    if (submissions.size() == 0)
     {
       std::cerr << " Bidding task has not received any bids"<< std::endl;
     }
@@ -134,10 +133,10 @@ public:
       Nomination task_nomination(submissions);
       auto _evaluator = LeastFleetDiffCostEvaluator();
       winner = task_nomination.evaluate(_evaluator);
-      std::cout << "Found winning Fleet Adapter: " 
+      std::cout << "Found winning Fleet Adapter: "
                 << winner->fleet_name << std::endl;
     }
-    
+
     // check if bidding_result_callback fn is initailized
     if (bidding_result_callback)
       this->bidding_result_callback(task_id, winner);
@@ -146,7 +145,7 @@ public:
 
 //==============================================================================
 std::shared_ptr<Auctioneer> Auctioneer::make(
-    const std::shared_ptr<rclcpp::Node>& node)
+  const std::shared_ptr<rclcpp::Node>& node)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(node);
 

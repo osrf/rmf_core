@@ -42,14 +42,14 @@ Submission submission5{
 //==============================================================================
 SCENARIO("Quickest Finish Time Evaluator", "[MinFinishTime]")
 {
-  WHEN("0 submission") 
+  WHEN("0 submission")
   {
     std::vector<Submission> submissions{};
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(QuickestFinishEvaluator());
     REQUIRE(!winner); // no winner
   }
-  WHEN("5 submissions") 
+  WHEN("5 submissions")
   {
     std::vector<Submission> submissions{
       submission1, submission2, submission3, submission4, submission5 };
@@ -62,14 +62,14 @@ SCENARIO("Quickest Finish Time Evaluator", "[MinFinishTime]")
 //==============================================================================
 SCENARIO("Least Diff Cost Evaluator", "[MinDiffCost]")
 {
-  WHEN("0 submission") 
+  WHEN("0 submission")
   {
     std::vector<Submission> submissions{};
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(LeastFleetDiffCostEvaluator());
     REQUIRE(!winner); // no winner
   }
-  WHEN("5 submissions") 
+  WHEN("5 submissions")
   {
     std::vector<Submission> submissions{
       submission1, submission2, submission3, submission4, submission5 };
@@ -82,14 +82,14 @@ SCENARIO("Least Diff Cost Evaluator", "[MinDiffCost]")
 //==============================================================================
 SCENARIO("Least Fleet Cost Evaluator", "[MinNewCost]")
 {
-  WHEN("0 submission") 
+  WHEN("0 submission")
   {
     std::vector<Submission> submissions{};
     Nomination task_nomination(submissions);
     auto winner = task_nomination.evaluate(LeastFleetCostEvaluator());
     REQUIRE(!winner); // no winner
   }
-  WHEN("5 submissions") 
+  WHEN("5 submissions")
   {
     std::vector<Submission> submissions{
       submission1, submission2, submission3, submission4, submission5 };

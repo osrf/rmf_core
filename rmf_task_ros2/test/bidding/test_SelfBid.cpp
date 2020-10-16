@@ -29,10 +29,10 @@ using namespace rmf_task_ros2::bidding;
 
 //==============================================================================
 MinimalBidder::Profile bidder1_profile {
-  "bidder1",  { TaskType::Station, TaskType::Delivery }
+  "bidder1", { TaskType::Station, TaskType::Delivery }
 };
 MinimalBidder::Profile bidder2_profile {
-  "bidder2",  { TaskType::Delivery, TaskType::Cleaning }
+  "bidder2", { TaskType::Delivery, TaskType::Cleaning }
 };
 
 auto submision_time = std::chrono::steady_clock::now();
@@ -80,7 +80,8 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     [&r_result_id, &r_result_winner](
       const TaskID& task_id, const rmf_utils::optional<Submission> winner)
     {
-      if (!winner) return;
+      if (!winner)
+        return;
       r_result_id = task_id;
       r_result_winner = winner->fleet_name;
       return;
@@ -97,10 +98,11 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   WHEN("First 'Station' Task Bid")
   {
     // start bidding
-    bidding_task1.task_profile.submission_time = std::chrono::steady_clock::now();
+    bidding_task1.task_profile.submission_time =
+      std::chrono::steady_clock::now();
     auctioneer->start_bidding(bidding_task1);
 
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     // Check if bidder 1 & 2 receive BidNotice1
@@ -108,28 +110,29 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     REQUIRE(*test_notice_bidder1 == bidding_task1.task_profile);
     REQUIRE(!test_notice_bidder2); // bidder2 doesnt support tasktype
 
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(2.5));
 
     // Check if Auctioneer received Bid from bidder1
     REQUIRE(r_result_winner == "bidder1");
     REQUIRE(r_result_id == "bid1");
   }
-  
+
   WHEN("Second 'Delivery' Task bid")
   {
     // start bidding
-    bidding_task2.task_profile.submission_time = std::chrono::steady_clock::now();
+    bidding_task2.task_profile.submission_time =
+      std::chrono::steady_clock::now();
     auctioneer->start_bidding(bidding_task2);
 
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     // Check if bidder 1 & 2 receive BidNotice2
     REQUIRE(*test_notice_bidder1 == bidding_task2.task_profile);
     REQUIRE(*test_notice_bidder2 == bidding_task2.task_profile);
 
-    executor.spin_until_future_complete(ready_future, 
+    executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(2.5));
 
     // Check if Auctioneer received Bid from bidder1

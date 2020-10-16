@@ -35,7 +35,7 @@ namespace bidding {
 
 class MinimalBidder
 {
-public: 
+public:
   struct Profile
   {
     std::string fleet_name;
@@ -44,28 +44,35 @@ public:
 
   /// Create a bidder to bid for incoming task requests from Task Dispatcher
   ///
-  /// \param[in] bidder profile
-  /// \param[in] ros2 node
+  /// \param[in] node
+  ///   The ROS 2 node
+  ///
+  /// \param[in]
+  ///   The profile of the bidder
   static std::shared_ptr<MinimalBidder> make(
-      const std::shared_ptr<rclcpp::Node>& node,
-      const Profile& profile);
-  
-  /// Callback function which user provide a bid submission after receiving 
+    const std::shared_ptr<rclcpp::Node>& node,
+    const Profile& profile);
+
+  /// Callback function which user provide a bid submission after receiving
   /// a bid notice from the autioneer
   ///
-  /// \param[in] bid notice msg
-  /// \return submission of bid proposal
+  /// \param[in] notice
+  ///   bid notice msg
+  ///
+  /// \return submission
+  ///   Estimates of a task. This submission is used by dispatcher for eval
   using ParseSubmissionCallback =
-      std::function<Submission(const BidNotice& notice)>;
-  
+    std::function<Submission(const BidNotice& notice)>;
+
   /// Create a call for bid callback instance
   ///
-  /// \param[in] callback function to provide bid proposal
+  /// \param[in] submission_cb
+  ///   callback function to provide submission when a BidNotice is requested
   void call_for_bid(ParseSubmissionCallback submission_cb);
 
   class Implementation;
 
-private: 
+private:
   MinimalBidder();
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };

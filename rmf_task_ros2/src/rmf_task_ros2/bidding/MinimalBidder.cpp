@@ -25,14 +25,14 @@ namespace bidding {
 class MinimalBidder::Implementation
 {
 public:
-  
+
   std::shared_ptr<rclcpp::Node> node;
   Profile profile;
   ParseSubmissionCallback get_submission_fn;
 
   using BidNoticeSub = rclcpp::Subscription<BidNotice>;
-  BidNoticeSub::SharedPtr dispatch_notice_sub ;
-  
+  BidNoticeSub::SharedPtr dispatch_notice_sub;
+
   using BidProposalPub = rclcpp::Publisher<BidProposal>;
   BidProposalPub::SharedPtr dispatch_proposal_pub;
 
@@ -43,12 +43,12 @@ public:
   {
     const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
-    dispatch_notice_sub  = node->create_subscription<BidNotice>(
-    rmf_task_ros2::BidNoticeTopicName, dispatch_qos,
-    [&](const BidNotice::UniquePtr msg)
-    {
-      this->receive_notice(*msg);
-    });
+    dispatch_notice_sub = node->create_subscription<BidNotice>(
+      rmf_task_ros2::BidNoticeTopicName, dispatch_qos,
+      [&](const BidNotice::UniquePtr msg)
+      {
+        this->receive_notice(*msg);
+      });
 
     dispatch_proposal_pub = node->create_publisher<BidProposal>(
       rmf_task_ros2::BidProposalTopicName, dispatch_qos);
@@ -58,9 +58,9 @@ public:
   // todo change to taskprofile
   void receive_notice(const BidNotice& msg)
   {
-    std::cout << " [Bidder] Received Bidding notice for task_id: " 
+    std::cout << " [Bidder] Received Bidding notice for task_id: "
               << msg.task_profile.task_id << std::endl;
-    
+
     // check if tasktype is supported by this F.A
     auto req_type = static_cast<TaskType>(msg.task_profile.type.value);
     if (!profile.valid_tasks.count(req_type))
@@ -74,7 +74,7 @@ public:
     if (!get_submission_fn)
       return;
     auto bid_submission = get_submission_fn(msg);
-    
+
     // Submit proposal
     auto best_proposal = convert(bid_submission);
     best_proposal.fleet_name = profile.fleet_name;
@@ -85,8 +85,8 @@ public:
 
 //==============================================================================
 std::shared_ptr<MinimalBidder> MinimalBidder::make(
-    const std::shared_ptr<rclcpp::Node>& node,
-    const Profile& profile)
+  const std::shared_ptr<rclcpp::Node>& node,
+  const Profile& profile)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(node, profile);
 
