@@ -89,19 +89,19 @@ class TaskPlanner::Assignment::Implementation
 {
 public:
 
-  std::size_t task_id;
+  rmf_task::RequestPtr request;
   State state;
   rmf_traffic::Time earliest_start_time;
 };
 
 //==============================================================================
 TaskPlanner::Assignment::Assignment(
-  std::size_t task_id,
+  rmf_task::RequestPtr request,
   State state,
   rmf_traffic::Time earliest_start_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        task_id,
+        std::move(request),
         std::move(state),
         earliest_start_time
       }))
@@ -110,9 +110,9 @@ TaskPlanner::Assignment::Assignment(
 }
 
 //==============================================================================
-std::size_t TaskPlanner::Assignment::task_id() const 
+rmf_task::RequestPtr TaskPlanner::Assignment::request() const 
 {
-  return _pimpl->task_id;
+  return _pimpl->request;
 }
 
 //==============================================================================
@@ -477,7 +477,7 @@ private:
         {
           // We add 1 to the task_id to differentiate between task_id == 0 and
           // a task being unassigned.
-          const std::size_t id = s.task_id() + 1;
+          const std::size_t id = s.request()->id() + 1;
           output += id << (_shift * (count++));
         }
       }
@@ -506,7 +506,7 @@ private:
 
         for (std::size_t j=0; j < a.size(); ++j)
         {
-          if (a[j].task_id() != b[j].task_id())
+          if (a[j].request()->id() != b[j].request()->id())
             return false;
         }
       }
@@ -543,7 +543,7 @@ bool Filter::ignore(const Node& node)
 
     if (t < current_agent.size())
     {
-      const auto& task_id = current_agent[t].task_id();
+      const auto& task_id = current_agent[t].request()->id();
       const auto agent_insertion = agent_table->agent.insert({a, nullptr});
       if (agent_insertion.second)
         agent_insertion.first->second = std::make_unique<TaskTable>();
@@ -606,7 +606,8 @@ public:
         continue;
 
       // Remove charging task at end of assignments if any
-      if (assignments[a].back().task_id() == config->charge_battery_request()->id())
+      if (assignments[a].back().request()->id() ==
+          config->charge_battery_request()->id())
         assignments[a].pop_back();
     }
 
@@ -834,7 +835,7 @@ public:
 
     // Assign the unassigned task
     new_node->assigned_tasks[entry.candidate].push_back(
-      Assignment{u.first, entry.state, u.second.earliest_start_time});
+      Assignment{u.second.request, entry.state, u.second.earliest_start_time});
     
     // Erase the assigned task from unassigned tasks
     new_node->pop_unassigned(u.first);
@@ -891,7 +892,7 @@ public:
         new_node->assigned_tasks[entry.candidate].push_back(
           Assignment
           {
-            config->charge_battery_request()->id(),
+            config->charge_battery_request(),
             battery_estimate.value().finish_state(),
             battery_estimate.value().wait_until()
           });
@@ -947,7 +948,7 @@ public:
 
     if (!assignments.empty())
     {
-      if (assignments.back().task_id() == config->charge_battery_request()->id())
+      if (assignments.back().request()->id() == config->charge_battery_request()->id())
         return nullptr;
       state = assignments.back().state();
     }
@@ -958,7 +959,7 @@ public:
     {
       new_node->assigned_tasks[agent].push_back(
         Assignment{
-          config->charge_battery_request()->id(),
+          config->charge_battery_request(),
           estimate.value().finish_state(),
           estimate.value().wait_until()});
 

@@ -57,7 +57,7 @@ inline void display_solution(
       const double start_seconds = a.earliest_start_time().time_since_epoch().count()/1e9;
       const rmf_traffic::Time finish_time = s.finish_time();
       const double finish_seconds = finish_time.time_since_epoch().count()/1e9;
-      std::cout << "    <" << a.task_id() << ": " << start_seconds 
+      std::cout << "    <" << a.request()->id() << ": " << start_seconds 
                 << ", "<< finish_seconds << ", " << 100* s.battery_soc() 
                 << "%>" << std::endl;
     }

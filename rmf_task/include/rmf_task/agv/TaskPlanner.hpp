@@ -86,8 +86,8 @@ public:
 
     /// Constructor
     ///
-    /// \param[in] task_id
-    ///   The task id for this assignment
+    /// \param[in] request
+    ///   The task request for this assignment
     ///
     /// \param[in] state
     ///   The state of the agent at the end of the assigned task
@@ -95,13 +95,13 @@ public:
     /// \param[in] earliest_start_time
     ///   The earliest time the agent will begin exececuting this task
     Assignment(
-      std::size_t task_id,
+      rmf_task::RequestPtr request,
       State state,
       rmf_traffic::Time earliest_start_time);
 
       
-    // Get a const reference to the task_id
-    std::size_t task_id() const;
+    // Get the request of this task
+    rmf_task::RequestPtr request() const;
 
     // Get a const reference to the state
     const State& state() const;
