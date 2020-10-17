@@ -23,6 +23,8 @@
 
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include <rmf_task/agv/TaskPlanner.hpp>
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -39,6 +41,7 @@ public:
 
   using Start = rmf_traffic::agv::Plan::Start;
   using StartSet = rmf_traffic::agv::Plan::StartSet;
+  using Assignments = rmf_task::agv::TaskPlanner::Assignments;
 
   /// Add a task to the queue of this manager.
   void queue_task(std::shared_ptr<Task> task, Start expected_finish);
@@ -50,6 +53,13 @@ public:
   const agv::RobotContextPtr& context();
 
   agv::ConstRobotContextPtr context() const;
+
+  /// Set the queue for this task manager with assignments generated from the
+  /// task planner
+  void set_queue(Assignments assignments);
+
+  /// Get the requests used to create the tasks currently in the queue
+  const std::vector<rmf_task::RequestPtr> requests() const;
 
 private:
 
@@ -63,6 +73,8 @@ private:
   rxcpp::subscription _emergency_sub;
 
   void _begin_next_task();
+
+  void clear_queue();
 };
 
 using TaskManagerPtr = std::shared_ptr<TaskManager>;

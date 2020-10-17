@@ -97,6 +97,23 @@ agv::ConstRobotContextPtr TaskManager::context() const
 }
 
 //==============================================================================
+void TaskManager::set_queue(TaskManager::Assignments assignments)
+{
+  // TODO(YV)
+}
+
+//==============================================================================
+const std::vector<rmf_task::RequestPtr> TaskManager::requests() const
+{
+  std::vector<rmf_task::RequestPtr> requests;
+  requests.reserve(_queue.size());
+  for (const auto& task : _queue)
+    requests.push_back(task->request());
+  
+  return requests;
+}
+
+//==============================================================================
 void TaskManager::_begin_next_task()
 {
   if (_queue.empty())
@@ -157,6 +174,12 @@ void TaskManager::_begin_next_task()
   });
 
   _active_task->begin();
+}
+
+//==============================================================================
+void TaskManager::clear_queue()
+{
+  _queue.clear();
 }
 
 } // namespace rmf_fleet_adapter

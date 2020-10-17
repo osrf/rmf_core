@@ -30,10 +30,14 @@ namespace rmf_fleet_adapter {
 std::shared_ptr<Task> Task::make(
     std::string id,
     PendingPhases phases,
-    rxcpp::schedulers::worker worker)
+    rxcpp::schedulers::worker worker,
+    rmf_task::RequestPtr request)
 {
   return std::make_shared<Task>(
-        Task(std::move(id), std::move(phases), std::move(worker)));
+        Task(std::move(id),
+          std::move(phases),
+          std::move(worker),
+          std::move(request)));
 }
 
 //==============================================================================
@@ -81,13 +85,21 @@ const std::string& Task::id() const
 }
 
 //==============================================================================
+const rmf_task::RequestPtr Task::request() const
+{
+  return _request;
+}
+
+//==============================================================================
 Task::Task(
     std::string id,
     std::vector<std::unique_ptr<PendingPhase>> phases,
-    rxcpp::schedulers::worker worker)
+    rxcpp::schedulers::worker worker,
+    rmf_task::RequestPtr request)
   : _id(std::move(id)),
     _pending_phases(std::move(phases)),
-    _worker(std::move(worker))
+    _worker(std::move(worker)),
+    _request(std::move(request))
 {
   _status_obs = _status_publisher.get_observable();
   std::reverse(_pending_phases.begin(), _pending_phases.end());

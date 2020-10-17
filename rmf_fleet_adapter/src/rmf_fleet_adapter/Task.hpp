@@ -25,6 +25,8 @@
 
 #include <rmf_task_msgs/msg/task_summary.hpp>
 
+#include <rmf_task/Request.hpp>
+
 #include <rmf_rxcpp/RxJobs.hpp>
 #include <rmf_rxcpp/Publisher.hpp>
 
@@ -93,10 +95,13 @@ public:
   using PendingPhases = std::vector<std::unique_ptr<PendingPhase>>;
 
   // Make a new task
+  // TODO(YV) Remove default nullptr for request after refactoring Loop and
+  // Delivery
   static std::shared_ptr<Task> make(
       std::string id,
       PendingPhases phases,
-      rxcpp::schedulers::worker worker);
+      rxcpp::schedulers::worker worker,
+      rmf_task::RequestPtr request = nullptr);
 
   void begin();
 
@@ -117,12 +122,16 @@ public:
 
   const std::string& id() const;
 
+  /// Get the request used to generate this task
+  const rmf_task::RequestPtr request() const;
+
 private:
 
   Task(
       std::string id,
       PendingPhases phases,
-      rxcpp::schedulers::worker worker);
+      rxcpp::schedulers::worker worker,
+      rmf_task::RequestPtr request);
 
   std::string _id;
 
@@ -139,6 +148,8 @@ private:
   rmf_rxcpp::subscription_guard _active_phase_subscription;
 
   rmf_utils::optional<builtin_interfaces::msg::Time> _initial_time;
+
+  rmf_task::RequestPtr _request;
 
   void _start_next_phase();
 
