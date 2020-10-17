@@ -15,15 +15,9 @@
  *
 */
 
-#ifndef SRC__RMF_FLEET_ADAPTER__TASKS__CLEAN_HPP
-#define SRC__RMF_FLEET_ADAPTER__TASKS__CLEAN_HPP
+#include "../phases/GoToPlace.hpp"
 
-#include "../Task.hpp"
-#include "../agv/RobotContext.hpp"
-
-#include <rmf_traffic/agv/Planner.hpp>
-
-#include <rmf_task/Request.hpp>
+#include "Clean.hpp"
 
 namespace rmf_fleet_adapter {
 namespace tasks {
@@ -33,9 +27,15 @@ std::shared_ptr<Task> make_clean(
     const rmf_task::RequestPtr request,
     const agv::RobotContextPtr& context,
     const rmf_traffic::agv::Plan::Start clean_start,
-    const rmf_traffic::agv::Plan::Goal clean_goal);
+    const rmf_traffic::agv::Plan::Goal clean_goal)
+{
+  Task::PendingPhases phases;
+  phases.push_back(
+        phases::GoToPlace::make(context, std::move(clean_start), clean_goal));
 
-} // namespace tasks
+  return Task::make(
+    std::to_string(request->id()), std::move(phases), context->worker());
+}
+
+} // namespace task
 } // namespace rmf_fleet_adapter
-
-#endif // SRC__RMF_FLEET_ADAPTER__TASKS__CLEAN_HPP

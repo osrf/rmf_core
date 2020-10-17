@@ -198,7 +198,7 @@ SCENARIO("Grid World")
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-    
+
     display_solution("Greedy", greedy_assignments, greedy_cost);
     display_solution("Optimal", optimal_assignments, optimal_cost);
 
@@ -359,7 +359,7 @@ SCENARIO("Grid World")
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-  
+
     display_solution("Greedy", greedy_assignments, greedy_cost);
     display_solution("Optimal", optimal_assignments, optimal_cost);
 
