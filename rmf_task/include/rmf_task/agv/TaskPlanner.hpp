@@ -22,6 +22,12 @@
 #include <rmf_task/agv/State.hpp>
 #include <rmf_task/agv/StateConfig.hpp>
 
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/MotionPowerSink.hpp>
+#include <rmf_battery/DevicePowerSink.hpp>
+
+#include <rmf_traffic/agv/Planner.hpp>
+
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <vector>
@@ -53,20 +59,41 @@ public:
   public:
     /// Constructor
     ///
-    /// \param[in] charge_battery_request
-    ///   A pointer to the ChargeBattery request for this AGV
+    /// \param[in] battery_system
+    ///   The battery system of the robot
+    ///
+    /// \param[in] motion_sink
+    ///   The motion sink of the robot
+    ///
+    /// \param[in] device_sink
+    ///   The ambient device sink of the robot
+    ///
+    /// \param[in] planner
+    ///   The planner for a robot in this fleet
     ///
     /// \param[in] filter_type
     ///   The type of filter used for planning
     Configuration(
-      Request::SharedPtr charge_battery_request,
+      rmf_battery::agv::BatterySystem battery_system,
+      std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+      std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+      std::shared_ptr<rmf_traffic::agv::Planner> planner,
       FilterType filter_type= FilterType::Hash);
 
-    /// Get the pointer to the ChargeBattery request
-    Request::SharedPtr charge_battery_request() const;
+    /// Get the battery system
+    rmf_battery::agv::BatterySystem& battery_system();
 
-    /// Set the pointer to the ChargeBattery request
-    Configuration& charge_battery_request(Request::SharedPtr charge_battery);
+    /// Set the battery_system
+    Configuration& battery_system(rmf_battery::agv::BatterySystem battery_system);
+
+    /// Get the motion sink
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink() const;
+
+    /// Get the ambient device sink
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink() const;
+
+    /// Get the planner
+    std::shared_ptr<rmf_traffic::agv::Planner> planner() const;    
 
     /// Get the filter type
     FilterType filter_type() const;
@@ -97,7 +124,7 @@ public:
     Assignment(
       rmf_task::RequestPtr request,
       State state,
-      rmf_traffic::Time earliest_start_time);
+      rmf_traffic::Time deployment_time);
 
       
     // Get the request of this task
@@ -106,8 +133,9 @@ public:
     // Get a const reference to the state
     const State& state() const;
 
-    // Get a const reference to the earliest start time
-    const rmf_traffic::Time& earliest_start_time() const;
+    // Get a const reference to the time when the robot begins executing
+    // this assignment
+    const rmf_traffic::Time& deployment_time() const;
 
     class Implementation;
   
