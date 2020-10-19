@@ -1,0 +1,21 @@
+# Submit Task | POST service call
+
+# Whom that call this srv
+string requester
+
+# Desired start time of a task
+builtin_interfaces/Time start_time
+
+# e.g. Delivery, Station.....
+TaskType type
+
+# Params
+BehaviorParameter[] params
+
+---
+
+# Confirmation that this service call is processed
+bool success
+
+# generated task ID by dispatcher node
+string task_id
