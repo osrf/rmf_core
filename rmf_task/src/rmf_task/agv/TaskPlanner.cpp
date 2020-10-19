@@ -630,7 +630,7 @@ public:
       {
         cost +=
           rmf_traffic::time::to_seconds(
-            assignment.state().finish_time() - assignment.deployment_time());
+            assignment.state().finish_time() - assignment.request()->earliest_start_time());
       }
     }
 
@@ -646,9 +646,9 @@ public:
 
       // Remove charging task at end of assignments if any
       // TODO(YV): Remove this after fixing the planner
-      if (std::dynamic_pointer_cast<rmf_task::requests::ChargeBatteryPtr>(
+      if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
           assignments[a].back().request()))
-        assignments[a].pop_back();
+        assignments[a].pop_back();      
     }
 
     return assignments;
@@ -991,7 +991,8 @@ public:
 
     if (!assignments.empty())
     {
-      if (std::dynamic_pointer_cast<rmf_task::requests::ChargeBatteryPtr>(assignments.back().request()))
+      if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+          assignments.back().request()))
         return nullptr;
       state = assignments.back().state();
     }
