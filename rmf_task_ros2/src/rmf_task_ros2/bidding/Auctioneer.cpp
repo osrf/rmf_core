@@ -33,7 +33,7 @@ public:
 
   struct BiddingTaskSubmissions
   {
-    BiddingTask bidding_task;
+    BidNotice bidding_task;
     std::vector<bidding::Submission> submissions;
   };
   std::map<TaskID, BiddingTaskSubmissions> queue_bidding_tasks;
@@ -66,16 +66,12 @@ public:
   }
 
   /// Start a bidding process
-  void start_bidding(const BiddingTask& bidding_task)
+  void start_bidding(const BidNotice& bidding_task)
   {
     std::cout << "\n Add Bidding task_id: "
               << bidding_task.task_profile.task_id << " to queue"<< std::endl;
     queue_bidding_tasks[bidding_task.task_profile.task_id] = {bidding_task};
-
-    // todo: think if this reallly sequencial
-    BidNotice notice_msg = convert(bidding_task);
-    notice_msg.task_profile.submission_time = node->now();
-    bid_notice_pub->publish(notice_msg);
+    bid_notice_pub->publish(bidding_task);
   }
 
   // Receive proposal and evaluate // todo think
@@ -102,10 +98,12 @@ public:
     for (auto it = queue_bidding_tasks.begin();
       it != queue_bidding_tasks.end(); )
     {
-      auto duration = std::chrono::steady_clock::now()
-        - it->second.bidding_task.task_profile.submission_time;
+      auto duration = rmf_traffic_ros2::convert(node->now() - 
+          it->second.bidding_task.task_profile.submission_time);
 
-      if (duration > it->second.bidding_task.time_window)
+      auto time_window = rmf_traffic_ros2::convert(it->second.bidding_task.time_window);
+
+      if (duration > time_window)
       {
         std::cout << " - Deadline reached: "<< it->first << std::endl;
         this->determine_winner(it->first, it->second.submissions);
@@ -159,7 +157,7 @@ std::shared_ptr<Auctioneer> Auctioneer::make(
 }
 
 //==============================================================================
-void Auctioneer::start_bidding(const BiddingTask& bidding_task)
+void Auctioneer::start_bidding(const BidNotice& bidding_task)
 {
   _pimpl->start_bidding(bidding_task);
 }

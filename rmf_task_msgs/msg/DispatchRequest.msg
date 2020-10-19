@@ -1,10 +1,10 @@
 # Publish by Task Dispatcher Node
 # This msg is will be received by a Fleet Adapter to initiate/cancel a task
 
-# Selected Fleet Adapter server name
+# Selected Fleet Adapter to execute/cancel the task
 string fleet_name
 
-# if task is dispatched via bidding, this should be the same
+# Task to dispatch (should be the same as in BidNotice)
 TaskProfile task_profile
 
 # add or cancel a task

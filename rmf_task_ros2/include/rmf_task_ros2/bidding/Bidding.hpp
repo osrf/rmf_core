@@ -37,28 +37,19 @@ struct Submission
 {
   std::string fleet_name = "";
   std::string robot_name = ""; // optional
-  float prev_cost = 0.0;
-  float new_cost = std::numeric_limits<float>::max();
+  double prev_cost = 0.0;
+  double new_cost = std::numeric_limits<double>::max();
   rmf_traffic::Time finish_time;
 };
 
-//==============================================================================
-struct BiddingTask
-{
-  TaskProfile task_profile;
-  rmf_traffic::Duration time_window = rmf_traffic::time::from_seconds(2.0); // 2s
-};
-
-//==============================================================================
-BidNotice convert(const BiddingTask& from);
-
-//==============================================================================
-BidProposal convert(const Submission& from);
-
-//==============================================================================
-Submission convert(const BidProposal& from);
-
 } // namespace bidding
+
+//==============================================================================
+bidding::BidProposal convert(const bidding::Submission& from);
+
+//==============================================================================
+bidding::Submission convert(const bidding::BidProposal& from);
+
 } // namespace rmf_task_ros2
 
 #endif // RMF_TASK_ROS2__BIDDING_HPP

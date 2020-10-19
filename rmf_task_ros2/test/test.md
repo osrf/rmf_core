@@ -6,11 +6,6 @@ Brief instruction to test dispatcher component
 ./build/rmf_task_ros2/test_rmf_task_ros2
 ```
 
-## Unit Test
-```bash
-./build/rmf_task_ros2/test_rmf_task_ros2
-```
-
 ## Dispatcher Node Test
 ```bash
 # Terminal 1

@@ -23,8 +23,8 @@
 #include <thread>
 #include <rmf_utils/catch.hpp>
 
-using namespace rmf_task_ros2;
-using namespace rmf_task_ros2::action;
+namespace rmf_task_ros2 {
+namespace action {
 
 //==============================================================================
 auto task_time = std::chrono::steady_clock::now();
@@ -176,3 +176,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
 
   rclcpp::shutdown();
 }
+
+
+} // namespace action
+} // namespace rmf_task_ros2

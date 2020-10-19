@@ -1,9 +1,9 @@
-# refered to DispatchStatus.msg
+# Publish by Fleet Adapter (aka DispatchStatus)
 
 # Fleet Adapter name
 string fleet_name
 
-# *optional and duplicated
+# *optional and duplicated in TaskProfile
 string task_id 
 
 TaskProfile task_profile
@@ -21,7 +21,7 @@ uint32 STATE_PENDING=5
 string status
 
 # submission_time is when the task was submitted to rmf_core
-# *optional and duplicated
+# *optional and duplicated in TaskProfile
 builtin_interfaces/Time submission_time   
 
 # when rmf_core actually began processing the task

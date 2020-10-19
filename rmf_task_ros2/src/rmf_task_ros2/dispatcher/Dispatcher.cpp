@@ -59,8 +59,10 @@ public:
       std::make_shared<TaskStatus>(status);
 
     // using default 2s timewindow
-    bidding::BiddingTask bid_notice;
-    bid_notice.task_profile = submitted_task;
+    bidding::BidNotice bid_notice;
+    bid_notice.task_profile = convert(submitted_task);
+    bid_notice.time_window = rmf_traffic_ros2::convert(
+      rmf_traffic::time::from_seconds(2.0)); // 2s timeout as default
     auctioneer->start_bidding(bid_notice);
 
     return submitted_task.task_id;

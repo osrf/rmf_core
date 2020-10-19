@@ -33,8 +33,6 @@ namespace rmf_task_ros2 {
 namespace bidding {
 //==============================================================================
 
-using BiddingTaskPtr = std::shared_ptr<BiddingTask>; // toberemoved
-
 class Auctioneer : public std::enable_shared_from_this<Auctioneer>
 {
 public:
@@ -51,7 +49,7 @@ public:
   ///
   /// \param[in] bidding_task
   ///   The task to bid
-  void start_bidding(const BiddingTask& bidding_task);
+  void start_bidding(const BidNotice& bidding_task);
 
   /// callback which will provide the winner when a bid is concluded
   ///

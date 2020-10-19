@@ -1,10 +1,10 @@
 # Unique ID to differentiate the task
 string task_id
 
-# submission_time is when the task was first submited
+# Task submission time
 builtin_interfaces/Time submission_time
 
-# submission_time is when the task was first submited
+# Desired start time of a task
 builtin_interfaces/Time start_time
 
 # e.g. Delivery, Station.....

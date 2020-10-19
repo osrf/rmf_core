@@ -18,18 +18,9 @@
 #include <rmf_task_ros2/bidding/Bidding.hpp>
 
 namespace rmf_task_ros2 {
-namespace bidding {
 
 //==============================================================================
-BidNotice convert(const BiddingTask& from)
-{
-  bidding::BidNotice notice_msg;
-  notice_msg.task_profile = convert(from.task_profile);
-  notice_msg.time_window = rmf_traffic_ros2::convert(from.time_window);
-  return notice_msg;
-}
-
-BidProposal convert(const Submission& from)
+bidding::BidProposal convert(const bidding::Submission& from)
 {
   bidding::BidProposal proposal_msg;
   proposal_msg.fleet_name = from.fleet_name;
@@ -40,9 +31,9 @@ BidProposal convert(const Submission& from)
   return proposal_msg;
 }
 
-Submission convert(const BidProposal& from)
+bidding::Submission convert(const bidding::BidProposal& from)
 {
-  Submission submission;
+  bidding::Submission submission;
   submission.fleet_name = from.fleet_name;
   submission.robot_name = from.robot_name;
   submission.prev_cost = from.prev_cost;
@@ -51,5 +42,4 @@ Submission convert(const BidProposal& from)
   return submission;
 }
 
-} // namespace bidding
 } // namespace rmf_task_ros2

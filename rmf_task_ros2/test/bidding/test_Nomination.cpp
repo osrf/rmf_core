@@ -18,9 +18,10 @@
 #include <rmf_task_ros2/bidding/Nomination.hpp>
 #include <rmf_utils/catch.hpp>
 
-//==============================================================================
-using namespace rmf_task_ros2::bidding;
+namespace rmf_task_ros2 {
+namespace bidding {
 
+//==============================================================================
 auto now = std::chrono::steady_clock::now();
 
 Submission submission1{
@@ -98,3 +99,6 @@ SCENARIO("Least Fleet Cost Evaluator", "[MinNewCost]")
     REQUIRE(winner->fleet_name == "fleet5"); // least new cost agent
   }
 }
+
+} // namespace bidding
+} // namespace rmf_task_ros2

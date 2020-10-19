@@ -23,9 +23,8 @@
 #include <thread>
 #include <rmf_utils/catch.hpp>
 
-using namespace rmf_task_ros2;
-using namespace rmf_task_ros2::bidding;
-using namespace rmf_task_ros2::bidding;
+namespace rmf_task_ros2 {
+namespace bidding {
 
 //==============================================================================
 MinimalBidder::Profile bidder1_profile {
@@ -35,13 +34,26 @@ MinimalBidder::Profile bidder2_profile {
   "bidder2", { TaskType::Delivery, TaskType::Cleaning }
 };
 
-auto submision_time = std::chrono::steady_clock::now();
-BiddingTask bidding_task1{{"bid1", submision_time, TaskType::Station }};
-BiddingTask bidding_task2{{"bid2", submision_time, TaskType::Delivery }};
+auto default_time = std::chrono::steady_clock::now();
+
+BidNotice bidding_task1;
+TaskProfile task_profile1 { "bid1", default_time, TaskType::Station};
+
+BidNotice bidding_task2;
+TaskProfile task_profile2 { "bid2", default_time, TaskType::Delivery };
+
+// set time window to 2s
+auto timeout = rmf_traffic_ros2::convert(rmf_traffic::time::from_seconds(2.0));
 
 //==============================================================================
 SCENARIO("Auction with 2 Bids", "[TwoBids]")
 {
+  // Initializing bidding task
+  bidding_task1.task_profile = convert(task_profile1);
+  bidding_task1.time_window = timeout;
+  bidding_task2.task_profile = convert(task_profile2);
+  bidding_task2.time_window = timeout;
+
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_selfbidding");
@@ -98,8 +110,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   WHEN("First 'Station' Task Bid")
   {
     // start bidding
-    bidding_task1.task_profile.submission_time =
-      std::chrono::steady_clock::now();
+    bidding_task1.task_profile.submission_time = node->now();
     auctioneer->start_bidding(bidding_task1);
 
     executor.spin_until_future_complete(ready_future,
@@ -107,7 +118,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
 
     // Check if bidder 1 & 2 receive BidNotice1
     REQUIRE(test_notice_bidder1);
-    REQUIRE(*test_notice_bidder1 == bidding_task1.task_profile);
+    REQUIRE(*test_notice_bidder1 == convert(bidding_task1.task_profile));
     REQUIRE(!test_notice_bidder2); // bidder2 doesnt support tasktype
 
     executor.spin_until_future_complete(ready_future,
@@ -121,16 +132,16 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   WHEN("Second 'Delivery' Task bid")
   {
     // start bidding
-    bidding_task2.task_profile.submission_time =
-      std::chrono::steady_clock::now();
+    bidding_task2.task_profile.submission_time = node->now();
     auctioneer->start_bidding(bidding_task2);
 
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     // Check if bidder 1 & 2 receive BidNotice2
-    REQUIRE(*test_notice_bidder1 == bidding_task2.task_profile);
-    REQUIRE(*test_notice_bidder2 == bidding_task2.task_profile);
+    auto task2_profile = convert(bidding_task2.task_profile);
+    REQUIRE(*test_notice_bidder1 == task2_profile);
+    REQUIRE(*test_notice_bidder2 == task2_profile);
 
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(2.5));
@@ -142,3 +153,6 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
 
   rclcpp::shutdown();
 }
+
+} // namespace bidding
+} // namespace rmf_task_ros2
