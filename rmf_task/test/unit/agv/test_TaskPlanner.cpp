@@ -54,10 +54,12 @@ inline void display_solution(
     for (const auto& a : assignments[i])
     {
       const auto& s = a.state();
-      const double start_seconds = a.earliest_start_time().time_since_epoch().count()/1e9;
+      const double request_seconds = a.request()->earliest_start_time().time_since_epoch().count()/1e9;
+      const double start_seconds = a.deployment_time().time_since_epoch().count()/1e9;
       const rmf_traffic::Time finish_time = s.finish_time();
       const double finish_seconds = finish_time.time_since_epoch().count()/1e9;
-      std::cout << "    <" << a.request()->id() << ": " << start_seconds 
+      std::cout << "    <" << a.request()->id() << ": " << request_seconds
+                << ", " << start_seconds 
                 << ", "<< finish_seconds << ", " << 100* s.battery_soc() 
                 << "%>" << std::endl;
     }
@@ -241,16 +243,6 @@ SCENARIO("Grid World")
         2,
         15,
         2,
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        3,
-        7,
-        9,
         motion_sink,
         device_sink,
         planner,

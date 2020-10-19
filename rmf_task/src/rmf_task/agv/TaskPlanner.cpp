@@ -91,19 +91,19 @@ public:
 
   rmf_task::RequestPtr request;
   State state;
-  rmf_traffic::Time earliest_start_time;
+  rmf_traffic::Time deployment_time;
 };
 
 //==============================================================================
 TaskPlanner::Assignment::Assignment(
   rmf_task::RequestPtr request,
   State state,
-  rmf_traffic::Time earliest_start_time)
+  rmf_traffic::Time deployment_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(request),
         std::move(state),
-        earliest_start_time
+        deployment_time
       }))
 {
   // Do nothing
@@ -122,9 +122,9 @@ const State& TaskPlanner::Assignment::state() const
 }
 
 //==============================================================================
-const rmf_traffic::Time& TaskPlanner::Assignment::earliest_start_time() const
+const rmf_traffic::Time& TaskPlanner::Assignment::deployment_time() const
 {
-  return _pimpl->earliest_start_time;
+  return _pimpl->deployment_time;
 }
 
 //==============================================================================
@@ -591,7 +591,7 @@ public:
       {
         cost +=
           rmf_traffic::time::to_seconds(
-            assignment.state().finish_time() - assignment.earliest_start_time());
+            assignment.state().finish_time() - assignment.deployment_time());
       }
     }
 
@@ -835,7 +835,7 @@ public:
 
     // Assign the unassigned task
     new_node->assigned_tasks[entry.candidate].push_back(
-      Assignment{u.second.request, entry.state, u.second.earliest_start_time});
+      Assignment{u.second.request, entry.state, entry.wait_until});
     
     // Erase the assigned task from unassigned tasks
     new_node->pop_unassigned(u.first);

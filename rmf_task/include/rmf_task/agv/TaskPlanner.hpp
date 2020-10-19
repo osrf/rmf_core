@@ -97,7 +97,7 @@ public:
     Assignment(
       rmf_task::RequestPtr request,
       State state,
-      rmf_traffic::Time earliest_start_time);
+      rmf_traffic::Time deployment_time);
 
       
     // Get the request of this task
@@ -106,8 +106,9 @@ public:
     // Get a const reference to the state
     const State& state() const;
 
-    // Get a const reference to the earliest start time
-    const rmf_traffic::Time& earliest_start_time() const;
+    // Get a const reference to the time when the robot begins executing
+    // this assignment
+    const rmf_traffic::Time& deployment_time() const;
 
     class Implementation;
   
