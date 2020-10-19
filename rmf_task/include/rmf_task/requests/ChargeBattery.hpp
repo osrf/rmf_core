@@ -43,6 +43,7 @@ public:
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
+    rmf_traffic::Time start_time,
     bool drain_battery = true);
 
   std::size_t id() const final;
@@ -60,6 +61,8 @@ private:
   ChargeBattery();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
+
+using ChargeBatteryPtr = std::shared_ptr<ChargeBattery>;
 
 } // namespace requests
 } // namespace rmf_task

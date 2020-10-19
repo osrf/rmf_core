@@ -130,12 +130,6 @@ SCENARIO("Grid World")
   std::shared_ptr<SimpleDevicePowerSink> device_sink =
     std::make_shared<SimpleDevicePowerSink>(battery_system, power_system);
 
-  auto charge_battery_task = rmf_task::requests::ChargeBattery::make(
-    battery_system,
-    motion_sink, device_sink,
-    planner,
-    drain_battery);
-  
   WHEN("Planning for 3 requests and 2 agents")
   {
     const auto now = std::chrono::steady_clock::now();
@@ -190,7 +184,11 @@ SCENARIO("Grid World")
     };
 
     std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
-      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(charge_battery_task);
+      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
     rmf_task::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(
@@ -341,7 +339,11 @@ SCENARIO("Grid World")
     };
 
     std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
-      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(charge_battery_task);
+      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
     rmf_task::agv::TaskPlanner task_planner(task_config);
 
     const auto greedy_assignments = task_planner.greedy_plan(

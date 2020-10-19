@@ -40,16 +40,26 @@ class TaskPlanner::Configuration::Implementation
 {
 public:
 
-  Request::SharedPtr charge_battery_request;
+  rmf_battery::agv::BatterySystem battery_system;
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
+  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
+  std::shared_ptr<rmf_traffic::agv::Planner> planner;
   FilterType filter_type;
+
 };
 
 TaskPlanner::Configuration::Configuration(
-  Request::SharedPtr charge_battery_request,
+  rmf_battery::agv::BatterySystem battery_system,
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+  std::shared_ptr<rmf_traffic::agv::Planner> planner,
   const FilterType filter_type)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        std::move(charge_battery_request),
+        battery_system,
+        std::move(motion_sink),
+        std::move(ambient_sink),
+        std::move(planner),
         filter_type
       }))
 {
@@ -57,18 +67,36 @@ TaskPlanner::Configuration::Configuration(
 }
 
 //==============================================================================
-Request::SharedPtr TaskPlanner::Configuration::charge_battery_request() const
+rmf_battery::agv::BatterySystem& TaskPlanner::Configuration::battery_system()
 {
-  return std::move(_pimpl->charge_battery_request);
+  return _pimpl->battery_system;
 }
 
 //==============================================================================
-auto TaskPlanner::Configuration::charge_battery_request(
-  Request::SharedPtr charge_battery_request) -> Configuration&
+auto TaskPlanner::Configuration::battery_system(
+  rmf_battery::agv::BatterySystem battery_system) -> Configuration&
 {
-  _pimpl->charge_battery_request = std::move(charge_battery_request);
+  _pimpl->battery_system = battery_system;
   return *this;
 }
+
+//==============================================================================
+std::shared_ptr<rmf_battery::MotionPowerSink> TaskPlanner::Configuration::motion_sink() const
+{
+  return _pimpl->motion_sink;
+}
+
+//==============================================================================
+std::shared_ptr<rmf_battery::DevicePowerSink> TaskPlanner::Configuration::ambient_sink() const
+{
+  return _pimpl->ambient_sink;
+}
+
+//==============================================================================
+std::shared_ptr<rmf_traffic::agv::Planner> TaskPlanner::Configuration::planner() const
+{
+  return _pimpl->planner;
+} 
 
 //==============================================================================
 TaskPlanner::FilterType TaskPlanner::Configuration::filter_type() const
@@ -582,6 +610,17 @@ public:
 
   std::shared_ptr<Configuration> config;
 
+  RequestPtr make_charging_request(rmf_traffic::Time start_time)
+  {
+    return rmf_task::requests::ChargeBattery::make(
+      config->battery_system(),
+      config->motion_sink(),
+      config->ambient_sink(),
+      config->planner(),
+      start_time,
+      true);
+  }
+
   double compute_g(const Assignments& assigned_tasks)
   {
     double cost = 0.0;
@@ -606,8 +645,9 @@ public:
         continue;
 
       // Remove charging task at end of assignments if any
-      if (assignments[a].back().request()->id() ==
-          config->charge_battery_request()->id())
+      // TODO(YV): Remove this after fixing the planner
+      if (std::dynamic_pointer_cast<rmf_task::requests::ChargeBatteryPtr>(
+          assignments[a].back().request()))
         assignments[a].pop_back();
     }
 
@@ -755,11 +795,13 @@ public:
 
     initial_node->assigned_tasks.resize(initial_states.size());
 
+    // TODO(YV): Come up with a better solution for charge_battery_request
+    auto charge_battery = make_charging_request(time_now);
     for (const auto& request : requests)
       initial_node->unassigned_tasks.insert(
         {
           request->id(),
-          PendingTask(initial_states, state_configs, request, config->charge_battery_request())
+          PendingTask(initial_states, state_configs, request, charge_battery)
         });
 
     initial_node->cost_estimate = compute_f(*initial_node, time_now);
@@ -886,13 +928,14 @@ public:
 
     if (add_charger)
     {
-      auto battery_estimate = config->charge_battery_request()->estimate_finish(entry.state, state_config);
+      auto charge_battery = make_charging_request(entry.state.finish_time());
+      auto battery_estimate = charge_battery->estimate_finish(entry.state, state_config);
       if (battery_estimate.has_value())
       {
         new_node->assigned_tasks[entry.candidate].push_back(
           Assignment
           {
-            config->charge_battery_request(),
+            charge_battery,
             battery_estimate.value().finish_state(),
             battery_estimate.value().wait_until()
           });
@@ -948,18 +991,19 @@ public:
 
     if (!assignments.empty())
     {
-      if (assignments.back().request()->id() == config->charge_battery_request()->id())
+      if (std::dynamic_pointer_cast<rmf_task::requests::ChargeBatteryPtr>(assignments.back().request()))
         return nullptr;
       state = assignments.back().state();
     }
 
-    auto estimate = config->charge_battery_request()->estimate_finish(
+    auto charge_battery = make_charging_request(state.finish_time());
+    auto estimate = charge_battery->estimate_finish(
       state, state_configs[agent]);
     if (estimate.has_value())
     {
       new_node->assigned_tasks[agent].push_back(
         Assignment{
-          config->charge_battery_request(),
+          charge_battery,
           estimate.value().finish_state(),
           estimate.value().wait_until()});
 

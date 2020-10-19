@@ -34,6 +34,7 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> _device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> _planner;
+  rmf_traffic::Time _start_time;
   bool _drain_battery;
 
   // soc to always charge the battery up to
@@ -47,6 +48,7 @@ rmf_task::Request::SharedPtr ChargeBattery::make(
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
+  rmf_traffic::Time start_time,
   bool drain_battery)
 {
   std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery());
@@ -60,6 +62,7 @@ rmf_task::Request::SharedPtr ChargeBattery::make(
   charge_battery->_pimpl->_motion_sink = std::move(motion_sink);
   charge_battery->_pimpl->_device_sink = std::move(device_sink);
   charge_battery->_pimpl->_planner = std::move(planner);
+  charge_battery->_pimpl->_start_time = start_time;
   charge_battery->_pimpl->_drain_battery = drain_battery;
   charge_battery->_pimpl->_invariant_duration =
     rmf_traffic::time::from_seconds(0.0);
@@ -154,7 +157,7 @@ rmf_traffic::Duration ChargeBattery::invariant_duration() const
 //==============================================================================
 rmf_traffic::Time ChargeBattery::earliest_start_time() const
 {
-  return rmf_traffic::Time::min();
+  return _pimpl->_start_time;
 }
 
 //==============================================================================
