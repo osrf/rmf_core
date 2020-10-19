@@ -25,9 +25,22 @@ set(msg_files
   "msg/TaskSummary.msg"
   "msg/Tasks.msg"
   "msg/Loop.msg"
+  # New task Msgs
+  "msg/TaskType.msg"
+  "msg/TaskProfile.msg"
+  "msg/BidNotice.msg"
+  "msg/BidProposal.msg"
+  "msg/DispatchRequest.msg"
 )
 
+set(srv_files
+  "srv/SubmitTask.srv"
+  "srv/CancelTask.srv"
+  "srv/GetTask.srv"
+)
+  
 rosidl_generate_interfaces(${PROJECT_NAME}
+  ${srv_files}
   ${msg_files}
   DEPENDENCIES
     builtin_interfaces
