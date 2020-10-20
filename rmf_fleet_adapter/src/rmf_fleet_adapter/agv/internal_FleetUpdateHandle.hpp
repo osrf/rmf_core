@@ -24,7 +24,10 @@
 #include <rmf_task_msgs/msg/bid_notice.hpp>
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
 
+#include <rmf_task/agv/TaskPlanner.hpp>
+
 #include <rmf_fleet_adapter/agv/FleetUpdateHandle.hpp>
+#include <rmf_fleet_adapter/StandardNames.hpp>
 
 #include "Node.hpp"
 #include "RobotContext.hpp"
@@ -120,6 +123,13 @@ public:
   std::shared_ptr<ParticipantFactory> writer;
   std::shared_ptr<rmf_traffic::schedule::Snappable> snappable;
   std::shared_ptr<rmf_traffic_ros2::schedule::Negotiation> negotiation;
+  std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system;
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
+  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
+  std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink;
+  const bool drain_battery;
+
+  std::shared_ptr<rmf_task::agv::TaskPlanner> task_planner = nullptr;
 
   rmf_utils::optional<rmf_traffic::Duration> default_maximum_delay =
       std::chrono::nanoseconds(std::chrono::seconds(10));
@@ -129,15 +139,15 @@ public:
 
   using BidNotice = rmf_task_msgs::msg::BidNotice;
   using BidNoticeSub = rclcpp::Subscription<BidNotice>::SharedPtr;
-  BidNoticeSub bid_notice_sub;
+  BidNoticeSub bid_notice_sub = nullptr;
 
   using BidProposal = rmf_task_msgs::msg::BidProposal;
   using BidProposalPub = rclcpp::Publisher<BidProposal>::SharedPtr;
-  BidProposalPub bid_proposal_pub;
+  BidProposalPub bid_proposal_pub = nullptr;
 
   using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
   using DispatchRequestSub = rclcpp::Subscription<DispatchRequest>::SharedPtr;
-  DispatchRequestSub dispatch_request_sub;
+  DispatchRequestSub dispatch_request_sub = nullptr;
 
   template<typename... Args>
   static std::shared_ptr<FleetUpdateHandle> make(Args&&... args)
@@ -145,6 +155,46 @@ public:
     FleetUpdateHandle handle;
     handle._pimpl = rmf_utils::make_unique_impl<Implementation>(
           Implementation{std::forward<Args>(args)...});
+
+    // Setup the task planner
+    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration> task_config =
+      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+        *handle._pimpl->battery_system,
+        handle._pimpl->motion_sink,
+        handle._pimpl->ambient_sink,
+        handle._pimpl->planner);
+    
+    handle._pimpl->task_planner = std::make_shared<rmf_task::agv::TaskPlanner>(
+      task_config);
+
+    // Create subs and pubs for bidding
+    auto default_qos = rclcpp::SystemDefaultsQoS();
+    
+    // Publish BidProposal
+    handle._pimpl->bid_proposal_pub =
+      handle._pimpl->node->create_publisher<BidProposal>(
+        BidProposalTopicName, default_qos);
+
+    // Subscribe BidNotice
+    handle._pimpl->bid_notice_sub =
+      handle._pimpl->node->create_subscription<BidNotice>(
+        BidNoticeTopicName,
+        default_qos,
+        [&](const BidNotice::SharedPtr msg)
+        {
+          // TODO(YV)
+        });
+
+    // Subscribe DispatchRequest
+    handle._pimpl->dispatch_request_sub =
+      handle._pimpl->node->create_subscription<DispatchRequest>(
+        DispatchRequestTopicName,
+        default_qos,
+        [&](const DispatchRequest::SharedPtr msg)
+        {
+          // TODO(YV)
+        });
+
     return std::make_shared<FleetUpdateHandle>(std::move(handle));
   }
 

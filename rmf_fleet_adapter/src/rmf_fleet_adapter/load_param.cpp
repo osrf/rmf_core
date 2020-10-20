@@ -88,4 +88,45 @@ rmf_traffic::agv::VehicleTraits get_traits_or_default(rclcpp::Node& node,
   return traits;
 }
 
+
+//==============================================================================
+rmf_battery::agv::BatterySystem get_battery_system(
+  rclcpp::Node& node,
+  const double default_voltage,
+  const double default_capacity,
+  const double default_charging_current)
+{
+  const double voltage =
+    get_parameter_or_default(node, "battery_voltage", default_voltage);
+  const double capacity =
+    get_parameter_or_default(node, "battery_capacity", default_capacity);
+  const double charging_current =
+    get_parameter_or_default(
+      node, "battery_charging_current", default_charging_current);
+
+  rmf_battery::agv::BatterySystem battery_system{
+    voltage, capacity, charging_current};
+  
+  return battery_system;
+}
+
+rmf_battery::agv::MechanicalSystem get_mechanical_system(
+  rclcpp::Node& node,
+  const double default_mass,
+  const double default_inertia,
+  const double default_friction)
+{
+    const double mass =
+    get_parameter_or_default(node, "mass", default_mass);
+  const double inertia =
+    get_parameter_or_default(node, "inertia", default_inertia);
+  const double friction =
+    get_parameter_or_default(node, "friction_coefficient", default_friction);
+
+  rmf_battery::agv::MechanicalSystem mechanical_system{
+    mass, inertia, friction};
+  
+  return mechanical_system;
+}
+
 } // namespace rmf_fleet_adapter
