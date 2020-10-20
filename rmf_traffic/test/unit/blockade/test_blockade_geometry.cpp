@@ -19,8 +19,6 @@
 
 #include <src/rmf_traffic/blockade/geometry.hpp>
 
-#include <iostream>
-
 SCENARIO("Test blockade geometry calculations for direct conflicts")
 {
   using namespace rmf_traffic::blockade;

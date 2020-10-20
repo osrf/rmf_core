@@ -31,12 +31,18 @@ bool compatible_start_and_finish(
     std::size_t finish,
     bool include_finish)
 {
-  if (start < finish+1)
+  if (finish+1 < start)
     return false;
 
   if (start == finish)
   {
     if (!include_start && !include_finish)
+      return false;
+  }
+
+  if (finish+1 == start)
+  {
+    if (!include_start || !include_finish)
       return false;
   }
 
@@ -135,19 +141,15 @@ void expand_bracket(
     if (can_hold_at_start && !bracket.include_start)
       break;
 
+    const bool can_hold_at_next = path.at(bracket.start-1).can_hold;
+    if (can_hold_at_next)
+    {
+      bracket.include_start = true;
+      break;
+    }
+
     --bracket.start;
     bracket.include_start = false;
-  }
-
-  while (bracket.finish < path.size()-1)
-  {
-    const bool can_hold_at_finish = path.at(bracket.finish).can_hold;
-
-    if (can_hold_at_finish && !bracket.include_finish)
-      break;
-
-    ++bracket.finish;
-    bracket.include_finish = false;
   }
 }
 
@@ -159,7 +161,7 @@ std::vector<BracketPair> compute_conflict_brackets(
     const double radius_b,
     const double angle_threshold)
 {
-  std::multimap<std::size_t, BracketPair> a_set;
+  std::multimap<std::size_t, BracketPair> pair_set;
   for (std::size_t a=0; a < path_a.size()-1; ++a)
   {
     const auto& it_a_start = path_a[a];
@@ -167,7 +169,7 @@ std::vector<BracketPair> compute_conflict_brackets(
     const Segment segment_a{
       it_a_start.position, it_a_finish.position, radius_a};
 
-    for (std::size_t b=0; b < path_b.size(); ++b)
+    for (std::size_t b=0; b < path_b.size()-1; ++b)
     {
       const auto& it_b_start = path_b[b];
       const auto& it_b_finish = path_b[b+1];
@@ -183,7 +185,7 @@ std::vector<BracketPair> compute_conflict_brackets(
       pair.A.start = a;
       pair.A.finish = a+1;
       pair.A.include_start = info.include_cap_a[ConflictInfo::Start];
-      pair.A.include_finish = info.include_cap_b[ConflictInfo::Finish];
+      pair.A.include_finish = info.include_cap_a[ConflictInfo::Finish];
 
       pair.B.start = b;
       pair.B.finish = b+1;
@@ -193,27 +195,24 @@ std::vector<BracketPair> compute_conflict_brackets(
       expand_bracket(pair.A, path_a);
       expand_bracket(pair.B, path_b);
 
-      a_set.emplace(std::make_pair(pair.A.start, pair));
+      pair_set.emplace(std::make_pair(pair.A.start, pair));
     }
   }
 
   std::vector<BracketPair> final_pairs;
-  while (!a_set.empty())
+  while (!pair_set.empty())
   {
     std::size_t merge_count = 0;
 
-    auto it_a = a_set.begin();
+    auto it_a = pair_set.begin();
     auto pair = it_a->second;
-    a_set.erase(it_a++);
+    pair_set.erase(it_a++);
 
-    while (it_a != a_set.end())
+    while (it_a != pair_set.end())
     {
-      if (pair.A.finish < it_a->second.A.start+1)
-        break;
-
       if (try_merge(pair, it_a->second, merge_count))
       {
-        a_set.erase(it_a++);
+        pair_set.erase(it_a++);
       }
       else
       {
@@ -227,7 +226,7 @@ std::vector<BracketPair> compute_conflict_brackets(
     }
     else
     {
-      a_set.insert(std::make_pair(pair.A.start, pair));
+      pair_set.insert(std::make_pair(pair.A.start, pair));
     }
   }
 
@@ -263,7 +262,6 @@ std::pair<std::size_t, ConstConstraintPtr> compute_blocker(
       blocker_hold_point = other.start;
     else if (other.start > 0)
       blocker_hold_point = other.start - 1;
-
     // else we do not allow the other participant to hold
   }
 
