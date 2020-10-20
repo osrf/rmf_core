@@ -25,8 +25,8 @@
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
 
-#include <rmf_task_msgs/msg/delivery.hpp>
-#include <rmf_task_msgs/msg/loop.hpp>
+// #include <rmf_task_msgs/msg/delivery.hpp>
+// #include <rmf_task_msgs/msg/loop.hpp>
 
 #include "internal_TrafficLight.hpp"
 
