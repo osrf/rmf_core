@@ -66,23 +66,22 @@ public:
   std::shared_ptr<ParticipantFactory> writer;
   rmf_traffic_ros2::schedule::MirrorManager mirror_manager;
 
+  // using Delivery = rmf_task_msgs::msg::Delivery;
+  // using DeliverySub = rclcpp::Subscription<Delivery>::SharedPtr;
+  // DeliverySub delivery_sub;
 
-  using Delivery = rmf_task_msgs::msg::Delivery;
-  using DeliverySub = rclcpp::Subscription<Delivery>::SharedPtr;
-  DeliverySub delivery_sub;
-
-  using Loop = rmf_task_msgs::msg::Loop;
-  using LoopSub = rclcpp::Subscription<Loop>::SharedPtr;
-  LoopSub loop_sub;
+  // using Loop = rmf_task_msgs::msg::Loop;
+  // using LoopSub = rclcpp::Subscription<Loop>::SharedPtr;
+  // LoopSub loop_sub;
 
   std::vector<std::shared_ptr<FleetUpdateHandle>> fleets = {};
 
   // TODO(MXG): This mutex probably isn't needed
   std::mutex mutex;
 
-  std::unordered_set<std::string> received_tasks;
-  std::map<rmf_traffic::Time, std::string> task_times;
-  rclcpp::TimerBase::SharedPtr task_purge_timer;
+  // std::unordered_set<std::string> received_tasks;
+  // std::map<rmf_traffic::Time, std::string> task_times;
+  // rclcpp::TimerBase::SharedPtr task_purge_timer;
 
   Implementation(
       rxcpp::schedulers::worker worker_,
@@ -96,50 +95,50 @@ public:
       writer{std::move(writer_)},
       mirror_manager{std::move(mirror_manager_)}
   {
-    const auto default_qos = rclcpp::SystemDefaultsQoS();
-    delivery_sub = node->create_subscription<Delivery>(
-          DeliveryTopicName, default_qos,
-          [this](Delivery::SharedPtr msg)
-    {
-      std::lock_guard<std::mutex> lock(mutex);
-      if (!received_tasks.insert(msg->task_id).second)
-        return;
+    // const auto default_qos = rclcpp::SystemDefaultsQoS();
+    // delivery_sub = node->create_subscription<Delivery>(
+    //       DeliveryTopicName, default_qos,
+    //       [this](Delivery::SharedPtr msg)
+    // {
+    //   std::lock_guard<std::mutex> lock(mutex);
+    //   if (!received_tasks.insert(msg->task_id).second)
+    //     return;
 
-      task_times.insert(
-          task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
+    //   task_times.insert(
+    //       task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
 
-      rmf_fleet_adapter::agv::request_delivery(*msg, fleets);
-    });
+    //   rmf_fleet_adapter::agv::request_delivery(*msg, fleets);
+    // });
 
-    loop_sub = node->create_subscription<Loop>(
-          LoopRequestTopicName, default_qos,
-          [this](Loop::SharedPtr msg)
-    {
-      std::lock_guard<std::mutex> lock(mutex);
-      if (!received_tasks.insert(msg->task_id).second)
-        return;
+    // loop_sub = node->create_subscription<Loop>(
+    //       LoopRequestTopicName, default_qos,
+    //       [this](Loop::SharedPtr msg)
+    // {
+    //   std::lock_guard<std::mutex> lock(mutex);
+    //   if (!received_tasks.insert(msg->task_id).second)
+    //     return;
 
-      task_times.insert(
-          task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
+    //   task_times.insert(
+    //       task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
 
-      rmf_fleet_adapter::agv::request_loop(*msg, fleets);
-    });
+    //   rmf_fleet_adapter::agv::request_loop(*msg, fleets);
+    // });
 
-    task_purge_timer = node->create_wall_timer(
-          std::chrono::minutes(60), [this]()
-    {
-      // This purge of task ids is to prevent the log of tasks from growing
-      // infinitely.
-      const auto purge_end =
-          std::chrono::steady_clock::now() - std::chrono::minutes(60);
+    // task_purge_timer = node->create_wall_timer(
+    //       std::chrono::minutes(60), [this]()
+    // {
+    //   // This purge of task ids is to prevent the log of tasks from growing
+    //   // infinitely.
+    //   const auto purge_end =
+    //       std::chrono::steady_clock::now() - std::chrono::minutes(60);
 
-      auto it = task_times.begin();
-      for (; it != task_times.end() && it->first < purge_end; ++it)
-        received_tasks.erase(it->second);
+    //   auto it = task_times.begin();
+    //   for (; it != task_times.end() && it->first < purge_end; ++it)
+    //     received_tasks.erase(it->second);
 
-      if (it != task_times.begin())
-        task_times.erase(task_times.begin(), it);
-    });
+    //   if (it != task_times.begin())
+    //     task_times.erase(task_times.begin(), it);
+    // });
   }
 
   static rmf_utils::unique_impl_ptr<Implementation> make(
