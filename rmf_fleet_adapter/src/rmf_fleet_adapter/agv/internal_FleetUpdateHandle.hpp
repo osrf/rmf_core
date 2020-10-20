@@ -123,13 +123,15 @@ public:
   std::shared_ptr<ParticipantFactory> writer;
   std::shared_ptr<rmf_traffic::schedule::Snappable> snappable;
   std::shared_ptr<rmf_traffic_ros2::schedule::Negotiation> negotiation;
-  std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system;
-  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
-  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
-  std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink;
-  const bool drain_battery;
 
+  // Task planner params
+  std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system = nullptr;
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink = nullptr;
+  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink = nullptr;
+  std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink = nullptr;
+  const bool drain_battery = true;
   std::shared_ptr<rmf_task::agv::TaskPlanner> task_planner = nullptr;
+  bool initialized_task_planner = false;
 
   rmf_utils::optional<rmf_traffic::Duration> default_maximum_delay =
       std::chrono::nanoseconds(std::chrono::seconds(10));
@@ -155,17 +157,6 @@ public:
     FleetUpdateHandle handle;
     handle._pimpl = rmf_utils::make_unique_impl<Implementation>(
           Implementation{std::forward<Args>(args)...});
-
-    // Setup the task planner
-    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration> task_config =
-      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
-        *handle._pimpl->battery_system,
-        handle._pimpl->motion_sink,
-        handle._pimpl->ambient_sink,
-        handle._pimpl->planner);
-    
-    handle._pimpl->task_planner = std::make_shared<rmf_task::agv::TaskPlanner>(
-      task_config);
 
     // Create subs and pubs for bidding
     auto default_qos = rclcpp::SystemDefaultsQoS();

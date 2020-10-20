@@ -23,10 +23,6 @@
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 #include <rmf_traffic/agv/Graph.hpp>
 
-#include <rmf_battery/agv/BatterySystem.hpp>
-#include <rmf_battery/DevicePowerSink.hpp>
-#include <rmf_battery/MotionPowerSink.hpp>
-
 #include <rclcpp/node.hpp>
 
 namespace rmf_fleet_adapter {
@@ -98,32 +94,10 @@ public:
   ///
   /// \param[in] navigation_graph
   ///   Specify the navigation graph used by the vehicles in this fleet.
-  ///
-  /// \param[in] battery_system
-  ///   Specify the battery system used by the vehicles in this fleet.
-  ///
-  /// \param[in] motion_sink
-  ///   Specify the motion sink that describes the vehicles in this fleet.
-  ///
-  /// \param[in] ambient_sink
-  ///   Specify the device sink for ambient sensors used by the vehicles in this fleet.
-  ///
-  /// \param[in] tool_sink
-  ///   Specify the device sink for special tools used by the vehicles in this fleet.
-  ///
-  /// \param[in] drain_battery
-  ///   If false, battery drain will not be considered when planning for tasks.
-  ///   As a consequence, charging tasks will not be automatically assigned to
-  ///   vehicles in this fleet when battery levels fall below their thresholds.
   std::shared_ptr<FleetUpdateHandle> add_fleet(
       const std::string& fleet_name,
       rmf_traffic::agv::VehicleTraits traits,
-      rmf_traffic::agv::Graph navigation_graph,
-      std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
-      std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
-      std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-      std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink = nullptr,
-      const bool drain_battery = true);
+      rmf_traffic::agv::Graph navigation_graph);
 
   /// Create a traffic light to help manage robots that can only support pause
   /// and resume commands.

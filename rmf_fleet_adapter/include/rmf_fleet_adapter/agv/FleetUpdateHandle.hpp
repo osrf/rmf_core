@@ -23,6 +23,10 @@
 
 #include <rmf_task_msgs/msg/delivery.hpp>
 
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/DevicePowerSink.hpp>
+#include <rmf_battery/MotionPowerSink.hpp>
+
 namespace rmf_fleet_adapter {
 namespace agv {
 
@@ -62,6 +66,33 @@ public:
       const rmf_traffic::Profile& profile,
       rmf_traffic::agv::Plan::StartSet start,
       std::function<void(std::shared_ptr<RobotUpdateHandle> handle)> handle_cb);
+
+  /// Set the parameters required for task planning
+  ///
+  /// \param[in] battery_system
+  ///   Specify the battery system used by the vehicles in this fleet.
+  ///
+  /// \param[in] motion_sink
+  ///   Specify the motion sink that describes the vehicles in this fleet.
+  ///
+  /// \param[in] ambient_sink
+  ///   Specify the device sink for ambient sensors used by the vehicles in this fleet.
+  ///
+  /// \param[in] tool_sink
+  ///   Specify the device sink for special tools used by the vehicles in this fleet.
+  ///
+  /// \param[in] drain_battery
+  ///   If false, battery drain will not be considered when planning for tasks.
+  ///   As a consequence, charging tasks will not be automatically assigned to
+  ///   vehicles in this fleet when battery levels fall below their thresholds.
+  ///
+  /// \return true if task planner parameters were successfully updated.
+  bool set_task_planner_params(
+    std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
+    const bool drain_battery);
 
   /// A callback function that evaluates whether a fleet will accept a delivery
   /// request.

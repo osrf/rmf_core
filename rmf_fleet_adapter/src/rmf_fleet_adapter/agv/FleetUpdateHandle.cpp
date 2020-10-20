@@ -374,6 +374,39 @@ FleetUpdateHandle::default_maximum_delay() const
   return _pimpl->default_maximum_delay;
 }
 
+bool FleetUpdateHandle::set_task_planner_params(
+    std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
+    const bool drain_battery)
+{
+  if (battery_system && motion_sink && ambient_sink && tool_sink)
+  {
+
+    _pimpl->battery_system  = battery_system;
+    _pimpl->motion_sink = motion_sink;
+    _pimpl->ambient_sink = ambient_sink;
+    _pimpl->tool_sink = tool_sink;
+
+    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration> task_config =
+      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+        *battery_system,
+        motion_sink,
+        ambient_sink,
+        _pimpl->planner);
+    
+    _pimpl->task_planner = std::make_shared<rmf_task::agv::TaskPlanner>(
+      task_config);
+    
+    _pimpl->initialized_task_planner = true;
+
+    return _pimpl->initialized_task_planner;
+  }
+
+    return false;
+}
+
 //==============================================================================
 FleetUpdateHandle::FleetUpdateHandle()
 {

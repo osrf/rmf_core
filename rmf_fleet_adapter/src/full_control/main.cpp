@@ -475,6 +475,10 @@ std::shared_ptr<Connections> make_fleet(
   for (const auto& key : connections->graph->keys())
     std::cout << " -- " << key.first << std::endl;
 
+
+  connections->fleet = adapter->add_fleet(
+        fleet_name, *connections->traits, *connections->graph);
+
   // Parameters required for task planner
   // Battery system
   auto battery_system = std::make_shared<rmf_battery::agv::BatterySystem>(
@@ -542,9 +546,15 @@ std::shared_ptr<Connections> make_fleet(
   const bool drain_battery = rmf_fleet_adapter::get_parameter_or_default(
     *node, "drain_battery", true);
 
-  connections->fleet = adapter->add_fleet(
-        fleet_name, *connections->traits, *connections->graph,
-        battery_system, motion_sink, ambient_sink, tool_sink, drain_battery);
+  if (!connections->fleet->set_task_planner_params(
+        battery_system, motion_sink, ambient_sink, tool_sink, drain_battery))
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Failed to initialize task planner parameters");
+
+    return nullptr;
+  }
 
   // If the perform_deliveries parameter is true, then we just blindly accept
   // all delivery requests.

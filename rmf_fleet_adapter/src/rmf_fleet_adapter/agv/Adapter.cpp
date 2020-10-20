@@ -244,12 +244,7 @@ std::shared_ptr<Adapter> Adapter::make(
 std::shared_ptr<FleetUpdateHandle> Adapter::add_fleet(
     const std::string& fleet_name,
     rmf_traffic::agv::VehicleTraits traits,
-    rmf_traffic::agv::Graph navigation_graph,
-    std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
-    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
-    const bool drain_battery)
+    rmf_traffic::agv::Graph navigation_graph)
 {
   auto planner = std::make_shared<rmf_traffic::agv::Planner>(
         rmf_traffic::agv::Planner::Configuration(
@@ -260,8 +255,7 @@ std::shared_ptr<FleetUpdateHandle> Adapter::add_fleet(
   auto fleet = FleetUpdateHandle::Implementation::make(
         fleet_name, std::move(planner), _pimpl->node, _pimpl->worker,
         _pimpl->writer, _pimpl->mirror_manager.snapshot_handle(),
-        _pimpl->negotiation, std::move(battery_system), std::move(motion_sink),
-        std::move(ambient_sink), std::move(tool_sink), drain_battery);
+        _pimpl->negotiation);
 
   _pimpl->fleets.push_back(fleet);
   return fleet;
