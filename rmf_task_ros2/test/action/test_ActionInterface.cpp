@@ -135,48 +135,59 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
 
 //==============================================================================
 
-  // // new Test taskMsg
-  // rmf_utils::optional<TaskMsg> test_task_completion;
+  rmf_utils::optional<TaskStatus> test_task_onchange;
+  rmf_utils::optional<TaskStatus> test_task_onterminate;
 
-  // // received test request msg from client
-  // action_client->register_callbacks(
-  //   // status task
-  //   [&](
-  //     const std::string& fleet_name, const std::vector<TaskMsg>& tasks)
-  //   {
-  //     // test_add_task = task_profile;
-  //     return;
-  //   },
-  //   // termination task
-  //   [&test_task_completion](
-  //     const std::string& fleet_name, const TaskMsg& task, const bool success)
-  //   {
-  //     test_task_completion = task;
-  //     return;
-  //   }
-  // );
+  // received status update from server
+  action_client->on_change(
+    [&test_task_onchange](const TaskStatusPtr status)
+    {
+      test_task_onchange = *status;
+    }
+  );
+  action_client->on_terminate(
+    [&test_task_onterminate](const TaskStatusPtr status)
+    {
+      test_task_onterminate = *status;
+    }
+  );
 
-  WHEN("Terminate Task")
+  WHEN("On Change and On Terminate Task")
   {
-    // TaskMsg completed_task;
-    // completed_task.task_profile = convert(task_profile1);
-    // action_server->terminate_task(completed_task, true);
+    TaskStatusPtr status_ptr(new TaskStatus);
+    action_client->add_task("test_server", task_profile1, status_ptr);
 
-    // executor.spin_until_future_complete(ready_future,
-    //   rmf_traffic::time::from_seconds(0.5));
+    executor.spin_until_future_complete(ready_future,
+      rmf_traffic::time::from_seconds(0.5));
 
-    // REQUIRE(test_task_completion);
-    // REQUIRE(test_task_completion->state == TaskMsg::TERMINAL_COMPLETED);
-  }
+    REQUIRE(test_task_onchange);
+    REQUIRE(test_task_onchange->state == TaskStatus::State::Queued);
 
-  WHEN("Get Task Status every interval")
-  {
+    TaskStatus server_task;
+    server_task.task_profile = task_profile1;
+    server_task.state = TaskStatus::State::Executing;
 
+    // Update it as executing
+    action_server->update_status(server_task);
+    executor.spin_until_future_complete(ready_future,
+      rmf_traffic::time::from_seconds(1.5));
+
+    REQUIRE(test_task_onchange->state == TaskStatus::State::Executing);
+    REQUIRE(!test_task_onterminate); // havnt terminated yet
+
+    // completion
+    server_task.state = TaskStatus::State::Completed;
+    // Update it as executing
+    action_server->update_status(server_task);
+    executor.spin_until_future_complete(ready_future,
+      rmf_traffic::time::from_seconds(0.5));
+
+    REQUIRE(test_task_onterminate);
+    REQUIRE(test_task_onterminate->state == TaskStatus::State::Completed);
   }
 
   rclcpp::shutdown();
 }
-
 
 } // namespace action
 } // namespace rmf_task_ros2

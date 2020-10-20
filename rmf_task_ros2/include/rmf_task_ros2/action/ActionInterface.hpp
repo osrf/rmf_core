@@ -146,7 +146,7 @@ public:
     CancelTaskCallback cancel_task_cb_fn);
 
   /// Use this to send a status update to action client
-  /// A periodic update is recommended to inform the task progress
+  /// A On Change update is recommended to inform the task progress
   ///
   /// \param[in] task status
   void update_status(

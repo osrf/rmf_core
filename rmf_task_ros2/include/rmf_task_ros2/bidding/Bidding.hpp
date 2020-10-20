@@ -42,6 +42,8 @@ struct Submission
   rmf_traffic::Time finish_time;
 };
 
+using Submissions = std::vector<Submission>;
+
 } // namespace bidding
 
 //==============================================================================

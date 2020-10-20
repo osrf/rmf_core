@@ -1,10 +1,9 @@
 # Submit Task | POST service call
-# NOTE: Still in design
 
-# Whom that request this task
+# Whom that call this srv
 string requester
 
-# submission_time is when the task was first submited
+# Desired start time of a task
 builtin_interfaces/Time start_time
 
 # e.g. Delivery, Station.....

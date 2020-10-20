@@ -27,7 +27,6 @@
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
-#include <rmf_task_ros2/bidding/Nomination.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
@@ -68,14 +67,54 @@ public:
   ///   This fn will be called when a bidding result is derived
   void receive_bidding_result(BiddingResultCallback result_callback);
 
-  // /// Provide a custom evaluator which will be used to choose the best bid
-  // void select_evaluator(const Evaluator& evaluator);
+  /// A pure abstract interface class for choosing the best submissions.
+  class Evaluator
+  {
+  public:
+
+    /// Given a list of submissions, choose the one that is the "best". It is up to
+    /// the implementation of the Evaluator to decide how to rank.
+    virtual std::size_t choose(const Submissions& submissions) const = 0;
+
+    virtual ~Evaluator() = default;
+  };
+
+  /// Provide a custom evaluator which will be used to choose the best bid
+  /// If no selection is givenDefault is: LeastFleetDiffCostEvaluator
+  ///
+  /// \param[in] evaluator
+  void select_evaluator(std::shared_ptr<Evaluator> evaluator);
+
+  /// Get the best winner from all submissions
+  ///
+  /// \param[in] submissions
+  ///
+  /// \return Winner, nullopt if no winner
+  rmf_utils::optional<Submission> evaluate(const Submissions& submissions);
 
   class Implementation;
 
 private:
   Auctioneer();
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+};
+
+//==============================================================================
+class LeastFleetDiffCostEvaluator : public Auctioneer::Evaluator
+{
+  std::size_t choose(const Submissions& submissions) const final;
+};
+
+//==============================================================================
+class LeastFleetCostEvaluator : public Auctioneer::Evaluator
+{
+  std::size_t choose(const Submissions& submissions) const final;
+};
+
+//==============================================================================
+class QuickestFinishEvaluator : public Auctioneer::Evaluator
+{
+  std::size_t choose(const Submissions& submissions) const final;
 };
 
 } // namespace bidding

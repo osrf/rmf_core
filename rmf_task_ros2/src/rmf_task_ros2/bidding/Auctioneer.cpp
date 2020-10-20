@@ -29,7 +29,7 @@ public:
   std::shared_ptr<rclcpp::Node> node;
   rclcpp::TimerBase::SharedPtr timer;
   BiddingResultCallback bidding_result_callback;
-  // Nomination::Evaluator _evaluator;
+  std::shared_ptr<Evaluator> winner_evaluator;
 
   struct BiddingTaskSubmissions
   {
@@ -47,6 +47,10 @@ public:
   Implementation(const std::shared_ptr<rclcpp::Node>& node_)
   : node(node_)
   {
+    // default evaluator
+    winner_evaluator = std::shared_ptr<LeastFleetDiffCostEvaluator>(
+      new LeastFleetDiffCostEvaluator());
+
     const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
     bid_notice_pub = node->create_publisher<BidNotice>(
@@ -74,7 +78,7 @@ public:
     bid_notice_pub->publish(bidding_task);
   }
 
-  // Receive proposal and evaluate // todo think
+  // Receive proposal and evaluate
   void receive_proposal(const BidProposal& msg)
   {
     auto id_ = msg.task_profile.task_id;
@@ -98,10 +102,11 @@ public:
     for (auto it = queue_bidding_tasks.begin();
       it != queue_bidding_tasks.end(); )
     {
-      auto duration = rmf_traffic_ros2::convert(node->now() - 
+      auto duration = rmf_traffic_ros2::convert(node->now() -
           it->second.bidding_task.task_profile.submission_time);
 
-      auto time_window = rmf_traffic_ros2::convert(it->second.bidding_task.time_window);
+      auto time_window = rmf_traffic_ros2::convert(
+        it->second.bidding_task.time_window);
 
       if (duration > time_window)
       {
@@ -127,10 +132,7 @@ public:
     }
     else
     {
-      // Nominate and Evaluate Here
-      Nomination task_nomination(submissions);
-      auto _evaluator = LeastFleetDiffCostEvaluator();
-      winner = task_nomination.evaluate(_evaluator);
+      winner = evaluate(submissions);
       std::cout << "Found winning Fleet Adapter: "
                 << winner->fleet_name << std::endl;
     }
@@ -138,6 +140,19 @@ public:
     // check if bidding_result_callback fn is initailized
     if (bidding_result_callback)
       this->bidding_result_callback(task_id, winner);
+  }
+
+  rmf_utils::optional<Submission> evaluate(const Submissions& submissions)
+  {
+    if (submissions.size() == 0)
+      return rmf_utils::nullopt;
+
+    const std::size_t choice = winner_evaluator->choose(submissions);
+
+    if (choice > submissions.size())
+      return rmf_utils::nullopt;
+
+    return (submissions)[choice];
   }
 };
 
@@ -169,15 +184,70 @@ void Auctioneer::receive_bidding_result(BiddingResultCallback result_callback)
 }
 
 //==============================================================================
-// void Auctioneer::select_evaluator(const Nomination::Evaluator& evaluator)
-// {
-//   _evaluator = evaluator;
-// }
+void Auctioneer::select_evaluator(
+  std::shared_ptr<Auctioneer::Evaluator> evaluator)
+{
+  _pimpl->winner_evaluator = std::move(evaluator);
+}
+
+//==============================================================================
+rmf_utils::optional<Submission> Auctioneer::evaluate(
+  const Submissions& submissions)
+{
+  return _pimpl->evaluate(submissions);
+}
 
 //==============================================================================
 Auctioneer::Auctioneer()
 {
   // do nothing
+}
+
+//==============================================================================
+std::size_t LeastFleetDiffCostEvaluator::choose(
+  const Submissions& submissions) const
+{
+  auto winner_it = submissions.begin();
+  float winner_cost_diff = winner_it->new_cost - winner_it->prev_cost;
+  for (auto nominee_it = submissions.begin();
+    nominee_it != submissions.end(); ++nominee_it)
+  {
+    float nominee_cost_diff = nominee_it->new_cost - nominee_it->prev_cost;
+    if (nominee_cost_diff < winner_cost_diff)
+    {
+      winner_it = nominee_it;
+      winner_cost_diff = nominee_cost_diff;
+    }
+  }
+  return std::distance(submissions.begin(), winner_it);
+}
+
+//==============================================================================
+std::size_t LeastFleetCostEvaluator::choose(
+  const Submissions& submissions) const
+{
+  auto winner_it = submissions.begin();
+  for (auto nominee_it = submissions.begin();
+    nominee_it != submissions.end(); ++nominee_it)
+  {
+    if (nominee_it->new_cost < winner_it->new_cost)
+      winner_it = nominee_it;
+  }
+  return std::distance(submissions.begin(), winner_it);
+}
+
+//==============================================================================
+std::size_t QuickestFinishEvaluator::choose(
+  const Submissions& submissions) const
+{
+  auto winner_it = submissions.begin();
+  for (auto nominee_it = submissions.begin();
+    nominee_it != submissions.end(); ++nominee_it)
+  {
+    if (nominee_it->finish_time < winner_it->finish_time)
+      winner_it = nominee_it;
+  }
+  return std::distance(submissions.begin(), winner_it);
 }
 
 } // namespace bidding
