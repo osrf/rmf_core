@@ -43,17 +43,19 @@ struct BracketPair
 
 //==============================================================================
 std::vector<BracketPair> compute_conflict_brackets(
-    const std::vector<Writer::Item>& path_a,
-    const std::vector<Writer::Item>& path_b,
+    const std::vector<Writer::Checkpoint>& path_a,
+    double radius_a,
+    const std::vector<Writer::Checkpoint>& path_b,
+    double radius_b,
     double angle_threshold);
 
 //==============================================================================
 std::array<IndexToConstraint, 2> compute_blockers(
     const std::vector<BracketPair>& conflict_brackets,
     std::size_t id_a,
-    std::size_t a_max_index,
+    std::size_t a_path_size,
     std::size_t id_b,
-    std::size_t b_max_index);
+    std::size_t b_path_size);
 
 //==============================================================================
 // A map from <a participant's peer> to <the map from the participant's index to

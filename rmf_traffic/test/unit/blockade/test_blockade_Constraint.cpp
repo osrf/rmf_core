@@ -21,8 +21,6 @@
 
 #include <algorithm>
 
-#include <iostream>
-
 //==============================================================================
 rmf_traffic::blockade::BlockageEndCondition reach(const std::size_t index)
 {

@@ -32,17 +32,33 @@ class Writer
 {
 public:
 
-  struct Item
+  struct Checkpoint
   {
-    uint64_t id;
-    Eigen::Vector2d start;
-    Eigen::Vector2d finish;
-    double radius;
-    std::array<rmf_traffic::Time, 2> time_range;
-    bool can_hold_at_finish;
+    Eigen::Vector2d position;
+    rmf_traffic::Time departure_time;
+    bool can_hold;
   };
 
+  struct Sequence
+  {
+    std::string map_name;
+    std::vector<Checkpoint> checkpoints;
+  };
 
+  struct Reservation
+  {
+    uint64_t reservation_id;
+    std::vector<Sequence> sequences;
+    double radius;
+  };
+
+  struct TimeUpdate
+  {
+    uint64_t reservation_id;
+    uint64_t sequence_index;
+    uint64_t checkpoint_index;
+    rmf_traffic::Time departure_time;
+  };
 
 };
 

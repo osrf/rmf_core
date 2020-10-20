@@ -122,7 +122,7 @@ bool try_merge(
 //==============================================================================
 void expand_bracket(
     ConflictBracket& bracket,
-    const std::vector<Writer::Item>& path)
+    const std::vector<Writer::Checkpoint>& path)
 {
   // This function accounts for points that the robot is not allowed to hold at.
   // These points get absorbed into the brackets as if they are part of the
@@ -130,8 +130,7 @@ void expand_bracket(
 
   while (bracket.start > 0)
   {
-    const bool can_hold_at_start =
-        path.at(bracket.start-1).can_hold_at_finish;
+    const bool can_hold_at_start = path.at(bracket.start).can_hold;
 
     if (can_hold_at_start && !bracket.include_start)
       break;
@@ -140,10 +139,9 @@ void expand_bracket(
     bracket.include_start = false;
   }
 
-  while (bracket.finish < path.size())
+  while (bracket.finish < path.size()-1)
   {
-    const bool can_hold_at_finish =
-        path.at(bracket.finish-1).can_hold_at_finish;
+    const bool can_hold_at_finish = path.at(bracket.finish).can_hold;
 
     if (can_hold_at_finish && !bracket.include_finish)
       break;
@@ -155,20 +153,26 @@ void expand_bracket(
 
 //==============================================================================
 std::vector<BracketPair> compute_conflict_brackets(
-    const std::vector<Writer::Item>& path_a,
-    const std::vector<Writer::Item>& path_b,
+    const std::vector<Writer::Checkpoint>& path_a,
+    const double radius_a,
+    const std::vector<Writer::Checkpoint>& path_b,
+    const double radius_b,
     const double angle_threshold)
 {
   std::multimap<std::size_t, BracketPair> a_set;
-  for (std::size_t a=0; a < path_a.size(); ++a)
+  for (std::size_t a=0; a < path_a.size()-1; ++a)
   {
-    const auto& it_a = path_a[a];
-    const Segment segment_a{it_a.start, it_a.finish, it_a.radius};
+    const auto& it_a_start = path_a[a];
+    const auto& it_a_finish = path_a[a+1];
+    const Segment segment_a{
+      it_a_start.position, it_a_finish.position, radius_a};
 
     for (std::size_t b=0; b < path_b.size(); ++b)
     {
-      const auto& it_b = path_b[b];
-      const Segment segment_b{it_b.start, it_b.finish, it_b.radius};
+      const auto& it_b_start = path_b[b];
+      const auto& it_b_finish = path_b[b+1];
+      const Segment segment_b{
+        it_b_start.position, it_b_finish.position, radius_b};
 
       const auto info = detect_conflict(segment_a, segment_b, angle_threshold);
 
@@ -228,6 +232,151 @@ std::vector<BracketPair> compute_conflict_brackets(
   }
 
   return final_pairs;
+}
+
+//==============================================================================
+std::pair<std::size_t, ConstConstraintPtr> compute_blocker(
+    const ConflictBracket& me,
+    const std::size_t my_path_size,
+    const ConflictBracket& other,
+    const std::size_t other_path_size,
+    const std::size_t other_id)
+{
+  const std::size_t go_from = [&]() -> std::size_t
+  {
+    if (me.start == 0)
+      return 0;
+
+    if (me.include_start)
+      return me.start-1;
+
+    return me.start;
+  }();
+
+  const bool other_may_hold =
+      (me.finish < my_path_size-1) || !me.include_finish;
+
+  std::optional<std::size_t> blocker_hold_point;
+  if (other_may_hold)
+  {
+    if (!other.include_start)
+      blocker_hold_point = other.start;
+    else if (other.start > 0)
+      blocker_hold_point = other.start - 1;
+
+    // else we do not allow the other participant to hold
+  }
+
+  std::optional<BlockageEndCondition> end_condition;
+  if (other.include_finish)
+  {
+    if (other.finish < other_path_size-1)
+    {
+      end_condition = BlockageEndCondition{
+          other.finish, BlockageEndCondition::HasPassed};
+    }
+  }
+  else
+  {
+    end_condition = BlockageEndCondition{
+        other.finish, BlockageEndCondition::HasReached};
+  }
+
+  return std::make_pair(
+        go_from, blockage(other_id, blocker_hold_point, end_condition));
+}
+
+//==============================================================================
+std::array<IndexToConstraint, 2> compute_blockers(
+    const std::vector<BracketPair>& conflict_brackets,
+    const std::size_t id_a,
+    const std::size_t a_path_size,
+    const std::size_t id_b,
+    const std::size_t b_path_size)
+{
+  std::array<IndexToConstraint, 2> blockers;
+  for (const auto& bracket : conflict_brackets)
+  {
+    blockers[0].insert(
+      compute_blocker(bracket.A, a_path_size, bracket.B, b_path_size, id_b));
+
+    blockers[1].insert(
+      compute_blocker(bracket.B, b_path_size, bracket.A, a_path_size, id_a));
+  }
+
+  return blockers;
+}
+
+//==============================================================================
+Blockers compute_final_ShouldGo_constraints(
+    const PeerToPeerBlockers& peer_blockers)
+{
+  using IndexToZeroOrderConstraints =
+    std::unordered_map<std::size_t, std::vector<ConstConstraintPtr>>;
+
+  using ZeroOrderConstraintMap =
+    std::unordered_map<std::size_t, IndexToZeroOrderConstraints>;
+
+  ZeroOrderConstraintMap zero_order;
+  for (const auto& p : peer_blockers)
+  {
+    const std::size_t participant = p.first;
+    auto& index_to_constraints = zero_order[participant];
+
+    for (const auto& peer : p.second)
+    {
+      for (const auto& checkpoint : peer.second)
+        index_to_constraints[checkpoint.first].push_back(checkpoint.second);
+    }
+  }
+
+  Blockers first_order;
+  for (const auto& p : zero_order)
+  {
+    const std::size_t participant = p.first;
+    auto& index_to_constraint = first_order[participant];
+
+    for (const auto& checkpoint : p.second)
+    {
+      const std::size_t index = checkpoint.first;
+      const auto& constraints = checkpoint.second;
+      assert(!constraints.empty());
+
+      if (constraints.size() > 1)
+      {
+        auto and_constraint = std::make_shared<AndConstraint>();
+        for (const auto& c : constraints)
+          and_constraint->add(c);
+
+        index_to_constraint[index] = std::move(and_constraint);
+      }
+      else
+      {
+        assert(constraints.size() == 1);
+        index_to_constraint[index] = constraints.front();
+      }
+    }
+  }
+
+  const auto gridlock_constraint = compute_gridlock_constraint(first_order);
+
+  // Now we will move the first order constraints into the container for the
+  // final order constraints and modify them in place by adding the gridlock
+  // constraint to them
+  auto final_order = std::move(first_order);
+  for (auto& p : final_order)
+  {
+    for (auto& c : p.second)
+    {
+      auto and_constraint = std::make_shared<AndConstraint>();
+      and_constraint->add(gridlock_constraint);
+      and_constraint->add(c.second);
+
+      c.second = std::move(and_constraint);
+    }
+  }
+
+  return final_order;
 }
 
 } // namespace blockade
