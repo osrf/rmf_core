@@ -352,6 +352,14 @@ void FleetUpdateHandle::add_robot(
 }
 
 //==============================================================================
+FleetUpdateHandle& FleetUpdateHandle::accept_task_requests(
+    AcceptTaskRequest check)
+{
+  _pimpl->accept_task = std::move(check);
+  return *this;
+}
+
+//==============================================================================
 FleetUpdateHandle& FleetUpdateHandle::accept_delivery_requests(
     AcceptDeliveryRequest check)
 {

@@ -139,6 +139,8 @@ public:
   AcceptDeliveryRequest accept_delivery = nullptr;
   std::unordered_map<RobotContextPtr, std::shared_ptr<TaskManager>> task_managers = {};
 
+  AcceptTaskRequest accept_task = nullptr;
+  
   using BidNotice = rmf_task_msgs::msg::BidNotice;
   using BidNoticeSub = rclcpp::Subscription<BidNotice>::SharedPtr;
   BidNoticeSub bid_notice_sub = nullptr;

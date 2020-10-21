@@ -22,6 +22,7 @@
 #include <rmf_fleet_adapter/agv/RobotCommandHandle.hpp>
 
 #include <rmf_task_msgs/msg/delivery.hpp>
+#include <rmf_task_msgs/msg/task_profile.hpp>
 
 #include <rmf_battery/agv/BatterySystem.hpp>
 #include <rmf_battery/DevicePowerSink.hpp>
@@ -94,6 +95,28 @@ public:
     std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
     const bool drain_battery);
 
+
+  /// A callback function that evaluates whether a fleet will accept a task
+  /// request
+  ///
+  /// \param[in] request
+  ///   Information about the task request that is being considered.
+  ///
+  /// \return true to indicate that this fleet should accept the request, false
+  /// to reject the request.
+  using AcceptTaskRequest =
+      std::function<bool(const rmf_task_msgs::msg::TaskProfile& profile)>;
+
+  /// Provide a callback that indicates whether this fleet will accept a
+  /// BidNotice request. By default all requests will be rejected.
+  ///
+  /// \note The callback function that you give should ideally be non-blocking
+  /// and return quickly. It's meant to check whether this fleet's vehicles are
+  /// compatible with the requested payload, pickup, and dropoff behavior
+  /// settings. The path planning feasibility will be taken care of by the
+  /// adapter internally.
+  FleetUpdateHandle& accept_task_requests(AcceptTaskRequest check);
+
   /// A callback function that evaluates whether a fleet will accept a delivery
   /// request.
   ///
@@ -102,6 +125,9 @@ public:
   ///
   /// \return true to indicate that this fleet should accept the request, false
   /// to reject the request.
+  ///
+  /// \note This interface will be deprecated. Use the more general
+  ///   AcceptTaskRequest callback
   using AcceptDeliveryRequest =
       std::function<bool(const rmf_task_msgs::msg::Delivery& request)>;
 

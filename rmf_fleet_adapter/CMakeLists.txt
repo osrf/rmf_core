@@ -164,11 +164,13 @@ target_link_libraries(full_control
   PRIVATE
     rmf_fleet_adapter
     ${rmf_fleet_msgs_LIBRARIES}
+    ${rmf_task_msgs_LIBRARIES}
 )
 
 target_include_directories(full_control
   PRIVATE
     ${rmf_fleet_msgs_INCLUDE_DIRS}
+    ${rmf_task_msgs_INCLUDE_DIRS}
 )
 
 # -----------------------------------------------------------------------------

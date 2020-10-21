@@ -31,6 +31,10 @@
 #include <rmf_fleet_msgs/msg/path_request.hpp>
 #include <rmf_fleet_msgs/msg/mode_request.hpp>
 
+// RMF Task messages
+#include <rmf_task_msgs/msg/task_type.hpp>
+#include <rmf_task_msgs/msg/task_profile.hpp>
+
 // ROS2 utilities for rmf_traffic
 #include <rmf_traffic_ros2/Time.hpp>
 
@@ -47,6 +51,7 @@
 #include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
 
 #include <Eigen/Geometry>
+#include <unordered_set>
 
 //==============================================================================
 class FleetDriverRobotCommandHandle
@@ -556,13 +561,34 @@ std::shared_ptr<Connections> make_fleet(
     return nullptr;
   }
 
+  std::unordered_set<uint8_t> task_types;
+  if (node->declare_parameter<bool>("perform_loop", true))
+  {
+    task_types.insert(rmf_task_msgs::msg::TaskType::LOOP_TASK);
+  }
+
   // If the perform_deliveries parameter is true, then we just blindly accept
   // all delivery requests.
   if (node->declare_parameter<bool>("perform_deliveries", false))
   {
+    task_types.insert(rmf_task_msgs::msg::TaskType::DELIVERY_TASK);
     connections->fleet->accept_delivery_requests(
           [](const rmf_task_msgs::msg::Delivery&){ return true; });
   }
+
+  if (node->declare_parameter<bool>("perform_cleaning", true))
+  {
+    task_types.insert(rmf_task_msgs::msg::TaskType::CLEANING_TASK);
+  }
+
+  connections->fleet->accept_task_requests(
+    [task_types](const rmf_task_msgs::msg::TaskProfile& msg)
+    {
+      if (task_types.find(msg.type.value) != task_types.end())
+        return true;
+      
+      return false;
+    });
 
   if (node->declare_parameter<bool>("disable_delay_threshold", false))
   {
