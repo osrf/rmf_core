@@ -34,8 +34,7 @@ MinimalBidder::Profile bidder2_profile {
   "bidder2", { TaskType::Delivery, TaskType::Cleaning }
 };
 
-auto default_time = std::chrono::steady_clock::now();
-
+rmf_traffic::Time default_time;
 BidNotice bidding_task1;
 TaskProfile task_profile1 { "bid1", default_time, TaskType::Station};
 

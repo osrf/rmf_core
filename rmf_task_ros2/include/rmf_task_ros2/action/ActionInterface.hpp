@@ -57,9 +57,7 @@ public:
   ///
   /// \param[out] status_ptr
   ///   Will update the status of the task here
-  ///
-  /// \return bool which indicate if add task is success
-  std::future<bool> add_task(
+  void add_task(
     const std::string& fleet_name,
     const TaskProfile& task_profile,
     TaskStatusPtr status_ptr);
@@ -68,9 +66,9 @@ public:
   ///
   /// \param[in] task_profile
   ///   Task which to cancel
+  ///
   /// \return bool which indicate if cancel task is success
-  std::future<bool> cancel_task(
-    const TaskProfile& task_profile);
+  bool cancel_task(const TaskProfile& task_profile);
 
   /// Get the number of active task being track by client
   ///
@@ -106,7 +104,6 @@ private:
 
   // Task Tracker
   using TaskStatusWeakPtr = std::weak_ptr<TaskStatus>;
-  std::map<TaskProfile, std::promise<bool>> _task_request_fut_ack;
   std::map<TaskProfile, TaskStatusWeakPtr> _active_task_status;
 
   // Private Constructor

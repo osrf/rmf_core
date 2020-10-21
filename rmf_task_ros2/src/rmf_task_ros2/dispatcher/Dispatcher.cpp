@@ -50,7 +50,8 @@ public:
     submitted_task.task_id = "task" + std::to_string((int)task.task_type)
       + "-" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
           now.time_since_epoch()).count());
-    submitted_task.submission_time = now;
+
+    submitted_task.submission_time = rmf_traffic_ros2::convert(node->now());
 
     // add task to internal cache
     TaskStatus status;
@@ -78,11 +79,9 @@ public:
     if ((*active_dispatch_tasks)[task_id]->state == DispatchState::Pending)
       terminate_task((*active_dispatch_tasks)[task_id]);
 
-    // Confirm ack future : todo
-    auto success = action_client->cancel_task(
+    // Cancel action
+    return action_client->cancel_task(
       (*active_dispatch_tasks)[task_id]->task_profile);
-
-    return true;
   }
 
   rmf_utils::optional<DispatchState> get_task_state(
@@ -120,20 +119,23 @@ public:
     std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
     (*active_dispatch_tasks)[task_id]->fleet_name = winner->fleet_name;
 
-    // todo, confirm ack future
-    auto success = action_client->add_task(
+    // add task to action server
+    action_client->add_task(
       winner->fleet_name,
       (*active_dispatch_tasks)[task_id]->task_profile,
       (*active_dispatch_tasks)[task_id]);
 
-    // when fut is received, change task state as queued (todo)
+    // Todo: this might not be untrue since task might be ignored by server
     (*active_dispatch_tasks)[task_id]->state = DispatchState::Queued;
   }
 
   void terminate_task(const TaskStatusPtr terminate_status)
   {
+    assert(terminate_status->is_terminated());
+
     auto id = terminate_status->task_profile.task_id;
     RCLCPP_WARN(node->get_logger(), " Terminated Task!! ID: %s", id.c_str());
+    
     (*terminal_dispatch_tasks)[id] = std::move((*active_dispatch_tasks)[id]);
     active_dispatch_tasks->erase(id);
     return;
@@ -142,8 +144,11 @@ public:
 
 //==============================================================================
 std::shared_ptr<Dispatcher> Dispatcher::make(
-  std::shared_ptr<rclcpp::Node> node)
+  const std::string dispatcher_node_name)
 {
+  std::shared_ptr<rclcpp::Node> node = 
+    rclcpp::Node::make_shared(dispatcher_node_name);
+
   auto pimpl = rmf_utils::make_impl<Implementation>(node);
 
   if (pimpl)
@@ -187,15 +192,26 @@ rmf_utils::optional<DispatchState> Dispatcher::get_task_state(
 }
 
 //==============================================================================
-const DispatchTasksPtr Dispatcher::get_active_tasks() const
+const DispatchTasksPtr Dispatcher::active_tasks() const
 {
   return _pimpl->active_dispatch_tasks;
 }
 
 //==============================================================================
-const DispatchTasksPtr Dispatcher::get_terminated_tasks() const
+const DispatchTasksPtr Dispatcher::terminated_tasks() const
 {
   return _pimpl->terminal_dispatch_tasks;
+}
+
+//==============================================================================
+std::shared_ptr<rclcpp::Node> Dispatcher::node()
+{
+  return _pimpl->node;
+}
+
+void Dispatcher::spin()
+{
+  rclcpp::spin(_pimpl->node);
 }
 
 //==============================================================================

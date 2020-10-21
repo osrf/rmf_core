@@ -80,7 +80,7 @@ public:
   };
 
   /// Provide a custom evaluator which will be used to choose the best bid
-  /// If no selection is givenDefault is: LeastFleetDiffCostEvaluator
+  /// If no selection is given, Default is: LeastFleetDiffCostEvaluator
   ///
   /// \param[in] evaluator
   void select_evaluator(std::shared_ptr<Evaluator> evaluator);

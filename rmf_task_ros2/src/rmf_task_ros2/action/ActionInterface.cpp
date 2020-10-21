@@ -47,57 +47,39 @@ TaskActionClient::TaskActionClient(
       // status update mode
       if (_active_task_status.count(task_profile))
       {
-        if (auto weak_status = _active_task_status[task_profile].lock())
-        {
-          *weak_status = convert(*msg);
-
-          if (_on_change_callback)
-            _on_change_callback(weak_status);
-
-          // if active task terminated
-          if ( (weak_status->state == TaskStatus::State::Failed) ||
-          (weak_status->state == TaskStatus::State::Completed) ||
-          (weak_status->state == TaskStatus::State::Canceled))
-          {
-            std::cout << "[action] Done Terminated Task: "
-                      << task_profile.task_id << std::endl;
-            _active_task_status.erase(task_profile);
-
-            if (_on_terminate_callback)
-              _on_terminate_callback(weak_status);
-          }
-        }
-        else
+        auto weak_status = _active_task_status[task_profile].lock();
+        
+        if (!weak_status)
         {
           std::cout << "weak status has expired\n";
           _active_task_status.erase(task_profile);
         }
-      }
 
-      // TODO: check if waiting for ack during an add and cancel request
-      if (_task_request_fut_ack.count(task_profile))
-      {
-        auto status = convert(*msg);
-        if ((status.state == TaskStatus::State::Queued) ||
-        (status.state == TaskStatus::State::Executing) ||
-        (status.state == TaskStatus::State::Canceled))
-          _task_request_fut_ack[task_profile].set_value(true);
-        else
-          _task_request_fut_ack[task_profile].set_value(false);
+        // update status to ptr
+        *weak_status = convert(*msg);
 
-        _task_request_fut_ack.erase(task_profile);
+        if (_on_change_callback)
+          _on_change_callback(weak_status);
+
+        // if active task terminated
+        if (weak_status->is_terminated())
+        {
+          std::cout << "[action] Done Terminated Task: "
+                    << task_profile.task_id << std::endl;
+          _active_task_status.erase(task_profile);
+
+          if (_on_terminate_callback)
+            _on_terminate_callback(weak_status);
+        }
       }
-    });
+  });
 }
 
-std::future<bool> TaskActionClient::add_task(
+void TaskActionClient::add_task(
   const std::string& fleet_name,
   const TaskProfile& task_profile,
   TaskStatusPtr status_ptr)
 {
-  // todo:  std::async
-  std::future<bool> add_success;
-
   // send request and wait for acknowledgement
   RequestMsg request_msg;
   request_msg.fleet_name = fleet_name;
@@ -105,55 +87,43 @@ std::future<bool> TaskActionClient::add_task(
   request_msg.method = RequestMsg::ADD;
   _request_msg_pub->publish(request_msg);
 
-  _task_request_fut_ack[task_profile] = std::promise<bool>();
-  add_success = _task_request_fut_ack[task_profile].get_future();
-
-  // status
+  // save status ptr
   status_ptr->fleet_name = fleet_name;
   status_ptr->task_profile = task_profile;
   _active_task_status[task_profile] = status_ptr;
   std::cout<< " ~ Add Action Task: "<< task_profile.task_id << std::endl;
-  return add_success;
+
+  return;
 }
 
-std::future<bool> TaskActionClient::cancel_task(
+bool TaskActionClient::cancel_task(
   const TaskProfile& task_profile)
 {
-  std::future<bool> cancel_success;
+  std::cout<< " ~ Cancel Active Task: "<< task_profile.task_id << std::endl;
 
   // check if task is previously added
   if (!_active_task_status.count(task_profile))
   {
     std::cerr << " ~ Not found Task: "<< task_profile.task_id << std::endl;
-    std::promise<bool> prom;
-    cancel_success = prom.get_future();
-    prom.set_value(false);
-    return cancel_success;
+    return false;
   }
 
-  if (auto weak_status = _active_task_status[task_profile].lock())
-  {
-    // send cancel and wait for acknowledgement
-    RequestMsg request_msg;
-    request_msg.fleet_name = weak_status->fleet_name;
-    request_msg.task_profile = convert(task_profile);
-    request_msg.method = RequestMsg::CANCEL;
-    _request_msg_pub->publish(request_msg);
+  auto weak_status = _active_task_status[task_profile].lock();
 
-    _task_request_fut_ack[task_profile] = std::promise<bool>();
-    cancel_success = _task_request_fut_ack[task_profile].get_future();
-    std::cout<< " ~ Cancel Active Task: "<< task_profile.task_id << std::endl;
-  }
-  else
+  if (!weak_status)
   {
-    std::promise<bool> prom;
-    cancel_success = prom.get_future();
-    prom.set_value(false);
-    std::cout << "weak status is expired, canceled failed \n";
+    std::cerr << "weak status is expired, canceled failed \n";
     _active_task_status.erase(task_profile);
+    return false;
   }
 
-  return cancel_success;
+  // send cancel
+  RequestMsg request_msg;
+  request_msg.fleet_name = weak_status->fleet_name;
+  request_msg.task_profile = convert(task_profile);
+  request_msg.method = RequestMsg::CANCEL;
+  _request_msg_pub->publish(request_msg);
+  return true;
 }
 
 int TaskActionClient::size()
@@ -162,9 +132,7 @@ int TaskActionClient::size()
   {
     if (auto weak_status = it->second.lock() )
     {
-      if ((weak_status->state == TaskStatus::State::Failed) ||
-        (weak_status->state == TaskStatus::State::Completed) ||
-        (weak_status->state == TaskStatus::State::Canceled))
+      if (weak_status->is_terminated())
         it = _active_task_status.erase(it);
       else
       {
@@ -177,8 +145,7 @@ int TaskActionClient::size()
     else
       it = _active_task_status.erase(it);
   }
-  std::cout << " status: " << _active_task_status.size()
-            << " promise: " << _task_request_fut_ack.size() << std::endl;
+  std::cout << " status: " << _active_task_status.size() << std::endl;
   return _active_task_status.size();
 }
 

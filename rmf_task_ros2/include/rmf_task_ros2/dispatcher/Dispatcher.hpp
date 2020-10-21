@@ -19,6 +19,7 @@
 #define RMF_TASK_ROS2__DISPATCHER__NODE_HPP
 
 #include <rclcpp/node.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/optional.hpp>
 
@@ -46,9 +47,9 @@ public:
   ///
   /// \sa make()
   static std::shared_ptr<Dispatcher> make(
-    std::shared_ptr<rclcpp::Node> node);
+    const std::string dispatcher_node_name);
 
-  /// Submit task to dispatcher
+  /// Submit task to dispatcher node
   ///
   /// \param [in] task
   ///   Submit a task to dispatch
@@ -65,7 +66,7 @@ public:
   /// \return true if success
   bool cancel_task(const TaskID& task_id);
 
-  /// check status of a submited task
+  /// check the state of a submited task
   ///
   /// \param [in] task_id
   ///   request task id
@@ -74,15 +75,21 @@ public:
   rmf_utils::optional<DispatchState> get_task_state(
     const TaskID& task_id);
 
-  /// Get active tasks map list
+  /// Get active tasks map list handled by dispatcher
   ///
   /// \return ptr to a map of active tasks
-  const DispatchTasksPtr get_active_tasks() const;
+  const DispatchTasksPtr active_tasks() const;
 
   /// Get terminated tasks map list
   ///
   /// \return ptr to a map of terminated tasks
-  const DispatchTasksPtr get_terminated_tasks() const;
+  const DispatchTasksPtr terminated_tasks() const;
+
+  /// Get the rclcpp::Node that this dispatcher will be using for communication.
+  std::shared_ptr<rclcpp::Node> node();
+
+  /// spin dispatcher node
+  void spin();
 
   class Implementation;
 

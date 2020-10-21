@@ -31,6 +31,12 @@
 namespace rmf_task_ros2 {
 
 //==============================================================================
+using TaskProfileMsg = rmf_task_msgs::msg::TaskProfile;
+using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
+using StatusMsg = rmf_task_msgs::msg::TaskSummary;
+using TaskID = std::string;
+
+//==============================================================================
 enum class TaskType
 {
   Station,
@@ -40,10 +46,6 @@ enum class TaskType
   Cleaning,
   Patrol
 };
-
-//==============================================================================
-using TaskProfileMsg = rmf_task_msgs::msg::TaskProfile;
-using TaskID = std::string;
 
 //==============================================================================
 struct TaskProfile
@@ -68,10 +70,6 @@ struct TaskProfile
 };
 
 //==============================================================================
-using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
-using StatusMsg = rmf_task_msgs::msg::TaskSummary;
-//==============================================================================
-
 // replication of TaskSummary / DispatchStatus
 struct TaskStatus
 {
@@ -96,6 +94,13 @@ struct TaskStatus
   void next_state()
   {
     // todo: enforcement of state machine
+  }
+
+  bool is_terminated()
+  {
+    return ((state == State::Failed) ||
+            (state == State::Completed) ||
+            (state == State::Canceled));
   }
 };
 
