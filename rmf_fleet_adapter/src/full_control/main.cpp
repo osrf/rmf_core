@@ -581,19 +581,13 @@ std::shared_ptr<Connections> make_fleet(
     task_types.insert(rmf_task_msgs::msg::TaskType::CLEANING_TASK);
   }
 
-  // connections->fleet->accept_task_requests(
-  //   [task_types](const rmf_task_msgs::msg::TaskProfile& msg)
-  //   {
-  //     if (task_types.find(msg.type.value) != task_types.end())
-  //       return true;
-      
-  //     return false;
-  //   });
-
   connections->fleet->accept_task_requests(
-    [](const rmf_task_msgs::msg::TaskProfile& msg)
+    [task_types](const rmf_task_msgs::msg::TaskProfile& msg)
     {
-      return true;
+      if (task_types.find(msg.type.value) != task_types.end())
+        return true;
+      
+      return false;
     });
 
   if (node->declare_parameter<bool>("disable_delay_threshold", false))

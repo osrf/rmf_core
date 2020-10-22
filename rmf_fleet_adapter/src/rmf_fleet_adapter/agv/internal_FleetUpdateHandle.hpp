@@ -25,6 +25,8 @@
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
 
 #include <rmf_task/agv/TaskPlanner.hpp>
+#include <rmf_task/Request.hpp>
+#include <rmf_task/requests/Clean.hpp>
 
 #include <rmf_fleet_adapter/agv/FleetUpdateHandle.hpp>
 #include <rmf_fleet_adapter/StandardNames.hpp>
@@ -37,6 +39,7 @@
 
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
+#include <rmf_traffic_ros2/Time.hpp>
 
 #include <iostream>
 
@@ -141,6 +144,11 @@ public:
   AcceptDeliveryRequest accept_delivery = nullptr;
   std::unordered_map<RobotContextPtr, std::shared_ptr<TaskManager>> task_managers = {};
 
+  // map task id to pair of <RequestPtr, Assignments>
+  using Assignments = rmf_task::agv::TaskPlanner::Assignments;
+  std::unordered_map<std::string,
+    std::pair<rmf_task::RequestPtr, Assignments>> task_map = {};
+
   AcceptTaskRequest accept_task = nullptr;
 
   using BidNotice = rmf_task_msgs::msg::BidNotice;
@@ -175,9 +183,9 @@ public:
       handle._pimpl->node->create_subscription<BidNotice>(
         BidNoticeTopicName,
         default_qos,
-        [&](const BidNotice::SharedPtr msg)
+        [p = handle._pimpl.get()](const BidNotice::SharedPtr msg)
         {
-          handle._pimpl->bid_notice_cb(msg);
+          p->bid_notice_cb(msg);
         });
 
     // Subscribe DispatchRequest
@@ -185,7 +193,7 @@ public:
       handle._pimpl->node->create_subscription<DispatchRequest>(
         DispatchRequestTopicName,
         default_qos,
-        [&](const DispatchRequest::SharedPtr msg)
+        [p = handle._pimpl.get()](const DispatchRequest::SharedPtr msg)
         {
           // TODO(YV)
         });
@@ -213,58 +221,106 @@ public:
 
   void bid_notice_cb(const BidNotice::SharedPtr msg)
   {
-    std::cout << "Here 0" << std::endl;
     if (!accept_task)
     {
-      std::cout << "Here 1" << std::endl;
       RCLCPP_WARN(
         node->get_logger(),
         "Fleet [%s] is not configured to accept any task requests. Use "
         "FleetUpdateHadndle::accept_task_requests(~) to define a callback "
         "for accepting requests", name.c_str());
 
-      std::cout << "Here 2" << std::endl;
       return;
     }
 
-    std::cout << "Here 3" << std::endl;
-
     if (!accept_task(msg->task_profile))
     {
-      std::cout << "Here 4" << std::endl;
       RCLCPP_INFO(
         node->get_logger(),
-        "Fleet [%s] is configured to not accept request [%s]",
+        "Fleet [%s] is configured to not accept task [%s]",
         name.c_str(),
         msg->task_profile.task_id.c_str());
 
-        std::cout << "Here 6" << std::endl;
         return;
     }
-
-    std::cout << "Here 7" << std::endl;
 
     if (!task_planner
       || !initialized_task_planner)
     {
-      std::cout << "Here 8" << std::endl;
-
       RCLCPP_WARN(
         node->get_logger(),
         "Fleet [%s] is not configured with parameters for task planning."
         "Use FleetUpdateHandle::set_task_planner_params(~) to set the "
         "parameters required.", name.c_str());
 
-      std::cout << "Here 9" << std::endl;
-
       return;
     }
 
-    std::cout << "Here 10" << std::endl;
-
     // TODO(YV)
     // Determine task type and convert to request pointer
+    rmf_task::RequestPtr request;
+    const auto& task_profile = msg->task_profile;
+    const auto& task_type = task_profile.type;
+    const rmf_traffic::Time start_time = rmf_traffic_ros2::convert(task_profile.start_time);
+    // TODO (YV) get rid of ID field in RequestPtr
+    std::string id = msg->task_profile.task_id;
+    const auto& graph = planner->get_configuration().graph();
 
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Fleet [%s] is processing BidNotice with task_id:[%s] and type:[%d]...",
+      name.c_str(), id.c_str(), task_type.value);
+
+    // Process Cleaning task
+    if (task_type.value == rmf_task_msgs::msg::TaskType::CLEANING_TASK)
+    {
+      if (task_profile.params.empty())
+      {
+        RCLCPP_INFO(
+          node->get_logger(),
+          "Required param [zone] missing in TaskProfile. Rejecting BidNotice "
+          " with task_id:[%s]" , id.c_str());
+
+        return;
+      }
+      const std::string start_wp_name = task_profile.params[0].value;
+      const auto start_wp = graph.find_waypoint(start_wp_name);
+      if (!start_wp)
+      {
+        RCLCPP_INFO(
+          node->get_logger(),
+          "Fleet [%s] does not have a named waypoint [%s] configured in its "
+          "nav graph. Rejecting BidNotice with task_id:[%s]",
+          name.c_str(), start_wp_name.c_str(), id.c_str());
+
+          return;
+      }
+
+
+
+
+    }
+    else if (task_type.value == rmf_task_msgs::msg::TaskType::DELIVERY_TASK)
+    {
+
+    }
+    else if (task_type.value == rmf_task_msgs::msg::TaskType::LOOP_TASK)
+    {
+
+    }
+    else
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Invalid TaskType in TaskProfile. Rejecting BidNotice with task_id:[%s]",
+        id.c_str());
+
+      return;
+    }
+    
+
+      
+
+    // }
     // Combine new request ptr with request ptr of tasks in task manager queues
 
     // Update robot states
