@@ -521,13 +521,10 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
     if (overlap(bound_a.footprint, bound_b.vicinity))
     {
-      //printf("overlap pass\n");
-      
       if (const auto collision = check_collision(
           *profile_a.footprint, motion_a,
           *profile_b.vicinity, motion_b, request))
       {
-        //printf("check_collision pass\n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
@@ -535,18 +532,14 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
         output_conflicts->emplace_back(
           DetectConflict::Implementation::Conflict{a_it, b_it, time});
       }
-      // else
-      //   printf("check_collision fail\n");
     }
 
     if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
     {
-      // printf("overlap #2 pass\n");
       if (const auto collision = check_collision(
           *profile_a.vicinity, motion_a,
           *profile_b.footprint, motion_b, request))
       {
-        // printf("check_collision #2 pass\n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
@@ -803,7 +796,7 @@ bool detect_conflicts(
               << "that should never happen. Please alert the RMF developers."
               << std::endl;
     throw invalid_trajectory_error::Implementation
-          ::make_segment_num_error(trajectory.size(), 0, "");
+          ::make_segment_num_error(trajectory.size(), __LINE__, __FUNCTION__);
   }
 #endif // NDEBUG
 
