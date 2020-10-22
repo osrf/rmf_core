@@ -53,6 +53,8 @@ const std::string BidNoticeTopicName = "rmf_task/bid_notice";
 const std::string BidProposalTopicName = "rmf_task/bid_proposal";
 const std::string DispatchRequestTopicName = "rmf_task/dispatch_request";
 
+const std::string DockSummaryTopicName = "dock_summary";
+
 } // namespace rmf_fleet_adapter
 
 #endif // RMF_FLEET_ADAPTER__STANDARDNAMES_HPP

@@ -28,6 +28,8 @@
 #include <rmf_task/Request.hpp>
 #include <rmf_task/requests/Clean.hpp>
 
+#include <rmf_fleet_msgs/msg/dock_summary.hpp>
+
 #include <rmf_fleet_adapter/agv/FleetUpdateHandle.hpp>
 #include <rmf_fleet_adapter/StandardNames.hpp>
 
@@ -36,6 +38,8 @@
 #include "../TaskManager.hpp"
 
 #include <rmf_traffic/schedule/Snapshot.hpp>
+#include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/Trajectory.hpp>
 
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
@@ -144,10 +148,14 @@ public:
   AcceptDeliveryRequest accept_delivery = nullptr;
   std::unordered_map<RobotContextPtr, std::shared_ptr<TaskManager>> task_managers = {};
 
-  // map task id to pair of <RequestPtr, Assignments>
+  // Map task id to pair of <RequestPtr, Assignments>
   using Assignments = rmf_task::agv::TaskPlanner::Assignments;
   std::unordered_map<std::string,
     std::pair<rmf_task::RequestPtr, Assignments>> task_map = {};
+
+  // Map of dock name to dock parameters
+  std::unordered_map<std::string,
+    rmf_fleet_msgs::msg::DockParameter> dock_param_map = {};
 
   AcceptTaskRequest accept_task = nullptr;
 
@@ -163,6 +171,10 @@ public:
   using DispatchRequestSub = rclcpp::Subscription<DispatchRequest>::SharedPtr;
   DispatchRequestSub dispatch_request_sub = nullptr;
 
+  using DockSummary = rmf_fleet_msgs::msg::DockSummary;
+  using DockSummarySub = rclcpp::Subscription<DockSummary>::SharedPtr;
+  DockSummarySub dock_summary_sub = nullptr;
+
   template<typename... Args>
   static std::shared_ptr<FleetUpdateHandle> make(Args&&... args)
   {
@@ -172,6 +184,7 @@ public:
 
     // Create subs and pubs for bidding
     auto default_qos = rclcpp::SystemDefaultsQoS();
+    auto transient_qos = default_qos; transient_qos.transient_local();
     
     // Publish BidProposal
     handle._pimpl->bid_proposal_pub =
@@ -198,6 +211,16 @@ public:
           // TODO(YV)
         });
 
+    // Subscribe DockSummary
+    handle._pimpl->dock_summary_sub =
+      handle._pimpl->node->create_subscription<DockSummary>(
+        DockSummaryTopicName,
+        transient_qos,
+        [p = handle._pimpl.get()](const DockSummary::SharedPtr msg)
+        {
+          p->dock_summary_cb(msg);
+        });
+
     return std::make_shared<FleetUpdateHandle>(std::move(handle));
   }
 
@@ -218,6 +241,22 @@ public:
   //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_start;
   //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_end;
   // };
+
+  void dock_summary_cb(const DockSummary::SharedPtr msg)
+  {
+    for (const auto& dock : msg->docks)
+    {
+      if (dock.fleet_name == name)
+      {
+        dock_param_map.clear();
+        for (const auto& param : dock.params)
+          dock_param_map.insert({param.start, param});
+        break;
+      }
+    }
+
+    return;
+  }
 
   void bid_notice_cb(const BidNotice::SharedPtr msg)
   {
@@ -255,9 +294,8 @@ public:
       return;
     }
 
-    // TODO(YV)
     // Determine task type and convert to request pointer
-    rmf_task::RequestPtr request;
+    rmf_task::RequestPtr new_request = nullptr;
     const auto& task_profile = msg->task_profile;
     const auto& task_type = task_profile.type;
     const rmf_traffic::Time start_time = rmf_traffic_ros2::convert(task_profile.start_time);
@@ -282,6 +320,8 @@ public:
 
         return;
       }
+
+      // Check for valid start waypoint
       const std::string start_wp_name = task_profile.params[0].value;
       const auto start_wp = graph.find_waypoint(start_wp_name);
       if (!start_wp)
@@ -295,10 +335,63 @@ public:
           return;
       }
 
+      // Get dock parameters
+      const auto clean_param_it = dock_param_map.find(start_wp_name);
+      if (clean_param_it == dock_param_map.end())
+      {
+        RCLCPP_INFO(
+          node->get_logger(),
+          "Dock param for dock_name:[%s] unavailable. Rejecting BidNotice with "
+          "task_id:[%s]", start_wp_name.c_str(), id.c_str());
 
+        return;
+      }
+      const auto clean_param = clean_param_it->second;
 
+      // Check for valid finish waypoint
+      const std::string finish_wp_name = clean_param.finish;
+      const auto finish_wp = graph.find_waypoint(finish_wp_name);
+      if (!finish_wp)
+      {
+        RCLCPP_INFO(
+          node->get_logger(),
+          "Fleet [%s] does not have a named waypoint [%s] configured in its "
+          "nav graph. Rejecting BidNotice with task_id:[%s]",
+          name.c_str(), finish_wp_name.c_str(), id.c_str());
 
+          return;
+      }
+
+      // Interpolate docking waypoint into trajectory
+      std::vector<Eigen::Vector3d>  positions;
+      for (const auto& location: clean_param.path)
+        positions.push_back({location.x, location.y, location.yaw});
+
+      rmf_traffic::Trajectory cleaning_trajectory =
+        rmf_traffic::agv::Interpolate::positions(
+          planner->get_configuration().vehicle_traits(),
+          start_time,
+          positions); 
+
+      // TODO(YV) get rid of id field in RequestPtr
+      std::stringstream id_stream(id);
+      std::size_t request_id;
+      id_stream >> request_id;
+
+      new_request = rmf_task::requests::Clean::make(
+        request_id,
+        start_wp->index(),
+        finish_wp->index(),
+        cleaning_trajectory,
+        motion_sink,
+        ambient_sink,
+        tool_sink,
+        planner,
+        start_time,
+        drain_battery);
     }
+
+    // TODO(YV)
     else if (task_type.value == rmf_task_msgs::msg::TaskType::DELIVERY_TASK)
     {
 
@@ -318,9 +411,9 @@ public:
     }
     
 
-      
+    if (!new_request)
+      return;
 
-    // }
     // Combine new request ptr with request ptr of tasks in task manager queues
 
     // Update robot states
