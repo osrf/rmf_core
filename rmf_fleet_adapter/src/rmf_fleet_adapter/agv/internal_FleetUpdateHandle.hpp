@@ -38,6 +38,8 @@
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 
+#include <iostream>
+
 namespace rmf_fleet_adapter {
 namespace agv {
 
@@ -140,7 +142,7 @@ public:
   std::unordered_map<RobotContextPtr, std::shared_ptr<TaskManager>> task_managers = {};
 
   AcceptTaskRequest accept_task = nullptr;
-  
+
   using BidNotice = rmf_task_msgs::msg::BidNotice;
   using BidNoticeSub = rclcpp::Subscription<BidNotice>::SharedPtr;
   BidNoticeSub bid_notice_sub = nullptr;
@@ -175,7 +177,7 @@ public:
         default_qos,
         [&](const BidNotice::SharedPtr msg)
         {
-          // TODO(YV)
+          handle._pimpl->bid_notice_cb(msg);
         });
 
     // Subscribe DispatchRequest
@@ -208,6 +210,71 @@ public:
   //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_start;
   //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_end;
   // };
+
+  void bid_notice_cb(const BidNotice::SharedPtr msg)
+  {
+    std::cout << "Here 0" << std::endl;
+    if (!accept_task)
+    {
+      std::cout << "Here 1" << std::endl;
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Fleet [%s] is not configured to accept any task requests. Use "
+        "FleetUpdateHadndle::accept_task_requests(~) to define a callback "
+        "for accepting requests", name.c_str());
+
+      std::cout << "Here 2" << std::endl;
+      return;
+    }
+
+    std::cout << "Here 3" << std::endl;
+
+    if (!accept_task(msg->task_profile))
+    {
+      std::cout << "Here 4" << std::endl;
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Fleet [%s] is configured to not accept request [%s]",
+        name.c_str(),
+        msg->task_profile.task_id.c_str());
+
+        std::cout << "Here 6" << std::endl;
+        return;
+    }
+
+    std::cout << "Here 7" << std::endl;
+
+    if (!task_planner
+      || !initialized_task_planner)
+    {
+      std::cout << "Here 8" << std::endl;
+
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Fleet [%s] is not configured with parameters for task planning."
+        "Use FleetUpdateHandle::set_task_planner_params(~) to set the "
+        "parameters required.", name.c_str());
+
+      std::cout << "Here 9" << std::endl;
+
+      return;
+    }
+
+    std::cout << "Here 10" << std::endl;
+
+    // TODO(YV)
+    // Determine task type and convert to request pointer
+
+    // Combine new request ptr with request ptr of tasks in task manager queues
+
+    // Update robot states
+
+    // Generate new task assignments while accommodating for the new
+    // request
+    // Call greedy_plan but run optimal_plan() in a separate thread
+
+    // Store results in internal map and publish BidProposal
+  }
 
   static Implementation& get(FleetUpdateHandle& fleet)
   {
