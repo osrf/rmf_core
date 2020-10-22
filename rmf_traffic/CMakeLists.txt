@@ -20,10 +20,7 @@ endif()
 
 include(GNUInstallDirs)
 
-include(FindPkgConfig)
-pkg_check_modules(PC_FCL REQUIRED fcl)
-pkg_check_modules(PC_CCD REQUIRED ccd)
-
+find_package(fcl 0.6 REQUIRED)
 find_package(rmf_utils REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Threads)
@@ -44,7 +41,7 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
     TIMEOUT 300)
   target_link_libraries(test_rmf_traffic
       rmf_traffic
-      ${PC_FCL_LIBRARIES}
+      fcl
       Threads::Threads
   )
 
@@ -66,8 +63,7 @@ target_link_libraries(rmf_traffic
   PUBLIC
     rmf_utils::rmf_utils
   PRIVATE
-    ${PC_FCL_LIBRARIES}
-    ${PC_CCD_LIBRARIES}
+    fcl
 )
 
 target_include_directories(rmf_traffic
