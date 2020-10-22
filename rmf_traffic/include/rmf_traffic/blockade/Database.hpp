@@ -20,11 +20,13 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <rmf_traffic/blockade/Writer.hpp>
+
 namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
-class Database
+class Database : public Writer
 {
 public:
 

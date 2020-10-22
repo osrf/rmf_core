@@ -23,23 +23,13 @@
 #include <unordered_set>
 #include <memory>
 
+#include <rmf_traffic/blockade/Writer.hpp>
+
 namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
-struct ReservedRange
-{
-  std::size_t begin;
-  std::size_t end;
-
-  bool operator==(const ReservedRange& other) const
-  {
-    return (begin == other.begin) && (end == other.end);
-  }
-};
-
-//==============================================================================
-using State = std::unordered_map<std::size_t, ReservedRange>;
+using State = Assignments;
 
 //==============================================================================
 class Constraint

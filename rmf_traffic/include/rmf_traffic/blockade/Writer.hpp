@@ -27,6 +27,26 @@
 namespace rmf_traffic {
 namespace blockade {
 
+using ParticipantId = uint64_t;
+using ReservationId = uint64_t;
+using CheckpointId = uint64_t;
+using Version = uint64_t;
+
+//==============================================================================
+struct ReservedRange
+{
+  std::size_t begin;
+  std::size_t end;
+
+  bool operator==(const ReservedRange& other) const
+  {
+    return (begin == other.begin) && (end == other.end);
+  }
+};
+
+//==============================================================================
+using Assignments = std::unordered_map<ParticipantId, ReservedRange>;
+
 //==============================================================================
 class Writer
 {
@@ -35,31 +55,47 @@ public:
   struct Checkpoint
   {
     Eigen::Vector2d position;
-    rmf_traffic::Time departure_time;
-    bool can_hold;
-  };
-
-  struct Sequence
-  {
     std::string map_name;
-    std::vector<Checkpoint> checkpoints;
+    bool can_hold;
   };
 
   struct Reservation
   {
-    uint64_t reservation_id;
-    std::vector<Sequence> sequences;
+    ReservationId id;
+    std::vector<Checkpoint> path;
     double radius;
   };
 
-  struct TimeUpdate
+  virtual void set(
+      ParticipantId participant,
+      const Reservation& reservation) = 0;
+
+  virtual void ready(
+      ParticipantId participant,
+      ReservationId reservation,
+      CheckpointId checkpoint) = 0;
+
+  virtual void reached(
+      ParticipantId participant,
+      ReservationId reservation,
+      CheckpointId checkpoint) = 0;
+
+  virtual void finished(
+      ParticipantId participant,
+      ReservationId reservation) = 0;
+
+  virtual const Assignments& assignments() const = 0;
+
+  struct Status
   {
-    uint64_t reservation_id;
-    uint64_t sequence_index;
-    uint64_t checkpoint_index;
-    rmf_traffic::Time departure_time;
+    ReservationId reservation;
+    CheckpointId last_ready;
+    CheckpointId last_reached;
   };
 
+  virtual const std::unordered_map<ParticipantId, Status>& statuses() const = 0;
+
+  virtual ~Writer() = default;
 };
 
 } // namespace blockade

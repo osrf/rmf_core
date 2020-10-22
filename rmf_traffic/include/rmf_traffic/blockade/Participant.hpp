@@ -1,0 +1,4 @@
+#ifndef PARTICIPANT_HPP
+#define PARTICIPANT_HPP
+
+#endif // PARTICIPANT_HPP

@@ -19,6 +19,8 @@
 
 #include "utils_blockade_simulation.hpp"
 
+#include <iostream>
+
 //==============================================================================
 using Checkpoint = rmf_traffic::blockade::Writer::Checkpoint;
 
@@ -33,7 +35,7 @@ std::vector<Checkpoint> make_path(const std::array<Eigen::Vector2d, N>& points)
   std::vector<Writer::Checkpoint> path;
   path.reserve(N);
   for (const auto& p : points)
-    path.push_back(Writer::Checkpoint{p, now, true});
+    path.push_back(Writer::Checkpoint{p, "test_map", now, true});
 
   return path;
 }
@@ -101,12 +103,12 @@ SCENARIO("Compute conflict brackets")
       const auto& bracket = brackets.front();
 
       // (1, 2] x (1, 2)
-      CHECK(bracket.A.start == 1);
       CHECK_FALSE(bracket.A.include_start);
+      CHECK(bracket.A.start == 1);
       CHECK(bracket.A.finish == 2);
       CHECK(bracket.A.include_finish);
-      CHECK(bracket.B.start == 1);
       CHECK_FALSE(bracket.B.include_start);
+      CHECK(bracket.B.start == 1);
       CHECK(bracket.B.finish == 2);
       CHECK_FALSE(bracket.B.include_finish);
 
@@ -138,12 +140,12 @@ SCENARIO("Compute conflict brackets")
       const auto& bracket = brackets.front();
 
       // (1, 4) x (1, 4)
-      CHECK(bracket.A.start == 1);
       CHECK_FALSE(bracket.A.include_start);
+      CHECK(bracket.A.start == 1);
       CHECK(bracket.A.finish == 4);
       CHECK_FALSE(bracket.A.include_finish);
-      CHECK(bracket.B.start == 1);
       CHECK_FALSE(bracket.B.include_start);
+      CHECK(bracket.B.start == 1);
       CHECK(bracket.B.finish == 4);
       CHECK_FALSE(bracket.B.include_finish);
 
@@ -194,22 +196,22 @@ SCENARIO("Compute conflict brackets")
       REQUIRE(brackets.size() == 2);
 
       // (1, 3] x (2, 3]
-      CHECK(brackets[0].A.start == 1);
       CHECK_FALSE(brackets[0].A.include_start);
+      CHECK(brackets[0].A.start == 1);
       CHECK(brackets[0].A.finish == 3);
       CHECK(brackets[0].A.include_finish);
-      CHECK(brackets[0].B.start == 2);
       CHECK_FALSE(brackets[0].B.include_start);
+      CHECK(brackets[0].B.start == 2);
       CHECK(brackets[0].B.finish == 3);
       CHECK(brackets[0].B.include_finish);
 
       // (5, 8] x [0, 2)
-      CHECK(brackets[1].A.start == 5);
       CHECK_FALSE(brackets[1].A.include_start);
+      CHECK(brackets[1].A.start == 5);
       CHECK(brackets[1].A.finish == 8);
       CHECK(brackets[1].A.include_finish);
-      CHECK(brackets[1].B.start == 0);
       CHECK(brackets[1].B.include_start);
+      CHECK(brackets[1].B.start == 0);
       CHECK(brackets[1].B.finish == 2);
       CHECK_FALSE(brackets[1].B.include_finish);
 
@@ -240,22 +242,22 @@ SCENARIO("Compute conflict brackets")
       REQUIRE(brackets.size() == 2);
 
       // (1, 3] x (2, 3]
-      CHECK(brackets[0].A.start == 1);
       CHECK_FALSE(brackets[0].A.include_start);
+      CHECK(brackets[0].A.start == 1);
       CHECK(brackets[0].A.finish == 3);
       CHECK(brackets[0].A.include_finish);
-      CHECK(brackets[0].B.start == 2);
       CHECK_FALSE(brackets[0].B.include_start);
+      CHECK(brackets[0].B.start == 2);
       CHECK(brackets[0].B.finish == 3);
       CHECK(brackets[0].B.include_finish);
 
       // [4, 8] x [0, 2)
-      CHECK(brackets[1].A.start == 4);
       CHECK(brackets[1].A.include_start);
+      CHECK(brackets[1].A.start == 4);
       CHECK(brackets[1].A.finish == 8);
       CHECK(brackets[1].A.include_finish);
-      CHECK(brackets[1].B.start == 0);
       CHECK(brackets[1].B.include_start);
+      CHECK(brackets[1].B.start == 0);
       CHECK(brackets[1].B.finish == 2);
       CHECK_FALSE(brackets[1].B.include_finish);
 
@@ -285,26 +287,26 @@ SCENARIO("Compute conflict brackets")
       REQUIRE(brackets.size() == 2);
 
       // (1, 3] x [2, 3]
-      CHECK(brackets[0].A.start == 1);
       CHECK_FALSE(brackets[0].A.include_start);
+      CHECK(brackets[0].A.start == 1);
       CHECK(brackets[0].A.finish == 3);
       CHECK(brackets[0].A.include_finish);
-      CHECK(brackets[0].B.start == 2);
       CHECK(brackets[0].B.include_start);
+      CHECK(brackets[0].B.start == 2);
       CHECK(brackets[0].B.finish == 3);
       CHECK(brackets[0].B.include_finish);
 
       // (5, 8] x [0, 2)
-      CHECK(brackets[1].A.start == 5);
       CHECK_FALSE(brackets[1].A.include_start);
+      CHECK(brackets[1].A.start == 5);
       CHECK(brackets[1].A.finish == 8);
       CHECK(brackets[1].A.include_finish);
-      CHECK(brackets[1].B.start == 0);
       CHECK(brackets[1].B.include_start);
+      CHECK(brackets[1].B.start == 0);
       CHECK(brackets[1].B.finish == 2);
       CHECK_FALSE(brackets[1].B.include_finish);
 
-      auto zero_order_blockers = compute_blockers(
+      const auto zero_order_blockers = compute_blockers(
             brackets, 0, path_A.size(), 1, path_B.size());
 
       PeerToPeerBlockers peer_blockers;
@@ -319,6 +321,69 @@ SCENARIO("Compute conflict brackets")
 
       simulate_all_sequences(should_go, nullptr, {8, 4});
     }
+  }
+
+  GIVEN("Floor changing pass-over")
+  {
+    std::vector<std::vector<Checkpoint>> paths;
+
+    std::array<Eigen::Vector2d, 6> A;
+    A[0] = {0, 0};
+    A[1] = {2, 0};
+    A[2] = {2, 0};
+    A[3] = {6, 0};
+    A[4] = {6, 0};
+    A[5] = {8, 0};
+    auto path_A = make_path(A);
+    path_A[2].map_name = "test_map_2";
+    path_A[3].map_name = "test_map_3";
+    paths.emplace_back(std::move(path_A));
+
+    std::array<Eigen::Vector2d, 5> B;
+    B[0] = {8, 0};
+    B[1] = {6, 0};
+    B[2] = {4, 0};
+    B[3] = {2, 0};
+    B[4] = {0, 0};
+    paths.push_back(make_path(B));
+
+    const auto brackets = compute_conflict_brackets(
+          paths[0], radius, paths[1], radius, max_angle);
+
+    // [0, 1] x (2, 4]
+    CHECK(brackets[0].A.include_start);
+    CHECK(brackets[0].A.start == 0);
+    CHECK(brackets[0].A.finish == 1);
+    CHECK(brackets[0].A.include_finish);
+    CHECK_FALSE(brackets[0].B.include_start);
+    CHECK(brackets[0].B.start == 2);
+    CHECK(brackets[0].B.finish == 4);
+    CHECK(brackets[0].B.include_finish);
+
+    // [4, 5] x [0, 2)
+    CHECK(brackets[1].A.include_start);
+    CHECK(brackets[1].A.start == 4);
+    CHECK(brackets[1].A.finish == 5);
+    CHECK(brackets[1].A.include_finish);
+    CHECK(brackets[1].B.include_start);
+    CHECK(brackets[1].B.start == 0);
+    CHECK(brackets[1].B.finish == 2);
+    CHECK_FALSE(brackets[1].B.include_finish);
+
+    const auto zero_order_blockers = compute_blockers(
+          brackets, 0, paths.at(0).size(), 1, paths.at(1).size());
+
+    PeerToPeerBlockers peer_blockers;
+    peer_blockers[0][1] = zero_order_blockers.at(0);
+    peer_blockers[1][0] = zero_order_blockers.at(1);
+
+    CHECK(peer_blockers[0][1].size() == 2);
+    CHECK(peer_blockers[1][0].size() == 2);
+
+    const Blockers should_go =
+        compute_final_ShouldGo_constraints(peer_blockers);
+
+    simulate_all_sequences(should_go, nullptr, {5, 4});
   }
 }
 

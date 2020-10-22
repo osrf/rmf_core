@@ -166,6 +166,10 @@ std::vector<BracketPair> compute_conflict_brackets(
   {
     const auto& it_a_start = path_a[a];
     const auto& it_a_finish = path_a[a+1];
+
+    if (it_a_start.map_name != it_a_finish.map_name)
+      continue;
+
     const Segment segment_a{
       it_a_start.position, it_a_finish.position, radius_a};
 
@@ -173,6 +177,13 @@ std::vector<BracketPair> compute_conflict_brackets(
     {
       const auto& it_b_start = path_b[b];
       const auto& it_b_finish = path_b[b+1];
+
+      if (it_b_start.map_name != it_b_finish.map_name)
+        continue;
+
+      if (it_a_start.map_name != it_b_start.map_name)
+        continue;
+
       const Segment segment_b{
         it_b_start.position, it_b_finish.position, radius_b};
 
