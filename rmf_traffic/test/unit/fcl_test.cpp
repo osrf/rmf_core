@@ -29,11 +29,11 @@ TEST_CASE("Verify that FCL can handle continuous collisions")
   std::shared_ptr<fcl::CollisionObjectd> object_1 =
     std::make_shared<fcl::CollisionObjectd>(sphere_geom);
 
-  fcl::Transform3f tf_sphere_start;
-  tf_sphere_start.setTranslation(fcl::Vector3d(1.0, 0.0, 0.0));
+  fcl::Transform3d tf_sphere_start;
+  tf_sphere_start.pretranslate(fcl::Vector3d(1.0, 0.0, 0.0));
   object_1->setTransform(tf_sphere_start);
 
-  fcl::Transform3f tf_sphere_final = tf_sphere_start;
+  fcl::Transform3d tf_sphere_final = tf_sphere_start;
 
   // Make box
   std::shared_ptr<fcl::CollisionGeometryd> box_geom =
@@ -42,17 +42,17 @@ TEST_CASE("Verify that FCL can handle continuous collisions")
   std::shared_ptr<fcl::CollisionObjectd> object_2 =
     std::make_shared<fcl::CollisionObjectd>(box_geom);
 
-  fcl::Transform3f tf_box_start;
-  tf_box_start.setTranslation(fcl::Vector3d(0.0, 5.0, 0.0));
+  fcl::Transform3d tf_box_start;
+  tf_box_start.pretranslate(fcl::Vector3d(0.0, 5.0, 0.0));
   object_2->setTransform(tf_box_start);
 
-  fcl::Transform3f tf_box_final = tf_box_start;
-  tf_box_final.setTranslation(fcl::Vector3d(0.0, -5.0, 0.0));
+  fcl::Transform3d tf_box_final = tf_box_start;
+  tf_box_final.pretranslate(fcl::Vector3d(0.0, -5.0, 0.0));
 
-  fcl::Quaternion3f R_box;
-  R_box.fromAxisAngle(fcl::Vector3d(0.0, 0.0, 1.0), 90.0*M_PI/180.0);
-
-  tf_box_final.setQuatRotation(R_box);
+  tf_box_final.rotate(fcl::AngleAxisd(90.0*M_PI/180.0, fcl::Vector3d::UnitZ()));
+  // fcl::Quaternion R_box;
+  // R_box.fromAxisAngle(fcl::Vector3d(0.0, 0.0, 1.0), 90.0*M_PI/180.0);
+  //tf_box_final.setQuatRotation(R_box);
 
   fcl::ContinuousCollisionRequestd request(100);
   request.ccd_motion_type = fcl::CCDM_LINEAR;

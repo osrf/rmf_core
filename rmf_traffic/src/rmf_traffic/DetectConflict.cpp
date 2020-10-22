@@ -593,20 +593,6 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
 }
 
 namespace {
-//==============================================================================
-fcl::Transform3d convert(Eigen::Vector3d p)
-{
-  //Eigen::Matrix<double, 3, 3> R(Eigen::EulerAngles(0.0, 0.0, p[2]));
-  
-  // fcl::Matrix3d R;
-  // R.EulerAngles(0.0, 0.0, p[2]);
-  //return fcl::Transform3f(R, fcl::Vector3d(p[0], p[1], 0.0));
-
-  fcl::Transform3d t;
-  t = fcl::AngleAxisd(p[2], Eigen::Vector3d::UnitZ());
-  t.pretranslate(p);
-  return t;
-}
 
 //==============================================================================
 bool check_overlap(
@@ -628,18 +614,25 @@ bool check_overlap(
   fcl::CollisionResultd result;
   for (const auto pair : pairs)
   {
+    auto pos_a = spline_a.compute_position(time);
+    auto pos_b = spline_b.compute_position(time);
+    
+    fcl::Matrix3d rot_a = fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    fcl::Matrix3d rot_b = fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
     fcl::CollisionObjectd obj_a(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
-      convert(spline_a.compute_position(time)));
+      rot_a,
+      fcl::Vector3d(pos_a[0], pos_a[1], 0.0));
 
     fcl::CollisionObjectd obj_b(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[1]),
-      convert(spline_b.compute_position(time)));
+      rot_b,
+      fcl::Vector3d(pos_b[0], pos_b[1], 0.0));
 
     if (fcl::collide(&obj_a, &obj_b, request, result) > 0)
       return true;
   }
-
   return false;
 }
 
@@ -713,10 +706,13 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
     if (overlap(bound_a.footprint, bound_b.vicinity))
     {
+      //printf("overlap pass\n");
+      
       if (const auto collision = check_collision(
           *profile_a.footprint, motion_a,
           *profile_b.vicinity, motion_b, request))
       {
+        //printf("check_collision pass\n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
@@ -724,14 +720,18 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
         output_conflicts->emplace_back(
           DetectConflict::Implementation::Conflict{a_it, b_it, time});
       }
+      // else
+      //   printf("check_collision fail\n");
     }
 
     if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
     {
+      // printf("overlap #2 pass\n");
       if (const auto collision = check_collision(
           *profile_a.vicinity, motion_a,
           *profile_b.footprint, motion_b, request))
       {
+        // printf("check_collision #2 pass\n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
@@ -1062,7 +1062,7 @@ bool detect_conflicts(
       // TODO(MXG): We should do a broadphase test here before using
       // fcl::collide
 
-      fcl::ContinuousCollisionResult<double> result;
+      fcl::ContinuousCollisionResultd result;
       fcl::collide(&obj_trajectory, &obj_region, request, result);
       if (result.is_collide)
       {
