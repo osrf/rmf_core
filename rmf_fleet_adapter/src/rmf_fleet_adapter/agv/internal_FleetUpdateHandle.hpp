@@ -157,6 +157,12 @@ public:
   std::unordered_map<std::string,
     rmf_fleet_msgs::msg::DockParameter> dock_param_map = {};
 
+  // Threshold soc for battery recharging
+  double recharge_threshold = 0.2;
+
+  std::vector<std::size_t> charging_waypoints;
+  std::vector<std::size_t> unassigned_charging_waypoints;
+
   AcceptTaskRequest accept_task = nullptr;
 
   using BidNotice = rmf_task_msgs::msg::BidNotice;

@@ -251,7 +251,9 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   }
 
   // Update robot states
-    RCLCPP_INFO(node->get_logger(), "Planning for [%d] request(s)", pending_requests.size());
+  std::vector<rmf_task::agv::State> states;
+
+  RCLCPP_INFO(node->get_logger(), "Planning for [%d] request(s)", pending_requests.size());
 
   // Generate new task assignments while accommodating for the new
   // request
@@ -497,6 +499,10 @@ void FleetUpdateHandle::add_robot(
          fleet = shared_from_this()](
         rmf_traffic::schedule::Participant participant)
   {
+    // TODO(YV) Get the charging location for this robot along with battery %
+    rmf_task::agv::State state = rmf_task::agv::State{start[0], 1, 1.0};
+    rmf_task::agv::StateConfig state_config = rmf_task::agv::StateConfig{
+      fleet->_pimpl->recharge_threshold};
     auto context = std::make_shared<RobotContext>(
           RobotContext{
             std::move(command),
@@ -506,7 +512,9 @@ void FleetUpdateHandle::add_robot(
             fleet->_pimpl->planner,
             fleet->_pimpl->node,
             fleet->_pimpl->worker,
-            fleet->_pimpl->default_maximum_delay
+            fleet->_pimpl->default_maximum_delay,
+            state,
+            state_config
           });
 
     // We schedule the following operations on the worker to make sure we do not
@@ -613,6 +621,14 @@ bool FleetUpdateHandle::set_task_planner_params(
   }
 
     return false;
+}
+
+//==============================================================================
+FleetUpdateHandle& FleetUpdateHandle::set_recharge_threshold(
+  const double threshold)
+{
+  _pimpl->recharge_threshold = threshold;
+  return *this;
 }
 
 //==============================================================================
