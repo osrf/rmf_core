@@ -61,6 +61,206 @@ public:
 } // anonymous namespace
 
 //==============================================================================
+void FleetUpdateHandle::Implementation::dock_summary_cb(
+  const DockSummary::SharedPtr msg)
+{
+  for (const auto& dock : msg->docks)
+  {
+    if (dock.fleet_name == name)
+    {
+      dock_param_map.clear();
+      for (const auto& param : dock.params)
+        dock_param_map.insert({param.start, param});
+      break;
+    }
+  }
+
+  return;
+}
+
+//==============================================================================
+void FleetUpdateHandle::Implementation::bid_notice_cb(
+  const BidNotice::SharedPtr msg)
+{
+  if (task_managers.empty())
+    return;
+
+  if (!accept_task)
+  {
+    RCLCPP_WARN(
+      node->get_logger(),
+      "Fleet [%s] is not configured to accept any task requests. Use "
+      "FleetUpdateHadndle::accept_task_requests(~) to define a callback "
+      "for accepting requests", name.c_str());
+
+    return;
+  }
+
+  if (!accept_task(msg->task_profile))
+  {
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Fleet [%s] is configured to not accept task [%s]",
+      name.c_str(),
+      msg->task_profile.task_id.c_str());
+
+      return;
+  }
+
+  if (!task_planner
+    || !initialized_task_planner)
+  {
+    RCLCPP_WARN(
+      node->get_logger(),
+      "Fleet [%s] is not configured with parameters for task planning."
+      "Use FleetUpdateHandle::set_task_planner_params(~) to set the "
+      "parameters required.", name.c_str());
+
+    return;
+  }
+
+  // Determine task type and convert to request pointer
+  rmf_task::RequestPtr new_request = nullptr;
+  const auto& task_profile = msg->task_profile;
+  const auto& task_type = task_profile.type;
+  const rmf_traffic::Time start_time = rmf_traffic_ros2::convert(task_profile.start_time);
+  // TODO (YV) get rid of ID field in RequestPtr
+  std::string id = msg->task_profile.task_id;
+  const auto& graph = planner->get_configuration().graph();
+
+  // RCLCPP_INFO(
+  //   node->get_logger(),
+  //   "Fleet [%s] is processing BidNotice with task_id:[%s] and type:[%d]...",
+  //   name.c_str(), id.c_str(), task_type.value);
+
+  // Process Cleaning task
+  if (task_type.value == rmf_task_msgs::msg::TaskType::CLEANING_TASK)
+  {
+    if (task_profile.params.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [zone] missing in TaskProfile. Rejecting BidNotice "
+        " with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    // Check for valid start waypoint
+    const std::string start_wp_name = task_profile.params[0].value;
+    const auto start_wp = graph.find_waypoint(start_wp_name);
+    if (!start_wp)
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Fleet [%s] does not have a named waypoint [%s] configured in its "
+        "nav graph. Rejecting BidNotice with task_id:[%s]",
+        name.c_str(), start_wp_name.c_str(), id.c_str());
+
+        return;
+    }
+
+    // Get dock parameters
+    const auto clean_param_it = dock_param_map.find(start_wp_name);
+    if (clean_param_it == dock_param_map.end())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Dock param for dock_name:[%s] unavailable. Rejecting BidNotice with "
+        "task_id:[%s]", start_wp_name.c_str(), id.c_str());
+
+      return;
+    }
+    const auto clean_param = clean_param_it->second;
+
+    // Check for valid finish waypoint
+    const std::string finish_wp_name = clean_param.finish;
+    const auto finish_wp = graph.find_waypoint(finish_wp_name);
+    if (!finish_wp)
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Fleet [%s] does not have a named waypoint [%s] configured in its "
+        "nav graph. Rejecting BidNotice with task_id:[%s]",
+        name.c_str(), finish_wp_name.c_str(), id.c_str());
+
+        return;
+    }
+
+    // Interpolate docking waypoint into trajectory
+    std::vector<Eigen::Vector3d>  positions;
+    for (const auto& location: clean_param.path)
+      positions.push_back({location.x, location.y, location.yaw});
+
+    rmf_traffic::Trajectory cleaning_trajectory =
+      rmf_traffic::agv::Interpolate::positions(
+        planner->get_configuration().vehicle_traits(),
+        start_time,
+        positions); 
+
+    // TODO(YV) get rid of id field in RequestPtr
+    std::stringstream id_stream(id);
+    std::size_t request_id;
+    id_stream >> request_id;
+
+    new_request = rmf_task::requests::Clean::make(
+      request_id,
+      start_wp->index(),
+      finish_wp->index(),
+      cleaning_trajectory,
+      motion_sink,
+      ambient_sink,
+      tool_sink,
+      planner,
+      start_time,
+      drain_battery);
+
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Generated Clean request");
+  }
+
+  else if (task_type.value == rmf_task_msgs::msg::TaskType::DELIVERY_TASK)
+  {
+    // TODO(YV)
+  }
+  else if (task_type.value == rmf_task_msgs::msg::TaskType::LOOP_TASK)
+  {
+    // TODO(YV)
+  }
+  else
+  {
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Invalid TaskType in TaskProfile. Rejecting BidNotice with task_id:[%s]",
+      id.c_str());
+
+    return;
+  }
+  
+  if (!new_request)
+    return;
+
+  // Combine new request ptr with request ptr of tasks in task manager queues
+  std::vector<rmf_task::RequestPtr> pending_requests;
+  pending_requests.push_back(new_request);
+  for (const auto& t : task_managers)
+  {
+    const auto requests = t.second->requests();
+    pending_requests.insert(pending_requests.end(), requests.begin(), requests.end());
+  }
+
+  // Update robot states
+    RCLCPP_INFO(node->get_logger(), "Planning for [%d] request(s)", pending_requests.size());
+
+  // Generate new task assignments while accommodating for the new
+  // request
+  // Call greedy_plan but run optimal_plan() in a separate thread
+
+  // Store results in internal map and publish BidProposal
+}
+
+//==============================================================================
 // auto FleetUpdateHandle::Implementation::estimate_delivery(
 //     const rmf_task_msgs::msg::Delivery& request) const
 // -> rmf_utils::optional<FleetUpdateHandle::Implementation::DeliveryEstimate>
