@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
   rclcpp::init(argc, argv);
 
   std::cout << "~Initializing Dispatcher Node~" << std::endl;
-   
+
   auto dispatcher = rmf_task_ros2::dispatcher::Dispatcher::make(
     "rmf_dispatcher_node");
 
@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
   );
 
   dispatcher->spin();
-  
+
   RCLCPP_INFO(node->get_logger(), "Closing down task dispatcher node");
   rclcpp::shutdown();
 }

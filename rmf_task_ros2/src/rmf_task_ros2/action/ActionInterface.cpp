@@ -48,7 +48,7 @@ TaskActionClient::TaskActionClient(
       if (_active_task_status.count(task_profile))
       {
         auto weak_status = _active_task_status[task_profile].lock();
-        
+
         if (!weak_status)
         {
           std::cout << "weak status has expired\n";
@@ -72,7 +72,7 @@ TaskActionClient::TaskActionClient(
             _on_terminate_callback(weak_status);
         }
       }
-  });
+    });
 }
 
 void TaskActionClient::add_task(

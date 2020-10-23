@@ -91,16 +91,11 @@ struct TaskStatus
   std::string status; // verbose msg
   State state = State::Pending; // default
 
-  void next_state()
+  bool is_terminated() const
   {
-    // todo: enforcement of state machine
-  }
-
-  bool is_terminated()
-  {
-    return ((state == State::Failed) ||
-            (state == State::Completed) ||
-            (state == State::Canceled));
+    return (state == State::Failed) ||
+      (state == State::Completed) ||
+      (state == State::Canceled);
   }
 };
 

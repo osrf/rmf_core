@@ -85,6 +85,11 @@ public:
   /// \return ptr to a map of terminated tasks
   const DispatchTasksPtr terminated_tasks() const;
 
+  using StatusCallback = std::function<void(const TaskStatusPtr status)>;
+
+  // Trigger this callback when a task status is changed
+  void on_change(StatusCallback on_change_fn);
+
   /// Get the rclcpp::Node that this dispatcher will be using for communication.
   std::shared_ptr<rclcpp::Node> node();
 

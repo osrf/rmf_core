@@ -27,3 +27,12 @@ ros2 service call /get_task rmf_task_msgs/GetTask \ "{ task_id: []}"
 ros2 service call /cancel_task rmf_task_msgs/CancelTask \
 "{ task_id: 'test1' }"
 ```
+
+## Docker usage
+```bash
+docker build -t osrf/rmf_core:task-dispatcher  .
+docker run -it osrf/rmf_core:task-dispatcher ros2 run rmf_task_ros2 rmf_task_dispatcher
+```
+
+## Sample dispatcher with mongo
+ - https://github.com/tanyouliang95/rmf_web_server

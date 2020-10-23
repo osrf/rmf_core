@@ -77,9 +77,9 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
-     // should not receive cuz incorrect serverid
-    REQUIRE(status_ptr->state == TaskStatus::State::Pending);   
-    
+    // should not receive cuz incorrect serverid
+    REQUIRE(status_ptr->state == TaskStatus::State::Pending);
+
     action_client->add_task("test_server", task_profile1, status_ptr);
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
@@ -107,7 +107,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
       rmf_traffic::time::from_seconds(0.5));
     REQUIRE(!test_cancel_task);
     REQUIRE(cancel_success == false); // cancel failed
-    REQUIRE(action_client->size() == 1); 
+    REQUIRE(action_client->size() == 1);
 
     // Valid Cancel task
     action_client->cancel_task(task_profile2);
