@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__BLOCKADE__DATABASE_HPP
-#define RMF_TRAFFIC__BLOCKADE__DATABASE_HPP
+#ifndef RMF_TRAFFIC__BLOCKADE__MODERATOR_HPP
+#define RMF_TRAFFIC__BLOCKADE__MODERATOR_HPP
 
 #include <rmf_utils/impl_ptr.hpp>
 
@@ -26,9 +26,17 @@ namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
-class Database : public Writer
+class Moderator : public Writer
 {
 public:
+
+
+
+  using Assignments = std::unordered_map<ParticipantId, ReservedRange>;
+
+  const Assignments& assignments() const;
+
+  const std::unordered_map<ParticipantId, Status>& statuses() const;
 
   class Implementation;
 private:
@@ -38,4 +46,4 @@ private:
 } // namespace blockade
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__BLOCKADE__DATABASE_HPP
+#endif // RMF_TRAFFIC__BLOCKADE__MODERATOR_HPP

@@ -21,31 +21,12 @@
 #include <Eigen/Geometry>
 
 #include <rmf_traffic/Time.hpp>
+#include <rmf_traffic/blockade/Status.hpp>
 
 #include <rmf_utils/impl_ptr.hpp>
 
 namespace rmf_traffic {
 namespace blockade {
-
-using ParticipantId = uint64_t;
-using ReservationId = uint64_t;
-using CheckpointId = uint64_t;
-using Version = uint64_t;
-
-//==============================================================================
-struct ReservedRange
-{
-  std::size_t begin;
-  std::size_t end;
-
-  bool operator==(const ReservedRange& other) const
-  {
-    return (begin == other.begin) && (end == other.end);
-  }
-};
-
-//==============================================================================
-using Assignments = std::unordered_map<ParticipantId, ReservedRange>;
 
 //==============================================================================
 class Writer
@@ -79,21 +60,6 @@ public:
       ParticipantId participant,
       ReservationId reservation,
       CheckpointId checkpoint) = 0;
-
-  virtual void finished(
-      ParticipantId participant,
-      ReservationId reservation) = 0;
-
-  virtual const Assignments& assignments() const = 0;
-
-  struct Status
-  {
-    ReservationId reservation;
-    CheckpointId last_ready;
-    CheckpointId last_reached;
-  };
-
-  virtual const std::unordered_map<ParticipantId, Status>& statuses() const = 0;
 
   virtual ~Writer() = default;
 };

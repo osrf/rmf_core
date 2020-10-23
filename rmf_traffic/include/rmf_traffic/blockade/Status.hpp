@@ -15,49 +15,43 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__BLOCKADE__PARTICIPANT_HPP
-#define RMF_TRAFFIC__BLOCKADE__PARTICIPANT_HPP
+#ifndef RMF_TRAFFIC__BLOCKADE__STATUS_HPP
+#define RMF_TRAFFIC__BLOCKADE__STATUS_HPP
 
-#include <rmf_traffic/blockade/Rectifier.hpp>
-#include <rmf_traffic/blockade/Writer.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <unordered_map>
 
 namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
-class Participant
+using ParticipantId = uint64_t;
+using ReservationId = uint64_t;
+using CheckpointId = uint64_t;
+using Version = uint64_t;
+
+//==============================================================================
+struct Status
 {
-public:
-
-  void radius(double new_radius);
-
-  double radius() const;
-
-  void set(std::vector<Writer::Checkpoint> path);
-
-  const std::vector<Writer::Checkpoint>& path() const;
-
-  void ready(CheckpointId checkpoint);
-
-  CheckpointId last_ready() const;
-
-  void reached(CheckpointId checkpoint);
-
-  CheckpointId last_reached() const;
-
-  class Implementation;
-private:
-  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+  ReservationId reservation;
+  CheckpointId last_ready;
+  CheckpointId last_reached;
 };
 
 //==============================================================================
-Participant make_participant(
-    ParticipantId participant_id,
-    double radius,
-    std::shared_ptr<Writer> writer,
-    std::shared_ptr<RectificationRequesterFactory> rectifier_factory = nullptr);
+struct ReservedRange
+{
+  std::size_t begin;
+  std::size_t end;
+
+  bool operator==(const ReservedRange& other) const
+  {
+    return (begin == other.begin) && (end == other.end);
+  }
+};
 
 } // namespace blockade
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__BLOCKADE__PARTICIPANT_HPP
+#endif // RMF_TRAFFIC__BLOCKADE__STATUS_HPP
