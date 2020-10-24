@@ -252,8 +252,13 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   // Update robot states
   std::vector<rmf_task::agv::State> states;
+  for (const auto& t : task_managers)
+    states.push_back(t.first->state());
 
-  RCLCPP_INFO(node->get_logger(), "Planning for [%d] request(s)", pending_requests.size());
+  RCLCPP_INFO(
+    node->get_logger(), 
+    "Planning for [%d] robot and [%d] request(s)", 
+    states.size(), pending_requests.size());
 
   // Generate new task assignments while accommodating for the new
   // request
