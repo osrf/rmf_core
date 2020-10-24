@@ -241,19 +241,19 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   if (!new_request)
     return;
 
-  // Combine new request ptr with request ptr of tasks in task manager queues
+  // Update robot states and combine new requestptr with requestptr of
+  // non-charging tasks in task manager queues
+  std::vector<rmf_task::agv::State> states;
+  std::vector<rmf_task::agv::StateConfig> state_configs;
   std::vector<rmf_task::RequestPtr> pending_requests;
   pending_requests.push_back(new_request);
   for (const auto& t : task_managers)
   {
+    states.push_back(t.first->state());
+    state_configs.push_back(t.first->state_config());
     const auto requests = t.second->requests();
     pending_requests.insert(pending_requests.end(), requests.begin(), requests.end());
   }
-
-  // Update robot states
-  std::vector<rmf_task::agv::State> states;
-  for (const auto& t : task_managers)
-    states.push_back(t.first->state());
 
   RCLCPP_INFO(
     node->get_logger(), 
@@ -263,6 +263,12 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   // Generate new task assignments while accommodating for the new
   // request
   // Call greedy_plan but run optimal_plan() in a separate thread
+  const auto assignments = task_planner->optimal_plan(
+    rmf_traffic_ros2::convert(node->now()),
+    states,
+    state_configs,
+    pending_requests,
+    nullptr);
 
   // Store results in internal map and publish BidProposal
 }

@@ -121,6 +121,9 @@ public:
   /// Get the state of this robot 
   const rmf_task::agv::State state() const;
 
+  /// Get the state config of this robot 
+  const rmf_task::agv::StateConfig state_config() const;
+
 private:
   friend class FleetUpdateHandle;
   friend class RobotUpdateHandle;

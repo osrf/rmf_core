@@ -228,6 +228,12 @@ RobotContext& RobotContext::state(
 }
 
 //==============================================================================
+const rmf_task::agv::StateConfig RobotContext::state_config() const
+{
+  return _state_config;
+}
+
+//==============================================================================
 void RobotContext::respond(
     const TableViewerPtr& table_viewer,
     const ResponderPtr& responder)

@@ -58,7 +58,7 @@ public:
   /// task planner
   void set_queue(Assignments assignments);
 
-  /// Get the requests used to create the tasks currently in the queue
+  /// Get the non-charging requests for pending tasks
   const std::vector<rmf_task::RequestPtr> requests() const;
 
 private:

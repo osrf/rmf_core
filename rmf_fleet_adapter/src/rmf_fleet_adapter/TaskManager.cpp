@@ -17,6 +17,8 @@
 
 #include "TaskManager.hpp"
 
+#include <rmf_task/requests/ChargeBattery.hpp>
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -108,7 +110,14 @@ const std::vector<rmf_task::RequestPtr> TaskManager::requests() const
   std::vector<rmf_task::RequestPtr> requests;
   requests.reserve(_queue.size());
   for (const auto& task : _queue)
+  {
+    if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+      task->request()))
+      continue;
+
     requests.push_back(task->request());
+
+  }
   
   return requests;
 }
