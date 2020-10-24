@@ -160,7 +160,9 @@ public:
   // Threshold soc for battery recharging
   double recharge_threshold = 0.2;
 
+  // TODO Support for various charging configurations
   std::vector<std::size_t> charging_waypoints;
+  // We assume each robot has a designated charging waypoint
   std::vector<std::size_t> unassigned_charging_waypoints;
 
   AcceptTaskRequest accept_task = nullptr;

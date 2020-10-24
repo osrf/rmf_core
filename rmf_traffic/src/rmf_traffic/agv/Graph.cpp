@@ -44,6 +44,8 @@ public:
 
   bool parking_spot = false;
 
+  bool charger = false;
+
   template<typename... Args>
   static Waypoint make(Args&& ... args)
   {
@@ -122,6 +124,19 @@ bool Graph::Waypoint::is_parking_spot() const
 auto Graph::Waypoint::set_parking_spot(bool _is_parking_spot) -> Waypoint&
 {
   _pimpl->parking_spot = _is_parking_spot;
+  return *this;
+}
+
+//==============================================================================
+bool Graph::Waypoint::is_charger() const
+{
+  return _pimpl->charger;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_charger(bool _is_charger) -> Waypoint&
+{
+  _pimpl->charger = _is_charger;
   return *this;
 }
 
