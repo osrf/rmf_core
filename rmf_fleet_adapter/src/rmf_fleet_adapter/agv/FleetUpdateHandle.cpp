@@ -477,6 +477,34 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 // }
 
 //==============================================================================
+std::size_t FleetUpdateHandle::Implementation::get_nearest_charger(
+  const rmf_traffic::agv::Planner::Start& start,
+  const std::unordered_set<std::size_t>& charging_waypoints)
+{
+  assert(!charging_waypoints.empty());
+  const auto& graph = planner->get_configuration().graph();
+  Eigen::Vector2d p = graph.get_waypoint(start.waypoint()).get_location();
+
+  if (start.location().has_value())
+    p = *start.location();
+
+  double min_dist = std::numeric_limits<double>::max();
+  std::size_t nearest_charger;
+  for (const auto& wp : charging_waypoints)
+  {
+    const auto loc = graph.get_waypoint(wp).get_location();
+    const double dist = (loc - p).norm();
+    if (dist < min_dist)
+    {
+      min_dist = dist;
+      nearest_charger = wp;
+    }
+  }
+
+  return nearest_charger;
+}
+
+//==============================================================================
 void FleetUpdateHandle::add_robot(
     std::shared_ptr<RobotCommandHandle> command,
     const std::string& name,
@@ -484,6 +512,7 @@ void FleetUpdateHandle::add_robot(
     rmf_traffic::agv::Plan::StartSet start,
     std::function<void(std::shared_ptr<RobotUpdateHandle>)> handle_cb)
 {
+  assert(!start.empty());
   rmf_traffic::schedule::ParticipantDescription description(
         name,
         _pimpl->name,
@@ -499,8 +528,10 @@ void FleetUpdateHandle::add_robot(
          fleet = shared_from_this()](
         rmf_traffic::schedule::Participant participant)
   {
-    // TODO(YV) Get the charging location for this robot along with battery %
-    rmf_task::agv::State state = rmf_task::agv::State{start[0], 1, 1.0};
+    // TODO(YV) Get the battery % of this robot
+    const std::size_t charger = fleet->_pimpl->get_nearest_charger(
+        start[0], fleet->_pimpl->charging_waypoints);
+    rmf_task::agv::State state = rmf_task::agv::State{start[0], charger, 1.0};
     rmf_task::agv::StateConfig state_config = rmf_task::agv::StateConfig{
       fleet->_pimpl->recharge_threshold};
     auto context = std::make_shared<RobotContext>(

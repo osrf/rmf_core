@@ -46,6 +46,7 @@
 #include <rmf_traffic_ros2/Time.hpp>
 
 #include <iostream>
+#include <unordered_set>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -161,9 +162,9 @@ public:
   double recharge_threshold = 0.2;
 
   // TODO Support for various charging configurations
-  std::vector<std::size_t> charging_waypoints;
+  std::unordered_set<std::size_t> charging_waypoints;
   // We assume each robot has a designated charging waypoint
-  std::vector<std::size_t> unassigned_charging_waypoints;
+  std::unordered_set<std::size_t> available_charging_waypoints;
 
   AcceptTaskRequest accept_task = nullptr;
 
@@ -229,6 +230,14 @@ public:
           p->dock_summary_cb(msg);
         });
 
+    // Populate charging waypoints
+    const std::size_t num_waypoints =
+      handle._pimpl->planner->get_configuration().graph().num_waypoints();
+    for (std::size_t i = 0; i < num_waypoints; ++i)
+      handle._pimpl->charging_waypoints.insert(i);
+    handle._pimpl->available_charging_waypoints =
+      handle._pimpl->charging_waypoints;
+
     return std::make_shared<FleetUpdateHandle>(std::move(handle));
   }
 
@@ -253,6 +262,10 @@ public:
   void dock_summary_cb(const DockSummary::SharedPtr msg);
 
   void bid_notice_cb(const BidNotice::SharedPtr msg);
+
+  std::size_t get_nearest_charger(
+    const rmf_traffic::agv::Planner::Start& start,
+    const std::unordered_set<std::size_t>& charging_waypoints);
 
   static Implementation& get(FleetUpdateHandle& fleet)
   {
