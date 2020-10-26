@@ -36,6 +36,36 @@ SCENARIO("DetectConflict unit tests")
   const double fcl_error_margin = 0.5;
 
   GIVEN(
+    "A 2-point trajectory t1 with a square box and unit circle with offset profile (stationary robot)")
+  {
+    const auto box_shape = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Box>(1.0, 1.f);
+    const auto circle_shape = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(1.0);
+
+    rmf_traffic::Profile profile_a { box_shape };
+
+    rmf_traffic::Profile profile_b { box_shape };
+    profile_b.addFootPrintShape(circle_shape, offset);
+    //profile.addVicinityShape(circle_shape, offset);
+
+    Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
+    Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, pos, vel);
+    t1.insert(time + 10s, pos, vel);
+
+    WHEN("t2's additional geometry is overlapping stationary trajectory t1")
+    {
+      rmf_traffic::Trajectory t2;
+      t2.insert(time, Eigen::Vector3d(-3, 1.5, 0), Eigen::Vector3d(0, 0, 0));
+      t2.insert(time + 10s, Eigen::Vector3d(0, 1.5, 0), Eigen::Vector3d(0, 0, 0));
+
+      CHECK(!rmf_traffic::DetectConflict::between(profile_a, t1, profile_b, t2));
+    }
+  }
+
+  GIVEN(
     "A 2-point trajectory t1 with unit square box profile (stationary robot)")
   {
     const double profile_scale = 1.0;

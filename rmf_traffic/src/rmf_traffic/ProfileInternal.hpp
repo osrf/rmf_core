@@ -34,6 +34,11 @@ public:
   {
     return *profile._pimpl;
   }
+
+  void addFootPrintShape(geometry::ConstFinalConvexShapePtr shape)
+  {
+    
+  }
 };
 
 } // namespace rmf_traffic
