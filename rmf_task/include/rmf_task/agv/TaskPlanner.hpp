@@ -133,9 +133,9 @@ public:
     // Get a const reference to the state
     const State& state() const;
 
-    // Get a const reference to the time when the robot begins executing
+    // Get the time when the robot begins executing
     // this assignment
-    const rmf_traffic::Time& deployment_time() const;
+    const rmf_traffic::Time deployment_time() const;
 
     class Implementation;
   

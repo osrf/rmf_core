@@ -487,7 +487,7 @@ std::shared_ptr<Connections> make_fleet(
   // Parameters required for task planner
   // Battery system
   auto battery_system = std::make_shared<rmf_battery::agv::BatterySystem>(
-    rmf_fleet_adapter::get_battery_system(*node, 24.0, 80.0, 8.8));
+    rmf_fleet_adapter::get_battery_system(*node, 24.0, 40.0, 8.8));
   if (!battery_system->valid())
   {
     RCLCPP_ERROR(

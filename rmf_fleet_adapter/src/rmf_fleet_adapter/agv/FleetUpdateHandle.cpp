@@ -22,6 +22,8 @@
 #include "../tasks/Delivery.hpp"
 #include "../tasks/Loop.hpp"
 
+#include <iostream>
+
 namespace rmf_fleet_adapter {
 namespace agv {
 
@@ -278,6 +280,26 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     nullptr);
 
   const double cost = task_planner->compute_cost(assignments);
+
+  // Display assignments for debugging
+  std::cout << "Cost: " << cost << std::endl;
+  for (std::size_t i = 0; i < assignments.size(); ++i)
+  {
+    std:: cout << "--Agent: " << i << std::endl;
+    for (const auto& a : assignments[i])
+    {
+      const auto& s = a.state();
+      const double request_seconds = a.request()->earliest_start_time().time_since_epoch().count()/1e9;
+      const double start_seconds = a.deployment_time().time_since_epoch().count()/1e9;
+      const rmf_traffic::Time finish_time = s.finish_time();
+      const double finish_seconds = finish_time.time_since_epoch().count()/1e9;
+      std::cout << "    <" << a.request()->id() << ": " << request_seconds
+                << ", " << start_seconds 
+                << ", "<< finish_seconds << ", " << 100* s.battery_soc() 
+                << "%>" << std::endl;
+    }
+  }
+  std::cout << " ----------------------" << std::endl;
 
   // Publish BidProposal
   rmf_task_msgs::msg::BidProposal bid_proposal;

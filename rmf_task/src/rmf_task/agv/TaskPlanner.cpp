@@ -150,7 +150,7 @@ const State& TaskPlanner::Assignment::state() const
 }
 
 //==============================================================================
-const rmf_traffic::Time& TaskPlanner::Assignment::deployment_time() const
+const rmf_traffic::Time TaskPlanner::Assignment::deployment_time() const
 {
   return _pimpl->deployment_time;
 }
