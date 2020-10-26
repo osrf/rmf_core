@@ -44,6 +44,9 @@ public:
     geometry::ConstFinalConvexShapePtr footprint,
     geometry::ConstFinalConvexShapePtr vicinity = nullptr);
 
+  /// Add shape to the footprint of the participant
+  void addFootPrintShape(geometry::ConstFinalConvexShapePtr shape);
+
   /// Set the footprint of the participant.
   Profile& footprint(geometry::ConstFinalConvexShapePtr shape);
 

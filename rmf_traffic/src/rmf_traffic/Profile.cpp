@@ -32,6 +32,11 @@ Profile::Profile(
   // Do nothing
 }
 
+void Profile::addFootPrintShape(geometry::ConstFinalConvexShapePtr shape)
+{
+  _pimpl->addFootPrintShape(shape);
+}
+
 //==============================================================================
 Profile& Profile::footprint(geometry::ConstFinalConvexShapePtr shape)
 {
