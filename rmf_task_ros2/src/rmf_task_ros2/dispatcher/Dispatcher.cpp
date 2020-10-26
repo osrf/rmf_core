@@ -173,6 +173,7 @@ public:
 std::shared_ptr<Dispatcher> Dispatcher::make(
   const std::string dispatcher_node_name)
 {
+  rclcpp::init(0, nullptr);
   std::shared_ptr<rclcpp::Node> node =
     rclcpp::Node::make_shared(dispatcher_node_name);
 
@@ -245,6 +246,12 @@ void Dispatcher::spin()
 Dispatcher::Dispatcher()
 {
   // Do Nothing
+}
+
+//==============================================================================
+Dispatcher::~Dispatcher()
+{
+  rclcpp::shutdown();
 }
 
 } // namespace dispatcher

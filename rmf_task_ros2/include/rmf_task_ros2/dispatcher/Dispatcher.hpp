@@ -25,7 +25,7 @@
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
-#include <rmf_task_ros2/action/ActionInterface.hpp>
+#include <rmf_task_ros2/action/ActionClient.hpp>
 
 namespace rmf_task_ros2 {
 namespace dispatcher {
@@ -36,11 +36,13 @@ using DispatchTasksPtr = std::shared_ptr<DispatchTasks>;
 using DispatchState = TaskStatus::State;
 
 //==============================================================================
-
 class Dispatcher : public std::enable_shared_from_this<Dispatcher>
 {
 public:
-  /// Create the node of a Task Dispatcher, inherited of rclcpp node
+
+  /// Initialize an rclcpp context and make an dispatcher instance. This will
+  /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will
+  /// allow you to dispatch submitted task to the best fleet/robot within RMF.
   ///
   /// \param[in] node
   ///   The ROS 2 node to manage the Dispatching of Task
@@ -95,6 +97,8 @@ public:
 
   /// spin dispatcher node
   void spin();
+
+  ~Dispatcher();
 
   class Implementation;
 

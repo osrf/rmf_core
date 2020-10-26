@@ -20,6 +20,7 @@
 #ifndef RMF_TASK_ROS2__AUCTIONEER__NODE_HPP
 #define RMF_TASK_ROS2__AUCTIONEER__NODE_HPP
 
+#include <queue>
 #include <rclcpp/node.hpp>
 #include <rmf_utils/optional.hpp>
 #include <rmf_utils/impl_ptr.hpp>
@@ -40,15 +41,19 @@ public:
   /// \param[in] node
   ///   ros2 node which will manage the bidding
   ///
+  /// \param[in] sequential
+  ///   bid notice is sent sequentially or in async
+  ///
   /// \sa make()
   static std::shared_ptr<Auctioneer> make(
-    const std::shared_ptr<rclcpp::Node>& node);
+    const std::shared_ptr<rclcpp::Node>& node,
+    const bool sequential = true);
 
   /// Start a bidding process
   ///
-  /// \param[in] bidding_task
-  ///   The task to bid
-  void start_bidding(const BidNotice& bidding_task);
+  /// \param[in] bid_notice
+  ///   bidding task, task which will call for bid
+  void start_bidding(const BidNotice& bid_notice);
 
   /// callback which will provide the winner when a bid is concluded
   ///

@@ -18,7 +18,7 @@
 /// This is a testing bidder node script
 
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
-#include <rmf_task_ros2/action/ActionInterface.hpp>
+#include <rmf_task_ros2/action/ActionServer.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
   );
 
   //============================================================================
-  // Create RMF task action server (TODO)
+  // Create sample RMF task action server
 
   std::shared_ptr<action::TaskActionServer> action_server =
     action::TaskActionServer::make(

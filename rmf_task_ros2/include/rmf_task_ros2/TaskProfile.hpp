@@ -32,6 +32,7 @@ namespace rmf_task_ros2 {
 
 //==============================================================================
 using TaskProfileMsg = rmf_task_msgs::msg::TaskProfile;
+using TaskTypeMsg = rmf_task_msgs::msg::TaskType;
 using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
 using StatusMsg = rmf_task_msgs::msg::TaskSummary;
 using TaskID = std::string;
@@ -39,12 +40,12 @@ using TaskID = std::string;
 //==============================================================================
 enum class TaskType
 {
-  Station,
-  Loop,
-  Delivery,
-  Charging,
-  Cleaning,
-  Patrol
+  Station     = TaskTypeMsg::STATION_TASK,
+  Loop        = TaskTypeMsg::LOOP_TASK,
+  Delivery    = TaskTypeMsg::DELIVERY_TASK,
+  Charging    = TaskTypeMsg::CHARGING_TASK,
+  Cleaning    = TaskTypeMsg::CLEANING_TASK,
+  Patrol      = TaskTypeMsg::PATROL_TASK
 };
 
 //==============================================================================
@@ -60,7 +61,8 @@ struct TaskProfile
 
   bool operator==(const TaskProfile& tsk) const
   {
-    return this->task_id == tsk.task_id;
+    return (this->task_id == tsk.task_id) &&
+      (this->task_type == tsk.task_type);
   }
 
   bool operator<(const TaskProfile& tsk) const
@@ -75,12 +77,12 @@ struct TaskStatus
 {
   enum class State : uint8_t
   {
-    Pending = StatusMsg::STATE_PENDING,
-    Queued = StatusMsg::STATE_QUEUED,
-    Executing = StatusMsg::STATE_ACTIVE,
-    Completed = StatusMsg::STATE_COMPLETED,   // terminal
-    Failed = StatusMsg::STATE_FAILED,         // terminal
-    Canceled = StatusMsg::STATE_CANCELED      // terminal
+    Pending     = StatusMsg::STATE_PENDING,
+    Queued      = StatusMsg::STATE_QUEUED,
+    Executing   = StatusMsg::STATE_ACTIVE,
+    Completed   = StatusMsg::STATE_COMPLETED,   // terminal
+    Failed      = StatusMsg::STATE_FAILED,      // terminal
+    Canceled    = StatusMsg::STATE_CANCELED     // terminal
   };
 
   std::string fleet_name;

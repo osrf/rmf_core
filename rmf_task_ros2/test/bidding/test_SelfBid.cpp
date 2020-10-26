@@ -113,7 +113,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     auctioneer->start_bidding(bidding_task1);
 
     executor.spin_until_future_complete(ready_future,
-      rmf_traffic::time::from_seconds(0.5));
+      rmf_traffic::time::from_seconds(1.0));
 
     // Check if bidder 1 & 2 receive BidNotice1
     REQUIRE(test_notice_bidder1);
@@ -135,7 +135,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     auctioneer->start_bidding(bidding_task2);
 
     executor.spin_until_future_complete(ready_future,
-      rmf_traffic::time::from_seconds(0.5));
+      rmf_traffic::time::from_seconds(1.0));
 
     // Check if bidder 1 & 2 receive BidNotice2
     auto task2_profile = convert(bidding_task2.task_profile);

@@ -31,7 +31,7 @@ using GetTaskSrv = rmf_task_msgs::srv::GetTask;
 
 int main(int argc, char* argv[])
 {
-  rclcpp::init(argc, argv);
+  // rclcpp::init(argc, argv);
 
   std::cout << "~Initializing Dispatcher Node~" << std::endl;
 
@@ -117,6 +117,6 @@ int main(int argc, char* argv[])
 
   dispatcher->spin();
 
-  RCLCPP_INFO(node->get_logger(), "Closing down task dispatcher node");
+  RCLCPP_INFO(node->get_logger(), "Closing down task dispatcher");
   rclcpp::shutdown();
 }

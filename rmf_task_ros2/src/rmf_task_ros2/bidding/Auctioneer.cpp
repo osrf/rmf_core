@@ -25,18 +25,25 @@ namespace bidding {
 class Auctioneer::Implementation
 {
 public:
-
   std::shared_ptr<rclcpp::Node> node;
   rclcpp::TimerBase::SharedPtr timer;
   BiddingResultCallback bidding_result_callback;
   std::shared_ptr<Evaluator> winner_evaluator;
 
-  struct BiddingTaskSubmissions
+  struct BiddingTask
   {
-    BidNotice bidding_task;
+    BidNotice bid_notice;
+    builtin_interfaces::msg::Time start_time;
     std::vector<bidding::Submission> submissions;
   };
-  std::map<TaskID, BiddingTaskSubmissions> queue_bidding_tasks;
+
+  // non-sequential tasks
+  std::map<TaskID, BiddingTask> ongoing_bidding_tasks;
+
+  // sequential bidding tasks
+  bool sequential;
+  bool bidding_in_proccess = false;
+  std::queue<BiddingTask> queue_bidding_tasks;
 
   using BidNoticePub = rclcpp::Publisher<BidNotice>;
   BidNoticePub::SharedPtr bid_notice_pub;
@@ -44,8 +51,9 @@ public:
   using BidProposalSub = rclcpp::Subscription<BidProposal>;
   BidProposalSub::SharedPtr bid_proposal_sub;
 
-  Implementation(const std::shared_ptr<rclcpp::Node>& node_)
-  : node(node_)
+  Implementation(const std::shared_ptr<rclcpp::Node>& node_,
+    const bool sequential)
+  : node(node_), sequential(sequential)
   {
     // default evaluator
     winner_evaluator = std::shared_ptr<LeastFleetDiffCostEvaluator>(
@@ -70,12 +78,24 @@ public:
   }
 
   /// Start a bidding process
-  void start_bidding(const BidNotice& bidding_task)
+  void start_bidding(const BidNotice& bid_notice)
   {
-    std::cout << "\n Add Bidding task_id: "
-              << bidding_task.task_profile.task_id << " to queue"<< std::endl;
-    queue_bidding_tasks[bidding_task.task_profile.task_id] = {bidding_task};
-    bid_notice_pub->publish(bidding_task);
+    std::cout << "\n[Auctioneer] Add Bidding task_id: "
+              << bid_notice.task_profile.task_id << " to queue"<< std::endl;
+
+    BiddingTask bidding_task;
+    bidding_task.bid_notice = bid_notice;
+    bidding_task.start_time = node->now();
+
+    if (sequential)
+    {
+      queue_bidding_tasks.push(bidding_task);
+    }
+    else
+    {
+      ongoing_bidding_tasks[bid_notice.task_profile.task_id] = bidding_task;
+      bid_notice_pub->publish(bid_notice);
+    }
   }
 
   // Receive proposal and evaluate
@@ -85,61 +105,93 @@ public:
     std::cout << "[Auctioneer] Receive proposal for task_id: "
               << id_ << std::endl;
 
-    // check if bidding task is "mine"
-    auto task_it = queue_bidding_tasks.find(id_);
-    if (task_it == queue_bidding_tasks.end())
-      return;// not found
-
-    // add submited proposal to the current bidding task
-    auto submission = convert(msg);
-    queue_bidding_tasks[id_].submissions.push_back(submission);
+    // check if bidding task is "mine", if found
+    // add submited proposal to the current bidding tasks list
+    if (sequential)
+    {
+      if (queue_bidding_tasks.front().bid_notice.task_profile.task_id == id_)
+        queue_bidding_tasks.front().submissions.push_back(convert(msg));
+    }
+    else
+    {
+      if (ongoing_bidding_tasks.count(id_))
+        ongoing_bidding_tasks[id_].submissions.push_back(convert(msg));
+    }
   }
 
   // determine the winner within a bidding task instance
   void check_bidding_process()
   {
-    // check if timeout is reached
-    for (auto it = queue_bidding_tasks.begin();
-      it != queue_bidding_tasks.end(); )
+    // ugly!!!! to be clean up
+    if (sequential)
     {
-      auto duration = rmf_traffic_ros2::convert(node->now() -
-          it->second.bidding_task.task_profile.submission_time);
+      if (queue_bidding_tasks.size() == 0)
+        return;
 
-      auto time_window = rmf_traffic_ros2::convert(
-        it->second.bidding_task.time_window);
+      // Executing the task in front queue
+      auto front_task = queue_bidding_tasks.front();
 
-      if (duration > time_window)
+      if (bidding_in_proccess)
       {
-        std::cout << " - Deadline reached: "<< it->first << std::endl;
-        this->determine_winner(it->first, it->second.submissions);
-        it = queue_bidding_tasks.erase(it);
+        if (determine_winner(front_task))
+        {
+          queue_bidding_tasks.pop();
+          bidding_in_proccess = false;
+        }
       }
       else
-        ++it;
+      {
+        std::cout << " - Start new bidding task: "
+                  << front_task.bid_notice.task_profile.task_id << std::endl;
+        front_task.start_time = node->now();
+        bid_notice_pub->publish(front_task.bid_notice);
+        bidding_in_proccess = true;
+      }
+    }
+    else
+    {
+      // check if timeout is reached
+      for (auto it = ongoing_bidding_tasks.begin();
+        it != ongoing_bidding_tasks.end(); )
+      {
+        // bidding task
+        if (determine_winner(it->second))
+          it = ongoing_bidding_tasks.erase(it);
+        else
+          ++it;
+      }
     }
     std::cout << "." <<std::flush;
   }
 
-  void determine_winner(
-    const TaskID& task_id,
-    const std::vector<Submission>& submissions)
+  bool determine_winner(const BiddingTask& bidding_task)
   {
-    rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
+    auto duration = node->now() - bidding_task.start_time;
 
-    if (submissions.size() == 0)
+    if (duration > bidding_task.bid_notice.time_window)
     {
-      std::cerr << " Bidding task has not received any bids"<< std::endl;
-    }
-    else
-    {
-      winner = evaluate(submissions);
-      std::cout << "Found winning Fleet Adapter: "
-                << winner->fleet_name << std::endl;
-    }
+      auto id = bidding_task.bid_notice.task_profile.task_id;
+      std::cout << " - Deadline reached: "<< id << std::endl;
+      rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
 
-    // check if bidding_result_callback fn is initailized
-    if (bidding_result_callback)
-      this->bidding_result_callback(task_id, winner);
+      if (bidding_task.submissions.size() == 0)
+      {
+        std::cerr << " Bidding task has not received any bids"<< std::endl;
+      }
+      else
+      {
+        winner = evaluate(bidding_task.submissions);
+        std::cout << "Found winning Fleet Adapter: "
+                  << winner->fleet_name << std::endl;
+      }
+
+      // Call the user defined callback function
+      if (bidding_result_callback)
+        bidding_result_callback(id, winner);
+
+      return true;
+    }
+    return false;
   }
 
   rmf_utils::optional<Submission> evaluate(const Submissions& submissions)
@@ -158,9 +210,10 @@ public:
 
 //==============================================================================
 std::shared_ptr<Auctioneer> Auctioneer::make(
-  const std::shared_ptr<rclcpp::Node>& node)
+  const std::shared_ptr<rclcpp::Node>& node,
+  const bool sequential)
 {
-  auto pimpl = rmf_utils::make_unique_impl<Implementation>(node);
+  auto pimpl = rmf_utils::make_unique_impl<Implementation>(node, sequential);
 
   if (pimpl)
   {
@@ -172,9 +225,9 @@ std::shared_ptr<Auctioneer> Auctioneer::make(
 }
 
 //==============================================================================
-void Auctioneer::start_bidding(const BidNotice& bidding_task)
+void Auctioneer::start_bidding(const BidNotice& bid_notice)
 {
-  _pimpl->start_bidding(bidding_task);
+  _pimpl->start_bidding(bid_notice);
 }
 
 //==============================================================================

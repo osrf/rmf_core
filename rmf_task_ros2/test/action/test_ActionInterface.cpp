@@ -16,7 +16,8 @@
 */
 
 #include <rmf_utils/optional.hpp>
-#include <rmf_task_ros2/action/ActionInterface.hpp>
+#include <rmf_task_ros2/action/ActionClient.hpp>
+#include <rmf_task_ros2/action/ActionServer.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <chrono>
