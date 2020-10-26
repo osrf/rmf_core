@@ -41,7 +41,7 @@ public:
 
   using Start = rmf_traffic::agv::Plan::Start;
   using StartSet = rmf_traffic::agv::Plan::StartSet;
-  using Assignments = rmf_task::agv::TaskPlanner::Assignments;
+  using Assignment = rmf_task::agv::TaskPlanner::Assignment;
 
   /// Add a task to the queue of this manager.
   void queue_task(std::shared_ptr<Task> task, Start expected_finish);
@@ -56,7 +56,7 @@ public:
 
   /// Set the queue for this task manager with assignments generated from the
   /// task planner
-  void set_queue(Assignments assignments);
+  void set_queue(const std::vector<Assignment>& assignments);
 
   /// Get the non-charging requests for pending tasks
   const std::vector<rmf_task::RequestPtr> requests() const;

@@ -84,6 +84,13 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 {
   if (task_managers.empty())
     return;
+  
+  if (msg->task_profile.task_id.empty())
+    return;
+
+  if (bid_notice_assignments.find(msg->task_profile.task_id)
+      != bid_notice_assignments.end())
+    return;
 
   if (!accept_task)
   {
@@ -270,7 +277,69 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     pending_requests,
     nullptr);
 
-  // Store results in internal map and publish BidProposal
+  const double cost = task_planner->compute_cost(assignments);
+
+  // Publish BidProposal
+  rmf_task_msgs::msg::BidProposal bid_proposal;
+  bid_proposal.fleet_name = name;
+  bid_proposal.task_profile = task_profile;
+  bid_proposal.prev_cost = current_assignment_cost;
+  bid_proposal.new_cost = cost;
+  // TODO populate finish_time and robot_name
+
+  bid_proposal_pub->publish(bid_proposal);
+  RCLCPP_INFO(
+    node->get_logger(),
+    "Submitted BidProposal to accommodate task [%s] with new cost [%f]",
+    id.c_str(), cost);
+
+  // Store assignments in internal map
+  bid_notice_assignments.insert({id, assignments});
+
+}
+
+
+void FleetUpdateHandle::Implementation::dispatch_request_cb(
+  const DispatchRequest::SharedPtr msg)
+{
+  if (msg->fleet_name != name)
+    return;
+
+  const std::string id = msg->task_profile.task_id;
+  const auto task_it = bid_notice_assignments.find(id);
+
+  if (task_it == bid_notice_assignments.end())
+    return;
+
+  // We currently only support adding tasks
+  if (msg->method != DispatchRequest::ADD)
+    return;
+  
+  const auto& assignments = task_it->second;
+  
+  if (assignments.size() != task_managers.size())
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "The number of available robots do not match that in the assignments "
+      "for task_id:[%s]. This request will be ignored", id.c_str());
+
+    return;
+  }
+
+  std::size_t index = 0;
+  for (auto& t : task_managers)
+  {
+    t.second->set_queue(assignments[index]);
+    ++index;
+  }
+
+  current_assignment_cost = task_planner->compute_cost(assignments);
+
+  RCLCPP_INFO(
+    node->get_logger(),
+    "Assignments updated for robots in fleet [%s]",
+    name.c_str());
 }
 
 //==============================================================================

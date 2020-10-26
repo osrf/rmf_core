@@ -166,6 +166,10 @@ public:
   // We assume each robot has a designated charging waypoint
   std::unordered_set<std::size_t> available_charging_waypoints;
 
+  double current_assignment_cost = 0.0;
+  // Map to store task id with assignments for BidNotice
+  std::unordered_map<std::string, Assignments> bid_notice_assignments = {};
+
   AcceptTaskRequest accept_task = nullptr;
 
   using BidNotice = rmf_task_msgs::msg::BidNotice;
@@ -217,7 +221,7 @@ public:
         default_qos,
         [p = handle._pimpl.get()](const DispatchRequest::SharedPtr msg)
         {
-          // TODO(YV)
+          p->dispatch_request_cb(msg);
         });
 
     // Subscribe DockSummary
@@ -262,6 +266,8 @@ public:
   void dock_summary_cb(const DockSummary::SharedPtr msg);
 
   void bid_notice_cb(const BidNotice::SharedPtr msg);
+
+  void dispatch_request_cb(const DispatchRequest::SharedPtr msg);
 
   std::size_t get_nearest_charger(
     const rmf_traffic::agv::Planner::Start& start,

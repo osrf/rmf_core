@@ -18,6 +18,7 @@
 #include "TaskManager.hpp"
 
 #include <rmf_task/requests/ChargeBattery.hpp>
+#include <rmf_task/requests/Clean.hpp>
 
 namespace rmf_fleet_adapter {
 
@@ -99,9 +100,21 @@ agv::ConstRobotContextPtr TaskManager::context() const
 }
 
 //==============================================================================
-void TaskManager::set_queue(TaskManager::Assignments assignments)
+void TaskManager::set_queue(
+  const std::vector<TaskManager::Assignment>& assignments)
 {
-  // TODO(YV)
+  _queue.clear();
+  _queue.resize(assignments.size());
+  // We use dynamic cast to determine the type of request and then call the
+  // appropriate make(~) function to convert the request into a task
+  for (const auto& a : assignments)
+  {
+    if (const auto request =
+      std::dynamic_pointer_cast<const rmf_task::requests::Clean>(a.request()))
+    {
+
+    }
+  }
 }
 
 //==============================================================================
