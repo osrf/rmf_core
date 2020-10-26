@@ -121,7 +121,6 @@ void TaskManager::set_queue(
 {
   std::lock_guard<std::mutex> guard(_mutex);
   _queue.clear();
-  RCLCPP_ERROR(_context->node()->get_logger(), "Here 1");
   // We use dynamic cast to determine the type of request and then call the
   // appropriate make(~) function to convert the request into a task
   for (std::size_t i = 0; i < assignments.size(); ++i)
@@ -134,8 +133,6 @@ void TaskManager::set_queue(
     if (const auto request =
       std::dynamic_pointer_cast<const rmf_task::requests::Clean>(a.request()))
     {
-      RCLCPP_ERROR(_context->node()->get_logger(), "Here 2");
-
       auto task = rmf_fleet_adapter::tasks::make_clean(
         request,
         _context,
@@ -149,16 +146,12 @@ void TaskManager::set_queue(
       msg.task_id = _queue.back()->id();
       msg.state = msg.STATE_QUEUED;
       this->_context->node()->task_summary()->publish(msg);
-
-      RCLCPP_ERROR(_context->node()->get_logger(), "Here 3");
-
     }
 
     else if (const auto request =
       std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
         a.request()))
     {
-      RCLCPP_ERROR(_context->node()->get_logger(), "Here 4");
       // const auto task = tasks::make_charge_battery()
     }
 
@@ -174,9 +167,6 @@ void TaskManager::set_queue(
       continue;
     }
   }
-
-  RCLCPP_ERROR(_context->node()->get_logger(), "Here 5");
-
 }
 
 //==============================================================================
@@ -216,33 +206,14 @@ void TaskManager::_begin_next_task()
     return;
   }
 
-  RCLCPP_ERROR(_context->node()->get_logger(), "Here 6");
-
+  std::lock_guard<std::mutex> guard(_mutex);
   const rmf_traffic::Time now = rmf_traffic_ros2::convert(
     _context->node()->now());
-
-  RCLCPP_ERROR(_context->node()->get_logger(), "Here 7");
-
   const auto next_task = _queue.front();
-
-  RCLCPP_ERROR(_context->node()->get_logger(), "Here 8");
-
   const auto deployment_time = next_task->deployment_time();
 
-  RCLCPP_ERROR(_context->node()->get_logger(), "Here 9");
-
-  RCLCPP_INFO(
-    _context->node()->get_logger(),
-    "Time now:[%d], Next deployment time: [%d]",
-    now.time_since_epoch().count(),
-    deployment_time.time_since_epoch().count());
-
-  RCLCPP_ERROR(_context->node()->get_logger(), "Here 10");
-
-  if (now > _queue.front()->deployment_time())
+  if (now > deployment_time)
   {
-    RCLCPP_ERROR(_context->node()->get_logger(), "Here 11");
-    std::lock_guard<std::mutex> guard(_mutex);
     // Update state in RobotContext and Assign active task
     _context->state(_queue.front()->finish_state());
     _active_task = std::move(_queue.front());
@@ -286,6 +257,7 @@ void TaskManager::_begin_next_task()
       this->_context->node()->task_summary()->publish(msg);
 
       _active_task = nullptr;
+      
       // _begin_next_task();
     });
 
