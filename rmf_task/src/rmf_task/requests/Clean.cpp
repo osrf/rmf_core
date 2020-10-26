@@ -46,7 +46,7 @@ public:
 };
 
 //==============================================================================
-rmf_task::Request::SharedPtr Clean::make(
+rmf_task::ConstRequestPtr Clean::make(
   std::size_t id,
   std::size_t start_waypoint,
   std::size_t end_waypoint,
@@ -218,6 +218,11 @@ rmf_traffic::Duration Clean::invariant_duration() const
 rmf_traffic::Time Clean::earliest_start_time() const
 {
   return _pimpl->start_time;
+}
+
+const std::size_t Clean::start_waypoint() const
+{
+  return _pimpl->start_waypoint;
 }
 
 //==============================================================================

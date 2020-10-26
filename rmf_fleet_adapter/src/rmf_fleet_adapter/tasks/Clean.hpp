@@ -23,17 +23,16 @@
 
 #include <rmf_traffic/agv/Planner.hpp>
 
-#include <rmf_task/Request.hpp>
+#include <rmf_task/requests/Clean.hpp>
 
 namespace rmf_fleet_adapter {
 namespace tasks {
 
 //==============================================================================
 std::shared_ptr<Task> make_clean(
-    const rmf_task::RequestPtr request,
+    const rmf_task::requests::ConstCleanRequestPtr request,
     const agv::RobotContextPtr& context,
-    const rmf_traffic::agv::Plan::Start clean_start,
-    const rmf_traffic::agv::Plan::Goal clean_goal);
+    const rmf_traffic::agv::Plan::Start clean_start);
 
 } // namespace tasks
 } // namespace rmf_fleet_adapter

@@ -24,17 +24,17 @@ namespace tasks {
 
 //==============================================================================
 std::shared_ptr<Task> make_clean(
-    const rmf_task::RequestPtr request,
+    const rmf_task::requests::ConstCleanRequestPtr request,
     const agv::RobotContextPtr& context,
-    const rmf_traffic::agv::Plan::Start clean_start,
-    const rmf_traffic::agv::Plan::Goal clean_goal)
+    const rmf_traffic::agv::Plan::Start clean_start)
 {
+  rmf_traffic::agv::Planner::Goal clean_goal{request->start_waypoint()};
   Task::PendingPhases phases;
   phases.push_back(
         phases::GoToPlace::make(context, std::move(clean_start), clean_goal));
 
   return Task::make(
-    std::to_string(request->id()), std::move(phases), context->worker());
+    std::to_string(request->id()), std::move(phases), context->worker(), request);
 }
 
 } // namespace task

@@ -38,7 +38,7 @@ class ChargeBattery : public rmf_task::Request
 {
 public:
 
-  static rmf_task::Request::SharedPtr make(
+  static ConstRequestPtr make(
     rmf_battery::agv::BatterySystem battery_system,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,

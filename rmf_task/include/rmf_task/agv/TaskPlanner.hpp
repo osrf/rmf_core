@@ -122,13 +122,13 @@ public:
     /// \param[in] earliest_start_time
     ///   The earliest time the agent will begin exececuting this task
     Assignment(
-      rmf_task::RequestPtr request,
+      rmf_task::ConstRequestPtr request,
       State state,
       rmf_traffic::Time deployment_time);
 
       
     // Get the request of this task
-    rmf_task::RequestPtr request() const;
+    rmf_task::ConstRequestPtr request() const;
 
     // Get a const reference to the state
     const State& state() const;
@@ -158,7 +158,7 @@ public:
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
-    std::vector<Request::SharedPtr> requests);
+    std::vector<ConstRequestPtr> requests);
 
   /// Get the optimal planner based assignments for a set of initial states and 
   /// requests
@@ -170,7 +170,7 @@ public:
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
-    std::vector<Request::SharedPtr> requests,
+    std::vector<ConstRequestPtr> requests,
     std::function<bool()> interrupter);
 
   double compute_cost(const Assignments& assignments);

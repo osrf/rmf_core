@@ -31,7 +31,7 @@ std::shared_ptr<Task> Task::make(
     std::string id,
     PendingPhases phases,
     rxcpp::schedulers::worker worker,
-    rmf_task::RequestPtr request)
+    rmf_task::ConstRequestPtr request)
 {
   return std::make_shared<Task>(
         Task(std::move(id),
@@ -85,7 +85,7 @@ const std::string& Task::id() const
 }
 
 //==============================================================================
-const rmf_task::RequestPtr Task::request() const
+const rmf_task::ConstRequestPtr Task::request() const
 {
   return _request;
 }
@@ -95,7 +95,7 @@ Task::Task(
     std::string id,
     std::vector<std::unique_ptr<PendingPhase>> phases,
     rxcpp::schedulers::worker worker,
-    rmf_task::RequestPtr request)
+    rmf_task::ConstRequestPtr request)
   : _id(std::move(id)),
     _pending_phases(std::move(phases)),
     _worker(std::move(worker)),

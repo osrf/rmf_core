@@ -39,7 +39,7 @@ class Delivery : public rmf_task::Request
 {
 public:
 
-  static rmf_task::Request::SharedPtr make(
+  static ConstRequestPtr make(
     std::size_t id,
     std::size_t pickup_waypoint,
     std::size_t dropoff_waypoint,

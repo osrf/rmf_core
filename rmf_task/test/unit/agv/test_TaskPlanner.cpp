@@ -150,7 +150,7 @@ SCENARIO("Grid World")
       rmf_task::agv::StateConfig{0.2}
     };
 
-    std::vector<rmf_task::Request::SharedPtr> requests =
+    std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
         1,
@@ -225,7 +225,7 @@ SCENARIO("Grid World")
       rmf_task::agv::StateConfig{0.2}
     };
 
-    std::vector<rmf_task::Request::SharedPtr> requests =
+    std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
         1,

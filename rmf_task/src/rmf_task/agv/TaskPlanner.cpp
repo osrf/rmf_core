@@ -117,14 +117,14 @@ class TaskPlanner::Assignment::Implementation
 {
 public:
 
-  rmf_task::RequestPtr request;
+  rmf_task::ConstRequestPtr request;
   State state;
   rmf_traffic::Time deployment_time;
 };
 
 //==============================================================================
 TaskPlanner::Assignment::Assignment(
-  rmf_task::RequestPtr request,
+  rmf_task::ConstRequestPtr request,
   State state,
   rmf_traffic::Time deployment_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
@@ -138,7 +138,7 @@ TaskPlanner::Assignment::Assignment(
 }
 
 //==============================================================================
-rmf_task::RequestPtr TaskPlanner::Assignment::request() const 
+rmf_task::ConstRequestPtr TaskPlanner::Assignment::request() const 
 {
   return _pimpl->request;
 }
@@ -327,8 +327,8 @@ struct PendingTask
   PendingTask(
       std::vector<rmf_task::agv::State>& initial_states,
       std::vector<rmf_task::agv::StateConfig>& state_configs,
-      rmf_task::Request::SharedPtr request_,
-      rmf_task::Request::SharedPtr charge_battery_request)
+      rmf_task::ConstRequestPtr request_,
+      rmf_task::ConstRequestPtr charge_battery_request)
     : request(std::move(request_)),
       candidates(Candidates::make(
         initial_states, state_configs, *request, *charge_battery_request)),
@@ -337,7 +337,7 @@ struct PendingTask
     // Do nothing
   }
 
-  rmf_task::Request::SharedPtr request;
+  rmf_task::ConstRequestPtr request;
   Candidates candidates;
   rmf_traffic::Time earliest_start_time;
 };
@@ -610,7 +610,7 @@ public:
 
   std::shared_ptr<Configuration> config;
 
-  RequestPtr make_charging_request(rmf_traffic::Time start_time)
+  ConstRequestPtr make_charging_request(rmf_traffic::Time start_time)
   {
     return rmf_task::requests::ChargeBattery::make(
       config->battery_system(),
@@ -658,7 +658,7 @@ public:
     rmf_traffic::Time time_now,
     std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
-    const std::vector<Request::SharedPtr>& requests,
+    const std::vector<ConstRequestPtr>& requests,
     const std::function<bool()> interrupter,
     bool greedy)
   {
@@ -694,7 +694,7 @@ public:
       if (node->unassigned_tasks.empty())
         return prune_assignments(complete_assignments);
 
-      std::vector<Request::SharedPtr> new_tasks;
+      std::vector<ConstRequestPtr> new_tasks;
       for (const auto& u : node->unassigned_tasks)
         new_tasks.push_back(u.second.request);
 
@@ -788,7 +788,7 @@ public:
   ConstNodePtr make_initial_node(
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
-    std::vector<Request::SharedPtr> requests,
+    std::vector<ConstRequestPtr> requests,
     rmf_traffic::Time time_now)
   {
     auto initial_node = std::make_shared<Node>();
@@ -1198,7 +1198,7 @@ auto TaskPlanner::greedy_plan(
   rmf_traffic::Time time_now,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
-  std::vector<Request::SharedPtr> requests) -> Assignments
+  std::vector<ConstRequestPtr> requests) -> Assignments
 {
   return _pimpl->complete_solve(
     time_now,
@@ -1213,7 +1213,7 @@ auto TaskPlanner::optimal_plan(
   rmf_traffic::Time time_now,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
-  std::vector<Request::SharedPtr> requests,
+  std::vector<ConstRequestPtr> requests,
   std::function<bool()> interrupter) -> Assignments
 {
   return _pimpl->complete_solve(

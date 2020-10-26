@@ -127,7 +127,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   }
 
   // Determine task type and convert to request pointer
-  rmf_task::RequestPtr new_request = nullptr;
+  rmf_task::ConstRequestPtr new_request = nullptr;
   const auto& task_profile = msg->task_profile;
   const auto& task_type = task_profile.type;
   const rmf_traffic::Time start_time = rmf_traffic_ros2::convert(task_profile.start_time);
@@ -252,7 +252,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   // non-charging tasks in task manager queues
   std::vector<rmf_task::agv::State> states;
   std::vector<rmf_task::agv::StateConfig> state_configs;
-  std::vector<rmf_task::RequestPtr> pending_requests;
+  std::vector<rmf_task::ConstRequestPtr> pending_requests;
   pending_requests.push_back(new_request);
   for (const auto& t : task_managers)
   {

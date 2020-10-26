@@ -40,7 +40,7 @@ class Clean : public rmf_task::Request
 {
 public:
 
-  static rmf_task::Request::SharedPtr make(
+  static ConstRequestPtr make(
     std::size_t id,
     std::size_t start_waypoint,
     std::size_t end_waypoint,
@@ -62,13 +62,18 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  const std::size_t start_waypoint() const;
+
   class Implementation;
 private:
   Clean();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-} // namespace tasks
+using CleanRequestPtr = std::shared_ptr<Clean>;
+using ConstCleanRequestPtr = std::shared_ptr<const Clean>;
+
+} // namespace requests
 } // namespace rmf_task
 
 #endif // INCLUDE__RMF_TASK__REQUESTS__CLEAN_HPP

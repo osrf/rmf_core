@@ -19,6 +19,9 @@
 
 #include <rmf_task/requests/ChargeBattery.hpp>
 #include <rmf_task/requests/Clean.hpp>
+#include <rmf_task/requests/Delivery.hpp>
+
+#include "tasks/Clean.hpp"
 
 namespace rmf_fleet_adapter {
 
@@ -107,20 +110,47 @@ void TaskManager::set_queue(
   _queue.resize(assignments.size());
   // We use dynamic cast to determine the type of request and then call the
   // appropriate make(~) function to convert the request into a task
-  for (const auto& a : assignments)
+  for (std::size_t i = 0; i < assignments.size(); ++i)
   {
+    const auto& a = assignments[i];
+    auto start = _context->state().location();
+    if (i != 0)
+      start = assignments[i-1].state().location();
+
     if (const auto request =
       std::dynamic_pointer_cast<const rmf_task::requests::Clean>(a.request()))
     {
+      const auto task = rmf_fleet_adapter::tasks::make_clean(
+        request,
+        _context,
+        start);
+    }
 
+    else if (const auto request =
+      std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+        a.request()))
+    {
+      // const auto task = tasks::make_charge_battery()
+    }
+
+    else if (const auto request =
+      std::dynamic_pointer_cast<const rmf_task::requests::Delivery>(
+        a.request()))
+    {
+      // const auto task = tasks::make_delivery()
+    }
+
+    else
+    {
+      continue;
     }
   }
 }
 
 //==============================================================================
-const std::vector<rmf_task::RequestPtr> TaskManager::requests() const
+const std::vector<rmf_task::ConstRequestPtr> TaskManager::requests() const
 {
-  std::vector<rmf_task::RequestPtr> requests;
+  std::vector<rmf_task::ConstRequestPtr> requests;
   requests.reserve(_queue.size());
   for (const auto& task : _queue)
   {

@@ -59,7 +59,7 @@ public:
   void set_queue(const std::vector<Assignment>& assignments);
 
   /// Get the non-charging requests for pending tasks
-  const std::vector<rmf_task::RequestPtr> requests() const;
+  const std::vector<rmf_task::ConstRequestPtr> requests() const;
 
 private:
 

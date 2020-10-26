@@ -101,7 +101,7 @@ public:
       std::string id,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
-      rmf_task::RequestPtr request = nullptr);
+      rmf_task::ConstRequestPtr request = nullptr);
 
   void begin();
 
@@ -123,7 +123,7 @@ public:
   const std::string& id() const;
 
   /// Get the request used to generate this task
-  const rmf_task::RequestPtr request() const;
+  const rmf_task::ConstRequestPtr request() const;
 
 private:
 
@@ -131,7 +131,7 @@ private:
       std::string id,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
-      rmf_task::RequestPtr request);
+      rmf_task::ConstRequestPtr request);
 
   std::string _id;
 
@@ -149,7 +149,7 @@ private:
 
   rmf_utils::optional<builtin_interfaces::msg::Time> _initial_time;
 
-  rmf_task::RequestPtr _request;
+  rmf_task::ConstRequestPtr _request;
 
   void _start_next_phase();
 
