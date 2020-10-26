@@ -118,8 +118,8 @@ public:
   /// Set the state of this robot
   RobotContext& state(const rmf_task::agv::State& state);
 
-  /// Get the state of this robot
-  const rmf_task::agv::State state() const;
+  /// Get a mutable reference to the state of this robot
+  rmf_task::agv::State& state();
 
   /// Get the state config of this robot 
   const rmf_task::agv::StateConfig state_config() const;

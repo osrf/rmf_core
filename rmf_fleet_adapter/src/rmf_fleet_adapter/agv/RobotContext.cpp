@@ -214,7 +214,7 @@ RobotContext& RobotContext::maximum_delay(
 }
 
 //==============================================================================
-const rmf_task::agv::State RobotContext::state() const
+rmf_task::agv::State& RobotContext::state()
 {
   return _state;
 }

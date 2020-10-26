@@ -119,7 +119,6 @@ agv::ConstRobotContextPtr TaskManager::context() const
 void TaskManager::set_queue(
   const std::vector<TaskManager::Assignment>& assignments)
 {
-  std::lock_guard<std::mutex> guard(_mutex);
   _queue.clear();
   // We use dynamic cast to determine the type of request and then call the
   // appropriate make(~) function to convert the request into a task
@@ -140,6 +139,8 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
       
+      std::lock_guard<std::mutex> guard(_mutex);
+
       _queue.push_back(task);
 
       rmf_task_msgs::msg::TaskSummary msg;
@@ -257,8 +258,12 @@ void TaskManager::_begin_next_task()
       this->_context->node()->task_summary()->publish(msg);
 
       _active_task = nullptr;
-      
-      // _begin_next_task();
+      // Update the location and battery sock in the state in RobotContext
+      // TODO(YV) update the battery soc
+      auto& finish_state = _context->state();
+      auto location = finish_state.location();
+      location.time(rmf_traffic_ros2::convert(_context->node()->now()));
+      finish_state.location(location);
     });
 
     _active_task->begin();
@@ -268,6 +273,7 @@ void TaskManager::_begin_next_task()
 //==============================================================================
 void TaskManager::clear_queue()
 {
+  std::lock_guard<std::mutex> guard(_mutex);
   _queue.clear();
 }
 
