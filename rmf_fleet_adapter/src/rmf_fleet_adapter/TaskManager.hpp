@@ -25,6 +25,8 @@
 
 #include <rmf_task/agv/TaskPlanner.hpp>
 
+#include <mutex>
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -75,6 +77,7 @@ private:
   rxcpp::subscription _task_sub;
   rxcpp::subscription _emergency_sub;
 
+  std::mutex _mutex;
   rclcpp::TimerBase::SharedPtr _timer;
 
   void clear_queue();

@@ -117,6 +117,7 @@ agv::ConstRobotContextPtr TaskManager::context() const
 void TaskManager::set_queue(
   const std::vector<TaskManager::Assignment>& assignments)
 {
+  std::lock_guard<std::mutex> guard(_mutex);
   _queue.clear();
   _queue.resize(assignments.size());
   // We use dynamic cast to determine the type of request and then call the
@@ -204,9 +205,20 @@ void TaskManager::_begin_next_task()
     return;
   }
 
-  if (rmf_traffic_ros2::convert(_context->node()->now()) >
-      _queue.front()->deployment_time())
+  const rmf_traffic::Time now = rmf_traffic_ros2::convert(
+    _context->node()->now());
+
+  RCLCPP_INFO(
+    _context->node()->get_logger(),
+    "Time now:[%d], Next deployment time: [%d]",
+    now.time_since_epoch().count(),
+    _queue.front()->deployment_time());
+
+  return;
+
+  if (now > _queue.front()->deployment_time())
   {
+    std::lock_guard<std::mutex> guard(_mutex);
     // Update state in RobotContext and Assign active task
     _context->state(_queue.front()->finish_state());
     _active_task = std::move(_queue.front());

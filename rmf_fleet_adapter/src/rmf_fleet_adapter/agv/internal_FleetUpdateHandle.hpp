@@ -197,7 +197,7 @@ public:
 
     // Create subs and pubs for bidding
     auto default_qos = rclcpp::SystemDefaultsQoS();
-    auto transient_qos = default_qos; transient_qos.transient_local();
+    auto transient_qos = rclcpp::QoS(10);; transient_qos.transient_local();
     
     // Publish BidProposal
     handle._pimpl->bid_proposal_pub =
