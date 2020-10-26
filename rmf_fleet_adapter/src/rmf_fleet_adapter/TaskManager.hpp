@@ -72,6 +72,8 @@ private:
   rxcpp::subscription _task_sub;
   rxcpp::subscription _emergency_sub;
 
+  rclcpp::TimerBase::SharedPtr _timer;
+
   void _begin_next_task();
 
   void clear_queue();

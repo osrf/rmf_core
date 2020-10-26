@@ -123,7 +123,11 @@ void TaskManager::set_queue(
       const auto task = rmf_fleet_adapter::tasks::make_clean(
         request,
         _context,
-        start);
+        start,
+        a.deployment_time(),
+        a.state());
+      
+      _queue.push_back(std::move(task));
     }
 
     else if (const auto request =

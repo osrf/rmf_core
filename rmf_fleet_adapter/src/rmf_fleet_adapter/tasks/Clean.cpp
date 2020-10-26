@@ -26,7 +26,9 @@ namespace tasks {
 std::shared_ptr<Task> make_clean(
     const rmf_task::requests::ConstCleanRequestPtr request,
     const agv::RobotContextPtr& context,
-    const rmf_traffic::agv::Plan::Start clean_start)
+    const rmf_traffic::agv::Plan::Start clean_start,
+    const rmf_traffic::Time deployment_time,
+    const rmf_task::agv::State finish_state)
 {
   rmf_traffic::agv::Planner::Goal clean_goal{request->start_waypoint()};
   Task::PendingPhases phases;
@@ -34,7 +36,12 @@ std::shared_ptr<Task> make_clean(
         phases::GoToPlace::make(context, std::move(clean_start), clean_goal));
 
   return Task::make(
-    std::to_string(request->id()), std::move(phases), context->worker(), request);
+    std::to_string(request->id()),
+    std::move(phases),
+    context->worker(),
+    deployment_time,
+    finish_state,
+    request);
 }
 
 } // namespace task

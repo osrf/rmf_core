@@ -22,10 +22,12 @@
 #include <memory>
 
 #include <rmf_traffic/schedule/Negotiator.hpp>
+#include <rmf_traffic/Time.hpp>
 
 #include <rmf_task_msgs/msg/task_summary.hpp>
 
 #include <rmf_task/Request.hpp>
+#include <rmf_task/agv/State.hpp>
 
 #include <rmf_rxcpp/RxJobs.hpp>
 #include <rmf_rxcpp/Publisher.hpp>
@@ -101,7 +103,9 @@ public:
       std::string id,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
-      rmf_task::ConstRequestPtr request = nullptr);
+      rmf_traffic::Time deployment_time,
+      rmf_task::agv::State finish_state,
+      rmf_task::ConstRequestPtr request);
 
   void begin();
 
@@ -131,6 +135,8 @@ private:
       std::string id,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
+      rmf_traffic::Time deployment_time,
+      rmf_task::agv::State finish_state,
       rmf_task::ConstRequestPtr request);
 
   std::string _id;
@@ -149,6 +155,8 @@ private:
 
   rmf_utils::optional<builtin_interfaces::msg::Time> _initial_time;
 
+  rmf_traffic::Time _deployment_time;
+  rmf_task::agv::State _finish_state;
   rmf_task::ConstRequestPtr _request;
 
   void _start_next_phase();
