@@ -29,7 +29,7 @@ namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
-using State = Assignments;
+using State = std::unordered_map<ParticipantId, ReservedRange>;
 
 //==============================================================================
 class Constraint

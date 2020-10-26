@@ -15,43 +15,28 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__BLOCKADE__STATUS_HPP
-#define RMF_TRAFFIC__BLOCKADE__STATUS_HPP
+#ifndef SRC__RMF_TRAFFIC__BLOCKADE__INTERNAL_RECTIFIER_HPP
+#define SRC__RMF_TRAFFIC__BLOCKADE__INTERNAL_RECTIFIER_HPP
 
-#include <cstddef>
-#include <cstdint>
-#include <unordered_map>
+#include <rmf_traffic/blockade/Rectifier.hpp>
+
+#include "internal_Participant.hpp"
 
 namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
-using ParticipantId = uint64_t;
-using ReservationId = uint64_t;
-using CheckpointId = uint64_t;
-using Version = uint64_t;
-
-//==============================================================================
-struct Status
+class Rectifier::Implementation
 {
-  ReservationId reservation;
-  std::optional<CheckpointId> last_ready;
-  CheckpointId last_reached;
-};
+public:
 
-//==============================================================================
-struct ReservedRange
-{
-  std::size_t begin;
-  std::size_t end;
+  Participant::Implementation& participant;
 
-  bool operator==(const ReservedRange& other) const
-  {
-    return (begin == other.begin) && (end == other.end);
-  }
+  static Rectifier make(Participant::Implementation& participant);
+
 };
 
 } // namespace blockade
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__BLOCKADE__STATUS_HPP
+#endif // SRC__RMF_TRAFFIC__BLOCKADE__INTERNAL_RECTIFIER_HPP

@@ -30,12 +30,10 @@ std::vector<Checkpoint> make_path(const std::array<Eigen::Vector2d, N>& points)
 {
   using namespace rmf_traffic::blockade;
 
-  const auto now = std::chrono::steady_clock::now();
-
   std::vector<Writer::Checkpoint> path;
   path.reserve(N);
   for (const auto& p : points)
-    path.push_back(Writer::Checkpoint{p, "test_map", now, true});
+    path.push_back(Writer::Checkpoint{p, "test_map", true});
 
   return path;
 }

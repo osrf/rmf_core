@@ -42,24 +42,28 @@ public:
 
   struct Reservation
   {
-    ReservationId id;
     std::vector<Checkpoint> path;
     double radius;
   };
 
   virtual void set(
-      ParticipantId participant,
+      ParticipantId participant_id,
+      ReservationId reservation_id,
       const Reservation& reservation) = 0;
 
   virtual void ready(
-      ParticipantId participant,
-      ReservationId reservation,
+      ParticipantId participant_id,
+      ReservationId reservation_id,
       CheckpointId checkpoint) = 0;
 
   virtual void reached(
-      ParticipantId participant,
-      ReservationId reservation,
+      ParticipantId participant_id,
+      ReservationId reservation_id,
       CheckpointId checkpoint) = 0;
+
+  virtual void cancel(
+      ParticipantId participant_id,
+      ReservationId reservation_id) = 0;
 
   virtual ~Writer() = default;
 };

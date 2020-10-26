@@ -15,19 +15,33 @@
  *
 */
 
-#include <rmf_traffic/blockade/Database.hpp>
+#include "internal_Rectifier.hpp"
 
 namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
-class Database::Implementation
+Rectifier Rectifier::Implementation::make(
+    Participant::Implementation& participant)
 {
-public:
+  Rectifier output;
+  output._pimpl = rmf_utils::make_unique_impl<Implementation>(
+        Implementation{participant});
 
+  return output;
+}
 
+//==============================================================================
+void Rectifier::check(const Status& status)
+{
+  _pimpl->participant.check(status);
+}
 
-};
+//==============================================================================
+Rectifier::Rectifier()
+{
+  // Do nothing
+}
 
 } // namespace blockade
 } // namespace rmf_traffic

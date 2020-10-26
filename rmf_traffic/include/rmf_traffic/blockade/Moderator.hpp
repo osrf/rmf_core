@@ -30,10 +30,47 @@ class Moderator : public Writer
 {
 public:
 
+  /// Default constructor
+  Moderator();
 
+  void set(
+      ParticipantId participant_id,
+      ReservationId reservation_id,
+      const Reservation& reservation) final;
 
-  using Assignments = std::unordered_map<ParticipantId, ReservedRange>;
+  void ready(
+      ParticipantId participant_id,
+      ReservationId reservation_id,
+      CheckpointId checkpoint) final;
 
+  void reached(
+      ParticipantId participant_id,
+      ReservationId reservation_id,
+      CheckpointId checkpoint) final;
+
+  void cancel(
+      ParticipantId participant_id,
+      ReservationId reservation_id) final;
+
+  class Assignments
+  {
+  public:
+
+    /// Get the version of the current assignment sets. The version number will
+    /// increase by at least 1 each time the assignments change. This can be
+    /// used to identify when new assignment notifications are necessary.
+    std::size_t version() const;
+
+    /// Get the ranges that are assigned to each participant.
+    const std::unordered_map<ParticipantId, ReservedRange>& ranges() const;
+
+    class Implementation;
+  private:
+    Assignments();
+    rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+  };
+
+  /// Get the current set of assignments.
   const Assignments& assignments() const;
 
   const std::unordered_map<ParticipantId, Status>& statuses() const;
