@@ -129,6 +129,12 @@ public:
   /// Get the request used to generate this task
   const rmf_task::ConstRequestPtr request() const;
 
+  /// Get the deployment time of this Task
+  const rmf_traffic::Time deployment_time() const;
+
+  /// Get the finish state of this Task
+  const rmf_task::agv::State finish_state() const;
+
 private:
 
   Task(

@@ -95,6 +95,18 @@ const rmf_task::ConstRequestPtr Task::request() const
 }
 
 //==============================================================================
+const rmf_traffic::Time Task::deployment_time() const
+{
+  return _deployment_time;
+}
+
+//==============================================================================
+const rmf_task::agv::State Task::finish_state() const
+{
+  return _finish_state;
+}
+
+//==============================================================================
 Task::Task(
     std::string id,
     std::vector<std::unique_ptr<PendingPhase>> phases,

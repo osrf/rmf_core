@@ -533,9 +533,17 @@ void GoToPlace::Active::execute_plan(rmf_traffic::agv::Plan new_plan)
     }
   }
 
-
+  // TODO: Make distinctions between task and subtasks to avoid passing
+  // dummy parameters for subtasks
+  rmf_traffic::Time dummy_time;
+  rmf_task::agv::State dummy_state{{dummy_time, 0, 0.0}, 0, 1.0};
   _subtasks = Task::make(
-        _description, std::move(sub_phases), _context->worker());
+        _description,
+        std::move(sub_phases),
+        _context->worker(),
+        dummy_time,
+        dummy_state,
+        nullptr);
 
   _status_subscription = _subtasks->observe()
       .observe_on(rxcpp::identity_same_worker(_context->worker()))

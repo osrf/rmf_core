@@ -21,6 +21,8 @@
 #include <rmf_task/requests/Clean.hpp>
 #include <rmf_task/requests/Delivery.hpp>
 
+#include <rmf_traffic_ros2/Time.hpp>
+
 #include "tasks/Clean.hpp"
 
 namespace rmf_fleet_adapter {
@@ -44,6 +46,15 @@ TaskManagerPtr TaskManager::make(agv::RobotContextPtr context)
       }
     });
 
+  mgr->_timer = mgr->context()->node()->create_wall_timer(
+    std::chrono::seconds(1),
+    [w = mgr->weak_from_this()]()
+    {
+      if (auto mgr = w.lock())
+      {
+        mgr->_begin_next_task();
+      }
+    });
   return mgr;
 }
 
@@ -128,6 +139,11 @@ void TaskManager::set_queue(
         a.state());
       
       _queue.push_back(std::move(task));
+
+      rmf_task_msgs::msg::TaskSummary msg;
+      msg.task_id = _queue.back()->id();
+      msg.state = msg.STATE_QUEUED;
+      this->_context->node()->task_summary()->publish(msg);
     }
 
     else if (const auto request =
@@ -172,64 +188,73 @@ const std::vector<rmf_task::ConstRequestPtr> TaskManager::requests() const
 //==============================================================================
 void TaskManager::_begin_next_task()
 {
+  if (_active_task)
+    return;
+
   if (_queue.empty())
   {
     _task_sub.unsubscribe();
     _expected_finish_location = rmf_utils::nullopt;
 
-    RCLCPP_INFO(
-          _context->node()->get_logger(),
-          "Finished all remaining tasks for [%s]",
-          _context->requester_id().c_str());
+    // RCLCPP_INFO(
+    //       _context->node()->get_logger(),
+    //       "Finished all remaining tasks for [%s]",
+    //       _context->requester_id().c_str());
 
     return;
   }
 
-  _active_task = std::move(_queue.front());
-  _queue.erase(_queue.begin());
-
-  RCLCPP_INFO(
-        _context->node()->get_logger(),
-        "Beginning new task [%s] for [%s]. Remaining queue size: %d",
-        _active_task->id().c_str(), _context->requester_id().c_str(),
-        _queue.size());
-
-  _task_sub = _active_task->observe()
-      .observe_on(rxcpp::identity_same_worker(_context->worker()))
-      .subscribe(
-        [this, id = _active_task->id()](Task::StatusMsg msg)
+  if (rmf_traffic_ros2::convert(_context->node()->now()) >
+      _queue.front()->deployment_time())
   {
-    msg.task_id = id;
-    _context->node()->task_summary()->publish(msg);
-  },
-        [this, id = _active_task->id()](std::exception_ptr e)
-  {
-    rmf_task_msgs::msg::TaskSummary msg;
-    msg.state = msg.STATE_FAILED;
+    // Update state in RobotContext and Assign active task
+    _context->state(_queue.front()->finish_state());
+    _active_task = std::move(_queue.front());
+    _queue.erase(_queue.begin());
 
-    try {
-      std::rethrow_exception(e);
-    }
-    catch(const std::exception& e) {
-      msg.status = e.what();
-    }
+    RCLCPP_INFO(
+          _context->node()->get_logger(),
+          "Beginning new task [%s] for [%s]. Remaining queue size: %d",
+          _active_task->id().c_str(), _context->requester_id().c_str(),
+          _queue.size());
 
-    msg.task_id = id;
-    _context->node()->task_summary()->publish(msg);
-    _begin_next_task();
-  },
-        [this, id = _active_task->id()]()
-  {
-    rmf_task_msgs::msg::TaskSummary msg;
-    msg.task_id = id;
-    msg.state = msg.STATE_COMPLETED;
-    this->_context->node()->task_summary()->publish(msg);
+    _task_sub = _active_task->observe()
+        .observe_on(rxcpp::identity_same_worker(_context->worker()))
+        .subscribe(
+          [this, id = _active_task->id()](Task::StatusMsg msg)
+    {
+      msg.task_id = id;
+      _context->node()->task_summary()->publish(msg);
+    },
+          [this, id = _active_task->id()](std::exception_ptr e)
+    {
+      rmf_task_msgs::msg::TaskSummary msg;
+      msg.state = msg.STATE_FAILED;
 
-    _active_task = nullptr;
-    _begin_next_task();
-  });
+      try {
+        std::rethrow_exception(e);
+      }
+      catch(const std::exception& e) {
+        msg.status = e.what();
+      }
 
-  _active_task->begin();
+      msg.task_id = id;
+      _context->node()->task_summary()->publish(msg);
+      // _begin_next_task();
+    },
+          [this, id = _active_task->id()]()
+    {
+      rmf_task_msgs::msg::TaskSummary msg;
+      msg.task_id = id;
+      msg.state = msg.STATE_COMPLETED;
+      this->_context->node()->task_summary()->publish(msg);
+
+      _active_task = nullptr;
+      // _begin_next_task();
+    });
+
+    _active_task->begin();
+  }
 }
 
 //==============================================================================

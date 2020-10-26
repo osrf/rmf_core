@@ -61,6 +61,9 @@ public:
   /// Get the non-charging requests for pending tasks
   const std::vector<rmf_task::ConstRequestPtr> requests() const;
 
+  // Callback for timer which begins next task if its deployment time has passed
+  void _begin_next_task();
+
 private:
 
   TaskManager(agv::RobotContextPtr context);
@@ -73,8 +76,6 @@ private:
   rxcpp::subscription _emergency_sub;
 
   rclcpp::TimerBase::SharedPtr _timer;
-
-  void _begin_next_task();
 
   void clear_queue();
 };
