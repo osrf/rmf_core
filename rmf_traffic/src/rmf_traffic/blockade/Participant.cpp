@@ -115,7 +115,7 @@ Participant::Implementation::Implementation(
 Participant::Implementation::~Implementation()
 {
   if (_reservation_id)
-    _writer->cancel(_id, *_reservation_id);
+    _writer->cancel(_id);
 }
 
 //==============================================================================

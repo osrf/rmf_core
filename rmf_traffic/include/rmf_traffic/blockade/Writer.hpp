@@ -46,24 +46,45 @@ public:
     double radius;
   };
 
+  /// Set the path reservation of a participant.
+  ///
+  /// If reservation_id is (modularly) less than or equal to the last
+  /// reservation_id value given for this participant_id, then this function
+  /// call will be ignored.
+  ///
+  /// Any previous path reservation will be considered canceled.
   virtual void set(
       ParticipantId participant_id,
       ReservationId reservation_id,
       const Reservation& reservation) = 0;
 
+  /// Indicate when a participant is ready at a checkpoint.
+  ///
+  /// If reservation_id is not equal to the last reservation_id value given to
+  /// set() for this participant_id, then this function call will be ignored.
   virtual void ready(
       ParticipantId participant_id,
       ReservationId reservation_id,
       CheckpointId checkpoint) = 0;
 
+  /// Indicate when a participant has reached a checkpoint.
+  ///
+  /// If reservation_id is not equal to the last reservation_id value given to
+  /// set() for this participant_id, then this function call will be ignored.
   virtual void reached(
       ParticipantId participant_id,
       ReservationId reservation_id,
       CheckpointId checkpoint) = 0;
 
+  /// Indicate that a path reservation is canceled if reservation_id is
+  /// (modularly) greater than or equal to the last reservation_id value given
+  /// to set() for this participant_id.
   virtual void cancel(
       ParticipantId participant_id,
       ReservationId reservation_id) = 0;
+
+  /// Indicate that all path reservations for this participant_id are canceled.
+  virtual void cancel(ParticipantId participant_id) = 0;
 
   virtual ~Writer() = default;
 };

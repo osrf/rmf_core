@@ -30,28 +30,60 @@ class Moderator : public Writer
 {
 public:
 
-  /// Default constructor
-  Moderator();
+  //============================================================================
+  // Writer API
+  //============================================================================
 
+  // Documentation inherited
   void set(
       ParticipantId participant_id,
       ReservationId reservation_id,
       const Reservation& reservation) final;
 
+  // Documentation inherited
   void ready(
       ParticipantId participant_id,
       ReservationId reservation_id,
       CheckpointId checkpoint) final;
 
+  // Documentation inherited
   void reached(
       ParticipantId participant_id,
       ReservationId reservation_id,
       CheckpointId checkpoint) final;
 
+  // Documentation inherited
   void cancel(
       ParticipantId participant_id,
       ReservationId reservation_id) final;
 
+  // Documentation inherited
+  void cancel(ParticipantId participant_id) final;
+
+
+  //============================================================================
+  // Moderator API
+  //============================================================================
+
+  /// Default constructor
+  ///
+  /// \param[in] min_conflict_angle
+  ///   If the angle between two path segments is greater than this value
+  ///   (radians), then the segments are considered to be in conflict. The
+  ///   default value for this parameter is 5-degrees. Something larger than 0
+  ///   is recommended to help deal with numerical precision concerns.
+  Moderator(double min_conflict_angle = 5.0*M_PI/180.0);
+
+  /// Get the minimum angle that will trigger a conflict.
+  double minimum_conflict_angle() const;
+
+  /// Set the minimum angle that will trigger a conflict.
+  Moderator& minimum_conflict_angle(double new_value);
+
+  /// This class indicates the range of each reservation that the blockade
+  /// moderator has assigned as active. Each robot is allowed to move at will
+  /// from the begin checkpoint to the end checkpoint in the range assigned for
+  /// it.
   class Assignments
   {
   public:
@@ -67,12 +99,13 @@ public:
     class Implementation;
   private:
     Assignments();
-    rmf_utils::unique_impl_ptr<Implementation> _pimpl;
+    rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
   /// Get the current set of assignments.
   const Assignments& assignments() const;
 
+  /// Get the current known statuses of each participant.
   const std::unordered_map<ParticipantId, Status>& statuses() const;
 
   class Implementation;

@@ -64,7 +64,13 @@ using PeerToIndexToConstraint =
   std::unordered_map<std::size_t, IndexToConstraint>;
 
 //==============================================================================
-// A map from <a participant> to <the Peer-To-Index-To-Constraint map>
+/// A map from <a participant> to <the Peer-To-Index-To-Constraint map>
+///
+/// e.g. if
+/// g(A2) := h(B1) || r(B3)
+///
+/// then
+/// peer_to_peer_blockers[A][B][2] := h(B1) || r(B3)
 using PeerToPeerBlockers =
   std::unordered_map<std::size_t, PeerToIndexToConstraint>;
 
@@ -77,29 +83,10 @@ Blockers compute_final_ShouldGo_constraints(
 
 //==============================================================================
 std::ostream& operator<<(
-    std::ostream& os, const rmf_traffic::blockade::ConflictBracket& b)
-{
-  if (b.include_start)
-    os << "[";
-  else
-    os << "(";
-
-  os << b.start << ", " << b.finish;
-
-  if (b.include_finish)
-    os << "]";
-  else
-    os << ")";
-
-  return os;
-}
+    std::ostream& os, const rmf_traffic::blockade::ConflictBracket& b);
 
 //==============================================================================
 std::ostream& operator<<(
-    std::ostream& os, const rmf_traffic::blockade::BracketPair& pair)
-{
-  os << pair.A << "x" << pair.B;
-  return os;
-}
+    std::ostream& os, const rmf_traffic::blockade::BracketPair& pair);
 
 #endif // SRC__RMF_TRAFFIC__BLOCKADE__CONFLICTS_HPP

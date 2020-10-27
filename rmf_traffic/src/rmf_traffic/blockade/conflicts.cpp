@@ -390,3 +390,30 @@ Blockers compute_final_ShouldGo_constraints(
 
 } // namespace blockade
 } // namespace rmf_traffic
+
+//==============================================================================
+std::ostream& operator<<(
+    std::ostream& os, const rmf_traffic::blockade::ConflictBracket& b)
+{
+  if (b.include_start)
+    os << "[";
+  else
+    os << "(";
+
+  os << b.start << ", " << b.finish;
+
+  if (b.include_finish)
+    os << "]";
+  else
+    os << ")";
+
+  return os;
+}
+
+//==============================================================================
+std::ostream& operator<<(
+    std::ostream& os, const rmf_traffic::blockade::BracketPair& pair)
+{
+  os << pair.A << "x" << pair.B;
+  return os;
+}
