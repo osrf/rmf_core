@@ -104,6 +104,21 @@ auto TaskManager::expected_finish_location() const -> StartSet
 }
 
 //==============================================================================
+auto TaskManager::expected_finish_state() const -> State
+{
+  if (_active_task)
+    return _context->state();
+
+  // Update battery soc and finish time in the current state
+  auto& finish_state = _context->state();
+  auto location = finish_state.location();
+  location.time(rmf_traffic_ros2::convert(_context->node()->now()));
+  finish_state.location(location);
+  // TODO(YV): Update battery soc
+  return finish_state;
+}
+
+//==============================================================================
 const agv::RobotContextPtr& TaskManager::context()
 {
   return _context;
@@ -258,12 +273,6 @@ void TaskManager::_begin_next_task()
       this->_context->node()->task_summary()->publish(msg);
 
       _active_task = nullptr;
-      // Update the location and battery sock in the state in RobotContext
-      // TODO(YV) update the battery soc
-      auto& finish_state = _context->state();
-      auto location = finish_state.location();
-      location.time(rmf_traffic_ros2::convert(_context->node()->now()));
-      finish_state.location(location);
     });
 
     _active_task->begin();

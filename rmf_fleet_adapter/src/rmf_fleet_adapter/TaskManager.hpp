@@ -44,12 +44,13 @@ public:
   using Start = rmf_traffic::agv::Plan::Start;
   using StartSet = rmf_traffic::agv::Plan::StartSet;
   using Assignment = rmf_task::agv::TaskPlanner::Assignment;
+  using State = rmf_task::agv::State;
 
   /// Add a task to the queue of this manager.
   void queue_task(std::shared_ptr<Task> task, Start expected_finish);
 
   /// The location where we expect this robot to be at the end of its current
-  /// task queue.
+  /// task queue
   StartSet expected_finish_location() const;
 
   const agv::RobotContextPtr& context();
@@ -65,6 +66,9 @@ public:
 
   // Callback for timer which begins next task if its deployment time has passed
   void _begin_next_task();
+
+  // The state of the robot.
+  State expected_finish_state() const;
 
 private:
 

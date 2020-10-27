@@ -258,7 +258,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   pending_requests.push_back(new_request);
   for (const auto& t : task_managers)
   {
-    states.push_back(t.first->state());
+    states.push_back(t.second->expected_finish_state());
     state_configs.push_back(t.first->state_config());
     const auto requests = t.second->requests();
     pending_requests.insert(pending_requests.end(), requests.begin(), requests.end());
