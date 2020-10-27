@@ -88,6 +88,10 @@ public:
       const double max_merge_lane_distance = 1.0,
       const double min_lane_length = 1e-8);
 
+  /// Update the current battery level of the robot by specifying its state of
+  /// charge as a fraction of its total charge capacity
+  void update_battery_soc(const double battery_soc);
+
   /// Specify how high the delay of the current itinerary can become before it
   /// gets interrupted and replanned. A nullopt value will allow for an
   /// arbitrarily long delay to build up without being interrupted.

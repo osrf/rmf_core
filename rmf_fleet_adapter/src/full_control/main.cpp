@@ -331,6 +331,11 @@ public:
       // command
       estimate_state(_node, state.location, _travel_info);
     }
+
+    // Update battery soc
+    const double battery_soc = state.battery_percent / 100.0;
+    if (battery_soc >= 0.0 && battery_soc <= 1.0)
+      _travel_info.updater->update_battery_soc(battery_soc);
   }
 
   void set_updater(rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)

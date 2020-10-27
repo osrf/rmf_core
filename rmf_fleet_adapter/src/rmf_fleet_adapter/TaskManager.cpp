@@ -106,6 +106,8 @@ auto TaskManager::expected_finish_location() const -> StartSet
 //==============================================================================
 auto TaskManager::expected_finish_state() const -> State
 {
+  // If an active task exists, return the estimated finish state of that task
+  /// else update the current time and battery level for the state and return
   if (_active_task)
     return _context->state();
 
@@ -114,7 +116,10 @@ auto TaskManager::expected_finish_state() const -> State
   auto location = finish_state.location();
   location.time(rmf_traffic_ros2::convert(_context->node()->now()));
   finish_state.location(location);
-  // TODO(YV): Update battery soc
+  
+  const double current_battery_soc = _context->current_battery_soc();
+  finish_state.battery_soc(current_battery_soc);
+  
   return finish_state;
 }
 

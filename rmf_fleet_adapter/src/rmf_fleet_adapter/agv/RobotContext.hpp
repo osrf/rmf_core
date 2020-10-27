@@ -124,6 +124,8 @@ public:
   /// Get the state config of this robot 
   const rmf_task::agv::StateConfig state_config() const;
 
+  const double current_battery_soc() const;
+
 private:
   friend class FleetUpdateHandle;
   friend class RobotUpdateHandle;
@@ -159,6 +161,7 @@ private:
 
   rmf_traffic::schedule::Negotiator* _negotiator = nullptr;
 
+  double _current_battery_soc;
   rmf_task::agv::State _state;
   rmf_task::agv::StateConfig _state_config;
 };

@@ -234,6 +234,12 @@ const rmf_task::agv::StateConfig RobotContext::state_config() const
 }
 
 //==============================================================================
+const double RobotContext::current_battery_soc() const
+{
+  return _current_battery_soc;
+}
+
+//==============================================================================
 void RobotContext::respond(
     const TableViewerPtr& table_viewer,
     const ResponderPtr& responder)
