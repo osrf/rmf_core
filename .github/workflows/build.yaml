@@ -2,9 +2,9 @@ name: build
 on: [push, pull_request]
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     container:
-      image: docker://ros:eloquent-ros-base-bionic
+      image: docker://ros:foxy-ros-base-focal
       
     steps:
     - name: deps
@@ -22,10 +22,10 @@ jobs:
       run: |
         cd ws_rmf
         rosdep update
-        rosdep install --from-paths src --ignore-src --rosdistro eloquent -yr
+        rosdep install --from-paths src --ignore-src --rosdistro foxy -yr
     - name: build
       shell: bash
       run: |
         cd ws_rmf
-        source /opt/ros/eloquent/setup.bash
-        CXX=g++-8 colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE
+        source /opt/ros/foxy/setup.bash
+        colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE

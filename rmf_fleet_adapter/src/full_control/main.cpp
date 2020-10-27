@@ -31,15 +31,12 @@
 #include <rmf_fleet_msgs/msg/path_request.hpp>
 #include <rmf_fleet_msgs/msg/mode_request.hpp>
 
-// Utilities for making traffic predictions
-#include <rmf_traffic/agv/Interpolate.hpp>
-
 // ROS2 utilities for rmf_traffic
 #include <rmf_traffic_ros2/Time.hpp>
 
 // Utility functions for estimating where a robot is on the graph based on
 // the information provided by fleet drivers.
-#include "estimation.hpp"
+#include "../rmf_fleet_adapter/estimation.hpp"
 
 //==============================================================================
 class FleetDriverRobotCommandHandle
@@ -147,10 +144,11 @@ public:
 
     void execute(const Wait&) final { }
     void execute(const DoorOpen&) final { }
-    void execute(const LiftMove&) final { }
     void execute(const DoorClose&) final { }
+    void execute(const LiftSessionBegin&) final { }
+    void execute(const LiftMove&) final { }
     void execute(const LiftDoorOpen&) final { }
-    void execute(const LiftDoorClose&) final { }
+    void execute(const LiftSessionEnd&) final { }
 
   private:
     const std::string& _dock_name;

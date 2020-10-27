@@ -2,8 +2,12 @@
 Changelog for package rmf_utils
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2020-09-24)
+------------------
+* Replace rmf_utils::optional with std::optional (`#177 <https://github.com/osrf/rmf_core/issues/177>`_)
+* Foxy Support (`#133 <https://github.com/osrf/rmf_core/issues/133>`_)
+* Remove ros2 dependency (`#142 <https://github.com/osrf/rmf_core/issues/142>`_)
+* Contributors: Aaron Chong, Grey, Yadu
 
 1.0.0 (2020-06-23)
 ------------------

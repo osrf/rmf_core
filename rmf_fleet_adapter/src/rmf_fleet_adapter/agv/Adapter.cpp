@@ -147,7 +147,7 @@ public:
       const rclcpp::NodeOptions& node_options,
       rmf_utils::optional<rmf_traffic::Duration> discovery_timeout)
   {
-    if (!rclcpp::is_initialized(node_options.context()))
+    if (!rclcpp::ok(node_options.context()))
     {
       throw std::runtime_error(
             "rclcpp must be initialized before creating an Adapter! "
@@ -175,9 +175,9 @@ public:
     const auto stop_time =
         std::chrono::steady_clock::now() + *discovery_timeout;
 
-    rclcpp::executor::ExecutorArgs args;
-    args.context = node_options.context();
-    rclcpp::executors::SingleThreadedExecutor executor(args);
+    rclcpp::ExecutorOptions options;
+    options.context = node_options.context();
+    rclcpp::executors::SingleThreadedExecutor executor(options);
     executor.add_node(node);
 
     while (rclcpp::ok(node_options.context())
@@ -268,7 +268,6 @@ void Adapter::add_traffic_light(
   const std::string& fleet_name,
   const std::string& robot_name,
   rmf_traffic::agv::VehicleTraits traits,
-  rmf_traffic::Profile profile,
   std::function<void(TrafficLight::UpdateHandlePtr)> handle_cb)
 {
   if (!handle_cb)
@@ -289,7 +288,7 @@ void Adapter::add_traffic_light(
       robot_name,
       fleet_name,
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
-      profile);
+      traits.profile());
 
   _pimpl->writer->async_make_participant(
       std::move(description),
