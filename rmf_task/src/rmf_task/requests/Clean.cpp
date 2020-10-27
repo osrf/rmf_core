@@ -90,7 +90,7 @@ rmf_task::ConstRequestPtr Clean::make(
       clean->_pimpl->cleaning_sink->compute_change_in_charge(
         rmf_traffic::time::to_seconds(clean->_pimpl->invariant_duration));
     clean->_pimpl->invariant_battery_drain = dSOC_motion + dSOC_ambient +
-      dSOC_cleaning;  
+      dSOC_cleaning;
   }
 
   return clean;
@@ -130,15 +130,10 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
 
   if (initial_state.waypoint() != _pimpl->start_waypoint)
   {
-    // Compute plan to cleaning start waypoint along with battery drain
-    rmf_traffic::agv::Planner::Start start{
-      start_time,
-      initial_state.waypoint(),
-      0.0};
-
     rmf_traffic::agv::Planner::Goal goal{_pimpl->start_waypoint};
 
-    const auto result_to_start = _pimpl->planner->plan(start, goal);
+    const auto result_to_start = _pimpl->planner->plan(
+      initial_state.location(), goal);
     // We assume we can always compute a plan
     const auto& trajectory =
       result_to_start->get_itinerary().back().trajectory();
@@ -153,7 +148,6 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
         _pimpl->ambient_sink->compute_change_in_charge(
           rmf_traffic::time::to_seconds(variant_duration));
       battery_soc = battery_soc - dSOC_motion - dSOC_ambient;
-
       if (battery_soc <= state_config.threshold_soc())
         return rmf_utils::nullopt;
     }

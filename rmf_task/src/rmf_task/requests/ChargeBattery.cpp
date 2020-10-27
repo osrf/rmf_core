@@ -143,6 +143,7 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
   state.finish_time(
     wait_until + variant_duration +
     rmf_traffic::time::from_seconds(time_to_charge));
+
   state.battery_soc(_pimpl->_charge_soc);
 
   return Estimate(state, wait_until);
