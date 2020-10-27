@@ -116,7 +116,7 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
     const auto result = _pimpl->_planner->plan(start, goal);
     const auto& trajectory = result->get_itinerary().back().trajectory();
     const auto& finish_time = *trajectory.finish_time();
-    const rmf_traffic::Duration variant_duration = finish_time - start_time;
+    variant_duration = finish_time - start_time;
 
     if (_pimpl->_drain_battery)
     {

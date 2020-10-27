@@ -242,7 +242,6 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
   }
 }
 
-
 SCENARIO("Testing Cleaning Request")
 {
   using BatterySystem = rmf_battery::agv::BatterySystem;
@@ -289,7 +288,7 @@ SCENARIO("Testing Cleaning Request")
     const double dSOC_device = device_power_sink.compute_change_in_charge(
       rmf_traffic::time::to_seconds(trajectory.duration()));
 
-    std::cout << "Motion: " << dSOC_motion << "Device: " << dSOC_device << std::endl;
+    // std::cout << "Motion: " << dSOC_motion << "Device: " << dSOC_device << std::endl;
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
     REQUIRE(remaining_soc <= 1.0);
