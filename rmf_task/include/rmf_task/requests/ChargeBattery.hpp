@@ -62,7 +62,8 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using ChargeBatteryPtr = std::shared_ptr<ChargeBattery>;
+using ChargeBatteryRequestPtr = std::shared_ptr<ChargeBattery>;
+using ConstChargeBatteryRequestPtr = std::shared_ptr<const ChargeBattery>;
 
 } // namespace requests
 } // namespace rmf_task

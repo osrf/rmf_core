@@ -137,11 +137,6 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   std::string id = msg->task_profile.task_id;
   const auto& graph = planner->get_configuration().graph();
 
-  // RCLCPP_INFO(
-  //   node->get_logger(),
-  //   "Fleet [%s] is processing BidNotice with task_id:[%s] and type:[%d]...",
-  //   name.c_str(), id.c_str(), task_type.value);
-
   // Process Cleaning task
   if (task_type.value == rmf_task_msgs::msg::TaskType::CLEANING_TASK)
   {
@@ -250,7 +245,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   if (!new_request)
     return;
 
-  // Update robot states and combine new requestptr with requestptr of
+  // Collate robot states and combine new requestptr with requestptr of
   // non-charging tasks in task manager queues
   std::vector<rmf_task::agv::State> states;
   std::vector<rmf_task::agv::StateConfig> state_configs;
