@@ -20,7 +20,20 @@ endif()
 
 include(GNUInstallDirs)
 
-find_package(fcl 0.6 REQUIRED)
+find_package(fcl 0.6 QUIET)
+if(fcl_FOUND)
+  set(FCL_LIBRARIES fcl)
+  set(using_new_fcl true)
+  message(STATUS "Using FCL version: ${FCL_VERSION}")
+else()
+  include(FindPkgConfig)
+  pkg_check_modules(PC_FCL REQUIRED fcl)
+  pkg_check_modules(PC_CCD REQUIRED ccd)
+  set(FCL_LIBRARIES ${PC_FCL_LIBRARIES} ${PC_CCD_LIBRARIES})
+  set(using_new_fcl)
+  message(STATUS "Using FCL version: ${PC_FCL_VERSION}")
+endif()
+
 find_package(rmf_utils REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Threads)
@@ -45,6 +58,10 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
       Threads::Threads
   )
 
+  if(using_new_fcl)
+    target_compile_definitions(test_rmf_traffic PRIVATE RMF_TRAFFIC__USING_FCL_0_6)
+  endif()
+
   target_include_directories(test_rmf_traffic
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
@@ -57,6 +74,10 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
     CONFIG_FILE ${uncrustify_config_file}
     MAX_LINE_LENGTH 80
   )
+endif()
+
+if(using_new_fcl)
+  target_compile_definitions(rmf_traffic PRIVATE RMF_TRAFFIC__USING_FCL_0_6)
 endif()
 
 target_link_libraries(rmf_traffic

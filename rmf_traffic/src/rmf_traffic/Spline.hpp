@@ -22,11 +22,21 @@
 
 #include <rmf_traffic/Trajectory.hpp>
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 #include <fcl/math/motion/spline_motion.h>
+#else
+#include <fcl/ccd/motion.h>
+#endif
 
 #include <array>
 
 namespace rmf_traffic {
+
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  using FclSplineMotion = fcl::SplineMotion<double>;
+#else
+  using FclSplineMotion = fcl::SplineMotion;
+#endif
 
 //==============================================================================
 /// A utility class to convert Trajectories into piecewise-splines.
@@ -37,7 +47,6 @@ namespace rmf_traffic {
 class Spline
 {
 public:
-
   /// Create a spline that goes from the end of the preceding to the Waypoint of
   /// `it`.
   Spline(const Trajectory::const_iterator& it);
@@ -51,7 +60,7 @@ public:
   std::array<Eigen::Vector3d, 4> compute_knots(
     const Time start_time, const Time finish_time) const;
 
-  fcl::SplineMotion<double> to_fcl(const Time start_time, const Time finish_time) const;
+  FclSplineMotion to_fcl(const Time start_time, const Time finish_time) const;
 
   Time start_time() const;
   Time finish_time() const;

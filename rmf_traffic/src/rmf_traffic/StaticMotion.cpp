@@ -26,11 +26,18 @@ namespace internal {
 StaticMotion::StaticMotion(const Eigen::Isometry2d& tf)
 {
   const Eigen::Vector2d& p = tf.translation();
-  const auto x = fcl::Vector3d(p[0], p[1], 0.0);
-
   Eigen::Rotation2Dd R{tf.rotation()};
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  const auto x = fcl::Vector3d(p[0], p[1], 0.0);
   _tf = fcl::Translation3d(x) * fcl::AngleAxisd(R.angle(), fcl::Vector3d::UnitZ());
+#else
+  const auto x = fcl::Vec3f(p[0], p[1], 0.0);
+  fcl::Quaternion3f q;
+  q.fromAxisAngle(fcl::Vec3f(0.0, 0.0, 1.0), R.angle());
+
+  _tf.setTransform(q, x);
+#endif
 }
 
 //==============================================================================
@@ -41,8 +48,13 @@ bool StaticMotion::integrate(double /*dt*/) const
 }
 
 //==============================================================================
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 double StaticMotion::computeMotionBound(
   const fcl::BVMotionBoundVisitor<double>&) const
+#else
+double StaticMotion::computeMotionBound(
+  const fcl::BVMotionBoundVisitor&) const
+#endif
 {
   // TODO(MXG): Investigate the legitimacy of this implementation. Make sure
   // that this function truly should always return 0.
@@ -50,8 +62,13 @@ double StaticMotion::computeMotionBound(
 }
 
 //==============================================================================
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 double StaticMotion::computeMotionBound(
   const fcl::TriangleMotionBoundVisitor<double>&) const
+#else
+double StaticMotion::computeMotionBound(
+  const fcl::TriangleMotionBoundVisitor&) const
+#endif
 {
   std::cout <<
     " ----- OH NO, WE'RE USING StaticMotion::computeMotionBound(TriangleMotionBoundVisitor)!! ----- "
@@ -63,13 +80,21 @@ double StaticMotion::computeMotionBound(
 }
 
 //==============================================================================
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 void StaticMotion::getCurrentTransform(fcl::Transform3d& tf) const
+#else
+void StaticMotion::getCurrentTransform(fcl::Transform3f& tf) const
+#endif
 {
   tf = _tf;
 }
 
 //==============================================================================
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 void StaticMotion::getTaylorModel(fcl::TMatrix3<double>&, fcl::TVector3<double>&) const
+#else
+void StaticMotion::getTaylorModel(fcl::TMatrix3&, fcl::TVector3&) const
+#endif
 {
   std::cout <<
     " ----- OH NO, WE'RE USING StaticMotion::getTaylorModel()!! ----- "

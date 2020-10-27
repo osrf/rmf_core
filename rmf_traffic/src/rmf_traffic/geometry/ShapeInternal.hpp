@@ -21,14 +21,22 @@
 #include <rmf_traffic/geometry/Shape.hpp>
 #include <rmf_traffic/geometry/ConvexShape.hpp>
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 #include <fcl/narrowphase/collision_object.h>
+#else
+#include <fcl/collision_object.h>
+#endif
 
 #include <vector>
 
 namespace rmf_traffic {
 namespace geometry {
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 using CollisionGeometryPtr = std::shared_ptr<fcl::CollisionGeometryd>;
+#else
+using CollisionGeometryPtr = std::shared_ptr<fcl::CollisionGeometry>;
+#endif
 using CollisionGeometries = std::vector<CollisionGeometryPtr>;
 
 //==============================================================================
