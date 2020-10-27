@@ -162,5 +162,10 @@ rmf_traffic::Time ChargeBattery::earliest_start_time() const
 }
 
 //==============================================================================
+const rmf_battery::agv::BatterySystem& ChargeBattery::battery_system() const
+{
+  return _pimpl->_battery_system;
+}
+
 } // namespace requests
 } // namespace rmf_task

@@ -56,6 +56,8 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  const rmf_battery::agv::BatterySystem& battery_system() const;
+
   class Implementation;
 private:
   ChargeBattery();

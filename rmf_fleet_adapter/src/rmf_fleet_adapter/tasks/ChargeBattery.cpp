@@ -17,6 +17,8 @@
 
 #include "../phases/GoToPlace.hpp"
 
+#include "../phases/WaitForCharge.hpp"
+
 #include "ChargeBattery.hpp"
 
 namespace rmf_fleet_adapter {
@@ -24,16 +26,19 @@ namespace tasks {
 
 //==============================================================================
 std::shared_ptr<Task> make_charge_battery(
-    const rmf_task::requests::ConstChargeBatteryRequest request,
+    const rmf_task::requests::ConstChargeBatteryRequestPtr request,
     const agv::RobotContextPtr& context,
     const rmf_traffic::agv::Plan::Start start,
     const rmf_traffic::Time deployment_time,
     const rmf_task::agv::State finish_state)
 {
-  rmf_traffic::agv::Planner::Goal goal{finish_state.charging_waypoint())};
+  rmf_traffic::agv::Planner::Goal goal{finish_state.charging_waypoint()};
+
   Task::PendingPhases phases;
   phases.push_back(
-        phases::GoToPlace::make(context, std::move(start), goal));
+    phases::GoToPlace::make(context, std::move(start), goal));
+  // phases.push_back(
+  //   phases::WaitForCharge::make(context, request->battery_system(), 1.0));
 
   return Task::make(
     std::to_string(request->id()),
