@@ -89,6 +89,7 @@ rmf_task::ConstRequestPtr Clean::make(
     const double dSOC_cleaning =
       clean->_pimpl->cleaning_sink->compute_change_in_charge(
         rmf_traffic::time::to_seconds(clean->_pimpl->invariant_duration));
+
     clean->_pimpl->invariant_battery_drain = dSOC_motion + dSOC_ambient +
       dSOC_cleaning;
   }

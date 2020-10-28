@@ -195,12 +195,21 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     std::vector<Eigen::Vector3d>  positions;
     for (const auto& location: clean_param.path)
       positions.push_back({location.x, location.y, location.yaw});
-
     rmf_traffic::Trajectory cleaning_trajectory =
       rmf_traffic::agv::Interpolate::positions(
         planner->get_configuration().vehicle_traits(),
         start_time,
-        positions); 
+        positions);
+    
+    if (!(cleaning_trajectory.size() > 0))
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Unable to generate cleaning trajectory from positions specified "
+        " in DockSummary msg for [%s]", start_wp_name.c_str());
+      
+      return;
+    }
 
     // TODO(YV) get rid of id field in RequestPtr
     std::stringstream id_stream(id);
