@@ -283,6 +283,15 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     pending_requests,
     nullptr);
 
+  if (assignments.empty())
+  {
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Failed to compute assignments for task_id:[%s]", id.c_str());
+    
+    return;
+  }
+
   const double cost = task_planner->compute_cost(assignments);
 
   // Display assignments for debugging
@@ -311,8 +320,16 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   bid_proposal.task_profile = task_profile;
   bid_proposal.prev_cost = current_assignment_cost;
   bid_proposal.new_cost = cost;
-  // TODO populate finish_time and robot_name
-
+  // TODO robot_name
+  for (const auto& agent : assignments)
+  {
+    for (const auto& assignment : agent)
+    {
+      if (std::to_string(assignment.request()->id()) == id)
+        bid_proposal.finish_time = rmf_traffic_ros2::convert(
+            assignment.state().finish_time());
+    }
+  }
   bid_proposal_pub->publish(bid_proposal);
   RCLCPP_INFO(
     node->get_logger(),
@@ -336,6 +353,11 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 
   if (task_it == bid_notice_assignments.end())
     return;
+
+  RCLCPP_INFO(
+    node->get_logger(),
+    "Bid for task_id:[%s] awarded to fleet [%s]",
+    id.c_str(), name.c_str());
 
   // We currently only support adding tasks
   if (msg->method != DispatchRequest::ADD)
