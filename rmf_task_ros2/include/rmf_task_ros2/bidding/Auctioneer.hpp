@@ -42,14 +42,15 @@ public:
   ///   ros2 node which will manage the bidding
   ///
   /// \param[in] sequential
-  ///   bid notice is sent sequentially or in async
+  ///   bid notice is sent sequentially or in async, default is sequential
   ///
   /// \sa make()
   static std::shared_ptr<Auctioneer> make(
     const std::shared_ptr<rclcpp::Node>& node,
     const bool sequential = true);
 
-  /// Start a bidding process
+  /// Start a bidding process with a input task. If sequenctial, this will be
+  /// added in a queue, else, a bidding process will start instantly.
   ///
   /// \param[in] bid_notice
   ///   bidding task, task which will call for bid

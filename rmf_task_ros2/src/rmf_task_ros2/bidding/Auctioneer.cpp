@@ -102,8 +102,8 @@ public:
   void receive_proposal(const BidProposal& msg)
   {
     auto id_ = msg.task_profile.task_id;
-    std::cout << "[Auctioneer] Receive proposal for task_id: "
-              << id_ << std::endl;
+    std::cout << "[Auctioneer] Receive proposal from task_id: "
+              << id_ << " | from: " << msg.fleet_name << std::endl;
 
     // check if bidding task is "mine", if found
     // add submited proposal to the current bidding tasks list

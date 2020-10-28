@@ -48,19 +48,33 @@ public:
   ///   The ROS 2 node to manage the Dispatching of Task
   ///
   /// \sa make()
+  static std::shared_ptr<Dispatcher> init_and_make(
+    const std::string dispatcher_node_name);
+
+  /// Similarly this will init the dispatcher, but you will also need to init
+  /// rclcpp via rclcpp::init(~).
+  ///
+  /// \param[in] node
+  ///   The ROS 2 node to manage the Dispatching of Task
+  ///
+  /// \sa make()
   static std::shared_ptr<Dispatcher> make(
     const std::string dispatcher_node_name);
 
-  /// Submit task to dispatcher node
+  /// Submit task to dispatcher node. Calling this function will immediately
+  /// trigger the bidding process, then the task "action". Once submmitted,
+  /// Task State will be: Pending till the task is allocated to a fleet
   ///
   /// \param [in] task
   ///   Submit a task to dispatch
   ///
   /// \return task_id
   ///   self-generated task_id
-  TaskID submit_task(const TaskProfile& task);
+  TaskID submit_task(
+    const TaskProfile& task);
 
-  /// Cancel task in dispatcher
+  /// Cancel task which was previously submitted to this dispatcher. This
+  /// will Terminate the task with a State of: Canceled
   ///
   /// \param [in] task_id
   ///   Task to cancel
@@ -89,8 +103,17 @@ public:
 
   using StatusCallback = std::function<void(const TaskStatusPtr status)>;
 
-  // Trigger this callback when a task status is changed
+  /// Trigger this callback when a task status is changed. This will return the
+  /// Changed task status.
+  ///
+  /// \param [in] callback function
   void on_change(StatusCallback on_change_fn);
+
+  /// Change the evaluator method used in auctioneer during the bidding process
+  ///
+  /// \param [in] evaluator
+  ///   evaluator used to select the best bid from fleets
+  void evaluator(std::shared_ptr<bidding::Auctioneer::Evaluator> evaluator);
 
   /// Get the rclcpp::Node that this dispatcher will be using for communication.
   std::shared_ptr<rclcpp::Node> node();

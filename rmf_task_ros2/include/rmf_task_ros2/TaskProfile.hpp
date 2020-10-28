@@ -61,8 +61,8 @@ struct TaskProfile
 
   bool operator==(const TaskProfile& tsk) const
   {
-    return (this->task_id == tsk.task_id) &&
-      (this->task_type == tsk.task_type);
+    return this->task_id == tsk.task_id;
+        // && (this->task_type == tsk.task_type);
   }
 
   bool operator<(const TaskProfile& tsk) const

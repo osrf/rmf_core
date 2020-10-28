@@ -31,8 +31,7 @@ using GetTaskSrv = rmf_task_msgs::srv::GetTask;
 
 int main(int argc, char* argv[])
 {
-  // rclcpp::init(argc, argv);
-
+  rclcpp::init(argc, argv);
   std::cout << "~Initializing Dispatcher Node~" << std::endl;
 
   auto dispatcher = rmf_task_ros2::dispatcher::Dispatcher::make(
@@ -53,8 +52,38 @@ int main(int argc, char* argv[])
       msg.start_time = request->start_time;
       msg.params = request->params;
 
-      auto id = dispatcher->submit_task(rmf_task_ros2::convert(msg));
+      auto task_profile = rmf_task_ros2::convert(msg);
+      auto id = dispatcher->submit_task(task_profile);
       RCLCPP_WARN(node->get_logger(), "Submit New Task!!! ID %s", id.c_str());
+
+      // temp hack to change the evaluator here
+      if (task_profile.params.count("evaluator"))
+      {
+        using namespace rmf_task_ros2::bidding;
+        auto selected_eval = task_profile.params["evaluator"];
+        if (selected_eval == "lowest_cost")
+        {
+          std::cout << "LOWEST COST is chosen\n";
+          auto eval = std::shared_ptr<LeastFleetCostEvaluator>(
+            new LeastFleetCostEvaluator());
+          dispatcher->evaluator(eval);
+        }
+        else if (selected_eval == "lowest_delta_cost")
+        {
+          std::cout << "LOWEST DELAT COST is chosen\n";
+          auto eval = std::shared_ptr<LeastFleetDiffCostEvaluator>(
+            new LeastFleetDiffCostEvaluator());
+          dispatcher->evaluator(eval);
+        }
+        else if (selected_eval == "quickest_time")
+        {
+          std::cout << "QUICKEST TIME is chosen\n";
+          auto eval = std::shared_ptr<QuickestFinishEvaluator>(
+            new QuickestFinishEvaluator());
+          dispatcher->evaluator(eval);
+        }
+      }
+
       response->task_id = id;
       response->success = true;
     }

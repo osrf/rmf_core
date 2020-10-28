@@ -28,12 +28,14 @@ class Dispatcher::Implementation
 public:
   std::shared_ptr<rclcpp::Node> node;
   std::shared_ptr<bidding::Auctioneer> auctioneer;
-  std::shared_ptr<action::TaskActionClient> action_client;
+  std::shared_ptr<action::TaskActionClient<RequestMsg,
+    StatusMsg>> action_client;
 
   StatusCallback on_change_fn;
 
-  DispatchTasksPtr active_dispatch_tasks; // todo: mutex
+  DispatchTasksPtr active_dispatch_tasks;
   DispatchTasksPtr terminal_dispatch_tasks; // todo limit size
+  int i = 0; // temp index for generating task_id
 
   Implementation(std::shared_ptr<rclcpp::Node> node_)
   : node(std::move(node_))
@@ -55,11 +57,13 @@ public:
   {
     auto submitted_task = task;
 
-    // auto generate a taskid with timestamp
-    const auto now = std::chrono::steady_clock::now();
-    submitted_task.task_id = "task" + std::to_string((int)task.task_type)
-      + "-" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
-          now.time_since_epoch()).count());
+    // auto generate a taskid for a given submitted task
+    // todo: fix a way to generate unique task_id
+    submitted_task.task_id =
+      // "task" + std::to_string((int)task.task_type)
+      //   + "-" + std::to_string((int)(node->now().seconds()));
+      std::to_string((int)task.task_type) + "00" +
+      std::to_string((i++));
 
     submitted_task.submission_time = rmf_traffic_ros2::convert(node->now());
 
@@ -141,8 +145,6 @@ public:
       return;
     }
 
-    // action_client->size(); // debugging
-
     // now we know which fleet will execute the task
     std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
     pending_task_status->fleet_name = winner->fleet_name;
@@ -170,10 +172,17 @@ public:
 };
 
 //==============================================================================
-std::shared_ptr<Dispatcher> Dispatcher::make(
+std::shared_ptr<Dispatcher> Dispatcher::init_and_make(
   const std::string dispatcher_node_name)
 {
   rclcpp::init(0, nullptr);
+  return make(dispatcher_node_name);
+}
+
+//==============================================================================
+std::shared_ptr<Dispatcher> Dispatcher::make(
+  const std::string dispatcher_node_name)
+{
   std::shared_ptr<rclcpp::Node> node =
     rclcpp::Node::make_shared(dispatcher_node_name);
 
@@ -182,7 +191,8 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
   if (pimpl)
   {
     pimpl->auctioneer = bidding::Auctioneer::make(node);
-    pimpl->action_client = action::TaskActionClient::make(node);
+    pimpl->action_client =
+      action::TaskActionClient<RequestMsg, StatusMsg>::make(node);
 
     auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
     dispatcher->_pimpl = pimpl;
@@ -228,6 +238,13 @@ void Dispatcher::on_change(StatusCallback on_change_fn)
 {
   _pimpl->action_client->on_change(on_change_fn);
   _pimpl->on_change_fn = on_change_fn;
+}
+
+//==============================================================================
+void Dispatcher::evaluator(
+  std::shared_ptr<bidding::Auctioneer::Evaluator> evaluator)
+{
+  _pimpl->auctioneer->select_evaluator(evaluator);
 }
 
 //==============================================================================

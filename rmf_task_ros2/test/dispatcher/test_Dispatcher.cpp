@@ -19,6 +19,10 @@
 #include <rmf_task_ros2/dispatcher/Dispatcher.hpp>
 #include <rclcpp/rclcpp.hpp>
 
+// mock system to test dispatcher
+#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
+#include <rmf_task_ros2/action/ActionServer.hpp>
+
 #include <chrono>
 #include <thread>
 #include <rmf_utils/catch.hpp>
@@ -35,7 +39,7 @@ TaskProfile task_profile2{"placenholder_id", task_time, TaskType::Cleaning };
 SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 {
   rclcpp::shutdown(); // todo: temp hack
-  auto dispatcher = Dispatcher::make("test_dispatcher_node");
+  auto dispatcher = Dispatcher::init_and_make("test_dispatcher_node");
 
   auto spin_thread = std::thread(
     [&dispatcher]()
@@ -46,8 +50,6 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
   WHEN("Add 1 and cancel task")
   {
-    std::cout << "Here1" << std::endl;
-
     // add task
     auto id = dispatcher->submit_task(task_profile1);
     REQUIRE(dispatcher->active_tasks()->size() == 1);
@@ -65,7 +67,6 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   }
 
 //==============================================================================
-
   // test on change fn callback
   int change_times = 0;
   TaskProfile test_taskprofile;
@@ -103,10 +104,81 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(change_times == 4); // add and failed x2
   }
 
-  // WHEN("Full Dispatch cycle")
-  // {
-  //   // todo
-  // }
+//==============================================================================
+  // setup a mock bidder to test
+  bidding::MinimalBidder::Profile profile{
+    "dummy_fleet", { TaskType::Station, TaskType::Cleaning}};
+
+  auto node = dispatcher->node();
+  auto bidder = bidding::MinimalBidder::make(node, profile);
+
+  bidder->call_for_bid(
+    [](const bidding::BidNotice& notice)
+    {
+      std::cout << "[Bidding] Providing best estimates" << std::endl;
+      auto now = std::chrono::steady_clock::now();
+      bidding::Submission best_robot_estimate;
+      best_robot_estimate.new_cost = 13.5;
+      return best_robot_estimate;
+    }
+  );
+
+//==============================================================================
+  // setup the action server to test
+  auto action_server = action::TaskActionServer<RequestMsg, StatusMsg>::make(
+    node, profile.fleet_name);
+
+  action_server->register_callbacks(
+    // Add Task callback
+    [&action_server](const TaskProfile& task_profile)
+    {
+      std::cout << "[Action] ~Start Queue Task: "
+                << task_profile.task_id<<std::endl;
+      auto t = std::thread(
+        [&action_server](auto profile)
+        {
+          TaskStatus status;
+          status.task_profile = profile;
+          status.robot_name = "dumbot";
+          std::cout << " [impl] Queued " << profile.task_id << std::endl;
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          std::cout << " [impl] Executing " << profile.task_id << std::endl;
+          status.state = TaskStatus::State::Executing;
+          action_server->update_status(status);
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          std::cout << " [impl] Completed " << profile.task_id << std::endl;
+          status.state = TaskStatus::State::Completed;
+          action_server->update_status(status);
+        }, task_profile
+      );
+      t.detach();
+      return true; //successs (send State::Queued)
+    },
+    // Cancel Task callback
+    [&action_server](const TaskProfile& task_profile)
+    {
+      return true; //success , send State::Canceled
+    }
+  );
+
+//==============================================================================
+  WHEN("Full Dispatch cycle")
+  {
+    auto id = dispatcher->submit_task(task_profile2);
+    task_profile2.task_id = id;
+    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+
+    // now should queue the task
+    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Queued);
+    REQUIRE(dispatcher->terminated_tasks()->size() == 0);
+    REQUIRE(change_times == 2); // Pending and Queued
+
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Completed);
+    REQUIRE(dispatcher->terminated_tasks()->size() == 1);
+    REQUIRE(change_times == 4); // Pending > Queued > Executing > Completed
+  }
 }
 
 } // namespace action

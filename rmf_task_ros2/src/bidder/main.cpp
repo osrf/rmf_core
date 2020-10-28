@@ -27,10 +27,8 @@ using namespace rmf_task_ros2;
 int main(int argc, char* argv[])
 {
   rclcpp::init(argc, argv);
-  std::string node_name = "example_bidder" + std::string(argv[argc-1]);
-
   std::shared_ptr<rclcpp::Node> node =
-    rclcpp::Node::make_shared(node_name);
+    rclcpp::Node::make_shared("example_bidder");
 
   RCLCPP_INFO(
     node->get_logger(),
@@ -38,7 +36,7 @@ int main(int argc, char* argv[])
 
   bidding::MinimalBidder::Profile profile{
     "dummy_fleet",
-    { TaskType::Station, TaskType::Charging, TaskType::Delivery }
+    { TaskType::Station, TaskType::Cleaning, TaskType::Delivery }
   };
 
   //============================================================================
@@ -52,13 +50,15 @@ int main(int argc, char* argv[])
     {
       // Here user will provice the best robot as a bid submission
       std::cout << "[Bidding] Providing best estimates" << std::endl;
+      auto req_start_time =
+      rmf_traffic_ros2::convert(notice.task_profile.start_time);
 
-      auto now = std::chrono::steady_clock::now();
       bidding::Submission best_robot_estimate;
-      best_robot_estimate.robot_name = "dumb";
-      best_robot_estimate.finish_time = rmf_traffic::time::apply_offset(now, 5);
+      best_robot_estimate.robot_name = "dumbot";
       best_robot_estimate.prev_cost = 10.2;
       best_robot_estimate.new_cost = 13.5;
+      best_robot_estimate.finish_time =
+      rmf_traffic::time::apply_offset(req_start_time, 7);
       return best_robot_estimate;
     }
   );
@@ -66,12 +66,11 @@ int main(int argc, char* argv[])
   //============================================================================
   // Create sample RMF task action server
 
-  std::shared_ptr<action::TaskActionServer> action_server =
-    action::TaskActionServer::make(
+  auto action_server = action::TaskActionServer<RequestMsg, StatusMsg>::make(
     node, profile.fleet_name);
 
   action_server->register_callbacks(
-    [&action_server](const TaskProfile& task_profile)
+    [&action_server, &node](const TaskProfile& task_profile)
     {
       std::cout << "[Action] ~Start Queue Task: "
                 << task_profile.task_id<<std::endl;
@@ -79,11 +78,19 @@ int main(int argc, char* argv[])
       // async on executing task
       // auto _ = std::async(std::launch::async,
       auto t = std::thread(
-        [&action_server](auto profile)
+        [&action_server, &node](auto profile)
         {
           TaskStatus status;
           status.task_profile = profile;
+          status.robot_name = "dumbot";
+          status.start_time = rmf_traffic_ros2::convert(node->now());
+          status.end_time =
+          rmf_traffic::time::apply_offset(status.start_time, 7);
+
+          // todo: should mock wait until start time is reached
           std::cout << " [impl] Queued " << profile.task_id << std::endl;
+          action_server->update_status(status);
+
           std::this_thread::sleep_for(std::chrono::seconds(2));
           std::cout << " [impl] Executing " << profile.task_id << std::endl;
           status.state = TaskStatus::State::Executing;

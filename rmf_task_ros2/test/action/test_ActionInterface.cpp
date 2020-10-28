@@ -42,8 +42,10 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_ActionInferface");
-  auto action_server = TaskActionServer::make(node, "test_server");
-  auto action_client = TaskActionClient::make(node);
+  auto action_server = TaskActionServer<RequestMsg, StatusMsg>::make(
+    node, "test_server");
+  auto action_client = TaskActionClient<RequestMsg, StatusMsg>::make(
+    node);
 
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
