@@ -11,6 +11,8 @@
   <build_depend>rmf_utils</build_depend>
   <build_export_depend>rmf_utils</build_export_depend>
 
+  <build_depend>libccd-dev</build_depend>
+  <build_depend>libfcl-dev</build_depend>
   <build_depend>fcl</build_depend>
 
   <test_depend>ament_cmake_catch2</test_depend>
