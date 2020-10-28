@@ -124,7 +124,15 @@ public:
   /// Get the state config of this robot 
   const rmf_task::agv::StateConfig state_config() const;
 
-  const double current_battery_soc() const;
+  /// Get the current battery state of charge
+  double current_battery_soc() const;
+
+  /// Set the current battery state of charge. Note: This function also
+  /// publishes the battery soc via _battery_soc_publisher. 
+  RobotContext& current_battery_soc(const double battery_soc);
+
+  // Get a reference to the battery soc observer of this robot.
+  const rxcpp::observable<double>& observe_battery_soc() const;
 
 private:
   friend class FleetUpdateHandle;
@@ -161,7 +169,10 @@ private:
 
   rmf_traffic::schedule::Negotiator* _negotiator = nullptr;
 
+  /// Always call the current_battery_soc() setter to set a new value
   double _current_battery_soc;
+  rxcpp::subjects::subject<double> _battery_soc_publisher;
+  rxcpp::observable<double> _battery_soc_obs;
   rmf_task::agv::State _state;
   rmf_task::agv::StateConfig _state_config;
 };

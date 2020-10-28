@@ -173,7 +173,7 @@ void RobotUpdateHandle::update_battery_soc(const double battery_soc)
     context->worker().schedule(
           [context, battery_soc](const auto&)
     {
-      context->_current_battery_soc = battery_soc;
+      context->current_battery_soc(battery_soc);
     });
   }
 }

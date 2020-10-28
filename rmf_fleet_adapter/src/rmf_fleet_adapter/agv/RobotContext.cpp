@@ -234,10 +234,23 @@ const rmf_task::agv::StateConfig RobotContext::state_config() const
 }
 
 //==============================================================================
-const double RobotContext::current_battery_soc() const
+double RobotContext::current_battery_soc() const
 {
   return _current_battery_soc;
 }
+
+RobotContext& RobotContext::current_battery_soc(const double battery_soc)
+{
+  _current_battery_soc = battery_soc;
+  _battery_soc_publisher.get_subscriber().on_next(battery_soc);
+}
+
+//==============================================================================
+const rxcpp::observable<double>& RobotContext::observe_battery_soc() const
+{
+  return _battery_soc_obs;
+}
+
 
 //==============================================================================
 void RobotContext::respond(
@@ -287,6 +300,8 @@ RobotContext::RobotContext(
         _itinerary.description().profile());
 
   _interrupt_obs = _interrupt_publisher.get_observable();
+
+  _battery_soc_obs = _battery_soc_publisher.get_observable();
 }
 
 } // namespace agv
