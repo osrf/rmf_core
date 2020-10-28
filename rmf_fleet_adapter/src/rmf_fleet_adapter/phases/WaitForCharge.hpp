@@ -34,7 +34,9 @@ public:
   using StatusMsg = Task::StatusMsg;
   class Pending;
 
-  class Active : public Task::ActivePhase
+  class Active 
+    : public Task::ActivePhase,
+      public std::enable_shared_from_this<Active>
   {
   public:
 
@@ -66,6 +68,7 @@ public:
     std::string _description;
     rxcpp::observable<StatusMsg> _status_obs;
     rxcpp::subjects::subject<StatusMsg> _status_publisher;
+    rmf_rxcpp::subscription_guard _battery_soc_subscription;
 
   };
 
