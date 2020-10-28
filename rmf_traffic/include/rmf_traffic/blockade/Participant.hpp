@@ -62,6 +62,7 @@ public:
 
   class Implementation;
 private:
+  Participant();
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 

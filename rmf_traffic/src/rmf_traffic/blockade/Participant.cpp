@@ -202,5 +202,30 @@ CheckpointId Participant::last_reached() const
   return _pimpl->_last_reached;
 }
 
+//==============================================================================
+Participant::Participant()
+{
+  // Do nothing
+}
+
+//==============================================================================
+Participant make_participant(
+    const ParticipantId participant_id,
+    const double radius,
+    std::shared_ptr<Writer> writer,
+    std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
+{
+  if (!writer)
+  {
+    throw std::runtime_error(
+          "[rmf_traffic::blockade::make_participant] A nullptr was given for "
+          "the `writer` argument. This is illegal.");
+  }
+
+  return Participant::Implementation::make(
+        participant_id, radius, std::move(writer),
+        std::move(rectifier_factory));
+}
+
 } // namespace blockade
 } // namespace rmf_traffic

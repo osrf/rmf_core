@@ -21,7 +21,7 @@
 
 #include "conflicts.hpp"
 
-#include <deque>
+#include <list>
 
 namespace rmf_traffic {
 namespace blockade {
@@ -58,6 +58,19 @@ public:
 };
 
 //==============================================================================
+std::size_t Moderator::Assignments::version() const
+{
+  return _pimpl->version;
+}
+
+//==============================================================================
+const std::unordered_map<ParticipantId, ReservedRange>&
+Moderator::Assignments::ranges() const
+{
+  return _pimpl->ranges;
+}
+
+//==============================================================================
 Moderator::Assignments::Assignments()
 {
   // Do nothing
@@ -89,7 +102,7 @@ public:
 
   double min_conflict_angle;
 
-  std::deque<ReadyInfo> ready_queue;
+  std::list<ReadyInfo> ready_queue;
 
   std::unordered_map<ParticipantId, ReservationInfo> last_known_reservation;
   Assignments assignments;
@@ -105,10 +118,85 @@ public:
     // Do nothing
   }
 
+  enum ReadyStatus
+  {
+    Incomplete = 0,
+    Finished
+  };
+
+  ReadyStatus check_reservation(const ReadyInfo& check)
+  {
+    const auto r_it = last_known_reservation.find(check.participant_id);
+    if (r_it == last_known_reservation.end())
+      return Finished;
+
+    if (r_it->second.id != check.reservation_id)
+      return Finished;
+
+    auto state = assignments.ranges();
+    auto& s = state.at(check.participant_id);
+    if (check.checkpoint < s.end)
+      return Finished;
+
+    const auto& constraints = should_go.at(check.participant_id);
+
+    const std::size_t current_end = s.end;
+    const std::size_t i_max = (check.checkpoint+1) - (current_end+1);
+    for (std::size_t i=0; i < i_max; ++i)
+    {
+      // We will try to expand the range of this participant's reservation,
+      // preferably as far out as checkpoint+1, but if that fails then we will
+      // incrementally try smaller reservations until we reach current_end+1. If
+      // we cannot even reserve current_end+1, then the participant is stuck for
+      // now.
+      const std::size_t check_end = check.checkpoint+1 - i;
+      s.end = check_end;
+
+      // TODO(MXG): We could probably get slightly better performance here if
+      // should_go used an ordered std::map instead of std::unordered_map.
+      bool acceptable = true;
+      for (std::size_t c=s.begin; c <= s.end; ++c)
+      {
+        const auto it = constraints.find(c);
+        if (it != constraints.end())
+        {
+          if (it->second->evaluate(state))
+          {
+            acceptable = false;
+            break;
+          }
+        }
+      }
+
+      if (acceptable)
+      {
+        Assignments::Implementation::get(assignments)
+            .ranges[check.participant_id].end = check_end;
+
+        if (i==0)
+          return Finished;
+
+        return Incomplete;
+      }
+    }
+
+    return Incomplete;
+  }
+
   void process_ready_queue()
   {
-    // TODO(MXG): Implement this function
-    return
+    auto next = ready_queue.begin();
+    while (next != ready_queue.end())
+    {
+      if (check_reservation(*next) == Finished)
+      {
+        ready_queue.erase(next++);
+      }
+      else
+      {
+        ++next;
+      }
+    }
   }
 
   void set(
