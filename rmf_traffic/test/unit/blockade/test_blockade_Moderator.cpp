@@ -22,6 +22,8 @@
 
 #include <random>
 
+#include "utils_blockade_scenarios.hpp"
+
 //==============================================================================
 class UnreliableModerator : public rmf_traffic::blockade::Writer
 {
@@ -93,27 +95,261 @@ private:
 };
 
 //==============================================================================
+class SimParticipant
+{
+public:
+
+  using Factory = rmf_traffic::blockade::RectificationRequesterFactory;
+
+  SimParticipant(
+      const rmf_traffic::blockade::ParticipantId participant_id,
+      const double radius,
+      std::shared_ptr<rmf_traffic::blockade::Writer> writer,
+      std::shared_ptr<Factory> factory,
+      std::vector<rmf_traffic::blockade::Writer::Checkpoint> path,
+      const std::size_t steps_per_waypoint = 3)
+    : _participant(
+        rmf_traffic::blockade::make_participant(
+          participant_id, radius, std::move(writer), std::move(factory))),
+      _steps_per_waypoint(steps_per_waypoint)
+  {
+    _participant.set(std::move(path));
+    REQUIRE(!_participant.path().empty());
+  }
+
+  void step(const rmf_traffic::blockade::ReservedRange& range)
+  {
+    if (_participant.path().size() <= _participant.last_reached()+1)
+      return;
+
+    if (range.end == _participant.last_reached())
+    {
+      if (_participant.last_ready() != range.end)
+        _participant.ready(range.end);
+
+      return;
+    }
+
+    if (_current_steps < _steps_per_waypoint)
+    {
+      ++_current_steps;
+      return;
+    }
+
+    _current_steps = 0;
+    const std::size_t next = _participant.last_reached()+1;
+    _participant.reached(next);
+  }
+
+  const rmf_traffic::blockade::Participant& participant() const
+  {
+    return _participant;
+  }
+
+private:
+  rmf_traffic::blockade::Participant _participant;
+  const std::size_t _steps_per_waypoint;
+  std::size_t _current_steps = 0;
+};
+
+//==============================================================================
+using ModeratorRectFactory =
+  rmf_traffic::blockade::ModeratorRectificationRequesterFactory;
+
+//==============================================================================
+struct ModeratorContext
+{
+  std::shared_ptr<rmf_traffic::blockade::Moderator> moderator;
+  std::shared_ptr<rmf_traffic::blockade::Writer> writer;
+  std::shared_ptr<ModeratorRectFactory> rectifier_factory;
+};
+
+//==============================================================================
+ModeratorContext make_reliable()
+{
+  ModeratorContext context;
+  context.moderator = std::make_shared<rmf_traffic::blockade::Moderator>();
+  context.writer = context.moderator;
+
+  return context;
+}
+
+//==============================================================================
+ModeratorContext make_unreliable()
+{
+  ModeratorContext context;
+  const auto unreliable_moderator = std::make_shared<UnreliableModerator>();
+  context.rectifier_factory =
+      std::make_shared<ModeratorRectFactory>(
+        unreliable_moderator->real_moderator());
+
+  context.moderator = unreliable_moderator->real_moderator();
+  context.writer = unreliable_moderator;
+
+  return context;
+}
+
+//==============================================================================
+bool finished(const std::vector<SimParticipant>& participants)
+{
+  for (const auto& p : participants)
+  {
+    if (p.participant().last_reached() < p.participant().path().size() - 1)
+      return false;
+  }
+
+  return true;
+}
+
+//==============================================================================
+bool all_assignments_reached_end(
+    const std::unordered_map<uint64_t, rmf_traffic::blockade::ReservedRange>& ranges)
+{
+  for (const auto& r : ranges)
+  {
+    if (r.second.begin < r.second.end)
+      return false;
+  }
+
+  return true;
+}
+
+//==============================================================================
+void simulate_moderator(
+    ModeratorContext context,
+    GridlockScenario scenario,
+    const double radius)
+{
+  std::vector<SimParticipant> participants;
+  for (std::size_t i=0; i < scenario.paths.size(); ++i)
+  {
+    participants.emplace_back(
+          i, radius, context.writer, context.rectifier_factory,
+          std::move(scenario.paths[i]), 3);
+  }
+
+  while (!finished(participants))
+  {
+    const auto& assignments = context.moderator->assignments();
+
+    for (auto& p : participants)
+    {
+      const auto r_it = assignments.ranges().find(p.participant().id());
+      if (r_it != assignments.ranges().end())
+      {
+        const auto& range = r_it->second;
+        p.step(range);
+        CHECK(p.participant().last_reached() <= range.end);
+      }
+    }
+
+    if (context.rectifier_factory)
+      context.rectifier_factory->rectify();
+  }
+
+  while (!all_assignments_reached_end(
+           context.moderator->assignments().ranges()))
+  {
+    // Assignments should only ever fail to reach the end if this is an
+    // unreliable moderator.
+    REQUIRE(context.rectifier_factory);
+
+    // Since this is an unreliable moderator, we will continue to rectify until
+    // the beginning of the range reaches the end.
+    if (context.rectifier_factory)
+      context.rectifier_factory->rectify();
+  }
+
+  // If the test eventually ends then it was successful
+}
+
+//==============================================================================
 SCENARIO("Test blockade moderator")
 {
   using namespace rmf_traffic::blockade;
 
-  std::shared_ptr<Writer> writer;
-  std::shared_ptr<ModeratorRectificationRequesterFactory> rectifier_factory;
-  GIVEN("Reliable moderator")
+  const double radius = 0.1;
+
+  GridlockScenario scenario;
+  ModeratorContext context;
+
+  GIVEN("4-way standoff")
   {
-    writer = std::make_shared<Moderator>();
+    scenario = fourway_standoff();
+
+    WHEN("Reliable moderator")
+    {
+      context = make_reliable();
+    }
+
+    WHEN("Unreliable moderator")
+    {
+      context = make_unreliable();
+    }
   }
 
-  GIVEN("Unreliable moderator")
+  GIVEN("Flyby U-turn")
   {
-    const auto unreliable_moderator = std::make_shared<UnreliableModerator>();
-    rectifier_factory =
-        std::make_shared<ModeratorRectificationRequesterFactory>(
-          unreliable_moderator->real_moderator());
+    scenario = flyby_uturn();
 
-    writer = unreliable_moderator;
+    WHEN("Reliable moderator")
+    {
+      context = make_reliable();
+    }
+
+    WHEN("Unreliable moderator")
+    {
+      context = make_unreliable();
+    }
   }
 
+  GIVEN("3-way standoff with one redundant leg")
+  {
+    scenario = threeway_standoff_with_redundant_leg();
 
+    WHEN("Reliable moderator")
+    {
+      context = make_reliable();
+    }
 
+    WHEN("Unreliable moderator")
+    {
+      context = make_unreliable();
+    }
+  }
+
+  GIVEN("3-way standoff with additional conflict")
+  {
+    scenario = threeway_standoff_with_additional_conflict();
+
+    WHEN("Reliable moderator")
+    {
+      context = make_reliable();
+    }
+
+    WHEN("Unreliable moderator")
+    {
+      context = make_unreliable();
+    }
+  }
+
+  GIVEN("Criss-crossing paths")
+  {
+    scenario = crisscrossing_paths();
+
+    WHEN("Reliable moderator")
+    {
+      context = make_reliable();
+    }
+
+    WHEN("Unreliable moderator")
+    {
+      context = make_unreliable();
+    }
+  }
+
+  REQUIRE(context.writer);
+  REQUIRE(context.moderator);
+
+  simulate_moderator(std::move(context), std::move(scenario), radius);
 }

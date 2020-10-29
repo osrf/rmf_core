@@ -42,6 +42,12 @@ void Rectifier::check(const Status& status)
 }
 
 //==============================================================================
+void Rectifier::check()
+{
+  _pimpl->participant.check();
+}
+
+//==============================================================================
 Rectifier::Rectifier()
 {
   // Do nothing
@@ -117,7 +123,12 @@ public:
     : moderator(std::move(moderator_)),
       info(std::make_shared<ModeratorRectifierInfo>())
   {
-    // Do nothing
+    if (!moderator)
+    {
+      std::runtime_error(
+            "[rmf_traffic::blockade::ModeratorRectificationRequesterFactory] "
+            "nullptr given for the `moderator` argument. This is illegal.");
+    }
   }
 
   void rectify()
@@ -129,6 +140,13 @@ public:
       const auto r_it = info->active_rectifiers.find(participant);
       if (r_it != info->active_rectifiers.end())
         r_it->second.check(s.second);
+    }
+
+    for (auto& r : info->active_rectifiers)
+    {
+      const auto s_it = statuses.find(r.first);
+      if (s_it == statuses.end())
+        r.second.check();
     }
 
     auto dead_it = info->dead_rectifiers.begin();

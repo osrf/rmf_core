@@ -18,25 +18,12 @@
 #include <src/rmf_traffic/blockade/conflicts.hpp>
 
 #include "utils_blockade_simulation.hpp"
+#include "utils_blockade_scenarios.hpp"
 
 #include <iostream>
 
 //==============================================================================
 using Checkpoint = rmf_traffic::blockade::Writer::Checkpoint;
-
-//==============================================================================
-template <std::size_t N>
-std::vector<Checkpoint> make_path(const std::array<Eigen::Vector2d, N>& points)
-{
-  using namespace rmf_traffic::blockade;
-
-  std::vector<Writer::Checkpoint> path;
-  path.reserve(N);
-  for (const auto& p : points)
-    path.push_back(Writer::Checkpoint{p, "test_map", true});
-
-  return path;
-}
 
 //==============================================================================
 rmf_traffic::blockade::Blockers make_ShouldGo_constraints(
@@ -393,176 +380,35 @@ SCENARIO("Simulate gridlocks")
   const double radius = 0.1;
   const double max_angle = 1.0*M_PI/180.0;
 
+  GridlockScenario scenario;
+
   GIVEN("Flyby U-turn")
   {
-    std::vector<std::vector<Checkpoint>> paths;
-
-    std::array<Eigen::Vector2d, 6> A;
-    A[0] = { 0,  5};
-    A[1] = { 5,  5};
-    A[2] = {10,  5};
-    A[3] = {10, 10};
-    A[4] = { 5, 10};
-    A[5] = { 0, 10};
-    paths.push_back(make_path(A));
-
-    std::array<Eigen::Vector2d, 4> B;
-    B[0] = {20,  5};
-    B[1] = {15,  5};
-    B[2] = { 8,  5};
-    B[3] = { 8,  0};
-    paths.push_back(make_path(B));
-
-    std::array<Eigen::Vector2d, 6> C;
-    C[0] = { 8, 20};
-    C[1] = { 8, 15};
-    C[2] = { 8, 10};
-    C[3] = {10, 10};
-    C[4] = {15, 10};
-    C[5] = {15,  0};
-    auto path_C = make_path(C);
-    path_C.at(2).can_hold = false;
-    path_C.at(4).can_hold = false;
-    paths.emplace_back(std::move(path_C));
-
-    simulate_all_sequences(
-      make_ShouldGo_constraints(paths, radius, max_angle),
-      nullptr,
-      {5, 3, 5});
+    scenario = flyby_uturn();
   }
 
   GIVEN("4-way standoff")
   {
-    std::vector<std::vector<Checkpoint>> paths;
-
-    std::array<Eigen::Vector2d, 3> A;
-    A[0] = { 5,  0};
-    A[1] = { 5,  5};
-    A[2] = { 5, 15};
-    paths.push_back(make_path(A));
-
-    std::array<Eigen::Vector2d, 3> B;
-    B[0] = { 0, 10};
-    B[1] = { 5, 10};
-    B[2] = {15, 10};
-    paths.push_back(make_path(B));
-
-    std::array<Eigen::Vector2d, 3> C;
-    C[0] = {10, 15};
-    C[1] = {10, 10};
-    C[2] = {10,  0};
-    paths.push_back(make_path(C));
-
-    std::array<Eigen::Vector2d, 3> D;
-    D[0] = {15,  5};
-    D[1] = {10,  5};
-    D[2] = { 0,  5};
-    paths.push_back(make_path(D));
-
-    simulate_all_sequences(
-      make_ShouldGo_constraints(paths, radius, max_angle),
-      nullptr,
-      {2, 2, 2, 2});
+    scenario = fourway_standoff();
   }
 
   GIVEN("3-way standoff with one redundant leg")
   {
-    std::vector<std::vector<Checkpoint>> paths;
-
-    std::array<Eigen::Vector2d, 3> A;
-    A[0] = {0, 0};
-    A[1] = {2, 2};
-    A[2] = {6, 6};
-    paths.push_back(make_path(A));
-
-    std::array<Eigen::Vector2d, 3> B;
-    B[0] = {2, 6};
-    B[1] = {4, 4};
-    B[2] = {8, 0};
-    paths.push_back(make_path(B));
-
-    std::array<Eigen::Vector2d, 3> C;
-    C[0] = {1, 6};
-    C[1] = {3, 3};
-    C[2] = {7, 0};
-    paths.push_back(make_path(C));
-
-    std::array<Eigen::Vector2d, 3> D;
-    D[0] = {8, 2};
-    D[1] = {6, 2};
-    D[2] = {0, 2};
-    paths.push_back(make_path(D));
-
-    simulate_all_sequences(
-      make_ShouldGo_constraints(paths, radius, max_angle),
-      nullptr,
-      {2, 2, 2, 2});
+    scenario = threeway_standoff_with_redundant_leg();
   }
 
-  GIVEN("Three-way standoff with an additional conflict")
+  GIVEN("3-way standoff with an additional conflict")
   {
-    std::vector<std::vector<Checkpoint>> paths;
-
-    std::array<Eigen::Vector2d, 3> A;
-    A[0] = {0, 0};
-    A[1] = {2, 2};
-    A[2] = {6, 6};
-    paths.push_back(make_path(A));
-
-    std::array<Eigen::Vector2d, 3> B;
-    B[0] = {2, 6};
-    B[1] = {4, 4};
-    B[2] = {8, 0};
-    paths.push_back(make_path(B));
-
-    std::array<Eigen::Vector2d, 3> C;
-    C[0] = {8, 2};
-    C[1] = {6, 2};
-    C[2] = {0, 2};
-    paths.push_back(make_path(C));
-
-    std::array<Eigen::Vector2d, 2> D;
-    D[0] = {0, 4};
-    D[1] = {0, 0};
-    paths.push_back(make_path(D));
-
-    simulate_all_sequences(
-      make_ShouldGo_constraints(paths, radius, max_angle),
-      nullptr,
-      {2, 2, 2, 1});
+    scenario = threeway_standoff_with_additional_conflict();
   }
 
   GIVEN("Criss-crossing paths")
   {
-    std::vector<std::vector<Checkpoint>> paths;
-
-    std::array<Eigen::Vector2d, 6> A;
-    A[0] = {4, 0};
-    A[1] = {4, 2};
-    A[2] = {8, 6};
-    A[3] = {4, 6};
-    A[4] = {8, 2};
-    A[5] = {8, 0};
-    paths.push_back(make_path(A));
-
-    std::array<Eigen::Vector2d, 3> B;
-    B[0] = {10, 4};
-    B[1] = { 6, 4};
-    B[2] = { 0, 4};
-    paths.push_back(make_path(B));
-
-    std::array<Eigen::Vector2d, 4> C;
-    C[0] = { 2, 2};
-    C[1] = { 2, 4};
-    C[2] = { 2, 6};
-    C[3] = {10, 6};
-    auto path_C = make_path(C);
-    path_C[2].can_hold = false;
-    paths.emplace_back(std::move(path_C));
-
-    simulate_all_sequences(
-      make_ShouldGo_constraints(paths, radius, max_angle),
-      nullptr,
-      {5, 2, 3});
+    scenario = crisscrossing_paths();
   }
+
+  simulate_all_sequences(
+    make_ShouldGo_constraints(scenario.paths, radius, max_angle),
+    nullptr,
+    scenario.goals);
 }

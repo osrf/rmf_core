@@ -99,6 +99,15 @@ void Participant::Implementation::check(const Status& status)
 }
 
 //==============================================================================
+void Participant::Implementation::check()
+{
+  if (!_reservation_id)
+    return;
+
+  _send_reservation();
+}
+
+//==============================================================================
 Participant::Implementation::Implementation(
     const ParticipantId id,
     const double radius,
@@ -200,6 +209,12 @@ void Participant::reached(CheckpointId checkpoint)
 CheckpointId Participant::last_reached() const
 {
   return _pimpl->_last_reached;
+}
+
+//==============================================================================
+ParticipantId Participant::id() const
+{
+  return _pimpl->_id;
 }
 
 //==============================================================================

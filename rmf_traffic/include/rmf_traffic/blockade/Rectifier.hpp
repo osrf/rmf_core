@@ -44,6 +44,11 @@ public:
   /// information is out of sync.
   void check(const Status& status);
 
+  /// Check that there should not be a status for this participant. If that is
+  /// a mistake and this participant *should* have a status, then retransmit the
+  /// necessary information.
+  void check();
+
   class Implementation;
 private:
   Rectifier();

@@ -60,6 +60,9 @@ public:
   /// Get the last checkpoint that this participant said it has reached.
   CheckpointId last_reached() const;
 
+  /// Get the ID that was assigned to this participant.
+  ParticipantId id() const;
+
   class Implementation;
 private:
   Participant();

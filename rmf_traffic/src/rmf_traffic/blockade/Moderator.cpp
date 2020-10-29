@@ -38,19 +38,15 @@ public:
     return output;
   }
 
-  static Implementation& get(Assignments& obj)
+  static Implementation& modify(Assignments& obj)
   {
+    ++obj._pimpl->version;
     return *obj._pimpl;
   }
 
   static const Implementation& get(const Assignments& obj)
   {
     return *obj._pimpl;
-  }
-
-  static void increment(Assignments& obj)
-  {
-    ++obj._pimpl->version;
   }
 
   std::size_t version;
@@ -142,7 +138,7 @@ public:
 
     const std::size_t current_end = s.end;
     const std::size_t i_max = (check.checkpoint+1) - (current_end+1);
-    for (std::size_t i=0; i < i_max; ++i)
+    for (std::size_t i=0; i <= i_max; ++i)
     {
       // We will try to expand the range of this participant's reservation,
       // preferably as far out as checkpoint+1, but if that fails then we will
@@ -155,22 +151,19 @@ public:
       // TODO(MXG): We could probably get slightly better performance here if
       // should_go used an ordered std::map instead of std::unordered_map.
       bool acceptable = true;
-      for (std::size_t c=s.begin; c <= s.end; ++c)
+      for (std::size_t c=s.begin; c < s.end; ++c)
       {
         const auto it = constraints.find(c);
-        if (it != constraints.end())
+        if (it != constraints.end() && !it->second->evaluate(state))
         {
-          if (it->second->evaluate(state))
-          {
-            acceptable = false;
-            break;
-          }
+          acceptable = false;
+          break;
         }
       }
 
       if (acceptable)
       {
-        Assignments::Implementation::get(assignments)
+        Assignments::Implementation::modify(assignments)
             .ranges[check.participant_id].end = check_end;
 
         if (i==0)
@@ -260,9 +253,8 @@ public:
 
     should_go = compute_final_ShouldGo_constraints(peer_blockers);
 
-    Assignments::Implementation::get(assignments).ranges
+    Assignments::Implementation::modify(assignments).ranges
         .insert_or_assign(participant_id, ReservedRange{0, 0});
-    Assignments::Implementation::increment(assignments);
 
     statuses[participant_id] = Status{reservation_id, std::nullopt, 0};
 
@@ -322,7 +314,7 @@ public:
 
     status.last_reached = checkpoint;
 
-    auto& range = Assignments::Implementation::get(assignments)
+    auto& range = Assignments::Implementation::modify(assignments)
         .ranges.at(participant_id);
 
     range.begin = checkpoint;
@@ -352,7 +344,8 @@ public:
     last_known_reservation.erase(participant_id);
     statuses.erase(participant_id);
     peer_blockers.erase(participant_id);
-    Assignments::Implementation::get(assignments).ranges.erase(participant_id);
+    Assignments::Implementation::modify(assignments)
+        .ranges.erase(participant_id);
 
     for (auto& peer : peer_blockers)
       peer.second.erase(participant_id);
