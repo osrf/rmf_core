@@ -22,6 +22,8 @@
 #include "RequestLift.hpp"
 #include "DockRobot.hpp"
 
+#include <rmf_traffic/schedule/StubbornNegotiator.hpp>
+
 namespace rmf_fleet_adapter {
 namespace phases {
 
@@ -89,6 +91,16 @@ void GoToPlace::Active::respond(
   const TableViewerPtr& table_viewer,
   const ResponderPtr& responder)
 {
+  if (_subtasks)
+  {
+    if (dynamic_cast<DockRobot::ActivePhase*>(_subtasks->current_phase().get()))
+    {
+      rmf_traffic::schedule::StubbornNegotiator(_context->itinerary())
+          .respond(table_viewer, responder);
+      return;
+    }
+  }
+
   auto approval_cb = [w = weak_from_this()](
       const rmf_traffic::agv::Plan& plan)
       -> rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
