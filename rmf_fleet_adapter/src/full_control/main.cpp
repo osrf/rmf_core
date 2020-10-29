@@ -315,7 +315,9 @@ public:
             *_travel_info.traits,
             rmf_traffic_ros2::convert(state.location.t),
             positions);
-        assert(trajectory.size() > 1);
+
+        if (trajetory.size() < 2)
+          return;
 
         if (auto participant = _travel_info.updater->get_participant())
         {

@@ -91,12 +91,14 @@ std::shared_ptr<Task::ActivePhase> WaitForCharge::Pending::begin()
   active->_battery_soc_subscription = _context->observe_battery_soc()
       .observe_on(rxcpp::identity_same_worker(_context->worker()))
       .subscribe(
-        [a = active->weak_from_this()](const auto&)
+        [a = active->weak_from_this()](const double battery_soc)
         {
           const auto active = a.lock();
 
-          if(std::abs(active->_context->current_battery_soc() -
-              active->_charge_to_soc) < 1e-3)
+          if (!active)
+            return;
+
+          if(active->_charge_to_soc <= battery_soc)
           {
             active->_status_publisher.get_subscriber().on_completed();
           }
