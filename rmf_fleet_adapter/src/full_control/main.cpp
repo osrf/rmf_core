@@ -569,7 +569,7 @@ std::shared_ptr<Connections> make_fleet(
   }
 
   std::unordered_set<uint8_t> task_types;
-  if (node->declare_parameter<bool>("perform_loop", true))
+  if (node->declare_parameter<bool>("perform_loop", false))
   {
     task_types.insert(rmf_task_msgs::msg::TaskType::LOOP_TASK);
   }
@@ -583,7 +583,7 @@ std::shared_ptr<Connections> make_fleet(
           [](const rmf_task_msgs::msg::Delivery&){ return true; });
   }
 
-  if (node->declare_parameter<bool>("perform_cleaning", true))
+  if (node->declare_parameter<bool>("perform_cleaning", false))
   {
     task_types.insert(rmf_task_msgs::msg::TaskType::CLEANING_TASK);
   }

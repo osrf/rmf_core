@@ -89,6 +89,7 @@ void TaskManager::queue_task(std::shared_ptr<Task> task, Start expected_finish)
   {
     rmf_task_msgs::msg::TaskSummary msg;
     msg.task_id = _queue.back()->id();
+    msg.task_profile.task_id = _queue.back()->id();
     msg.state = msg.STATE_QUEUED;
     this->_context->node()->task_summary()->publish(msg);
   }
@@ -165,6 +166,7 @@ void TaskManager::set_queue(
 
       rmf_task_msgs::msg::TaskSummary msg;
       msg.task_id = _queue.back()->id();
+      msg.task_profile.task_id = _queue.back()->id();
       msg.state = msg.STATE_QUEUED;
       this->_context->node()->task_summary()->publish(msg);
     }
@@ -252,6 +254,7 @@ void TaskManager::_begin_next_task()
           [this, id = _active_task->id()](Task::StatusMsg msg)
     {
       msg.task_id = id;
+      msg.task_profile.task_id = id;
       _context->node()->task_summary()->publish(msg);
     },
           [this, id = _active_task->id()](std::exception_ptr e)
@@ -267,6 +270,7 @@ void TaskManager::_begin_next_task()
       }
 
       msg.task_id = id;
+      msg.task_profile.task_id = id;
       _context->node()->task_summary()->publish(msg);
       // _begin_next_task();
     },
@@ -274,6 +278,7 @@ void TaskManager::_begin_next_task()
     {
       rmf_task_msgs::msg::TaskSummary msg;
       msg.task_id = id;
+      msg.task_profile.task_id = id;
       msg.state = msg.STATE_COMPLETED;
       this->_context->node()->task_summary()->publish(msg);
 
