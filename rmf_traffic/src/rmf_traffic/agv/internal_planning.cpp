@@ -396,6 +396,9 @@ std::vector<Route> reconstruct_routes(
   std::vector<RouteData> routes;
   routes.push_back(RouteData{node_sequence.back()->route_from_parent.map, {}});
 
+  node_sequence.back()->itinerary_index = 0;
+  node_sequence.back()->trajectory_index = 0;
+
   // We exclude the first node in the sequence, because it contains a dummy
   // trajectory which is not helpful.
   const auto stop_it = node_sequence.rend();
@@ -412,6 +415,11 @@ std::vector<Route> reconstruct_routes(
     {
       routes.push_back(next_route);
     }
+
+    // We will take note of the itinerary and trajectory indices here
+    (*it)->itinerary_index = routes.size() - 1;
+    assert(!routes.back().trajectory.empty());
+    (*it)->trajectory_index = routes.back().trajectory.size() - 1;
   }
 
   std::vector<Route> output;
@@ -428,6 +436,14 @@ std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
   const std::vector<NodePtr>& node_sequence,
   const agv::Graph::Implementation& graph)
 {
+  if (node_sequence.size() == 1)
+  {
+    // If there is only one node in the sequence, then it is a start node, and
+    // it implies that no plan is actually needed.
+    assert(node_sequence.front()->start.has_value());
+    return {};
+  }
+
   std::vector<agv::Plan::Waypoint> waypoints;
   for (auto it = node_sequence.rbegin(); it != node_sequence.rend(); ++it)
   {
@@ -437,10 +453,13 @@ std::vector<agv::Plan::Waypoint> reconstruct_waypoints(
       n->route_from_parent.trajectory.back().position()
       .template block<2, 1>(0, 0);
     const Time time{*n->route_from_parent.trajectory.finish_time()};
+    assert(n->itinerary_index.has_value());
+    assert(n->trajectory_index.has_value());
     waypoints.emplace_back(
       agv::Plan::Waypoint::Implementation::make(
         Eigen::Vector3d{p[0], p[1], n->orientation}, time,
-        n->waypoint, n->event));
+        n->waypoint, n->itinerary_index.value(),
+        n->trajectory_index.value(), n->event));
   }
 
   return waypoints;
@@ -674,8 +693,10 @@ struct DifferentialDriveExpander
     RouteData route_from_parent;
     agv::Graph::Lane::EventPtr event;
     NodePtr parent;
-    rmf_utils::optional<agv::Plan::Start> start = rmf_utils::nullopt;
-    rmf_utils::optional<std::size_t> start_set_index = rmf_utils::nullopt;
+    std::optional<agv::Plan::Start> start = rmf_utils::nullopt;
+    std::optional<std::size_t> start_set_index = std::nullopt;
+    std::optional<std::size_t> itinerary_index = std::nullopt;
+    std::optional<std::size_t> trajectory_index = std::nullopt;
   };
 
   using SearchQueue =

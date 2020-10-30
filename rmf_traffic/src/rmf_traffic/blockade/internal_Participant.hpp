@@ -53,7 +53,6 @@ private:
   void _send_reached();
 
   ParticipantId _id;
-  double _radius;
   std::shared_ptr<Writer> _writer;
   std::unique_ptr<RectificationRequester> _rectification;
 

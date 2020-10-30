@@ -113,11 +113,10 @@ Participant::Implementation::Implementation(
     const double radius,
     std::shared_ptr<Writer> writer)
   : _id(id),
-    _radius(radius),
     _writer(std::move(writer)),
     _reservation_id(0)
 {
-  // Do nothing
+  _current_reservation.radius = radius;
 }
 
 //==============================================================================

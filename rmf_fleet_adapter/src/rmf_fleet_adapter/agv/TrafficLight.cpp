@@ -24,6 +24,7 @@
 #include <rmf_utils/math.hpp>
 
 #include <rmf_traffic_ros2/Time.hpp>
+#include <rmf_traffic_ros2/blockade/Writer.hpp>
 
 #include <rmf_traffic/Motion.hpp>
 #include <rmf_traffic/schedule/StubbornNegotiator.hpp>
