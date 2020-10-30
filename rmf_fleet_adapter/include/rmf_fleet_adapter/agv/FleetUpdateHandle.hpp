@@ -96,10 +96,10 @@ public:
     const bool drain_battery);
 
 
-  /// Set the threshold below which the robot should automatically head back to
-  /// its charging dock. The user is responsible to set this value such that the
-  /// robot is capable of reaching its nearest charging station from anywhere
-  /// on the map. Default value is 0.2.
+  /// Set the threshold state of charge below which the robot should 
+  /// automatically head back to its charging dock. The user is responsible to 
+  /// set this value such that the robot is capable of reaching its nearest
+  /// charging station from anywhere on the map. Default value is 0.2.
   ///
   /// \param[in] threshold
   ///   The fraction of the total battery capacity

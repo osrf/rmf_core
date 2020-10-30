@@ -556,7 +556,13 @@ std::shared_ptr<Connections> make_fleet(
 
   // Drain battery
   const bool drain_battery = rmf_fleet_adapter::get_parameter_or_default(
-    *node, "drain_battery", true);
+    *node, "drain_battery", false);
+
+  // Recharge threshold
+  const double recharge_threshold = rmf_fleet_adapter::get_parameter_or_default(
+    *node, "recharge_threshold", 0.2);
+
+  connections->fleet->set_recharge_threshold(recharge_threshold);
 
   if (!connections->fleet->set_task_planner_params(
         battery_system, motion_sink, ambient_sink, tool_sink, drain_battery))

@@ -35,7 +35,8 @@
   <arg name="ambient_power_drain" description="The power rating(W) of ambient devices (processors, sensors, etc.) of the vehicles in this fleet"/>
   <arg name="tool_power_drain" description="The power rating(W) of special tools (vaccuum, cleaning systems, etc.) of the vehicles in this fleet"/>
   <arg name="drain_battery" default="false" description="Whether battery drain should be considered while assigning tasks to vechiles in this fleet"/>
-  
+  <arg name="recharge_threshold" default="0.2" description="The fraction of total battery capacity below which the robot must return to its charger"/>
+
 
   <node pkg="rmf_fleet_adapter"
         exec="$(var control_type)"
@@ -74,6 +75,7 @@
     <param name="ambient_power_drain" value="$(var ambient_power_drain)"/>
     <param name="tool_power_drain" value="$(var tool_power_drain)"/>
     <param name="drain_battery" value="$(var drain_battery)"/>
+    <param name="recharge_threshold" value="$(var recharge_threshold)"/> 
 
     <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>
