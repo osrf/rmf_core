@@ -243,6 +243,8 @@ RobotContext& RobotContext::current_battery_soc(const double battery_soc)
 {
   _current_battery_soc = battery_soc;
   _battery_soc_publisher.get_subscriber().on_next(battery_soc);
+  
+  return *this;
 }
 
 //==============================================================================
