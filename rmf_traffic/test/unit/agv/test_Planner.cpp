@@ -375,6 +375,24 @@ inline void CHECK_PLAN(
   {
     CHECK(route.trajectory().size() >= 2);
   }
+
+  for (std::size_t i=0; i < plan->get_itinerary().size(); ++i)
+  {
+    std::optional<rmf_traffic::Time> last_time;
+    const auto& trajectory = plan->get_itinerary()[i].trajectory();
+
+    for (std::size_t j=0; j < trajectory.size(); ++j)
+    {
+      if (!last_time.has_value())
+      {
+        last_time = trajectory[j].time();
+        continue;
+      }
+
+      CHECK(last_time.value() < trajectory[j].time());
+      last_time = trajectory[j].time();
+    }
+  }
 }
 // ____________________________________________________________________________
 
