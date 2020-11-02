@@ -55,11 +55,16 @@ public:
   ///   participants to comply with the RMF traffic protocol.
   ///
   /// \param[in] radius
+  ///   The radius around the path that the participant will occupy.
   ///
+  /// \param[in] new_range_cb
+  ///   This callback will get triggered when a new range arrives.
+  ///
+  /// \return the API for updating the blockade Participant.
   rmf_traffic::blockade::Participant make_participant(
       rmf_traffic::blockade::ParticipantId id,
       double radius,
-      NewRangeCallback range_cb);
+      NewRangeCallback new_range_cb);
 
   class Implementation;
 private:

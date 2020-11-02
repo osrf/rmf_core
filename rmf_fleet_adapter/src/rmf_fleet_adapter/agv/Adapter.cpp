@@ -24,6 +24,7 @@
 #include <rmf_traffic_ros2/schedule/MirrorManager.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
+#include <rmf_traffic_ros2/blockade/Writer.hpp>
 
 #include <rmf_task_msgs/msg/delivery.hpp>
 #include <rmf_task_msgs/msg/loop.hpp>
@@ -63,9 +64,9 @@ public:
   rxcpp::schedulers::worker worker;
   std::shared_ptr<Node> node;
   std::shared_ptr<rmf_traffic_ros2::schedule::Negotiation> negotiation;
-  std::shared_ptr<ParticipantFactory> writer;
+  std::shared_ptr<ParticipantFactory> schedule_writer;
+  std::shared_ptr<rmf_traffic_ros2::blockade::Writer> blockade_writer;
   rmf_traffic_ros2::schedule::MirrorManager mirror_manager;
-
 
   using Delivery = rmf_task_msgs::msg::Delivery;
   using DeliverySub = rclcpp::Subscription<Delivery>::SharedPtr;
@@ -93,7 +94,8 @@ public:
     : worker{std::move(worker_)},
       node{std::move(node_)},
       negotiation{std::move(negotiation_)},
-      writer{std::move(writer_)},
+      schedule_writer{std::move(writer_)},
+      blockade_writer{rmf_traffic_ros2::blockade::Writer::make(*node_)},
       mirror_manager{std::move(mirror_manager_)}
   {
     const auto default_qos = rclcpp::SystemDefaultsQoS();
@@ -255,7 +257,7 @@ std::shared_ptr<FleetUpdateHandle> Adapter::add_fleet(
 
   auto fleet = FleetUpdateHandle::Implementation::make(
         fleet_name, std::move(planner), _pimpl->node, _pimpl->worker,
-        _pimpl->writer, _pimpl->mirror_manager.snapshot_handle(),
+        _pimpl->schedule_writer, _pimpl->mirror_manager.snapshot_handle(),
         _pimpl->negotiation);
 
   _pimpl->fleets.push_back(fleet);
@@ -290,10 +292,11 @@ void Adapter::add_traffic_light(
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       traits.profile());
 
-  _pimpl->writer->async_make_participant(
+  _pimpl->schedule_writer->async_make_participant(
       std::move(description),
       [command = std::move(command),
        traits = std::move(traits),
+       blockade_writer = _pimpl->blockade_writer,
        schedule = _pimpl->mirror_manager.snapshot_handle(),
        worker = _pimpl->worker,
        handle_cb = std::move(handle_cb),
@@ -309,6 +312,7 @@ void Adapter::add_traffic_light(
     auto update_handle = TrafficLight::UpdateHandle::Implementation::make(
           std::move(command),
           std::move(participant),
+          blockade_writer,
           std::move(traits),
           std::move(schedule),
           worker,
