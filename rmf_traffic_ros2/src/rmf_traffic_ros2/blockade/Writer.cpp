@@ -373,6 +373,16 @@ std::shared_ptr<Writer> Writer::make(rclcpp::Node& node)
 }
 
 //==============================================================================
+rmf_traffic::blockade::Participant Writer::make_participant(
+    const rmf_traffic::blockade::ParticipantId id,
+    const double radius,
+    NewRangeCallback new_range_cb)
+{
+  return _pimpl->transport->make_participant(
+        id, radius, std::move(new_range_cb));
+}
+
+//==============================================================================
 Writer::Writer(rclcpp::Node& node)
   : _pimpl(rmf_utils::make_unique_impl<Implementation>(node))
 {

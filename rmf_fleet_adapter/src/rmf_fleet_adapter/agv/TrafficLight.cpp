@@ -61,9 +61,9 @@ public:
 
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
 
-  std::vector<rmf_traffic::Time> arrival_timing;
-  std::vector<rclcpp::Time> departure_timing;
-  std::vector<std::size_t> pending_waypoint_index;
+  std::map<std::size_t, rmf_traffic::Time> arrival_timing;
+  std::map<std::size_t, rclcpp::Time> departure_timing;
+  std::map<std::size_t, std::size_t> pending_waypoint_index;
 
   std::vector<rmf_traffic::Route> active_itinerary;
   std::vector<rmf_traffic::Route> plan_itinerary;
@@ -73,6 +73,7 @@ public:
 
   std::shared_ptr<services::FindPath> find_path_service;
   rxcpp::subscription find_path_subscription;
+  rclcpp::TimerBase::SharedPtr ready_check_subscription;
 
   struct NegotiateManagers
   {
@@ -104,10 +105,25 @@ public:
 
   void update_location(
       std::size_t version,
-      std::size_t path_index,
-      Eigen::Vector3d location);
+      const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
+      const std::size_t starting_from,
+      const std::size_t search_up_to,
+      Eigen::Vector3d location,
+      std::size_t path_index);
 
   rmf_utils::optional<rmf_traffic::agv::Plan::Start> estimate_location() const;
+
+  void new_range(
+      const rmf_traffic::blockade::ReservationId reservation_id,
+      const rmf_traffic::blockade::ReservedRange& new_range);
+
+  void watch_for_ready(
+      std::size_t version,
+      std::size_t checkpoint_id);
+
+  bool check_if_ready(
+      std::size_t version,
+      std::size_t checkpoint_id);
 
   Data(
       std::shared_ptr<CommandHandle> command_,
@@ -200,6 +216,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
     }
   }
 
+  std::vector<rmf_traffic::blockade::Writer::Checkpoint> checkpoints;
+
   rmf_traffic::agv::Graph graph;
   for (std::size_t i=0; i < new_path.size(); ++i)
   {
@@ -221,6 +239,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
 
       graph.add_lane(rmf_traffic::agv::Graph::Lane::Node(i-1, event), i);
     }
+
+    checkpoints.push_back(
+        {wp.position().block<2,1>(0,0), wp.map_name(), wp.yield()});
   }
 
   auto new_planner = std::make_shared<rmf_traffic::agv::Planner>(
@@ -229,6 +250,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
 
   rmf_traffic::agv::Plan::Start start{now, 0, new_path.front().position()[2]};
   plan_timing(std::move(start), version, new_path, std::move(new_planner));
+
+  blockade.set(std::move(checkpoints));
+  watch_for_ready(current_version, 0);
 }
 
 //==============================================================================
@@ -408,17 +432,21 @@ rmf_traffic::Time interpolate_time(
 rmf_utils::optional<rmf_traffic::Time> interpolate_time(
   const rmf_traffic::Time now,
   const rmf_traffic::agv::VehicleTraits& traits,
-  const rmf_traffic::Trajectory& trajectory,
+  const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
+  const std::size_t starting_from,
+  const std::size_t search_up_to,
   const Eigen::Vector3d& location)
 {
   const Eigen::Vector2d p = location.block<2,1>(0,0);
 
   assert(plan_target < waypoints.size());
 
-  for (std::size_t i=1; i < trajectory.size(); ++i)
+  const std::size_t N = search_up_to - starting_from;
+  for (std::size_t i=0; i < N; ++i)
   {
-    const auto& wp0 = trajectory[i-1];
-    const auto& wp1 = trajectory[i];
+    const auto index = search_up_to - i;
+    const auto& wp0 = waypoints[index-1];
+    const auto& wp1 = waypoints[index];
 
     const auto gi_0 = wp0.graph_index();
     const auto gi_1 = wp1.graph_index();
@@ -543,11 +571,21 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     return rmf_utils::nullopt;
 
   path = std::move(path_);
+  assert(!path.empty());
+
+  // TODO(MXG): Is there a reason to save this as a member variable?
   plan_itinerary = plan_.get_itinerary();
-  pending_waypoints = plan_.get_waypoints();
+
   planner = std::move(planner_);
 
-  assert(!path.empty());
+  pending_waypoints = plan_.get_waypoints();
+
+  // Remove all waypoints that don't relate to a graph index
+  const auto remove_from = std::remove_if(
+        pending_waypoints.begin(), pending_waypoints.end(),
+        [](const auto& wp){ return !wp.graph_index().has_value(); });
+  pending_waypoints.erase(remove_from, pending_waypoints.end());
+  assert(!pending_waypoints.empty());
 
   const rclcpp::Time initial_t =
       rmf_traffic_ros2::convert(pending_waypoints.front().time());
@@ -557,19 +595,13 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
 
   const auto& graph = planner->get_configuration().graph();
 
-  arrival_timing.resize(path.size(), rmf_traffic_ros2::convert(initial_t));
-  departure_timing.resize(path.size(), initial_t);
-  pending_waypoint_index.resize(path.size());
-
-  rmf_utils::optional<std::size_t> current_wp;
+  std::optional<std::size_t> current_wp;
 
   for (std::size_t i=0; i < pending_waypoints.size(); ++i)
   {
     const auto& wp = pending_waypoints[i];
 
-    // Skip the waypoint if it comes outside of the actual plan
-    if (!wp.graph_index())
-      continue;
+    assert(wp.graph_index().has_value());
 
     if (!current_wp)
       current_wp = *wp.graph_index();
@@ -620,34 +652,15 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         plan_itinerary.end());
 
   itinerary.set(full_itinerary);
-
-//  std::vector<CommandHandle::Checkpoint> checkpoints;
-//  checkpoints.reserve(departure_timing.size());
-//  for (std::size_t i=0; i < departure_timing.size(); ++i)
-//  {
-//    auto depart_cb = [
-//        w = weak_from_this(),
-//        version = current_version,
-//        path_index = i+1](Eigen::Vector3d location)
-//    {
-//      // TODO(MXG): Fix the interpolate_time() function so that we can have
-//      // path_index = i instead of path_index = i+1 here.
-//      if (const auto data = w.lock())
-//        data->update_location(version, path_index, location);
-//    };
-
-//    checkpoints.push_back({i, departure_timing[i], std::move(depart_cb)});
-//  }
-
-//  command->receive_checkpoints(current_version, checkpoints, [](){ });
-
   return itinerary.version();
 }
 
 //==============================================================================
 void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     const std::size_t version,
-    const rmf_traffic::Trajectory& trajectory,
+    const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
+    const std::size_t starting_from,
+    const std::size_t search_up_to,
     const Eigen::Vector3d location,
     const std::size_t path_index)
 {
@@ -656,7 +669,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
   worker.schedule(
         [w = weak_from_this(),
          version,
-         trajectory,
+         waypoints,
+         starting_from,
+         search_up_to,
          location,
          now,
          path_index](const auto&)
@@ -673,7 +688,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
 
     assert(path_index < data->arrival_timing.size());
     const auto expected_time = interpolate_time(
-          now, data->traits, trajectory, location);
+          now, data->traits, waypoints, starting_from, search_up_to, location);
 
     if (expected_time)
     {
@@ -710,7 +725,7 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   const rclcpp::Time effective_time_rcl =
       rmf_traffic_ros2::convert(effective_time);
 
-  if (departure_timing.back() < effective_time_rcl)
+  if (departure_timing.crbegin()->second < effective_time_rcl)
   {
     // The time that this robot is scheduled for has passed, so there's no way
     // to estimate its position.
@@ -725,7 +740,7 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
           path[0].position().block<2,1>(0,0),
           path[1].position().block<2,1>(0,0)));
 
-  if (effective_time_rcl <= departure_timing.front())
+  if (effective_time_rcl <= departure_timing.begin()->second)
   {
     // The robot has not made progress from its starting point, so we'll just
     // report its original starting conditions.
@@ -735,11 +750,11 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   bool traversing_lane = false;
   for (std::size_t i=1; i < departure_timing.size(); ++i)
   {
-    if (effective_time_rcl < departure_timing[i])
+    if (effective_time_rcl < departure_timing.at(i))
     {
       start.waypoint(i);
 
-      if (effective_time < arrival_timing[i])
+      if (effective_time < arrival_timing.at(i))
       {
         // The vehicle is still moving towards this waypoint.
         const auto* lane = graph.lane_from(i-1, i);
@@ -757,7 +772,8 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
     }
   }
 
-  for (const auto& route : plan->get_itinerary())
+
+  for (const auto& route : active_itinerary)
   {
     if (*route.trajectory().start_time() <= effective_time
         && effective_time <= *route.trajectory().finish_time())
@@ -774,6 +790,109 @@ TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
   }
 
   return start;
+}
+
+//==============================================================================
+void TrafficLight::UpdateHandle::Implementation::Data::new_range(
+    const rmf_traffic::blockade::ReservationId reservation_id,
+    const rmf_traffic::blockade::ReservedRange& new_range)
+{
+  if (reservation_id != blockade.id())
+    return;
+
+  const auto reserved = [&](const std::size_t plan_index) -> bool
+  {
+    if (pending_waypoints[plan_index].graph_index().value() < new_range.end)
+      return true;
+
+    return false;
+  };
+
+  std::vector<CommandHandle::Checkpoint> checkpoints;
+  for (std::size_t i=0; reserved(i); ++i)
+  {
+    TODO Finish this
+  }
+
+  if (checkpoints.empty())
+    return;
+
+  command->receive_checkpoints(
+        current_version, std::move(checkpoints),
+        [w = weak_from_this(),
+         version = current_version,
+         checkpoint_id = new_range.end]()
+  {
+    if (const auto data = w.lock())
+      data->watch_for_ready(version, checkpoint_id);
+  });
+}
+
+//==============================================================================
+void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
+    const std::size_t version,
+    const std::size_t checkpoint_id)
+{
+  if (version != current_version)
+    return;
+
+  blockade.reached(checkpoint_id);
+
+  if (pending_waypoints.empty())
+  {
+    itinerary.clear();
+    return;
+  }
+
+  if (check_if_ready(version, checkpoint_id))
+    return;
+
+  ready_check_subscription = node->create_wall_timer(
+        std::chrono::milliseconds(100),
+        [w = weak_from_this(), version, checkpoint_id]()
+  {
+    if (const auto data = w.lock())
+    {
+      if (data->check_if_ready(version, checkpoint_id))
+        data->ready_check_subscription = nullptr;
+    }
+  });
+}
+
+//==============================================================================
+bool TrafficLight::UpdateHandle::Implementation::Data::check_if_ready(
+    std::size_t version,
+    std::size_t checkpoint_id)
+{
+  // Counter-intuitively, we return true for these sanity check cases because we
+  // want the caller to quit right away.
+  if (version != current_version)
+    return true;
+
+  if (pending_waypoints.empty())
+    return true;
+
+  const auto& next_wp = pending_waypoints.front();
+  assert(next_wp.graph_index().has_value());
+
+  if (checkpoint_id != next_wp.graph_index().value())
+    return true;
+
+  // TODO(MXG): Make this configurable
+  const auto timing_threshold = std::chrono::seconds(1);
+  const auto ready_time = next_wp.time();
+  const auto now = rmf_traffic_ros2::convert(node->now());
+
+  if (ready_time <= now + timing_threshold)
+    return false;
+
+  for (const auto& wp : pending_waypoints)
+  {
+    if (wp.time() <= now + timing_threshold)
+      blockade.ready(wp.graph_index().value());
+  }
+
+  return true;
 }
 
 //==============================================================================
@@ -802,7 +921,7 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     const ResponderPtr& responder)
 {
   const auto data = _data.lock();
-  if (!data || !data->planner || !data->plan)
+  if (!data || !data->planner || data->pending_waypoints.empty())
   {
     // If we no longer have access to the traffic light data or there is no
     // plan being followed, then we simply forfeit the negotiation.
@@ -840,7 +959,7 @@ void TrafficLight::UpdateHandle::Implementation::new_range(
     const rmf_traffic::blockade::ReservedRange& new_range)
 {
   assert(data);
-
+  data->new_range(reservation_id, new_range);
 }
 
 //==============================================================================
