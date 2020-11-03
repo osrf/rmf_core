@@ -24,6 +24,7 @@
 #include <rmf_traffic_ros2/Time.hpp>
 
 #include "tasks/Clean.hpp"
+#include "tasks/ChargeBattery.hpp"
 
 #include <iostream>
 
@@ -175,14 +176,28 @@ void TaskManager::set_queue(
       std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
         a.request()))
     {
-      // const auto task = tasks::make_charge_battery()
-    }
+      const auto task = tasks::make_charge_battery(
+        request,
+        _context,
+        start,
+        a.deployment_time(),
+        a.state());
+      
+      std::lock_guard<std::mutex> guard(_mutex);
+
+      _queue.push_back(task);
+
+      rmf_task_msgs::msg::TaskSummary msg;
+      msg.task_id = _queue.back()->id();
+      msg.task_profile.task_id = _queue.back()->id();
+      msg.state = msg.STATE_QUEUED;
+      this->_context->node()->task_summary()->publish(msg);    }
 
     else if (const auto request =
       std::dynamic_pointer_cast<const rmf_task::requests::Delivery>(
         a.request()))
     {
-      // const auto task = tasks::make_delivery()
+
     }
 
     else
