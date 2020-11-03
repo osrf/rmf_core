@@ -15,6 +15,7 @@
  *
 */
 
+#include <string>
 #include <rmf_task/requests/ChargeBattery.hpp>
 
 namespace rmf_task {
@@ -29,7 +30,7 @@ public:
   {}
 
   // fixed id for now
-  std::size_t _id = 1001;
+  std::string _id = "Charge";
   rmf_battery::agv::BatterySystemPtr _battery_system;
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> _device_sink;
@@ -75,7 +76,7 @@ ChargeBattery::ChargeBattery()
 {}
 
 //==============================================================================
-std::size_t ChargeBattery::id() const
+std::string ChargeBattery::id() const
 {
   return _pimpl->_id;
 }

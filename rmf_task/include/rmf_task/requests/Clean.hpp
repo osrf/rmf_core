@@ -19,6 +19,7 @@
 #define INCLUDE__RMF_TASK__REQUESTS__CLEAN_HPP
 
 #include <chrono>
+#include <string>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/Trajectory.hpp>
@@ -41,7 +42,7 @@ class Clean : public rmf_task::Request
 public:
 
   static rmf_task::Request::SharedPtr make(
-    std::size_t id,
+    std::string id,
     std::size_t start_waypoint,
     std::size_t end_waypoint,
     rmf_traffic::Trajectory& cleaning_path,
@@ -52,7 +53,7 @@ public:
     rmf_traffic::Time start_time,
     bool drain_battery = true);
 
-  std::size_t id() const final;
+  std::string id() const final;
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,

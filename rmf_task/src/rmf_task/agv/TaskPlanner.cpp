@@ -117,6 +117,7 @@ class TaskPlanner::Assignment::Implementation
 {
 public:
 
+  size_t request_id;
   rmf_task::RequestPtr request;
   State state;
   rmf_traffic::Time deployment_time;
@@ -124,17 +125,25 @@ public:
 
 //==============================================================================
 TaskPlanner::Assignment::Assignment(
+  size_t request_id,
   rmf_task::RequestPtr request,
   State state,
   rmf_traffic::Time deployment_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
+        request_id,
         std::move(request),
         std::move(state),
         deployment_time
       }))
 {
   // Do nothing
+}
+
+//==============================================================================
+std::size_t TaskPlanner::Assignment::request_id() const
+{
+  return _pimpl->request_id;
 }
 
 //==============================================================================
@@ -388,6 +397,28 @@ struct Node
     unassigned_invariants.erase(erase_it);
     assert(popped_invariant);
   }
+
+  void create_internal_task_id(Request::SharedPtr request)
+  {
+    size_t internal_id = _internal_task_ids.size();
+    _internal_task_ids.insert({request->id(), internal_id});
+  }
+
+  void create_internal_task_ids(std::vector<Request::SharedPtr> requests)
+  {
+    for (auto request : requests)
+    {
+      create_internal_task_id(request);
+    }
+  }
+
+  std::size_t get_internal_task_id(Request::SharedPtr request)
+  {
+    return _internal_task_ids.at(request->id());
+  }
+
+  private:
+    std::unordered_map<std::string, size_t> _internal_task_ids;
 };
 
 
@@ -505,7 +536,7 @@ private:
         {
           // We add 1 to the task_id to differentiate between task_id == 0 and
           // a task being unassigned.
-          const std::size_t id = s.request()->id() + 1;
+          const size_t id = s.request_id() + 1;
           output += id << (_shift * (count++));
         }
       }
@@ -534,8 +565,10 @@ private:
 
         for (std::size_t j=0; j < a.size(); ++j)
         {
-          if (a[j].request()->id() != b[j].request()->id())
+          if (a[j].request_id() != b[j].request_id())
+          {
             return false;
+          }
         }
       }
 
@@ -571,7 +604,7 @@ bool Filter::ignore(const Node& node)
 
     if (t < current_agent.size())
     {
-      const auto& task_id = current_agent[t].request()->id();
+      const auto& task_id = current_agent[t].request_id();
       const auto agent_insertion = agent_table->agent.insert({a, nullptr});
       if (agent_insertion.second)
         agent_insertion.first->second = std::make_unique<TaskTable>();
@@ -687,7 +720,6 @@ public:
         for (const auto& a : new_assignments)
         {
           all_assignments.push_back(a);
-          // all_assignments.back().task_id = task_id_map.at(a.task_id);
         }
       }
 
@@ -797,12 +829,19 @@ public:
 
     // TODO(YV): Come up with a better solution for charge_battery_request
     auto charge_battery = make_charging_request(time_now);
-    for (const auto& request : requests)
+
+    initial_node->create_internal_task_ids(requests);
+    initial_node->create_internal_task_id(charge_battery);
+
+    for(size_t i = 0; i < requests.size(); ++i)
+    {
+      size_t internal_id = initial_node->get_internal_task_id(requests[i]);
       initial_node->unassigned_tasks.insert(
         {
-          request->id(),
-          PendingTask(initial_states, state_configs, request, charge_battery)
+          internal_id,
+          PendingTask(initial_states, state_configs, requests[i], charge_battery)
         });
+    }
 
     initial_node->cost_estimate = compute_f(*initial_node, time_now);
 
@@ -877,7 +916,7 @@ public:
 
     // Assign the unassigned task
     new_node->assigned_tasks[entry.candidate].push_back(
-      Assignment{u.second.request, entry.state, entry.wait_until});
+      Assignment{u.first, u.second.request, entry.state, entry.wait_until});
     
     // Erase the assigned task from unassigned tasks
     new_node->pop_unassigned(u.first);
@@ -932,9 +971,11 @@ public:
       auto battery_estimate = charge_battery->estimate_finish(entry.state, state_config);
       if (battery_estimate.has_value())
       {
+        size_t internal_task_id = new_node->get_internal_task_id(charge_battery);
         new_node->assigned_tasks[entry.candidate].push_back(
           Assignment
           {
+            internal_task_id,
             charge_battery,
             battery_estimate.value().finish_state(),
             battery_estimate.value().wait_until()
@@ -998,12 +1039,15 @@ public:
     }
 
     auto charge_battery = make_charging_request(state.finish_time());
+    auto charge_battery_id = new_node->get_internal_task_id(charge_battery);
+
     auto estimate = charge_battery->estimate_finish(
       state, state_configs[agent]);
     if (estimate.has_value())
     {
       new_node->assigned_tasks[agent].push_back(
         Assignment{
+          charge_battery_id,
           charge_battery,
           estimate.value().finish_state(),
           estimate.value().wait_until()});

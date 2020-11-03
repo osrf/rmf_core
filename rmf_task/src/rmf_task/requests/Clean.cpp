@@ -30,7 +30,7 @@ public:
   Implementation()
   {}
 
-  std::size_t id;
+  std::string id;
   std::size_t start_waypoint;
   std::size_t end_waypoint;
   rmf_traffic::Trajectory cleaning_path;
@@ -47,7 +47,7 @@ public:
 
 //==============================================================================
 rmf_task::Request::SharedPtr Clean::make(
-  std::size_t id,
+  std::string id,
   std::size_t start_waypoint,
   std::size_t end_waypoint,
   rmf_traffic::Trajectory& cleaning_path,
@@ -102,7 +102,7 @@ Clean::Clean()
 {}
 
 //==============================================================================
-std::size_t Clean::id() const
+std::string Clean::id() const
 {
   return _pimpl->id;
 }

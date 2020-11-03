@@ -30,7 +30,7 @@ public:
   Implementation()
   {}
 
-  std::size_t _id;
+  std::string _id;
   std::size_t _pickup_waypoint;
   std::size_t _dropoff_waypoint;
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
@@ -45,7 +45,7 @@ public:
 
 //==============================================================================
 rmf_task::Request::SharedPtr Delivery::make(
-  std::size_t id,
+  std::string id,
   std::size_t pickup_waypoint,
   std::size_t dropoff_waypoint,
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
@@ -100,7 +100,7 @@ Delivery::Delivery()
 {}
 
 //==============================================================================
-std::size_t Delivery::id() const
+std::string Delivery::id() const
 {
   return _pimpl->_id;
 }

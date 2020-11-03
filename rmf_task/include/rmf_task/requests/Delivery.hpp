@@ -19,6 +19,7 @@
 #define INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
 
 #include <chrono>
+#include <string>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
@@ -40,7 +41,7 @@ class Delivery : public rmf_task::Request
 public:
 
   static rmf_task::Request::SharedPtr make(
-    std::size_t id,
+    std::string id,
     std::size_t pickup_waypoint,
     std::size_t dropoff_waypoint,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
@@ -49,7 +50,7 @@ public:
     rmf_traffic::Time start_time,
     bool drain_battery = true);
 
-  std::size_t id() const final;
+  std::string id() const final;
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
