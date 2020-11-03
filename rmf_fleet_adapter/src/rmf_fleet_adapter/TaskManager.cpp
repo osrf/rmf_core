@@ -150,6 +150,7 @@ void TaskManager::set_queue(
     auto start = _context->state().location();
     if (i != 0)
       start = assignments[i-1].state().location();
+    start.time(a.deployment_time());
 
     if (const auto request =
       std::dynamic_pointer_cast<const rmf_task::requests::Clean>(a.request()))

@@ -65,6 +65,9 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
+using DeliveryRequestPtr = std::shared_ptr<Delivery>;
+using ConstDeliveryRequestPtr = std::shared_ptr<const Delivery>;
+
 } // namespace tasks
 } // namespace rmf_task
 
