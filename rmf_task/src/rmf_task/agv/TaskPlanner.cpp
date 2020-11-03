@@ -117,7 +117,6 @@ class TaskPlanner::Assignment::Implementation
 {
 public:
 
-  size_t request_id;
   rmf_task::RequestPtr request;
   State state;
   rmf_traffic::Time deployment_time;
@@ -125,13 +124,11 @@ public:
 
 //==============================================================================
 TaskPlanner::Assignment::Assignment(
-  size_t request_id,
   rmf_task::RequestPtr request,
   State state,
   rmf_traffic::Time deployment_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        request_id,
         std::move(request),
         std::move(state),
         deployment_time
@@ -141,13 +138,7 @@ TaskPlanner::Assignment::Assignment(
 }
 
 //==============================================================================
-std::size_t TaskPlanner::Assignment::request_id() const
-{
-  return _pimpl->request_id;
-}
-
-//==============================================================================
-rmf_task::RequestPtr TaskPlanner::Assignment::request() const 
+rmf_task::RequestPtr TaskPlanner::Assignment::request() const
 {
   return _pimpl->request;
 }
@@ -200,10 +191,10 @@ public:
   using Map = std::multimap<rmf_traffic::Time, Entry>;
 
   static Candidates make(
-      const std::vector<State>& initial_states,
-      const std::vector<StateConfig>& state_configs,
-      const rmf_task::Request& request,
-      const rmf_task::Request& charge_battery_request);
+    const std::vector<State>& initial_states,
+    const std::vector<StateConfig>& state_configs,
+    const rmf_task::Request& request,
+    const rmf_task::Request& charge_battery_request);
 
   Candidates(const Candidates& other)
   {
@@ -287,10 +278,10 @@ private:
 };
 
 Candidates Candidates::make(
-    const std::vector<State>& initial_states,
-    const std::vector<StateConfig>& state_configs,
-    const rmf_task::Request& request,
-    const rmf_task::Request& charge_battery_request)
+  const std::vector<State>& initial_states,
+  const std::vector<StateConfig>& state_configs,
+  const rmf_task::Request& request,
+  const rmf_task::Request& charge_battery_request)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
@@ -323,7 +314,7 @@ Candidates Candidates::make(
                   << "] and request [" << request.id() << " ]" << std::endl;
         assert(false);
       }
-    }  
+    }
     
   }
 
@@ -354,7 +345,13 @@ struct PendingTask
 // ============================================================================
 struct Node
 {
-  using AssignedTasks = TaskPlanner::Assignments;
+  struct AssignmentWrapper
+  {
+    std::size_t internal_id;
+    TaskPlanner::Assignment assignment;
+  };
+
+  using AssignedTasks = std::vector<std::vector<AssignmentWrapper>>;
   using UnassignedTasks =
     std::unordered_map<std::size_t, PendingTask>;
   using InvariantSet = std::multiset<Invariant, InvariantLess>;
@@ -364,6 +361,13 @@ struct Node
   double cost_estimate;
   rmf_traffic::Time latest_time;
   InvariantSet unassigned_invariants;
+  std::size_t next_available_internal_id = 1;
+
+  // ID 0 is reserved for charging tasks
+  std::size_t get_available_internal_id(bool charging_task = false)
+  {
+    return charging_task ? 0 : next_available_internal_id++;
+  }
 
   void sort_invariants()
   {
@@ -385,7 +389,7 @@ struct Node
     bool popped_invariant = false;
     InvariantSet::iterator erase_it;
     for (auto it = unassigned_invariants.begin();
-         it != unassigned_invariants.end(); ++it)
+      it != unassigned_invariants.end(); ++it)
     {
       if (it->task_id == task_id)
       {
@@ -397,28 +401,6 @@ struct Node
     unassigned_invariants.erase(erase_it);
     assert(popped_invariant);
   }
-
-  void create_internal_task_id(Request::SharedPtr request)
-  {
-    size_t internal_id = _internal_task_ids.size();
-    _internal_task_ids.insert({request->id(), internal_id});
-  }
-
-  void create_internal_task_ids(std::vector<Request::SharedPtr> requests)
-  {
-    for (auto request : requests)
-    {
-      create_internal_task_id(request);
-    }
-  }
-
-  std::size_t get_internal_task_id(Request::SharedPtr request)
-  {
-    return _internal_task_ids.at(request->id());
-  }
-
-  private:
-    std::unordered_map<std::string, size_t> _internal_task_ids;
 };
 
 
@@ -536,7 +518,7 @@ private:
         {
           // We add 1 to the task_id to differentiate between task_id == 0 and
           // a task being unassigned.
-          const size_t id = s.request_id() + 1;
+          const std::size_t id = s.internal_id + 1;
           output += id << (_shift * (count++));
         }
       }
@@ -565,7 +547,7 @@ private:
 
         for (std::size_t j=0; j < a.size(); ++j)
         {
-          if (a[j].request_id() != b[j].request_id())
+          if (a[j].internal_id != b[j].internal_id)
           {
             return false;
           }
@@ -604,7 +586,7 @@ bool Filter::ignore(const Node& node)
 
     if (t < current_agent.size())
     {
-      const auto& task_id = current_agent[t].request_id();
+      const auto& task_id = current_agent[t].internal_id;
       const auto agent_insertion = agent_table->agent.insert({a, nullptr});
       if (agent_insertion.second)
         agent_insertion.first->second = std::make_unique<TaskTable>();
@@ -634,8 +616,13 @@ bool Filter::ignore(const Node& node)
 const rmf_traffic::Duration segmentation_threshold =
     rmf_traffic::time::from_seconds(1.0);
 
-} // anonymous namespace
+inline double compute_g_assignment(const TaskPlanner::Assignment& assignment)
+{
+  return rmf_traffic::time::to_seconds(assignment.state().finish_time()
+    - assignment.request()->earliest_start_time());
+}
 
+} // anonymous namespace
 
 class TaskPlanner::Implementation
 {
@@ -661,16 +648,15 @@ public:
     {
       for (const auto& assignment : agent)
       {
-        cost +=
-          rmf_traffic::time::to_seconds(
-            assignment.state().finish_time() - assignment.request()->earliest_start_time());
+        cost += compute_g_assignment(assignment);
       }
     }
 
     return cost;
   }
 
-  Assignments prune_assignments(Assignments& assignments)
+  TaskPlanner::Assignments prune_assignments(
+    TaskPlanner::Assignments& assignments)
   {
     for (std::size_t a = 0; a < assignments.size(); ++a)
     {
@@ -681,7 +667,7 @@ public:
       // TODO(YV): Remove this after fixing the planner
       if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
           assignments[a].back().request()))
-        assignments[a].pop_back();      
+        assignments[a].pop_back();
     }
 
     return assignments;
@@ -699,7 +685,7 @@ public:
 
     auto node = make_initial_node(initial_states, state_configs, requests, time_now);
 
-    Node::AssignedTasks complete_assignments;
+    TaskPlanner::Assignments complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
 
     while (node)
@@ -719,12 +705,14 @@ public:
         const auto& new_assignments = node->assigned_tasks[i];
         for (const auto& a : new_assignments)
         {
-          all_assignments.push_back(a);
+          all_assignments.push_back(a.assignment);
         }
       }
 
       if (node->unassigned_tasks.empty())
+      {
         return prune_assignments(complete_assignments);
+      }
 
       std::vector<Request::SharedPtr> new_tasks;
       for (const auto& u : node->unassigned_tasks)
@@ -743,7 +731,7 @@ public:
         if (assignments.empty())
           estimates[i] = initial_states[i];
         else
-          estimates[i] = assignments.back().state();
+          estimates[i] = assignments.back().assignment.state();
       }
 
       node = make_initial_node(estimates, state_configs, new_tasks, time_now);
@@ -755,7 +743,15 @@ public:
 
   double compute_g(const Node& node)
   {
-    return compute_g(node.assigned_tasks);
+    double cost = 0.0;
+    for (const auto& agent : node.assigned_tasks)
+    {
+      for (const auto& assignment : agent)
+      {
+        cost += compute_g_assignment(assignment.assignment);
+      }
+    }
+    return cost;
   }
 
   double compute_h(const Node& node, const rmf_traffic::Time time_now)
@@ -797,7 +793,7 @@ public:
         else
           value =
             rmf_traffic::time::to_seconds(
-              assignments.back().state().finish_time() - time_now);
+              assignments.back().assignment.state().finish_time() - time_now);
       }
     }
 
@@ -829,17 +825,15 @@ public:
 
     // TODO(YV): Come up with a better solution for charge_battery_request
     auto charge_battery = make_charging_request(time_now);
-
-    initial_node->create_internal_task_ids(requests);
-    initial_node->create_internal_task_id(charge_battery);
-
-    for(size_t i = 0; i < requests.size(); ++i)
+    for (const auto& request : requests)
     {
-      size_t internal_id = initial_node->get_internal_task_id(requests[i]);
+      // Generate a unique internal id for the request. Currently, multiple
+      // requests with the same string id will be assigned different internal ids
+      std::size_t internal_id = initial_node->get_available_internal_id();
       initial_node->unassigned_tasks.insert(
         {
           internal_id,
-          PendingTask(initial_states, state_configs, requests[i], charge_battery)
+          PendingTask(initial_states, state_configs, request, charge_battery)
         });
     }
 
@@ -885,7 +879,7 @@ public:
       if (a.empty())
         continue;
       
-      const auto finish_time = a.back().state().finish_time();
+      const auto finish_time = a.back().assignment.state().finish_time();
       if (latest < finish_time)
         latest = finish_time;
     }
@@ -916,7 +910,8 @@ public:
 
     // Assign the unassigned task
     new_node->assigned_tasks[entry.candidate].push_back(
-      Assignment{u.first, u.second.request, entry.state, entry.wait_until});
+      Node::AssignmentWrapper{u.first,
+        Assignment{u.second.request, entry.state, entry.wait_until}});
     
     // Erase the assigned task from unassigned tasks
     new_node->pop_unassigned(u.first);
@@ -971,15 +966,14 @@ public:
       auto battery_estimate = charge_battery->estimate_finish(entry.state, state_config);
       if (battery_estimate.has_value())
       {
-        size_t internal_task_id = new_node->get_internal_task_id(charge_battery);
         new_node->assigned_tasks[entry.candidate].push_back(
-          Assignment
-          {
-            internal_task_id,
-            charge_battery,
-            battery_estimate.value().finish_state(),
-            battery_estimate.value().wait_until()
-          });
+          { new_node->get_available_internal_id(true),
+            Assignment
+            {
+              charge_battery,
+              battery_estimate.value().finish_state(),
+              battery_estimate.value().wait_until()
+            }});
         for (auto& new_u : new_node->unassigned_tasks)
         {
           const auto finish =
@@ -1033,25 +1027,27 @@ public:
     if (!assignments.empty())
     {
       if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-          assignments.back().request()))
+          assignments.back().assignment.request()))
         return nullptr;
-      state = assignments.back().state();
+      state = assignments.back().assignment.state();
     }
 
     auto charge_battery = make_charging_request(state.finish_time());
-    auto charge_battery_id = new_node->get_internal_task_id(charge_battery);
-
     auto estimate = charge_battery->estimate_finish(
       state, state_configs[agent]);
     if (estimate.has_value())
     {
       new_node->assigned_tasks[agent].push_back(
-        Assignment{
-          charge_battery_id,
-          charge_battery,
-          estimate.value().finish_state(),
-          estimate.value().wait_until()});
-
+        Node::AssignmentWrapper
+        {
+          new_node->get_available_internal_id(true),
+          Assignment
+          {
+            charge_battery,
+            estimate.value().finish_state(),
+            estimate.value().wait_until()
+          }
+        });
       for (auto& new_u : new_node->unassigned_tasks)
       {
         const auto finish =

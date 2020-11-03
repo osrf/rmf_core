@@ -113,9 +113,6 @@ public:
 
     /// Constructor
     ///
-    /// \param[in] id
-    ///   The id for the request this assignment contains
-    ///
     /// \param[in] request
     ///   The task request for this assignment
     ///
@@ -125,14 +122,10 @@ public:
     /// \param[in] earliest_start_time
     ///   The earliest time the agent will begin exececuting this task
     Assignment(
-      size_t request_id,
       rmf_task::RequestPtr request,
       State state,
       rmf_traffic::Time deployment_time);
 
-    // Get the id of the request this task contains
-    size_t request_id() const;
-      
     // Get the request of this task
     rmf_task::RequestPtr request() const;
 
