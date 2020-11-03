@@ -1,9 +1,0 @@
-# type of task
-uint8 value
-
-uint8 STATION_TASK=0
-uint8 LOOP_TASK=1
-uint8 DELIVERY_TASK=2
-uint8 CHARGING_TASK=3
-uint8 CLEANING_TASK=4
-uint8 PATROL_TASK=5

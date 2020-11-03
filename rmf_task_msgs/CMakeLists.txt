@@ -26,7 +26,7 @@ set(msg_files
   "msg/Tasks.msg"
   "msg/Loop.msg"
   # New task Msgs
-  "msg/TaskType.msg"
+  "msg/Clean.msg"
   "msg/TaskProfile.msg"
   "msg/BidNotice.msg"
   "msg/BidProposal.msg"
