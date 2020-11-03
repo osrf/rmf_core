@@ -3,7 +3,8 @@ FROM ros:$TAG
 
 ENV HOME /home/ws_rmf/
 
-RUN apt-get update && apt-get install -y g++-8
+RUN apt-get update && apt-get install -y g++-8 \
+    ros-foxy-rmw-cyclonedds-cpp
 RUN mkdir -p /home/ws_rmf
 
 WORKDIR  /home/ws_rmf/

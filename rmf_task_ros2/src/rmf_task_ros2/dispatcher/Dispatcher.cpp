@@ -36,12 +36,19 @@ public:
   DispatchTasksPtr active_dispatch_tasks;
   DispatchTasksPtr terminal_dispatch_tasks; // todo limit size
   int i = 0; // temp index for generating task_id
+  double bidding_time_window;
 
   Implementation(std::shared_ptr<rclcpp::Node> node_)
   : node(std::move(node_))
   {
     active_dispatch_tasks = std::make_shared<DispatchTasks>();
     terminal_dispatch_tasks = std::make_shared<DispatchTasks>();
+
+    // ros2 param
+    bidding_time_window =
+      node->declare_parameter<double>("bidding_time_window", 2.0);
+    RCLCPP_WARN(node->get_logger(),
+      " Declared Time Window Param as: %f secs", bidding_time_window);
   }
 
   void start()
@@ -76,11 +83,10 @@ public:
     if (on_change_fn)
       on_change_fn(new_task_status);
 
-    // using default 2s timewindow
     bidding::BidNotice bid_notice;
     bid_notice.task_profile = convert(submitted_task);
     bid_notice.time_window = rmf_traffic_ros2::convert(
-      rmf_traffic::time::from_seconds(2.0)); // 2s timeout as default
+      rmf_traffic::time::from_seconds(bidding_time_window));
     auctioneer->start_bidding(bid_notice);
 
     return submitted_task.task_id;
@@ -92,22 +98,29 @@ public:
     if (!(*active_dispatch_tasks).count(task_id))
       return false;
 
-    auto cancel_task_status = (*active_dispatch_tasks)[task_id];
-
-    // Cancel bidding
-    if (cancel_task_status->state == DispatchState::Pending)
+    TaskProfile profile;
     {
-      cancel_task_status->state = DispatchState::Canceled;
-      terminate_task(cancel_task_status);
+      // make sure status will expired, todo: cleaner way
+      auto cancel_task_status = (*active_dispatch_tasks)[task_id];
+      profile = cancel_task_status->task_profile;
 
-      if (on_change_fn)
-        on_change_fn(cancel_task_status);
+      // Cancel bidding. This will remove the bidding process
+      if (cancel_task_status->state == DispatchState::Pending)
+      {
+        cancel_task_status->state = DispatchState::Canceled;
+        terminate_task(cancel_task_status);
 
-      return true;
+        if (on_change_fn)
+          on_change_fn(cancel_task_status);
+
+        return true;
+      }
     }
 
-    // Cancel action
-    return action_client->cancel_task(cancel_task_status->task_profile);
+    // Cancel action task, this will only send a cancel to FA. up to
+    // the FA whether to cancel the task. On change is implemented
+    // internally in action client
+    return action_client->cancel_task(profile);
   }
 
   rmf_utils::optional<DispatchState> get_task_state(
@@ -166,7 +179,9 @@ public:
     auto id = terminate_status->task_profile.task_id;
     RCLCPP_WARN(node->get_logger(), " Terminated Task!! ID: %s", id.c_str());
 
-    (*terminal_dispatch_tasks)[id] = std::move((*active_dispatch_tasks)[id]);
+    // destroy prev status ptr and recreate one
+    auto status = std::make_shared<TaskStatus>(*terminate_status);
+    (*terminal_dispatch_tasks)[id] = status;
     active_dispatch_tasks->erase(id);
   }
 };
@@ -272,4 +287,11 @@ Dispatcher::~Dispatcher()
 }
 
 } // namespace dispatcher
+
+namespace action {
+
+template class TaskActionClient<RequestMsg, StatusMsg>;
+
+} // namespace action
+
 } // namespace rmf_task_ros2

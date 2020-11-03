@@ -179,5 +179,13 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   rclcpp::shutdown();
 }
 
+template class TaskActionClient<RequestMsg, StatusMsg>;
+
 } // namespace action
+
+// namespace action {
+
+
+// } // namespace action
+
 } // namespace rmf_task_ros2

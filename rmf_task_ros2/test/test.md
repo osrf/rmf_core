@@ -30,8 +30,8 @@ ros2 service call /cancel_task rmf_task_msgs/CancelTask \
 
 ## Docker usage
 ```bash
-docker build -t osrf/rmf_core:task-dispatcher  .
-docker run -it osrf/rmf_core:task-dispatcher ros2 run rmf_task_ros2 rmf_task_dispatcher
+docker build -t tanyouliang95/rmf_core:task-dispatcher  .
+docker run -it tanyouliang95/rmf_core:task-dispatcher ros2 run rmf_task_ros2 rmf_task_dispatcher
 ```
 
 ## Sample dispatcher with mongo

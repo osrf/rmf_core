@@ -74,8 +74,8 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     [&change_times, &test_taskprofile](const TaskStatusPtr status)
     {
       test_taskprofile = status->task_profile;
-      std::cout << " On change! > " << test_taskprofile.task_id
-                << "  " << (int)status->state << std::endl;
+      std::cout << " On change! id > " << test_taskprofile.task_id
+                << " | state >" << (int)status->state << std::endl;
       change_times++;
     }
   );
@@ -116,7 +116,6 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     [](const bidding::BidNotice& notice)
     {
       std::cout << "[Bidding] Providing best estimates" << std::endl;
-      auto now = std::chrono::steady_clock::now();
       bidding::Submission best_robot_estimate;
       best_robot_estimate.new_cost = 13.5;
       return best_robot_estimate;
@@ -140,13 +139,15 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
           TaskStatus status;
           status.task_profile = profile;
           status.robot_name = "dumbot";
-          std::cout << " [impl] Queued " << profile.task_id << std::endl;
+          std::cout << " [task impl] Queued " << profile.task_id << std::endl;
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          std::cout << " [impl] Executing " << profile.task_id << std::endl;
+          std::cout << " [task impl] Executing " << profile.task_id <<
+            std::endl;
           status.state = TaskStatus::State::Executing;
           action_server->update_status(status);
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          std::cout << " [impl] Completed " << profile.task_id << std::endl;
+          std::cout << " [task impl] Completed " << profile.task_id <<
+            std::endl;
           status.state = TaskStatus::State::Completed;
           action_server->update_status(status);
         }, task_profile
@@ -157,7 +158,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     // Cancel Task callback
     [&action_server](const TaskProfile& task_profile)
     {
-      return true; //success , send State::Canceled
+      return true; //success ,send State::Canceled when dispatcher->cancel_task
     }
   );
 
@@ -178,6 +179,27 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Completed);
     REQUIRE(dispatcher->terminated_tasks()->size() == 1);
     REQUIRE(change_times == 4); // Pending > Queued > Executing > Completed
+  }
+
+  WHEN("Half way cancel Dispatch cycle")
+  {
+    auto id = dispatcher->submit_task(task_profile2);
+    task_profile2.task_id = id;
+    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    REQUIRE(dispatcher->active_tasks()->size() == 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+
+    std::cout << " Cancel task after Queued !!! " << id << std::endl;
+    dispatcher->cancel_task(id);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    // Just make sure task is still being canceled
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    REQUIRE(dispatcher->terminated_tasks()->begin()->first == id);
+
+    auto status = dispatcher->terminated_tasks()->begin()->second;
+    REQUIRE(status->state == TaskStatus::State::Canceled);
+    REQUIRE(change_times == 3); // Pending -> Queued -> Canceled
   }
 }
 

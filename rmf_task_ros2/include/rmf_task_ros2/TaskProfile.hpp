@@ -24,9 +24,8 @@
 
 #include <rmf_task_msgs/msg/task_profile.hpp>
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
-#include <rmf_task_msgs/msg/dispatch_status.hpp>
-
 #include <rmf_task_msgs/msg/task_summary.hpp>
+// #include <rmf_task_msgs/msg/dispatch_status.hpp>
 
 namespace rmf_task_ros2 {
 
@@ -62,7 +61,7 @@ struct TaskProfile
   bool operator==(const TaskProfile& tsk) const
   {
     return this->task_id == tsk.task_id;
-        // && (this->task_type == tsk.task_type);
+    // && (this->task_type == tsk.task_type);
   }
 
   bool operator<(const TaskProfile& tsk) const

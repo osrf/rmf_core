@@ -142,10 +142,13 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
         {
           std::cout << "weak status has expired\n";
           _active_task_status.erase(task_profile);
+          return;
         }
 
+        auto hack_fleetname = weak_status->fleet_name; // HACK, TO remove!
         // update status to ptr
         *weak_status = convert(*msg);
+        weak_status->fleet_name = hack_fleetname;  // HACK, TO remove!
 
         if (_on_change_callback)
           _on_change_callback(weak_status);

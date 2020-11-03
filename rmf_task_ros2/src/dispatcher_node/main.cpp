@@ -46,6 +46,7 @@ int main(int argc, char* argv[])
       const std::shared_ptr<SubmitTaskSrv::Request> request,
       std::shared_ptr<SubmitTaskSrv::Response> response)
     {
+      RCLCPP_WARN(node->get_logger(), "Submit New Task!!! ");
       // convert
       rmf_task_ros2::TaskProfileMsg msg;
       msg.type = request->type;
@@ -54,7 +55,6 @@ int main(int argc, char* argv[])
 
       auto task_profile = rmf_task_ros2::convert(msg);
       auto id = dispatcher->submit_task(task_profile);
-      RCLCPP_WARN(node->get_logger(), "Submit New Task!!! ID %s", id.c_str());
 
       // temp hack to change the evaluator here
       if (task_profile.params.count("evaluator"))
@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
         }
         else if (selected_eval == "lowest_delta_cost")
         {
-          std::cout << "LOWEST DELAT COST is chosen\n";
+          std::cout << "LOWEST DELTA COST is chosen\n";
           auto eval = std::shared_ptr<LeastFleetDiffCostEvaluator>(
             new LeastFleetDiffCostEvaluator());
           dispatcher->evaluator(eval);
@@ -84,6 +84,7 @@ int main(int argc, char* argv[])
         }
       }
 
+      std::cout << " Generated ID is: " << id << std::endl;
       response->task_id = id;
       response->success = true;
     }
@@ -108,14 +109,13 @@ int main(int argc, char* argv[])
       const std::shared_ptr<GetTaskSrv::Request> request,
       std::shared_ptr<GetTaskSrv::Response> response)
     {
-      auto ids = request->task_id;
-      std::string printout = " | ID: ";
-      for (auto id : ids)
-        printout = printout + " " + id;
+      RCLCPP_WARN(node->get_logger(), "Get Task!!!  %d active | %d done",
+      dispatcher->active_tasks()->size(),
+      dispatcher->terminated_tasks()->size());
 
       // currently return all tasks
       std::cout << "\n - Active Tasks >>>> ";
-      for (auto task : *dispatcher->active_tasks())
+      for (auto task : *(dispatcher->active_tasks()))
       {
         std::cout << " {" << task.first << " * "
                   << (int)task.second->state << "} ";
@@ -125,20 +125,16 @@ int main(int argc, char* argv[])
       std::cout << std::endl;
 
       // Terminated Tasks
-      std::cout << " - Teminated Tasks >>>> ";
-      for (auto task : *dispatcher->terminated_tasks())
+      std::cout << " - Teminated Tasks >>>> " << std::flush;
+      for (auto task : *(dispatcher->terminated_tasks()))
       {
         std::cout << " {" << task.first << " * "
-                  << (int)task.second->state << "} ";
+                  << (int)task.second->state << "} "
+                  << std::flush;
         response->terminated_tasks.push_back(
           rmf_task_ros2::convert(*(task.second)));
       }
       std::cout << std::endl;
-
-      RCLCPP_WARN(node->get_logger(), "Get Task!!! ID %s | %d active | %d done",
-      printout.c_str(),
-      dispatcher->active_tasks()->size(),
-      dispatcher->terminated_tasks()->size());
 
       response->success = true;
     }

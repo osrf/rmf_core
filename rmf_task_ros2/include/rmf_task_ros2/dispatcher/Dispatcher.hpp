@@ -63,7 +63,8 @@ public:
 
   /// Submit task to dispatcher node. Calling this function will immediately
   /// trigger the bidding process, then the task "action". Once submmitted,
-  /// Task State will be: Pending till the task is allocated to a fleet
+  /// Task State will be in 'Pending' State, till the task is awarded to a fleet
+  /// then the state will turn to 'Queued'
   ///
   /// \param [in] task
   ///   Submit a task to dispatch
@@ -74,7 +75,9 @@ public:
     const TaskProfile& task);
 
   /// Cancel task which was previously submitted to this dispatcher. This
-  /// will Terminate the task with a State of: Canceled
+  /// will Terminate the task with a State of: Canceled. If a task is being
+  /// Queued or executing, cancel_task will only mean sending a cancel req to
+  /// the respective FA. The fleet adapter will need to send a cancel status
   ///
   /// \param [in] task_id
   ///   Task to cancel
@@ -82,7 +85,7 @@ public:
   /// \return true if success
   bool cancel_task(const TaskID& task_id);
 
-  /// check the state of a submited task
+  /// Check the state of a submited task. It can be either active or terminated
   ///
   /// \param [in] task_id
   ///   request task id
@@ -131,6 +134,8 @@ private:
 };
 
 } // namespace dispatcher
+
+
 } // namespace rmf_task_ros2
 
 #endif // RMF_TASK_ROS2__DISPATCHER__NODE_HPP
