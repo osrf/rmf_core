@@ -139,7 +139,7 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink = nullptr;
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink = nullptr;
   std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink = nullptr;
-  const bool drain_battery = true;
+  bool drain_battery = true;
   std::shared_ptr<rmf_task::agv::TaskPlanner> task_planner = nullptr;
   bool initialized_task_planner = false;
 

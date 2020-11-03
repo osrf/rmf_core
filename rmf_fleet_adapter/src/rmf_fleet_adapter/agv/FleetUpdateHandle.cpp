@@ -23,6 +23,7 @@
 #include "../tasks/Loop.hpp"
 
 #include <iostream>
+#include <unordered_map>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -260,12 +261,18 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   std::vector<rmf_task::agv::StateConfig> state_configs;
   std::vector<rmf_task::ConstRequestPtr> pending_requests;
   pending_requests.push_back(new_request);
+  // Map robot index to name for BidProposal
+  std::unordered_map<std::size_t, std::string> robot_name_map;
+  std::size_t index = 0;
   for (const auto& t : task_managers)
   {
     states.push_back(t.second->expected_finish_state());
     state_configs.push_back(t.first->state_config());
     const auto requests = t.second->requests();
     pending_requests.insert(pending_requests.end(), requests.begin(), requests.end());
+
+    robot_name_map.insert({index, t.first->name()});
+    ++index;
   }
 
   RCLCPP_INFO(
@@ -320,15 +327,21 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   bid_proposal.task_profile = task_profile;
   bid_proposal.prev_cost = current_assignment_cost;
   bid_proposal.new_cost = cost;
-  // TODO robot_name
+  index = 0;
   for (const auto& agent : assignments)
   {
     for (const auto& assignment : agent)
     {
       if (std::to_string(assignment.request()->id()) == id)
+      {
         bid_proposal.finish_time = rmf_traffic_ros2::convert(
             assignment.state().finish_time());
+        if (robot_name_map.find(index) != robot_name_map.end())
+          bid_proposal.robot_name = robot_name_map[index];
+        break;
+      }
     }
+    ++index;
   }
   bid_proposal_pub->publish(bid_proposal);
   RCLCPP_INFO(
@@ -617,7 +630,7 @@ std::size_t FleetUpdateHandle::Implementation::get_nearest_charger(
     p = *start.location();
 
   double min_dist = std::numeric_limits<double>::max();
-  std::size_t nearest_charger;
+  std::size_t nearest_charger = 0;
   for (const auto& wp : charging_waypoints)
   {
     const auto loc = graph.get_waypoint(wp).get_location();
@@ -773,6 +786,8 @@ bool FleetUpdateHandle::set_task_planner_params(
     
     _pimpl->task_planner = std::make_shared<rmf_task::agv::TaskPlanner>(
       task_config);
+
+    _pimpl->drain_battery = drain_battery;
     
     _pimpl->initialized_task_planner = true;
 
