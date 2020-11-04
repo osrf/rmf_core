@@ -31,9 +31,13 @@ std::shared_ptr<Task> make_clean(
     const rmf_task::agv::State finish_state)
 {
   rmf_traffic::agv::Planner::Goal clean_goal{request->start_waypoint()};
+  auto end_start = request->location_after_clean(clean_start);
+  rmf_traffic::agv::Planner::Goal end_goal{request->end_waypoint()};
   Task::PendingPhases phases;
   phases.push_back(
         phases::GoToPlace::make(context, std::move(clean_start), clean_goal));
+  phases.push_back(
+        phases::GoToPlace::make(context, std::move(end_start), end_goal));
 
   return Task::make(
     std::to_string(request->id()),

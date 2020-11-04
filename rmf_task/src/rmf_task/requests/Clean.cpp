@@ -215,9 +215,41 @@ rmf_traffic::Time Clean::earliest_start_time() const
   return _pimpl->start_time;
 }
 
+//==============================================================================
 const std::size_t Clean::start_waypoint() const
 {
   return _pimpl->start_waypoint;
+}
+
+//==============================================================================
+const std::size_t Clean::end_waypoint() const
+{
+  return _pimpl->end_waypoint;
+}
+
+//==============================================================================
+rmf_traffic::agv::Planner::Start Clean::location_after_clean(
+    rmf_traffic::agv::Planner::Start start) const
+{
+  if (start.waypoint() == _pimpl->start_waypoint)
+    return start;
+  
+  rmf_traffic::agv::Planner::Goal goal{_pimpl->start_waypoint};
+
+  const auto result = _pimpl->planner->plan(start, goal);
+      // We assume we can always compute a plan
+      const auto& trajectory =
+          result->get_itinerary().back().trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+  const double orientation = trajectory.back().position()[2];
+  
+  rmf_traffic::agv::Planner::Start location_after_clean{
+    finish_time + _pimpl->invariant_duration,
+    _pimpl->start_waypoint,
+    orientation};
+
+  return location_after_clean;
+
 }
 
 //==============================================================================

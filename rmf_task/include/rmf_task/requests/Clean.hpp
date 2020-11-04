@@ -64,6 +64,11 @@ public:
 
   const std::size_t start_waypoint() const;
 
+  const std::size_t end_waypoint() const;
+
+  rmf_traffic::agv::Planner::Start location_after_clean(
+    rmf_traffic::agv::Planner::Start start) const;
+
   class Implementation;
 private:
   Clean();
