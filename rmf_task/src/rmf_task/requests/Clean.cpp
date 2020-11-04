@@ -123,6 +123,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
     initial_state.battery_soc()};
 
   rmf_traffic::Duration variant_duration(0);
+  rmf_traffic::Duration end_duration(0);
 
   const rmf_traffic::Time start_time = initial_state.finish_time();
   double battery_soc = initial_state.battery_soc();
@@ -154,6 +155,13 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
     }
   }
 
+  if (_pimpl->start_waypoint != _pimpl->end_waypoint)
+  {
+    // TODO(YV) Account for battery drain and duration when robot moves from
+    // end of cleaning trajectory to its end_waypoint. We currently define the
+    // end_waypoint near the start_waypoint in the nav graph for minimum error
+  }
+
   const rmf_traffic::Time ideal_start = _pimpl->start_time - variant_duration;
   const rmf_traffic::Time wait_until =
     initial_state.finish_time() > ideal_start ?
@@ -161,7 +169,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
 
   // Factor in invariants
   state.finish_time(
-    wait_until + variant_duration + _pimpl->invariant_duration);
+    wait_until + variant_duration + _pimpl->invariant_duration + end_duration);
 
   if (_pimpl->drain_battery)
   {
