@@ -20,6 +20,9 @@
 
 #include <rmf_traffic/Profile.hpp>
 
+#include <fcl/math/bv/OBBRSS.h>
+#include <fcl/geometry/bvh/BVH_model.h>
+
 namespace rmf_traffic {
 
 //==============================================================================
@@ -30,14 +33,30 @@ public:
   geometry::ConstFinalConvexShapePtr footprint;
   geometry::ConstFinalConvexShapePtr vicinity;
 
+  static const size_t MAX_EXTRA_FOOTPRINT_SHAPES = 2;
+  struct FootprintShapeOffset
+  {
+    geometry::ConstFinalConvexShapePtr shape;
+    Eigen::Vector3d offset;
+  };
+  std::array<FootprintShapeOffset, MAX_EXTRA_FOOTPRINT_SHAPES> 
+    extra_footprint_shapes;
+  uint extra_footprint_count = 0;
+
   static const Implementation& get(const Profile& profile)
   {
     return *profile._pimpl;
   }
 
-  void addFootPrintShape(geometry::ConstFinalConvexShapePtr shape)
+  void addFootPrintShape(geometry::ConstFinalConvexShapePtr shape, Eigen::Vector3d offset)
   {
-    
+    if (extra_footprint_count >= MAX_EXTRA_FOOTPRINT_SHAPES)
+      throw std::runtime_error("Maximum additional footprint shape count reached");
+
+    auto& footprint_shape = extra_footprint_shapes[extra_footprint_count];
+    footprint_shape.shape = std::move(shape);
+    footprint_shape.offset = offset;
+    ++extra_footprint_count;
   }
 };
 

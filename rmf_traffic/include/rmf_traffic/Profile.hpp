@@ -22,6 +22,7 @@
 
 #include <rmf_utils/optional.hpp>
 #include <rmf_utils/impl_ptr.hpp>
+#include <Eigen/Dense>
 
 namespace rmf_traffic {
 
@@ -45,7 +46,14 @@ public:
     geometry::ConstFinalConvexShapePtr vicinity = nullptr);
 
   /// Add shape to the footprint of the participant
-  void addFootPrintShape(geometry::ConstFinalConvexShapePtr shape);
+  ///
+  /// \param[in] shape
+  ///   An estimate of the space that this extra shape occupies.
+  ///
+  /// \param[in] offset
+  ///   Offset to the additional shape, in the robot's coordinate frame
+  ///
+  void addFootPrintShape(geometry::ConstFinalConvexShapePtr shape, Eigen::Vector3d offset);
 
   /// Set the footprint of the participant.
   Profile& footprint(geometry::ConstFinalConvexShapePtr shape);
