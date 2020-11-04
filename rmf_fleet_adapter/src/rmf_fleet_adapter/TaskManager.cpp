@@ -274,6 +274,7 @@ void TaskManager::_begin_next_task()
     {
       msg.task_id = id;
       msg.task_profile.task_id = id;
+      msg.robot_name = _context->name();
       _context->node()->task_summary()->publish(msg);
     },
           [this, id = _active_task->id()](std::exception_ptr e)
