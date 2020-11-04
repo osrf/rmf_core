@@ -136,6 +136,34 @@ if (BUILD_TESTING)
     PRIVATE
       "-DTEST_RESOURCES_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/test/resources/\"")
 
+  add_executable(segfaulter
+    test/segfaulter.cpp
+    test/phases/MockAdapterFixture.cpp
+  )
+  target_link_libraries(segfaulter
+    PRIVATE
+      ${rclcpp_LIBARRIES}
+      rmf_rxcpp
+      ${rmf_task_msgs_LIBRARIES}
+      ${rmf_door_msgs_LIBRARIES}
+      ${rmf_lift_msgs_LIBRARIES}
+      ${rmf_dispenser_msgs_LIBRARIES}
+      ${rmf_ingestor_msgs_LIBRARIES}
+      rmf_fleet_adapter
+      rmf_utils::rmf_utils
+      ${std_msgs_LIBRARIES}
+  )
+  target_include_directories(segfaulter
+    PRIVATE
+      ${rclcpp_INCLUDE_DIRS}
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/rmf_fleet_adapter>
+      ${rmf_task_msgs_INCLUDE_DIRS}
+      ${rmf_door_msgs_INCLUDE_DIRS}
+      ${rmf_lift_msgs_INCLUDE_DIRS}
+      ${rmf_dispenser_msgs_INCLUDE_DIRS}
+      ${rmf_ingestor_msgs_INCLUDE_DIRS}
+      ${std_msgs_INCLUDE_DIRS}
+  )
 endif ()
 
 # -----------------------------------------------------------------------------
