@@ -22,6 +22,7 @@
 #include "StaticMotion.hpp"
 
 #include "DetectConflictInternal.hpp"
+#include <Eigen/Dense>
 
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
 #include <fcl/narrowphase/continuous_collision.h>
@@ -34,6 +35,8 @@
 #endif
 
 #include <unordered_map>
+
+#include "CollisionWithOffsets.cpp"
 
 namespace rmf_traffic {
 
@@ -294,14 +297,41 @@ BoundingProfile get_bounding_profile(
   BoundingBox base_box = get_bounding_box(spline);
 
   const auto& footprint = profile.footprint;
-  const auto f_box = footprint ?
-    adjust_bounding_box(base_box, footprint->get_characteristic_length()) :
+
+  double max_footprint_length = footprint ? 
+    footprint->get_characteristic_length() : 0.0;
+  for (uint i=0; i<profile.extra_footprint_count; ++i)
+  {
+    auto& extra_shape = profile.extra_footprint_shapes[i];
+
+    double dist = extra_shape.offset.norm() + extra_shape.shape->get_characteristic_length();
+    printf("extra: %f\n", dist);
+    if (max_footprint_length < dist)
+      max_footprint_length = dist;
+  }
+  auto f_box = footprint ?
+    adjust_bounding_box(base_box, max_footprint_length) :
     void_box();
 
+  printf("footprint_box\n");
+  std::cout << f_box.min << std::endl;
+  std::cout << f_box.max << std::endl;
+
   const auto& vicinity = profile.vicinity;
-  const auto v_box = vicinity ?
+  auto v_box = vicinity ?
     adjust_bounding_box(base_box, vicinity->get_characteristic_length()) :
     void_box();
+
+  if (v_box.min[0] > f_box.min[0] && v_box.max[0] < f_box.max[0] && 
+    v_box.min[1] > f_box.min[1] && v_box.max[1] < f_box.max[1])
+  {
+    v_box.min = f_box.min;
+    v_box.max = f_box.max;
+  }
+  printf("vicinity_box\n");
+  std::cout << v_box.min << std::endl;
+  std::cout << v_box.max << std::endl;
+  
 
   return BoundingProfile{f_box, v_box};
 }
@@ -371,12 +401,65 @@ FclContinuousCollisionRequest make_fcl_request()
 
 //==============================================================================
 rmf_utils::optional<double> check_collision(
-  const geometry::FinalConvexShape& shape_a,
+  const Profile::Implementation& profile_footprint_a,
   const std::shared_ptr<FclSplineMotion>& motion_a,
   const geometry::FinalConvexShape& shape_b,
   const std::shared_ptr<FclSplineMotion>& motion_b,
   const FclContinuousCollisionRequest& request)
 {
+  motion_a->integrate(0.0);
+  motion_b->integrate(0.0);
+  const auto obj_a = FclContinuousCollisionObject(
+    geometry::FinalConvexShape::Implementation::get_collision(*profile_footprint_a.footprint),
+    motion_a);
+
+  const auto obj_b = FclContinuousCollisionObject(
+    geometry::FinalConvexShape::Implementation::get_collision(shape_b),
+    motion_b);
+
+  FclContinuousCollisionResult result;
+  fcl::collide(&obj_a, &obj_b, request, result);
+
+  if (result.is_collide)
+  {
+    printf("check_collision main shape collided\n");
+    return result.time_of_contact;
+  }
+  
+  fcl::Transform3d identity_tx;
+  identity_tx.setIdentity();
+
+  // go through the extra footprint shapes, offset the spline and do collision checks
+  for (uint i=0; i<profile_footprint_a.extra_footprint_count; ++i)
+  {
+    motion_a->integrate(0.0);
+    motion_b->integrate(0.0);
+    result = FclContinuousCollisionResult();
+    
+    auto& extra_shape = profile_footprint_a.extra_footprint_shapes[i];
+    
+    fcl::Transform3d extra_shape_tx;
+    extra_shape_tx.setIdentity();
+    extra_shape_tx.pretranslate(extra_shape.offset);
+    //std::cout << extra_shape_tx.translation() << std::endl;
+
+    const auto extra_obj = FclContinuousCollisionObject(
+      geometry::FinalConvexShape::Implementation::get_collision(*extra_shape.shape),
+      motion_a);
+
+    rmf_traffic::collide_shapes_with_offset<double>(
+      obj_b.collisionGeometry().get(), motion_b.get(), identity_tx,
+      extra_obj.collisionGeometry().get(), motion_a.get(), extra_shape_tx,
+      result);
+
+    if (result.is_collide)
+    {
+      printf("check_collision extra shape collided, toi: %f\n", result.time_of_contact);
+      return result.time_of_contact;
+    }
+  }
+
+#if 0 //old code
   const auto obj_a = FclContinuousCollisionObject(
     geometry::FinalConvexShape::Implementation::get_collision(shape_a),
     motion_a);
@@ -390,7 +473,7 @@ rmf_utils::optional<double> check_collision(
 
   if (result.is_collide)
     return result.time_of_contact;
-
+#endif
   return rmf_utils::nullopt;
 }
 
@@ -443,6 +526,74 @@ bool check_overlap(
   const Spline& spline_b,
   const Time time)
 {
+  auto check_footprint_vicinity_collision = [](
+    const Profile::Implementation& profile_footprint,
+    Eigen::Vector3d pos_footprint,
+    Eigen::Matrix3d rotation_footprint,
+    const fcl::CollisionObjectd& obj_vicinity) -> bool
+  { 
+    fcl::CollisionRequestd request;
+    fcl::CollisionResultd result;
+
+    // test with main footprint
+    fcl::CollisionObjectd obj_footprint(
+      geometry::FinalConvexShape::Implementation::get_collision(*profile_footprint.footprint),
+      rotation_footprint,
+      fcl::Vector3d(pos_footprint[0], pos_footprint[1], 0.0));
+      
+    if (fcl::collide(&obj_footprint, &obj_vicinity, request, result) > 0)
+    {
+      printf("check_overlap collide\n");
+      return true;
+    }
+
+    auto tx = obj_footprint.getTransform();
+    //std::cout << rotation_footprint << std::endl;
+
+    // go through the extra footprint shapes and do collision checks
+    for (uint i=0; i<profile_footprint.extra_footprint_count; ++i)
+    {
+      auto& extra_shape = profile_footprint.extra_footprint_shapes[i];
+      auto shape_position = tx * extra_shape.offset;
+      //printf("pos: %f %f %f\n", shape_position[0], shape_position[1], shape_position[2]);
+      //auto rot_a = fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
+      fcl::CollisionObjectd obj_extra(
+        geometry::FinalConvexShape::Implementation::get_collision(*extra_shape.shape),
+        rotation_footprint,
+        fcl::Vector3d(shape_position[0], shape_position[1], 0.0));
+
+      if (fcl::collide(&obj_extra, &obj_vicinity, request, result) > 0)
+      {
+        printf("check_overlap collide2 extra shape\n");
+        return true;
+      }
+    }
+    return false;
+  };
+
+  auto pos_a = spline_a.compute_position(time);
+  auto rot_a = fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  fcl::CollisionObjectd obj_a_vicinity(
+    geometry::FinalConvexShape::Implementation::get_collision(*profile_a.vicinity),
+    rot_a, fcl::Vector3d(pos_a[0], pos_a[1], 0.0));
+
+  auto pos_b = spline_b.compute_position(time);
+  auto rot_b = fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  fcl::CollisionObjectd obj_b_vicinity(
+    geometry::FinalConvexShape::Implementation::get_collision(*profile_b.vicinity),
+    rot_b, fcl::Vector3d(pos_b[0], pos_b[1], 0.0));
+
+  bool collide = check_footprint_vicinity_collision(
+    profile_a, pos_a, rot_a, obj_b_vicinity);
+  if (collide)
+    return true;
+
+  collide = check_footprint_vicinity_collision(
+    profile_b, pos_b, rot_b, obj_a_vicinity);
+  if (collide)
+    return true;
+#if 0 //old code
   using ConvexPair = std::array<geometry::ConstFinalConvexShapePtr, 2>;
   // TODO(MXG): If footprint and vicinity are equal, we can probably reduce this
   // to just one check.
@@ -450,7 +601,6 @@ bool check_overlap(
     ConvexPair{profile_a.footprint, profile_b.vicinity},
     ConvexPair{profile_a.vicinity, profile_b.footprint}
   };
-
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
   fcl::CollisionRequestd request;
   fcl::CollisionResultd result;
@@ -460,7 +610,7 @@ bool check_overlap(
     auto pos_b = spline_b.compute_position(time);
     
     auto rot_a = fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
-    auto  rot_b = fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    auto rot_b = fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
 
     fcl::CollisionObjectd obj_a(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
@@ -500,7 +650,8 @@ bool check_overlap(
       return true;
   }
 #endif
-  
+#endif
+  printf("fail\n");
   return false;
 }
 
@@ -545,9 +696,10 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
   // This flag lets us know that we need to test both a's footprint in b's
   // vicinity and b's footprint in a's vicinity.
-  const bool test_complement =
+  /*const bool test_complement =
     (profile_a.vicinity != profile_a.footprint)
-    || (profile_b.vicinity != profile_b.footprint);
+    || (profile_b.vicinity != profile_b.footprint);*/
+  bool test_complement = true;
 
   if (output_conflicts)
     output_conflicts->clear();
@@ -566,6 +718,7 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
     const Time finish_time =
       std::min(spline_a->finish_time(), spline_b->finish_time());
 
+    printf("----\n");
     *motion_a = spline_a->to_fcl(start_time, finish_time);
     *motion_b = spline_b->to_fcl(start_time, finish_time);
 
@@ -574,10 +727,12 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
     if (overlap(bound_a.footprint, bound_b.vicinity))
     {
+      printf("boxes overlap #1 %d %d\n", profile_a.extra_footprint_count, profile_b.extra_footprint_count);
       if (const auto collision = check_collision(
-          *profile_a.footprint, motion_a,
+          profile_a, motion_a,
           *profile_b.vicinity, motion_b, request))
       {
+        printf("sweep overlap #1\n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
@@ -589,10 +744,12 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
     if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
     {
+      printf("boxes overlap #2 \n");
       if (const auto collision = check_collision(
-          *profile_a.vicinity, motion_a,
-          *profile_b.footprint, motion_b, request))
+          profile_b, motion_b,
+          *profile_a.vicinity, motion_a, request))
       {
+        printf("sweep overlap #2 \n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;

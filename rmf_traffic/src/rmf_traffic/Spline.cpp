@@ -21,28 +21,11 @@
 
 namespace rmf_traffic {
 
-namespace {
-
-const double time_tolerance = 1e-4;
-
-//==============================================================================
-Eigen::Matrix4d make_M_inv()
-{
-  Eigen::Matrix4d M;
-  M.block<1, 4>(0, 0) <<  1.0/6.0, 2.0/3.0, 1.0/6.0, 0.0;
-  M.block<1, 4>(1, 0) << -1.0/2.0, 0.0, 1.0/2.0, 0.0;
-  M.block<1, 4>(2, 0) <<  1.0/2.0, -1.0, 1.0/2.0, 0.0;
-  M.block<1, 4>(3, 0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
-
-  return M.inverse();
-}
-
-//==============================================================================
-double compute_delta_t(const Time& finish_time, const Time& start_time)
-{
-  using Sec64 = std::chrono::duration<double>;
-  return std::chrono::duration_cast<Sec64>(finish_time - start_time).count();
-}
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  using FclVec3 = fcl::Vector3d;
+#else
+  using FclVec3 = fcl::Vec3f;
+#endif
 
 //==============================================================================
 std::array<Eigen::Vector4d, 3> compute_coefficients(
@@ -64,6 +47,64 @@ std::array<Eigen::Vector4d, 3> compute_coefficients(
   }
 
   return coeffs;
+}
+
+//==============================================================================
+Eigen::Matrix4d make_M_inv()
+{
+  Eigen::Matrix4d M;
+  M.block<1, 4>(0, 0) <<  1.0/6.0, 2.0/3.0, 1.0/6.0, 0.0;
+  M.block<1, 4>(1, 0) << -1.0/2.0, 0.0, 1.0/2.0, 0.0;
+  M.block<1, 4>(2, 0) <<  1.0/2.0, -1.0, 1.0/2.0, 0.0;
+  M.block<1, 4>(3, 0) << -1.0/6.0, 1.0/2.0, -1.0/2.0, 1.0/6.0;
+
+  return M.inverse();
+}
+
+//==============================================================================
+const Eigen::Matrix4d M_inv = make_M_inv();
+
+FclSplineMotion to_fcl(
+  const Eigen::Vector3d& x0,
+  const Eigen::Vector3d& x1,
+  const Eigen::Vector3d& v0,
+  const Eigen::Vector3d& v1)
+{
+  const std::array<Eigen::Vector4d, 3> subspline_coeffs =
+    compute_coefficients(x0, x1, v0, v1);
+
+  std::array<Eigen::Vector3d, 4> knots;
+  for (std::size_t i = 0; i < 3; ++i)
+  {
+    const Eigen::Vector4d p = M_inv * subspline_coeffs[i];
+    for (int j = 0; j < 4; ++j)
+      knots[j][i] = p[j];
+  }
+
+  std::array<FclVec3, 4> Td;
+  std::array<FclVec3, 4> Rd;
+
+  for (std::size_t i = 0; i < 4; ++i)
+  {
+    const Eigen::Vector3d p = knots[i];
+    Td[i] = FclVec3(p[0], p[1], 0.0);
+    Rd[i] = FclVec3(0.0, 0.0, p[2]);
+  }
+
+  return FclSplineMotion(
+    Td[0], Td[1], Td[2], Td[3],
+    Rd[0], Rd[1], Rd[2], Rd[3]);
+}
+
+namespace {
+
+const double time_tolerance = 1e-4;
+
+//==============================================================================
+double compute_delta_t(const Time& finish_time, const Time& start_time)
+{
+  using Sec64 = std::chrono::duration<double>;
+  return std::chrono::duration_cast<Sec64>(finish_time - start_time).count();
 }
 
 //==============================================================================
@@ -202,9 +243,6 @@ Eigen::Vector3d compute_acceleration(
 } // anonymous namespace
 
 //==============================================================================
-const Eigen::Matrix4d M_inv = make_M_inv();
-
-//==============================================================================
 Spline::Spline(const Trajectory::const_iterator& it)
 : params(compute_parameters(it))
 {
@@ -240,6 +278,7 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
   const Eigen::Vector3d v1 =
     scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_finish_time);
 
+  printf("x0: %f %f %f x1: %f %f %f\n", x0[0], x0[1], x0[2], x1[0], x1[1], x1[2]);
   const std::array<Eigen::Vector4d, 3> subspline_coeffs =
     compute_coefficients(x0, x1, v0, v1);
 
@@ -247,6 +286,7 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
   for (std::size_t i = 0; i < 3; ++i)
   {
     const Eigen::Vector4d p = M_inv * subspline_coeffs[i];
+    printf("p: %f %f %f %f\n", p[0], p[1], p[2], p[3]);
     for (int j = 0; j < 4; ++j)
       result[j][i] = p[j];
   }
@@ -258,13 +298,14 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
 FclSplineMotion Spline::to_fcl(
   const Time start_time, const Time finish_time) const
 {
-#ifdef RMF_TRAFFIC__USING_FCL_0_6
-  using FclVec3 = fcl::Vector3d;
-#else
-  using FclVec3 = fcl::Vec3f;
-#endif
   std::array<Eigen::Vector3d, 4> knots = compute_knots(start_time, finish_time);
+  return to_fcl(knots);
+}
 
+//==============================================================================
+FclSplineMotion Spline::to_fcl(
+  const std::array<Eigen::Vector3d, 4>& knots) const
+{
   std::array<FclVec3, 4> Td;
   std::array<FclVec3, 4> Rd;
 

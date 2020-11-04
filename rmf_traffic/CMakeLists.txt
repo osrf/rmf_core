@@ -50,7 +50,8 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
   file(GLOB_RECURSE unit_test_srcs "test/*.cpp")
 
   ament_add_catch2(
-    test_rmf_traffic test/main.cpp ${unit_test_srcs}
+    #test_rmf_traffic test/main.cpp ${unit_test_srcs}
+    test_rmf_traffic test/main.cpp "test/unit/test_Conflict.cpp"
     TIMEOUT 300)
   target_link_libraries(test_rmf_traffic
       rmf_traffic

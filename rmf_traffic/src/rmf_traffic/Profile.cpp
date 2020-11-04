@@ -32,9 +32,9 @@ Profile::Profile(
   // Do nothing
 }
 
-void Profile::addFootPrintShape(geometry::ConstFinalConvexShapePtr shape)
+void Profile::addFootPrintShape(geometry::ConstFinalConvexShapePtr shape, Eigen::Vector3d offset)
 {
-  _pimpl->addFootPrintShape(shape);
+  _pimpl->addFootPrintShape(shape, offset);
 }
 
 //==============================================================================
