@@ -61,7 +61,7 @@ public:
   /// task planner
   void set_queue(const std::vector<Assignment>& assignments);
 
-  /// Get the non-charging requests for pending tasks
+  /// Get the non-charging requests among pending tasks
   const std::vector<rmf_task::ConstRequestPtr> requests() const;
 
   // Callback for timer which begins next task if its deployment time has passed

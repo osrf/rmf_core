@@ -92,6 +92,7 @@ void TaskManager::queue_task(std::shared_ptr<Task> task, Start expected_finish)
     msg.task_id = _queue.back()->id();
     msg.task_profile.task_id = _queue.back()->id();
     msg.state = msg.STATE_QUEUED;
+    msg.robot_name = _context->name();
     this->_context->node()->task_summary()->publish(msg);
   }
 }
@@ -170,6 +171,7 @@ void TaskManager::set_queue(
       msg.task_id = _queue.back()->id();
       msg.task_profile.task_id = _queue.back()->id();
       msg.state = msg.STATE_QUEUED;
+      msg.robot_name = _context->name();
       this->_context->node()->task_summary()->publish(msg);
     }
 
@@ -192,6 +194,7 @@ void TaskManager::set_queue(
       msg.task_id = _queue.back()->id();
       msg.task_profile.task_id = _queue.back()->id();
       msg.state = msg.STATE_QUEUED;
+      msg.robot_name = _context->name();
       this->_context->node()->task_summary()->publish(msg);    }
 
     else if (const auto request =
@@ -287,6 +290,7 @@ void TaskManager::_begin_next_task()
 
       msg.task_id = id;
       msg.task_profile.task_id = id;
+      msg.robot_name = _context->name();
       _context->node()->task_summary()->publish(msg);
       // _begin_next_task();
     },
@@ -296,6 +300,7 @@ void TaskManager::_begin_next_task()
       msg.task_id = id;
       msg.task_profile.task_id = id;
       msg.state = msg.STATE_COMPLETED;
+      msg.robot_name = _context->name();
       this->_context->node()->task_summary()->publish(msg);
 
       _active_task = nullptr;
