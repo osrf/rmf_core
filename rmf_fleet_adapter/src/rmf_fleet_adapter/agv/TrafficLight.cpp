@@ -103,11 +103,8 @@ public:
       rmf_traffic::agv::Plan new_plan,
       std::shared_ptr<rmf_traffic::agv::Planner> new_planner);
 
-  void update_location(
-      std::size_t version,
+  void update_location(std::size_t version,
       const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
-      const std::size_t starting_from,
-      const std::size_t search_up_to,
       Eigen::Vector3d location,
       std::size_t path_index);
 
@@ -433,20 +430,18 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
   const rmf_traffic::Time now,
   const rmf_traffic::agv::VehicleTraits& traits,
   const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
-  const std::size_t starting_from,
-  const std::size_t search_up_to,
   const Eigen::Vector3d& location)
 {
   const Eigen::Vector2d p = location.block<2,1>(0,0);
 
-  assert(plan_target < waypoints.size());
+  assert(waypoints.size() > 1);
 
-  const std::size_t N = search_up_to - starting_from;
-  for (std::size_t i=0; i < N; ++i)
+  const std::size_t N = waypoints.size();
+  for (std::size_t i=1; i < waypoints.size(); ++i)
   {
-    const auto index = search_up_to - i;
-    const auto& wp0 = waypoints[index-1];
-    const auto& wp1 = waypoints[index];
+    const auto index = N - i;
+    const auto& wp0 = waypoints.at(index-1);
+    const auto& wp1 = waypoints.at(index);
 
     const auto gi_0 = wp0.graph_index();
     const auto gi_1 = wp1.graph_index();
@@ -659,8 +654,6 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
 void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     const std::size_t version,
     const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
-    const std::size_t starting_from,
-    const std::size_t search_up_to,
     const Eigen::Vector3d location,
     const std::size_t path_index)
 {
@@ -670,8 +663,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
         [w = weak_from_this(),
          version,
          waypoints,
-         starting_from,
-         search_up_to,
          location,
          now,
          path_index](const auto&)
@@ -688,7 +679,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
 
     assert(path_index < data->arrival_timing.size());
     const auto expected_time = interpolate_time(
-          now, data->traits, waypoints, starting_from, search_up_to, location);
+          now, data->traits, waypoints, location);
 
     if (expected_time)
     {
@@ -800,25 +791,77 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
   if (reservation_id != blockade.id())
     return;
 
-  const auto reserved = [&](const std::size_t plan_index) -> bool
+  const auto in_range = [&](
+      const std::size_t plan_index,
+      const std::size_t end_path_index) -> bool
   {
-    if (pending_waypoints[plan_index].graph_index().value() < new_range.end)
-      return true;
+    if (plan_index < pending_waypoints.size())
+      return false;
 
-    return false;
+    return pending_waypoints.at(plan_index)
+        .graph_index().value() < end_path_index;
   };
 
   std::vector<CommandHandle::Checkpoint> checkpoints;
-  for (std::size_t i=0; reserved(i); ++i)
+  std::size_t next = 0;
+  while (in_range(next, new_range.end))
   {
-    TODO Finish this
+    const std::size_t current_path_index =
+        pending_waypoints[next].graph_index().value();
+
+    const std::size_t end_path_index = current_path_index + 2;
+    std::size_t end_plan_index = next;
+    while (in_range(end_plan_index, end_path_index))
+      ++end_plan_index;
+
+    std::vector<rmf_traffic::agv::Plan::Waypoint> departed_waypoints(
+      pending_waypoints.begin() + next,
+      pending_waypoints.begin() + end_path_index);
+
+    auto departed =
+        [w = weak_from_this(),
+         version = current_version,
+         path_index = current_path_index,
+         waypoints = std::move(departed_waypoints)](Eigen::Vector3d location)
+    {
+      if (const auto data = w.lock())
+        data->update_location(version, waypoints, location, path_index);
+    };
+
+    assert(!departed_waypoints.empty());
+    checkpoints.emplace_back(
+          CommandHandle::Checkpoint{
+            current_path_index,
+            departure_timing.at(current_path_index),
+            std::move(departed)
+          });
+
+    while (in_range(next, current_path_index+1))
+      ++next;
   }
 
   if (checkpoints.empty())
     return;
 
+  const auto end_plan_it = [&]()
+      -> std::vector<rmf_traffic::agv::Plan::Waypoint>::const_iterator
+  {
+    auto it = pending_waypoints.begin();
+    while (it != pending_waypoints.end())
+    {
+      const auto check = it++;
+      if (check->graph_index().value() >= new_range.end + 1)
+        return check;
+    }
+
+    return it;
+  }();
+
+  pending_waypoints.erase(pending_waypoints.begin(), end_plan_it);
+
   command->receive_checkpoints(
-        current_version, std::move(checkpoints),
+        current_version,
+        std::move(checkpoints),
         [w = weak_from_this(),
          version = current_version,
          checkpoint_id = new_range.end]()
