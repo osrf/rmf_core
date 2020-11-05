@@ -281,7 +281,7 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
   const Eigen::Vector3d v1 =
     scaled_delta_t * rmf_traffic::compute_velocity(params, scaled_finish_time);
 
-  printf("scaled_time : %f %f scaled_delta_t:%f\n", scaled_start_time, scaled_finish_time, scaled_delta_t);
+  //printf("scaled_time : %f %f scaled_delta_t:%f\n", scaled_start_time, scaled_finish_time, scaled_delta_t);
   printf("x0: %f %f %f x1: %f %f %f\n", x0[0], x0[1], x0[2], x1[0], x1[1], x1[2]);
   printf("v0: %f %f %f v1: %f %f %f\n", v0[0], v0[1], v0[2], v1[0], v1[1], v1[2]);
   const std::array<Eigen::Vector4d, 3> subspline_coeffs =
