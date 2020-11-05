@@ -66,7 +66,7 @@ double PowerSystem::nominal_power() const
 //==============================================================================
 bool PowerSystem::valid() const
 {
-  return !_pimpl->name.empty() && _pimpl->nominal_power > 0.0;
+  return !_pimpl->name.empty() && _pimpl->nominal_power >= 0.0;
 }
 
 
