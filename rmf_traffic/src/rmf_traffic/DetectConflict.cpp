@@ -305,7 +305,6 @@ BoundingProfile get_bounding_profile(
     auto& extra_shape = profile.extra_footprint_shapes[i];
 
     double dist = extra_shape.offset.norm() + extra_shape.shape->get_characteristic_length();
-    printf("extra: %f\n", dist);
     if (max_footprint_length < dist)
       max_footprint_length = dist;
   }
@@ -313,9 +312,9 @@ BoundingProfile get_bounding_profile(
     adjust_bounding_box(base_box, max_footprint_length) :
     void_box();
 
-  printf("footprint_box\n");
-  std::cout << f_box.min << std::endl;
-  std::cout << f_box.max << std::endl;
+  // printf("footprint_box\n");
+  // std::cout << f_box.min << std::endl;
+  // std::cout << f_box.max << std::endl;
 
   const auto& vicinity = profile.vicinity;
   auto v_box = vicinity ?
@@ -328,9 +327,9 @@ BoundingProfile get_bounding_profile(
     v_box.min = f_box.min;
     v_box.max = f_box.max;
   }
-  printf("vicinity_box\n");
-  std::cout << v_box.min << std::endl;
-  std::cout << v_box.max << std::endl;
+  // printf("vicinity_box\n");
+  // std::cout << v_box.min << std::endl;
+  // std::cout << v_box.max << std::endl;
   
 
   return BoundingProfile{f_box, v_box};

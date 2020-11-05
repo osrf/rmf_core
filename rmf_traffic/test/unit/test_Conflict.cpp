@@ -44,13 +44,13 @@ SCENARIO("DetectConflict unit tests")
     const auto circle_shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Circle>(0.5);
     const auto circle_shape_ex = rmf_traffic::geometry::make_final_convex<
-      rmf_traffic::geometry::Circle>(1);
+      rmf_traffic::geometry::Circle>(0.6);
 
     rmf_traffic::Profile profile_circle { circle_shape };
 
     rmf_traffic::Profile profile_circle_with_circle_offset { circle_shape };
     profile_circle_with_circle_offset.addFootPrintShape(
-      circle_shape_ex, Eigen::Vector3d(0, -1, 0));
+      circle_shape_ex, Eigen::Vector3d(0, -1.0, 0));
     //profile.addVicinityShape(circle_shape, offset);
 
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
@@ -58,14 +58,14 @@ SCENARIO("DetectConflict unit tests")
     Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
     rmf_traffic::Trajectory t1;
     t1.insert(time, pos, vel);
-    t1.insert(time + 10s, pos, vel);
+    t1.insert(time + 1s, pos, vel);
 
     WHEN("t2's additional footprint collision geometry is overlapping stationary trajectory t1")
     {
       {
         rmf_traffic::Trajectory t2;
         t2.insert(time, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, 0, 0));
-        t2.insert(time + 10s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 0, 0));
+        t2.insert(time + 1s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 0, 0));
 
         CHECK(rmf_traffic::DetectConflict::between(
           profile_circle, t1, profile_circle_with_circle_offset, t2));
@@ -74,26 +74,26 @@ SCENARIO("DetectConflict unit tests")
       {
         rmf_traffic::Trajectory t2;
         t2.insert(time, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 0, 0));
-        t2.insert(time + 10s, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, 0, 0));
+        t2.insert(time + 1s, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, 0, 0));
 
         CHECK(rmf_traffic::DetectConflict::between(
           profile_circle, t1, profile_circle_with_circle_offset, t2));
       }
 
-      // {
-      //   rmf_traffic::Trajectory t2;
-      //   t2.insert(time, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(-2, 0, 0));
-      //   t2.insert(time + 10s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(2, 0, 0));
+      {
+        rmf_traffic::Trajectory t2;
+        t2.insert(time, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, -2, 0));
+        t2.insert(time + 1s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 2, 0));
 
-      //   CHECK(rmf_traffic::DetectConflict::between(profile_circle, t1, profile_circle_with_circle_offset, t2));
-      // }
+        CHECK(rmf_traffic::DetectConflict::between(profile_circle, t1, profile_circle_with_circle_offset, t2));
+      }
     }
     
   }
 
-
+#if 0 //rotation
   GIVEN(
-    "Stationary Robot with Sidecar Rotation")
+    "Stationary Robot with Sidecar Rotation vs Stationary Robot")
   {
     const auto box_shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(1.0, 1.f);
@@ -111,17 +111,18 @@ SCENARIO("DetectConflict unit tests")
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     rmf_traffic::Trajectory t1;
     t1.insert(time, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0));
-    t1.insert(time + 10s, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0));
+    t1.insert(time + 1s, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0));
 
     rmf_traffic::Trajectory t2;
     t2.insert(time, Eigen::Vector3d(-2, 0, 0), Eigen::Vector3d(0, 0, 0));
-    t2.insert(time + 10s, Eigen::Vector3d(-2, 0, EIGEN_PI), Eigen::Vector3d(0, 0, 0));
+    t2.insert(time + 1s, Eigen::Vector3d(-2, 0, EIGEN_PI), Eigen::Vector3d(0, 0, 0));
 
     CHECK(rmf_traffic::DetectConflict::between(profile_a, t1, profile_b, t2));
   }
-#if 0
+#endif
+#if 0 //
   GIVEN(
-    "sc2")
+    "Rotation scenarios featuring a robot with an extra side represented by a circle vs a stationary robot")
   {
     const auto box_shape = rmf_traffic::geometry::make_final_convex<
       rmf_traffic::geometry::Box>(1.0, 1.f);
@@ -150,7 +151,7 @@ SCENARIO("DetectConflict unit tests")
       CHECK(rmf_traffic::DetectConflict::between(profile_a, t1, profile_b, t2));
     }
 
-    WHEN("v2")
+    /*WHEN("v2")
     {
       rmf_traffic::Profile profile_b { box_shape };
       profile_b.addFootPrintShape(circle_shape, Eigen::Vector3d(1, 0, 0));
@@ -168,10 +169,10 @@ SCENARIO("DetectConflict unit tests")
       t2.insert(time + 10s, Eigen::Vector3d(-2.5, 0, 0), Eigen::Vector3d(0, 0, 0));
 
       CHECK(rmf_traffic::DetectConflict::between(profile_a, t1, profile_b, t2));
-    }
+    }*/
   }
 #endif
-#if 0
+#if 0 //disabled for isolation
   GIVEN(
     "A 2-point trajectory t1 with unit square box profile (stationary robot)")
   {
