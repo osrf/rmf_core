@@ -9,6 +9,9 @@
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/schedule/Snapshot.hpp>
 
+#include <rmf_task/agv/State.hpp>
+#include <rmf_task/agv/StateConfig.hpp>
+
 #include <rclcpp/node.hpp>
 
 #include <rmf_rxcpp/Publisher.hpp>
@@ -112,6 +115,25 @@ public:
       const TableViewerPtr& table_viewer,
       const ResponderPtr& responder) final;
 
+  /// Set the state of this robot
+  RobotContext& state(const rmf_task::agv::State& state);
+
+  /// Get a mutable reference to the state of this robot
+  rmf_task::agv::State& state();
+
+  /// Get the state config of this robot 
+  const rmf_task::agv::StateConfig state_config() const;
+
+  /// Get the current battery state of charge
+  double current_battery_soc() const;
+
+  /// Set the current battery state of charge. Note: This function also
+  /// publishes the battery soc via _battery_soc_publisher. 
+  RobotContext& current_battery_soc(const double battery_soc);
+
+  // Get a reference to the battery soc observer of this robot.
+  const rxcpp::observable<double>& observe_battery_soc() const;
+
 private:
   friend class FleetUpdateHandle;
   friend class RobotUpdateHandle;
@@ -124,7 +146,9 @@ private:
     std::shared_ptr<const rmf_traffic::agv::Planner> planner,
     std::shared_ptr<Node> node,
     const rxcpp::schedulers::worker& worker,
-    rmf_utils::optional<rmf_traffic::Duration> maximum_delay);
+    rmf_utils::optional<rmf_traffic::Duration> maximum_delay,
+    rmf_task::agv::State state,
+    rmf_task::agv::StateConfig state_config);
 
   std::weak_ptr<RobotCommandHandle> _command_handle;
   std::vector<rmf_traffic::agv::Plan::Start> _location;
@@ -144,6 +168,13 @@ private:
   std::string _requester_id;
 
   rmf_traffic::schedule::Negotiator* _negotiator = nullptr;
+
+  /// Always call the current_battery_soc() setter to set a new value
+  double _current_battery_soc;
+  rxcpp::subjects::subject<double> _battery_soc_publisher;
+  rxcpp::observable<double> _battery_soc_obs;
+  rmf_task::agv::State _state;
+  rmf_task::agv::StateConfig _state_config;
 };
 
 using RobotContextPtr = std::shared_ptr<RobotContext>;

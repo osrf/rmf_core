@@ -54,8 +54,8 @@ public:
   virtual ~Request() = default;
 };
 
-using RequestPtr = std::shared_ptr<rmf_task::Request>;
-using ConstRequestPtr = std::shared_ptr<const rmf_task::Request>;
+using RequestPtr = std::shared_ptr<Request>;
+using ConstRequestPtr = std::shared_ptr<const Request>;
 
 } // namespace rmf_task
 

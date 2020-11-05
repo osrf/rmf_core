@@ -150,7 +150,7 @@ SCENARIO("Grid World")
       rmf_task::agv::StateConfig{0.2}
     };
 
-    std::vector<rmf_task::Request::SharedPtr> requests =
+    std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
         1,
@@ -198,7 +198,7 @@ SCENARIO("Grid World")
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-    
+
     display_solution("Greedy", greedy_assignments, greedy_cost);
     display_solution("Optimal", optimal_assignments, optimal_cost);
 
@@ -225,7 +225,7 @@ SCENARIO("Grid World")
       rmf_task::agv::StateConfig{0.2}
     };
 
-    std::vector<rmf_task::Request::SharedPtr> requests =
+    std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
         1,
@@ -353,7 +353,7 @@ SCENARIO("Grid World")
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-  
+
     display_solution("Greedy", greedy_assignments, greedy_cost);
     display_solution("Optimal", optimal_assignments, optimal_cost);
 

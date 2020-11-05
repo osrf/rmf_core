@@ -105,11 +105,11 @@ double SimpleMotionPowerSink::compute_change_in_charge(
   {
     const Eigen::Vector3d velocity = motion->compute_velocity(sim_time);
     const double v = sqrt(pow(velocity[0], 2) + pow(velocity[1], 2));
-    const double w = velocity[2];
+    const double w = std::abs(velocity[2]);
 
     const Eigen::Vector3d acceleration = motion->compute_acceleration(sim_time);
     const double a = sqrt(pow(acceleration[0], 2) + pow(acceleration[1], 2));
-    const double alpha = acceleration[2];
+    const double alpha = std::abs(acceleration[2]);
 
     // Loss through acceleration
     const double EA = ((mass * a * v) + (inertia * alpha * w)) * sim_step;

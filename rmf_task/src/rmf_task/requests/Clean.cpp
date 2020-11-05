@@ -46,7 +46,7 @@ public:
 };
 
 //==============================================================================
-rmf_task::Request::SharedPtr Clean::make(
+rmf_task::ConstRequestPtr Clean::make(
   std::size_t id,
   std::size_t start_waypoint,
   std::size_t end_waypoint,
@@ -89,8 +89,9 @@ rmf_task::Request::SharedPtr Clean::make(
     const double dSOC_cleaning =
       clean->_pimpl->cleaning_sink->compute_change_in_charge(
         rmf_traffic::time::to_seconds(clean->_pimpl->invariant_duration));
+
     clean->_pimpl->invariant_battery_drain = dSOC_motion + dSOC_ambient +
-      dSOC_cleaning;  
+      dSOC_cleaning;
   }
 
   return clean;
@@ -122,6 +123,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
     initial_state.battery_soc()};
 
   rmf_traffic::Duration variant_duration(0);
+  rmf_traffic::Duration end_duration(0);
 
   const rmf_traffic::Time start_time = initial_state.finish_time();
   double battery_soc = initial_state.battery_soc();
@@ -130,15 +132,10 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
 
   if (initial_state.waypoint() != _pimpl->start_waypoint)
   {
-    // Compute plan to cleaning start waypoint along with battery drain
-    rmf_traffic::agv::Planner::Start start{
-      start_time,
-      initial_state.waypoint(),
-      0.0};
-
     rmf_traffic::agv::Planner::Goal goal{_pimpl->start_waypoint};
 
-    const auto result_to_start = _pimpl->planner->plan(start, goal);
+    const auto result_to_start = _pimpl->planner->plan(
+      initial_state.location(), goal);
     // We assume we can always compute a plan
     const auto& trajectory =
       result_to_start->get_itinerary().back().trajectory();
@@ -153,10 +150,16 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
         _pimpl->ambient_sink->compute_change_in_charge(
           rmf_traffic::time::to_seconds(variant_duration));
       battery_soc = battery_soc - dSOC_motion - dSOC_ambient;
-
       if (battery_soc <= state_config.threshold_soc())
         return rmf_utils::nullopt;
     }
+  }
+
+  if (_pimpl->start_waypoint != _pimpl->end_waypoint)
+  {
+    // TODO(YV) Account for battery drain and duration when robot moves from
+    // end of cleaning trajectory to its end_waypoint. We currently define the
+    // end_waypoint near the start_waypoint in the nav graph for minimum error
   }
 
   const rmf_traffic::Time ideal_start = _pimpl->start_time - variant_duration;
@@ -166,7 +169,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
 
   // Factor in invariants
   state.finish_time(
-    wait_until + variant_duration + _pimpl->invariant_duration);
+    wait_until + variant_duration + _pimpl->invariant_duration + end_duration);
 
   if (_pimpl->drain_battery)
   {
@@ -218,6 +221,43 @@ rmf_traffic::Duration Clean::invariant_duration() const
 rmf_traffic::Time Clean::earliest_start_time() const
 {
   return _pimpl->start_time;
+}
+
+//==============================================================================
+const std::size_t Clean::start_waypoint() const
+{
+  return _pimpl->start_waypoint;
+}
+
+//==============================================================================
+const std::size_t Clean::end_waypoint() const
+{
+  return _pimpl->end_waypoint;
+}
+
+//==============================================================================
+rmf_traffic::agv::Planner::Start Clean::location_after_clean(
+    rmf_traffic::agv::Planner::Start start) const
+{
+  if (start.waypoint() == _pimpl->start_waypoint)
+    return start;
+  
+  rmf_traffic::agv::Planner::Goal goal{_pimpl->start_waypoint};
+
+  const auto result = _pimpl->planner->plan(start, goal);
+      // We assume we can always compute a plan
+      const auto& trajectory =
+          result->get_itinerary().back().trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+  const double orientation = trajectory.back().position()[2];
+  
+  rmf_traffic::agv::Planner::Start location_after_clean{
+    finish_time + _pimpl->invariant_duration,
+    _pimpl->start_waypoint,
+    orientation};
+
+  return location_after_clean;
+
 }
 
 //==============================================================================

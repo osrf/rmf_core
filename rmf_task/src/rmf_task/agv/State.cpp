@@ -37,7 +37,7 @@ public:
   {
     if (_battery_soc < 0.0 || _battery_soc > 1.0)
       throw std::invalid_argument(
-        "Battery State of Charge needs be between 0.0 and 1.0.");
+        "Battery State of Charge needs to be between 0.0 and 1.0.");
   }
 
   rmf_traffic::agv::Plan::Start _location;

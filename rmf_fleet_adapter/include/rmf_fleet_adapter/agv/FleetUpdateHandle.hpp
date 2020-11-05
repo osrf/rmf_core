@@ -22,6 +22,11 @@
 #include <rmf_fleet_adapter/agv/RobotCommandHandle.hpp>
 
 #include <rmf_task_msgs/msg/delivery.hpp>
+#include <rmf_task_msgs/msg/task_profile.hpp>
+
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/DevicePowerSink.hpp>
+#include <rmf_battery/MotionPowerSink.hpp>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -63,6 +68,64 @@ public:
       rmf_traffic::agv::Plan::StartSet start,
       std::function<void(std::shared_ptr<RobotUpdateHandle> handle)> handle_cb);
 
+  /// Set the parameters required for task planning
+  ///
+  /// \param[in] battery_system
+  ///   Specify the battery system used by the vehicles in this fleet.
+  ///
+  /// \param[in] motion_sink
+  ///   Specify the motion sink that describes the vehicles in this fleet.
+  ///
+  /// \param[in] ambient_sink
+  ///   Specify the device sink for ambient sensors used by the vehicles in this fleet.
+  ///
+  /// \param[in] tool_sink
+  ///   Specify the device sink for special tools used by the vehicles in this fleet.
+  ///
+  /// \param[in] drain_battery
+  ///   If false, battery drain will not be considered when planning for tasks.
+  ///   As a consequence, charging tasks will not be automatically assigned to
+  ///   vehicles in this fleet when battery levels fall below their thresholds.
+  ///
+  /// \return true if task planner parameters were successfully updated.
+  bool set_task_planner_params(
+    std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
+    const bool drain_battery);
+
+
+  /// Set the threshold state of charge below which the robot should 
+  /// automatically head back to its charging dock. The user is responsible to 
+  /// set this value such that the robot is capable of reaching its nearest
+  /// charging station from anywhere on the map. Default value is 0.2.
+  ///
+  /// \param[in] threshold
+  ///   The fraction of the total battery capacity
+  FleetUpdateHandle& set_recharge_threshold(const double threshold);
+
+  /// A callback function that evaluates whether a fleet will accept a task
+  /// request
+  ///
+  /// \param[in] request
+  ///   Information about the task request that is being considered.
+  ///
+  /// \return true to indicate that this fleet should accept the request, false
+  /// to reject the request.
+  using AcceptTaskRequest =
+      std::function<bool(const rmf_task_msgs::msg::TaskProfile& profile)>;
+
+  /// Provide a callback that indicates whether this fleet will accept a
+  /// BidNotice request. By default all requests will be rejected.
+  ///
+  /// \note The callback function that you give should ideally be non-blocking
+  /// and return quickly. It's meant to check whether this fleet's vehicles are
+  /// compatible with the requested payload, pickup, and dropoff behavior
+  /// settings. The path planning feasibility will be taken care of by the
+  /// adapter internally.
+  FleetUpdateHandle& accept_task_requests(AcceptTaskRequest check);
+
   /// A callback function that evaluates whether a fleet will accept a delivery
   /// request.
   ///
@@ -71,6 +134,9 @@ public:
   ///
   /// \return true to indicate that this fleet should accept the request, false
   /// to reject the request.
+  ///
+  /// \note This interface will be deprecated. Use the more general
+  ///   AcceptTaskRequest callback
   using AcceptDeliveryRequest =
       std::function<bool(const rmf_task_msgs::msg::Delivery& request)>;
 

@@ -163,6 +163,22 @@ void RobotUpdateHandle::update_position(
 }
 
 //==============================================================================
+void RobotUpdateHandle::update_battery_soc(const double battery_soc)
+{
+  if (battery_soc < 0.0 || battery_soc > 1.0)
+    return;
+
+  if (const auto context = _pimpl->get_context())
+  {
+    context->worker().schedule(
+          [context, battery_soc](const auto&)
+    {
+      context->current_battery_soc(battery_soc);
+    });
+  }
+}
+
+//==============================================================================
 RobotUpdateHandle& RobotUpdateHandle::maximum_delay(
     rmf_utils::optional<rmf_traffic::Duration> value)
 {
