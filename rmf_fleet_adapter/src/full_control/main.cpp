@@ -577,27 +577,27 @@ std::shared_ptr<Connections> make_fleet(
   std::unordered_set<uint8_t> task_types;
   if (node->declare_parameter<bool>("perform_loop", false))
   {
-    task_types.insert(rmf_task_msgs::msg::TaskType::LOOP_TASK);
+    task_types.insert(rmf_task_msgs::msg::TaskType::TYPE_LOOP);
   }
 
   // If the perform_deliveries parameter is true, then we just blindly accept
   // all delivery requests.
   if (node->declare_parameter<bool>("perform_deliveries", false))
   {
-    task_types.insert(rmf_task_msgs::msg::TaskType::DELIVERY_TASK);
+    task_types.insert(rmf_task_msgs::msg::TaskType::TYPE_DELIVERY);
     connections->fleet->accept_delivery_requests(
           [](const rmf_task_msgs::msg::Delivery&){ return true; });
   }
 
   if (node->declare_parameter<bool>("perform_cleaning", false))
   {
-    task_types.insert(rmf_task_msgs::msg::TaskType::CLEANING_TASK);
+    task_types.insert(rmf_task_msgs::msg::TaskType::TYPE_CLEAN);
   }
 
   connections->fleet->accept_task_requests(
     [task_types](const rmf_task_msgs::msg::TaskProfile& msg)
     {
-      if (task_types.find(msg.type.value) != task_types.end())
+      if (task_types.find(msg.task_type.type) != task_types.end())
         return true;
       
       return false;

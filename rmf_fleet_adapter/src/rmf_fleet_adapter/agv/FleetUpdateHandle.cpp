@@ -132,27 +132,27 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   // Determine task type and convert to request pointer
   rmf_task::ConstRequestPtr new_request = nullptr;
   const auto& task_profile = msg->task_profile;
-  const auto& task_type = task_profile.type;
+  const auto& task_type = task_profile.task_type;
   const rmf_traffic::Time start_time = rmf_traffic_ros2::convert(task_profile.start_time);
   // TODO (YV) get rid of ID field in RequestPtr
   std::string id = msg->task_profile.task_id;
   const auto& graph = planner->get_configuration().graph();
 
   // Process Cleaning task
-  if (task_type.value == rmf_task_msgs::msg::TaskType::CLEANING_TASK)
+  if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_CLEAN)
   {
-    if (task_profile.params.empty())
+    if (task_profile.clean.start_waypoint.empty())
     {
       RCLCPP_INFO(
         node->get_logger(),
-        "Required param [zone] missing in TaskProfile. Rejecting BidNotice "
-        " with task_id:[%s]" , id.c_str());
+        "Required param [clean.start_waypoint] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
 
       return;
     }
 
     // Check for valid start waypoint
-    const std::string start_wp_name = task_profile.params[0].value;
+    const std::string start_wp_name = task_profile.clean.start_waypoint;
     const auto start_wp = graph.find_waypoint(start_wp_name);
     if (!start_wp)
     {
@@ -234,11 +234,11 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       "Generated Clean request");
   }
 
-  else if (task_type.value == rmf_task_msgs::msg::TaskType::DELIVERY_TASK)
+  else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_DELIVERY)
   {
     // TODO(YV)
   }
-  else if (task_type.value == rmf_task_msgs::msg::TaskType::LOOP_TASK)
+  else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_LOOP)
   {
     // TODO(YV)
   }
