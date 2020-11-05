@@ -44,7 +44,7 @@ public:
 };
 
 //==============================================================================
-rmf_task::Request::SharedPtr Delivery::make(
+rmf_task::ConstRequestPtr Delivery::make(
   std::size_t id,
   std::size_t pickup_waypoint,
   std::size_t dropoff_waypoint,

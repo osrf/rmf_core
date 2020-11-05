@@ -48,39 +48,38 @@ int main(int argc, char* argv[])
     {
       RCLCPP_WARN(node->get_logger(), "Submit New Task!!! ");
       // convert
-      rmf_task_ros2::TaskProfileMsg msg;
-      msg.type = request->type;
-      msg.start_time = request->start_time;
-      msg.params = request->params;
+      rmf_task_ros2::TaskProfile task_profile;
+      task_profile.task_type = request->task_type;
+      task_profile.start_time = request->start_time;
+      task_profile.clean = request->clean;
+      task_profile.delivery = request->delivery;
+      task_profile.station = request->station;
 
-      auto task_profile = rmf_task_ros2::convert(msg);
       auto id = dispatcher->submit_task(task_profile);
 
-      // temp hack to change the evaluator here
-      if (task_profile.params.count("evaluator"))
+      switch (request->evaluator)
       {
         using namespace rmf_task_ros2::bidding;
-        auto selected_eval = task_profile.params["evaluator"];
-        if (selected_eval == "lowest_cost")
+        case SubmitTaskSrv::Request::LOWEST_DIFF_COST_EVAL:
         {
-          std::cout << "LOWEST COST is chosen\n";
-          auto eval = std::shared_ptr<LeastFleetCostEvaluator>(
-            new LeastFleetCostEvaluator());
-          dispatcher->evaluator(eval);
-        }
-        else if (selected_eval == "lowest_delta_cost")
-        {
-          std::cout << "LOWEST DELTA COST is chosen\n";
           auto eval = std::shared_ptr<LeastFleetDiffCostEvaluator>(
             new LeastFleetDiffCostEvaluator());
           dispatcher->evaluator(eval);
+          break;
         }
-        else if (selected_eval == "quickest_time")
+        case SubmitTaskSrv::Request::LOWEST_COST_EVAL:
         {
-          std::cout << "QUICKEST TIME is chosen\n";
+          auto eval = std::shared_ptr<LeastFleetCostEvaluator>(
+            new LeastFleetCostEvaluator());
+          dispatcher->evaluator(eval);
+          break;
+        }
+        case SubmitTaskSrv::Request::QUICKEST_FINISH_EVAL:
+        {
           auto eval = std::shared_ptr<QuickestFinishEvaluator>(
             new QuickestFinishEvaluator());
           dispatcher->evaluator(eval);
+          break;
         }
       }
 

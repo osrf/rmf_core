@@ -241,3 +241,56 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
     CHECK(ok);
   }
 }
+
+SCENARIO("Testing Cleaning Request")
+{
+  using BatterySystem = rmf_battery::agv::BatterySystem;
+  using MechanicalSystem = rmf_battery::agv::MechanicalSystem;
+  using PowerSystem = rmf_battery::agv::PowerSystem;
+  using SimpleMotionPowerSink = rmf_battery::agv::SimpleMotionPowerSink;
+  using SimpleDevicePowerSink = rmf_battery::agv::SimpleDevicePowerSink;
+  using namespace std::chrono_literals;
+
+  // Initializing system traits
+  BatterySystem battery_system{24, 40, 8.8};
+  REQUIRE(battery_system.valid());
+  MechanicalSystem mechanical_system{70, 40, 0.22};
+  REQUIRE(mechanical_system.valid());
+  PowerSystem power_system_1{"processor", 20};
+  REQUIRE(power_system_1.valid());
+  SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
+  SimpleDevicePowerSink device_power_sink{battery_system, power_system_1};
+  
+  // Initializing vehicle traits
+  const rmf_traffic::agv::VehicleTraits traits(
+    {0.7, 0.5}, {0.4, 1.0}, {nullptr, nullptr});
+
+  const double initial_soc = 1.0;
+
+  WHEN("Computing invariant drain for zone_3")
+  {
+    const auto start_time = std::chrono::steady_clock::now();
+    const std::vector<Eigen::Vector3d> positions = {
+      Eigen::Vector3d{104.0, -46.92, -M_PI/2.0},
+      Eigen::Vector3d{104.0, -48.55, 0.0},
+      Eigen::Vector3d{159.8, -48.38, M_PI/2.0},
+      Eigen::Vector3d{159.8, -46.73, M_PI},
+      Eigen::Vector3d{105.4, -47.04, M_PI/2.0},
+      Eigen::Vector3d{105.5, -45.37, 0.0},
+      Eigen::Vector3d{159.8, -45.25, 0.0},
+      Eigen::Vector3d{155.0, -46.79, -M_PI/2.0},
+    };
+    rmf_traffic::Trajectory trajectory =
+      rmf_traffic::agv::Interpolate::positions(traits, start_time, positions);
+
+    const double dSOC_motion = motion_power_sink.compute_change_in_charge(
+      trajectory);
+    const double dSOC_device = device_power_sink.compute_change_in_charge(
+      rmf_traffic::time::to_seconds(trajectory.duration()));
+
+    // std::cout << "Motion: " << dSOC_motion << "Device: " << dSOC_device << std::endl;
+
+    const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
+    REQUIRE(remaining_soc <= 1.0);
+  }
+}

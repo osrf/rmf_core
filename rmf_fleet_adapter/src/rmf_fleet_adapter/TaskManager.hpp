@@ -23,6 +23,10 @@
 
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include <rmf_task/agv/TaskPlanner.hpp>
+
+#include <mutex>
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -39,17 +43,32 @@ public:
 
   using Start = rmf_traffic::agv::Plan::Start;
   using StartSet = rmf_traffic::agv::Plan::StartSet;
+  using Assignment = rmf_task::agv::TaskPlanner::Assignment;
+  using State = rmf_task::agv::State;
 
   /// Add a task to the queue of this manager.
   void queue_task(std::shared_ptr<Task> task, Start expected_finish);
 
   /// The location where we expect this robot to be at the end of its current
-  /// task queue.
+  /// task queue
   StartSet expected_finish_location() const;
 
   const agv::RobotContextPtr& context();
 
   agv::ConstRobotContextPtr context() const;
+
+  /// Set the queue for this task manager with assignments generated from the
+  /// task planner
+  void set_queue(const std::vector<Assignment>& assignments);
+
+  /// Get the non-charging requests among pending tasks
+  const std::vector<rmf_task::ConstRequestPtr> requests() const;
+
+  // Callback for timer which begins next task if its deployment time has passed
+  void _begin_next_task();
+
+  // The state of the robot.
+  State expected_finish_state() const;
 
 private:
 
@@ -62,7 +81,10 @@ private:
   rxcpp::subscription _task_sub;
   rxcpp::subscription _emergency_sub;
 
-  void _begin_next_task();
+  std::mutex _mutex;
+  rclcpp::TimerBase::SharedPtr _timer;
+
+  void clear_queue();
 };
 
 using TaskManagerPtr = std::shared_ptr<TaskManager>;

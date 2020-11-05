@@ -20,7 +20,6 @@
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
-#include <rmf_task_ros2/TaskProfile.hpp>
 
 #include <rmf_task_msgs/msg/bid_notice.hpp>
 #include <rmf_task_msgs/msg/bid_proposal.hpp>
@@ -31,6 +30,7 @@ namespace bidding {
 //==============================================================================
 using BidNotice = rmf_task_msgs::msg::BidNotice;
 using BidProposal = rmf_task_msgs::msg::BidProposal;
+using TaskID = std::string;
 
 //==============================================================================
 struct Submission

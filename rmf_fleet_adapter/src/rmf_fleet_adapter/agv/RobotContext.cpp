@@ -214,6 +214,47 @@ RobotContext& RobotContext::maximum_delay(
 }
 
 //==============================================================================
+rmf_task::agv::State& RobotContext::state()
+{
+  return _state;
+}
+
+//==============================================================================
+RobotContext& RobotContext::state(
+    const rmf_task::agv::State& state)
+{
+  _state = state;
+  return *this;
+}
+
+//==============================================================================
+const rmf_task::agv::StateConfig RobotContext::state_config() const
+{
+  return _state_config;
+}
+
+//==============================================================================
+double RobotContext::current_battery_soc() const
+{
+  return _current_battery_soc;
+}
+
+RobotContext& RobotContext::current_battery_soc(const double battery_soc)
+{
+  _current_battery_soc = battery_soc;
+  _battery_soc_publisher.get_subscriber().on_next(battery_soc);
+  
+  return *this;
+}
+
+//==============================================================================
+const rxcpp::observable<double>& RobotContext::observe_battery_soc() const
+{
+  return _battery_soc_obs;
+}
+
+
+//==============================================================================
 void RobotContext::respond(
     const TableViewerPtr& table_viewer,
     const ResponderPtr& responder)
@@ -241,7 +282,9 @@ RobotContext::RobotContext(
   std::shared_ptr<const rmf_traffic::agv::Planner> planner,
   std::shared_ptr<rmf_fleet_adapter::agv::Node> node,
   const rxcpp::schedulers::worker& worker,
-  rmf_utils::optional<rmf_traffic::Duration> maximum_delay)
+  rmf_utils::optional<rmf_traffic::Duration> maximum_delay,
+  rmf_task::agv::State state,
+  rmf_task::agv::StateConfig state_config)
   : _command_handle(std::move(command_handle)),
     _location(std::move(_initial_location)),
     _itinerary(std::move(itinerary)),
@@ -251,12 +294,16 @@ RobotContext::RobotContext(
     _worker(worker),
     _maximum_delay(maximum_delay),
     _requester_id(
-      _itinerary.description().owner() + "/" + _itinerary.description().name())
+      _itinerary.description().owner() + "/" + _itinerary.description().name()),
+    _state(state),
+    _state_config(state_config)
 {
   _profile = std::make_shared<rmf_traffic::Profile>(
         _itinerary.description().profile());
 
   _interrupt_obs = _interrupt_publisher.get_observable();
+
+  _battery_soc_obs = _battery_soc_publisher.get_observable();
 }
 
 } // namespace agv

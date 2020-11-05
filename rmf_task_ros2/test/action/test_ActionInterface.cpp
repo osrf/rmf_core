@@ -28,13 +28,18 @@ namespace rmf_task_ros2 {
 namespace action {
 
 //==============================================================================
-auto task_time = std::chrono::steady_clock::now();
-TaskProfile task_profile1{"task1", task_time, TaskType::Station };
-TaskProfile task_profile2{"task2", task_time, TaskType::Station };
-
-//==============================================================================
 SCENARIO("Action communication with client and server", "[ActionInterface]")
 {
+  TaskProfile task_profile1;
+  task_profile1.task_id = "task1";
+  task_profile1.task_type.type = TaskType::TYPE_STATION;
+
+  TaskProfile task_profile2;
+  task_profile2.task_id = "task2";
+  task_profile2.task_type.type = TaskType::TYPE_STATION;
+
+//==============================================================================
+
   // received task to test
   rmf_utils::optional<TaskProfile> test_add_task;
   rmf_utils::optional<TaskProfile> test_cancel_task;

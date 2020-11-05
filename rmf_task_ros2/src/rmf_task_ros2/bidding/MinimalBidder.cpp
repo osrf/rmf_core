@@ -62,11 +62,10 @@ public:
               << msg.task_profile.task_id << std::endl;
 
     // check if tasktype is supported by this F.A
-    auto req_type = static_cast<TaskType>(msg.task_profile.type.value);
-    if (!profile.valid_tasks.count(req_type))
+    if (!profile.valid_tasks.count(msg.task_profile.task_type.type))
     {
       std::cout << profile.fleet_name << ": task type "
-                << msg.task_profile.type.value << " is invalid" << std::endl;
+                << msg.task_profile.task_type.type << " is invalid" << std::endl;
       return;
     }
 

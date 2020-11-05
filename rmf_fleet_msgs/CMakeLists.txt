@@ -25,6 +25,9 @@ set(msg_files
   "msg/DestinationRequest.msg"
   "msg/PathRequest.msg"
   "msg/ModeParameter.msg"
+  "msg/DockParameter.msg"
+  "msg/Dock.msg"
+  "msg/DockSummary.msg"
 )
 
 # set(srv_files

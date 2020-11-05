@@ -6,11 +6,22 @@ string requester
 # Desired start time of a task
 builtin_interfaces/Time start_time
 
-# e.g. Delivery, Station.....
-TaskType type
+# Task type
+TaskType task_type
 
-# Params
-BehaviorParameter[] params
+# Task definitions
+Station station
+Loop loop
+Delivery delivery
+# Charge charge
+Clean clean
+# Patrol patrol
+
+# fleet selection evaluator
+uint8 evaluator
+uint8 LOWEST_DIFF_COST_EVAL=0
+uint8 LOWEST_COST_EVAL=1
+uint8 QUICKEST_FINISH_EVAL=2
 
 ---
 

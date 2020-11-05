@@ -30,14 +30,17 @@
 namespace rmf_task_ros2 {
 namespace dispatcher {
 
-// //==============================================================================
-auto task_time = std::chrono::steady_clock::now();
-TaskProfile task_profile1{"placenholder_id", task_time, TaskType::Station };
-TaskProfile task_profile2{"placenholder_id", task_time, TaskType::Cleaning };
+// ==============================================================================
+TaskProfile task_profile1;
+TaskProfile task_profile2;
 
 //==============================================================================
 SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 {
+  task_profile1.task_type.type = TaskType::TYPE_STATION;
+  task_profile2.task_type.type = TaskType::TYPE_CLEAN;
+
+//==============================================================================
   rclcpp::shutdown(); // todo: temp hack
   auto dispatcher = Dispatcher::init_and_make("test_dispatcher_node");
 
@@ -92,7 +95,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Failed);
     REQUIRE(dispatcher->terminated_tasks()->size() == 1);
-    REQUIRE(test_taskprofile == task_profile1);
+    REQUIRE(test_taskprofile.task_id == task_profile1.task_id);
     REQUIRE(change_times == 2); // add and failed
 
     // Submit another task
@@ -100,14 +103,14 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     task_profile2.task_id = id;
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     REQUIRE(dispatcher->terminated_tasks()->size() == 2);
-    REQUIRE(test_taskprofile == task_profile2);
+    REQUIRE(test_taskprofile.task_id == task_profile2.task_id);
     REQUIRE(change_times == 4); // add and failed x2
   }
 
 //==============================================================================
   // setup a mock bidder to test
   bidding::MinimalBidder::Profile profile{
-    "dummy_fleet", { TaskType::Station, TaskType::Cleaning}};
+    "dummy_fleet", { TaskType::TYPE_STATION, TaskType::TYPE_CLEAN}};
 
   auto node = dispatcher->node();
   auto bidder = bidding::MinimalBidder::make(node, profile);

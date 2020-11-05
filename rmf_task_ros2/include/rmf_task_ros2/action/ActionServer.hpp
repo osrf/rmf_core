@@ -21,7 +21,7 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/TaskProfile.hpp>
+#include <rmf_task_ros2/TaskStatus.hpp>
 #include <rmf_traffic/Time.hpp>
 
 
@@ -80,9 +80,9 @@ private:
     std::shared_ptr<rclcpp::Node> node,
     const std::string& fleet_name);
 
-  void add_task_impl(const TaskProfileMsg& task_profile);
+  void add_task_impl(const TaskProfile& task_profile);
 
-  void cancel_task_impl(const TaskProfileMsg& task_profile);
+  void cancel_task_impl(const TaskProfile& task_profile);
 };
 
 //==============================================================================
@@ -154,7 +154,7 @@ TaskActionServer<RequestMsg, StatusMsg>::TaskActionServer(
 //==============================================================================
 template<typename RequestMsg, typename StatusMsg>
 void TaskActionServer<RequestMsg, StatusMsg>::add_task_impl(
-  const TaskProfileMsg& task_profile)
+  const TaskProfile& task_profile)
 {
   StatusMsg status_msg;
   status_msg.task_profile = task_profile;
@@ -163,7 +163,7 @@ void TaskActionServer<RequestMsg, StatusMsg>::add_task_impl(
   if (!_add_task_cb_fn)
     return;
 
-  if (_add_task_cb_fn(convert(task_profile)))
+  if (_add_task_cb_fn(task_profile))
     status_msg.state = (uint8_t)TaskStatus::State::Queued;
   else
     status_msg.state = (uint8_t)TaskStatus::State::Failed;
@@ -174,7 +174,7 @@ void TaskActionServer<RequestMsg, StatusMsg>::add_task_impl(
 //==============================================================================
 template<typename RequestMsg, typename StatusMsg>
 void TaskActionServer<RequestMsg, StatusMsg>::cancel_task_impl(
-  const TaskProfileMsg& task_profile)
+  const TaskProfile& task_profile)
 {
   StatusMsg status_msg;
   status_msg.task_profile = task_profile;
@@ -183,7 +183,7 @@ void TaskActionServer<RequestMsg, StatusMsg>::cancel_task_impl(
   if (!_cancel_task_cb_fn)
     return;
 
-  if (_cancel_task_cb_fn(convert(task_profile)))
+  if (_cancel_task_cb_fn(task_profile))
     status_msg.state = (uint8_t)TaskStatus::State::Canceled;
   else
     status_msg.state = (uint8_t)TaskStatus::State::Failed;

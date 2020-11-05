@@ -24,7 +24,6 @@
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/TaskProfile.hpp>
 #include <rmf_task_ros2/bidding/Bidding.hpp>
 
 namespace rmf_task_ros2 {
@@ -39,7 +38,7 @@ public:
   struct Profile
   {
     std::string fleet_name;
-    std::set<TaskType> valid_tasks;
+    std::set<uint32_t> valid_tasks;
   };
 
   /// Create a bidder to bid for incoming task requests from Task Dispatcher

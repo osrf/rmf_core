@@ -26,20 +26,19 @@
 namespace rmf_task_ros2 {
 namespace bidding {
 
+using TaskType = rmf_task_msgs::msg::TaskType;
+using TaskProfile = rmf_task_msgs::msg::TaskProfile;
+
 //==============================================================================
 MinimalBidder::Profile bidder1_profile {
-  "bidder1", { TaskType::Station, TaskType::Delivery }
+  "bidder1", { TaskType::TYPE_STATION, TaskType::TYPE_DELIVERY }
 };
 MinimalBidder::Profile bidder2_profile {
-  "bidder2", { TaskType::Delivery, TaskType::Cleaning }
+  "bidder2", { TaskType::TYPE_DELIVERY, TaskType::TYPE_CLEAN }
 };
 
-rmf_traffic::Time default_time;
 BidNotice bidding_task1;
-TaskProfile task_profile1 { "bid1", default_time, TaskType::Station};
-
 BidNotice bidding_task2;
-TaskProfile task_profile2 { "bid2", default_time, TaskType::Delivery };
 
 // set time window to 2s
 auto timeout = rmf_traffic_ros2::convert(rmf_traffic::time::from_seconds(2.0));
@@ -48,11 +47,15 @@ auto timeout = rmf_traffic_ros2::convert(rmf_traffic::time::from_seconds(2.0));
 SCENARIO("Auction with 2 Bids", "[TwoBids]")
 {
   // Initializing bidding task
-  bidding_task1.task_profile = convert(task_profile1);
+  bidding_task1.task_profile.task_id = "bid1";
+  bidding_task1.task_profile.task_type.type = TaskType::TYPE_STATION;
   bidding_task1.time_window = timeout;
-  bidding_task2.task_profile = convert(task_profile2);
+  
+  bidding_task2.task_profile.task_id = "bid2";
+  bidding_task2.task_profile.task_type.type = TaskType::TYPE_DELIVERY;
   bidding_task2.time_window = timeout;
 
+//==============================================================================
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_selfbidding");
@@ -73,7 +76,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     [&test_notice_bidder1](const BidNotice& notice)
     {
       Submission best_robot_estimate;
-      test_notice_bidder1 = convert(notice.task_profile);
+      test_notice_bidder1 = notice.task_profile;
       return best_robot_estimate;
     }
   );
@@ -83,7 +86,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
       // TaskType should not be supported
       Submission best_robot_estimate;
       best_robot_estimate.new_cost = 2.3; // lower cost than bidder1
-      test_notice_bidder2 = convert(notice.task_profile);
+      test_notice_bidder2 = notice.task_profile;
       return best_robot_estimate;
     }
   );
@@ -102,9 +105,6 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   // ROS Spin: forever incompleted future
   std::promise<void> ready_promise;
   std::shared_future<void> ready_future(ready_promise.get_future());
-  // replacement of this method --->
-  // std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-  // executor.spin_some();
 
   WHEN("First 'Station' Task Bid")
   {
@@ -117,7 +117,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
 
     // Check if bidder 1 & 2 receive BidNotice1
     REQUIRE(test_notice_bidder1);
-    REQUIRE(*test_notice_bidder1 == convert(bidding_task1.task_profile));
+    REQUIRE(test_notice_bidder1->task_id == bidding_task1.task_profile.task_id);
     REQUIRE(!test_notice_bidder2); // bidder2 doesnt support tasktype
 
     executor.spin_until_future_complete(ready_future,
@@ -138,9 +138,9 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
       rmf_traffic::time::from_seconds(1.0));
 
     // Check if bidder 1 & 2 receive BidNotice2
-    auto task2_profile = convert(bidding_task2.task_profile);
-    REQUIRE(*test_notice_bidder1 == task2_profile);
-    REQUIRE(*test_notice_bidder2 == task2_profile);
+    auto task2_profile = bidding_task2.task_profile;
+    REQUIRE(test_notice_bidder1->task_id == task2_profile.task_id);
+    REQUIRE(test_notice_bidder2->task_id == task2_profile.task_id);
 
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(2.5));

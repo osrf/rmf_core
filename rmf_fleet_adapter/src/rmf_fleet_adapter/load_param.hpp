@@ -20,6 +20,9 @@
 
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/agv/MechanicalSystem.hpp>
+
 #include <rclcpp/node.hpp>
 
 #include <chrono>
@@ -59,6 +62,19 @@ rmf_traffic::agv::VehicleTraits get_traits_or_default(
   const double default_v_nom, const double default_w_nom,
   const double default_a_nom, const double default_alpha_nom,
   const double default_r_f, const double default_r_v);
+
+//==============================================================================
+rmf_battery::agv::BatterySystem get_battery_system(
+  rclcpp::Node& node,
+  const double default_voltage,
+  const double default_capacity,
+  const double default_charging_current);
+
+rmf_battery::agv::MechanicalSystem get_mechanical_system(
+  rclcpp::Node& node,
+  const double default_mass,
+  const double default_inertia,
+  const double default_friction);
 
 } // namespace rmf_fleet_adapter
 

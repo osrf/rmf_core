@@ -25,53 +25,18 @@
 #include <rmf_task_msgs/msg/task_profile.hpp>
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
 #include <rmf_task_msgs/msg/task_summary.hpp>
-// #include <rmf_task_msgs/msg/dispatch_status.hpp>
 
 namespace rmf_task_ros2 {
 
 //==============================================================================
-using TaskProfileMsg = rmf_task_msgs::msg::TaskProfile;
-using TaskTypeMsg = rmf_task_msgs::msg::TaskType;
+using TaskProfile = rmf_task_msgs::msg::TaskProfile;
+using TaskType = rmf_task_msgs::msg::TaskType;
 using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
 using StatusMsg = rmf_task_msgs::msg::TaskSummary;
 using TaskID = std::string;
 
 //==============================================================================
-enum class TaskType
-{
-  Station     = TaskTypeMsg::STATION_TASK,
-  Loop        = TaskTypeMsg::LOOP_TASK,
-  Delivery    = TaskTypeMsg::DELIVERY_TASK,
-  Charging    = TaskTypeMsg::CHARGING_TASK,
-  Cleaning    = TaskTypeMsg::CLEANING_TASK,
-  Patrol      = TaskTypeMsg::PATROL_TASK
-};
-
-//==============================================================================
-struct TaskProfile
-{
-  using TaskParams = std::unordered_map<std::string, std::string>;
-
-  TaskID task_id;
-  rmf_traffic::Time submission_time;
-  TaskType task_type;
-  rmf_traffic::Time start_time;
-  TaskParams params;
-
-  bool operator==(const TaskProfile& tsk) const
-  {
-    return this->task_id == tsk.task_id;
-    // && (this->task_type == tsk.task_type);
-  }
-
-  bool operator<(const TaskProfile& tsk) const
-  {
-    return this->task_id < tsk.task_id;
-  }
-};
-
-//==============================================================================
-// replication of TaskSummary / DispatchStatus
+// replication of TaskSummary / aka DispatchStatus
 struct TaskStatus
 {
   enum class State : uint8_t
@@ -101,12 +66,6 @@ struct TaskStatus
 };
 
 using TaskStatusPtr = std::shared_ptr<TaskStatus>;
-
-//==============================================================================
-TaskProfile convert(const TaskProfileMsg& from);
-
-//==============================================================================
-TaskProfileMsg convert(const TaskProfile& from);
 
 // ==============================================================================
 TaskStatus convert(const StatusMsg& from);

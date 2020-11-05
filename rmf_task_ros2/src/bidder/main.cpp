@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 
   bidding::MinimalBidder::Profile profile{
     "dummy_fleet",
-    { TaskType::Station, TaskType::Cleaning, TaskType::Delivery }
+    { TaskType::TYPE_CLEAN, TaskType::TYPE_DELIVERY }
   };
 
   //============================================================================

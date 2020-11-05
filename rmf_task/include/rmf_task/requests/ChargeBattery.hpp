@@ -38,7 +38,7 @@ class ChargeBattery : public rmf_task::Request
 {
 public:
 
-  static rmf_task::Request::SharedPtr make(
+  static ConstRequestPtr make(
     rmf_battery::agv::BatterySystem battery_system,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
@@ -56,13 +56,16 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  const rmf_battery::agv::BatterySystem& battery_system() const;
+
   class Implementation;
 private:
   ChargeBattery();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using ChargeBatteryPtr = std::shared_ptr<ChargeBattery>;
+using ChargeBatteryRequestPtr = std::shared_ptr<ChargeBattery>;
+using ConstChargeBatteryRequestPtr = std::shared_ptr<const ChargeBattery>;
 
 } // namespace requests
 } // namespace rmf_task

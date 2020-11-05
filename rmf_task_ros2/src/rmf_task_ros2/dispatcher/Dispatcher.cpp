@@ -69,10 +69,10 @@ public:
     submitted_task.task_id =
       // "task" + std::to_string((int)task.task_type)
       //   + "-" + std::to_string((int)(node->now().seconds()));
-      std::to_string((int)task.task_type) + "00" +
+      std::to_string((int)task.task_type.type) + "00" +
       std::to_string((i++));
 
-    submitted_task.submission_time = rmf_traffic_ros2::convert(node->now());
+    submitted_task.submission_time = node->now();
 
     // add task to internal cache
     TaskStatus status;
@@ -84,7 +84,7 @@ public:
       on_change_fn(new_task_status);
 
     bidding::BidNotice bid_notice;
-    bid_notice.task_profile = convert(submitted_task);
+    bid_notice.task_profile = submitted_task;
     bid_notice.time_window = rmf_traffic_ros2::convert(
       rmf_traffic::time::from_seconds(bidding_time_window));
     auctioneer->start_bidding(bid_notice);

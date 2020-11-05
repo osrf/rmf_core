@@ -21,7 +21,7 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/TaskProfile.hpp>
+#include <rmf_task_ros2/TaskStatus.hpp>
 #include <rmf_traffic/Time.hpp>
 
 namespace rmf_task_ros2 {
@@ -100,7 +100,7 @@ private:
 
   // Task Tracker
   using TaskStatusWeakPtr = std::weak_ptr<TaskStatus>;
-  std::map<TaskProfile, TaskStatusWeakPtr> _active_task_status;
+  std::map<TaskID, TaskStatusWeakPtr> _active_task_status;
 
   // Private Constructor
   TaskActionClient(std::shared_ptr<rclcpp::Node> node);
@@ -131,17 +131,16 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
     TaskStatusTopicName, dispatch_qos,
     [&](const std::unique_ptr<StatusMsg> msg)
     {
-      auto task_profile = convert(msg->task_profile);
-
+      auto task_id = msg->task_profile.task_id;
       // status update mode
-      if (_active_task_status.count(task_profile))
+      if (_active_task_status.count(task_id))
       {
-        auto weak_status = _active_task_status[task_profile].lock();
+        auto weak_status = _active_task_status[task_id].lock();
 
         if (!weak_status)
         {
           std::cout << "weak status has expired\n";
-          _active_task_status.erase(task_profile);
+          _active_task_status.erase(task_id);
           return;
         }
 
@@ -157,8 +156,8 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
         if (weak_status->is_terminated())
         {
           std::cout << "[action] Done Terminated Task: "
-                    << task_profile.task_id << std::endl;
-          _active_task_status.erase(task_profile);
+                    << task_id << std::endl;
+          _active_task_status.erase(task_id);
 
           if (_on_terminate_callback)
             _on_terminate_callback(weak_status);
@@ -177,14 +176,14 @@ void TaskActionClient<RequestMsg, StatusMsg>::add_task(
   // send request and wait for acknowledgement
   RequestMsg request_msg;
   request_msg.fleet_name = fleet_name;
-  request_msg.task_profile = convert(task_profile);
+  request_msg.task_profile = task_profile;
   request_msg.method = RequestMsg::ADD;
   _request_msg_pub->publish(request_msg);
 
   // save status ptr
   status_ptr->fleet_name = fleet_name;
   status_ptr->task_profile = task_profile;
-  _active_task_status[task_profile] = status_ptr;
+  _active_task_status[task_profile.task_id] = status_ptr;
   std::cout<< " ~ Add Action Task: "<< task_profile.task_id << std::endl;
 
   return;
@@ -195,28 +194,29 @@ template<typename RequestMsg, typename StatusMsg>
 bool TaskActionClient<RequestMsg, StatusMsg>::cancel_task(
   const TaskProfile& task_profile)
 {
-  std::cout<< " ~ Cancel Active Task: "<< task_profile.task_id << std::endl;
-
+  auto task_id = task_profile.task_id;
+  std::cout<< " ~ Cancel Active Task: "<< task_id << std::endl;
+  
   // check if task is previously added
-  if (!_active_task_status.count(task_profile))
+  if (!_active_task_status.count(task_id))
   {
-    std::cerr << " ~ Not found Task: "<< task_profile.task_id << std::endl;
+    std::cerr << " ~ Not found Task: "<< task_id << std::endl;
     return false;
   }
 
-  auto weak_status = _active_task_status[task_profile].lock();
+  auto weak_status = _active_task_status[task_id].lock();
 
   if (!weak_status)
   {
     std::cerr << "weak status is expired, canceled failed \n";
-    _active_task_status.erase(task_profile);
+    _active_task_status.erase(task_id);
     return false;
   }
 
   // send cancel
   RequestMsg request_msg;
   request_msg.fleet_name = weak_status->fleet_name;
-  request_msg.task_profile = convert(task_profile);
+  request_msg.task_profile = task_profile;
   request_msg.method = RequestMsg::CANCEL;
   _request_msg_pub->publish(request_msg);
   return true;

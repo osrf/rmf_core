@@ -43,7 +43,7 @@ public:
 };
 
 //==============================================================================
-rmf_task::Request::SharedPtr ChargeBattery::make(
+rmf_task::ConstRequestPtr ChargeBattery::make(
   rmf_battery::agv::BatterySystem battery_system,
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
@@ -116,7 +116,7 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
     const auto result = _pimpl->_planner->plan(start, goal);
     const auto& trajectory = result->get_itinerary().back().trajectory();
     const auto& finish_time = *trajectory.finish_time();
-    const rmf_traffic::Duration variant_duration = finish_time - start_time;
+    variant_duration = finish_time - start_time;
 
     if (_pimpl->_drain_battery)
     {
@@ -143,6 +143,7 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
   state.finish_time(
     wait_until + variant_duration +
     rmf_traffic::time::from_seconds(time_to_charge));
+
   state.battery_soc(_pimpl->_charge_soc);
 
   return Estimate(state, wait_until);
@@ -161,5 +162,10 @@ rmf_traffic::Time ChargeBattery::earliest_start_time() const
 }
 
 //==============================================================================
+const rmf_battery::agv::BatterySystem& ChargeBattery::battery_system() const
+{
+  return *_pimpl->_battery_system;
+}
+
 } // namespace requests
 } // namespace rmf_task
