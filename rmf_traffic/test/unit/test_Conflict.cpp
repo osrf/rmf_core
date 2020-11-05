@@ -58,32 +58,32 @@ SCENARIO("DetectConflict unit tests")
     Eigen::Vector3d vel = Eigen::Vector3d(0, 0, 0);
     rmf_traffic::Trajectory t1;
     t1.insert(time, pos, vel);
-    t1.insert(time + 1s, pos, vel);
+    t1.insert(time + 10s, pos, vel);
 
     WHEN("t2's additional footprint collision geometry is overlapping stationary trajectory t1")
     {
-      {
-        rmf_traffic::Trajectory t2;
-        t2.insert(time, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, 0, 0));
-        t2.insert(time + 1s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 0, 0));
+      // {
+      //   rmf_traffic::Trajectory t2;
+      //   t2.insert(time, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, 0, 0));
+      //   t2.insert(time + 1s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 0, 0));
 
-        CHECK(rmf_traffic::DetectConflict::between(
-          profile_circle, t1, profile_circle_with_circle_offset, t2));
-      }
+      //   CHECK(rmf_traffic::DetectConflict::between(
+      //     profile_circle, t1, profile_circle_with_circle_offset, t2));
+      // }
 
-      {
-        rmf_traffic::Trajectory t2;
-        t2.insert(time, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 0, 0));
-        t2.insert(time + 1s, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, 0, 0));
+      // {
+      //   rmf_traffic::Trajectory t2;
+      //   t2.insert(time, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 0, 0));
+      //   t2.insert(time + 1s, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, 0, 0));
 
-        CHECK(rmf_traffic::DetectConflict::between(
-          profile_circle, t1, profile_circle_with_circle_offset, t2));
-      }
+      //   CHECK(rmf_traffic::DetectConflict::between(
+      //     profile_circle, t1, profile_circle_with_circle_offset, t2));
+      // }
 
       {
         rmf_traffic::Trajectory t2;
         t2.insert(time, Eigen::Vector3d(-2, 2, 0), Eigen::Vector3d(0, -2, 0));
-        t2.insert(time + 1s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 2, 0));
+        t2.insert(time + 10s, Eigen::Vector3d(2, 2, 0), Eigen::Vector3d(0, 2, 0));
 
         CHECK(rmf_traffic::DetectConflict::between(profile_circle, t1, profile_circle_with_circle_offset, t2));
       }
