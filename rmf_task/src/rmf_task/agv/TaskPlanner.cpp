@@ -120,18 +120,21 @@ public:
   rmf_task::RequestPtr request;
   State state;
   rmf_traffic::Time deployment_time;
+  bool include_in_cost;
 };
 
 //==============================================================================
 TaskPlanner::Assignment::Assignment(
   rmf_task::RequestPtr request,
   State state,
-  rmf_traffic::Time deployment_time)
+  rmf_traffic::Time deployment_time,
+  bool include_in_cost)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(request),
         std::move(state),
-        deployment_time
+        deployment_time,
+        include_in_cost
       }))
 {
   // Do nothing
@@ -153,6 +156,12 @@ const State& TaskPlanner::Assignment::state() const
 const rmf_traffic::Time& TaskPlanner::Assignment::deployment_time() const
 {
   return _pimpl->deployment_time;
+}
+
+//==============================================================================
+bool TaskPlanner::Assignment::include_in_cost() const
+{
+  return _pimpl->include_in_cost;
 }
 
 //==============================================================================
@@ -411,6 +420,10 @@ struct LowestCostEstimate
 };
 
 //==============================================================================
+// Sorts and distributes tasks among agents based on the earliest finish time
+// possible for each task (i.e. not accounting for any variant costs). Guaranteed
+// to underestimate actual cost when the earliest start times for each task are
+// similar (enforced by the segmentation_threshold).
 class InvariantHeuristicQueue
 {
 public:
@@ -421,21 +434,21 @@ public:
     std::sort(initial_values.begin(), initial_values.end());
 
     for (const auto value : initial_values)
-      _stacks.push_back({{value,-1}});
+      _stacks.push_back({{0, value}});
   }
 
   void add(const double earliest_start_time, const double earliest_finish_time)
   {
-    double prev_end_value = _stacks[0].back().first;
+    double prev_end_value = _stacks[0].back().end;
     double new_end_value = prev_end_value + (earliest_finish_time - earliest_start_time);
-    _stacks[0].push_back(std::make_pair(new_end_value, earliest_start_time));
+    _stacks[0].push_back({earliest_start_time, new_end_value});
 
     // Find the largest stack that is still smaller than the current front
     const auto next_it = _stacks.begin() + 1;
     auto end_it = next_it;
     for (; end_it != _stacks.end(); ++end_it)
     {
-      if (new_end_value <= end_it->back().first)
+      if (new_end_value <= end_it->back().end)
         break;
     }
 
@@ -457,9 +470,9 @@ public:
       // component of h(n)
       for (std::size_t i = 1; i < stack.size(); ++i)
       {
-        // Set lower bound of 0 in case optimistically calculated end time is smaller than
-        // earliest start time
-        total_cost += std::max(0.0, (stack[i].first - stack[i].second));
+        // Set lower bound of 0 to account for case where optimistically calculated
+        // end time is smaller than earliest start time
+        total_cost += std::max(0.0, (stack[i].end - stack[i].start));
       }
     }
 
@@ -467,7 +480,8 @@ public:
   }
 
 private:
-  std::vector<std::vector<std::pair<double,double>>> _stacks;
+  struct element { double start; double end; };
+  std::vector<std::vector<element>> _stacks;
 };
 
 // ============================================================================
@@ -639,6 +653,11 @@ public:
     {
       for (const auto& assignment : agent)
       {
+        if (!assignment.include_in_cost())
+        {
+          continue; // Ignore charging tasks and any others
+        }
+
         cost +=
           rmf_traffic::time::to_seconds(
             assignment.state().finish_time() - assignment.request()->earliest_start_time());
@@ -742,6 +761,7 @@ public:
     std::vector<double> initial_queue_values(
       node.assigned_tasks.size(), 0.0);
 
+    // Determine earliest possible deployment time for each agent
     for(size_t i = 0; i < node.assigned_tasks.size(); ++i)
     {
       if (node.assigned_tasks[i].empty())
@@ -925,7 +945,8 @@ public:
           {
             charge_battery,
             battery_estimate.value().finish_state(),
-            battery_estimate.value().wait_until()
+            battery_estimate.value().wait_until(),
+            false
           });
         for (auto& new_u : new_node->unassigned_tasks)
         {
@@ -994,7 +1015,8 @@ public:
         Assignment{
           charge_battery,
           estimate.value().finish_state(),
-          estimate.value().wait_until()});
+          estimate.value().wait_until(),
+          false});
 
       for (auto& new_u : new_node->unassigned_tasks)
       {
