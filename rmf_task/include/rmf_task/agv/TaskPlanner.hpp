@@ -121,14 +121,10 @@ public:
     ///
     /// \param[in] earliest_start_time
     ///   The earliest time the agent will begin exececuting this task
-    ///
-    /// \param[in] include_in_cost
-    ///   Whether or not to include the cost of this Assignment in the total
     Assignment(
       rmf_task::RequestPtr request,
       State state,
-      rmf_traffic::Time deployment_time,
-      bool include_in_cost = true);
+      rmf_traffic::Time deployment_time);
       
     // Get the request of this task
     rmf_task::RequestPtr request() const;
@@ -139,9 +135,6 @@ public:
     // Get a const reference to the time when the robot begins executing
     // this assignment
     const rmf_traffic::Time& deployment_time() const;
-
-    // Get a value indicating whether to include the cost of this Assigment in the overall cost
-    bool include_in_cost() const;
 
     class Implementation;
   

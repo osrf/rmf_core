@@ -120,21 +120,18 @@ public:
   rmf_task::RequestPtr request;
   State state;
   rmf_traffic::Time deployment_time;
-  bool include_in_cost;
 };
 
 //==============================================================================
 TaskPlanner::Assignment::Assignment(
   rmf_task::RequestPtr request,
   State state,
-  rmf_traffic::Time deployment_time,
-  bool include_in_cost)
+  rmf_traffic::Time deployment_time)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(request),
         std::move(state),
-        deployment_time,
-        include_in_cost
+        deployment_time
       }))
 {
   // Do nothing
@@ -156,12 +153,6 @@ const State& TaskPlanner::Assignment::state() const
 const rmf_traffic::Time& TaskPlanner::Assignment::deployment_time() const
 {
   return _pimpl->deployment_time;
-}
-
-//==============================================================================
-bool TaskPlanner::Assignment::include_in_cost() const
-{
-  return _pimpl->include_in_cost;
 }
 
 //==============================================================================
@@ -653,9 +644,10 @@ public:
     {
       for (const auto& assignment : agent)
       {
-        if (!assignment.include_in_cost())
+        if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+          assignment.request()))
         {
-          continue; // Ignore charging tasks and any others
+          continue; // Ignore charging tasks in cost
         }
 
         cost +=
@@ -945,8 +937,7 @@ public:
           {
             charge_battery,
             battery_estimate.value().finish_state(),
-            battery_estimate.value().wait_until(),
-            false
+            battery_estimate.value().wait_until()
           });
         for (auto& new_u : new_node->unassigned_tasks)
         {
@@ -1015,8 +1006,7 @@ public:
         Assignment{
           charge_battery,
           estimate.value().finish_state(),
-          estimate.value().wait_until(),
-          false});
+          estimate.value().wait_until()});
 
       for (auto& new_u : new_node->unassigned_tasks)
       {
