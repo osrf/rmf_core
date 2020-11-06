@@ -40,9 +40,37 @@
 
 #include <iostream>
 
-bool check_implicit_charging_task_start(
+
+//==============================================================================
+inline bool check_implicit_charging_task_start(
   const rmf_task::agv::TaskPlanner::Assignments& assignments,
-  const double initial_soc);
+  const double initial_soc)
+{
+  bool implicit_charging_task_added = false;
+  for (const auto& agent : assignments)
+  {
+    if (!agent.size())
+    {
+      continue;
+    }
+
+    const auto& s = agent[0].state();
+    auto is_charge_request =
+      std::dynamic_pointer_cast<rmf_task::requests::ChargeBattery>(
+        agent[0].request());
+
+    // No task should consume more charge than (1.0 - initial_soc)
+    // in the current test, so we are guaranted to find any occurrence
+    // of an implicit charging task.
+    if (!is_charge_request && s.battery_soc() > initial_soc)
+    {
+      implicit_charging_task_added = true;
+      break;
+    }
+  }
+
+  return implicit_charging_task_added;
+}
 
 //==============================================================================
 inline void display_solution(
@@ -460,32 +488,4 @@ SCENARIO("Grid World")
     REQUIRE(!implicit_charging_task_added);
   }
 
-}
-
-//==============================================================================
-
-bool check_implicit_charging_task_start(
-  const rmf_task::agv::TaskPlanner::Assignments& assignments,
-  const double initial_soc)
-{
-  bool implicit_charging_task_added = false;
-  for (const auto& agent : assignments)
-  {
-    if (!agent.size())
-    {
-      continue;
-    }
-
-    const auto& s = agent[0].state();
-    // No task should consume more charge than (1.0 - initial_soc)
-    // in the current test, so we are guaranted to find any occurrence
-    // of an implicit charging task.
-    if (s.battery_soc() > initial_soc)
-    {
-      implicit_charging_task_added = true;
-      break;
-    }
-  }
-
-  return implicit_charging_task_added;
 }
