@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rmf_fleet_adapter</name>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
   <description>Fleet Adapter package for RMF fleets.</description>
   <maintainer email="grey@openrobotics.org">Grey</maintainer>
   <maintainer email="aaron@openrobotics.org">Aaron</maintainer>
@@ -13,6 +13,7 @@
   <depend>rclcpp</depend>
   <depend>rmf_utils</depend>
   <depend>rmf_door_msgs</depend>
+  <depend>rmf_ingestor_msgs</depend>
   <depend>rmf_dispenser_msgs</depend>
   <depend>rmf_fleet_msgs</depend>
   <depend>rmf_lift_msgs</depend>

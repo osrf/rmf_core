@@ -41,6 +41,13 @@ std::shared_ptr<RobotContext> RobotUpdateHandle::Implementation::get_context()
 }
 
 //==============================================================================
+std::shared_ptr<const RobotContext>
+RobotUpdateHandle::Implementation::get_context() const
+{
+  return const_cast<Implementation&>(*this).get_context();
+}
+
+//==============================================================================
 void RobotUpdateHandle::interrupted()
 {
   if (const auto context = _pimpl->get_context())
@@ -141,7 +148,7 @@ void RobotUpdateHandle::update_position(
       RCLCPP_ERROR(
             context->node()->get_logger(),
             "[RobotUpdateHandle::update_position] The robot [%s] has diverged "
-            "from its navigation graph, currently located at <%f, %f%, %f> on "
+            "from its navigation graph, currently located at <%f, %f, %f> on "
             "map [%s]", context->requester_id().c_str(),
             position[0], position[1], position[2], map_name.c_str());
       return;
@@ -153,6 +160,32 @@ void RobotUpdateHandle::update_position(
       context->_location = std::move(starts);
     });
   }
+}
+
+//==============================================================================
+RobotUpdateHandle& RobotUpdateHandle::maximum_delay(
+    rmf_utils::optional<rmf_traffic::Duration> value)
+{
+  if (const auto context = _pimpl->get_context())
+  {
+    context->worker().schedule(
+          [context, value](const auto&)
+    {
+      context->maximum_delay(value);
+    });
+  }
+
+  return *this;
+}
+
+//==============================================================================
+rmf_utils::optional<rmf_traffic::Duration>
+RobotUpdateHandle::maximum_delay() const
+{
+  if (const auto context = _pimpl->get_context())
+    return context->maximum_delay();
+
+  return rmf_utils::nullopt;
 }
 
 //==============================================================================

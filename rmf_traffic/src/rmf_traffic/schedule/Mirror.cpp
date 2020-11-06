@@ -258,7 +258,7 @@ rmf_utils::optional<Itinerary> Mirror::get_itinerary(
   for (const auto& s : state.storage)
     itinerary.push_back(s.second.entry->route);
 
-  return std::move(itinerary);
+  return itinerary;
 }
 
 //==============================================================================

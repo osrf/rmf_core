@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-project(rmf_utils)
+project(rmf_utils VERSION 1.1.0)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
@@ -12,8 +12,6 @@ endif()
 
 include(GNUInstallDirs)
 
-find_package(ament_cmake REQUIRED)
-
 add_library(rmf_utils INTERFACE)
 
 target_include_directories(rmf_utils
@@ -22,28 +20,57 @@ target_include_directories(rmf_utils
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-ament_export_interfaces(rmf_utils HAS_LIBRARY_TARGET)
+target_compile_features(rmf_utils INTERFACE cxx_std_17)
 
-install(
-  DIRECTORY include/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+# Create cmake config files
+include(CMakePackageConfigHelpers)
+
+set(INSTALL_CONFIG_DIR "${CMAKE_INSTALL_LIBDIR}/rmf_utils/cmake")
+set(PACKAGE_CONFIG_VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config-version.cmake")
+set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-config.cmake")
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_LIST_DIR}/cmake/rmf_utils-config.cmake.in"
+  ${PACKAGE_CONFIG_FILE}
+  INSTALL_DESTINATION ${INSTALL_CONFIG_DIR}
 )
 
-foreach(module ${extra_cmake_modules})
-  list(APPEND ${PROJECT_NAME}_CONFIG_EXTRAS cmake/${module})
-endforeach()
-
+write_basic_package_version_file(
+  ${PACKAGE_CONFIG_VERSION_FILE}
+  COMPATIBILITY ExactVersion
+)
 
 install(
   TARGETS rmf_utils
-  EXPORT  rmf_utils
+  EXPORT rmf_utils-targets
+  DESTINATION lib
 )
 
 install(
-  FILES test/format/rmf_code_style.cfg
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/format
+  DIRECTORY include/rmf_utils
+  DESTINATION include
 )
 
-add_subdirectory(test/unit)
+install(
+  FILES
+    ${PACKAGE_CONFIG_VERSION_FILE}
+    ${PACKAGE_CONFIG_FILE}
+  DESTINATION ${INSTALL_CONFIG_DIR}
+)
 
-ament_package()
+install(
+  EXPORT rmf_utils-targets
+  FILE rmf_utils-targets.cmake
+  NAMESPACE rmf_utils::
+  DESTINATION ${INSTALL_CONFIG_DIR}
+)
+
+export(
+  EXPORT rmf_utils-targets
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/rmf_utils-targets.cmake
+  NAMESPACE rmf_utils::
+)
+
+export(PACKAGE rmf_utils-targets)
+
+add_subdirectory(test/unit)

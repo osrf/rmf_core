@@ -18,7 +18,7 @@
 #ifndef SRC__RMF_TRAFFIC_SCHEDULE__SCHEDULENODE_HPP
 #define SRC__RMF_TRAFFIC_SCHEDULE__SCHEDULENODE_HPP
 
-#include "../rmf_traffic_ros2/schedule/NegotiationRoom.hpp"
+#include "NegotiationRoom.hpp"
 
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Negotiation.hpp>
@@ -58,14 +58,15 @@
 #include <set>
 #include <unordered_map>
 
-namespace rmf_traffic_schedule {
+namespace rmf_traffic_ros2 {
+namespace schedule {
 
 //==============================================================================
 class ScheduleNode : public rclcpp::Node
 {
 public:
 
-  ScheduleNode();
+  ScheduleNode(const rclcpp::NodeOptions& options);
 
   ~ScheduleNode();
 
@@ -337,19 +338,19 @@ public:
       const auto wait_it = _waiting.find(p);
       if (wait_it == _waiting.end())
       {
-        assert(false);
         // TODO(MXG): We should probably output some warning here using
         // RCLCPP_WARN
         std::cout << "[ScheduleNode::ConflictRecord::acknowledge] We are NOT "
                   << "waiting for an acknowledgment from participant [" << p
-                  << "]" << std::endl;
+                  << "] for negotiation [" << negotiation_version << "]"
+                  << std::endl;
+        assert(false);
         return;
       }
 
       const auto expected_negotiation = wait_it->second.negotiation_version;
       if (expected_negotiation != negotiation_version)
       {
-        assert(false);
         // TODO(MXG): We should probably output some warning here using
         // RCLCPP_WARN
         std::cout << "[ScheduleNode::ConflictRecord::acknowledge] We are "
@@ -357,6 +358,7 @@ public:
                   << p << "] regarding negotiation [" << expected_negotiation
                   << "] but received an acknowledgment for negotiation ["
                   << negotiation_version << "] instead." << std::endl;
+        assert(false);
         return;
       }
 
@@ -395,6 +397,7 @@ public:
   std::mutex active_conflicts_mutex;
 };
 
-} // namespace rmf_traffic_schedule
+} // namespace schedule
+} // namespace rmf_traffic_ros2
 
 #endif // SRC__RMF_TRAFFIC_SCHEDULE__SCHEDULENODE_HPP

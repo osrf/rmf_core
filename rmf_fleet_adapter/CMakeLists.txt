@@ -30,6 +30,7 @@ set(dep_pkgs
   rclcpp
   rmf_utils
   rmf_dispenser_msgs
+  rmf_ingestor_msgs
   rmf_door_msgs
   rmf_fleet_msgs
   rmf_lift_msgs
@@ -60,11 +61,13 @@ target_link_libraries(rmf_fleet_adapter
     yaml-cpp
     ${rmf_fleet_msgs_LIBRARIES}
     ${rclcpp_LIBRARIES}
+    ${rmf_task_msgs_LIBRARIES}
   PRIVATE
     rmf_rxcpp
-    ${rmf_task_msgs_LIBRARIES}
     ${rmf_door_msgs_LIBRARIES}
     ${rmf_lift_msgs_LIBRARIES}
+    ${rmf_dispenser_msgs_LIBRARIES}
+    ${rmf_ingestor_msgs_LIBRARIES}
 )
 
 target_include_directories(rmf_fleet_adapter
@@ -74,10 +77,12 @@ target_include_directories(rmf_fleet_adapter
     ${rmf_traffic_ros2_INCLUDE_DIRS}
     ${rmf_fleet_msgs_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
-  PRIVATE
     ${rmf_task_msgs_INCLUDE_DIRS}
+  PRIVATE
     ${rmf_door_msgs_INCLUDE_DIRS}
     ${rmf_lift_msgs_INCLUDE_DIRS}
+    ${rmf_dispenser_msgs_INCLUDE_DIRS}
+    ${rmf_ingestor_msgs_INCLUDE_DIRS}
 )
 
 if (BUILD_TESTING)
@@ -87,11 +92,13 @@ if (BUILD_TESTING)
   ament_add_catch2(
     rmf_fleet_adapter_test
       test/main.cpp
+      test/adapters/test_TrafficLight.cpp
       test/phases/MockAdapterFixture.cpp
       test/phases/DoorOpenTest.cpp
       test/phases/DoorCloseTest.cpp
       test/phases/RequestLiftTest.cpp
       test/phases/DispenseItemTest.cpp
+      test/phases/IngestItemTest.cpp
       test/phases/test_GoToPlace.cpp
       test/services/test_FindEmergencyPullover.cpp
       test/services/test_FindPath.cpp
@@ -107,7 +114,8 @@ if (BUILD_TESTING)
       ${rmf_task_msgs_INCLUDE_DIRS}
       ${rmf_door_msgs_INCLUDE_DIRS}
       ${rmf_lift_msgs_INCLUDE_DIRS}
-
+      ${rmf_dispenser_msgs_INCLUDE_DIRS}
+      ${rmf_ingestor_msgs_INCLUDE_DIRS}
       ${std_msgs_INCLUDE_DIRS}
   )
   target_link_libraries(rmf_fleet_adapter_test
@@ -117,7 +125,8 @@ if (BUILD_TESTING)
       ${rmf_task_msgs_LIBRARIES}
       ${rmf_door_msgs_LIBRARIES}
       ${rmf_lift_msgs_LIBRARIES}
-
+      ${rmf_dispenser_msgs_LIBRARIES}
+      ${rmf_ingestor_msgs_LIBRARIES}
       rmf_fleet_adapter
       rmf_utils::rmf_utils
       ${std_msgs_LIBRARIES}
@@ -143,28 +152,34 @@ target_link_libraries(read_only
 
 # -----------------------------------------------------------------------------
 
-add_executable(full_control
-  src/full_control/main.cpp
-  src/full_control/estimation.cpp
-)
+add_executable(full_control src/full_control/main.cpp)
 
 target_link_libraries(full_control
   PRIVATE
     rmf_fleet_adapter
-    ${rmf_task_msgs_LIBRARIES}
-    ${rmf_dispenser_msgs_LIBRARIES}
-    ${rmf_door_msgs_LIBRARIES}
-    ${rmf_lift_msgs_LIBRARIES}
-    ${std_msgs_LIBRARIES}
+    ${rmf_fleet_msgs_LIBRARIES}
 )
 
 target_include_directories(full_control
   PRIVATE
+    ${rmf_fleet_msgs_INCLUDE_DIRS}
+)
+
+# -----------------------------------------------------------------------------
+
+add_executable(mock_traffic_light src/mock_traffic_light/main.cpp)
+
+target_link_libraries(mock_traffic_light
+  PRIVATE
+    rmf_fleet_adapter
+    ${rmf_task_msgs_LIBRARIES}
+    ${rmf_fleet_msgs_LIBRARIES}
+)
+
+target_include_directories(mock_traffic_light
+  PRIVATE
     ${rmf_task_msgs_INCLUDE_DIRS}
-    ${rmf_dispenser_msgs_INCLUDE_DIRS}
-    ${rmf_door_msgs_INCLUDE_DIRS}
-    ${rmf_lift_msgs_INCLUDE_DIRS}
-    ${std_msgs_INCLUDE_DIRS}
+    ${rmf_fleet_msgs_INCLUDE_DIRS}
 )
 
 # -----------------------------------------------------------------------------
@@ -280,13 +295,21 @@ target_include_directories(task_aggregator
 
 # -----------------------------------------------------------------------------
 
-ament_export_interfaces(rmf_fleet_adapter HAS_LIBRARY_TARGET)
-ament_export_dependencies(rmf_traffic_ros2)
+ament_export_targets(rmf_fleet_adapter HAS_LIBRARY_TARGET)
+ament_export_dependencies(
+  rmf_traffic_ros2
+  rmf_fleet_msgs
+  rmf_door_msgs
+  rmf_lift_msgs
+  rmf_ingestor_msgs
+  rmf_dispenser_msgs
+)
 
 install(
   TARGETS
     rmf_fleet_adapter
     read_only
+    mock_traffic_light
     full_control
     lift_supervisor
     door_supervisor

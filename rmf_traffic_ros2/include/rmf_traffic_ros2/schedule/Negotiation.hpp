@@ -59,6 +59,57 @@ public:
     std::shared_ptr<const rmf_traffic::schedule::Snappable> viewer,
     std::shared_ptr<Worker> worker = nullptr);
 
+  /// Set the timeout duration for negotiators. If a negotiator does not respond
+  /// within this time limit, then the negotiation will automatically be
+  /// forfeited. This is important to prevent negotiations from getting hung
+  /// forever.
+  Negotiation& timeout_duration(rmf_traffic::Duration duration);
+
+  /// Get the current timeout duration setting.
+  rmf_traffic::Duration timeout_duration() const;
+
+  using TableViewPtr = rmf_traffic::schedule::Negotiation::Table::ViewerPtr;
+  using StatusUpdateCallback =
+    std::function<void (uint64_t conflict_version, TableViewPtr table_view)>;
+  
+  /// Register a callback with this Negotiation manager that triggers
+  /// on negotiation status updates.
+  ///
+  /// \param[in] cb
+  ///   The callback function to be called upon status updates.
+  void on_status_update(StatusUpdateCallback cb);
+
+  using StatusConclusionCallback =
+    std::function<void (uint64_t conflict_version, bool success)>;
+  
+  /// Register a callback with this Negotiation manager that triggers
+  /// on negotiation status conclusions.
+  ///
+  /// \param[in] cb
+  ///   The callback function to be called upon status conclusions.
+  void on_conclusion(StatusConclusionCallback cb);
+
+  /// Get a Negotiation::TableView that provides a view into what participants are
+  /// proposing.
+  ///
+  /// This function does not care about table versioning.
+  /// \param[in] conflict_version
+  ///   The conflict version of the negotiation
+  /// \param[in] sequence
+  ///   The sequence of participant ids. Follows convention of other sequences
+  ///   (ie. The last ParticipantId is the owner of the table)
+  ///
+  /// \return A TableView into what participants are proposing.
+  TableViewPtr table_view(
+    uint64_t conflict_version,
+    const std::vector<rmf_traffic::schedule::ParticipantId>& sequence) const;
+
+  /// Set the number of negotiations to retain.
+  ///
+  /// \param[in] count
+  ///   The number of negotiations to retain
+  void set_retained_history_count(uint count);
+
   /// Register a negotiator with this Negotiation manager.
   ///
   /// \param[in] for_participant

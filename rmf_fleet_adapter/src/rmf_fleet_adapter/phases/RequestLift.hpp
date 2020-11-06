@@ -21,12 +21,19 @@
 #include "../Task.hpp"
 #include "../agv/RobotContext.hpp"
 #include "rmf_fleet_adapter/StandardNames.hpp"
+#include "EndLiftSession.hpp"
 
 namespace rmf_fleet_adapter {
 namespace phases {
 
 struct RequestLift
 {
+  enum class Located
+  {
+    Inside,
+    Outside
+  };
+
   class ActivePhase : public Task::ActivePhase, public std::enable_shared_from_this<ActivePhase>
   {
   public:
@@ -35,7 +42,8 @@ struct RequestLift
       agv::RobotContextPtr context,
       std::string lift_name,
       std::string destination,
-      rmf_traffic::Time expected_finish);
+      rmf_traffic::Time expected_finish,
+      Located located);
 
     const rxcpp::observable<Task::StatusMsg>& observe() const override;
 
@@ -53,15 +61,19 @@ struct RequestLift
     std::string _lift_name;
     std::string _destination;
     rmf_traffic::Time _expected_finish;
+    rxcpp::subjects::behavior<bool> _cancelled = rxcpp::subjects::behavior<bool>(false);
     std::string _description;
     rxcpp::observable<Task::StatusMsg> _obs;
     rclcpp::TimerBase::SharedPtr _timer;
+    std::shared_ptr<EndLiftSession::Active> _lift_end_phase;
+    Located _located;
 
     ActivePhase(
       agv::RobotContextPtr context,
       std::string lift_name,
       std::string destination,
-      rmf_traffic::Time expected_finish);
+      rmf_traffic::Time expected_finish,
+      Located located);
 
     void _init_obs();
 
@@ -78,7 +90,8 @@ struct RequestLift
       agv::RobotContextPtr context,
       std::string lift_name,
       std::string destination,
-      rmf_traffic::Time expected_finish);
+      rmf_traffic::Time expected_finish,
+      Located located);
 
     std::shared_ptr<Task::ActivePhase> begin() override;
 
@@ -91,6 +104,7 @@ struct RequestLift
     std::string _lift_name;
     std::string _destination;
     rmf_traffic::Time _expected_finish;
+    Located _located;
     std::string _description;
   };
 };

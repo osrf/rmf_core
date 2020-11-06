@@ -186,6 +186,21 @@ public:
       /// The sequence of the table that is being viewed.
       const VersionedKeySequence& sequence() const;
 
+      /// Returns true if the table of this viewer is no longer relevant. Unlike
+      /// the other fields of the Viewer, this is not a snapshot of the table's
+      /// state when the Viewer was created; instead this defunct status will
+      /// remain in sync with the state of the source Table.
+      bool defunct() const;
+
+      /// Returns true if the proposal put on this Table has been rejected.
+      bool rejected() const;
+
+      /// Returns true if the proposer for this Table has forfeited.
+      bool forfeited() const;
+
+      /// Return the submission on this Negotiation Table if it has one.
+      const Itinerary* submission() const;
+
       class Implementation;
     private:
       Viewer();

@@ -180,7 +180,7 @@ public:
 
     /// A lift door in the graph which needs to be opened before a robot can
     /// enter a certain lane or closed before the robot can exit the lane.
-    class LiftDoor
+    class LiftSession
     {
     public:
 
@@ -194,7 +194,7 @@ public:
       ///
       /// \param[in] duration
       ///   How long the door takes to open or close.
-      LiftDoor(
+      LiftSession(
         std::string lift_name,
         std::string floor_name,
         Duration duration);
@@ -203,69 +203,29 @@ public:
       const std::string& lift_name() const;
 
       /// Set the name of the lift that the door belongs to
-      LiftDoor& lift_name(std::string name);
+      LiftSession& lift_name(std::string name);
 
       /// Get the name of the floor that this door is on
       const std::string& floor_name() const;
 
       /// Set the name of the floor that this door is on
-      LiftDoor& floor_name(std::string name);
+      LiftSession& floor_name(std::string name);
 
       /// Get an estimate of how long it will take the door to open or close
       Duration duration() const;
 
       /// Set an estimate of how long it will take the door to open or close
-      LiftDoor& duration(Duration duration);
+      LiftSession& duration(Duration duration);
 
       class Implementation;
     private:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
-    class LiftDoorOpen : public LiftDoor { public: using LiftDoor::LiftDoor; };
-    class LiftDoorClose : public LiftDoor { public: using LiftDoor::LiftDoor; };
-
-    class LiftMove
-    {
-    public:
-
-      /// Constructor
-      ///
-      /// \param[in] lift_name
-      ///   Name of the lift that will move.
-      ///
-      /// \param[in] destination_floor_name
-      ///   Name of the floor that will be moved to.
-      ///
-      /// \param[in] duration
-      ///   How long the lift will take to move.
-      LiftMove(
-        std::string lift_name,
-        std::string destination_floor_name,
-        Duration duration);
-
-      /// Get the name of the lift that needs to move
-      const std::string& lift_name() const;
-
-      /// Set the name of the lift that needs to move
-      LiftMove& lift_name(std::string name);
-
-      /// Get the name of the destination floor
-      const std::string& destination_floor() const;
-
-      /// Set the name of the destination floor
-      LiftMove& destination_floor(std::string name);
-
-      /// Get an estimate of how long the move will take
-      Duration duration() const;
-
-      /// Set an estimate for how long the move will take
-      LiftMove& duration(Duration d);
-
-      class Implementation;
-    private:
-      rmf_utils::impl_ptr<Implementation> _pimpl;
-    };
+    class LiftSessionBegin : public LiftSession { public: using LiftSession::LiftSession; };
+    class LiftMove : public LiftSession { public: using LiftSession::LiftSession; };
+    class LiftDoorOpen : public LiftSession { public: using LiftSession::LiftSession; };
+    class LiftSessionEnd : public LiftSession { public: using LiftSession::LiftSession; };
 
     class Dock
     {
@@ -278,7 +238,8 @@ public:
       ///
       /// \param[in]
       ///   How long the robot will take to dock
-      Dock(std::string dock_name,
+      Dock(
+        std::string dock_name,
         Duration duration);
 
       /// Get the name of the dock
@@ -298,6 +259,27 @@ public:
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
+    class Wait
+    {
+    public:
+
+      /// Constructor
+      ///
+      /// \param[in] duration
+      ///   How long the wait will be.
+      Wait(Duration value);
+
+      /// Get how long the wait will be.
+      Duration duration() const;
+
+      /// Set how long the wait will be.
+      Wait& duration(Duration value);
+
+      class Implementation;
+    private:
+      rmf_utils::impl_ptr<Implementation> _pimpl;
+    };
+
     /// A customizable Executor that can carry out actions based on which Event
     /// type is present.
     class Executor
@@ -306,17 +288,21 @@ public:
 
       using DoorOpen = Lane::DoorOpen;
       using DoorClose = Lane::DoorClose;
+      using LiftSessionBegin = Lane::LiftSessionBegin;
       using LiftDoorOpen = Lane::LiftDoorOpen;
-      using LiftDoorClose = Lane::LiftDoorClose;
+      using LiftSessionEnd = Lane::LiftSessionEnd;
       using LiftMove = Lane::LiftMove;
       using Dock = Lane::Dock;
+      using Wait = Lane::Wait;
 
       virtual void execute(const DoorOpen& open) = 0;
       virtual void execute(const DoorClose& close) = 0;
+      virtual void execute(const LiftSessionBegin& begin) = 0;
       virtual void execute(const LiftDoorOpen& open) = 0;
-      virtual void execute(const LiftDoorClose& close) = 0;
+      virtual void execute(const LiftSessionEnd& end) = 0;
       virtual void execute(const LiftMove& move) = 0;
       virtual void execute(const Dock& dock) = 0;
+      virtual void execute(const Wait& wait) = 0;
 
       virtual ~Executor() = default;
     };
@@ -349,10 +335,12 @@ public:
 
       static EventPtr make(DoorOpen open);
       static EventPtr make(DoorClose close);
-      static EventPtr make(LiftDoorOpen open);
-      static EventPtr make(LiftDoorClose close);
+      static EventPtr make(LiftSessionBegin open);
+      static EventPtr make(LiftSessionEnd close);
       static EventPtr make(LiftMove move);
+      static EventPtr make(LiftDoorOpen open);
       static EventPtr make(Dock dock);
+      static EventPtr make(Wait wait);
     };
 
 

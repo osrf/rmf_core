@@ -1,0 +1,31 @@
+name: build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    container:
+      image: docker://ros:foxy-ros-base-focal
+      
+    steps:
+    - name: deps
+      run: |
+        sudo apt update
+        sudo apt install -y g++-8
+    - name: setup
+      run: |
+        mkdir -p ws_rmf/src        
+    - name: checkout
+      uses: actions/checkout@v2
+      with:
+        path: ws_rmf/src/rmf_core
+    - name: ros-deps
+      run: |
+        cd ws_rmf
+        rosdep update
+        rosdep install --from-paths src --ignore-src --rosdistro foxy -yr
+    - name: build
+      shell: bash
+      run: |
+        cd ws_rmf
+        source /opt/ros/foxy/setup.bash
+        colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE

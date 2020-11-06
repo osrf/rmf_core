@@ -322,7 +322,7 @@ auto Graph::Lane::Door::duration(Duration duration_) -> Door&
 }
 
 //==============================================================================
-class Graph::Lane::LiftDoor::Implementation
+class Graph::Lane::LiftSession::Implementation
 {
 public:
 
@@ -333,7 +333,7 @@ public:
 };
 
 //==============================================================================
-Graph::Lane::LiftDoor::LiftDoor(
+Graph::Lane::LiftSession::LiftSession(
   std::string lift_name,
   std::string floor_name,
   Duration duration)
@@ -348,108 +348,41 @@ Graph::Lane::LiftDoor::LiftDoor(
 }
 
 //==============================================================================
-const std::string& Graph::Lane::LiftDoor::lift_name() const
+const std::string& Graph::Lane::LiftSession::lift_name() const
 {
   return _pimpl->lift_name;
 }
 
 //==============================================================================
-auto Graph::Lane::LiftDoor::lift_name(std::string name) -> LiftDoor&
+auto Graph::Lane::LiftSession::lift_name(std::string name) -> LiftSession&
 {
   _pimpl->lift_name = std::move(name);
   return *this;
 }
 
 //==============================================================================
-const std::string& Graph::Lane::LiftDoor::floor_name() const
+const std::string& Graph::Lane::LiftSession::floor_name() const
 {
   return _pimpl->floor_name;
 }
 
 //==============================================================================
-auto Graph::Lane::LiftDoor::floor_name(std::string name) -> LiftDoor&
+auto Graph::Lane::LiftSession::floor_name(std::string name) -> LiftSession&
 {
   _pimpl->floor_name = std::move(name);
   return *this;
 }
 
 //==============================================================================
-Duration Graph::Lane::LiftDoor::duration() const
+Duration Graph::Lane::LiftSession::duration() const
 {
   return _pimpl->duration;
 }
 
 //==============================================================================
-auto Graph::Lane::LiftDoor::duration(Duration duration_) -> LiftDoor&
+auto Graph::Lane::LiftSession::duration(Duration duration_) -> LiftSession&
 {
   _pimpl->duration = duration_;
-  return *this;
-}
-
-//==============================================================================
-class Graph::Lane::LiftMove::Implementation
-{
-public:
-
-  std::string lift_name;
-
-  std::string destination_floor;
-
-  Duration duration;
-
-};
-
-//==============================================================================
-Graph::Lane::LiftMove::LiftMove(
-  std::string lift_name,
-  std::string destination_floor_name,
-  Duration duration)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        std::move(lift_name),
-        std::move(destination_floor_name),
-        duration
-      }))
-{
-  // Do nothing
-}
-
-//==============================================================================
-const std::string& Graph::Lane::LiftMove::lift_name() const
-{
-  return _pimpl->lift_name;
-}
-
-//==============================================================================
-auto Graph::Lane::LiftMove::lift_name(std::string name) -> LiftMove&
-{
-  _pimpl->lift_name = std::move(name);
-  return *this;
-}
-
-//==============================================================================
-const std::string& Graph::Lane::LiftMove::destination_floor() const
-{
-  return _pimpl->destination_floor;
-}
-
-//==============================================================================
-auto Graph::Lane::LiftMove::destination_floor(std::string name) -> LiftMove&
-{
-  _pimpl->destination_floor = std::move(name);
-  return *this;
-}
-
-//==============================================================================
-Duration Graph::Lane::LiftMove::duration() const
-{
-  return _pimpl->duration;
-}
-
-//==============================================================================
-auto Graph::Lane::LiftMove::duration(Duration duration) -> LiftMove&
-{
-  _pimpl->duration = duration;
   return *this;
 }
 
@@ -500,6 +433,41 @@ auto Graph::Lane::Dock::duration(Duration d) -> Dock&
 {
   _pimpl->duration = d;
   return *this;
+}
+
+//==============================================================================
+class Graph::Lane::Wait::Implementation
+{
+public:
+
+  Duration duration;
+
+};
+
+//==============================================================================
+Graph::Lane::Wait::Wait(Duration value)
+  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{value}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Duration Graph::Lane::Wait::duration() const
+{
+  return _pimpl->duration;
+}
+
+//==============================================================================
+auto Graph::Lane::Wait::duration(Duration value) -> Wait&
+{
+  _pimpl->duration = value;
+  return *this;
+}
+
+//==============================================================================
+void Graph::Lane::Executor::execute(const Wait&)
+{
+  // Do nothing
 }
 
 namespace {
@@ -558,15 +526,15 @@ auto Graph::Lane::Event::make(DoorClose close) -> EventPtr
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(LiftDoorOpen open) -> EventPtr
+auto Graph::Lane::Event::make(LiftSessionBegin open) -> EventPtr
 {
-  return TemplateEvent<LiftDoorOpen>::make(std::move(open));
+  return TemplateEvent<LiftSessionBegin>::make(std::move(open));
 }
 
 //==============================================================================
-auto Graph::Lane::Event::make(LiftDoorClose close) -> EventPtr
+auto Graph::Lane::Event::make(LiftSessionEnd close) -> EventPtr
 {
-  return TemplateEvent<LiftDoorClose>::make(std::move(close));
+  return TemplateEvent<LiftSessionEnd>::make(std::move(close));
 }
 
 //==============================================================================
@@ -576,9 +544,21 @@ auto Graph::Lane::Event::make(LiftMove move) -> EventPtr
 }
 
 //==============================================================================
+auto Graph::Lane::Event::make(LiftDoorOpen open) -> EventPtr
+{
+  return TemplateEvent<LiftDoorOpen>::make(std::move(open));
+}
+
+//==============================================================================
 auto Graph::Lane::Event::make(Dock dock) -> EventPtr
 {
   return TemplateEvent<Dock>::make(std::move(dock));
+}
+
+//==============================================================================
+auto Graph::Lane::Event::make(Wait wait) -> EventPtr
+{
+  return TemplateEvent<Wait>::make(std::move(wait));
 }
 
 //==============================================================================
