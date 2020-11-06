@@ -63,6 +63,9 @@ public:
   /// Get the ID that was assigned to this participant.
   ParticipantId id() const;
 
+  /// Get the current reservation ID
+  std::optional<ReservationId> reservation_id() const;
+
   class Implementation;
 private:
   Participant();

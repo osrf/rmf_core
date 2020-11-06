@@ -616,6 +616,14 @@ auto Graph::Lane::Node::event() const -> const Event*
 }
 
 //==============================================================================
+Graph::Lane::Node& Graph::Lane::Node::event(
+    rmf_utils::clone_ptr<Event> new_event)
+{
+  _pimpl->_event = std::move(new_event);
+  return *this;
+}
+
+//==============================================================================
 auto Graph::Lane::Node::orientation_constraint() const
 -> const OrientationConstraint*
 {
@@ -648,9 +656,21 @@ public:
 };
 
 //==============================================================================
+auto Graph::Lane::entry() -> Node&
+{
+  return _pimpl->entry;
+}
+
+//==============================================================================
 auto Graph::Lane::entry() const -> const Node&
 {
   return _pimpl->entry;
+}
+
+//==============================================================================
+auto Graph::Lane::exit() -> Node&
+{
+  return _pimpl->exit;
 }
 
 //==============================================================================
@@ -782,7 +802,9 @@ std::size_t Graph::num_waypoints() const
 }
 
 //==============================================================================
-auto Graph::add_lane(Lane::Node entry, Lane::Node exit) -> Lane&
+auto Graph::add_lane(
+    const Lane::Node& entry,
+    const Lane::Node& exit) -> Lane&
 {
   assert(entry.waypoint_index() < _pimpl->waypoints.size());
   assert(exit.waypoint_index() < _pimpl->waypoints.size());

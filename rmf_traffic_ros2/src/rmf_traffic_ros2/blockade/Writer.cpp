@@ -80,6 +80,14 @@ public:
   using HeartbeatMsg = rmf_traffic_msgs::msg::BlockadeHeartbeat;
   rclcpp::Subscription<HeartbeatMsg>::SharedPtr heartbeat_sub;
 
+  // NOTE(MXG): Because of some awkwardness in the design of the rectification
+  // factory, we can only allow one participant to be constructed at a time.
+  // This mutex enforces that.
+  //
+  // TODO(MXG): Consider other ways of designing the construction of blockade
+  // participants to simplify this design.
+  std::mutex factory_mutex;
+
   RectifierFactory(
       rclcpp::Node& node,
       std::shared_ptr<rmf_traffic::blockade::Writer> writer)
@@ -90,6 +98,7 @@ public:
           rclcpp::SystemDefaultsQoS().reliable(),
           [&](const HeartbeatMsg::UniquePtr msg)
     {
+      std::cout << "Received heartbeat" << std::endl;
       check_status(*msg);
     });
   }
@@ -111,6 +120,8 @@ public:
             std::nullopt,
             ReservedRange{0, 0},
             std::move(callback)});
+
+    stub_map.insert({participant_id, requester->stub});
 
     return requester;
   }
@@ -160,15 +171,20 @@ public:
     if (!writer)
       return;
 
+    std::unique_lock<std::mutex> lock(factory_mutex);
+
+    std::cout << "bringing out the dead" << std::endl;
     bring_out_your_dead();
     std::unordered_set<rmf_traffic::blockade::ParticipantId> not_dead_yet;
 
     auto stub_map_copy = stub_map;
     for (const auto& status : heartbeat.statuses)
     {
+      std::cout << "Checking status for " << status.participant << std::endl;
       const auto it = stub_map_copy.find(status.participant);
       if (it == stub_map.end())
       {
+        std::cout << " -- no stub" << std::endl;
         const auto d_it = dead_set.find(status.participant);
         if (d_it != dead_set.end())
         {
@@ -179,6 +195,7 @@ public:
         continue;
       }
 
+      std::cout << " -- Trying rectification" << std::endl;
       const auto stub = it->second.lock();
       assert(stub);
       stub->requester.rectifier.check(convert(status));
@@ -189,8 +206,15 @@ public:
           stub->last_range == range
           && stub->last_reservation_id == status.reservation;
 
+      std::cout << " -- Comparing [" << stub->last_range.begin
+                << ", " << stub->last_range.end << "] to ["
+                << range.begin << ", " << range.end << "]: "
+                << repeat_range << std::endl;
       if (!repeat_range)
         stub->range_cb(status.reservation, range);
+
+      stub->last_reservation_id = status.reservation;
+      stub->last_range = range;
 
       stub_map_copy.erase(it);
     }
@@ -270,6 +294,7 @@ public:
         double radius,
         NewRangeCallback range_cb)
     {
+      std::unique_lock<std::mutex> lock(rectifier_factory->factory_mutex);
       rectifier_factory->pending_callbacks.insert({id, std::move(range_cb)});
       return rmf_traffic::blockade::make_participant(
             id, radius, shared_from_this(), rectifier_factory);
@@ -368,8 +393,7 @@ public:
 //==============================================================================
 std::shared_ptr<Writer> Writer::make(rclcpp::Node& node)
 {
-  auto writer = std::shared_ptr<Writer>(new Writer(node));
-  return writer;
+  return std::shared_ptr<Writer>(new Writer(node));
 }
 
 //==============================================================================

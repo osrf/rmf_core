@@ -97,21 +97,42 @@ public:
     _current_path_request.path.clear();
     _current_path_request.path.reserve(_checkpoints.size());
 
-    for (const auto& c : _checkpoints)
+    const auto push_back = [&](
+        const std::size_t index, rclcpp::Time t)
     {
-      const auto i = c.waypoint_index;
-      assert(i < _current_path.size());
+      if (_current_path.size() <= index)
+        return;
 
-      const auto& p = _current_path.at(i).position();
+      const auto& p = _current_path.at(index).position();
 
       rmf_fleet_msgs::msg::Location location;
-      location.t = c.departure_time;
+      location.t = t;
       location.x = p[0];
       location.y = p[1];
       location.yaw = p[2];
-      location.level_name = _current_path[i].map_name();
+      location.level_name = _current_path[index].map_name();
       _current_path_request.path.push_back(location);
+    };
+
+    std::stringstream ss;
+    ss << " ======== " << _travel_info.robot_name.c_str() << " Received checkpoints:";
+    for (const auto& c : _checkpoints)
+    {
+      const auto i = c.waypoint_index;
+      ss << " " << i;
+      assert(i < _current_path.size());
+      push_back(c.waypoint_index, c.departure_time);
     }
+
+    push_back(_checkpoints.back().waypoint_index+1,
+              _checkpoints.back().departure_time);
+
+    ss << "\nIssuing path:";
+    for (const auto& p : _current_path_request.path)
+      ss << "\n -- <" << p.x << ", " << p.y << ">";
+    ss << "\n";
+
+    std::cout << ss.str() << std::endl;
 
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
@@ -180,8 +201,9 @@ public:
       }
 
       assert(!_checkpoints.empty());
-      if (_checkpoints.back().waypoint_index == _current_path.size()-1)
+      if (_checkpoints.back().waypoint_index == _current_path.size()-2)
       {
+        std::cout << " ======= Finished whole path!" << std::endl;
         _checkpoints.clear();
         _moving = false;
         _queue.pop_front();
@@ -363,6 +385,7 @@ private:
       _current_path.emplace_back(map_name, p);
     }
 
+    std::cout << " ========= Following new path" << std::endl;
     _last_target = 0;
     _path_version = _path_updater->follow_new_path(_current_path);
   }
@@ -517,10 +540,20 @@ std::shared_ptr<Connections> make_fleet(
     return nullptr;
   }
 
-  connections->graph =
+  auto graph =
       std::make_shared<rmf_traffic::agv::Graph>(
         rmf_fleet_adapter::agv::parse_graph(graph_file, *connections->traits));
 
+  // We add pseudo-events on every lane to force the planner to include every
+  // intermediate waypoint in its plan.
+  for (std::size_t i=0; i < graph->num_lanes(); ++i)
+  {
+    graph->get_lane(i).exit().event(
+          rmf_traffic::agv::Graph::Lane::Event::make(
+            rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(0))));
+  }
+
+  connections->graph = std::move(graph);
   std::cout << "The fleet [" << fleet_name
             << "] has the following named waypoints:\n";
   for (const auto& key : connections->graph->keys())

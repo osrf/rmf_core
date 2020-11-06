@@ -23,6 +23,11 @@
 
 #include <list>
 
+
+
+#include <iostream>
+
+
 namespace rmf_traffic {
 namespace blockade {
 
@@ -268,21 +273,36 @@ public:
   {
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
+    {
+      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
+    }
 
     if (r_it->second.id != reservation_id)
+    {
+      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
+    }
 
     const auto& path = r_it->second.reservation.path;
     if (path.empty())
+    {
+      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
+    }
 
     if (checkpoint >= path.size() - 1)
+    {
+      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
+    }
 
     auto& status = statuses.at(participant_id);
     if (checkpoint <= status.last_ready)
+    {
+      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
+    }
 
     status.last_ready = checkpoint;
     ready_queue.push_back(

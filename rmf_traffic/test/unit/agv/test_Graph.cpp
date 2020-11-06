@@ -38,8 +38,8 @@ void CHECK_WAYPOINT(rmf_traffic::agv::Graph::Waypoint wp,
 }
 
 void CHECK_LANE(rmf_traffic::agv::Graph::Lane lane, std::size_t lane_index,
-  rmf_traffic::agv::Graph::Lane::Node entry_node,
-  rmf_traffic::agv::Graph::Lane::Node exit_node)
+  const rmf_traffic::agv::Graph::Lane::Node& entry_node,
+  const rmf_traffic::agv::Graph::Lane::Node& exit_node)
 {
   CHECK(lane.index() == lane_index);
   CHECK(lane.entry().waypoint_index() == entry_node.waypoint_index());
