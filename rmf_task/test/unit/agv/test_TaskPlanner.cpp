@@ -40,6 +40,38 @@
 
 #include <iostream>
 
+
+//==============================================================================
+inline bool check_implicit_charging_task_start(
+  const rmf_task::agv::TaskPlanner::Assignments& assignments,
+  const double initial_soc)
+{
+  bool implicit_charging_task_added = false;
+  for (const auto& agent : assignments)
+  {
+    if (!agent.size())
+    {
+      continue;
+    }
+
+    const auto& s = agent[0].state();
+    auto is_charge_request =
+      std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+        agent[0].request());
+
+    // No task should consume more charge than (1.0 - initial_soc)
+    // in the current test, so we are guaranted to find any occurrence
+    // of an implicit charging task.
+    if (!is_charge_request && s.battery_soc() > initial_soc)
+    {
+      implicit_charging_task_added = true;
+      break;
+    }
+  }
+
+  return implicit_charging_task_added;
+}
+
 //==============================================================================
 inline void display_solution(
   std::string parent,
@@ -359,4 +391,101 @@ SCENARIO("Grid World")
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
+
+  WHEN("Initial charge is low")
+  {
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+    const double initial_soc = 0.3;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 13, initial_soc},
+      rmf_task::agv::State{second_location, 2, initial_soc}
+    };
+
+    std::vector<rmf_task::agv::StateConfig> state_configs =
+    {
+      rmf_task::agv::StateConfig{0.2},
+      rmf_task::agv::StateConfig{0.2}
+    };
+
+    std::vector<rmf_task::ConstRequestPtr> requests =
+    {
+      rmf_task::requests::Delivery::make(
+        1,
+        0,
+        3,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        2,
+        15,
+        2,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        3,
+        9,
+        4,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        4,
+        8,
+        11,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(50000),
+        drain_battery)
+    };
+
+    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
+      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    rmf_task::agv::TaskPlanner task_planner(task_config);
+
+    const auto greedy_assignments = task_planner.greedy_plan(
+      now, initial_states, state_configs, requests);
+    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+
+    const auto optimal_assignments = task_planner.optimal_plan(
+      now, initial_states, state_configs, requests, nullptr);
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+
+    display_solution("Greedy", greedy_assignments, greedy_cost);
+    display_solution("Optimal", optimal_assignments, optimal_cost);
+
+    REQUIRE(optimal_cost <= greedy_cost);
+
+    // Checks if Assignments take into account a charging task in the beginning
+    // without explicitly including the task in Assignments.
+    bool implicit_charging_task_added = check_implicit_charging_task_start(
+      greedy_assignments, initial_soc);
+    REQUIRE(!implicit_charging_task_added);
+
+    implicit_charging_task_added = check_implicit_charging_task_start(
+      optimal_assignments, initial_soc);
+    REQUIRE(!implicit_charging_task_added);
+  }
+
 }

@@ -185,6 +185,8 @@ public:
     std::size_t candidate;
     State state;
     rmf_traffic::Time wait_until;
+    State previous_state;
+    bool require_charge_battery = false;
   };
 
   // Map finish time to Entry
@@ -243,14 +245,16 @@ public:
   void update_candidate(
     std::size_t candidate,
     State state,
-    rmf_traffic::Time wait_until)
+    rmf_traffic::Time wait_until,
+    State previous_state,
+    bool require_charge_battery)
   {
     const auto it = _candidate_map.at(candidate);
     _value_map.erase(it);
     _candidate_map[candidate] = _value_map.insert(
       {
         state.finish_time(),
-        Entry{candidate, state, wait_until}
+        Entry{candidate, state, wait_until, previous_state, require_charge_battery}
       });
   }
 
@@ -293,7 +297,12 @@ Candidates Candidates::make(
     {
       initial_map.insert({
         finish.value().finish_state().finish_time(),
-        Entry{i, finish.value().finish_state(), finish.value().wait_until()}});
+        Entry{
+          i,
+          finish.value().finish_state(),
+          finish.value().wait_until(),
+          state,
+          false}});
     }
     else
     {
@@ -306,7 +315,12 @@ Candidates Candidates::make(
         assert(new_finish.has_value());
         initial_map.insert(
           {new_finish.value().finish_state().finish_time(),
-          Entry{i, new_finish.value().finish_state(), new_finish.value().wait_until()}});
+          Entry{
+            i,
+            new_finish.value().finish_state(),
+            new_finish.value().wait_until(),
+            state,
+            true}});
       }
       else
       {
@@ -865,6 +879,7 @@ public:
 
   {
     const auto& entry = it->second;
+    const auto& state_config = state_configs[entry.candidate];
 
     if (parent->latest_time + segmentation_threshold < entry.wait_until)
     {
@@ -875,7 +890,28 @@ public:
 
     auto new_node = std::make_shared<Node>(*parent);
 
-    // Assign the unassigned task
+    // Assign the unassigned task after checking for implicit charging requests
+    if (entry.require_charge_battery)
+    {
+      // Check if a battery task already precedes the latest assignment
+      auto& assignments = new_node->assigned_tasks[entry.candidate];
+      if (assignments.empty() || !std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+          assignments.back().request()))
+      {
+        auto charge_battery = make_charging_request(entry.previous_state.finish_time());
+        auto battery_estimate = charge_battery->estimate_finish(entry.previous_state, state_config);
+        if (battery_estimate.has_value())
+        {
+          assignments.push_back(
+            Assignment
+            {
+              charge_battery,
+              battery_estimate.value().finish_state(),
+              battery_estimate.value().wait_until()
+            });
+        } 
+      }
+    }
     new_node->assigned_tasks[entry.candidate].push_back(
       Assignment{u.second.request, entry.state, entry.wait_until});
     
@@ -883,7 +919,6 @@ public:
     new_node->pop_unassigned(u.first);
 
     // Update states of unassigned tasks for the candidate
-    const auto& state_config = state_configs[entry.candidate];
     bool add_charger = false;
     for (auto& new_u : new_node->unassigned_tasks)
     {
@@ -896,7 +931,9 @@ public:
         new_u.second.candidates.update_candidate(
           entry.candidate,
           finish.value().finish_state(),
-          finish.value().wait_until());
+          finish.value().wait_until(),
+          entry.state,
+          false);
       }
       else
       {
@@ -946,7 +983,7 @@ public:
           if (finish.has_value())
           {
             new_u.second.candidates.update_candidate(
-              entry.candidate, finish.value().finish_state(), finish.value().wait_until());
+              entry.candidate, finish.value().finish_state(), finish.value().wait_until(), entry.state, false);
           }
           else
           {
@@ -1016,7 +1053,11 @@ public:
         if (finish.has_value())
         {
           new_u.second.candidates.update_candidate(
-            agent, finish.value().finish_state(), finish.value().wait_until());
+            agent,
+            finish.value().finish_state(),
+            finish.value().wait_until(),
+            state,
+            false);
         }
         else
         {
