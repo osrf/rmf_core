@@ -698,9 +698,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     if (version != data->current_version)
       return;
 
-    if (data->pending_waypoints.empty())
-      return;
-
     data->blockade.reached(checkpoint_index);
 
     assert(checkpoint_index < data->arrival_timing.size());
@@ -1034,6 +1031,12 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
     std::cout << "MISMATCHED VERSION FOR " << itinerary.id()
               << "???: " << version << " vs " << current_version << std::endl;
     return;
+  }
+
+  if (checkpoint_id >= path.size()-1)
+  {
+    // TODO(MXG): We could tell the blockade moderator that we finished here.
+    // But we would need to extend the API of blockade::Participant.
   }
 
   blockade.reached(checkpoint_id);

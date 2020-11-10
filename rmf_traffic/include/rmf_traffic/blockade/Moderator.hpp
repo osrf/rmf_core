@@ -108,6 +108,9 @@ public:
   /// Get the current known statuses of each participant.
   const std::unordered_map<ParticipantId, Status>& statuses() const;
 
+  /// Return true if the system is experiencing a gridlock
+  bool has_gridlock() const;
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;

@@ -75,7 +75,14 @@ using PeerToPeerBlockers =
   std::unordered_map<std::size_t, PeerToIndexToConstraint>;
 
 //==============================================================================
-Blockers compute_final_ShouldGo_constraints(
+struct FinalConstraints
+{
+  Blockers should_go;
+  ConstConstraintPtr gridlock;
+};
+
+//==============================================================================
+FinalConstraints compute_final_ShouldGo_constraints(
     const PeerToPeerBlockers& peer_blockers);
 
 } // namespace blockade

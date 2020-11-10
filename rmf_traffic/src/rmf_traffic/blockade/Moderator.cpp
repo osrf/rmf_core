@@ -110,7 +110,7 @@ public:
   std::unordered_map<ParticipantId, Status> statuses;
 
   PeerToPeerBlockers peer_blockers;
-  Blockers should_go;
+  FinalConstraints final_constraints;
 
   Implementation(const double min_conflict_angle_)
     : min_conflict_angle(min_conflict_angle_),
@@ -127,19 +127,34 @@ public:
 
   ReadyStatus check_reservation(const ReadyInfo& check)
   {
+    std::cout << " -- Checking reservation for [" << check.participant_id
+              << ":" << check.reservation_id << "]: " << check.checkpoint
+              << std::endl;
     const auto r_it = last_known_reservation.find(check.participant_id);
     if (r_it == last_known_reservation.end())
+    {
+      std::cout << "     -- Not in last_known_reservation" << std::endl;
       return Finished;
+    }
 
     if (r_it->second.id != check.reservation_id)
+    {
+      std::cout << "     -- Mismatched ID: " << r_it->second.id << " vs "
+                << check.reservation_id << std::endl;
       return Finished;
+    }
 
     auto state = assignments.ranges();
     auto& s = state.at(check.participant_id);
     if (check.checkpoint < s.end)
+    {
+      std::cout << "     -- Already covered: " << check.checkpoint << " vs "
+                << s.end << std::endl;
       return Finished;
+    }
 
-    const auto& constraints = should_go.at(check.participant_id);
+    const auto& constraints =
+        final_constraints.should_go.at(check.participant_id);
 
     const std::size_t current_end = s.end;
     const std::size_t i_max = (check.checkpoint+1) - (current_end+1);
@@ -153,6 +168,8 @@ public:
       const std::size_t check_end = check.checkpoint+1 - i;
       s.end = check_end;
 
+      std::cout << "     -- Testing up to " << check_end << std::endl;
+
       // TODO(MXG): We could probably get slightly better performance here if
       // should_go used an ordered std::map instead of std::unordered_map.
       bool acceptable = true;
@@ -161,9 +178,12 @@ public:
         const auto it = constraints.find(c);
         if (it != constraints.end() && !it->second->evaluate(state))
         {
+          std::cout << "     -- Constraint violated at " << c << std::endl;
           acceptable = false;
           break;
         }
+
+        std::cout << "     -- Constraint passed at " << c << std::endl;
       }
 
       if (acceptable)
@@ -172,12 +192,17 @@ public:
             .ranges[check.participant_id].end = check_end;
 
         if (i==0)
+        {
+          std::cout << "     -- Finished reservation: " << check_end << std::endl;
           return Finished;
+        }
 
+        std::cout << "     -- Incomplete reservation: " << check_end << std::endl;
         return Incomplete;
       }
     }
 
+    std::cout << "     -- Unable to make progress" << std::endl;
     return Incomplete;
   }
 
@@ -256,7 +281,7 @@ public:
       other_constraint_map = std::move(zero_order_blockers.at(1));
     }
 
-    should_go = compute_final_ShouldGo_constraints(peer_blockers);
+    final_constraints = compute_final_ShouldGo_constraints(peer_blockers);
 
     Assignments::Implementation::modify(assignments).ranges
         .insert_or_assign(participant_id, ReservedRange{0, 0});
@@ -370,7 +395,7 @@ public:
     for (auto& peer : peer_blockers)
       peer.second.erase(participant_id);
 
-    should_go = compute_final_ShouldGo_constraints(peer_blockers);
+    final_constraints = compute_final_ShouldGo_constraints(peer_blockers);
 
     process_ready_queue();
   }
@@ -447,6 +472,15 @@ const Moderator::Assignments& Moderator::assignments() const
 const std::unordered_map<ParticipantId, Status>& Moderator::statuses() const
 {
   return _pimpl->statuses;
+}
+
+//==============================================================================
+bool Moderator::has_gridlock() const
+{
+  if (!_pimpl->final_constraints.gridlock)
+    return false;
+
+  return !_pimpl->final_constraints.gridlock->evaluate(assignments().ranges());
 }
 
 } // namespace blockade

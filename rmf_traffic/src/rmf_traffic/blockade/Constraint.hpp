@@ -36,6 +36,8 @@ class Constraint
 {
 public:
 
+  /// Return true if the State is acceptable to this Constraint.
+  /// Return false if the State violates this Constraint.
   virtual bool evaluate(const State& state) const = 0;
 
   virtual const std::unordered_set<std::size_t>& dependencies() const = 0;

@@ -49,7 +49,7 @@ rmf_traffic::blockade::Blockers make_ShouldGo_constraints(
     }
   }
 
-  return compute_final_ShouldGo_constraints(peer_blockers);
+  return compute_final_ShouldGo_constraints(peer_blockers).should_go;
 }
 
 //==============================================================================
@@ -108,7 +108,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 1);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers);
+          compute_final_ShouldGo_constraints(peer_blockers).should_go;
 
       simulate_all_sequences(should_go, nullptr, {5, 5});
     }
@@ -145,7 +145,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 1);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers);
+          compute_final_ShouldGo_constraints(peer_blockers).should_go;
 
       simulate_all_sequences(should_go, nullptr, {5, 5});
     }
@@ -211,7 +211,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 2);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers);
+          compute_final_ShouldGo_constraints(peer_blockers).should_go;
 
       simulate_all_sequences(should_go, nullptr, {8, 4});
     }
@@ -257,7 +257,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 2);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers);
+          compute_final_ShouldGo_constraints(peer_blockers).should_go;
 
       simulate_all_sequences(should_go, nullptr, {8, 4});
     }
@@ -302,7 +302,7 @@ SCENARIO("Compute conflict brackets")
       CHECK(peer_blockers[1][0].size() == 2);
 
       const Blockers should_go =
-          compute_final_ShouldGo_constraints(peer_blockers);
+          compute_final_ShouldGo_constraints(peer_blockers).should_go;
 
       simulate_all_sequences(should_go, nullptr, {8, 4});
     }
@@ -366,7 +366,7 @@ SCENARIO("Compute conflict brackets")
     CHECK(peer_blockers[1][0].size() == 2);
 
     const Blockers should_go =
-        compute_final_ShouldGo_constraints(peer_blockers);
+        compute_final_ShouldGo_constraints(peer_blockers).should_go;
 
     simulate_all_sequences(should_go, nullptr, {5, 4});
   }

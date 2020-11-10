@@ -317,7 +317,7 @@ std::array<IndexToConstraint, 2> compute_blockers(
 }
 
 //==============================================================================
-Blockers compute_final_ShouldGo_constraints(
+FinalConstraints compute_final_ShouldGo_constraints(
     const PeerToPeerBlockers& peer_blockers)
 {
   using IndexToZeroOrderConstraints =
@@ -385,7 +385,7 @@ Blockers compute_final_ShouldGo_constraints(
     }
   }
 
-  return final_order;
+  return FinalConstraints{std::move(final_order), gridlock_constraint};
 }
 
 } // namespace blockade

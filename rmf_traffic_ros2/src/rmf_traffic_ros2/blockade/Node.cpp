@@ -184,7 +184,8 @@ public:
     }
 
     auto msg = rmf_traffic_msgs::build<HeartbeatMsg>()
-        .statuses(std::move(statuses));
+        .statuses(std::move(statuses))
+        .has_gridlock(moderator->has_gridlock());
 
     heartbeat_pub->publish(msg);
   }
