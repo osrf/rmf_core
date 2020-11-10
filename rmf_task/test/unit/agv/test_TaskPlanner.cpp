@@ -488,4 +488,159 @@ SCENARIO("Grid World")
     REQUIRE(!implicit_charging_task_added);
   }
 
+  WHEN("Planning for 11 requests and 2 agents no.2")
+  {
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 9, 1.0},
+      rmf_task::agv::State{second_location, 2, 1.0}
+    };
+
+    std::vector<rmf_task::agv::StateConfig> state_configs =
+    {
+      rmf_task::agv::StateConfig{0.2},
+      rmf_task::agv::StateConfig{0.2}
+    };
+
+    std::vector<rmf_task::Request::SharedPtr> requests =
+    {
+      rmf_task::requests::Delivery::make(
+        1,
+        6,
+        3,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        2,
+        10,
+        7,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        3,
+        2,
+        12,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        4,
+        8,
+        11,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(50000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        5,
+        10,
+        6,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(50000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        6,
+        2,
+        9,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(70000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        7,
+        3,
+        4,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(70000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        8,
+        5,
+        11,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(70000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        9,
+        9,
+        1,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(70000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        10,
+        1,
+        5,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(70000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        11,
+        13,
+        10,
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(70000),
+        drain_battery)
+    };
+
+    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
+      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    rmf_task::agv::TaskPlanner task_planner(task_config);
+
+    const auto greedy_assignments = task_planner.greedy_plan(
+      now, initial_states, state_configs, requests);
+    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+
+    const auto optimal_assignments = task_planner.optimal_plan(
+      now, initial_states, state_configs, requests, nullptr);
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+
+    display_solution("Greedy", greedy_assignments, greedy_cost);
+    display_solution("Optimal", optimal_assignments, optimal_cost);
+
+    REQUIRE(optimal_cost <= greedy_cost);
+  }
+
 }

@@ -163,7 +163,8 @@ namespace {
 struct Invariant
 {
   std::size_t task_id;
-  double invariant_cost;
+  double earliest_start_time;
+  double earliest_finish_time;
 };
 
 // ============================================================================
@@ -171,7 +172,7 @@ struct InvariantLess
 {
   bool operator()(const Invariant& a, const Invariant& b) const
   {
-    return a.invariant_cost < b.invariant_cost;
+    return a.earliest_finish_time < b.earliest_finish_time;
   }
 };
 
@@ -375,10 +376,16 @@ struct Node
     unassigned_invariants.clear();
     for (const auto& u : unassigned_tasks)
     {
+      double earliest_start_time = rmf_traffic::time::to_seconds(
+        u.second.earliest_start_time.time_since_epoch());
+      double earliest_finish_time = earliest_start_time
+        + rmf_traffic::time::to_seconds(u.second.request->invariant_duration());
+
       unassigned_invariants.insert(
         Invariant{
-          u.first, 
-          rmf_traffic::time::to_seconds(u.second.request->invariant_duration())
+          u.first,
+          earliest_start_time,
+          earliest_finish_time
         });
     }
   }
@@ -418,6 +425,10 @@ struct LowestCostEstimate
 };
 
 //==============================================================================
+// Sorts and distributes tasks among agents based on the earliest finish time
+// possible for each task (i.e. not accounting for any variant costs). Guaranteed
+// to underestimate actual cost when the earliest start times for each task are
+// similar (enforced by the segmentation_threshold).
 class InvariantHeuristicQueue
 {
 public:
@@ -428,21 +439,21 @@ public:
     std::sort(initial_values.begin(), initial_values.end());
 
     for (const auto value : initial_values)
-      _stacks.push_back({value});
+      _stacks.push_back({{0, value}});
   }
 
-  void add(double new_value)
+  void add(const double earliest_start_time, const double earliest_finish_time)
   {
-    // Add the new value to the smallest stack
-    const double value = _stacks[0].back() + new_value;
-    _stacks[0].push_back(value);
+    double prev_end_value = _stacks[0].back().end;
+    double new_end_value = prev_end_value + (earliest_finish_time - earliest_start_time);
+    _stacks[0].push_back({earliest_start_time, new_end_value});
 
     // Find the largest stack that is still smaller than the current front
     const auto next_it = _stacks.begin() + 1;
     auto end_it = next_it;
     for (; end_it != _stacks.end(); ++end_it)
     {
-      if (value <= end_it->back())
+      if (new_end_value <= end_it->back().end)
         break;
     }
 
@@ -462,15 +473,20 @@ public:
       // NOTE: We start iterating from i=1 because i=0 represents a component of
       // the cost that is already accounted for by g(n) and the variant
       // component of h(n)
-      for (std::size_t i=1; i < stack.size(); ++i)
-        total_cost += stack[i];
+      for (std::size_t i = 1; i < stack.size(); ++i)
+      {
+        // Set lower bound of 0 to account for case where optimistically calculated
+        // end time is smaller than earliest start time
+        total_cost += std::max(0.0, (stack[i].end - stack[i].start));
+      }
     }
 
     return total_cost;
   }
 
 private:
-  std::vector<std::vector<double>> _stacks;
+  struct element { double start; double end; };
+  std::vector<std::vector<element>> _stacks;
 };
 
 // ============================================================================
@@ -642,6 +658,12 @@ public:
     {
       for (const auto& assignment : agent)
       {
+        if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+          assignment.request()))
+        {
+          continue; // Ignore charging tasks in cost
+        }
+
         cost +=
           rmf_traffic::time::to_seconds(
             assignment.state().finish_time() - assignment.request()->earliest_start_time());
@@ -742,31 +764,30 @@ public:
 
   double compute_h(const Node& node, const rmf_traffic::Time time_now)
   {
-    std::vector<double> initial_queue_values;
-    initial_queue_values.resize(
-          node.assigned_tasks.size(), std::numeric_limits<double>::infinity());
+    std::vector<double> initial_queue_values(
+      node.assigned_tasks.size(), std::numeric_limits<double>::infinity());
 
+    // Determine the earliest possible time an agent can begin the invariant
+    // portion of any of its next tasks
     for (const auto& u : node.unassigned_tasks)
     {
-      // We subtract the invariant duration here because otherwise its
-      // contribution to the cost estimate will be duplicated in the next section,
-      // which could result in an overestimate.
-      const rmf_traffic::Time variant_time =
+      const rmf_traffic::Time earliest_deployment_time =
           u.second.candidates.best_finish_time()
           - u.second.request->invariant_duration();
-      const double variant_value =
-        rmf_traffic::time::to_seconds(variant_time - time_now);
+      const double earliest_deployment_time_s =
+        rmf_traffic::time::to_seconds(
+          earliest_deployment_time.time_since_epoch());
 
       const auto& range = u.second.candidates.best_candidates();
       for (auto it = range.begin; it != range.end; ++it)
       {
         const std::size_t candidate = it->second.candidate;
-        if (variant_value < initial_queue_values[candidate])
-          initial_queue_values[candidate] = variant_value;
+        if (earliest_deployment_time_s < initial_queue_values[candidate])
+          initial_queue_values[candidate] = earliest_deployment_time_s;
       }
     }
 
-    for (std::size_t i=0; i < initial_queue_values.size(); ++i)
+    for (std::size_t i = 0; i < initial_queue_values.size(); ++i)
     {
       auto& value = initial_queue_values[i];
       if (std::isinf(value))
@@ -775,11 +796,10 @@ public:
         // any unassigned tasks that want to use it.
         const auto& assignments = node.assigned_tasks[i];
         if (assignments.empty())
-          value = 0.0;
+          value = rmf_traffic::time::to_seconds(time_now.time_since_epoch());
         else
-          value =
-            rmf_traffic::time::to_seconds(
-              assignments.back().state().finish_time() - time_now);
+          value = rmf_traffic::time::to_seconds(
+            assignments.back().state().finish_time().time_since_epoch());
       }
     }
 
@@ -789,8 +809,9 @@ public:
     // to it in order of smallest to largest. If that assumption is not met, then
     // the final cost that's calculated may be invalid.
     for (const auto& u : node.unassigned_invariants)
-      queue.add(u.invariant_cost);
-
+    {
+      queue.add(u.earliest_start_time, u.earliest_finish_time);
+    }
     return queue.compute_cost();
   }
 
