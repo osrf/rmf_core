@@ -328,6 +328,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       delivery.pickup_dispenser,
       dropoff_wp->index(),
       delivery.dropoff_ingestor,
+      delivery.items,
       motion_sink,
       ambient_sink,
       planner,

@@ -35,6 +35,7 @@ public:
   std::string _pickup_dispenser;
   std::size_t _dropoff_waypoint;
   std::string _dropoff_ingestor;
+  std::vector<DispenserRequestItem> _items;
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> _device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> _planner;
@@ -52,6 +53,7 @@ rmf_task::ConstRequestPtr Delivery::make(
   std::string pickup_dispenser,
   std::size_t dropoff_waypoint,
   std::string dropoff_ingestor,
+  std::vector<DispenserRequestItem> items,
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
@@ -64,6 +66,7 @@ rmf_task::ConstRequestPtr Delivery::make(
   delivery->_pimpl->_pickup_dispenser = std::move(pickup_dispenser);
   delivery->_pimpl->_dropoff_waypoint = dropoff_waypoint;
   delivery->_pimpl->_dropoff_ingestor = std::move(dropoff_ingestor);
+  delivery->_pimpl->_items = std::move(items);
   delivery->_pimpl->_motion_sink = std::move(motion_sink);
   delivery->_pimpl->_device_sink = std::move(device_sink);
   delivery->_pimpl->_planner = std::move(planner);
@@ -246,6 +249,36 @@ const std::string& Delivery::dropoff_ingestor() const
 const std::size_t Delivery::dropoff_waypoint() const
 {
   return _pimpl->_dropoff_waypoint;
+}
+
+//==============================================================================
+const std::vector<Delivery::DispenserRequestItem>& Delivery::items() const
+{
+  return _pimpl->_items;
+}
+
+//==============================================================================
+Delivery::Start Delivery::dropoff_start(const Delivery::Start& start) const
+{
+  if (start.waypoint() == _pimpl->_pickup_waypoint)
+    return start;
+
+  rmf_traffic::agv::Planner::Goal goal{_pimpl->_pickup_waypoint};
+
+  const auto result = _pimpl->_planner->plan(start, goal);
+  // We assume we can always compute a plan
+  const auto& trajectory =
+      result->get_itinerary().back().trajectory();
+  const auto& finish_time = *trajectory.finish_time();
+  const double orientation = trajectory.back().position()[2];
+
+  rmf_traffic::agv::Planner::Start dropoff_start{
+    finish_time,
+    _pimpl->_pickup_waypoint,
+    orientation};
+
+  return dropoff_start;
+
 }
 
 //==============================================================================

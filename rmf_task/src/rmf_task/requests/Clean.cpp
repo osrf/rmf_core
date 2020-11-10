@@ -245,10 +245,10 @@ rmf_traffic::agv::Planner::Start Clean::location_after_clean(
   rmf_traffic::agv::Planner::Goal goal{_pimpl->start_waypoint};
 
   const auto result = _pimpl->planner->plan(start, goal);
-      // We assume we can always compute a plan
-      const auto& trajectory =
-          result->get_itinerary().back().trajectory();
-      const auto& finish_time = *trajectory.finish_time();
+  // We assume we can always compute a plan
+  const auto& trajectory =
+      result->get_itinerary().back().trajectory();
+  const auto& finish_time = *trajectory.finish_time();
   const double orientation = trajectory.back().position()[2];
   
   rmf_traffic::agv::Planner::Start location_after_clean{

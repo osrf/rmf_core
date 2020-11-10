@@ -10,6 +10,7 @@
 
   <depend>rmf_battery</depend>
   <depend>rmf_utils</depend>
+  <depend>rmf_dispenser_msgs</depend>
 
   <depend>eigen</depend>
 

@@ -32,6 +32,8 @@
 #include <rmf_task/Request.hpp>
 #include <rmf_task/Estimate.hpp>
 
+#include <rmf_dispenser_msgs/msg/dispenser_request_item.hpp>
+
 namespace rmf_task {
 namespace requests {
 
@@ -39,12 +41,16 @@ class Delivery : public rmf_task::Request
 {
 public:
 
+  using DispenserRequestItem = rmf_dispenser_msgs::msg::DispenserRequestItem;
+  using Start = rmf_traffic::agv::Planner::Start;
+
   static ConstRequestPtr make(
     std::size_t id,
     std::size_t pickup_waypoint,
     std::string pickup_dispenser,
     std::size_t dropoff_waypoint,
     std::string dropoff_ingestor,
+    std::vector<DispenserRequestItem> items,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
@@ -68,6 +74,10 @@ public:
   const std::size_t dropoff_waypoint() const;
 
   const std::string& dropoff_ingestor() const;
+
+  const std::vector<DispenserRequestItem>&  items() const;
+
+  Start dropoff_start(const Start& start) const;  
 
   class Implementation;
 private:

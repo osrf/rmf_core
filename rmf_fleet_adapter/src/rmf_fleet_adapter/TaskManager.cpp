@@ -25,6 +25,7 @@
 
 #include "tasks/Clean.hpp"
 #include "tasks/ChargeBattery.hpp"
+#include "tasks/Delivery.hpp"
 
 #include <iostream>
 
@@ -195,12 +196,29 @@ void TaskManager::set_queue(
       msg.task_profile.task_id = _queue.back()->id();
       msg.state = msg.STATE_QUEUED;
       msg.robot_name = _context->name();
-      this->_context->node()->task_summary()->publish(msg);    }
+      this->_context->node()->task_summary()->publish(msg);
+
+    }
 
     else if (const auto request =
       std::dynamic_pointer_cast<const rmf_task::requests::Delivery>(
         a.request()))
     {
+      const auto task = tasks::make_delivery(
+        request,
+        _context,
+        start,
+        a.deployment_time(),
+        a.state());
+
+      _queue.push_back(task);
+
+      rmf_task_msgs::msg::TaskSummary msg;
+      msg.task_id = _queue.back()->id();
+      msg.task_profile.task_id = _queue.back()->id();
+      msg.state = msg.STATE_QUEUED;
+      msg.robot_name = _context->name();
+      this->_context->node()->task_summary()->publish(msg);
 
     }
 
