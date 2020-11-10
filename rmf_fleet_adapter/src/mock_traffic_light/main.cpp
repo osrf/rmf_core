@@ -210,10 +210,17 @@ public:
         _go_to_next_waypoint();
         return;
       }
+
+      _last_active_state = state;
+      assert(!_checkpoints.empty());
+
+      const auto& l = state.location;
+      _checkpoints.back().departed({l.x, l.y, l.yaw});
+      return;
     }
 
     _last_active_state = state;
-    const std::size_t ideal_checkpoint_num = state.path.size() + 1;
+    const std::size_t ideal_checkpoint_num = state.path.size();
     if (_checkpoints.size() < ideal_checkpoint_num)
     {
       // This means the robot has not started following its path yet
@@ -222,6 +229,9 @@ public:
     else if (ideal_checkpoint_num < _checkpoints.size())
     {
       const std::size_t remove_N = _checkpoints.size() - ideal_checkpoint_num;
+      std::cout << " >> Reducing checkpoint num from " << _checkpoints.size()
+                << " down to " << ideal_checkpoint_num
+                << std::endl;
 
       _checkpoints.erase(
             _checkpoints.begin(),

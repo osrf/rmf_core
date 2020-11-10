@@ -151,6 +151,8 @@ void Participant::Implementation::_send_ready()
 //==============================================================================
 void Participant::Implementation::_send_reached()
 {
+  std::cout << "Telling writer that " << _id << " reached " << _last_reached
+            << " for " << _reservation_id.value() << std::endl;
   _writer->reached(_id, _reservation_id.value(), _last_reached);
 }
 

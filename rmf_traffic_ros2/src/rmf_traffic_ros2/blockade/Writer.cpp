@@ -353,6 +353,9 @@ public:
           .reservation(reservation_id)
           .checkpoint(checkpoint);
 
+      std::cout << "Publishing " << participant_id << " reached " << checkpoint
+                << " for reservation " << reservation_id << std::endl;
+
       reached_pub->publish(msg);
     }
 
