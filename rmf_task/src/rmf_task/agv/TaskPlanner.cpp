@@ -163,7 +163,8 @@ namespace {
 struct Invariant
 {
   std::size_t task_id;
-  double invariant_cost;
+  double earliest_start_time;
+  double earliest_finish_time;
 };
 
 // ============================================================================
@@ -171,7 +172,7 @@ struct InvariantLess
 {
   bool operator()(const Invariant& a, const Invariant& b) const
   {
-    return a.invariant_cost < b.invariant_cost;
+    return a.earliest_finish_time < b.earliest_finish_time;
   }
 };
 
@@ -185,6 +186,8 @@ public:
     std::size_t candidate;
     State state;
     rmf_traffic::Time wait_until;
+    State previous_state;
+    bool require_charge_battery = false;
   };
 
   // Map finish time to Entry
@@ -243,14 +246,16 @@ public:
   void update_candidate(
     std::size_t candidate,
     State state,
-    rmf_traffic::Time wait_until)
+    rmf_traffic::Time wait_until,
+    State previous_state,
+    bool require_charge_battery)
   {
     const auto it = _candidate_map.at(candidate);
     _value_map.erase(it);
     _candidate_map[candidate] = _value_map.insert(
       {
         state.finish_time(),
-        Entry{candidate, state, wait_until}
+        Entry{candidate, state, wait_until, previous_state, require_charge_battery}
       });
   }
 
@@ -293,7 +298,12 @@ Candidates Candidates::make(
     {
       initial_map.insert({
         finish.value().finish_state().finish_time(),
-        Entry{i, finish.value().finish_state(), finish.value().wait_until()}});
+        Entry{
+          i,
+          finish.value().finish_state(),
+          finish.value().wait_until(),
+          state,
+          false}});
     }
     else
     {
@@ -306,7 +316,12 @@ Candidates Candidates::make(
         assert(new_finish.has_value());
         initial_map.insert(
           {new_finish.value().finish_state().finish_time(),
-          Entry{i, new_finish.value().finish_state(), new_finish.value().wait_until()}});
+          Entry{
+            i,
+            new_finish.value().finish_state(),
+            new_finish.value().wait_until(),
+            state,
+            true}});
       }
       else
       {
@@ -374,10 +389,16 @@ struct Node
     unassigned_invariants.clear();
     for (const auto& u : unassigned_tasks)
     {
+      double earliest_start_time = rmf_traffic::time::to_seconds(
+        u.second.earliest_start_time.time_since_epoch());
+      double earliest_finish_time = earliest_start_time
+        + rmf_traffic::time::to_seconds(u.second.request->invariant_duration());
+
       unassigned_invariants.insert(
         Invariant{
-          u.first, 
-          rmf_traffic::time::to_seconds(u.second.request->invariant_duration())
+          u.first,
+          earliest_start_time,
+          earliest_finish_time
         });
     }
   }
@@ -417,6 +438,10 @@ struct LowestCostEstimate
 };
 
 //==============================================================================
+// Sorts and distributes tasks among agents based on the earliest finish time
+// possible for each task (i.e. not accounting for any variant costs). Guaranteed
+// to underestimate actual cost when the earliest start times for each task are
+// similar (enforced by the segmentation_threshold).
 class InvariantHeuristicQueue
 {
 public:
@@ -427,21 +452,21 @@ public:
     std::sort(initial_values.begin(), initial_values.end());
 
     for (const auto value : initial_values)
-      _stacks.push_back({value});
+      _stacks.push_back({{0, value}});
   }
 
-  void add(double new_value)
+  void add(const double earliest_start_time, const double earliest_finish_time)
   {
-    // Add the new value to the smallest stack
-    const double value = _stacks[0].back() + new_value;
-    _stacks[0].push_back(value);
+    double prev_end_value = _stacks[0].back().end;
+    double new_end_value = prev_end_value + (earliest_finish_time - earliest_start_time);
+    _stacks[0].push_back({earliest_start_time, new_end_value});
 
     // Find the largest stack that is still smaller than the current front
     const auto next_it = _stacks.begin() + 1;
     auto end_it = next_it;
     for (; end_it != _stacks.end(); ++end_it)
     {
-      if (value <= end_it->back())
+      if (new_end_value <= end_it->back().end)
         break;
     }
 
@@ -461,15 +486,20 @@ public:
       // NOTE: We start iterating from i=1 because i=0 represents a component of
       // the cost that is already accounted for by g(n) and the variant
       // component of h(n)
-      for (std::size_t i=1; i < stack.size(); ++i)
-        total_cost += stack[i];
+      for (std::size_t i = 1; i < stack.size(); ++i)
+      {
+        // Set lower bound of 0 to account for case where optimistically calculated
+        // end time is smaller than earliest start time
+        total_cost += std::max(0.0, (stack[i].end - stack[i].start));
+      }
     }
 
     return total_cost;
   }
 
 private:
-  std::vector<std::vector<double>> _stacks;
+  struct element { double start; double end; };
+  std::vector<std::vector<element>> _stacks;
 };
 
 // ============================================================================
@@ -618,6 +648,12 @@ const rmf_traffic::Duration segmentation_threshold =
 
 inline double compute_g_assignment(const TaskPlanner::Assignment& assignment)
 {
+  if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+    assignment.request()))
+  {
+    return 0.0; // Ignore charging tasks in cost
+  }
+
   return rmf_traffic::time::to_seconds(assignment.state().finish_time()
     - assignment.request()->earliest_start_time());
 }
@@ -756,31 +792,30 @@ public:
 
   double compute_h(const Node& node, const rmf_traffic::Time time_now)
   {
-    std::vector<double> initial_queue_values;
-    initial_queue_values.resize(
-          node.assigned_tasks.size(), std::numeric_limits<double>::infinity());
+    std::vector<double> initial_queue_values(
+      node.assigned_tasks.size(), std::numeric_limits<double>::infinity());
 
+    // Determine the earliest possible time an agent can begin the invariant
+    // portion of any of its next tasks
     for (const auto& u : node.unassigned_tasks)
     {
-      // We subtract the invariant duration here because otherwise its
-      // contribution to the cost estimate will be duplicated in the next section,
-      // which could result in an overestimate.
-      const rmf_traffic::Time variant_time =
+      const rmf_traffic::Time earliest_deployment_time =
           u.second.candidates.best_finish_time()
           - u.second.request->invariant_duration();
-      const double variant_value =
-        rmf_traffic::time::to_seconds(variant_time - time_now);
+      const double earliest_deployment_time_s =
+        rmf_traffic::time::to_seconds(
+          earliest_deployment_time.time_since_epoch());
 
       const auto& range = u.second.candidates.best_candidates();
       for (auto it = range.begin; it != range.end; ++it)
       {
         const std::size_t candidate = it->second.candidate;
-        if (variant_value < initial_queue_values[candidate])
-          initial_queue_values[candidate] = variant_value;
+        if (earliest_deployment_time_s < initial_queue_values[candidate])
+          initial_queue_values[candidate] = earliest_deployment_time_s;
       }
     }
 
-    for (std::size_t i=0; i < initial_queue_values.size(); ++i)
+    for (std::size_t i = 0; i < initial_queue_values.size(); ++i)
     {
       auto& value = initial_queue_values[i];
       if (std::isinf(value))
@@ -789,11 +824,10 @@ public:
         // any unassigned tasks that want to use it.
         const auto& assignments = node.assigned_tasks[i];
         if (assignments.empty())
-          value = 0.0;
+          value = rmf_traffic::time::to_seconds(time_now.time_since_epoch());
         else
-          value =
-            rmf_traffic::time::to_seconds(
-              assignments.back().assignment.state().finish_time() - time_now);
+          value = rmf_traffic::time::to_seconds(
+            assignments.back().assignment.state().finish_time().time_since_epoch());
       }
     }
 
@@ -803,8 +837,9 @@ public:
     // to it in order of smallest to largest. If that assumption is not met, then
     // the final cost that's calculated may be invalid.
     for (const auto& u : node.unassigned_invariants)
-      queue.add(u.invariant_cost);
-
+    {
+      queue.add(u.earliest_start_time, u.earliest_finish_time);
+    }
     return queue.compute_cost();
   }
 
@@ -898,6 +933,7 @@ public:
 
   {
     const auto& entry = it->second;
+    const auto& state_config = state_configs[entry.candidate];
 
     if (parent->latest_time + segmentation_threshold < entry.wait_until)
     {
@@ -908,7 +944,32 @@ public:
 
     auto new_node = std::make_shared<Node>(*parent);
 
-    // Assign the unassigned task
+    // Assign the unassigned task after checking for implicit charging requests
+    if (entry.require_charge_battery)
+    {
+      // Check if a battery task already precedes the latest assignment
+      auto& assignments = new_node->assigned_tasks[entry.candidate];
+      if (assignments.empty() || !std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+          assignments.back().assignment.request()))
+      {
+        auto charge_battery = make_charging_request(entry.previous_state.finish_time());
+        auto battery_estimate = charge_battery->estimate_finish(entry.previous_state, state_config);
+        if (battery_estimate.has_value())
+        {
+          assignments.push_back(
+            Node::AssignmentWrapper
+            { u.first,
+              Assignment
+              {
+                charge_battery,
+                battery_estimate.value().finish_state(),
+                battery_estimate.value().wait_until()
+              }
+            }
+          );
+        }
+      }
+    }
     new_node->assigned_tasks[entry.candidate].push_back(
       Node::AssignmentWrapper{u.first,
         Assignment{u.second.request, entry.state, entry.wait_until}});
@@ -917,7 +978,6 @@ public:
     new_node->pop_unassigned(u.first);
 
     // Update states of unassigned tasks for the candidate
-    const auto& state_config = state_configs[entry.candidate];
     bool add_charger = false;
     for (auto& new_u : new_node->unassigned_tasks)
     {
@@ -930,7 +990,9 @@ public:
         new_u.second.candidates.update_candidate(
           entry.candidate,
           finish.value().finish_state(),
-          finish.value().wait_until());
+          finish.value().wait_until(),
+          entry.state,
+          false);
       }
       else
       {
@@ -981,7 +1043,7 @@ public:
           if (finish.has_value())
           {
             new_u.second.candidates.update_candidate(
-              entry.candidate, finish.value().finish_state(), finish.value().wait_until());
+              entry.candidate, finish.value().finish_state(), finish.value().wait_until(), entry.state, false);
           }
           else
           {
@@ -1056,7 +1118,11 @@ public:
         if (finish.has_value())
         {
           new_u.second.candidates.update_candidate(
-            agent, finish.value().finish_state(), finish.value().wait_until());
+            agent,
+            finish.value().finish_state(),
+            finish.value().wait_until(),
+            state,
+            false);
         }
         else
         {
