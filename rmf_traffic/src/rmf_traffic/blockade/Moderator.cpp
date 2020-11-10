@@ -153,6 +153,8 @@ public:
       return Finished;
     }
 
+    std::cout << "     -- Currently covering " << s.begin << " --> " << s.end << std::endl;
+
     const auto& constraints =
         final_constraints.should_go.at(check.participant_id);
 
@@ -250,6 +252,7 @@ public:
     if (!peer_inserted)
       peer_it->second.clear();
 
+    std::cout << " === NEW CONSTRAINTS" << std::endl;
     for (const auto& other_r : last_known_reservation)
     {
       const auto other_participant = other_r.first;
@@ -272,6 +275,10 @@ public:
             other_reservation.path, other_reservation.radius,
             min_conflict_angle);
 
+      std::cout << participant_id << " x " << other_participant << ":" << std::endl;
+      for (const auto& c : conflict_brackets)
+        std::cout << "  + " << c << std::endl;
+
       auto zero_order_blockers = compute_blockers(
             conflict_brackets,
             participant_id, reservation.path.size(),
@@ -280,6 +287,8 @@ public:
       this_constraint_map = std::move(zero_order_blockers.at(0));
       other_constraint_map = std::move(zero_order_blockers.at(1));
     }
+
+    std::cout << " === END" << std::endl;
 
     final_constraints = compute_final_ShouldGo_constraints(peer_blockers);
 

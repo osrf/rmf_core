@@ -20,6 +20,9 @@
 #include <vector>
 #include <cassert>
 
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace blockade {
 
@@ -44,23 +47,8 @@ public:
     const auto it = state.find(_blocked_by);
     if (it == state.end())
     {
-      const auto blocker = std::to_string(_blocked_by);
-      const auto h = _blocker_hold_point?
-            std::to_string(*_blocker_hold_point) : std::string("null");
       std::string error = "Failed to evaluate BlockageConstraint ";
-      error += blocker + ":(" + h;
-      if (_end_condition)
-      {
-        error += ", " + std::to_string(_end_condition->index);
-        if (_end_condition->condition == BlockageEndCondition::HasReached)
-          error += ")";
-        else
-          error += "]";
-      }
-      else
-      {
-        error += ")";
-      }
+      error += _description();
 
       error += " for state: <";
       for (const auto& s : state)
@@ -109,7 +97,7 @@ private:
       const std::size_t has_reached = _end_condition->index;
 
       if (range.begin < has_reached)
-        return false;
+        return print_fail(range);
 
       // Implicit: has_reached <= range.begin
       if (has_reached < range.end)
@@ -122,6 +110,36 @@ private:
       }
     }
 
+    return print_fail(range);
+  }
+
+  std::string _description() const
+  {
+    const auto h = _blocker_hold_point?
+          std::to_string(*_blocker_hold_point) : std::string("null");
+
+    std::string desc = std::to_string(_blocked_by) + ":(" + h;
+    if (_end_condition)
+    {
+      desc += ", " + std::to_string(_end_condition->index);
+      if (_end_condition->condition == BlockageEndCondition::HasReached)
+        desc += ")";
+      else
+        desc+= "]";
+    }
+    else
+    {
+      desc += ")";
+    }
+
+    return desc;
+  }
+
+  bool print_fail(const ReservedRange& range) const
+  {
+    std::cout << " >> Blocked by " << _description()
+              << " whose range is: " << range.begin << " --> "
+              << range.end << std::endl;
     return false;
   }
 

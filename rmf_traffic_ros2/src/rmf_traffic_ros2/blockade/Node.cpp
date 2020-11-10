@@ -118,8 +118,8 @@ public:
   {
     moderator->ready(ready.participant, ready.reservation, ready.checkpoint);
 
-    std::cout << "Receiving ready [" << ready.checkpoint << "] for participant "
-              << ready.participant << " | "
+    std::cout << "Participant [" << ready.participant << "] ready for "
+              << ready.checkpoint << " | "
               << moderator->statuses().at(ready.participant).last_ready.value()
               << std::endl;
 
@@ -132,6 +132,11 @@ public:
   {
     moderator->reached(
           reached.participant, reached.reservation, reached.checkpoint);
+
+    std::cout << "Participant [" << reached.participant << "] reached "
+              << reached.checkpoint << " | "
+              << moderator->statuses().at(reached.participant).last_reached
+              << std::endl;
 
     check_for_updates();
   }

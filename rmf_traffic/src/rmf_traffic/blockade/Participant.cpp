@@ -100,7 +100,11 @@ void Participant::Implementation::check(const Status& status)
   }
 
   if (status.last_reached != _last_reached)
+  {
+    std::cout << " == Resending last_reached for " << _id << ": "
+              << _last_reached << " vs " << status.last_reached << std::endl;
     _send_reached();
+  }
 }
 
 //==============================================================================

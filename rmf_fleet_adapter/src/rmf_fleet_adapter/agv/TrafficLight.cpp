@@ -698,6 +698,12 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     if (version != data->current_version)
       return;
 
+    if (checkpoint_index != data->blockade.last_reached())
+    {
+      std::cout << "Participant " << data->itinerary.id() << " reached " << checkpoint_index
+                << " (was " << data->blockade.last_reached() << ")"
+                << ":" << data->blockade.reservation_id().value() << std::endl;
+    }
     data->blockade.reached(checkpoint_index);
 
     assert(checkpoint_index < data->arrival_timing.size());
