@@ -68,6 +68,7 @@ public:
   std::vector<rmf_traffic::agv::Plan::Waypoint> pending_waypoints;
   bool waiting_for_departure = false;
   std::optional<std::vector<CommandHandle::Checkpoint>> ready_checkpoints;
+  std::size_t next_departure_checkpoint = 0;
 
   std::size_t processing_version = 0;
 
@@ -179,6 +180,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
   waiting_timer = nullptr;
   waiting_for_departure = true;
   ready_checkpoints.reset();
+  next_departure_checkpoint = 0;
 
   if (new_path.empty())
   {
@@ -857,12 +859,17 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
   std::vector<CommandHandle::Checkpoint> checkpoints;
   std::size_t next = 0;
 
-  std::size_t current_checkpoint_index = blockade.last_reached();
+  std::size_t current_checkpoint_index = next_departure_checkpoint;
+  next_departure_checkpoint = new_range.end;
+
+#ifndef NDEBUG
   if (ready_checkpoints.has_value())
   {
     assert(!ready_checkpoints.value().empty());
-    current_checkpoint_index = ready_checkpoints->back().waypoint_index+1;
+    assert(ready_checkpoints.value().back().waypoint_index
+           == current_checkpoint_index-1);
   }
+#endif
 
   while (in_range_inclusive(next, current_checkpoint_index))
     ++next;
@@ -1020,8 +1027,14 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
     const std::size_t version,
     const std::size_t checkpoint_id)
 {
+  std::cout << "Triggered watch_for_ready for " << itinerary.id()
+            << " at checkpoint " << checkpoint_id << std::endl;
   if (version != current_version)
+  {
+    std::cout << "MISMATCHED VERSION FOR " << itinerary.id()
+              << "???: " << version << " vs " << current_version << std::endl;
     return;
+  }
 
   blockade.reached(checkpoint_id);
 
@@ -1029,6 +1042,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
 
   if (ready_checkpoints.has_value())
   {
+    std::cout << "Sending queued waypoints for " << itinerary.id() << std::endl;
     send_checkpoints(std::move(ready_checkpoints.value()));
     ready_checkpoints.reset();
   }
