@@ -765,20 +765,41 @@ public:
   double compute_h(const Node& node, const rmf_traffic::Time time_now)
   {
     std::vector<double> initial_queue_values(
-      node.assigned_tasks.size(), 0.0);
+      node.assigned_tasks.size(), std::numeric_limits<double>::infinity());
 
-    // Determine earliest possible deployment time for each agent
-    for(size_t i = 0; i < node.assigned_tasks.size(); ++i)
+    // Determine the earliest possible time an agent can begin the invariant
+    // portion of any of its next tasks
+    for (const auto& u : node.unassigned_tasks)
     {
-      if (node.assigned_tasks[i].empty())
+      const rmf_traffic::Time earliest_deployment_time =
+          u.second.candidates.best_finish_time()
+          - u.second.request->invariant_duration();
+      const double earliest_deployment_time_s =
+        rmf_traffic::time::to_seconds(
+          earliest_deployment_time.time_since_epoch());
+
+      const auto& range = u.second.candidates.best_candidates();
+      for (auto it = range.begin; it != range.end; ++it)
       {
-        initial_queue_values[i] = rmf_traffic::time::to_seconds(
-          time_now.time_since_epoch());
+        const std::size_t candidate = it->second.candidate;
+        if (earliest_deployment_time_s < initial_queue_values[candidate])
+          initial_queue_values[candidate] = earliest_deployment_time_s;
       }
-      else
+    }
+
+    for (std::size_t i = 0; i < initial_queue_values.size(); ++i)
+    {
+      auto& value = initial_queue_values[i];
+      if (std::isinf(value))
       {
-        initial_queue_values[i] = rmf_traffic::time::to_seconds(
-          node.assigned_tasks[i].back().state().finish_time().time_since_epoch());
+        // Clear out any infinity placeholders. Those candidates simply don't have
+        // any unassigned tasks that want to use it.
+        const auto& assignments = node.assigned_tasks[i];
+        if (assignments.empty())
+          value = rmf_traffic::time::to_seconds(time_now.time_since_epoch());
+        else
+          value = rmf_traffic::time::to_seconds(
+            assignments.back().state().finish_time().time_since_epoch());
       }
     }
 
@@ -787,7 +808,7 @@ public:
     // here. The InvariantHeuristicQueue expects the invariant costs to be passed
     // to it in order of smallest to largest. If that assumption is not met, then
     // the final cost that's calculated may be invalid.
-    for(const auto& u : node.unassigned_invariants)
+    for (const auto& u : node.unassigned_invariants)
     {
       queue.add(u.earliest_start_time, u.earliest_finish_time);
     }
