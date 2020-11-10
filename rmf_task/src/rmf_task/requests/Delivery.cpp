@@ -32,7 +32,9 @@ public:
 
   std::size_t _id;
   std::size_t _pickup_waypoint;
+  std::string _pickup_dispenser;
   std::size_t _dropoff_waypoint;
+  std::string _dropoff_ingestor;
   std::shared_ptr<rmf_battery::MotionPowerSink> _motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> _device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> _planner;
@@ -47,7 +49,9 @@ public:
 rmf_task::ConstRequestPtr Delivery::make(
   std::size_t id,
   std::size_t pickup_waypoint,
+  std::string pickup_dispenser,
   std::size_t dropoff_waypoint,
+  std::string dropoff_ingestor,
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
@@ -57,7 +61,9 @@ rmf_task::ConstRequestPtr Delivery::make(
   std::shared_ptr<Delivery> delivery(new Delivery());
   delivery->_pimpl->_id = id;
   delivery->_pimpl->_pickup_waypoint = pickup_waypoint;
+  delivery->_pimpl->_pickup_dispenser = std::move(pickup_dispenser);
   delivery->_pimpl->_dropoff_waypoint = dropoff_waypoint;
+  delivery->_pimpl->_dropoff_ingestor = std::move(dropoff_ingestor);
   delivery->_pimpl->_motion_sink = std::move(motion_sink);
   delivery->_pimpl->_device_sink = std::move(device_sink);
   delivery->_pimpl->_planner = std::move(planner);
@@ -216,6 +222,30 @@ rmf_traffic::Duration Delivery::invariant_duration() const
 rmf_traffic::Time Delivery::earliest_start_time() const
 {
   return _pimpl->_start_time;
+}
+
+//==============================================================================
+const std::size_t Delivery::pickup_waypoint() const
+{
+  return _pimpl->_pickup_waypoint;
+}
+
+//==============================================================================
+const std::string& Delivery::pickup_dispenser() const
+{
+  return _pimpl->_pickup_dispenser;
+}
+
+//==============================================================================
+const std::string& Delivery::dropoff_ingestor() const
+{
+  return _pimpl->_dropoff_ingestor;
+}
+
+//==============================================================================
+const std::size_t Delivery::dropoff_waypoint() const
+{
+  return _pimpl->_dropoff_waypoint;
 }
 
 //==============================================================================

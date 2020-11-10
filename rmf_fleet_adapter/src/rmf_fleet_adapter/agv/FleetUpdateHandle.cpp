@@ -325,7 +325,9 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     new_request = rmf_task::requests::Delivery::make(
       request_id,
       pickup_wp->index(),
+      delivery.pickup_dispenser,
       dropoff_wp->index(),
+      delivery.dropoff_ingestor,
       motion_sink,
       ambient_sink,
       planner,

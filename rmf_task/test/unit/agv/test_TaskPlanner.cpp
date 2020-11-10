@@ -187,7 +187,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         1,
         0,
+        "dispenser",
         3,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -197,7 +199,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         2,
         15,
+        "dispenser",
         2,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -207,7 +211,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         3,
         7,
+        "dispenser",
         9,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -262,7 +268,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         1,
         0,
+        "dispenser",
         3,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -272,7 +280,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         2,
         15,
+        "dispenser",
         2,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -282,7 +292,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         3,
         7,
+        "dispenser",
         9,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -292,7 +304,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         4,
         8,
+        "dispenser",
         11,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -302,7 +316,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         5,
         10,
+        "dispenser",
         0,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -312,7 +328,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         6,
         4,
+        "dispenser",
         8,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -322,7 +340,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         7,
         8,
+        "dispenser",
         14,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -332,7 +352,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         8,
         5,
+        "dispenser",
         11,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -342,7 +364,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         9,
         9,
+        "dispenser",
         0,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -352,7 +376,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         10,
         1,
+        "dispenser",
         3,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -362,7 +388,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         11,
         0,
+        "dispenser",
         12,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -418,7 +446,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         1,
         0,
+        "dispenser",
         3,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -428,7 +458,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         2,
         15,
+        "dispenser",
         2,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -438,7 +470,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         3,
         9,
+        "dispenser",
         4,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,
@@ -448,7 +482,9 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         4,
         8,
+        "dispenser",
         11,
+        "ingestor",
         motion_sink,
         device_sink,
         planner,

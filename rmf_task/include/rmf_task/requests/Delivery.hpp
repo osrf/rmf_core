@@ -42,7 +42,9 @@ public:
   static ConstRequestPtr make(
     std::size_t id,
     std::size_t pickup_waypoint,
+    std::string pickup_dispenser,
     std::size_t dropoff_waypoint,
+    std::string dropoff_ingestor,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
@@ -58,6 +60,14 @@ public:
   rmf_traffic::Duration invariant_duration() const final;
 
   rmf_traffic::Time earliest_start_time() const final;
+
+  const std::size_t pickup_waypoint() const;
+
+  const std::string& pickup_dispenser() const;
+
+  const std::size_t dropoff_waypoint() const;
+
+  const std::string& dropoff_ingestor() const;
 
   class Implementation;
 private:
