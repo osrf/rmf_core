@@ -69,8 +69,7 @@ public:
     submitted_task.task_id =
       // "task" + std::to_string((int)task.task_type)
       //   + "-" + std::to_string((int)(node->now().seconds()));
-      std::to_string((int)task.task_type.type) + "00" +
-      std::to_string((i++));
+      std::to_string( ((int)task.task_type.type)*1000 + (i++) );
 
     submitted_task.submission_time = node->now();
 
@@ -237,13 +236,13 @@ rmf_utils::optional<DispatchState> Dispatcher::get_task_state(
 }
 
 //==============================================================================
-const DispatchTasksPtr Dispatcher::active_tasks() const
+const DispatchTasksPtr& Dispatcher::active_tasks() const
 {
   return _pimpl->active_dispatch_tasks;
 }
 
 //==============================================================================
-const DispatchTasksPtr Dispatcher::terminated_tasks() const
+const DispatchTasksPtr& Dispatcher::terminated_tasks() const
 {
   return _pimpl->terminal_dispatch_tasks;
 }

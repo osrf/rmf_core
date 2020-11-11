@@ -172,6 +172,12 @@ void TaskManager::set_queue(
       msg.task_profile.task_id = _queue.back()->id();
       msg.state = msg.STATE_QUEUED;
       msg.robot_name = _context->name();
+      msg.task_profile.task_type.type = 
+        msg.task_profile.task_type.TYPE_CLEAN;
+      msg.start_time = rmf_traffic_ros2::convert(
+        task->deployment_time());
+      msg.start_time = rmf_traffic_ros2::convert(
+        task->finish_state().finish_time());
       this->_context->node()->task_summary()->publish(msg);
     }
 
@@ -195,7 +201,14 @@ void TaskManager::set_queue(
       msg.task_profile.task_id = _queue.back()->id();
       msg.state = msg.STATE_QUEUED;
       msg.robot_name = _context->name();
-      this->_context->node()->task_summary()->publish(msg);    }
+      msg.task_profile.task_type.type = 
+        msg.task_profile.task_type.TYPE_CHARGE_BATTERY;
+      msg.start_time = rmf_traffic_ros2::convert(
+        task->deployment_time());
+      msg.start_time = rmf_traffic_ros2::convert(
+        task->finish_state().finish_time());
+      this->_context->node()->task_summary()->publish(msg);
+    }
 
     else if (const auto request =
       std::dynamic_pointer_cast<const rmf_task::requests::Delivery>(
@@ -221,11 +234,8 @@ const std::vector<rmf_task::ConstRequestPtr> TaskManager::requests() const
     if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
       task->request()))
       continue;
-
     requests.push_back(task->request());
-
   }
-  
   return requests;
 }
 
@@ -275,6 +285,10 @@ void TaskManager::_begin_next_task()
       msg.task_id = id;
       msg.task_profile.task_id = id;
       msg.robot_name = _context->name();
+      msg.start_time = rmf_traffic_ros2::convert(
+        _active_task->deployment_time());
+      msg.end_time = rmf_traffic_ros2::convert(
+        _active_task->finish_state().finish_time());
       _context->node()->task_summary()->publish(msg);
     },
           [this, id = _active_task->id()](std::exception_ptr e)
@@ -292,6 +306,10 @@ void TaskManager::_begin_next_task()
       msg.task_id = id;
       msg.task_profile.task_id = id;
       msg.robot_name = _context->name();
+      msg.start_time = rmf_traffic_ros2::convert(
+        _active_task->deployment_time());
+      msg.end_time = rmf_traffic_ros2::convert(
+        _active_task->finish_state().finish_time());
       _context->node()->task_summary()->publish(msg);
       // _begin_next_task();
     },
@@ -302,6 +320,10 @@ void TaskManager::_begin_next_task()
       msg.task_profile.task_id = id;
       msg.state = msg.STATE_COMPLETED;
       msg.robot_name = _context->name();
+      msg.start_time = rmf_traffic_ros2::convert(
+        _active_task->deployment_time());
+      msg.end_time = rmf_traffic_ros2::convert(
+        _active_task->finish_state().finish_time());
       this->_context->node()->task_summary()->publish(msg);
 
       _active_task = nullptr;

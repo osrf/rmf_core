@@ -94,15 +94,15 @@ public:
   rmf_utils::optional<DispatchState> get_task_state(
     const TaskID& task_id);
 
-  /// Get active tasks map list handled by dispatcher
+  /// Get a mutable ref of active tasks map list handled by dispatcher
   ///
   /// \return ptr to a map of active tasks
-  const DispatchTasksPtr active_tasks() const;
+  const DispatchTasksPtr& active_tasks() const;
 
-  /// Get terminated tasks map list
+  /// Get a mutable ref of terminated tasks map list
   ///
   /// \return ptr to a map of terminated tasks
-  const DispatchTasksPtr terminated_tasks() const;
+  const DispatchTasksPtr& terminated_tasks() const;
 
   using StatusCallback = std::function<void(const TaskStatusPtr status)>;
 

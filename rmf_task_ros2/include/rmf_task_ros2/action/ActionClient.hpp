@@ -144,10 +144,13 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
           return;
         }
 
-        auto hack_fleetname = weak_status->fleet_name; // HACK, TO remove!
+        // TODO: hack to retain task profile and fleet name (to remove)
+        auto cache_fleetname = weak_status->fleet_name;
+        auto cache_profile = weak_status->task_profile;
         // update status to ptr
         *weak_status = convert(*msg);
-        weak_status->fleet_name = hack_fleetname;  // HACK, TO remove!
+        weak_status->fleet_name = cache_fleetname; 
+        weak_status->task_profile = cache_profile;
 
         if (_on_change_callback)
           _on_change_callback(weak_status);
