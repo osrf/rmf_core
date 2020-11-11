@@ -67,11 +67,11 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
-  const std::size_t pickup_waypoint() const;
+  std::size_t pickup_waypoint() const;
 
   const std::string& pickup_dispenser() const;
 
-  const std::size_t dropoff_waypoint() const;
+  std::size_t dropoff_waypoint() const;
 
   const std::string& dropoff_ingestor() const;
 

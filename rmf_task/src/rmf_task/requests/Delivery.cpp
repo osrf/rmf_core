@@ -74,30 +74,35 @@ rmf_task::ConstRequestPtr Delivery::make(
   delivery->_pimpl->_start_time = start_time;
 
   // Calculate duration of invariant component of task
-  const auto plan_start_time = std::chrono::steady_clock::now();
-  rmf_traffic::agv::Planner::Start start{
-    plan_start_time,
-    delivery->_pimpl->_pickup_waypoint,
-    0.0};
-
-  rmf_traffic::agv::Planner::Goal goal{delivery->_pimpl->_dropoff_waypoint};
-  const auto result_to_dropoff = delivery->_pimpl->_planner->plan(start, goal);
-
-  const auto trajectory = result_to_dropoff->get_itinerary().back().trajectory();
-  const auto& finish_time = *trajectory.finish_time();
-  
-  delivery->_pimpl->_invariant_duration = finish_time - plan_start_time;
+  delivery->_pimpl->_invariant_duration = rmf_traffic::Duration{0};
   delivery->_pimpl->_invariant_battery_drain = 0.0;
 
-  if (delivery->_pimpl->_drain_battery)
+  if (delivery->_pimpl->_pickup_waypoint != delivery->_pimpl->_dropoff_waypoint)
   {
-    // Compute battery drain
-    const double dSOC_motion =
-      delivery->_pimpl->_motion_sink->compute_change_in_charge(trajectory);
-    const double dSOC_device =
-      delivery->_pimpl->_device_sink->compute_change_in_charge(
-        rmf_traffic::time::to_seconds(delivery->_pimpl->_invariant_duration));
-    delivery->_pimpl->_invariant_battery_drain = dSOC_motion + dSOC_device;  
+    const auto plan_start_time = std::chrono::steady_clock::now();
+    rmf_traffic::agv::Planner::Start start{
+      plan_start_time,
+      delivery->_pimpl->_pickup_waypoint,
+      0.0};
+
+    rmf_traffic::agv::Planner::Goal goal{delivery->_pimpl->_dropoff_waypoint};
+    const auto result_to_dropoff = delivery->_pimpl->_planner->plan(start, goal);
+
+    const auto trajectory = result_to_dropoff->get_itinerary().back().trajectory();
+    const auto& finish_time = *trajectory.finish_time();
+    
+    delivery->_pimpl->_invariant_duration = finish_time - plan_start_time;
+
+    if (delivery->_pimpl->_drain_battery)
+    {
+      // Compute battery drain
+      const double dSOC_motion =
+        delivery->_pimpl->_motion_sink->compute_change_in_charge(trajectory);
+      const double dSOC_device =
+        delivery->_pimpl->_device_sink->compute_change_in_charge(
+          rmf_traffic::time::to_seconds(delivery->_pimpl->_invariant_duration));
+      delivery->_pimpl->_invariant_battery_drain = dSOC_motion + dSOC_device;  
+    }
   }
 
   return delivery;
@@ -152,7 +157,7 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
     const auto& finish_time = *trajectory.finish_time();
     variant_duration = finish_time - start_time;
 
-    if(_pimpl->_drain_battery)
+    if (_pimpl->_drain_battery)
     {
       // Compute battery drain
       dSOC_motion = _pimpl->_motion_sink->compute_change_in_charge(trajectory);
@@ -228,7 +233,7 @@ rmf_traffic::Time Delivery::earliest_start_time() const
 }
 
 //==============================================================================
-const std::size_t Delivery::pickup_waypoint() const
+std::size_t Delivery::pickup_waypoint() const
 {
   return _pimpl->_pickup_waypoint;
 }
@@ -246,7 +251,7 @@ const std::string& Delivery::dropoff_ingestor() const
 }
 
 //==============================================================================
-const std::size_t Delivery::dropoff_waypoint() const
+std::size_t Delivery::dropoff_waypoint() const
 {
   return _pimpl->_dropoff_waypoint;
 }

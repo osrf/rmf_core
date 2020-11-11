@@ -26,6 +26,7 @@
 #include <rmf_battery/MotionPowerSink.hpp>
 #include <rmf_battery/DevicePowerSink.hpp>
 
+#include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/optional.hpp>
 
 #include <rmf_task/agv/State.hpp>
@@ -47,7 +48,7 @@ public:
     std::size_t finish_waypoint,
     std::size_t num_loops,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     rmf_traffic::Time start_time,
     bool drain_battery = true);
@@ -62,11 +63,11 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
-  const std::size_t start_waypoint() const;
+  std::size_t start_waypoint() const;
 
-  const std::size_t finish_waypoint() const;
+  std::size_t finish_waypoint() const;
 
-  const std::size_t num_loops() const;
+  std::size_t num_loops() const;
 
   Start loop_start(const Start& start) const;
 
@@ -74,7 +75,7 @@ public:
 
   class Implementation;
 private:
-  Delivery();
+  Loop();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
