@@ -125,7 +125,6 @@ public:
       rmf_task::ConstRequestPtr request,
       State state,
       rmf_traffic::Time deployment_time);
-
       
     // Get the request of this task
     rmf_task::ConstRequestPtr request() const;
