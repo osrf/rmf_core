@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
+#ifndef INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
+#define INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
 
 #include <chrono>
 
@@ -26,33 +26,29 @@
 #include <rmf_battery/MotionPowerSink.hpp>
 #include <rmf_battery/DevicePowerSink.hpp>
 
+#include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/optional.hpp>
 
 #include <rmf_task/agv/State.hpp>
 #include <rmf_task/Request.hpp>
 #include <rmf_task/Estimate.hpp>
 
-#include <rmf_dispenser_msgs/msg/dispenser_request_item.hpp>
-
 namespace rmf_task {
 namespace requests {
 
-class Delivery : public rmf_task::Request
+class Loop : public rmf_task::Request
 {
 public:
 
-  using DispenserRequestItem = rmf_dispenser_msgs::msg::DispenserRequestItem;
   using Start = rmf_traffic::agv::Planner::Start;
 
   static ConstRequestPtr make(
     std::size_t id,
-    std::size_t pickup_waypoint,
-    std::string pickup_dispenser,
-    std::size_t dropoff_waypoint,
-    std::string dropoff_ingestor,
-    std::vector<DispenserRequestItem> items,
+    std::size_t start_waypoint,
+    std::size_t finish_waypoint,
+    std::size_t num_loops,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     rmf_traffic::Time start_time,
     bool drain_battery = true);
@@ -67,28 +63,26 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
-  std::size_t pickup_waypoint() const;
+  std::size_t start_waypoint() const;
 
-  const std::string& pickup_dispenser() const;
+  std::size_t finish_waypoint() const;
 
-  std::size_t dropoff_waypoint() const;
+  std::size_t num_loops() const;
 
-  const std::string& dropoff_ingestor() const;
+  Start loop_start(const Start& start) const;
 
-  const std::vector<DispenserRequestItem>&  items() const;
-
-  Start dropoff_start(const Start& start) const;  
+  Start loop_end(const Start& start) const;
 
   class Implementation;
 private:
-  Delivery();
+  Loop();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using DeliveryRequestPtr = std::shared_ptr<Delivery>;
-using ConstDeliveryRequestPtr = std::shared_ptr<const Delivery>;
+using LoopRequestPtr = std::shared_ptr<Loop>;
+using ConstLoopRequestPtr = std::shared_ptr<const Loop>;
 
 } // namespace tasks
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
+#endif // INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
