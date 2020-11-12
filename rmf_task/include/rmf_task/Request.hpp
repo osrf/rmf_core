@@ -37,7 +37,7 @@ public:
   using SharedPtr = std::shared_ptr<Request>;
 
   /// Get the id of the task
-  virtual std::size_t id() const = 0;
+  virtual std::string id() const = 0;
 
   /// Estimate the state of the robot when the task is finished along with the
   /// time the robot has to wait before commencing the task

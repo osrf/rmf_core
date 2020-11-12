@@ -185,7 +185,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::Request::SharedPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         0,
         3,
         motion_sink,
@@ -195,7 +195,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         15,
         2,
         motion_sink,
@@ -205,7 +205,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         7,
         9,
         motion_sink,
@@ -260,7 +260,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::Request::SharedPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         0,
         3,
         motion_sink,
@@ -270,7 +270,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         15,
         2,
         motion_sink,
@@ -280,7 +280,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         7,
         9,
         motion_sink,
@@ -290,7 +290,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        4,
+        "4",
         8,
         11,
         motion_sink,
@@ -300,7 +300,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        5,
+        "5",
         10,
         0,
         motion_sink,
@@ -310,7 +310,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        6,
+        "6",
         4,
         8,
         motion_sink,
@@ -320,7 +320,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        7,
+        "7",
         8,
         14,
         motion_sink,
@@ -330,7 +330,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        8,
+        "8",
         5,
         11,
         motion_sink,
@@ -340,7 +340,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        9,
+        "9",
         9,
         0,
         motion_sink,
@@ -350,7 +350,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        10,
+        "10",
         1,
         3,
         motion_sink,
@@ -360,7 +360,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        11,
+        "11",
         0,
         12,
         motion_sink,
@@ -416,7 +416,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::Request::SharedPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         0,
         3,
         motion_sink,
@@ -426,7 +426,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         15,
         2,
         motion_sink,
@@ -436,7 +436,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         9,
         4,
         motion_sink,
@@ -446,7 +446,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        4,
+        "4",
         8,
         11,
         motion_sink,
@@ -511,7 +511,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::Request::SharedPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         6,
         3,
         motion_sink,
@@ -521,7 +521,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         10,
         7,
         motion_sink,
@@ -531,7 +531,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         2,
         12,
         motion_sink,
@@ -541,7 +541,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        4,
+        "4",
         8,
         11,
         motion_sink,
@@ -551,7 +551,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        5,
+        "5",
         10,
         6,
         motion_sink,
@@ -561,7 +561,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        6,
+        "6",
         2,
         9,
         motion_sink,
@@ -571,7 +571,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        7,
+        "7",
         3,
         4,
         motion_sink,
@@ -581,7 +581,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        8,
+        "8",
         5,
         11,
         motion_sink,
@@ -591,7 +591,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        9,
+        "9",
         9,
         1,
         motion_sink,
@@ -601,7 +601,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        10,
+        "10",
         1,
         5,
         motion_sink,
@@ -611,7 +611,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        11,
+        "11",
         13,
         10,
         motion_sink,
