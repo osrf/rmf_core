@@ -232,15 +232,22 @@ SCENARIO("Grid World")
         planner);
     rmf_task::agv::TaskPlanner task_planner(task_config);
 
+    auto start_time = std::chrono::steady_clock::now();
     const auto greedy_assignments = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    finish_time = std::chrono::steady_clock::now();
+    std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Optimal", optimal_assignments, optimal_cost);
 
     REQUIRE(optimal_cost <= greedy_cost);
@@ -420,15 +427,22 @@ SCENARIO("Grid World")
         planner);
     rmf_task::agv::TaskPlanner task_planner(task_config);
 
+    auto start_time = std::chrono::steady_clock::now();
     const auto greedy_assignments = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    finish_time = std::chrono::steady_clock::now();
+    std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Optimal", optimal_assignments, optimal_cost);
 
     REQUIRE(optimal_cost <= greedy_cost);
@@ -518,16 +532,24 @@ SCENARIO("Grid World")
         planner);
     rmf_task::agv::TaskPlanner task_planner(task_config);
 
+    auto start_time = std::chrono::steady_clock::now();
     const auto greedy_assignments = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    finish_time = std::chrono::steady_clock::now();
+    std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Optimal", optimal_assignments, optimal_cost);
+
 
     REQUIRE(optimal_cost <= greedy_cost);
 
@@ -562,12 +584,15 @@ SCENARIO("Grid World")
       rmf_task::agv::StateConfig{0.2}
     };
 
-    std::vector<rmf_task::Request::SharedPtr> requests =
+    std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
         1,
         6,
+        "dispenser",
         3,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -577,7 +602,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         2,
         10,
+        "dispenser",
         7,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -587,7 +615,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         3,
         2,
+        "dispenser",
         12,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -597,7 +628,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         4,
         8,
+        "dispenser",
         11,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -607,7 +641,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         5,
         10,
+        "dispenser",
         6,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -617,7 +654,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         6,
         2,
+        "dispenser",
         9,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -627,7 +667,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         7,
         3,
+        "dispenser",
         4,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -637,7 +680,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         8,
         5,
+        "dispenser",
         11,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -647,7 +693,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         9,
         9,
+        "dispenser",
         1,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -657,7 +706,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         10,
         1,
+        "dispenser",
         5,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -667,7 +719,10 @@ SCENARIO("Grid World")
       rmf_task::requests::Delivery::make(
         11,
         13,
+        "dispenser",
         10,
+        "ingestor",
+        {},
         motion_sink,
         device_sink,
         planner,
@@ -683,16 +738,24 @@ SCENARIO("Grid World")
         planner);
     rmf_task::agv::TaskPlanner task_planner(task_config);
 
+    auto start_time = std::chrono::steady_clock::now();
     const auto greedy_assignments = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
     const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    finish_time = std::chrono::steady_clock::now();
+    std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Optimal", optimal_assignments, optimal_cost);
+
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
