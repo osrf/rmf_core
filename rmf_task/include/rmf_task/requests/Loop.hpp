@@ -19,6 +19,7 @@
 #define INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
 
 #include <chrono>
+#include <string>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
