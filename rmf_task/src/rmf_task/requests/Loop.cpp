@@ -68,14 +68,14 @@ ConstRequestPtr Loop::make(
   // Calculate the invariant duration and battery drain for this task
   loop->_pimpl->invariant_duration = rmf_traffic::Duration{0};
   loop->_pimpl->invariant_battery_drain = 0.0;
-
   if (loop->_pimpl->start_waypoint != loop->_pimpl->finish_waypoint)
   {
     rmf_traffic::agv::Planner::Start loop_start{
       start_time,
       loop->_pimpl->start_waypoint,
       0.0};
-    rmf_traffic::agv::Planner::Goal loop_end_goal{loop->_pimpl->start_waypoint};
+    rmf_traffic::agv::Planner::Goal loop_end_goal{
+      loop->_pimpl->finish_waypoint};
 
     const auto forward_loop_plan = loop->_pimpl->planner->plan(
       loop_start, loop_end_goal);
@@ -84,7 +84,6 @@ ConstRequestPtr Loop::make(
       forward_loop_plan->get_itinerary().back().trajectory();
     const auto& finish_time = *trajectory.finish_time();
     const auto forward_duration = finish_time - start_time;
-
     loop->_pimpl->invariant_duration = (2 * num_loops - 1) * forward_duration;
 
     if (loop->_pimpl->drain_battery)

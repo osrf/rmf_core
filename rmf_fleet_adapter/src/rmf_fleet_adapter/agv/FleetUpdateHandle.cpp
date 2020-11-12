@@ -531,7 +531,6 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
 }
 
-
 void FleetUpdateHandle::Implementation::dispatch_request_cb(
   const DispatchRequest::SharedPtr msg)
 {
