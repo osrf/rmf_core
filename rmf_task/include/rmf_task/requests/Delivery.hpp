@@ -19,6 +19,7 @@
 #define INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
 
 #include <chrono>
+#include <string>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
@@ -45,7 +46,7 @@ public:
   using Start = rmf_traffic::agv::Planner::Start;
 
   static ConstRequestPtr make(
-    std::size_t id,
+    std::string id,
     std::size_t pickup_waypoint,
     std::string pickup_dispenser,
     std::size_t dropoff_waypoint,
@@ -57,7 +58,7 @@ public:
     rmf_traffic::Time start_time,
     bool drain_battery = true);
 
-  std::size_t id() const final;
+  std::string id() const final;
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
@@ -88,7 +89,7 @@ private:
 using DeliveryRequestPtr = std::shared_ptr<Delivery>;
 using ConstDeliveryRequestPtr = std::shared_ptr<const Delivery>;
 
-} // namespace tasks
+} // namespace requests
 } // namespace rmf_task
 
 #endif // INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP

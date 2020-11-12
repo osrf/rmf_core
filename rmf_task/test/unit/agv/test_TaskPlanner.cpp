@@ -185,7 +185,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         0,
         "dispenser",
         3,
@@ -198,7 +198,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         15,
         "dispenser",
         2,
@@ -211,7 +211,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         7,
         "dispenser",
         9,
@@ -276,7 +276,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         0,
         "dispenser",
         3,
@@ -289,7 +289,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         15,
         "dispenser",
         2,
@@ -302,7 +302,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         7,
         "dispenser",
         9,
@@ -315,7 +315,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        4,
+        "4",
         8,
         "dispenser",
         11,
@@ -328,7 +328,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        5,
+        "5",
         10,
         "dispenser",
         0,
@@ -341,7 +341,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        6,
+        "6",
         4,
         "dispenser",
         8,
@@ -354,7 +354,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        7,
+        "7",
         8,
         "dispenser",
         14,
@@ -367,7 +367,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        8,
+        "8",
         5,
         "dispenser",
         11,
@@ -380,7 +380,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        9,
+        "9",
         9,
         "dispenser",
         0,
@@ -393,7 +393,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        10,
+        "10",
         1,
         "dispenser",
         3,
@@ -406,7 +406,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        11,
+        "11",
         0,
         "dispenser",
         12,
@@ -472,7 +472,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         0,
         "dispenser",
         3,
@@ -485,7 +485,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         15,
         "dispenser",
         2,
@@ -498,7 +498,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         9,
         "dispenser",
         4,
@@ -511,7 +511,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        4,
+        "4",
         8,
         "dispenser",
         11,
@@ -587,7 +587,7 @@ SCENARIO("Grid World")
     std::vector<rmf_task::ConstRequestPtr> requests =
     {
       rmf_task::requests::Delivery::make(
-        1,
+        "1",
         6,
         "dispenser",
         3,
@@ -600,7 +600,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        2,
+        "2",
         10,
         "dispenser",
         7,
@@ -613,7 +613,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        3,
+        "3",
         2,
         "dispenser",
         12,
@@ -626,7 +626,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        4,
+        "4",
         8,
         "dispenser",
         11,
@@ -639,7 +639,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        5,
+        "5",
         10,
         "dispenser",
         6,
@@ -652,7 +652,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        6,
+        "6",
         2,
         "dispenser",
         9,
@@ -665,7 +665,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        7,
+        "7",
         3,
         "dispenser",
         4,
@@ -678,7 +678,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        8,
+        "8",
         5,
         "dispenser",
         11,
@@ -691,7 +691,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        9,
+        "9",
         9,
         "dispenser",
         1,
@@ -704,7 +704,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        10,
+        "10",
         1,
         "dispenser",
         5,
@@ -717,7 +717,7 @@ SCENARIO("Grid World")
         drain_battery),
 
       rmf_task::requests::Delivery::make(
-        11,
+        "11",
         13,
         "dispenser",
         10,

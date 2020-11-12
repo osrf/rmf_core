@@ -30,7 +30,7 @@ public:
   Implementation()
   {}
 
-  std::size_t id;
+  std::string id;
   std::size_t start_waypoint;
   std::size_t end_waypoint;
   rmf_traffic::Trajectory cleaning_path;
@@ -47,7 +47,7 @@ public:
 
 //==============================================================================
 rmf_task::ConstRequestPtr Clean::make(
-  std::size_t id,
+  std::string id,
   std::size_t start_waypoint,
   std::size_t end_waypoint,
   rmf_traffic::Trajectory& cleaning_path,
@@ -89,7 +89,6 @@ rmf_task::ConstRequestPtr Clean::make(
     const double dSOC_cleaning =
       clean->_pimpl->cleaning_sink->compute_change_in_charge(
         rmf_traffic::time::to_seconds(clean->_pimpl->invariant_duration));
-
     clean->_pimpl->invariant_battery_drain = dSOC_motion + dSOC_ambient +
       dSOC_cleaning;
   }
@@ -103,7 +102,7 @@ Clean::Clean()
 {}
 
 //==============================================================================
-std::size_t Clean::id() const
+std::string Clean::id() const
 {
   return _pimpl->id;
 }
@@ -224,13 +223,13 @@ rmf_traffic::Time Clean::earliest_start_time() const
 }
 
 //==============================================================================
-const std::size_t Clean::start_waypoint() const
+std::size_t Clean::start_waypoint() const
 {
   return _pimpl->start_waypoint;
 }
 
 //==============================================================================
-const std::size_t Clean::end_waypoint() const
+std::size_t Clean::end_waypoint() const
 {
   return _pimpl->end_waypoint;
 }

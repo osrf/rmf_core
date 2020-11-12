@@ -43,7 +43,7 @@ public:
   using Start = rmf_traffic::agv::Planner::Start;
 
   static ConstRequestPtr make(
-    std::size_t id,
+    std::string id,
     std::size_t start_waypoint,
     std::size_t finish_waypoint,
     std::size_t num_loops,
@@ -53,7 +53,7 @@ public:
     rmf_traffic::Time start_time,
     bool drain_battery = true);
 
-  std::size_t id() const final;
+  std::string id() const final;
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,

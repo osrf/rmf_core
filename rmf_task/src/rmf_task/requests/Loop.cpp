@@ -28,7 +28,7 @@ public:
   Implementation()
   {}
 
-  std::size_t id;
+  std::string id;
   std::size_t start_waypoint;
   std::size_t finish_waypoint;
   std::size_t num_loops;
@@ -44,7 +44,7 @@ public:
 
 //==============================================================================
 ConstRequestPtr Loop::make(
-  std::size_t id,
+  std::string id,
   std::size_t start_waypoint,
   std::size_t finish_waypoint,
   std::size_t num_loops,
@@ -112,7 +112,7 @@ Loop::Loop()
 }
 
 //==============================================================================
-std::size_t Loop::id() const
+std::string Loop::id() const
 {
   return _pimpl->id;
 }

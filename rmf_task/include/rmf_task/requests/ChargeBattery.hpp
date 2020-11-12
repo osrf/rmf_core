@@ -18,6 +18,8 @@
 #ifndef INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
 #define INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
 
+#include <string>
+
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
 
@@ -46,7 +48,7 @@ public:
     rmf_traffic::Time start_time,
     bool drain_battery = true);
 
-  std::size_t id() const final;
+  std::string id() const final;
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,

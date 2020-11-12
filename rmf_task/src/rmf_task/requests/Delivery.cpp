@@ -30,7 +30,7 @@ public:
   Implementation()
   {}
 
-  std::size_t _id;
+  std::string _id;
   std::size_t _pickup_waypoint;
   std::string _pickup_dispenser;
   std::size_t _dropoff_waypoint;
@@ -48,7 +48,7 @@ public:
 
 //==============================================================================
 rmf_task::ConstRequestPtr Delivery::make(
-  std::size_t id,
+  std::string id,
   std::size_t pickup_waypoint,
   std::string pickup_dispenser,
   std::size_t dropoff_waypoint,
@@ -114,7 +114,7 @@ Delivery::Delivery()
 {}
 
 //==============================================================================
-std::size_t Delivery::id() const
+std::string Delivery::id() const
 {
   return _pimpl->_id;
 }
