@@ -220,13 +220,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       return;
     }
 
-    // TODO(YV) get rid of id field in RequestPtr
-    std::stringstream id_stream(id);
-    std::size_t request_id;
-    id_stream >> request_id;
-
     new_request = rmf_task::requests::Clean::make(
-      request_id,
+      id,
       start_wp->index(),
       finish_wp->index(),
       cleaning_trajectory,
@@ -319,13 +314,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
         return;
     }
 
-    // TODO(YV) get rid of id field in RequestPtr
-    std::stringstream id_stream(id);
-    std::size_t request_id;
-    id_stream >> request_id;
-
     new_request = rmf_task::requests::Delivery::make(
-      request_id,
+      id,
       pickup_wp->index(),
       delivery.pickup_dispenser,
       dropoff_wp->index(),
@@ -399,13 +389,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
         return;
     }
 
-    // TODO(YV) get rid of id field in RequestPtr
-    std::stringstream id_stream(id);
-    std::size_t request_id;
-    id_stream >> request_id;
-
     new_request = rmf_task::requests::Loop::make(
-      request_id,
+      id,
       start_wp->index(),
       finish_wp->index(),
       loop.num_loops,
@@ -509,7 +494,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   {
     for (const auto& assignment : agent)
     {
-      if (std::to_string(assignment.request()->id()) == id)
+      if (assignment.request()->id() == id)
       {
         bid_proposal.finish_time = rmf_traffic_ros2::convert(
             assignment.state().finish_time());

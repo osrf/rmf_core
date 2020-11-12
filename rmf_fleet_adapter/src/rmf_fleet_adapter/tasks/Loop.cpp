@@ -55,7 +55,7 @@ std::shared_ptr<Task> make_loop(
   }
 
   return Task::make(
-    std::to_string(request->id()),
+    request->id(),
     std::move(phases),
     context->worker(),
     deployment_time,

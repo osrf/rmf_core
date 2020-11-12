@@ -42,7 +42,7 @@ std::shared_ptr<Task> make_delivery(
   phases.push_back(
         std::make_unique<phases::DispenseItem::PendingPhase>(
           context,
-          std::to_string(request->id()),
+          request->id(),
           request->pickup_dispenser(),
           context->itinerary().description().owner(),
           request->items()));
@@ -66,13 +66,13 @@ std::shared_ptr<Task> make_delivery(
   phases.push_back(
         std::make_unique<phases::IngestItem::PendingPhase>(
           context,
-          std::to_string(request->id()),
+          request->id(),
           request->dropoff_ingestor(),
           context->itinerary().description().owner(),
           ingestor_items));
 
   return Task::make(
-    std::to_string(request->id()),
+    request->id(),
     std::move(phases),
     context->worker(),
     deployment_time,
