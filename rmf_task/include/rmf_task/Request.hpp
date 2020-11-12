@@ -43,7 +43,8 @@ public:
   /// time the robot has to wait before commencing the task
   virtual rmf_utils::optional<Estimate> estimate_finish(
     const agv::State& initial_state,
-    const agv::StateConfig& state_config) const = 0;
+    const agv::StateConfig& state_config,
+    const std::shared_ptr<EstimateCache> estimate_cache) const = 0;
 
   /// Estimate the invariant component of the task's duration
   virtual rmf_traffic::Duration invariant_duration() const = 0;

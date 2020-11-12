@@ -62,7 +62,8 @@ public:
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
-    const agv::StateConfig& state_config) const final;
+    const agv::StateConfig& state_config,
+    const std::shared_ptr<EstimateCache> estimate_cache) const final;
 
   rmf_traffic::Duration invariant_duration() const final;
 
