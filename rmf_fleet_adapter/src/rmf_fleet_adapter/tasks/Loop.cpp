@@ -63,47 +63,5 @@ std::shared_ptr<Task> make_loop(
     request);
 }
 
-// //==============================================================================
-// std::shared_ptr<Task> make_loop(
-//     const rmf_task_msgs::msg::Loop& request,
-//     const agv::RobotContextPtr& context,
-//     rmf_utils::optional<rmf_traffic::agv::Plan::Start> init_start,
-//     rmf_traffic::agv::Plan::Start loop_start,
-//     rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_end)
-// {
-//   const auto& graph = context->navigation_graph();
-
-//   Task::PendingPhases phases;
-
-//   const auto start_wp =
-//       graph.find_waypoint(request.start_name)->index();
-
-//   const auto end_wp =
-//       graph.find_waypoint(request.finish_name)->index();
-
-//   if (init_start)
-//   {
-//     phases.push_back(
-//           phases::GoToPlace::make(context, *init_start, start_wp));
-//   }
-
-
-//   phases.push_back(
-//         phases::GoToPlace::make(context, loop_start, end_wp));
-
-//   for (std::size_t i=1; i < request.num_loops; ++i)
-//   {
-//     assert(loop_end);
-
-//     phases.push_back(
-//           phases::GoToPlace::make(context, *loop_end, start_wp));
-
-//     phases.push_back(
-//           phases::GoToPlace::make(context, loop_start, end_wp));
-//   }
-
-//   return Task::make(request.task_id, std::move(phases), context->worker());
-// }
-
 } // namespace tasks
 } // namespace rmf_fleet_adapter
