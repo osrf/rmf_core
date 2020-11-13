@@ -52,8 +52,8 @@ ConflictInfo detect_conflict(
   const double c_ab = n_a.dot(n_b);
   const double angle = std::acos(c_ab/(n_a.norm()*n_b.norm()));
 
-//  if (angle <= angle_threshold)
-//    return ConflictInfo::no_conflict();
+  if (angle <= angle_threshold)
+    return ConflictInfo::no_conflict();
 
   const double c_aa = n_a.dot(n_a);
   assert(c_aa != 0.0);

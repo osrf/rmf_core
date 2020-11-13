@@ -130,8 +130,16 @@ public:
   rclcpp::Subscription<ReachedMsg>::SharedPtr blockade_reached_sub;
   void blockade_reached(const ReachedMsg& reached)
   {
-    moderator->reached(
-          reached.participant, reached.reservation, reached.checkpoint);
+    try
+    {
+      moderator->reached(
+            reached.participant, reached.reservation, reached.checkpoint);
+    }
+    catch (const std::exception& e)
+    {
+      RCLCPP_ERROR(
+            get_logger(), "Exception due to [reached] update: %s", e.what());
+    }
 
     std::cout << "Participant [" << reached.participant << "] reached "
               << reached.checkpoint << " | "

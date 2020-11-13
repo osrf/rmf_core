@@ -22,7 +22,7 @@
 #include "conflicts.hpp"
 
 #include <list>
-
+#include <sstream>
 
 
 #include <iostream>
@@ -295,7 +295,7 @@ public:
     Assignments::Implementation::modify(assignments).ranges
         .insert_or_assign(participant_id, ReservedRange{0, 0});
 
-    statuses[participant_id] = Status{reservation_id, std::nullopt, 0};
+    statuses[participant_id] = Status{reservation_id, std::nullopt, 0, false};
 
     process_ready_queue();
   }
@@ -366,15 +366,32 @@ public:
     if (checkpoint <= status.last_reached)
       return;
 
-    status.last_reached = checkpoint;
-
     auto& range = Assignments::Implementation::modify(assignments)
         .ranges.at(participant_id);
 
-    range.begin = checkpoint;
-
     // TODO(MXG): Should this trigger a warning or exception?
-    assert(range.begin <= range.end);
+    if (checkpoint > range.end)
+    {
+      const bool had_critical_error = status.critical_error;
+      status.critical_error = true;
+
+      if (!had_critical_error)
+      {
+        std::stringstream str;
+        str << "[rmf_traffic::blockade::Participant::reached] Participant ["
+            << participant_id << "] reached an invalid checkpoint ["
+            << checkpoint << "] when it was only assigned up to [" << range.end
+            << "]";
+
+        throw std::runtime_error(str.str());
+      }
+
+      return;
+    }
+
+    status.last_reached = checkpoint;
+
+    range.begin = checkpoint;
 
     process_ready_queue();
   }

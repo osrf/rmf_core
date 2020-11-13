@@ -202,8 +202,11 @@ bool finished(const std::vector<SimParticipant>& participants)
 }
 
 //==============================================================================
-bool all_assignments_reached_end(
-    const std::unordered_map<uint64_t, rmf_traffic::blockade::ReservedRange>& ranges)
+using MapOfRanges =
+  std::unordered_map<uint64_t, rmf_traffic::blockade::ReservedRange>;
+
+//==============================================================================
+bool all_assignments_reached_end(const MapOfRanges& ranges)
 {
   for (const auto& r : ranges)
   {
@@ -352,4 +355,46 @@ SCENARIO("Test blockade moderator")
   REQUIRE(context.moderator);
 
   simulate_moderator(std::move(context), std::move(scenario), radius);
+}
+
+//==============================================================================
+SCENARIO("Test lane sharing")
+{
+  std::array<Eigen::Vector2d, 6> A;
+  A[0] = { 0, 0};
+  A[1] = { 5, 0};
+  A[2] = {10, 0};
+  A[3] = {15, 0};
+  A[4] = {20, 0};
+  A[5] = {25, 0};
+  const auto path_A = make_path(A);
+
+  std::array<Eigen::Vector2d, 5> B;
+  B[0] = {10, 5};
+  B[1] = {10, 0};
+  B[2] = {15, 0};
+  B[3] = {20, 0};
+  B[4] = {18, 5};
+  const auto path_B = make_path(B);
+
+  const auto moderator = std::make_shared<rmf_traffic::blockade::Moderator>();
+  auto p_A = rmf_traffic::blockade::make_participant(0, 0.1, moderator);
+  auto p_B = rmf_traffic::blockade::make_participant(1, 0.1, moderator);
+
+  p_A.set(path_A);
+  p_B.set(path_B);
+
+  p_B.ready(1);
+  REQUIRE(moderator->assignments().ranges().at(1).end == 2);
+  p_B.reached(2);
+  REQUIRE(moderator->assignments().ranges().at(1).begin == 2);
+  REQUIRE(moderator->assignments().ranges().at(1).end == 2);
+
+  p_A.ready(4);
+  // The moderator should know to stop A by A3 so that B can make the turn
+  // towards B4
+  CHECK(moderator->assignments().ranges().at(0).end == 3);
+
+  p_B.ready(2);
+  CHECK(moderator->assignments().ranges().at(1).end == 3);
 }

@@ -34,9 +34,11 @@ using Version = uint64_t;
 //==============================================================================
 struct Status
 {
+  // TODO(MXG): PIMPLfy this
   ReservationId reservation;
   std::optional<CheckpointId> last_ready;
   CheckpointId last_reached;
+  bool critical_error;
 };
 
 //==============================================================================
