@@ -25,6 +25,22 @@ namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
+bool Bracket::operator==(const Bracket& other) const
+{
+  return
+         start == other.start
+      && finish == other.finish
+      && include_start == other.include_start
+      && include_finish == other.include_finish;
+}
+
+//==============================================================================
+bool BracketPair::operator==(const BracketPair& other) const
+{
+  return A == other.A && B == other.B;
+}
+
+//==============================================================================
 bool compatible_start_and_finish(
     std::size_t start,
     bool include_start,
@@ -51,8 +67,8 @@ bool compatible_start_and_finish(
 
 //==============================================================================
 bool can_merge_brackets(
-    const ConflictBracket& bracket0,
-    const ConflictBracket& bracket1)
+    const Bracket& bracket0,
+    const Bracket& bracket1)
 {
   if (!compatible_start_and_finish(
         bracket0.start, bracket0.include_start,
@@ -68,11 +84,11 @@ bool can_merge_brackets(
 }
 
 //==============================================================================
-ConflictBracket merge_brackets(
-    const ConflictBracket& bracket0,
-    const ConflictBracket& bracket1)
+Bracket merge_brackets(
+    const Bracket& bracket0,
+    const Bracket& bracket1)
 {
-  ConflictBracket output;
+  Bracket output;
 
   if (bracket0.start == bracket1.start)
   {
@@ -110,13 +126,21 @@ ConflictBracket merge_brackets(
 }
 
 //==============================================================================
+bool can_merge_pair(
+    const BracketPair& pair0,
+    const BracketPair& pair1)
+{
+  return can_merge_brackets(pair0.A, pair1.A)
+      && can_merge_brackets(pair0.B, pair1.B);
+}
+
+//==============================================================================
 bool try_merge(
     BracketPair& pair0,
     const BracketPair& pair1,
     std::size_t& merge_count)
 {
-  if (!can_merge_brackets(pair0.A, pair1.A)
-      || !can_merge_brackets(pair0.B, pair1.B))
+  if (!can_merge_pair(pair0, pair1))
     return false;
 
   pair0.A = merge_brackets(pair0.A, pair1.A);
@@ -127,7 +151,7 @@ bool try_merge(
 
 //==============================================================================
 void expand_bracket(
-    ConflictBracket& bracket,
+    Bracket& bracket,
     const std::vector<Writer::Checkpoint>& path)
 {
   // This function accounts for points that the robot is not allowed to hold at.
@@ -154,14 +178,15 @@ void expand_bracket(
 }
 
 //==============================================================================
-std::vector<BracketPair> compute_conflict_brackets(
+Brackets compute_brackets(
     const std::vector<Writer::Checkpoint>& path_a,
     const double radius_a,
     const std::vector<Writer::Checkpoint>& path_b,
     const double radius_b,
     const double angle_threshold)
 {
-  std::multimap<std::size_t, BracketPair> pair_set;
+  std::multimap<std::size_t, AlignedBracketPair> aligned_set;
+  std::multimap<std::size_t, ConflictBracketPair> conflict_set;
   for (std::size_t a=0; a < path_a.size()-1; ++a)
   {
     const auto& it_a_start = path_a[a];
@@ -189,7 +214,7 @@ std::vector<BracketPair> compute_conflict_brackets(
 
       const auto info = detect_conflict(segment_a, segment_b, angle_threshold);
 
-      if (!info.has_conflict)
+      if (info.is_nothing())
         continue;
 
       BracketPair pair;
@@ -203,27 +228,36 @@ std::vector<BracketPair> compute_conflict_brackets(
       pair.B.include_start = info.include_cap_b[ConflictInfo::Start];
       pair.B.include_finish = info.include_cap_b[ConflictInfo::Finish];
 
-      expand_bracket(pair.A, path_a);
-      expand_bracket(pair.B, path_b);
+      if (info.is_conflict())
+      {
+        expand_bracket(pair.A, path_a);
+        expand_bracket(pair.B, path_b);
 
-      pair_set.emplace(std::make_pair(pair.A.start, pair));
+        conflict_set.emplace(
+              std::make_pair(pair.A.start, ConflictBracketPair{pair}));
+      }
+      else if (info.is_alignment())
+      {
+        aligned_set.emplace(
+              std::make_pair(pair.A.start, AlignedBracketPair{pair}));
+      }
     }
   }
 
-  std::vector<BracketPair> final_pairs;
-  while (!pair_set.empty())
+  std::vector<ConflictBracketPair> final_conflicts;
+  while (!conflict_set.empty())
   {
     std::size_t merge_count = 0;
 
-    auto it_a = pair_set.begin();
+    auto it_a = conflict_set.begin();
     auto pair = it_a->second;
-    pair_set.erase(it_a++);
+    conflict_set.erase(it_a++);
 
-    while (it_a != pair_set.end())
+    while (it_a != conflict_set.end())
     {
       if (try_merge(pair, it_a->second, merge_count))
       {
-        pair_set.erase(it_a++);
+        conflict_set.erase(it_a++);
       }
       else
       {
@@ -233,22 +267,57 @@ std::vector<BracketPair> compute_conflict_brackets(
 
     if (merge_count == 0)
     {
-      final_pairs.push_back(pair);
+      final_conflicts.push_back(pair);
     }
     else
     {
-      pair_set.insert(std::make_pair(pair.A.start, pair));
+      conflict_set.insert(std::make_pair(pair.A.start, pair));
     }
   }
 
-  return final_pairs;
+  std::vector<AlignedBracketSet> final_alignments;
+  bool begin_new_alignment = true;
+  while (!aligned_set.empty())
+  {
+    if (begin_new_alignment)
+    {
+      const auto initial_it = aligned_set.begin();
+      final_alignments.push_back({initial_it->second, {initial_it->second}});
+      aligned_set.erase(initial_it);
+      begin_new_alignment = false;
+    }
+
+    std::size_t merge_count = 0;
+
+    auto& current_set = final_alignments.back();
+    auto& whole_bracket = current_set.whole_bracket;
+
+    auto it_a = aligned_set.begin();
+    while (it_a != aligned_set.end())
+    {
+      if (try_merge(whole_bracket, it_a->second, merge_count))
+      {
+        current_set.segments.push_back(it_a->second);
+        aligned_set.erase(it_a++);
+      }
+      else
+      {
+        ++it_a;
+      }
+    }
+
+    if (merge_count == 0)
+      begin_new_alignment = true;
+  }
+
+  return Brackets{std::move(final_conflicts), std::move(final_alignments)};
 }
 
 //==============================================================================
 std::pair<std::size_t, ConstConstraintPtr> compute_blocker(
-    const ConflictBracket& me,
+    const Bracket& me,
     const std::size_t my_path_size,
-    const ConflictBracket& other,
+    const Bracket& other,
     const std::size_t other_path_size,
     const std::size_t other_id)
 {
@@ -297,7 +366,7 @@ std::pair<std::size_t, ConstConstraintPtr> compute_blocker(
 
 //==============================================================================
 std::array<IndexToConstraint, 2> compute_blockers(
-    const std::vector<BracketPair>& conflict_brackets,
+    const std::vector<ConflictBracketPair>& conflict_brackets,
     const std::size_t id_a,
     const std::size_t a_path_size,
     const std::size_t id_b,
@@ -318,7 +387,8 @@ std::array<IndexToConstraint, 2> compute_blockers(
 
 //==============================================================================
 FinalConstraints compute_final_ShouldGo_constraints(
-    const PeerToPeerBlockers& peer_blockers)
+    const PeerToPeerBlockers& peer_blockers,
+    const PeerToPeerAlignment& peer_alignment)
 {
   using IndexToZeroOrderConstraints =
     std::unordered_map<std::size_t, std::vector<ConstConstraintPtr>>;
@@ -381,6 +451,8 @@ FinalConstraints compute_final_ShouldGo_constraints(
       and_constraint->add(gridlock_constraint);
       and_constraint->add(c.second);
 
+      TODO(MXG): Account for lane sharing constraints here
+
       c.second = std::move(and_constraint);
     }
   }
@@ -393,7 +465,7 @@ FinalConstraints compute_final_ShouldGo_constraints(
 
 //==============================================================================
 std::ostream& operator<<(
-    std::ostream& os, const rmf_traffic::blockade::ConflictBracket& b)
+    std::ostream& os, const rmf_traffic::blockade::Bracket& b)
 {
   if (b.include_start)
     os << "[";
@@ -412,8 +484,16 @@ std::ostream& operator<<(
 
 //==============================================================================
 std::ostream& operator<<(
-    std::ostream& os, const rmf_traffic::blockade::BracketPair& pair)
+    std::ostream& os, const rmf_traffic::blockade::ConflictBracketPair& pair)
 {
   os << pair.A << "x" << pair.B;
+  return os;
+}
+
+//==============================================================================
+std::ostream& operator<<(
+    std::ostream& os, const rmf_traffic::blockade::AlignedBracketPair& pair)
+{
+  os << pair.A << "|" << pair.B;
   return os;
 }

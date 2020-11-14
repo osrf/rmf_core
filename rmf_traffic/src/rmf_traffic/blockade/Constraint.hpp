@@ -75,6 +75,8 @@ class AndConstraint : public Constraint
 {
 public:
 
+  AndConstraint(const std::vector<ConstConstraintPtr>& constraints = {});
+
   void add(ConstConstraintPtr new_constraint);
 
   bool evaluate(const State& state) const final;
@@ -90,6 +92,8 @@ private:
 class OrConstraint : public Constraint
 {
 public:
+
+  OrConstraint(const std::vector<ConstConstraintPtr>& constraints = {});
 
   void add(ConstConstraintPtr new_constraint);
 

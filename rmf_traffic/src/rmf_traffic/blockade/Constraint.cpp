@@ -137,9 +137,9 @@ private:
 
   bool print_fail(const ReservedRange& range) const
   {
-    std::cout << " >> Blocked by " << _description()
-              << " whose range is: " << range.begin << " --> "
-              << range.end << std::endl;
+//    std::cout << " >> Blocked by " << _description()
+//              << " whose range is: " << range.begin << " --> "
+//              << range.end << std::endl;
     return false;
   }
 
@@ -184,6 +184,13 @@ public:
 };
 
 //==============================================================================
+AndConstraint::AndConstraint(const std::vector<ConstConstraintPtr>& constraints)
+{
+  for (const auto& c : constraints)
+    add(c);
+}
+
+//==============================================================================
 void AndConstraint::add(ConstConstraintPtr new_constraint)
 {
   for (const auto& dep : new_constraint->dependencies())
@@ -224,6 +231,13 @@ std::optional<bool> AndConstraint::partial_evaluate(const State& state) const
   }
 
   return std::nullopt;
+}
+
+//==============================================================================
+OrConstraint::OrConstraint(const std::vector<ConstConstraintPtr>& constraints)
+{
+  for (const auto& c : constraints)
+    add(c);
 }
 
 //==============================================================================

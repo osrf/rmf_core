@@ -34,7 +34,29 @@ struct Segment
 //==============================================================================
 struct ConflictInfo
 {
-  bool has_conflict = false;
+  enum Type
+  {
+    Nothing,
+    Conflict,
+    Alignment
+  };
+
+  Type type = Nothing;
+
+  bool is_nothing() const
+  {
+    return type == Nothing;
+  }
+
+  bool is_conflict() const
+  {
+    return type == Conflict;
+  }
+
+  bool is_alignment() const
+  {
+    return type == Alignment;
+  }
 
   enum Cap
   {
@@ -46,7 +68,7 @@ struct ConflictInfo
   std::array<bool, 2> include_cap_a;
   std::array<bool, 2> include_cap_b;
 
-  static ConflictInfo no_conflict()
+  static ConflictInfo nothing()
   {
     return ConflictInfo();
   }

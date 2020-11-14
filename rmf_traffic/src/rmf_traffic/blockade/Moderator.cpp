@@ -110,6 +110,7 @@ public:
   std::unordered_map<ParticipantId, Status> statuses;
 
   PeerToPeerBlockers peer_blockers;
+  PeerToPeerAlignment peer_alignment;
   FinalConstraints final_constraints;
 
   Implementation(const double min_conflict_angle_)
@@ -246,11 +247,19 @@ public:
 
     current_reservation.reservation = reservation;
 
-    const auto peer_insertion = peer_blockers.insert({participant_id, {}});
-    const auto peer_inserted = peer_insertion.second;
-    const auto peer_it = peer_insertion.first;
-    if (!peer_inserted)
-      peer_it->second.clear();
+    const auto peer_blocker_insertion =
+        peer_blockers.insert({participant_id, {}});
+    const auto peer_blocker_inserted = peer_blocker_insertion.second;
+    const auto peer_blocker_it = peer_blocker_insertion.first;
+    if (!peer_blocker_inserted)
+      peer_blocker_it->second.clear();
+
+    const auto peer_aligned_insertion =
+        peer_alignment.insert({participant_id, {}});
+    const auto peer_aligned_inserted = peer_aligned_insertion.second;
+    const auto peer_aligned_it = peer_aligned_insertion.first;
+    if (!peer_aligned_inserted)
+      peer_aligned_it->second.clear();
 
     std::cout << " === NEW CONSTRAINTS" << std::endl;
     for (const auto& other_r : last_known_reservation)
@@ -259,38 +268,59 @@ public:
       if (other_participant == participant_id)
         continue;
 
-      const auto this_constraint_it = peer_it->second.insert_or_assign(
-            other_participant, IndexToConstraint{});
-      auto& this_constraint_map = this_constraint_it.first->second;
-
       const auto& other_reservation = other_r.second.reservation;
 
-      auto& other_peer_map = peer_blockers[other_participant];
-      const auto other_peer_it = other_peer_map.insert_or_assign(
-            participant_id, IndexToConstraint{});
-      auto& other_constraint_map = other_peer_it.first->second;
-
-      const auto conflict_brackets = compute_conflict_brackets(
+      const auto brackets = compute_brackets(
             reservation.path, reservation.radius,
             other_reservation.path, other_reservation.radius,
             min_conflict_angle);
 
-      std::cout << participant_id << " x " << other_participant << ":" << std::endl;
-      for (const auto& c : conflict_brackets)
-        std::cout << "  + " << c << std::endl;
-
       auto zero_order_blockers = compute_blockers(
-            conflict_brackets,
+            brackets.conflicts,
             participant_id, reservation.path.size(),
             other_participant, other_reservation.path.size());
 
-      this_constraint_map = std::move(zero_order_blockers.at(0));
-      other_constraint_map = std::move(zero_order_blockers.at(1));
+      auto alignments = compute_alignments(
+            brackets.alignments,
+            zero_order_blockers,
+            participant_id,
+            other_participant);
+
+      const auto this_blocker_it =
+          peer_blocker_it->second.insert_or_assign(
+            other_participant, IndexToConstraint{});
+      auto& this_blocker_map = this_blocker_it.first->second;
+      this_blocker_map = std::move(zero_order_blockers.at(0));
+
+      auto& other_peer_blocker_map = peer_blockers[other_participant];
+      const auto other_peer_blocker_it =
+          other_peer_blocker_map.insert_or_assign(
+            participant_id, IndexToConstraint{});
+      auto& other_blocker_map = other_peer_blocker_it.first->second;
+      other_blocker_map = std::move(zero_order_blockers.at(1));
+
+      std::cout << participant_id << " x " << other_participant << ":" << std::endl;
+      for (const auto& c : brackets.conflicts)
+        std::cout << "  + " << c << std::endl;
+
+      const auto this_aligned_it =
+          peer_aligned_it->second.insert_or_assign(
+            other_participant, IndexToConstraint{});
+      auto& this_aligned_map = this_aligned_it.first->second;
+      this_aligned_map = std::move(alignments.at(0));
+
+      auto& other_peer_aligned_map = peer_alignment[other_participant];
+      const auto other_peer_aligned_it =
+          other_peer_aligned_map.insert_or_assign(
+            participant_id, IndexToConstraint{});
+      auto& other_aligned_map = other_peer_aligned_it.first->second;
+      other_aligned_map = std::move(alignments.at(1));
     }
 
     std::cout << " === END" << std::endl;
 
-    final_constraints = compute_final_ShouldGo_constraints(peer_blockers);
+    final_constraints = compute_final_ShouldGo_constraints(
+          peer_blockers, peer_alignment);
 
     Assignments::Implementation::modify(assignments).ranges
         .insert_or_assign(participant_id, ReservedRange{0, 0});
@@ -415,13 +445,18 @@ public:
     last_known_reservation.erase(participant_id);
     statuses.erase(participant_id);
     peer_blockers.erase(participant_id);
+    peer_alignment.erase(participant_id);
     Assignments::Implementation::modify(assignments)
         .ranges.erase(participant_id);
 
     for (auto& peer : peer_blockers)
       peer.second.erase(participant_id);
 
-    final_constraints = compute_final_ShouldGo_constraints(peer_blockers);
+    for (auto& peer : peer_alignment)
+      peer.second.erase(participant_id);
+
+    final_constraints = compute_final_ShouldGo_constraints(
+          peer_blockers, peer_alignment);
 
     process_ready_queue();
   }
