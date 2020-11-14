@@ -241,6 +241,9 @@ SCENARIO("Grid World")
               << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    // Create new TaskPlanner to reset cache so that measured run times
+    // remain independent of one another
+    task_planner = rmf_task::agv::TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
@@ -436,6 +439,7 @@ SCENARIO("Grid World")
               << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    task_planner = rmf_task::agv::TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
@@ -541,6 +545,7 @@ SCENARIO("Grid World")
               << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    task_planner = rmf_task::agv::TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
@@ -747,6 +752,7 @@ SCENARIO("Grid World")
               << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Greedy", greedy_assignments, greedy_cost);
 
+    task_planner = rmf_task::agv::TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_assignments = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);

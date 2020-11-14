@@ -146,13 +146,9 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
     else
     {
       // Compute plan to start_waypoint along with battery drain
-      rmf_traffic::agv::Planner::Start init_start{
-        start_time,
-        endpoints.first,
-        0.0};
-
       rmf_traffic::agv::Planner::Goal loop_start_goal{endpoints.second};
-      const auto plan_to_start = _pimpl->planner->plan(init_start, loop_start_goal);
+      const auto plan_to_start = _pimpl->planner->plan(
+        initial_state.location(), loop_start_goal);
       // We assume we can always compute a plan
       const auto& trajectory = plan_to_start->get_itinerary().back().trajectory();
       const auto& finish_time = *trajectory.finish_time();

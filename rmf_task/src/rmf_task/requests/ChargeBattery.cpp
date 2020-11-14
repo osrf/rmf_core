@@ -121,14 +121,9 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
     else
     {
       // Compute plan to charging waypoint along with battery drain
-      rmf_traffic::agv::Planner::Start start{
-        start_time,
-        initial_state.waypoint(),
-        0.0};
-
-      rmf_traffic::agv::Planner::Goal goal{initial_state.charging_waypoint()};
-
-      const auto result = _pimpl->_planner->plan(start, goal);
+      rmf_traffic::agv::Planner::Goal goal{endpoints.second};
+      const auto result = _pimpl->_planner->plan(
+        initial_state.location(), goal);
       const auto& trajectory = result->get_itinerary().back().trajectory();
       const auto& finish_time = *trajectory.finish_time();
       variant_duration = finish_time - start_time;

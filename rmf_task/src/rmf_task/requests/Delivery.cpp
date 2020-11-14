@@ -155,14 +155,9 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
     else
     {
       // Compute plan to pickup waypoint along with battery drain
-      rmf_traffic::agv::Planner::Start start{
-        start_time,
-        endpoints.first,
-        0.0};
-
       rmf_traffic::agv::Planner::Goal goal{endpoints.second};
-
-      const auto result_to_pickup = _pimpl->_planner->plan(start, goal);
+      const auto result_to_pickup = _pimpl->_planner->plan(
+        initial_state.location(), goal);
       // We assume we can always compute a plan
       const auto& trajectory =
         result_to_pickup->get_itinerary().back().trajectory();

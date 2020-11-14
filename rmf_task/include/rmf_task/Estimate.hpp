@@ -67,7 +67,7 @@ public:
 
   /// Struct containing the estimated duration and charge required to travel between
   /// a waypoint pair.
-  struct CacheElem
+  struct CacheElement
   {
     rmf_traffic::Duration duration;
     double dsoc; // Positive if charge is consumed
@@ -75,7 +75,7 @@ public:
 
   /// Returns the saved estimate values for the path between the supplied waypoints,
   /// if present.
-  std::optional<CacheElem> get(std::pair<size_t, size_t> waypoints) const;
+  std::optional<CacheElement> get(std::pair<size_t, size_t> waypoints) const;
 
   /// Saves the estimated duration and change in charge between the supplied waypoints.
   void set(std::pair<size_t, size_t> waypoints,

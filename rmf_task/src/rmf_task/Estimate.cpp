@@ -70,14 +70,16 @@ Estimate& Estimate::wait_until(rmf_traffic::Time new_wait_until)
 class EstimateCache::Implementation
 {
   public:
-    struct PairHash {
-      size_t operator()(const std::pair<size_t,size_t>& p) const {
+    struct PairHash
+    {
+      size_t operator()(const std::pair<size_t,size_t>& p) const
+      {
         return std::hash<size_t>()(p.first) ^ std::hash<size_t>()(p.second);
       }
     };
 
     using Cache = std::unordered_map<std::pair<size_t,size_t>,
-      CacheElem, PairHash>;
+      CacheElement, PairHash>;
     Cache _cache;
 };
 
@@ -87,7 +89,7 @@ EstimateCache::EstimateCache()
 {}
 
 //==============================================================================
-std::optional<EstimateCache::CacheElem> EstimateCache::get(
+std::optional<EstimateCache::CacheElement> EstimateCache::get(
   std::pair<size_t, size_t> waypoints) const
 {
   auto it = _pimpl->_cache.find(waypoints);
@@ -102,7 +104,7 @@ std::optional<EstimateCache::CacheElem> EstimateCache::get(
 void EstimateCache::set(std::pair<size_t, size_t> waypoints,
   rmf_traffic::Duration duration, double dsoc)
 {
-  _pimpl->_cache[waypoints] = CacheElem {duration, dsoc};
+  _pimpl->_cache[waypoints] = CacheElement{duration, dsoc};
 }
 
 } // namespace rmf_task
