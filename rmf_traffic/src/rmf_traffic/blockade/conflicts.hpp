@@ -63,7 +63,9 @@ public:
   /// Returns true if waypoint A_a is definitely behind waypoint B_b along an
   /// aligned pair of paths. Return false if A_a is not behind B_b or if it
   /// cannot be determined.
-  bool is_behind(std::size_t a, std::size_t b) const;
+  bool is_behind(
+      const ReservedRange& range_A,
+      const ReservedRange& range_B) const;
 
 private:
 

@@ -363,23 +363,30 @@ SCENARIO("Test blockade moderator")
 }
 
 //==============================================================================
-SCENARIO("Test lane sharing")
+SCENARIO("Test lane sharing", "[debug]")
 {
-  std::array<Eigen::Vector2d, 6> A;
-  A[0] = { 0, 0};
-  A[1] = { 5, 0};
+  std::array<Eigen::Vector2d, 9> A;
+  A[0] = {10, 10};
+  A[1] = {10, 5};
   A[2] = {10, 0};
   A[3] = {15, 0};
   A[4] = {20, 0};
   A[5] = {25, 0};
+  A[6] = {30, 0};
+  A[7] = {30, 5};
+  A[8] = {30, 10};
   const auto path_A = make_path(A);
 
-  std::array<Eigen::Vector2d, 5> B;
-  B[0] = {10, 5};
-  B[1] = {10, 0};
-  B[2] = {15, 0};
-  B[3] = {20, 0};
-  B[4] = {18, 5};
+  std::array<Eigen::Vector2d, 9> B;
+  B[0] = {0, -10};
+  B[1] = {0, -5};
+  B[2] = {0, 0};
+  B[3] = {5, 0};
+  B[4] = {10, 0};
+  B[5] = {15, 0};
+  B[6] = {20, 0};
+  B[7] = {19.9, 5};
+  B[8] = {19.9, 10};
   const auto path_B = make_path(B);
 
   const auto moderator = std::make_shared<rmf_traffic::blockade::Moderator>();
@@ -389,17 +396,127 @@ SCENARIO("Test lane sharing")
   p_A.set(path_A);
   p_B.set(path_B);
 
-  p_B.ready(1);
-  REQUIRE(moderator->assignments().ranges().at(1).end == 2);
-  p_B.reached(2);
-  REQUIRE(moderator->assignments().ranges().at(1).begin == 2);
-  REQUIRE(moderator->assignments().ranges().at(1).end == 2);
+  const auto& ranges = moderator->assignments().ranges();
+  const auto& range_A = ranges.at(0);
+  const auto& range_B = ranges.at(1);
 
-  p_A.ready(4);
-  // The moderator should know to stop A by A3 so that B can make the turn
-  // towards B4
-  CHECK(moderator->assignments().ranges().at(0).end == 3);
+  WHEN("B arrives at 3 first")
+  {
+    p_A.ready(2);
+    CHECK(ranges.at(0).begin == 0);
+    CHECK(ranges.at(0).end == 3);
+    p_A.reached(3);
+    CHECK(ranges.at(0).begin == 3);
+    CHECK(ranges.at(0).end == 3);
 
-  p_B.ready(2);
-  CHECK(moderator->assignments().ranges().at(1).end == 3);
+    p_B.ready(5);
+    CHECK(ranges.at(1).begin == 0);
+    CHECK(ranges.at(1).end == 5);
+    p_B.reached(4);
+    CHECK(ranges.at(1).begin == 4);
+    CHECK(ranges.at(1).end == 5);
+
+    p_A.ready(3);
+    CHECK(ranges.at(0).end == 4);
+  }
+
+  WHEN("Arrivals are incremental")
+  {
+    p_A.ready(0);
+    CHECK(ranges.at(0).begin == 0);
+    CHECK(ranges.at(0).end == 1);
+    p_A.reached(1);
+    CHECK(ranges.at(0).begin == 1);
+    CHECK(ranges.at(0).end == 1);
+
+    p_B.ready(5);
+    CHECK(ranges.at(1).begin == 0);
+    CHECK(ranges.at(1).end == 5);
+    p_B.reached(4);
+    CHECK(ranges.at(1).begin == 4);
+    CHECK(ranges.at(1).end == 5);
+
+    p_A.ready(1);
+    p_A.reached(2);
+
+    CHECK(ranges.at(1).end == 6);
+  }
+
+  WHEN("Regression test from simulation")
+  {
+    CHECK(range_A.begin == 0);
+    CHECK(range_A.end == 0);
+
+    CHECK(range_B.begin == 0);
+    CHECK(range_B.end == 0);
+
+    p_B.ready(0);
+    CHECK(range_B.begin == 0);
+    CHECK(range_B.end == 1);
+
+    p_B.reached(1);
+    CHECK(range_B.begin == 1);
+    CHECK(range_B.end == 1);
+
+    // Have a separate conflict here? Probably not necessary.
+
+    p_B.ready(1);
+    CHECK(range_B.begin == 1);
+    CHECK(range_B.end == 2);
+
+    p_A.ready(0);
+    CHECK(range_A.begin == 0);
+    CHECK(range_A.end == 1);
+
+    p_B.reached(2);
+    CHECK(range_B.begin == 2);
+    CHECK(range_B.end == 2);
+
+    p_B.ready(2);
+    CHECK(range_B.begin == 2);
+    CHECK(range_B.end == 3);
+
+    p_A.reached(1);
+    CHECK(range_A.begin == 1);
+    CHECK(range_A.end == 1);
+
+    p_A.ready(1);
+    CHECK(range_A.begin == 1);
+    CHECK(range_A.end == 2);
+
+    p_B.reached(3);
+    CHECK(range_B.begin == 3);
+    CHECK(range_B.end == 3);
+
+    p_B.ready(3);
+    CHECK(range_B.begin == 3);
+    CHECK(range_B.end == 3);
+
+    p_A.reached(2);
+    CHECK(range_A.begin == 2);
+    CHECK(range_A.end == 2);
+
+    p_A.ready(2);
+    CHECK(range_A.begin == 2);
+    CHECK(range_A.end == 3);
+
+    CHECK(range_B.begin == 3);
+    CHECK(range_B.end == 4);
+
+    p_B.reached(4);
+    CHECK(range_B.begin == 4);
+    CHECK(range_B.end == 4);
+
+    p_B.ready(5);
+    CHECK(range_B.begin == 4);
+    CHECK(range_B.end == 5);
+
+    p_A.reached(3);
+    CHECK(range_A.begin == 3);
+    CHECK(range_A.end == 3);
+
+    p_A.ready(3);
+    CHECK(range_A.begin == 3);
+    CHECK(range_A.end == 4);
+  }
 }

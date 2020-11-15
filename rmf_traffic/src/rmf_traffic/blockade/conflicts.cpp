@@ -21,6 +21,9 @@
 #include <set>
 #include <map>
 
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace blockade {
 
@@ -54,16 +57,17 @@ std::shared_ptr<Timeline> Timeline::make(
 }
 
 //==============================================================================
-bool Timeline::is_behind(std::size_t a, std::size_t b) const
+bool Timeline::is_behind(
+    const ReservedRange& range_A,
+    const ReservedRange& range_B) const
 {
+  const std::size_t a = range_A.end;
+  const std::size_t b = range_B.begin;
+
   const auto it = _map.lower_bound(a);
   if (it == _map.end())
     return false;
 
-  // Whether the comparison is EqualTo or LessThan, we will do a
-  // less-than-or-equal-to comparison because we expect (A.end, B.begin) to be
-  // passed into here, and the condition for us to consider A to be behind B is
-  // A.end <= B.begin.
   return it->second.index <= b;
 }
 
@@ -176,9 +180,16 @@ private:
       const ReservedRange& should_be_behind,
       const ReservedRange& should_be_in_front) const
   {
-    return _timeline->is_behind(
-          should_be_behind.end,
-          should_be_in_front.begin);
+    const bool result =
+        _timeline->is_behind(
+          should_be_behind,
+          should_be_in_front);
+    std::cout << "Checking if [" << _is_behind << ":" << should_be_behind.begin
+              << "->" << should_be_behind.end
+              << "] is behind [" << _is_in_front << ":" << should_be_in_front.begin
+              << "->" << should_be_in_front.end
+              << "]: " << result << std::endl;
+    return result;
   }
 
   std::size_t _is_behind;

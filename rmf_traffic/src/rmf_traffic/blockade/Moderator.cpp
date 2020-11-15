@@ -122,7 +122,8 @@ public:
 
   enum ReadyStatus
   {
-    Incomplete = 0,
+    Skip = 0,
+    Incomplete,
     Finished
   };
 
@@ -216,7 +217,7 @@ public:
     }
 
     std::cout << "     -- Unable to make progress" << std::endl;
-    return Incomplete;
+    return Skip;
   }
 
   void process_ready_queue()
@@ -224,9 +225,15 @@ public:
     auto next = ready_queue.begin();
     while (next != ready_queue.end())
     {
-      if (check_reservation(*next) == Finished)
+      const auto result = check_reservation(*next);
+      if (result == Finished)
       {
-        ready_queue.erase(next++);
+        ready_queue.erase(next);
+        next = ready_queue.begin();
+      }
+      else if (result == Incomplete)
+      {
+        next = ready_queue.begin();
       }
       else
       {
