@@ -151,13 +151,82 @@ private:
 };
 
 //==============================================================================
-std::shared_ptr<Constraint> blockage(
+ConstConstraintPtr blockage(
     std::size_t blocked_by,
     std::optional<std::size_t> blocker_hold_point,
     std::optional<BlockageEndCondition> end_condition)
 {
   return std::make_shared<BlockageConstraint>(
         blocked_by, blocker_hold_point, end_condition);
+}
+
+//==============================================================================
+class PassedConstraint : public Constraint
+{
+public:
+
+  PassedConstraint(
+      std::size_t participant,
+      std::size_t index)
+    : _participant(participant),
+      _index(index)
+  {
+    _dependencies.insert(_participant);
+  }
+
+  bool evaluate(const State& state) const final
+  {
+    const auto it = state.find(_participant);
+    if (it == state.end())
+    {
+      std::string error = "Failed to evaluate PassedConstraint because "
+          "participant " + std::to_string(_participant)
+          + " is missing from the state.";
+
+      throw std::runtime_error(error);
+    }
+
+    return _evaluate(it->second);
+  }
+
+  const std::unordered_set<std::size_t>& dependencies() const final
+  {
+    return _dependencies;
+  }
+
+  std::optional<bool> partial_evaluate(const State& state) const final
+  {
+    const auto it = state.find(_participant);
+    if (it == state.end())
+      return std::nullopt;
+
+    return _evaluate(it->second);
+  }
+
+private:
+
+  bool _evaluate(const ReservedRange& range) const
+  {
+    if (_index < range.begin)
+      return true;
+
+    if (range.begin < _index)
+      return false;
+
+    return _index < range.end;
+  }
+
+  std::size_t _participant;
+  std::size_t _index;
+  std::unordered_set<std::size_t> _dependencies;
+};
+
+//==============================================================================
+ConstConstraintPtr passed(
+    std::size_t participant,
+    std::size_t index)
+{
+  return std::make_shared<PassedConstraint>(participant, index);
 }
 
 //==============================================================================

@@ -41,6 +41,163 @@ bool BracketPair::operator==(const BracketPair& other) const
 }
 
 //==============================================================================
+BracketPair BracketPair::complement() const
+{
+  return BracketPair{B, A};
+}
+
+//==============================================================================
+std::shared_ptr<Timeline> Timeline::make(
+    const std::vector<AlignedBracketPair>& alignments)
+{
+  return std::shared_ptr<Timeline>(new Timeline(alignments));
+}
+
+//==============================================================================
+bool Timeline::is_behind(std::size_t a, std::size_t b) const
+{
+  const auto it = _map.lower_bound(a);
+  if (it == _map.end())
+    return false;
+
+  // Whether the comparison is EqualTo or LessThan, we will do a
+  // less-than-or-equal-to comparison because we expect (A.end, B.begin) to be
+  // passed into here, and the condition for us to consider A to be behind B is
+  // A.end <= B.begin.
+  return it->second.index <= b;
+}
+
+//==============================================================================
+Timeline::Timeline(const std::vector<AlignedBracketPair>& alignments)
+{
+  for (const auto& pair : alignments)
+  {
+    if (pair.A.include_start && pair.B.include_start)
+    {
+      // This is always highest priority
+      _map[pair.B.start] = Comparison{Comparison::EqualTo, pair.A.start};
+    }
+    else if (pair.A.include_start)
+    {
+      _insert_if_preferable(
+            pair.B.start, Comparison{Comparison::LessThan, pair.A.start});
+    }
+
+    if (pair.A.include_finish && pair.B.include_finish)
+    {
+      // This is always highest priority
+      _map[pair.B.finish] = Comparison{Comparison::EqualTo, pair.A.finish};
+    }
+    else if (pair.B.include_finish)
+    {
+      _insert_if_preferable(
+            pair.B.finish, Comparison{Comparison::LessThan, pair.A.finish});
+    }
+  }
+}
+
+//==============================================================================
+void Timeline::_insert_if_preferable(
+    const std::size_t index,
+    const Comparison comp)
+{
+  const auto insertion = _map.insert({index, comp});
+  if (!insertion.second)
+  {
+    const auto it = insertion.first;
+    if (it->second.type == Comparison::EqualTo)
+      return;
+
+    if (comp.index < it->second.index)
+      it->second = comp;
+  }
+}
+
+//==============================================================================
+class BehindConstraint : public Constraint
+{
+public:
+
+  BehindConstraint(
+      std::size_t is_behind,
+      std::size_t is_in_front,
+      std::shared_ptr<Timeline> timeline)
+    : _is_behind(is_behind),
+      _is_in_front(is_in_front),
+      _timeline(std::move(timeline))
+  {
+    _dependencies.insert(is_behind);
+    _dependencies.insert(is_in_front);
+  }
+
+  bool evaluate(const State& state) const final
+  {
+    return _evaluate(
+          get_range(state, _is_behind),
+          get_range(state, _is_in_front));
+  }
+
+  const std::unordered_set<std::size_t>& dependencies() const final
+  {
+    return _dependencies;
+  }
+
+  std::optional<bool> partial_evaluate(const State& state) const final
+  {
+    const auto is_behind_it = state.find(_is_behind);
+    if (is_behind_it == state.end())
+      return std::nullopt;
+
+    const auto is_in_front_it = state.find(_is_in_front);
+    if (is_in_front_it == state.end())
+      return std::nullopt;
+
+    return _evaluate(is_behind_it->second, is_in_front_it->second);
+  }
+
+private:
+
+  const ReservedRange& get_range(
+      const State& state,
+      const std::size_t participant) const
+  {
+    const auto it = state.find(participant);
+    if (it != state.end())
+      return it->second;
+
+    std::string error = "Failed to evalute BehindConstraint comparing "
+        + std::to_string(_is_behind) + " to "
+        + std::to_string(_is_in_front) + ". Participant "
+        + std::to_string(participant) + " is missing from the state.";
+    throw std::runtime_error(error);
+  }
+
+  bool _evaluate(
+      const ReservedRange& should_be_behind,
+      const ReservedRange& should_be_in_front) const
+  {
+    return _timeline->is_behind(
+          should_be_behind.end,
+          should_be_in_front.begin);
+  }
+
+  std::size_t _is_behind;
+  std::size_t _is_in_front;
+  std::shared_ptr<Timeline> _timeline;
+  std::unordered_set<std::size_t> _dependencies;
+};
+
+//==============================================================================
+std::shared_ptr<Constraint> behind(
+    std::size_t is_behind,
+    std::size_t is_in_front,
+    std::shared_ptr<Timeline> timeline)
+{
+  return std::make_shared<BehindConstraint>(
+        is_behind, is_in_front, std::move(timeline));
+}
+
+//==============================================================================
 bool compatible_start_and_finish(
     std::size_t start,
     bool include_start,
@@ -386,6 +543,51 @@ std::array<IndexToConstraint, 2> compute_blockers(
 }
 
 //==============================================================================
+Alignment get_alignment(const std::vector<AlignedBracketPair>& alignments)
+{
+  Alignment output;
+  output.timeline = Timeline::make(alignments);
+
+  for (const auto& pair : alignments)
+  {
+    auto& caveat = output.index_to_caveats[pair.A.start];
+    if (pair.B.include_start && !pair.A.include_start)
+      caveat.push_back(pair.B.start);
+
+    if (pair.B.include_finish)
+      caveat.push_back(pair.B.finish);
+  }
+
+  return output;
+}
+
+//==============================================================================
+std::vector<AlignedBracketPair> get_complement(
+    const std::vector<AlignedBracketPair>& alignments)
+{
+  std::vector<AlignedBracketPair> output;
+  output.reserve(alignments.size());
+  for (const auto& a : alignments)
+    output.push_back(AlignedBracketPair{a.complement()});
+
+  return output;
+}
+
+//==============================================================================
+std::array<std::vector<Alignment>, 2> compute_alignments(
+    const std::vector<AlignedBracketSet>& alignments)
+{
+  std::array<std::vector<Alignment>, 2> output;
+  for (const auto& alignment : alignments)
+  {
+    output.at(0).push_back(get_alignment(alignment.segments));
+    output.at(1).push_back(get_alignment(get_complement(alignment.segments)));
+  }
+
+  return output;
+}
+
+//==============================================================================
 FinalConstraints compute_final_ShouldGo_constraints(
     const PeerToPeerBlockers& peer_blockers,
     const PeerToPeerAlignment& peer_alignment)
@@ -437,23 +639,109 @@ FinalConstraints compute_final_ShouldGo_constraints(
     }
   }
 
+  /// We remap Peer->Alignment->Index->caveat to Index->Peer->Caveat
+  struct Caveats
+  {
+    std::shared_ptr<Timeline> timeline;
+    std::vector<std::size_t> caveats;
+  };
+
+  using IndexToPeerToCaveats =
+    std::unordered_map<std::size_t, std::unordered_map<std::size_t, Caveats>>;
+  using AllCaveats = std::unordered_map<std::size_t, IndexToPeerToCaveats>;
+  AllCaveats all_caveats;
+  for (const auto& p : peer_alignment)
+  {
+    const std::size_t participant = p.first;
+    auto& p_caveats = all_caveats[participant];
+
+    for (const auto& o : p.second)
+    {
+      const std::size_t other = o.first;
+
+      for (const auto& align : o.second)
+      {
+        for (const auto& c : align.index_to_caveats)
+        {
+          auto& caveat = p_caveats[c.first][other];
+          caveat.timeline = align.timeline;
+          caveat.caveats.insert(
+                caveat.caveats.end(),
+                c.second.begin(),
+                c.second.end());
+        }
+      }
+    }
+  }
+
+  using Shares = Blockers;
+  Shares shares;
+  for (const auto& p : all_caveats)
+  {
+    const std::size_t participant = p.first;
+    for (const auto& c : p.second)
+    {
+      const std::size_t checkpoint = c.first;
+      std::vector<ConstConstraintPtr> sharing_constraints;
+      for (const auto& o : c.second)
+      {
+        const std::size_t other = o.first;
+        const auto other_constraints_it = first_order.find(other);
+        if (other_constraints_it == first_order.end())
+          continue;
+
+        const auto& other_constraints = other_constraints_it->second;
+
+        const auto timeline = o.second.timeline;
+        for (const auto& caveat : o.second.caveats)
+        {
+          const auto c_it = other_constraints.find(caveat);
+          if (c_it == other_constraints.end())
+            continue;
+
+          auto sharing_constraint = std::make_shared<OrConstraint>();
+          sharing_constraint->add(behind(other, participant, timeline));
+          sharing_constraint->add(passed(other, caveat));
+          sharing_constraint->add(c_it->second);
+
+          sharing_constraints.emplace_back(std::move(sharing_constraint));
+        }
+      }
+
+      if (!sharing_constraints.empty())
+      {
+        shares[participant][checkpoint] =
+            std::make_shared<AndConstraint>(std::move(sharing_constraints));
+      }
+    }
+  }
+
   const auto gridlock_constraint = compute_gridlock_constraint(first_order);
 
   // Now we will move the first order constraints into the container for the
   // final order constraints and modify them in place by adding the gridlock
   // constraint to them
-  auto final_order = std::move(first_order);
+  Blockers final_order;
   for (auto& p : final_order)
   {
+    const std::size_t participant = p.first;
+    const auto p_shares_it = shares.find(participant);
+
     for (auto& c : p.second)
     {
+      const std::size_t checkpoint = c.first;
       auto and_constraint = std::make_shared<AndConstraint>();
       and_constraint->add(gridlock_constraint);
       and_constraint->add(c.second);
 
-      TODO(MXG): Account for lane sharing constraints here
+      if (p_shares_it != shares.end())
+      {
+        const auto c_shares_it = p_shares_it->second.find(checkpoint);
+        if (c_shares_it != p_shares_it->second.end())
+          and_constraint->add(c_shares_it->second);
+      }
 
-      c.second = std::move(and_constraint);
+      final_order[participant][checkpoint] = and_constraint;
     }
   }
 

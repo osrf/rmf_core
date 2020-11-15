@@ -45,6 +45,7 @@ struct BracketPair
   Bracket B;
 
   bool operator==(const BracketPair& other) const;
+  BracketPair complement() const;
 };
 
 //==============================================================================
@@ -56,7 +57,8 @@ class Timeline
 {
 public:
 
-  Timeline(const std::vector<AlignedBracketPair>& alignments);
+  static std::shared_ptr<Timeline> make(
+      const std::vector<AlignedBracketPair>& alignments);
 
   /// Returns true if waypoint A_a is definitely behind waypoint B_b along an
   /// aligned pair of paths. Return false if A_a is not behind B_b or if it
@@ -64,6 +66,9 @@ public:
   bool is_behind(std::size_t a, std::size_t b) const;
 
 private:
+
+  Timeline(const std::vector<AlignedBracketPair>& alignments);
+
   struct Comparison
   {
     enum Type
@@ -76,8 +81,16 @@ private:
     std::size_t index;
   };
 
+  void _insert_if_preferable(std::size_t index, Comparison comp);
+
   std::map<std::size_t, Comparison, std::greater<std::size_t>> _map;
 };
+
+//==============================================================================
+std::shared_ptr<Constraint> behind(
+    std::size_t is_behind,
+    std::size_t is_in_front,
+    std::shared_ptr<Timeline> timeline);
 
 //==============================================================================
 struct AlignedBracketSet
@@ -110,11 +123,21 @@ std::array<IndexToConstraint, 2> compute_blockers(
     std::size_t b_path_size);
 
 //==============================================================================
-std::array<IndexToConstraint, 2> compute_alignments(
-    const std::vector<AlignedBracketSet>& alignments,
-    const std::array<IndexToConstraint, 2> blockers,
-    std::size_t id_a,
-    std::size_t id_b);
+struct Alignment
+{
+  /// The timeline to use to identify if the other participant is behind this
+  /// participant when checking the caveats below.
+  std::shared_ptr<Timeline> timeline;
+
+  /// A map from the checkpoint index of this participant to the checkpoint
+  /// indices of the other participant that need to be good-to-go before going
+  /// from this index.
+  std::unordered_map<std::size_t, std::vector<std::size_t>> index_to_caveats;
+};
+
+//==============================================================================
+std::array<std::vector<Alignment>, 2> compute_alignments(
+    const std::vector<AlignedBracketSet>& alignments);
 
 //==============================================================================
 // A map from <a participant's peer> to <the map from the participant's index to
@@ -134,7 +157,7 @@ using PeerToPeerBlockers =
   std::unordered_map<std::size_t, PeerToIndexToConstraint>;
 
 //==============================================================================
-using PeerAlignment = std::unordered_map<std::size_t, IndexToConstraint>;
+using PeerAlignment = std::unordered_map<std::size_t, std::vector<Alignment>>;
 
 //==============================================================================
 using PeerToPeerAlignment = std::unordered_map<std::size_t, PeerAlignment>;

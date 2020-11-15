@@ -65,10 +65,15 @@ struct BlockageEndCondition
 };
 
 //==============================================================================
-std::shared_ptr<Constraint> blockage(
+ConstConstraintPtr blockage(
     std::size_t blocked_by,
     std::optional<std::size_t> blocker_hold_point,
     std::optional<BlockageEndCondition> end_condition);
+
+//==============================================================================
+ConstConstraintPtr passed(
+    std::size_t participant,
+    std::size_t index);
 
 //==============================================================================
 class AndConstraint : public Constraint

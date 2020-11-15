@@ -280,11 +280,7 @@ public:
             participant_id, reservation.path.size(),
             other_participant, other_reservation.path.size());
 
-      auto alignments = compute_alignments(
-            brackets.alignments,
-            zero_order_blockers,
-            participant_id,
-            other_participant);
+      auto alignments = compute_alignments(brackets.alignments);
 
       const auto this_blocker_it =
           peer_blocker_it->second.insert_or_assign(
@@ -305,14 +301,14 @@ public:
 
       const auto this_aligned_it =
           peer_aligned_it->second.insert_or_assign(
-            other_participant, IndexToConstraint{});
+            other_participant, std::vector<Alignment>{});
       auto& this_aligned_map = this_aligned_it.first->second;
       this_aligned_map = std::move(alignments.at(0));
 
       auto& other_peer_aligned_map = peer_alignment[other_participant];
       const auto other_peer_aligned_it =
           other_peer_aligned_map.insert_or_assign(
-            participant_id, IndexToConstraint{});
+            participant_id, std::vector<Alignment>{});
       auto& other_aligned_map = other_peer_aligned_it.first->second;
       other_aligned_map = std::move(alignments.at(1));
     }
