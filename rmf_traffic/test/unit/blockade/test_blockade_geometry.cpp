@@ -345,7 +345,9 @@ SCENARIO("Simple blockade geometry tests")
     }
 
     const double angle = 2.0*atan2(separation, length);
-    CHECK_FALSE(detect_conflict(A, B, angle + 1e-6).is_conflict());
+    // This is a conflict because the endpoints are not included in the brackets
+    // even though the angle is within the bound.
+    CHECK(detect_conflict(A, B, angle + 1e-6).is_conflict());
 
     const Segment C{{length, half_s}, {0, -half_s}, radius};
     for (const double a : {max_angle, angle})
