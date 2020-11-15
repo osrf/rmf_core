@@ -722,7 +722,7 @@ FinalConstraints compute_final_ShouldGo_constraints(
   // final order constraints and modify them in place by adding the gridlock
   // constraint to them
   Blockers final_order;
-  for (auto& p : final_order)
+  for (auto& p : first_order)
   {
     const std::size_t participant = p.first;
     const auto p_shares_it = shares.find(participant);

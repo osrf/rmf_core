@@ -156,8 +156,18 @@ public:
 
     std::cout << "     -- Currently covering " << s.begin << " --> " << s.end << std::endl;
 
-    const auto& constraints =
-        final_constraints.should_go.at(check.participant_id);
+    const auto constraints_it =
+        final_constraints.should_go.find(check.participant_id);
+    if (constraints_it == final_constraints.should_go.end())
+    {
+      // There are no constraints for this participant, so we will just allow it
+      // to go all the way.
+      Assignments::Implementation::modify(assignments)
+          .ranges[check.participant_id].end = check.checkpoint + 1;
+      return Finished;
+    }
+
+    const auto& constraints = constraints_it->second;
 
     const std::size_t current_end = s.end;
     const std::size_t i_max = (check.checkpoint+1) - (current_end+1);
@@ -317,6 +327,12 @@ public:
 
     final_constraints = compute_final_ShouldGo_constraints(
           peer_blockers, peer_alignment);
+
+    std::cout << "New constraint count: " << final_constraints.should_go.size();
+    std::cout << " |";
+    for (const auto& c : final_constraints.should_go)
+      std::cout << " " << c.first << ":" << c.second.size();
+    std::cout << std::endl;
 
     Assignments::Implementation::modify(assignments).ranges
         .insert_or_assign(participant_id, ReservedRange{0, 0});

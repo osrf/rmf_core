@@ -231,6 +231,11 @@ void simulate_moderator(
           std::move(scenario.paths[i]), 3);
   }
 
+  // TODO(MXG): We're testing that the moderator's constraints never get
+  // gridlocked, but we're not really testing that they are correctly enforcing
+  // the anti-conflict constraints. We should think about some way to test that
+  // conflicts are being avoided.
+
   while (!finished(participants))
   {
     const auto& assignments = context.moderator->assignments();
