@@ -94,6 +94,9 @@ public:
   rclcpp::Subscription<SetMsg>::SharedPtr blockade_set_sub;
   void blockade_set(const SetMsg& set)
   {
+    std::cout << "Participant [" << set.participant << "] set new path ["
+              << set.reservation << "]" << std::endl;
+
     std::vector<Checkpoint> path;
     for (const auto& c : set.path)
     {
@@ -116,12 +119,11 @@ public:
   rclcpp::Subscription<ReadyMsg>::SharedPtr blockade_ready_sub;
   void blockade_ready(const ReadyMsg& ready)
   {
-    moderator->ready(ready.participant, ready.reservation, ready.checkpoint);
+    std::cout << "Participant [" << ready.participant
+              << ":" << ready.reservation << "] ready for "
+              << ready.checkpoint << std::endl;
 
-    std::cout << "Participant [" << ready.participant << "] ready for "
-              << ready.checkpoint << " | "
-              << moderator->statuses().at(ready.participant).last_ready.value()
-              << std::endl;
+    moderator->ready(ready.participant, ready.reservation, ready.checkpoint);
 
     check_for_updates();
   }
@@ -130,6 +132,10 @@ public:
   rclcpp::Subscription<ReachedMsg>::SharedPtr blockade_reached_sub;
   void blockade_reached(const ReachedMsg& reached)
   {
+    std::cout << "Participant [" << reached.participant
+              << ":" << reached.reservation << "] reached "
+              << reached.checkpoint << std::endl;
+
     try
     {
       moderator->reached(
@@ -140,11 +146,6 @@ public:
       RCLCPP_ERROR(
             get_logger(), "Exception due to [reached] update: %s", e.what());
     }
-
-    std::cout << "Participant [" << reached.participant << "] reached "
-              << reached.checkpoint << " | "
-              << moderator->statuses().at(reached.participant).last_reached
-              << std::endl;
 
     check_for_updates();
   }
@@ -163,6 +164,7 @@ public:
 
   void check_for_updates()
   {
+    print_status();
     const std::size_t current_version = moderator->assignments().version();
     if (current_version == last_assignment_version)
       return;
@@ -201,6 +203,28 @@ public:
         .has_gridlock(moderator->has_gridlock());
 
     heartbeat_pub->publish(msg);
+  }
+
+  void print_status()
+  {
+    std::cout << " == NEW STATUS:\n";
+    const auto& ranges = moderator->assignments().ranges();
+    for (const auto& s : moderator->statuses())
+    {
+      const std::size_t participant = s.first;
+      const auto& range = ranges.at(participant);
+      const auto& status = s.second;
+
+      std::cout << " >> " << participant << ": [";
+      if (status.last_ready.has_value())
+        std::cout << status.last_ready.value();
+      else
+        std::cout << "null";
+
+      std::cout << "; " << status.last_reached << "; "
+                << range.begin << ", " << range.end << "]\n";
+    }
+    std::cout << std::endl;
   }
 
   std::shared_ptr<rmf_traffic::blockade::Moderator> moderator;

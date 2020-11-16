@@ -129,7 +129,7 @@ public:
 
   ReadyStatus check_reservation(const ReadyInfo& check)
   {
-    std::cout << " -- Checking reservation for [" << check.participant_id
+    std::cout << " -- Checking reservation for [" << toul(check.participant_id)
               << ":" << check.reservation_id << "]: " << check.checkpoint
               << std::endl;
     const auto r_it = last_known_reservation.find(check.participant_id);
@@ -192,12 +192,17 @@ public:
         const auto it = constraints.find(c);
         if (it != constraints.end() && !it->second->evaluate(state))
         {
-          std::cout << "     -- Constraint violated at " << c << std::endl;
+          std::cout << "     -- Constraint violated at " << c
+                    << ": " << it->second->detail(state) << std::endl;
           acceptable = false;
           break;
         }
 
-        std::cout << "     -- Constraint passed at " << c << std::endl;
+        std::cout << "     -- Constraint passed at " << c << ": ";
+        if (it != constraints.end() && it->second)
+          std::cout << it->second->detail(state) << std::endl;
+        else
+          std::cout << "No Constraint" << std::endl;
       }
 
       if (acceptable)
@@ -299,6 +304,36 @@ public:
 
       auto alignments = compute_alignments(brackets.alignments);
 
+      std::cout << toul(participant_id) << " vs " << toul(other_participant) << ":" << std::endl;
+      for (const auto& c : brackets.conflicts)
+        std::cout << "  + " << c << std::endl;
+
+      for (const auto& a : brackets.alignments)
+      {
+        std::cout << "  + " << a.whole_bracket << " -->";
+        for (const auto& s : a.segments)
+          std::cout << "  " << s;
+        std::cout << std::endl;
+      }
+
+      std::cout << "Caveats:" << std::endl;
+      for (std::size_t i=0; i < alignments.size(); ++i)
+      {
+        const auto p = std::array<std::string,2>{toul(participant_id), toul(other_participant)}[i];
+        std::cout << "  Participant " << p << ":" << std::endl;
+        const auto& alignment = alignments.at(i);
+        for (const auto& a : alignment)
+        {
+          for (const auto& c : a.index_to_caveats)
+          {
+            std::cout << "  - " << p << c.first << ":";
+            for (const auto& index : c.second)
+              std::cout << " " << index;
+            std::cout << std::endl;
+          }
+        }
+      }
+
       const auto this_blocker_it =
           peer_blocker_it->second.insert_or_assign(
             other_participant, IndexToConstraint{});
@@ -311,10 +346,6 @@ public:
             participant_id, IndexToConstraint{});
       auto& other_blocker_map = other_peer_blocker_it.first->second;
       other_blocker_map = std::move(zero_order_blockers.at(1));
-
-      std::cout << participant_id << " x " << other_participant << ":" << std::endl;
-      for (const auto& c : brackets.conflicts)
-        std::cout << "  + " << c << std::endl;
 
       const auto this_aligned_it =
           peer_aligned_it->second.insert_or_assign(

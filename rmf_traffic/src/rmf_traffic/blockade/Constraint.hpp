@@ -44,8 +44,15 @@ public:
 
   virtual std::optional<bool> partial_evaluate(const State& state) const = 0;
 
+  virtual std::string detail(const State& state) const = 0;
+
   virtual ~Constraint() = default;
 };
+
+/// To Uppercase Letter
+/// Convert an integer to an equivalent upper case letter.
+/// Used to print out details for constraints
+std::string toul(const std::size_t input);
 
 //==============================================================================
 using ConstraintPtr = std::shared_ptr<Constraint>;
@@ -87,6 +94,7 @@ public:
   bool evaluate(const State& state) const final;
   const std::unordered_set<std::size_t>& dependencies() const final;
   std::optional<bool> partial_evaluate(const State& state) const final;
+  std::string detail(const State& state) const final;
 
 private:
   std::unordered_set<ConstConstraintPtr> _constraints;
@@ -105,6 +113,7 @@ public:
   bool evaluate(const State& state) const final;
   const std::unordered_set<std::size_t>& dependencies() const final;
   std::optional<bool> partial_evaluate(const State& state) const final;
+  std::string detail(const State &state) const final;
 
 private:
   std::unordered_set<ConstConstraintPtr> _constraints;
