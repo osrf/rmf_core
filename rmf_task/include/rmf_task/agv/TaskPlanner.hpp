@@ -126,7 +126,6 @@ public:
       State state,
       rmf_traffic::Time deployment_time);
 
-      
     // Get the request of this task
     rmf_task::ConstRequestPtr request() const;
 
@@ -174,6 +173,8 @@ public:
     std::function<bool()> interrupter);
 
   double compute_cost(const Assignments& assignments);
+
+  const std::shared_ptr<EstimateCache> estimate_cache() const;
 
   class Implementation;
 

@@ -15,18 +15,19 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#ifndef INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
+#define INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
 
+#include <chrono>
 #include <string>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
 
-#include <rmf_battery/agv/BatterySystem.hpp>
 #include <rmf_battery/MotionPowerSink.hpp>
 #include <rmf_battery/DevicePowerSink.hpp>
 
+#include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/optional.hpp>
 
 #include <rmf_task/agv/State.hpp>
@@ -36,14 +37,19 @@
 namespace rmf_task {
 namespace requests {
 
-class ChargeBattery : public rmf_task::Request
+class Loop : public rmf_task::Request
 {
 public:
 
+  using Start = rmf_traffic::agv::Planner::Start;
+
   static ConstRequestPtr make(
-    rmf_battery::agv::BatterySystem battery_system,
+    std::string id,
+    std::size_t start_waypoint,
+    std::size_t finish_waypoint,
+    std::size_t num_loops,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     rmf_traffic::Time start_time,
     bool drain_battery = true);
@@ -59,18 +65,26 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
-  const rmf_battery::agv::BatterySystem& battery_system() const;
+  std::size_t start_waypoint() const;
+
+  std::size_t finish_waypoint() const;
+
+  std::size_t num_loops() const;
+
+  Start loop_start(const Start& start) const;
+
+  Start loop_end(const Start& start) const;
 
   class Implementation;
 private:
-  ChargeBattery();
+  Loop();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using ChargeBatteryRequestPtr = std::shared_ptr<ChargeBattery>;
-using ConstChargeBatteryRequestPtr = std::shared_ptr<const ChargeBattery>;
+using LoopRequestPtr = std::shared_ptr<Loop>;
+using ConstLoopRequestPtr = std::shared_ptr<const Loop>;
 
-} // namespace requests
+} // namespace tasks
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#endif // INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP

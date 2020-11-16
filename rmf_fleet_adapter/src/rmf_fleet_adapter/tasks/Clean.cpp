@@ -40,7 +40,7 @@ std::shared_ptr<Task> make_clean(
         phases::GoToPlace::make(context, std::move(end_start), end_goal));
 
   return Task::make(
-    std::to_string(request->id()),
+    request->id(),
     std::move(phases),
     context->worker(),
     deployment_time,

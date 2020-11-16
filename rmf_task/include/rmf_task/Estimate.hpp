@@ -18,6 +18,9 @@
 #ifndef INCLUDE__RMF_TASK__ESTIMATE_HPP
 #define INCLUDE__RMF_TASK__ESTIMATE_HPP
 
+#include <optional>
+#include <utility>
+
 #include <rmf_task/agv/State.hpp>
 #include <rmf_traffic/Time.hpp>
 #include <rmf_utils/impl_ptr.hpp>
@@ -49,6 +52,34 @@ public:
 
   /// Sets a new starting time for the robot to execute the task request.
   Estimate& wait_until(rmf_traffic::Time new_wait_until);
+
+  class Implementation;
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+};
+
+/// Stores computed estimates between pairs of waypoints
+class EstimateCache
+{
+public:
+  /// Constructs an empty EstimateCache
+  EstimateCache();
+
+  /// Struct containing the estimated duration and charge required to travel between
+  /// a waypoint pair.
+  struct CacheElement
+  {
+    rmf_traffic::Duration duration;
+    double dsoc; // Positive if charge is consumed
+  };
+
+  /// Returns the saved estimate values for the path between the supplied waypoints,
+  /// if present.
+  std::optional<CacheElement> get(std::pair<size_t, size_t> waypoints) const;
+
+  /// Saves the estimated duration and change in charge between the supplied waypoints.
+  void set(std::pair<size_t, size_t> waypoints,
+    rmf_traffic::Duration duration, double dsoc);
 
   class Implementation;
 private:

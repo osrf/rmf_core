@@ -37,13 +37,14 @@ public:
   using SharedPtr = std::shared_ptr<Request>;
 
   /// Get the id of the task
-  virtual std::size_t id() const = 0;
+  virtual std::string id() const = 0;
 
   /// Estimate the state of the robot when the task is finished along with the
   /// time the robot has to wait before commencing the task
   virtual rmf_utils::optional<Estimate> estimate_finish(
     const agv::State& initial_state,
-    const agv::StateConfig& state_config) const = 0;
+    const agv::StateConfig& state_config,
+    const std::shared_ptr<EstimateCache> estimate_cache) const = 0;
 
   /// Estimate the invariant component of the task's duration
   virtual rmf_traffic::Duration invariant_duration() const = 0;

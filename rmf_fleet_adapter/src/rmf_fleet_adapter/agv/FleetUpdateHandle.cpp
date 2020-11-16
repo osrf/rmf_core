@@ -22,6 +22,14 @@
 #include "../tasks/Delivery.hpp"
 #include "../tasks/Loop.hpp"
 
+#include <rmf_task/requests/Clean.hpp>
+#include <rmf_task/requests/Delivery.hpp>
+#include <rmf_task/requests/Loop.hpp>
+
+#include <rmf_task_msgs/msg/clean.hpp>
+#include <rmf_task_msgs/msg/delivery.hpp> 
+#include <rmf_task_msgs/msg/loop.hpp>
+
 #include <iostream>
 #include <unordered_map>
 
@@ -212,13 +220,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       return;
     }
 
-    // TODO(YV) get rid of id field in RequestPtr
-    std::stringstream id_stream(id);
-    std::size_t request_id;
-    id_stream >> request_id;
-
     new_request = rmf_task::requests::Clean::make(
-      request_id,
+      id,
       start_wp->index(),
       finish_wp->index(),
       cleaning_trajectory,
@@ -236,11 +239,170 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_DELIVERY)
   {
-    // TODO(YV)
+    const auto& delivery = task_profile.delivery;
+    if (delivery.pickup_place_name.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [delivery.pickup_place_name] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    if (delivery.pickup_dispenser.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [delivery.pickup_dispenser] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    if (delivery.dropoff_place_name.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [delivery.dropoff_place_name] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    if (delivery.dropoff_place_name.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [delivery.dropoff_place_name] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    if (delivery.dropoff_ingestor.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [delivery.dropoff_ingestor] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    const auto pickup_wp = graph.find_waypoint(delivery.pickup_place_name);
+    if (!pickup_wp)
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Fleet [%s] does not have a named waypoint [%s] configured in its "
+        "nav graph. Rejecting BidNotice with task_id:[%s]",
+        name.c_str(), delivery.pickup_place_name.c_str(), id.c_str());
+
+        return;
+    }
+
+    const auto dropoff_wp = graph.find_waypoint(delivery.dropoff_place_name);
+    if (!dropoff_wp)
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Fleet [%s] does not have a named waypoint [%s] configured in its "
+        "nav graph. Rejecting BidNotice with task_id:[%s]",
+        name.c_str(), delivery.dropoff_place_name.c_str(), id.c_str());
+
+        return;
+    }
+
+    new_request = rmf_task::requests::Delivery::make(
+      id,
+      pickup_wp->index(),
+      delivery.pickup_dispenser,
+      dropoff_wp->index(),
+      delivery.dropoff_ingestor,
+      delivery.items,
+      motion_sink,
+      ambient_sink,
+      planner,
+      start_time,
+      drain_battery);
+
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Generated Delivery request");
+
   }
   else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_LOOP)
   {
-    // TODO(YV)
+    const auto& loop = task_profile.loop;
+    if (loop.start_name.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [loop.start_name] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    if (loop.finish_name.empty())
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [loop.finish_name] missing in TaskProfile."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    if (loop.num_loops < 1)
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Required param [loop.num_loops] in TaskProfile is invalid."
+        "Rejecting BidNotice with task_id:[%s]" , id.c_str());
+
+      return;
+    }
+
+    const auto start_wp = graph.find_waypoint(loop.start_name);
+    if (!start_wp)
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Fleet [%s] does not have a named waypoint [%s] configured in its "
+        "nav graph. Rejecting BidNotice with task_id:[%s]",
+        name.c_str(), loop.start_name.c_str(), id.c_str());
+
+        return;
+    }
+
+    const auto finish_wp = graph.find_waypoint(loop.finish_name);
+    if (!finish_wp)
+    {
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Fleet [%s] does not have a named waypoint [%s] configured in its "
+        "nav graph. Rejecting BidNotice with task_id:[%s]",
+        name.c_str(), loop.finish_name.c_str(), id.c_str());
+
+        return;
+    }
+
+    new_request = rmf_task::requests::Loop::make(
+      id,
+      start_wp->index(),
+      finish_wp->index(),
+      loop.num_loops,
+      motion_sink,
+      ambient_sink,
+      planner,
+      start_time,
+      drain_battery);
+
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Generated Loop request");
   }
   else
   {
@@ -332,7 +494,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   {
     for (const auto& assignment : agent)
     {
-      if (std::to_string(assignment.request()->id()) == id)
+      if (assignment.request()->id() == id)
       {
         bid_proposal.finish_time = rmf_traffic_ros2::convert(
             assignment.state().finish_time());
@@ -353,7 +515,6 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   bid_notice_assignments.insert({id, assignments});
 
 }
-
 
 void FleetUpdateHandle::Implementation::dispatch_request_cb(
   const DispatchRequest::SharedPtr msg)

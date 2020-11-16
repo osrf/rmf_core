@@ -41,7 +41,7 @@ std::shared_ptr<Task> make_charge_battery(
     phases::WaitForCharge::make(context, request->battery_system(), 0.99));
 
   return Task::make(
-    std::to_string(request->id()),
+    request->id(),
     std::move(phases),
     context->worker(),
     deployment_time,
