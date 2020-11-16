@@ -52,6 +52,7 @@ int main(int argc, char* argv[])
       task_profile.task_type = request->task_type;
       task_profile.start_time = request->start_time;
       task_profile.clean = request->clean;
+      task_profile.loop = request->loop;
       task_profile.delivery = request->delivery;
       task_profile.station = request->station;
 
