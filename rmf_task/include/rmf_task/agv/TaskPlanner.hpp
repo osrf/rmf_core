@@ -174,6 +174,8 @@ public:
 
   double compute_cost(const Assignments& assignments);
 
+  const std::shared_ptr<EstimateCache> estimate_cache() const;
+
   class Implementation;
 
 private:

@@ -19,6 +19,7 @@
 #define INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
 
 #include <chrono>
+#include <string>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic/agv/Planner.hpp>
@@ -57,7 +58,8 @@ public:
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
-    const agv::StateConfig& state_config) const final;
+    const agv::StateConfig& state_config,
+    const std::shared_ptr<EstimateCache> estimate_cache) const final;
 
   rmf_traffic::Duration invariant_duration() const final;
 

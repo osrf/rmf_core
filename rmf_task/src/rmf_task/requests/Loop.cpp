@@ -120,7 +120,8 @@ std::string Loop::id() const
 //==============================================================================
 rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
   const agv::State& initial_state,
-  const agv::StateConfig& state_config) const
+  const agv::StateConfig& state_config,
+  const std::shared_ptr<EstimateCache> estimate_cache) const
 {
 
   rmf_traffic::Duration variant_duration(0);
@@ -133,27 +134,38 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
   // Check if a plan has to be generated from finish location to start_waypoint
   if (initial_state.waypoint() != _pimpl->start_waypoint)
   {
-    // Compute plan to start_waypoint along with battery drain
-    rmf_traffic::agv::Planner::Start init_start{
-      start_time,
-      initial_state.waypoint(),
-      0.0};
-
-    rmf_traffic::agv::Planner::Goal loop_start_goal{_pimpl->start_waypoint};
-    const auto plan_to_start = _pimpl->planner->plan(init_start, loop_start_goal);
-    // We assume we can always compute a plan
-    const auto& trajectory = plan_to_start->get_itinerary().back().trajectory();
-    const auto& finish_time = *trajectory.finish_time();
-    variant_duration = finish_time - start_time;
-
-    if (_pimpl->drain_battery)
+    auto endpoints = std::make_pair(initial_state.waypoint(),
+      _pimpl->start_waypoint);
+    const auto& cache_result = estimate_cache->get(endpoints);
+    // Use previously memoized values if possible
+    if (cache_result)
     {
-      // Compute battery drain
-      dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(trajectory);
-      dSOC_device =
-        _pimpl->ambient_sink->compute_change_in_charge(
-          rmf_traffic::time::to_seconds(variant_duration));
-      battery_soc = battery_soc - dSOC_motion - dSOC_device;
+      variant_duration = cache_result->duration;
+      battery_soc = battery_soc - cache_result->dsoc;
+    }
+    else
+    {
+      // Compute plan to start_waypoint along with battery drain
+      rmf_traffic::agv::Planner::Goal loop_start_goal{endpoints.second};
+      const auto plan_to_start = _pimpl->planner->plan(
+        initial_state.location(), loop_start_goal);
+      // We assume we can always compute a plan
+      const auto& trajectory = plan_to_start->get_itinerary().back().trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+      variant_duration = finish_time - start_time;
+
+      if (_pimpl->drain_battery)
+      {
+        // Compute battery drain
+        dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(trajectory);
+        dSOC_device =
+          _pimpl->ambient_sink->compute_change_in_charge(
+            rmf_traffic::time::to_seconds(variant_duration));
+        battery_soc = battery_soc - dSOC_motion - dSOC_device;
+      }
+
+      estimate_cache->set(endpoints, variant_duration,
+        dSOC_motion + dSOC_device);
     }
 
     if (battery_soc <= state_config.threshold_soc())
@@ -171,6 +183,7 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
     wait_until + variant_duration  + _pimpl->invariant_duration;
 
   // Subtract invariant battery drain and check if robot can return to its charger
+  double retreat_battery_drain = 0.0;
   if (_pimpl->drain_battery)
   {
     battery_soc -= _pimpl->invariant_battery_drain;
@@ -179,27 +192,39 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
 
     if ( _pimpl->finish_waypoint != initial_state.charging_waypoint())
     {
-      rmf_traffic::agv::Planner::Start retreat_start{
-        state_finish_time,
-        _pimpl->finish_waypoint,
-        0.0};
+      const auto endpoints = std::make_pair(_pimpl->finish_waypoint,
+        initial_state.charging_waypoint());
+      const auto& cache_result = estimate_cache->get(endpoints);
+      if (cache_result)
+      {
+        retreat_battery_drain = cache_result->dsoc;
+      }
+      else
+      {
+        rmf_traffic::agv::Planner::Start retreat_start{
+          state_finish_time,
+          endpoints.first,
+          0.0};
 
-      rmf_traffic::agv::Planner::Goal charger_goal{
-        initial_state.charging_waypoint()};
+        rmf_traffic::agv::Planner::Goal charger_goal{
+          endpoints.second};
 
-      const auto result_to_charger = _pimpl->planner->plan(
-        retreat_start, charger_goal);
-      // We assume we can always compute a plan
-      const auto& trajectory =
-          result_to_charger->get_itinerary().back().trajectory();
-      const auto& finish_time = *trajectory.finish_time();
-      const rmf_traffic::Duration retreat_duration =
-        finish_time - state_finish_time;
-      
-      dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(trajectory);
-      dSOC_device = _pimpl->ambient_sink->compute_change_in_charge(
-          rmf_traffic::time::to_seconds(retreat_duration));
-      const double retreat_battery_drain = dSOC_motion + dSOC_device;
+        const auto result_to_charger = _pimpl->planner->plan(
+          retreat_start, charger_goal);
+        // We assume we can always compute a plan
+        const auto& trajectory =
+            result_to_charger->get_itinerary().back().trajectory();
+        const auto& finish_time = *trajectory.finish_time();
+        const rmf_traffic::Duration retreat_duration =
+          finish_time - state_finish_time;
+
+        dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(trajectory);
+        dSOC_device = _pimpl->ambient_sink->compute_change_in_charge(
+            rmf_traffic::time::to_seconds(retreat_duration));
+        retreat_battery_drain = dSOC_motion + dSOC_device;
+        estimate_cache->set(endpoints, retreat_duration,
+          retreat_battery_drain);
+      }
 
       if (battery_soc - retreat_battery_drain <= state_config.threshold_soc())
         return rmf_utils::nullopt;

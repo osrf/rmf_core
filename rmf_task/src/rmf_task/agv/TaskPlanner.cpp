@@ -197,7 +197,8 @@ public:
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const rmf_task::Request& request,
-    const rmf_task::Request& charge_battery_request);
+    const rmf_task::Request& charge_battery_request,
+    const std::shared_ptr<EstimateCache> estimate_cache);
 
   Candidates(const Candidates& other)
   {
@@ -286,14 +287,16 @@ Candidates Candidates::make(
   const std::vector<State>& initial_states,
   const std::vector<StateConfig>& state_configs,
   const rmf_task::Request& request,
-  const rmf_task::Request& charge_battery_request)
+  const rmf_task::Request& charge_battery_request,
+  const std::shared_ptr<EstimateCache> estimate_cache)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
   {
     const auto& state = initial_states[i];
     const auto& state_config = state_configs[i];
-    const auto finish = request.estimate_finish(state, state_config);
+    const auto finish = request.estimate_finish(
+      state, state_config, estimate_cache);
     if (finish.has_value())
     {
       initial_map.insert({
@@ -308,11 +311,12 @@ Candidates Candidates::make(
     else
     {
       auto battery_estimate =
-        charge_battery_request.estimate_finish(state, state_config);
+        charge_battery_request.estimate_finish(
+          state, state_config, estimate_cache);
       if (battery_estimate.has_value())
       {
         auto new_finish = request.estimate_finish(
-          battery_estimate.value().finish_state(), state_config);
+          battery_estimate.value().finish_state(), state_config, estimate_cache);
         assert(new_finish.has_value());
         initial_map.insert(
           {new_finish.value().finish_state().finish_time(),
@@ -343,10 +347,11 @@ struct PendingTask
       std::vector<rmf_task::agv::State>& initial_states,
       std::vector<rmf_task::agv::StateConfig>& state_configs,
       rmf_task::ConstRequestPtr request_,
-      rmf_task::ConstRequestPtr charge_battery_request)
+      rmf_task::ConstRequestPtr charge_battery_request,
+      std::shared_ptr<EstimateCache> estimate_cache)
     : request(std::move(request_)),
-      candidates(Candidates::make(
-        initial_states, state_configs, *request, *charge_battery_request)),
+      candidates(Candidates::make(initial_states, state_configs,
+        *request, *charge_battery_request, estimate_cache)),
       earliest_start_time(request->earliest_start_time())
   {
     // Do nothing
@@ -665,6 +670,7 @@ class TaskPlanner::Implementation
 public:
 
   std::shared_ptr<Configuration> config;
+  std::shared_ptr<EstimateCache> estimate_cache;
 
   ConstRequestPtr make_charging_request(rmf_traffic::Time start_time)
   {
@@ -868,7 +874,7 @@ public:
       initial_node->unassigned_tasks.insert(
         {
           internal_id,
-          PendingTask(initial_states, state_configs, request, charge_battery)
+          PendingTask(initial_states, state_configs, request, charge_battery, estimate_cache)
         });
     }
 
@@ -953,7 +959,8 @@ public:
           assignments.back().assignment.request()))
       {
         auto charge_battery = make_charging_request(entry.previous_state.finish_time());
-        auto battery_estimate = charge_battery->estimate_finish(entry.previous_state, state_config);
+        auto battery_estimate = charge_battery->estimate_finish(
+          entry.previous_state, state_config, estimate_cache);
         if (battery_estimate.has_value())
         {
           assignments.push_back(
@@ -983,7 +990,7 @@ public:
     {
       const auto finish =
         new_u.second.request->estimate_finish(
-          entry.state, state_config);
+          entry.state, state_config, estimate_cache);
 
       if (finish.has_value())
       {
@@ -1025,7 +1032,8 @@ public:
     if (add_charger)
     {
       auto charge_battery = make_charging_request(entry.state.finish_time());
-      auto battery_estimate = charge_battery->estimate_finish(entry.state, state_config);
+      auto battery_estimate = charge_battery->estimate_finish(
+        entry.state, state_config, estimate_cache);
       if (battery_estimate.has_value())
       {
         new_node->assigned_tasks[entry.candidate].push_back(
@@ -1039,7 +1047,8 @@ public:
         for (auto& new_u : new_node->unassigned_tasks)
         {
           const auto finish =
-            new_u.second.request->estimate_finish(battery_estimate.value().finish_state(), state_config);
+            new_u.second.request->estimate_finish(battery_estimate.value().finish_state(),
+              state_config, estimate_cache);
           if (finish.has_value())
           {
             new_u.second.candidates.update_candidate(
@@ -1096,7 +1105,7 @@ public:
 
     auto charge_battery = make_charging_request(state.finish_time());
     auto estimate = charge_battery->estimate_finish(
-      state, state_configs[agent]);
+      state, state_configs[agent], estimate_cache);
     if (estimate.has_value())
     {
       new_node->assigned_tasks[agent].push_back(
@@ -1113,8 +1122,8 @@ public:
       for (auto& new_u : new_node->unassigned_tasks)
       {
         const auto finish =
-          new_u.second.request->estimate_finish(
-            estimate.value().finish_state(), state_configs[agent]);
+          new_u.second.request->estimate_finish(estimate.value().finish_state(),
+            state_configs[agent], estimate_cache);
         if (finish.has_value())
         {
           new_u.second.candidates.update_candidate(
@@ -1294,7 +1303,8 @@ public:
 TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        std::move(config)
+        std::move(config),
+        std::make_shared<EstimateCache>()
       }))
 {
   // Do nothing
@@ -1336,7 +1346,10 @@ auto TaskPlanner::compute_cost(const Assignments& assignments) -> double
   return _pimpl->compute_g(assignments);
 }
 
-
+const std::shared_ptr<EstimateCache> TaskPlanner::estimate_cache() const
+{
+  return _pimpl->estimate_cache;
+}
 
 
 } // namespace agv
