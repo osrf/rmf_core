@@ -596,7 +596,6 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
   planner = std::move(planner_);
 
   pending_waypoints = plan_.get_waypoints();
-  std::cout << "Setting " << pending_waypoints.size() << " pending waypoints" << std::endl;
 
   // Remove all waypoints that don't relate to a graph index
   const auto remove_from = std::remove_if(
@@ -669,7 +668,6 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         plan_itinerary.begin(),
         plan_itinerary.end());
 
-  std::cout << "Still have " << pending_waypoints.size() << " pending waypoints" << std::endl;
   itinerary.set(full_itinerary);
   return itinerary.version();
 }
@@ -698,13 +696,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     if (version != data->current_version)
       return;
 
-    if (checkpoint_index != data->blockade.last_reached())
-    {
-      std::cout << __LINE__ << ": Participant " << data->itinerary.id()
-                << " reached " << checkpoint_index
-                << " (was " << data->blockade.last_reached() << ")"
-                << ":" << data->blockade.reservation_id().value() << std::endl;
-    }
     data->blockade.reached(checkpoint_index);
 
     assert(checkpoint_index < data->arrival_timing.size());
@@ -722,11 +713,10 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
       return;
     }
 
-    // TODO(MXG): If interpolate_time() is changed to use the departure
     RCLCPP_WARN(
       data->node->get_logger(),
       "Failed to compute timing estimate for [%s] owned by [%s] "
-      "moving towards path index [%d]",
+      "moving away from checkpoint index [%d]",
       data->itinerary.description().name().c_str(),
       data->itinerary.description().owner().c_str(),
       checkpoint_index);
@@ -818,7 +808,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
     const rmf_traffic::blockade::ReservationId reservation_id,
     const rmf_traffic::blockade::ReservedRange& new_range)
 {
-  std::cout << "RECEIVED A NEW RANGE FOR [" << itinerary.id() << "]" << std::endl;
   if (reservation_id != blockade.reservation_id())
     return;
 
@@ -830,14 +819,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
       const std::size_t end_path_index) -> bool
   {
     if (pending_waypoints.size() <= plan_index)
-    {
-      std::cout << " -- plan_index [" << plan_index << "] exceeded pending_waypoints ["
-                << pending_waypoints.size() << "]" << std::endl;
       return false;
-    }
 
-    std::cout << " -- comparing " << pending_waypoints.at(plan_index)
-                 .graph_index().value() << " <= " << end_path_index << std::endl;
     return pending_waypoints.at(plan_index)
         .graph_index().value() <= end_path_index;
   };
@@ -849,16 +832,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
     if (pending_waypoints.size() <= plan_index)
       return false;
 
-    std::cout << " -- comparing " << pending_waypoints.at(plan_index)
-                 .graph_index().value() << " < " << end_path_index << std::endl;
     return pending_waypoints.at(plan_index)
         .graph_index().value() < end_path_index;
   };
-
-  std::cout << "Pending Waypoints Path Indices:\n";
-  for (const auto& p : pending_waypoints)
-    std::cout << " -- " << p.graph_index().value() << ": " << p.position().transpose() << std::endl;
-  std::cout << std::endl;
 
   std::vector<CommandHandle::Checkpoint> checkpoints;
   std::size_t next = 0;
@@ -879,12 +855,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
     ++next;
   --next;
 
-  std::cout << "Initial next: " << next << " | new_range.end: " << new_range.end << std::endl;
   while (in_range_exclusive(next, new_range.end))
   {
     const std::size_t next_checkpoint_index = current_checkpoint_index + 1;
-    std::cout << "current_checkpoint_index: " << current_checkpoint_index
-              << " | next_checkpoint_index: " << next_checkpoint_index << std::endl;
 
     std::size_t end_plan_segment_index = next;
     while (in_range_inclusive(end_plan_segment_index, next_checkpoint_index))
@@ -898,15 +871,12 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
 
       if (check_index <= current_checkpoint_index)
       {
-        std::cout << " -- incrementing end_plan_index" << std::endl;
         // We need to make sure that the last plan waypoint we pass along
         // belongs to the next path checkpoint, otherwise the interpolator won't
         // have enough information to infer what the current delay is.
         ++end_plan_segment_index;
       }
     }
-
-    std::cout << " -- end_plan_index: " << end_plan_segment_index << std::endl;
 
     std::vector<rmf_traffic::agv::Plan::Waypoint> departed_waypoints(
       pending_waypoints.begin() + next,
@@ -923,16 +893,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
     for (const auto& wp : departed_waypoints)
       debug_set_inspection.insert(wp.graph_index().value());
 
-    std::cout << "Creating checkpoints " << current_checkpoint_index << " -> "
-              << last_checkpoint_index << std::endl;
     for (std::size_t c = current_checkpoint_index;
          c < last_checkpoint_index; ++c)
     {
-      std::cout << "For [" << c << "] we are issuing:";
-      for (const auto& d : debug_set_inspection)
-        std::cout << " " << d;
-      std::cout << std::endl;
-
       auto departed =
           [w = weak_from_this(),
            version = current_version,
@@ -974,10 +937,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
   }
 
   if (checkpoints.empty())
-  {
-    std::cout << "No new checkpoints found" << std::endl;
     return;
-  }
 
   const auto end_plan_it = [&]()
       -> std::vector<rmf_traffic::agv::Plan::Waypoint>::const_iterator
@@ -986,7 +946,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
     while (it != pending_waypoints.end())
     {
       const auto check = it++;
-      std::cout << "Checking checkpoint index " << check->graph_index().value() << std::endl;
       if (check->graph_index().value() >= new_range.end)
         return check-1;
     }
@@ -994,14 +953,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
     return it;
   }();
 
-  if (end_plan_it != pending_waypoints.end())
-    std::cout << "Erasing up to (not including) " << end_plan_it->graph_index().value()
-              << " | delta: " << (end_plan_it - pending_waypoints.begin()) << std::endl;
   pending_waypoints.erase(pending_waypoints.begin(), end_plan_it);
-  std::cout << "New Pending Waypoints Path Indices:\n";
-  for (const auto& p : pending_waypoints)
-    std::cout << " -- " << p.graph_index().value() << ": " << p.position().transpose() << std::endl;
-  std::cout << std::endl;
 
   // Cancel this timer that is watching to see if we need to delay our schedule
   // while waiting to depart
@@ -1009,7 +961,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
 
   if (waiting_for_departure)
   {
-    std::cout << "Sending checkpoints right away" << std::endl;
     send_checkpoints(std::move(checkpoints));
   }
   else
@@ -1017,7 +968,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
     if (!ready_checkpoints.has_value())
       ready_checkpoints = std::vector<CommandHandle::Checkpoint>();
 
-    std::cout << "Appending checkpoints for later" << std::endl;
     // TODO(MXG): We could probably use a move-iterator here
     ready_checkpoints->insert(
           ready_checkpoints->end(),
@@ -1031,14 +981,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
     const std::size_t version,
     const std::size_t checkpoint_id)
 {
-  std::cout << "Triggered watch_for_ready for " << itinerary.id()
-            << " at checkpoint " << checkpoint_id << std::endl;
   if (version != current_version)
-  {
-    std::cout << "MISMATCHED VERSION FOR " << itinerary.id()
-              << "???: " << version << " vs " << current_version << std::endl;
     return;
-  }
 
   if (checkpoint_id >= path.size()-1)
   {
@@ -1052,13 +996,11 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
 
   if (ready_checkpoints.has_value())
   {
-    std::cout << "Sending queued waypoints for " << itinerary.id() << std::endl;
     send_checkpoints(std::move(ready_checkpoints.value()));
     ready_checkpoints.reset();
   }
   else
   {
-    std::cout << "Creating waiting_timer" << std::endl;
     waiting_timer = node->create_wall_timer(
           std::chrono::seconds(1),
           [w = weak_from_this(), version, checkpoint_id]()
@@ -1068,7 +1010,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
     });
   }
 
-  std::cout << "About to do first ready check" << std::endl;
   if (check_if_ready(version, checkpoint_id))
     return;
 
@@ -1076,7 +1017,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
         std::chrono::milliseconds(100),
         [w = weak_from_this(), version, checkpoint_id]()
   {
-    std::cout << "Triggered ready check timer" << std::endl;
     if (const auto data = w.lock())
     {
       if (data->check_if_ready(version, checkpoint_id))
@@ -1090,24 +1030,15 @@ bool TrafficLight::UpdateHandle::Implementation::Data::check_if_ready(
     std::size_t version,
     std::size_t checkpoint_id)
 {
-  std::cout << "Checking if ready" << std::endl;
   // Counter-intuitively, we return true for these sanity check cases because we
   // want the caller to quit right away.
   if (version != current_version)
-  {
-    std::cout << "Wrong version: [" << version << "] vs [" << current_version
-              << "]" << std::endl;
     return true;
-  }
 
   if (pending_waypoints.empty())
-  {
-    std::cout << "NO PENDING WAYPOINTS??? Line: " << __LINE__ << std::endl;
     return true;
-  }
 
-  const auto& next_wp = pending_waypoints.front();
-  assert(next_wp.graph_index().has_value());
+  assert(pending_waypoints.front().graph_index().has_value());
 
   const auto depart_it = departure_timing.find(checkpoint_id);
   if (depart_it == departure_timing.end())
@@ -1119,23 +1050,13 @@ bool TrafficLight::UpdateHandle::Implementation::Data::check_if_ready(
   const auto now = node->now();
 
   if (now + timing_threshold <= ready_time)
-  {
-    std::cout << "Next ready time is in "
-              << rmf_traffic::time::to_seconds(
-                   (ready_time - now).to_chrono<std::chrono::nanoseconds>())
-              << " seconds" << std::endl;
     return false;
-  }
 
   for (auto it = depart_it; it != departure_timing.end(); ++it)
   {
     // TODO(MXG): It would probably be better to reverse iterate here
     if (it->second <= now + timing_threshold)
-    {
-      std::cout << "Setting [" << it->first << "] to ready for "
-                << itinerary.description().name() << "!!" << std::endl;
       blockade.ready(it->first);
-    }
   }
 
   return true;
@@ -1146,25 +1067,21 @@ void TrafficLight::UpdateHandle::Implementation::Data::check_waiting_delay(
     const std::size_t version,
     const std::size_t checkpoint_id)
 {
-  std::cout << "Checking on the waiting delay" << std::endl;
   if (version != current_version)
     return;
 
-  std::cout << "Make it to " << __LINE__ << std::endl;
   if (pending_waypoints.empty())
     return;
-  std::cout << "Make it to " << __LINE__ << std::endl;
 
   assert(pending_waypoints.front().graph_index().has_value());
   if (checkpoint_id != pending_waypoints.front().graph_index().value())
     return;
-  std::cout << "Make it to " << __LINE__ << std::endl;
 
   const auto now = node->now();
   const auto new_delay = now - departure_timing.at(checkpoint_id);
   const auto time_shift = (new_delay - itinerary.delay())
       .to_chrono<std::chrono::nanoseconds>();
-  std::cout << "Time shift: " << rmf_traffic::time::to_seconds(time_shift) << std::endl;
+
   if (time_shift > std::chrono::seconds(1))
     itinerary.delay(time_shift);
 }

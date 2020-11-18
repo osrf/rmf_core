@@ -21,9 +21,6 @@
 #include <set>
 #include <map>
 
-
-#include <iostream>
-
 namespace rmf_traffic {
 namespace blockade {
 
@@ -210,11 +207,6 @@ private:
         _timeline->is_behind(
           should_be_behind,
           should_be_in_front);
-//    std::cout << "Checking if [" << _is_behind << ":" << should_be_behind.begin
-//              << "->" << should_be_behind.end
-//              << "] is behind [" << _is_in_front << ":" << should_be_in_front.begin
-//              << "->" << should_be_in_front.end
-//              << "]: " << result << std::endl;
     return result;
   }
 
@@ -714,11 +706,9 @@ FinalConstraints compute_final_ShouldGo_constraints(
   for (const auto& p : all_caveats)
   {
     const std::size_t participant = p.first;
-    std::cout << "Adding caveats for " << toul(participant) << ": " << std::endl;
     for (const auto& c : p.second)
     {
       const std::size_t checkpoint = c.first;
-      std::cout << "  + " << checkpoint << ":";
       std::vector<ConstConstraintPtr> sharing_constraints;
       for (const auto& o : c.second)
       {
@@ -734,12 +724,7 @@ FinalConstraints compute_final_ShouldGo_constraints(
         {
           const auto c_it = other_constraints.find(caveat);
           if (c_it == other_constraints.end())
-          {
-            std::cout << " <" << toul(other) << caveat << ">";
             continue;
-          }
-
-          std::cout << " " << toul(other) << caveat;
 
           auto sharing_constraint = std::make_shared<OrConstraint>();
           sharing_constraint->add(behind(other, participant, timeline));
@@ -749,8 +734,6 @@ FinalConstraints compute_final_ShouldGo_constraints(
           sharing_constraints.emplace_back(std::move(sharing_constraint));
         }
       }
-
-      std::cout << std::endl;
 
       if (!sharing_constraints.empty())
       {

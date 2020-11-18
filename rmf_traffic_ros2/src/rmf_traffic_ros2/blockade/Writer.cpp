@@ -98,7 +98,6 @@ public:
           rclcpp::SystemDefaultsQoS().reliable(),
           [&](const HeartbeatMsg::UniquePtr msg)
     {
-      std::cout << "Received heartbeat" << std::endl;
       check_status(*msg);
     });
   }
@@ -173,18 +172,15 @@ public:
 
     std::unique_lock<std::mutex> lock(factory_mutex);
 
-    std::cout << "bringing out the dead" << std::endl;
     bring_out_your_dead();
     std::unordered_set<rmf_traffic::blockade::ParticipantId> not_dead_yet;
 
     auto stub_map_copy = stub_map;
     for (const auto& status : heartbeat.statuses)
     {
-      std::cout << "Checking status for " << status.participant << std::endl;
       const auto it = stub_map_copy.find(status.participant);
       if (it == stub_map.end())
       {
-        std::cout << " -- no stub" << std::endl;
         const auto d_it = dead_set.find(status.participant);
         if (d_it != dead_set.end())
         {
@@ -195,7 +191,6 @@ public:
         continue;
       }
 
-      std::cout << " -- Trying rectification" << std::endl;
       const auto stub = it->second.lock();
       assert(stub);
       stub->requester.rectifier.check(convert(status));
@@ -206,10 +201,6 @@ public:
           stub->last_range == range
           && stub->last_reservation_id == status.reservation;
 
-      std::cout << " -- Comparing [" << stub->last_range.begin
-                << ", " << stub->last_range.end << "] to ["
-                << range.begin << ", " << range.end << "]: "
-                << repeat_range << std::endl;
       if (!repeat_range)
         stub->range_cb(status.reservation, range);
 
@@ -352,9 +343,6 @@ public:
           .participant(participant_id)
           .reservation(reservation_id)
           .checkpoint(checkpoint);
-
-      std::cout << "Publishing " << participant_id << " reached " << checkpoint
-                << " for reservation " << reservation_id << std::endl;
 
       reached_pub->publish(msg);
     }

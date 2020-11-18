@@ -94,9 +94,6 @@ public:
   rclcpp::Subscription<SetMsg>::SharedPtr blockade_set_sub;
   void blockade_set(const SetMsg& set)
   {
-    std::cout << "Participant [" << set.participant << "] set new path ["
-              << set.reservation << "]" << std::endl;
-
     std::vector<Checkpoint> path;
     for (const auto& c : set.path)
     {
@@ -108,9 +105,17 @@ public:
             });
     }
 
-    moderator->set(
-          set.participant, set.reservation,
-          Reservation{std::move(path), set.radius});
+    try
+    {
+      moderator->set(
+            set.participant, set.reservation,
+            Reservation{std::move(path), set.radius});
+    }
+    catch(const std::exception& e)
+    {
+      RCLCPP_ERROR(
+            get_logger(), "Exception due to [set] update: %s", e.what());
+    }
 
     check_for_updates();
   }
@@ -119,11 +124,15 @@ public:
   rclcpp::Subscription<ReadyMsg>::SharedPtr blockade_ready_sub;
   void blockade_ready(const ReadyMsg& ready)
   {
-    std::cout << "Participant [" << ready.participant
-              << ":" << ready.reservation << "] ready for "
-              << ready.checkpoint << std::endl;
-
-    moderator->ready(ready.participant, ready.reservation, ready.checkpoint);
+    try
+    {
+      moderator->ready(ready.participant, ready.reservation, ready.checkpoint);
+    }
+    catch (const std::exception& e)
+    {
+      RCLCPP_ERROR(
+            get_logger(), "Exception due to [ready] update: %s", e.what());
+    }
 
     check_for_updates();
   }
@@ -132,10 +141,6 @@ public:
   rclcpp::Subscription<ReachedMsg>::SharedPtr blockade_reached_sub;
   void blockade_reached(const ReachedMsg& reached)
   {
-    std::cout << "Participant [" << reached.participant
-              << ":" << reached.reservation << "] reached "
-              << reached.checkpoint << std::endl;
-
     try
     {
       moderator->reached(
@@ -154,17 +159,24 @@ public:
   rclcpp::Subscription<CancelMsg>::SharedPtr blockade_cancel_sub;
   void blockade_cancel(const CancelMsg& cancel)
   {
-    if (cancel.all_reservations)
-      moderator->cancel(cancel.participant);
-    else
-      moderator->cancel(cancel.participant, cancel.reservation);
+    try
+    {
+      if (cancel.all_reservations)
+        moderator->cancel(cancel.participant);
+      else
+        moderator->cancel(cancel.participant, cancel.reservation);
+    }
+    catch (const std::exception& e)
+    {
+      RCLCPP_ERROR(
+            get_logger(), "Exception due to [cancel] update: %s", e.what());
+    }
 
     check_for_updates();
   }
 
   void check_for_updates()
   {
-    print_status();
     const std::size_t current_version = moderator->assignments().version();
     if (current_version == last_assignment_version)
       return;
@@ -205,28 +217,6 @@ public:
     heartbeat_pub->publish(msg);
   }
 
-  void print_status()
-  {
-    std::cout << " == NEW STATUS:\n";
-    const auto& ranges = moderator->assignments().ranges();
-    for (const auto& s : moderator->statuses())
-    {
-      const std::size_t participant = s.first;
-      const auto& range = ranges.at(participant);
-      const auto& status = s.second;
-
-      std::cout << " >> " << participant << ": [";
-      if (status.last_ready.has_value())
-        std::cout << status.last_ready.value();
-      else
-        std::cout << "null";
-
-      std::cout << "; " << status.last_reached << "; "
-                << range.begin << ", " << range.end << "]\n";
-    }
-    std::cout << std::endl;
-  }
-
   std::shared_ptr<rmf_traffic::blockade::Moderator> moderator;
   std::size_t last_assignment_version = 0;
   rclcpp::TimerBase::SharedPtr heartbeat_timer;
@@ -235,7 +225,26 @@ public:
 //==============================================================================
 std::shared_ptr<rclcpp::Node> make_node(const rclcpp::NodeOptions& options)
 {
-  return std::make_shared<BlockadeNode>(options);
+  auto node = std::make_shared<BlockadeNode>(options);
+  node->moderator->info_logger(
+        [w = node->weak_from_this()](std::string msg)
+  {
+    if (const auto n = w.lock())
+    {
+      RCLCPP_INFO(n->get_logger(), msg.c_str());
+    }
+  });
+
+  node->moderator->debug_logger(
+        [w = node->weak_from_this()](std::string msg)
+  {
+    if (const auto n = w.lock())
+    {
+      RCLCPP_DEBUG(n->get_logger(), msg.c_str());
+    }
+  });
+
+  return node;
 }
 
 } // namespace blockade

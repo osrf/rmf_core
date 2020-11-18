@@ -114,25 +114,15 @@ public:
       _current_path_request.path.push_back(location);
     };
 
-    std::stringstream ss;
-    ss << " ======== " << _travel_info.robot_name.c_str() << " Received checkpoints:";
     for (const auto& c : _checkpoints)
     {
-      const auto i = c.waypoint_index;
-      ss << " " << i;
-      assert(i < _current_path.size());
-      push_back(c.waypoint_index, c.departure_time);
+      const auto index = c.waypoint_index;
+      assert(index < _current_path.size());
+      push_back(index, c.departure_time);
     }
 
     push_back(_checkpoints.back().waypoint_index+1,
               _checkpoints.back().departure_time);
-
-    ss << "\nIssuing path:";
-    for (const auto& p : _current_path_request.path)
-      ss << "\n -- <" << p.x << ", " << p.y << ">";
-    ss << "\n";
-
-    std::cout << ss.str() << std::endl;
 
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
@@ -203,7 +193,6 @@ public:
       assert(!_checkpoints.empty());
       if (_checkpoints.back().waypoint_index == _current_path.size()-2)
       {
-        std::cout << " ======= Finished whole path!" << std::endl;
         _checkpoints.clear();
         _moving = false;
         _queue.pop_front();
@@ -229,10 +218,6 @@ public:
     else if (ideal_checkpoint_num < _checkpoints.size())
     {
       const std::size_t remove_N = _checkpoints.size() - ideal_checkpoint_num;
-      std::cout << " >> Reducing checkpoint num from " << _checkpoints.size()
-                << " down to " << ideal_checkpoint_num
-                << std::endl;
-
       _checkpoints.erase(
             _checkpoints.begin(),
             _checkpoints.begin() + remove_N);
@@ -395,7 +380,6 @@ private:
       _current_path.emplace_back(map_name, p);
     }
 
-    std::cout << " ========= Following new path" << std::endl;
     _last_target = 0;
     _path_version = _path_updater->follow_new_path(_current_path);
   }

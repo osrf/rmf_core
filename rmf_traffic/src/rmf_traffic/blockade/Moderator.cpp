@@ -101,6 +101,8 @@ public:
     CheckpointId checkpoint;
   };
 
+  std::function<void(std::string)> info_logger;
+  std::function<void(std::string)> debug_logger;
   double min_conflict_angle;
 
   std::list<ReadyInfo> ready_queue;
@@ -113,8 +115,13 @@ public:
   PeerToPeerAlignment peer_alignment;
   FinalConstraints final_constraints;
 
-  Implementation(const double min_conflict_angle_)
-    : min_conflict_angle(min_conflict_angle_),
+  Implementation(
+      std::function<void(std::string)> info,
+      std::function<void(std::string)> debug,
+      const double min_conflict_angle_)
+    : info_logger(std::move(info)),
+      debug_logger(std::move(debug)),
+      min_conflict_angle(min_conflict_angle_),
       assignments(Assignments::Implementation::make())
   {
     // Do nothing
@@ -129,33 +136,17 @@ public:
 
   ReadyStatus check_reservation(const ReadyInfo& check)
   {
-    std::cout << " -- Checking reservation for [" << toul(check.participant_id)
-              << ":" << check.reservation_id << "]: " << check.checkpoint
-              << std::endl;
     const auto r_it = last_known_reservation.find(check.participant_id);
     if (r_it == last_known_reservation.end())
-    {
-      std::cout << "     -- Not in last_known_reservation" << std::endl;
       return Finished;
-    }
 
     if (r_it->second.id != check.reservation_id)
-    {
-      std::cout << "     -- Mismatched ID: " << r_it->second.id << " vs "
-                << check.reservation_id << std::endl;
       return Finished;
-    }
 
     auto state = assignments.ranges();
     auto& s = state.at(check.participant_id);
     if (check.checkpoint < s.end)
-    {
-      std::cout << "     -- Already covered: " << check.checkpoint << " vs "
-                << s.end << std::endl;
       return Finished;
-    }
-
-    std::cout << "     -- Currently covering " << s.begin << " --> " << s.end << std::endl;
 
     const auto constraints_it =
         final_constraints.should_go.find(check.participant_id);
@@ -182,8 +173,6 @@ public:
       const std::size_t check_end = check.checkpoint+1 - i;
       s.end = check_end;
 
-      std::cout << "     -- Testing up to " << check_end << std::endl;
-
       // TODO(MXG): We could probably get slightly better performance here if
       // should_go used an ordered std::map instead of std::unordered_map.
       bool acceptable = true;
@@ -192,17 +181,20 @@ public:
         const auto it = constraints.find(c);
         if (it != constraints.end() && !it->second->evaluate(state))
         {
-          std::cout << "     -- Constraint violated at " << c
-                    << ": " << it->second->detail(state) << std::endl;
+          if (debug_logger)
+          {
+            std::stringstream str;
+            const std::string P = toul(check.participant_id);
+            str << "Cannot reserve [" << P << s.begin
+                << " -> " << P << check_end
+                << "]. Blocked at " << P << c << " by: "
+                << it->second->detail(state);
+            debug_logger(str.str());
+          }
+
           acceptable = false;
           break;
         }
-
-        std::cout << "     -- Constraint passed at " << c << ": ";
-        if (it != constraints.end() && it->second)
-          std::cout << it->second->detail(state) << std::endl;
-        else
-          std::cout << "No Constraint" << std::endl;
       }
 
       if (acceptable)
@@ -211,17 +203,12 @@ public:
             .ranges[check.participant_id].end = check_end;
 
         if (i==0)
-        {
-          std::cout << "     -- Finished reservation: " << check_end << std::endl;
           return Finished;
-        }
 
-        std::cout << "     -- Incomplete reservation: " << check_end << std::endl;
         return Incomplete;
       }
     }
 
-    std::cout << "     -- Unable to make progress" << std::endl;
     return Skip;
   }
 
@@ -252,6 +239,14 @@ public:
       const ReservationId reservation_id,
       const Reservation& reservation)
   {
+    if (info_logger)
+    {
+      std::stringstream str;
+      str << "New path for " << toul(participant_id) << " with "
+          << reservation.path.size() << " checkpoints";
+      info_logger(str.str());
+    }
+
     const auto insertion = last_known_reservation.insert(
       {participant_id, reservation_id});
     const bool inserted = insertion.second;
@@ -283,7 +278,6 @@ public:
     if (!peer_aligned_inserted)
       peer_aligned_it->second.clear();
 
-    std::cout << " === NEW CONSTRAINTS" << std::endl;
     for (const auto& other_r : last_known_reservation)
     {
       const auto other_participant = other_r.first;
@@ -303,36 +297,6 @@ public:
             other_participant, other_reservation.path.size());
 
       auto alignments = compute_alignments(brackets.alignments);
-
-      std::cout << toul(participant_id) << " vs " << toul(other_participant) << ":" << std::endl;
-      for (const auto& c : brackets.conflicts)
-        std::cout << "  + " << c << std::endl;
-
-      for (const auto& a : brackets.alignments)
-      {
-        std::cout << "  + " << a.whole_bracket << " -->";
-        for (const auto& s : a.segments)
-          std::cout << "  " << s;
-        std::cout << std::endl;
-      }
-
-      std::cout << "Caveats:" << std::endl;
-      for (std::size_t i=0; i < alignments.size(); ++i)
-      {
-        const auto p = std::array<std::string,2>{toul(participant_id), toul(other_participant)}[i];
-        std::cout << "  Participant " << p << ":" << std::endl;
-        const auto& alignment = alignments.at(i);
-        for (const auto& a : alignment)
-        {
-          for (const auto& c : a.index_to_caveats)
-          {
-            std::cout << "  - " << p << c.first << ":";
-            for (const auto& index : c.second)
-              std::cout << " " << index;
-            std::cout << std::endl;
-          }
-        }
-      }
 
       const auto this_blocker_it =
           peer_blocker_it->second.insert_or_assign(
@@ -361,16 +325,8 @@ public:
       other_aligned_map = std::move(alignments.at(1));
     }
 
-    std::cout << " === END" << std::endl;
-
     final_constraints = compute_final_ShouldGo_constraints(
           peer_blockers, peer_alignment);
-
-    std::cout << "New constraint count: " << final_constraints.should_go.size();
-    std::cout << " |";
-    for (const auto& c : final_constraints.should_go)
-      std::cout << " " << c.first << ":" << c.second.size();
-    std::cout << std::endl;
 
     Assignments::Implementation::modify(assignments).ranges
         .insert_or_assign(participant_id, ReservedRange{0, 0});
@@ -387,35 +343,25 @@ public:
   {
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
-    {
-      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
-    }
 
     if (r_it->second.id != reservation_id)
-    {
-      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
-    }
 
     const auto& path = r_it->second.reservation.path;
     if (path.empty())
-    {
-      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
-    }
 
     if (checkpoint >= path.size() - 1)
-    {
-      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
-    }
 
     auto& status = statuses.at(participant_id);
     if (checkpoint <= status.last_ready)
-    {
-      std::cout << "ready failed at " << __LINE__ << std::endl;
       return;
+
+    if (info_logger)
+    {
+      info_logger("Ready: "+toul(participant_id)+std::to_string(checkpoint));
     }
 
     status.last_ready = checkpoint;
@@ -469,6 +415,11 @@ public:
       return;
     }
 
+    if (info_logger)
+    {
+      info_logger("Reached: "+toul(participant_id)+std::to_string(checkpoint));
+    }
+
     status.last_reached = checkpoint;
 
     range.begin = checkpoint;
@@ -487,11 +438,21 @@ public:
     if (reservation_id < r_it->second.id)
       return;
 
+    if (info_logger)
+    {
+      info_logger("Canceling: " + toul(participant_id));
+    }
+
     cancel(participant_id);
   }
 
   void cancel(const ParticipantId participant_id)
   {
+    if (info_logger)
+    {
+      info_logger("Canceling: " + toul(participant_id));
+    }
+
     last_known_reservation.erase(participant_id);
     statuses.erase(participant_id);
     peer_blockers.erase(participant_id);
@@ -513,8 +474,14 @@ public:
 };
 
 //==============================================================================
-Moderator::Moderator(const double min_conflict_angle)
-  : _pimpl(rmf_utils::make_impl<Implementation>(min_conflict_angle))
+Moderator::Moderator(
+    std::function<void(std::string)> info,
+    std::function<void(std::string)> debug,
+    const double min_conflict_angle)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             std::move(info),
+             std::move(debug),
+             min_conflict_angle))
 {
   // Do nothing
 }
@@ -570,6 +537,20 @@ double Moderator::minimum_conflict_angle() const
 Moderator& Moderator::minimum_conflict_angle(const double new_value)
 {
   _pimpl->min_conflict_angle = new_value;
+  return *this;
+}
+
+//==============================================================================
+Moderator& Moderator::info_logger(std::function<void(std::string)> info)
+{
+  _pimpl->info_logger = std::move(info);
+  return *this;
+}
+
+//==============================================================================
+Moderator& Moderator::debug_logger(std::function<void(std::string)> debug)
+{
+  _pimpl->debug_logger = std::move(debug);
   return *this;
 }
 
