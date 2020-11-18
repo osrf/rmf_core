@@ -244,6 +244,8 @@ std::shared_ptr<rclcpp::Node> make_node(const rclcpp::NodeOptions& options)
     }
   });
 
+  node->moderator->minimum_conflict_angle(15.0*M_PI/180.0);
+
   return node;
 }
 

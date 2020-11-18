@@ -50,7 +50,14 @@ ConflictInfo detect_conflict(
   const Eigen::Vector2d n_b = p_b1 - p_b0;
 
   const double c_ab = n_a.dot(n_b);
-  const double angle = std::acos(c_ab/(n_a.norm()*n_b.norm()));
+
+  // We put caps of -1.0, 1.0 here because sometimes floating point error may
+  // cause the calculation to flow a tiny bit over 1.0 or a tiny bit under -1.0,
+  // which causes an NaN result for angle.
+  const double cos_theta =
+      std::max(-1.0, std::min(1.0, c_ab/(n_a.norm()*n_b.norm())));
+
+  const double angle = std::acos(cos_theta);
 
   ConflictInfo info;
   info.type = ConflictInfo::Conflict;
