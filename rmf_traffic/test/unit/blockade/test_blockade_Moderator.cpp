@@ -383,7 +383,7 @@ std::string toul(const std::size_t input)
 }
 
 //==============================================================================
-SCENARIO("Test lane sharing", "[debug]")
+SCENARIO("Test lane sharing")
 {
   std::array<Eigen::Vector2d, 9> A;
   A[0] = {10, 10};
@@ -415,37 +415,6 @@ SCENARIO("Test lane sharing", "[debug]")
 
   const auto& ranges = moderator->assignments().ranges();
 
-//  const auto update = [&](
-//      rmf_traffic::blockade::Participant& participant,
-//      const std::size_t ready,
-//      const std::size_t reached,
-//      const std::size_t begin,
-//      const std::size_t end)
-//  {
-//    participant.ready(ready);
-//    participant.reached(reached);
-//    CHECK(ranges.at(participant.id()).begin == begin);
-//    CHECK(ranges.at(participant.id()).end == end);
-//  };
-
-//  const auto up_A = [&](
-//        const std::size_t ready,
-//        const std::size_t reached,
-//        const std::size_t begin,
-//        const std::size_t end)
-//  {
-//    update(p_A, ready, reached, begin, end);
-//  };
-
-//  const auto up_B = [&](
-//      const std::size_t ready,
-//      const std::size_t reached,
-//      const std::size_t begin,
-//      const std::size_t end)
-//  {
-//    update(p_B, ready, reached, begin, end);
-//  };
-
 #define UPDATE(participant, Ready, Reached, Begin, End) \
   do { \
     participant.ready(Ready); \
@@ -460,148 +429,59 @@ SCENARIO("Test lane sharing", "[debug]")
 #define up_B(Ready, Reached, Begin, End) \
   UPDATE(p_B, Ready, Reached, Begin, End)
 
-//  WHEN("B arrives at 3 first")
-//  {
-//    p_A.set(path_A);
-//    p_B.set(path_B);
-//    const auto& range_A = ranges.at(0);
-//    const auto& range_B = ranges.at(1);
+  WHEN("A arrives at A3 quickly")
+  {
+    p_A.set(path_A);
+    p_B.set(path_B);
+    const auto& range_B = ranges.at(1);
 
-//    p_A.ready(2);
-//    CHECK(ranges.at(0).begin == 0);
-//    CHECK(ranges.at(0).end == 3);
-//    p_A.reached(3);
-//    CHECK(ranges.at(0).begin == 3);
-//    CHECK(ranges.at(0).end == 3);
+    up_A(2, 0, 0, 3);
+    up_A(2, 3, 3, 3);
 
-//    p_B.ready(5);
-//    CHECK(ranges.at(1).begin == 0);
-//    CHECK(ranges.at(1).end == 5);
-//    p_B.reached(4);
-//    CHECK(ranges.at(1).begin == 4);
-//    CHECK(ranges.at(1).end == 5);
+    up_B(5, 0, 0, 5);
+    up_B(5, 4, 4, 5);
 
-//    p_A.ready(3);
-//    CHECK(ranges.at(0).end == 4);
-//  }
+    up_A(3, 3, 3, 4);
+    up_A(4, 3, 3, 5);
+    up_A(4, 5, 5, 5);
+    CHECK(range_B.end == 6);
 
-//  WHEN("Arrivals are incremental")
-//  {
-//    p_A.set(path_A);
-//    p_B.set(path_B);
-//    const auto& range_A = ranges.at(0);
-//    const auto& range_B = ranges.at(1);
+    up_B(6, 4, 4, 7);
+    up_B(6, 7, 7, 7);
+  }
 
-//    p_A.ready(0);
-//    CHECK(ranges.at(0).begin == 0);
-//    CHECK(ranges.at(0).end == 1);
-//    p_A.reached(1);
-//    CHECK(ranges.at(0).begin == 1);
-//    CHECK(ranges.at(0).end == 1);
+  WHEN("B arrives at B4 quickly")
+  {
+    p_A.set(path_A);
+    p_B.set(path_B);
+    const auto& range_A = ranges.at(0);
 
-//    p_B.ready(5);
-//    CHECK(ranges.at(1).begin == 0);
-//    CHECK(ranges.at(1).end == 5);
-//    p_B.reached(4);
-//    CHECK(ranges.at(1).begin == 4);
-//    CHECK(ranges.at(1).end == 5);
+    up_A(0, 0, 0, 1);
+    up_A(0, 1, 1, 1);
 
-//    p_A.ready(1);
-//    p_A.reached(2);
+    up_B(5, 0, 0, 5);
+    up_B(5, 4, 4, 6);
 
-//    CHECK(ranges.at(1).end == 6);
-//  }
+    up_A(1, 1, 1, 2);
+    up_A(1, 2, 2, 2);
+    up_A(3, 2, 2, 3);
 
-//  WHEN("Regression test from simulation")
-//  {
-//    p_A.set(path_A);
-//    p_B.set(path_B);
-//    const auto& range_A = ranges.at(0);
-//    const auto& range_B = ranges.at(1);
+    up_B(5, 6, 6, 6);
+    up_B(6, 6, 6, 7);
+    up_B(6, 7, 7, 7);
+    CHECK(range_A.end == 4);
 
-//    CHECK(range_A.begin == 0);
-//    CHECK(range_A.end == 0);
+    up_A(6, 2, 2, 7);
+    up_A(6, 7, 7, 7);
+  }
 
-//    CHECK(range_B.begin == 0);
-//    CHECK(range_B.end == 0);
-
-//    p_B.ready(0);
-//    CHECK(range_B.begin == 0);
-//    CHECK(range_B.end == 1);
-
-//    p_B.reached(1);
-//    CHECK(range_B.begin == 1);
-//    CHECK(range_B.end == 1);
-
-//    // Have a separate conflict here? Probably not necessary.
-
-//    p_B.ready(1);
-//    CHECK(range_B.begin == 1);
-//    CHECK(range_B.end == 2);
-
-//    p_A.ready(0);
-//    CHECK(range_A.begin == 0);
-//    CHECK(range_A.end == 1);
-
-//    p_B.reached(2);
-//    CHECK(range_B.begin == 2);
-//    CHECK(range_B.end == 2);
-
-//    p_B.ready(2);
-//    CHECK(range_B.begin == 2);
-//    CHECK(range_B.end == 3);
-
-//    p_A.reached(1);
-//    CHECK(range_A.begin == 1);
-//    CHECK(range_A.end == 1);
-
-//    p_A.ready(1);
-//    CHECK(range_A.begin == 1);
-//    CHECK(range_A.end == 2);
-
-//    p_B.reached(3);
-//    CHECK(range_B.begin == 3);
-//    CHECK(range_B.end == 3);
-
-//    p_B.ready(3);
-//    CHECK(range_B.begin == 3);
-//    CHECK(range_B.end == 3);
-
-//    p_A.reached(2);
-//    CHECK(range_A.begin == 2);
-//    CHECK(range_A.end == 2);
-
-//    p_A.ready(2);
-//    CHECK(range_A.begin == 2);
-//    CHECK(range_A.end == 3);
-
-//    CHECK(range_B.begin == 3);
-//    CHECK(range_B.end == 4);
-
-//    p_B.reached(4);
-//    CHECK(range_B.begin == 4);
-//    CHECK(range_B.end == 4);
-
-//    p_B.ready(5);
-//    CHECK(range_B.begin == 4);
-//    CHECK(range_B.end == 5);
-
-//    p_A.reached(3);
-//    CHECK(range_A.begin == 3);
-//    CHECK(range_A.end == 3);
-
-//    p_A.ready(3);
-//    CHECK(range_A.begin == 3);
-//    CHECK(range_A.end == 4);
-//  }
-
-  WHEN("Another regression test")
+  WHEN("A arrives at A2 quickly")
   {
     p_B.set(path_B);
     const auto& range_B = ranges.at(1);
+
     up_B(0, 0, 0, 1);
     up_B(0, 1, 1, 1);
-//    up_B(1, 1, 1, 1);
 
     p_A.set(path_A);
 
@@ -625,9 +505,14 @@ SCENARIO("Test lane sharing", "[debug]")
 
     up_B(3, 4, 4, 4);
     up_B(5, 4, 4, 5);
-    up_B(5, 4, 4, 6);
 
     up_A(3, 2, 2, 3);
-    up_A(3, 3, 3, 3);
+    up_A(3, 3, 3, 4);
+
+    up_A(3, 4, 4, 4);
+    up_A(4, 4, 4, 5);
+    up_A(4, 5, 5, 5);
+    CHECK(range_B.begin == 4);
+    CHECK(range_B.end == 6);
   }
 }
