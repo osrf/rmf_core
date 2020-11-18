@@ -22,6 +22,7 @@
 #include "conflicts.hpp"
 
 #include <list>
+#include <sstream>
 
 namespace rmf_traffic {
 namespace blockade {
@@ -96,6 +97,8 @@ public:
     CheckpointId checkpoint;
   };
 
+  std::function<void(std::string)> info_logger;
+  std::function<void(std::string)> debug_logger;
   double min_conflict_angle;
 
   std::list<ReadyInfo> ready_queue;
@@ -105,10 +108,16 @@ public:
   std::unordered_map<ParticipantId, Status> statuses;
 
   PeerToPeerBlockers peer_blockers;
-  Blockers should_go;
+  PeerToPeerAlignment peer_alignment;
+  FinalConstraints final_constraints;
 
-  Implementation(const double min_conflict_angle_)
-    : min_conflict_angle(min_conflict_angle_),
+  Implementation(
+      std::function<void(std::string)> info,
+      std::function<void(std::string)> debug,
+      const double min_conflict_angle_)
+    : info_logger(std::move(info)),
+      debug_logger(std::move(debug)),
+      min_conflict_angle(min_conflict_angle_),
       assignments(Assignments::Implementation::make())
   {
     // Do nothing
@@ -116,7 +125,8 @@ public:
 
   enum ReadyStatus
   {
-    Incomplete = 0,
+    Skip = 0,
+    Incomplete,
     Finished
   };
 
@@ -134,7 +144,18 @@ public:
     if (check.checkpoint < s.end)
       return Finished;
 
-    const auto& constraints = should_go.at(check.participant_id);
+    const auto constraints_it =
+        final_constraints.should_go.find(check.participant_id);
+    if (constraints_it == final_constraints.should_go.end())
+    {
+      // There are no constraints for this participant, so we will just allow it
+      // to go all the way.
+      Assignments::Implementation::modify(assignments)
+          .ranges[check.participant_id].end = check.checkpoint + 1;
+      return Finished;
+    }
+
+    const auto& constraints = constraints_it->second;
 
     const std::size_t current_end = s.end;
     const std::size_t i_max = (check.checkpoint+1) - (current_end+1);
@@ -156,6 +177,17 @@ public:
         const auto it = constraints.find(c);
         if (it != constraints.end() && !it->second->evaluate(state))
         {
+          if (debug_logger)
+          {
+            std::stringstream str;
+            const std::string P = toul(check.participant_id);
+            str << "Cannot reserve [" << P << s.begin
+                << " -> " << P << check_end
+                << "]. Blocked at " << P << c << " by: "
+                << it->second->detail(state);
+            debug_logger(str.str());
+          }
+
           acceptable = false;
           break;
         }
@@ -173,7 +205,7 @@ public:
       }
     }
 
-    return Incomplete;
+    return Skip;
   }
 
   void process_ready_queue()
@@ -181,9 +213,15 @@ public:
     auto next = ready_queue.begin();
     while (next != ready_queue.end())
     {
-      if (check_reservation(*next) == Finished)
+      const auto result = check_reservation(*next);
+      if (result == Finished)
       {
-        ready_queue.erase(next++);
+        ready_queue.erase(next);
+        next = ready_queue.begin();
+      }
+      else if (result == Incomplete)
+      {
+        next = ready_queue.begin();
       }
       else
       {
@@ -212,13 +250,29 @@ public:
       current_reservation.id = reservation_id;
     }
 
+    if (info_logger)
+    {
+      std::stringstream str;
+      str << "New path for " << toul(participant_id) << " with "
+          << reservation.path.size() << " checkpoints";
+      info_logger(str.str());
+    }
+
     current_reservation.reservation = reservation;
 
-    const auto peer_insertion = peer_blockers.insert({participant_id, {}});
-    const auto peer_inserted = peer_insertion.second;
-    const auto peer_it = peer_insertion.first;
-    if (!peer_inserted)
-      peer_it->second.clear();
+    const auto peer_blocker_insertion =
+        peer_blockers.insert({participant_id, {}});
+    const auto peer_blocker_inserted = peer_blocker_insertion.second;
+    const auto peer_blocker_it = peer_blocker_insertion.first;
+    if (!peer_blocker_inserted)
+      peer_blocker_it->second.clear();
+
+    const auto peer_aligned_insertion =
+        peer_alignment.insert({participant_id, {}});
+    const auto peer_aligned_inserted = peer_aligned_insertion.second;
+    const auto peer_aligned_it = peer_aligned_insertion.first;
+    if (!peer_aligned_inserted)
+      peer_aligned_it->second.clear();
 
     for (const auto& other_r : last_known_reservation)
     {
@@ -226,37 +280,54 @@ public:
       if (other_participant == participant_id)
         continue;
 
-      const auto this_constraint_it = peer_it->second.insert_or_assign(
-            other_participant, IndexToConstraint{});
-      auto& this_constraint_map = this_constraint_it.first->second;
-
       const auto& other_reservation = other_r.second.reservation;
 
-      auto& other_peer_map = peer_blockers[other_participant];
-      const auto other_peer_it = other_peer_map.insert_or_assign(
-            participant_id, IndexToConstraint{});
-      auto& other_constraint_map = other_peer_it.first->second;
-
-      const auto conflict_brackets = compute_conflict_brackets(
+      const auto brackets = compute_brackets(
             reservation.path, reservation.radius,
             other_reservation.path, other_reservation.radius,
             min_conflict_angle);
 
       auto zero_order_blockers = compute_blockers(
-            conflict_brackets,
+            brackets.conflicts,
             participant_id, reservation.path.size(),
             other_participant, other_reservation.path.size());
 
-      this_constraint_map = std::move(zero_order_blockers.at(0));
-      other_constraint_map = std::move(zero_order_blockers.at(1));
+      auto alignments = compute_alignments(brackets.alignments);
+
+      const auto this_blocker_it =
+          peer_blocker_it->second.insert_or_assign(
+            other_participant, IndexToConstraint{});
+      auto& this_blocker_map = this_blocker_it.first->second;
+      this_blocker_map = std::move(zero_order_blockers.at(0));
+
+      auto& other_peer_blocker_map = peer_blockers[other_participant];
+      const auto other_peer_blocker_it =
+          other_peer_blocker_map.insert_or_assign(
+            participant_id, IndexToConstraint{});
+      auto& other_blocker_map = other_peer_blocker_it.first->second;
+      other_blocker_map = std::move(zero_order_blockers.at(1));
+
+      const auto this_aligned_it =
+          peer_aligned_it->second.insert_or_assign(
+            other_participant, std::vector<Alignment>{});
+      auto& this_aligned_map = this_aligned_it.first->second;
+      this_aligned_map = std::move(alignments.at(0));
+
+      auto& other_peer_aligned_map = peer_alignment[other_participant];
+      const auto other_peer_aligned_it =
+          other_peer_aligned_map.insert_or_assign(
+            participant_id, std::vector<Alignment>{});
+      auto& other_aligned_map = other_peer_aligned_it.first->second;
+      other_aligned_map = std::move(alignments.at(1));
     }
 
-    should_go = compute_final_ShouldGo_constraints(peer_blockers);
+    final_constraints = compute_final_ShouldGo_constraints(
+          peer_blockers, peer_alignment);
 
     Assignments::Implementation::modify(assignments).ranges
         .insert_or_assign(participant_id, ReservedRange{0, 0});
 
-    statuses[participant_id] = Status{reservation_id, std::nullopt, 0};
+    statuses[participant_id] = Status{reservation_id, std::nullopt, 0, false};
 
     process_ready_queue();
   }
@@ -283,6 +354,11 @@ public:
     auto& status = statuses.at(participant_id);
     if (checkpoint <= status.last_ready)
       return;
+
+    if (info_logger)
+    {
+      info_logger("Ready: "+toul(participant_id)+std::to_string(checkpoint));
+    }
 
     status.last_ready = checkpoint;
     ready_queue.push_back(
@@ -312,15 +388,37 @@ public:
     if (checkpoint <= status.last_reached)
       return;
 
-    status.last_reached = checkpoint;
-
     auto& range = Assignments::Implementation::modify(assignments)
         .ranges.at(participant_id);
 
-    range.begin = checkpoint;
-
     // TODO(MXG): Should this trigger a warning or exception?
-    assert(range.begin <= range.end);
+    if (checkpoint > range.end)
+    {
+      const bool had_critical_error = status.critical_error;
+      status.critical_error = true;
+
+      if (!had_critical_error)
+      {
+        std::stringstream str;
+        str << "[rmf_traffic::blockade::Participant::reached] Participant ["
+            << participant_id << "] reached an invalid checkpoint ["
+            << checkpoint << "] when it was only assigned up to [" << range.end
+            << "]";
+
+        throw std::runtime_error(str.str());
+      }
+
+      return;
+    }
+
+    if (info_logger)
+    {
+      info_logger("Reached: "+toul(participant_id)+std::to_string(checkpoint));
+    }
+
+    status.last_reached = checkpoint;
+
+    range.begin = checkpoint;
 
     process_ready_queue();
   }
@@ -336,29 +434,50 @@ public:
     if (reservation_id < r_it->second.id)
       return;
 
+    if (info_logger)
+    {
+      info_logger("Canceling: " + toul(participant_id));
+    }
+
     cancel(participant_id);
   }
 
   void cancel(const ParticipantId participant_id)
   {
+    if (info_logger)
+    {
+      info_logger("Canceling: " + toul(participant_id));
+    }
+
     last_known_reservation.erase(participant_id);
     statuses.erase(participant_id);
     peer_blockers.erase(participant_id);
+    peer_alignment.erase(participant_id);
     Assignments::Implementation::modify(assignments)
         .ranges.erase(participant_id);
 
     for (auto& peer : peer_blockers)
       peer.second.erase(participant_id);
 
-    should_go = compute_final_ShouldGo_constraints(peer_blockers);
+    for (auto& peer : peer_alignment)
+      peer.second.erase(participant_id);
+
+    final_constraints = compute_final_ShouldGo_constraints(
+          peer_blockers, peer_alignment);
 
     process_ready_queue();
   }
 };
 
 //==============================================================================
-Moderator::Moderator(const double min_conflict_angle)
-  : _pimpl(rmf_utils::make_impl<Implementation>(min_conflict_angle))
+Moderator::Moderator(
+    std::function<void(std::string)> info,
+    std::function<void(std::string)> debug,
+    const double min_conflict_angle)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             std::move(info),
+             std::move(debug),
+             min_conflict_angle))
 {
   // Do nothing
 }
@@ -418,6 +537,20 @@ Moderator& Moderator::minimum_conflict_angle(const double new_value)
 }
 
 //==============================================================================
+Moderator& Moderator::info_logger(std::function<void(std::string)> info)
+{
+  _pimpl->info_logger = std::move(info);
+  return *this;
+}
+
+//==============================================================================
+Moderator& Moderator::debug_logger(std::function<void(std::string)> debug)
+{
+  _pimpl->debug_logger = std::move(debug);
+  return *this;
+}
+
+//==============================================================================
 const Moderator::Assignments& Moderator::assignments() const
 {
   return _pimpl->assignments;
@@ -427,6 +560,15 @@ const Moderator::Assignments& Moderator::assignments() const
 const std::unordered_map<ParticipantId, Status>& Moderator::statuses() const
 {
   return _pimpl->statuses;
+}
+
+//==============================================================================
+bool Moderator::has_gridlock() const
+{
+  if (!_pimpl->final_constraints.gridlock)
+    return false;
+
+  return !_pimpl->final_constraints.gridlock->evaluate(assignments().ranges());
 }
 
 } // namespace blockade

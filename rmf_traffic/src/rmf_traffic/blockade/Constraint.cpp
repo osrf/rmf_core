@@ -24,6 +24,25 @@ namespace rmf_traffic {
 namespace blockade {
 
 //==============================================================================
+// To Uppercase Letter
+std::string toul(const std::size_t input)
+{
+  const std::size_t TotalLetters = 'Z'-'A'+1;
+  std::string output;
+  std::size_t value = input;
+  do
+  {
+    const std::size_t digit = value % TotalLetters;
+    char offset = output.empty()? 'A' : 'A'-1;
+    output += static_cast<char>(digit + offset);
+    value /= TotalLetters;
+  } while (value > 0);
+
+  std::reverse(output.begin(), output.end());
+  return output;
+}
+
+//==============================================================================
 class BlockageConstraint : public Constraint
 {
 public:
@@ -44,23 +63,8 @@ public:
     const auto it = state.find(_blocked_by);
     if (it == state.end())
     {
-      const auto blocker = std::to_string(_blocked_by);
-      const auto h = _blocker_hold_point?
-            std::to_string(*_blocker_hold_point) : std::string("null");
       std::string error = "Failed to evaluate BlockageConstraint ";
-      error += blocker + ":(" + h;
-      if (_end_condition)
-      {
-        error += ", " + std::to_string(_end_condition->index);
-        if (_end_condition->condition == BlockageEndCondition::HasReached)
-          error += ")";
-        else
-          error += "]";
-      }
-      else
-      {
-        error += ")";
-      }
+      error += _description();
 
       error += " for state: <";
       for (const auto& s : state)
@@ -94,9 +98,65 @@ public:
     return _evaluate(it->second);
   }
 
+  std::string detail(const State& state) const final
+  {
+    const auto& range = state.at(_blocked_by);
+
+    std::stringstream str;
+
+    const bool two_parts =
+        _blocker_hold_point.has_value() && _end_condition.has_value();
+    const bool hold_failed = !_evaluate_can_hold(range);
+    const bool end_failed = !_evaluate_has_reached(range);
+    const bool whole_failed = hold_failed && end_failed;
+
+    if (two_parts)
+    {
+      if (whole_failed)
+        str << "{";
+      else
+        str << "[";
+    }
+
+    if (_blocker_hold_point.has_value())
+    {
+      if (hold_failed)
+        str << "{";
+      str << "h(" << toul(_blocked_by) << _blocker_hold_point.value() << ")";
+      if (hold_failed)
+        str << "}";
+    }
+
+    if (two_parts)
+      str << "|";
+
+    if (_end_condition.has_value())
+    {
+      if (end_failed)
+        str << "{";
+      if (_end_condition.value().condition == BlockageEndCondition::HasReached)
+        str << "r(";
+      else
+        str << "p(";
+      str << toul(_blocked_by) << _end_condition.value().index << ")";
+      if (end_failed)
+        str << "}";
+    }
+
+    if (two_parts)
+    {
+      if (whole_failed)
+        str << "}";
+      else
+        str << "]";
+    }
+
+    return str.str();
+  }
+
 private:
 
-  bool _evaluate(const ReservedRange& range) const
+  bool _evaluate_can_hold(const ReservedRange& range) const
   {
     if (_blocker_hold_point)
     {
@@ -104,6 +164,11 @@ private:
         return true;
     }
 
+    return false;
+  }
+
+  bool _evaluate_has_reached(const ReservedRange& range) const
+  {
     if (_end_condition)
     {
       const std::size_t has_reached = _end_condition->index;
@@ -125,6 +190,39 @@ private:
     return false;
   }
 
+  bool _evaluate(const ReservedRange& range) const
+  {
+    if (_evaluate_can_hold(range))
+      return true;
+
+    if (_evaluate_has_reached(range))
+      return true;
+
+    return false;
+  }
+
+  std::string _description() const
+  {
+    const auto h = _blocker_hold_point?
+          std::to_string(*_blocker_hold_point) : std::string("null");
+
+    std::string desc = std::to_string(_blocked_by) + ":(" + h;
+    if (_end_condition)
+    {
+      desc += ", " + std::to_string(_end_condition->index);
+      if (_end_condition->condition == BlockageEndCondition::HasReached)
+        desc += ")";
+      else
+        desc+= "]";
+    }
+    else
+    {
+      desc += ")";
+    }
+
+    return desc;
+  }
+
   std::size_t _blocked_by;
   std::optional<std::size_t> _blocker_hold_point;
   std::optional<BlockageEndCondition> _end_condition;
@@ -133,13 +231,98 @@ private:
 };
 
 //==============================================================================
-std::shared_ptr<Constraint> blockage(
+ConstConstraintPtr blockage(
     std::size_t blocked_by,
     std::optional<std::size_t> blocker_hold_point,
     std::optional<BlockageEndCondition> end_condition)
 {
   return std::make_shared<BlockageConstraint>(
         blocked_by, blocker_hold_point, end_condition);
+}
+
+//==============================================================================
+class PassedConstraint : public Constraint
+{
+public:
+
+  PassedConstraint(
+      std::size_t participant,
+      std::size_t index)
+    : _participant(participant),
+      _index(index)
+  {
+    _dependencies.insert(_participant);
+  }
+
+  bool evaluate(const State& state) const final
+  {
+    const auto it = state.find(_participant);
+    if (it == state.end())
+    {
+      std::string error = "Failed to evaluate PassedConstraint because "
+          "participant " + std::to_string(_participant)
+          + " is missing from the state.";
+
+      throw std::runtime_error(error);
+    }
+
+    return _evaluate(it->second);
+  }
+
+  const std::unordered_set<std::size_t>& dependencies() const final
+  {
+    return _dependencies;
+  }
+
+  std::optional<bool> partial_evaluate(const State& state) const final
+  {
+    const auto it = state.find(_participant);
+    if (it == state.end())
+      return std::nullopt;
+
+    return _evaluate(it->second);
+  }
+
+  std::string detail(const State& state) const final
+  {
+    std::stringstream str;
+
+    const auto& range = state.at(_participant);
+    const bool failed = !_evaluate(range);
+    if (failed)
+      str << "{";
+
+    str << "p(" << toul(_participant) << _index << ")";
+    if (failed)
+      str << "}";
+
+    return str.str();
+  }
+
+private:
+
+  bool _evaluate(const ReservedRange& range) const
+  {
+    if (_index < range.begin)
+      return true;
+
+    if (range.begin < _index)
+      return false;
+
+    return _index < range.end;
+  }
+
+  std::size_t _participant;
+  std::size_t _index;
+  std::unordered_set<std::size_t> _dependencies;
+};
+
+//==============================================================================
+ConstConstraintPtr passed(
+    std::size_t participant,
+    std::size_t index)
+{
+  return std::make_shared<PassedConstraint>(participant, index);
 }
 
 //==============================================================================
@@ -163,7 +346,19 @@ public:
     return true;
   }
 
+  std::string detail(const State&) const final
+  {
+    return "True";
+  }
+
 };
+
+//==============================================================================
+AndConstraint::AndConstraint(const std::vector<ConstConstraintPtr>& constraints)
+{
+  for (const auto& c : constraints)
+    add(c);
+}
 
 //==============================================================================
 void AndConstraint::add(ConstConstraintPtr new_constraint)
@@ -206,6 +401,51 @@ std::optional<bool> AndConstraint::partial_evaluate(const State& state) const
   }
 
   return std::nullopt;
+}
+
+//==============================================================================
+std::string AndConstraint::detail(const State& state) const
+{
+  if (_constraints.empty())
+    return "And-Empty-True";
+
+  if (_constraints.size() == 1)
+  {
+    return (*_constraints.begin())->detail(state);
+  }
+
+  std::stringstream str;
+
+  const bool failed = !evaluate(state);
+  if (failed)
+    str << "{ ";
+  else
+    str << "[ ";
+
+  bool first = true;
+  for (const auto& c : _constraints)
+  {
+    if (first)
+      first = false;
+    else
+      str << " & ";
+
+    str << c->detail(state);
+  }
+
+  if (failed)
+    str << " }";
+  else
+    str << " ]";
+
+  return str.str();
+}
+
+//==============================================================================
+OrConstraint::OrConstraint(const std::vector<ConstConstraintPtr>& constraints)
+{
+  for (const auto& c : constraints)
+    add(c);
 }
 
 //==============================================================================
@@ -252,6 +492,44 @@ std::optional<bool> OrConstraint::partial_evaluate(const State& state) const
   }
 
   return std::nullopt;
+}
+
+//==============================================================================
+std::string OrConstraint::detail(const State& state) const
+{
+  if (_constraints.empty())
+    return "Or-Empty-True";
+
+  if (_constraints.size() == 1)
+  {
+    return (*_constraints.begin())->detail(state);
+  }
+
+  std::stringstream str;
+
+  const bool failed = !evaluate(state);
+  if (failed)
+    str << "{ ";
+  else
+    str << "[ ";
+
+  bool first = true;
+  for (const auto& c : _constraints)
+  {
+    if (first)
+      first = false;
+    else
+      str << " | ";
+
+    str << c->detail(state);
+  }
+
+  if (failed)
+    str << " }";
+  else
+    str << " ]";
+
+  return str.str();
 }
 
 namespace {
@@ -385,11 +663,10 @@ ConstConstraintPtr compute_gridlock_constraint(const Blockers& blockers)
     }
   }
 
-  auto final_gridlock_constraint = std::make_shared<AndConstraint>();
-  for (const auto& c : gridlock_constraints)
-    final_gridlock_constraint->add(c);
+  if (gridlock_constraints.empty())
+    return std::make_shared<AlwaysValid>();
 
-  return final_gridlock_constraint;
+  return std::make_shared<AndConstraint>(gridlock_constraints);
 }
 
 } // namespace blockade

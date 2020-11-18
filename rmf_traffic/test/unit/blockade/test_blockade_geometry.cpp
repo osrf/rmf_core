@@ -53,59 +53,59 @@ SCENARIO("Test blockade geometry calculations for direct conflicts")
     s_B[i] = Segment{B[i], B[i+1], radius};
 
   for (std::size_t i=0; i < s_B.size(); ++i)
-    CHECK_FALSE(detect_conflict(s_A[0], s_B[i], max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(s_A[0], s_B[i], max_angle).is_conflict());
 
   {
     const auto info = detect_conflict(s_A[1], s_B[2], max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
     CHECK(info.include_cap_b[ConflictInfo::Finish]);
   }
 
-  CHECK_FALSE(detect_conflict(s_A[1], s_B[3], max_angle).has_conflict);
+  CHECK_FALSE(detect_conflict(s_A[1], s_B[3], max_angle).is_conflict());
 
   for (std::size_t i=0; i < 2; ++i)
-    CHECK_FALSE(detect_conflict(s_A[1], s_B[i], max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(s_A[1], s_B[i], max_angle).is_conflict());
 
   {
     const auto info = detect_conflict(s_A[2], s_B[2], max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
     CHECK(info.include_cap_b[ConflictInfo::Finish]);
   }
 
-  CHECK_FALSE(detect_conflict(s_A[2], s_B[3], max_angle).has_conflict);
+  CHECK_FALSE(detect_conflict(s_A[2], s_B[3], max_angle).is_conflict());
 
   for (std::size_t i=0; i < 2; ++i)
-    CHECK_FALSE(detect_conflict(s_A[2], s_B[i], max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(s_A[2], s_B[i], max_angle).is_conflict());
 
   for (std::size_t i=0; i < s_B.size(); ++i)
   {
-    CHECK_FALSE(detect_conflict(s_A[3], s_B[i], max_angle).has_conflict);
-    CHECK_FALSE(detect_conflict(s_A[4], s_B[i], max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(s_A[3], s_B[i], max_angle).is_conflict());
+    CHECK_FALSE(detect_conflict(s_A[4], s_B[i], max_angle).is_conflict());
   }
 
   {
     const auto info = detect_conflict(s_A[5], s_B[1], max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Finish]);
   }
 
-  CHECK_FALSE(detect_conflict(s_A[5], s_B[0], max_angle).has_conflict);
+  CHECK_FALSE(detect_conflict(s_A[5], s_B[0], max_angle).is_conflict());
 
   for (std::size_t i=2; i < s_B.size(); ++i)
-    CHECK_FALSE(detect_conflict(s_A[5], s_B[i], max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(s_A[5], s_B[i], max_angle).is_conflict());
 
   {
     const auto info = detect_conflict(s_A[6], s_B[1], max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK(info.include_cap_b[ConflictInfo::Start]);
@@ -114,7 +114,7 @@ SCENARIO("Test blockade geometry calculations for direct conflicts")
 
   {
     const auto info = detect_conflict(s_A[6], s_B[0], max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -122,11 +122,11 @@ SCENARIO("Test blockade geometry calculations for direct conflicts")
   }
 
   for (std::size_t i=2; i < s_B.size(); ++i)
-    CHECK_FALSE(detect_conflict(s_A[6], s_B[i], max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(s_A[6], s_B[i], max_angle).is_conflict());
 
   {
     const auto info = detect_conflict(s_A[7], s_B[0], max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK(info.include_cap_b[ConflictInfo::Start]);
@@ -134,7 +134,7 @@ SCENARIO("Test blockade geometry calculations for direct conflicts")
   }
 
   for (std::size_t i=1; i < s_B.size(); ++i)
-    CHECK_FALSE(detect_conflict(s_A[7], s_B[i], max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(s_A[7], s_B[i], max_angle).is_conflict());
 }
 
 SCENARIO("Test blockade geometry conflicts for skimming conflicts")
@@ -170,7 +170,7 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
 
     {
       const auto info = detect_conflict(s_A[1], s_B[1], max_angle);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
       CHECK(info.include_cap_a[ConflictInfo::Finish]);
       CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -184,7 +184,7 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
         if (i==1 && j==1)
           continue;
 
-        CHECK_FALSE(detect_conflict(s_A[i], s_B[j], max_angle).has_conflict);
+        CHECK_FALSE(detect_conflict(s_A[i], s_B[j], max_angle).is_conflict());
       }
     }
   }
@@ -198,11 +198,11 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
       s_B[i] = Segment{B[i], B[i+1], radius};
 
     for (std::size_t i=0; i < s_B.size(); ++i)
-      CHECK_FALSE(detect_conflict(s_A[0], s_B[i], max_angle).has_conflict);
+      CHECK_FALSE(detect_conflict(s_A[0], s_B[i], max_angle).is_conflict());
 
     {
       const auto info = detect_conflict(s_A[1], s_B[3], max_angle);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
       CHECK(info.include_cap_a[ConflictInfo::Finish]);
       CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -214,12 +214,12 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
       if (i == 3)
         continue;
 
-      CHECK_FALSE(detect_conflict(s_A[1], s_B[i], max_angle).has_conflict);
+      CHECK_FALSE(detect_conflict(s_A[1], s_B[i], max_angle).is_conflict());
     }
 
     {
       const auto info = detect_conflict(s_A[2], s_B[3], max_angle);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK(info.include_cap_a[ConflictInfo::Start]);
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
       CHECK(info.include_cap_b[ConflictInfo::Start]);
@@ -228,7 +228,7 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
 
     {
       const auto info = detect_conflict(s_A[2], s_B[2], max_angle);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
       CHECK(info.include_cap_b[ConflictInfo::Start]);
@@ -237,7 +237,7 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
 
     {
       const auto info = detect_conflict(s_A[2], s_B[1], max_angle);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
       CHECK(info.include_cap_a[ConflictInfo::Finish]);
       CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -245,11 +245,11 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
     }
 
     for (std::size_t i : {0, 4})
-      CHECK_FALSE(detect_conflict(s_A[2], s_B[i], max_angle).has_conflict);
+      CHECK_FALSE(detect_conflict(s_A[2], s_B[i], max_angle).is_conflict());
 
     {
       const auto info = detect_conflict(s_A[3], s_B[1], max_angle);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK(info.include_cap_a[ConflictInfo::Start]);
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
       CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -261,11 +261,11 @@ SCENARIO("Test blockade geometry conflicts for skimming conflicts")
       if (i==1)
         continue;
 
-      CHECK_FALSE(detect_conflict(s_A[3], s_B[i], max_angle).has_conflict);
+      CHECK_FALSE(detect_conflict(s_A[3], s_B[i], max_angle).is_conflict());
     }
 
     for (std::size_t i=0; i < s_B.size(); ++i)
-      CHECK_FALSE(detect_conflict(s_A[4], s_B[i], max_angle).has_conflict);
+      CHECK_FALSE(detect_conflict(s_A[4], s_B[i], max_angle).is_conflict());
   }
 }
 
@@ -281,7 +281,7 @@ SCENARIO("Simple blockade geometry tests")
     const Segment B{{0, -5}, {0, 5}, radius};
 
     const auto info = detect_conflict(A, B, max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -294,7 +294,7 @@ SCENARIO("Simple blockade geometry tests")
     const Segment B{{0, -0.01}, {0, 5}, radius};
 
     const auto info = detect_conflict(A, B, max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK(info.include_cap_a[ConflictInfo::Start]);
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
     CHECK(info.include_cap_b[ConflictInfo::Start]);
@@ -307,7 +307,7 @@ SCENARIO("Simple blockade geometry tests")
     const Segment B{{0, 5}, {0, -0.01}, radius};
 
     const auto info = detect_conflict(A, B, max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -320,7 +320,7 @@ SCENARIO("Simple blockade geometry tests")
     const Segment B{{0, 5}, {0, -0.01}, radius};
 
     const auto info = detect_conflict(A, B, max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK(info.include_cap_a[ConflictInfo::Start]);
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -337,7 +337,7 @@ SCENARIO("Simple blockade geometry tests")
 
     {
       const auto info = detect_conflict(A, B, max_angle);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
       CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -345,13 +345,15 @@ SCENARIO("Simple blockade geometry tests")
     }
 
     const double angle = 2.0*atan2(separation, length);
-    CHECK_FALSE(detect_conflict(A, B, angle + 1e-6).has_conflict);
+    // This is a conflict because the endpoints are not included in the brackets
+    // even though the angle is within the bound.
+    CHECK(detect_conflict(A, B, angle + 1e-6).is_conflict());
 
     const Segment C{{length, half_s}, {0, -half_s}, radius};
     for (const double a : {max_angle, angle})
     {
       const auto info = detect_conflict(A, C, a);
-      CHECK(info.has_conflict);
+      CHECK(info.is_conflict());
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
       CHECK_FALSE(info.include_cap_a[ConflictInfo::Finish]);
       CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -365,7 +367,7 @@ SCENARIO("Simple blockade geometry tests")
     const Segment B{{0, 5}, {0, 0}, radius};
 
     const auto info = detect_conflict(A, B, max_angle);
-    CHECK(info.has_conflict);
+    CHECK(info.is_conflict());
     CHECK_FALSE(info.include_cap_a[ConflictInfo::Start]);
     CHECK(info.include_cap_a[ConflictInfo::Finish]);
     CHECK_FALSE(info.include_cap_b[ConflictInfo::Start]);
@@ -376,7 +378,7 @@ SCENARIO("Simple blockade geometry tests")
   {
     const Segment A{{0, 0}, {5, 0}, radius};
     const Segment B{{0, 0}, {0, 5}, radius};
-    CHECK_FALSE(detect_conflict(A, B, max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(A, B, max_angle).is_conflict());
   }
 
   GIVEN("Near miss")
@@ -384,6 +386,6 @@ SCENARIO("Simple blockade geometry tests")
     const double h = 2*radius + 1e-4;
     const Segment A{{0, 0}, {5, 0}, radius};
     const Segment B{{5, h}, {0, h}, radius};
-    CHECK_FALSE(detect_conflict(A, B, max_angle).has_conflict);
+    CHECK_FALSE(detect_conflict(A, B, max_angle).is_conflict());
   }
 }

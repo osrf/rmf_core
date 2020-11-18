@@ -80,6 +80,14 @@ public:
   using HeartbeatMsg = rmf_traffic_msgs::msg::BlockadeHeartbeat;
   rclcpp::Subscription<HeartbeatMsg>::SharedPtr heartbeat_sub;
 
+  // NOTE(MXG): Because of some awkwardness in the design of the rectification
+  // factory, we can only allow one participant to be constructed at a time.
+  // This mutex enforces that.
+  //
+  // TODO(MXG): Consider other ways of designing the construction of blockade
+  // participants to simplify this design.
+  std::mutex factory_mutex;
+
   RectifierFactory(
       rclcpp::Node& node,
       std::shared_ptr<rmf_traffic::blockade::Writer> writer)
@@ -111,6 +119,8 @@ public:
             std::nullopt,
             ReservedRange{0, 0},
             std::move(callback)});
+
+    stub_map.insert({participant_id, requester->stub});
 
     return requester;
   }
@@ -160,6 +170,8 @@ public:
     if (!writer)
       return;
 
+    std::unique_lock<std::mutex> lock(factory_mutex);
+
     bring_out_your_dead();
     std::unordered_set<rmf_traffic::blockade::ParticipantId> not_dead_yet;
 
@@ -191,6 +203,9 @@ public:
 
       if (!repeat_range)
         stub->range_cb(status.reservation, range);
+
+      stub->last_reservation_id = status.reservation;
+      stub->last_range = range;
 
       stub_map_copy.erase(it);
     }
@@ -270,6 +285,7 @@ public:
         double radius,
         NewRangeCallback range_cb)
     {
+      std::unique_lock<std::mutex> lock(rectifier_factory->factory_mutex);
       rectifier_factory->pending_callbacks.insert({id, std::move(range_cb)});
       return rmf_traffic::blockade::make_participant(
             id, radius, shared_from_this(), rectifier_factory);
@@ -368,8 +384,7 @@ public:
 //==============================================================================
 std::shared_ptr<Writer> Writer::make(rclcpp::Node& node)
 {
-  auto writer = std::shared_ptr<Writer>(new Writer(node));
-  return writer;
+  return std::shared_ptr<Writer>(new Writer(node));
 }
 
 //==============================================================================

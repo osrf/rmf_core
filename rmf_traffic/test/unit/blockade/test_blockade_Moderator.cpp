@@ -24,6 +24,9 @@
 
 #include "utils_blockade_scenarios.hpp"
 
+
+#include <iostream>
+
 //==============================================================================
 class UnreliableModerator : public rmf_traffic::blockade::Writer
 {
@@ -202,8 +205,11 @@ bool finished(const std::vector<SimParticipant>& participants)
 }
 
 //==============================================================================
-bool all_assignments_reached_end(
-    const std::unordered_map<uint64_t, rmf_traffic::blockade::ReservedRange>& ranges)
+using MapOfRanges =
+  std::unordered_map<uint64_t, rmf_traffic::blockade::ReservedRange>;
+
+//==============================================================================
+bool all_assignments_reached_end(const MapOfRanges& ranges)
 {
   for (const auto& r : ranges)
   {
@@ -227,6 +233,11 @@ void simulate_moderator(
           i, radius, context.writer, context.rectifier_factory,
           std::move(scenario.paths[i]), 3);
   }
+
+  // TODO(MXG): We're testing that the moderator's constraints never get
+  // gridlocked, but we're not really testing that they are correctly enforcing
+  // the anti-conflict constraints. We should think about some way to test that
+  // conflicts are being avoided.
 
   while (!finished(participants))
   {
@@ -352,4 +363,156 @@ SCENARIO("Test blockade moderator")
   REQUIRE(context.moderator);
 
   simulate_moderator(std::move(context), std::move(scenario), radius);
+}
+
+//==============================================================================
+std::string toul(const std::size_t input)
+{
+  const std::size_t TotalLetters = 90-65+1;
+  std::string output;
+  std::size_t value = input;
+  do
+  {
+    const std::size_t digit = value % TotalLetters;
+    output += static_cast<char>(digit + 'A');
+    value /= TotalLetters;
+  } while (value > 0);
+
+  std::reverse(output.begin(), output.end());
+  return output;
+}
+
+//==============================================================================
+SCENARIO("Test lane sharing")
+{
+  std::array<Eigen::Vector2d, 9> A;
+  A[0] = {10, 10};
+  A[1] = {10, 5};
+  A[2] = {10, 0};
+  A[3] = {15, 0};
+  A[4] = {20, 0};
+  A[5] = {25, 0};
+  A[6] = {30, 0};
+  A[7] = {30, 5};
+  A[8] = {30, 10};
+  const auto path_A = make_path(A);
+
+  std::array<Eigen::Vector2d, 9> B;
+  B[0] = {0, -10};
+  B[1] = {0, -5};
+  B[2] = {0, 0};
+  B[3] = {5, 0};
+  B[4] = {10, 0};
+  B[5] = {15, 0};
+  B[6] = {20, 0};
+  B[7] = {19.9, 5};
+  B[8] = {19.9, 10};
+  const auto path_B = make_path(B);
+
+  const auto moderator = std::make_shared<rmf_traffic::blockade::Moderator>();
+  auto p_A = rmf_traffic::blockade::make_participant(0, 0.1, moderator);
+  auto p_B = rmf_traffic::blockade::make_participant(1, 0.1, moderator);
+
+  const auto& ranges = moderator->assignments().ranges();
+
+#define UPDATE(participant, Ready, Reached, Begin, End) \
+  do { \
+    participant.ready(Ready); \
+    participant.reached(Reached); \
+    CHECK(ranges.at(participant.id()).begin == Begin); \
+    CHECK(ranges.at(participant.id()).end == End); \
+  } while(0)
+
+#define up_A(Ready, Reached, Begin, End) \
+  UPDATE(p_A, Ready, Reached, Begin, End)
+
+#define up_B(Ready, Reached, Begin, End) \
+  UPDATE(p_B, Ready, Reached, Begin, End)
+
+  WHEN("A arrives at A3 quickly")
+  {
+    p_A.set(path_A);
+    p_B.set(path_B);
+    const auto& range_B = ranges.at(1);
+
+    up_A(2, 0, 0, 3);
+    up_A(2, 3, 3, 3);
+
+    up_B(5, 0, 0, 5);
+    up_B(5, 4, 4, 5);
+
+    up_A(3, 3, 3, 4);
+    up_A(4, 3, 3, 5);
+    up_A(4, 5, 5, 5);
+    CHECK(range_B.end == 6);
+
+    up_B(6, 4, 4, 7);
+    up_B(6, 7, 7, 7);
+  }
+
+  WHEN("B arrives at B4 quickly")
+  {
+    p_A.set(path_A);
+    p_B.set(path_B);
+    const auto& range_A = ranges.at(0);
+
+    up_A(0, 0, 0, 1);
+    up_A(0, 1, 1, 1);
+
+    up_B(5, 0, 0, 5);
+    up_B(5, 4, 4, 6);
+
+    up_A(1, 1, 1, 2);
+    up_A(1, 2, 2, 2);
+    up_A(3, 2, 2, 3);
+
+    up_B(5, 6, 6, 6);
+    up_B(6, 6, 6, 7);
+    up_B(6, 7, 7, 7);
+    CHECK(range_A.end == 4);
+
+    up_A(6, 2, 2, 7);
+    up_A(6, 7, 7, 7);
+  }
+
+  WHEN("A arrives at A2 quickly")
+  {
+    p_B.set(path_B);
+    const auto& range_B = ranges.at(1);
+
+    up_B(0, 0, 0, 1);
+    up_B(0, 1, 1, 1);
+
+    p_A.set(path_A);
+
+    up_B(1, 1, 1, 2);
+
+    up_A(0, 0, 0, 1);
+
+    up_B(1, 2, 2, 2);
+    up_B(2, 2, 2, 3);
+
+    up_A(0, 1, 1, 1);
+    up_A(1, 1, 1, 2);
+
+    up_B(3, 2, 2, 3);
+    up_B(3, 3, 3, 3);
+
+    up_A(1, 2, 2, 2);
+    up_A(2, 2, 2, 3);
+    CHECK(range_B.begin == 3);
+    CHECK(range_B.end == 4);
+
+    up_B(3, 4, 4, 4);
+    up_B(5, 4, 4, 5);
+
+    up_A(3, 2, 2, 3);
+    up_A(3, 3, 3, 4);
+
+    up_A(3, 4, 4, 4);
+    up_A(4, 4, 4, 5);
+    up_A(4, 5, 5, 5);
+    CHECK(range_B.begin == 4);
+    CHECK(range_B.end == 6);
+  }
 }

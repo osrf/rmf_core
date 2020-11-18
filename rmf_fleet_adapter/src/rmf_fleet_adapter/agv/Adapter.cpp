@@ -95,7 +95,7 @@ public:
       node{std::move(node_)},
       negotiation{std::move(negotiation_)},
       schedule_writer{std::move(writer_)},
-      blockade_writer{rmf_traffic_ros2::blockade::Writer::make(*node_)},
+      blockade_writer{rmf_traffic_ros2::blockade::Writer::make(*node)},
       mirror_manager{std::move(mirror_manager_)}
   {
     const auto default_qos = rclcpp::SystemDefaultsQoS();

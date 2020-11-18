@@ -36,14 +36,23 @@ class Constraint
 {
 public:
 
+  /// Return true if the State is acceptable to this Constraint.
+  /// Return false if the State violates this Constraint.
   virtual bool evaluate(const State& state) const = 0;
 
   virtual const std::unordered_set<std::size_t>& dependencies() const = 0;
 
   virtual std::optional<bool> partial_evaluate(const State& state) const = 0;
 
+  virtual std::string detail(const State& state) const = 0;
+
   virtual ~Constraint() = default;
 };
+
+/// To Uppercase Letter
+/// Convert an integer to an equivalent upper case letter.
+/// Used to print out details for constraints
+std::string toul(const std::size_t input);
 
 //==============================================================================
 using ConstraintPtr = std::shared_ptr<Constraint>;
@@ -63,21 +72,29 @@ struct BlockageEndCondition
 };
 
 //==============================================================================
-std::shared_ptr<Constraint> blockage(
+ConstConstraintPtr blockage(
     std::size_t blocked_by,
     std::optional<std::size_t> blocker_hold_point,
     std::optional<BlockageEndCondition> end_condition);
+
+//==============================================================================
+ConstConstraintPtr passed(
+    std::size_t participant,
+    std::size_t index);
 
 //==============================================================================
 class AndConstraint : public Constraint
 {
 public:
 
+  AndConstraint(const std::vector<ConstConstraintPtr>& constraints = {});
+
   void add(ConstConstraintPtr new_constraint);
 
   bool evaluate(const State& state) const final;
   const std::unordered_set<std::size_t>& dependencies() const final;
   std::optional<bool> partial_evaluate(const State& state) const final;
+  std::string detail(const State& state) const final;
 
 private:
   std::unordered_set<ConstConstraintPtr> _constraints;
@@ -89,11 +106,14 @@ class OrConstraint : public Constraint
 {
 public:
 
+  OrConstraint(const std::vector<ConstConstraintPtr>& constraints = {});
+
   void add(ConstConstraintPtr new_constraint);
 
   bool evaluate(const State& state) const final;
   const std::unordered_set<std::size_t>& dependencies() const final;
   std::optional<bool> partial_evaluate(const State& state) const final;
+  std::string detail(const State &state) const final;
 
 private:
   std::unordered_set<ConstConstraintPtr> _constraints;

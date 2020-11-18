@@ -52,8 +52,16 @@ ConflictInfo detect_conflict(
   const double c_ab = n_a.dot(n_b);
   const double angle = std::acos(c_ab/(n_a.norm()*n_b.norm()));
 
+  ConflictInfo info;
+  info.type = ConflictInfo::Conflict;
+
   if (angle <= angle_threshold)
-    return ConflictInfo::no_conflict();
+  {
+    // This will actually be an alignment if there is overlap and at least one
+    // of the start endpoints is inclusive and at least one of the finish
+    // endpoints is inclusive.
+    info.type = ConflictInfo::Alignment;
+  }
 
   const double c_aa = n_a.dot(n_a);
   assert(c_aa != 0.0);
@@ -82,7 +90,7 @@ ConflictInfo detect_conflict(
           distances_squared.begin(), distances_squared.end());
 
     if (r_squared > conflict_r_squared)
-      return ConflictInfo::no_conflict();
+      return ConflictInfo::nothing();
   }
   else
   {
@@ -104,17 +112,14 @@ ConflictInfo detect_conflict(
     const double r_squared = n.dot(n);
 
     if (r_squared > conflict_r_squared)
-      return ConflictInfo::no_conflict();
+      return ConflictInfo::nothing();
 
     if (angle <= 90.0*M_PI/180.0)
     {
       if (u_a_star <= 0.0 || u_b_star <= 0.0)
-        return ConflictInfo::no_conflict();
+        return ConflictInfo::nothing();
     }
   }
-
-  ConflictInfo info;
-  info.has_conflict = true;
 
   const double r_squared_a0 =
       compute_smallest_distance_squared(p_a0, p_b0, n_b, c_bb);
@@ -129,6 +134,21 @@ ConflictInfo detect_conflict(
   info.include_cap_a[ConflictInfo::Finish] = r_squared_a1 < conflict_r_squared;
   info.include_cap_b[ConflictInfo::Start] = r_squared_b0 < conflict_r_squared;
   info.include_cap_b[ConflictInfo::Finish] = r_squared_b1 < conflict_r_squared;
+
+  if (info.is_alignment())
+  {
+    // If both start endpoints are non-inclusive, then this can't really be
+    // an alignment.
+    if (!info.include_cap_a[ConflictInfo::Start]
+        && !info.include_cap_b[ConflictInfo::Start])
+      info.type = ConflictInfo::Conflict;
+
+    // If both finish endpoints are non-inclusive, then this can't really be
+    // an alignment.
+    if (!info.include_cap_a[ConflictInfo::Finish]
+        && !info.include_cap_b[ConflictInfo::Finish])
+      info.type = ConflictInfo::Conflict;
+  }
 
   return info;
 }

@@ -67,18 +67,38 @@ public:
 
   /// Default constructor
   ///
+  /// \param[in] info_logger
+  ///   Provide a callback for logging informational updates about changes in
+  ///   the blockades, e.g. when a new path arrives, when a checkpoint is
+  ///   reached, or when one is ready.
+  ///
+  /// \param[in] debug_logger
+  ///   Provide a callback for logging debugging information, e.g. which
+  ///   constraints are blocking a participant from advancing.
+  ///
   /// \param[in] min_conflict_angle
   ///   If the angle between two path segments is greater than this value
   ///   (radians), then the segments are considered to be in conflict. The
   ///   default value for this parameter is 5-degrees. Something larger than 0
   ///   is recommended to help deal with numerical precision concerns.
-  Moderator(double min_conflict_angle = 5.0*M_PI/180.0);
+  Moderator(
+      std::function<void(std::string)> info_logger = nullptr,
+      std::function<void(std::string)> debug_logger = nullptr,
+      double min_conflict_angle = 5.0*M_PI/180.0);
 
   /// Get the minimum angle that will trigger a conflict.
   double minimum_conflict_angle() const;
 
   /// Set the minimum angle that will trigger a conflict.
   Moderator& minimum_conflict_angle(double new_value);
+
+  /// Set the information logger for this Moderator. Pass in a nullptr to
+  /// disable any information logging.
+  Moderator& info_logger(std::function<void(std::string)> info);
+
+  /// Set the debug logger for this Moderator. Pass in a nullptr to disable
+  /// any debug logging.
+  Moderator& debug_logger(std::function<void(std::string)> debug);
 
   /// This class indicates the range of each reservation that the blockade
   /// moderator has assigned as active. Each robot is allowed to move at will
@@ -107,6 +127,9 @@ public:
 
   /// Get the current known statuses of each participant.
   const std::unordered_map<ParticipantId, Status>& statuses() const;
+
+  /// Return true if the system is experiencing a gridlock
+  bool has_gridlock() const;
 
   class Implementation;
 private:

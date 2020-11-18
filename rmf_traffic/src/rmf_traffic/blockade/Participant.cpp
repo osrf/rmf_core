@@ -20,6 +20,9 @@
 
 #include <sstream>
 
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace blockade {
 
@@ -114,7 +117,7 @@ Participant::Implementation::Implementation(
     std::shared_ptr<Writer> writer)
   : _id(id),
     _writer(std::move(writer)),
-    _reservation_id(0)
+    _reservation_id(std::nullopt)
 {
   _current_reservation.radius = radius;
 }
@@ -129,19 +132,20 @@ Participant::Implementation::~Implementation()
 //==============================================================================
 void Participant::Implementation::_send_reservation()
 {
-  _writer->set(_id, *_reservation_id, _current_reservation);
+  assert(_current_reservation.path.size() > 1);
+  _writer->set(_id, _reservation_id.value(), _current_reservation);
 }
 
 //==============================================================================
 void Participant::Implementation::_send_ready()
 {
-  _writer->ready(_id, *_reservation_id, _last_ready.value());
+  _writer->ready(_id, _reservation_id.value(), _last_ready.value());
 }
 
 //==============================================================================
 void Participant::Implementation::_send_reached()
 {
-  _writer->reached(_id, *_reservation_id, _last_reached);
+  _writer->reached(_id, _reservation_id.value(), _last_reached);
 }
 
 //==============================================================================
@@ -181,6 +185,12 @@ const std::vector<Writer::Checkpoint>& Participant::path() const
 //==============================================================================
 void Participant::ready(CheckpointId checkpoint)
 {
+  if (_pimpl->_current_reservation.path.size()-1 <= checkpoint)
+  {
+    // TODO(MXG): Should we consider throwing an exception here?
+    checkpoint = _pimpl->_current_reservation.path.size() - 2;
+  }
+
   if (_pimpl->_last_ready.has_value() && checkpoint <= *_pimpl->_last_ready)
     return;
 
@@ -214,6 +224,12 @@ CheckpointId Participant::last_reached() const
 ParticipantId Participant::id() const
 {
   return _pimpl->_id;
+}
+
+//==============================================================================
+std::optional<ReservationId> Participant::reservation_id() const
+{
+  return _pimpl->_reservation_id;
 }
 
 //==============================================================================
