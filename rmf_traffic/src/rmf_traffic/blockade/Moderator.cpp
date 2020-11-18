@@ -239,14 +239,6 @@ public:
       const ReservationId reservation_id,
       const Reservation& reservation)
   {
-    if (info_logger)
-    {
-      std::stringstream str;
-      str << "New path for " << toul(participant_id) << " with "
-          << reservation.path.size() << " checkpoints";
-      info_logger(str.str());
-    }
-
     const auto insertion = last_known_reservation.insert(
       {participant_id, reservation_id});
     const bool inserted = insertion.second;
@@ -260,6 +252,14 @@ public:
         return;
 
       current_reservation.id = reservation_id;
+    }
+
+    if (info_logger)
+    {
+      std::stringstream str;
+      str << "New path for " << toul(participant_id) << " with "
+          << reservation.path.size() << " checkpoints";
+      info_logger(str.str());
     }
 
     current_reservation.reservation = reservation;

@@ -20,9 +20,6 @@
 #include <vector>
 #include <cassert>
 
-
-#include <iostream>
-
 namespace rmf_traffic {
 namespace blockade {
 
@@ -30,7 +27,7 @@ namespace blockade {
 // To Uppercase Letter
 std::string toul(const std::size_t input)
 {
-  const std::size_t TotalLetters = 90-65+1;
+  const std::size_t TotalLetters = 'Z'-'A'+1;
   std::string output;
   std::size_t value = input;
   do
@@ -224,14 +221,6 @@ private:
     }
 
     return desc;
-  }
-
-  bool print_fail(const ReservedRange& range) const
-  {
-    std::cout << " :: Blocked by " << _description()
-              << " whose range is: " << range.begin << " --> "
-              << range.end << std::endl;
-    return false;
   }
 
   std::size_t _blocked_by;
