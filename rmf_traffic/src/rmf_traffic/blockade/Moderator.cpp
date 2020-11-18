@@ -24,10 +24,6 @@
 #include <list>
 #include <sstream>
 
-
-#include <iostream>
-
-
 namespace rmf_traffic {
 namespace blockade {
 
