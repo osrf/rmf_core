@@ -80,6 +80,7 @@ public:
     /// \param[in] location
     ///   The current <x, y, yaw> location of your robot.
     using Departed = std::function<void(Eigen::Vector3d location)>;
+    using StoppedAt = Departed;
 
     /// Use this function to indicate that your robot is waiting for its next
     /// batch of waypoints.
@@ -133,6 +134,31 @@ public:
         std::size_t version,
         std::vector<Checkpoint> checkpoints,
         OnStandby on_standby) = 0;
+
+    /// Immediately stop until the specified time.
+    ///
+    /// This command is canceled if resume() is called afterwards.
+    ///
+    /// If a subsequent call is made to immediately_stop_until(~), then the new
+    /// time overrides the old time, even if the new time is sooner.
+    ///
+    /// If the specified time has already passed by the time this function is
+    /// called, then there is no need to stop.
+    ///
+    /// \param[in] time
+    ///   The time to wait until
+    ///
+    /// \param[in] stopped_at
+    ///   Trigger this callback while the robot is stopped and update the
+    ///   location. As long as the robot truly comes to a stop, this only needs
+    ///   to be called once.
+    virtual void immediately_stop_until(
+        rclcpp::Time time,
+        StoppedAt stopped_at) = 0;
+
+    /// Resume travel, even if immediately_stop_until(~) was activated and the
+    /// given time has not been reached yet.
+    virtual void resume() = 0;
 
     /// This class is given to the deadlock() function to describe the
     /// participants that are blocking the robot and creating the deadlock.

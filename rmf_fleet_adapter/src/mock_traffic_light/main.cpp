@@ -69,9 +69,6 @@ public:
     _current_path_request.fleet_name = fleet_name;
     _current_path_request.robot_name = robot_name;
 
-    _stop_request.fleet_name = fleet_name;
-    _stop_request.robot_name = robot_name;
-
     _travel_info.graph = std::move(graph);
     _travel_info.traits = std::move(traits);
     _travel_info.fleet_name = std::move(fleet_name);
@@ -89,19 +86,23 @@ public:
     if (_path_version != version)
       return;
 
-    _deadlock = false;
-
-    _checkpoints = std::move(checkpoints);
     _on_standby = std::move(on_standby);
+
+    for (const auto& c : checkpoints)
+      _checkpoints[c.waypoint_index] = c;
 
     _current_path_request.path.clear();
     _current_path_request.path.reserve(_checkpoints.size());
 
+    _current_path_request.path.push_back(_last_state.location);
+    _update_location.push_back([](Eigen::Vector3d){});
+
     const auto push_back = [&](
-        const std::size_t index, rclcpp::Time t)
+        const std::size_t index,
+        rclcpp::Time t,
+        std::function<void(Eigen::Vector3d)> update)
     {
-      if (_current_path.size() <= index)
-        return;
+      assert(index < _current_path.size());
 
       const auto& p = _current_path.at(index).position();
 
@@ -112,45 +113,54 @@ public:
       location.yaw = p[2];
       location.level_name = _current_path[index].map_name();
       _current_path_request.path.push_back(location);
+      _update_location.emplace_back(std::move(update));
     };
 
-    for (const auto& c : _checkpoints)
+    for (std::size_t i=_last_target; i < _checkpoints.size(); ++i)
     {
-      const auto index = c.waypoint_index;
-      assert(index < _current_path.size());
-      push_back(index, c.departure_time);
-    }
+      const auto& c = _checkpoints[i];
+      auto departure_time = [&]()
+      {
+        if (c.has_value())
+          return c->departure_time;
 
-    push_back(_checkpoints.back().waypoint_index+1,
-              _checkpoints.back().departure_time);
+        assert(i > 0);
+        return _checkpoints.at(i-1)->departure_time;
+      }();
+
+      auto updater = [&]() -> std::function<void(Eigen::Vector3d)>
+      {
+        if (i == 0)
+          return [](Eigen::Vector3d){};
+
+        return _checkpoints[i-1]->departed;
+      }();
+
+      push_back(i, departure_time, std::move(updater));
+
+      if (!c.has_value())
+        break;
+    }
 
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
     _moving = true;
   }
 
+  void immediately_stop_until(
+      rclcpp::Time time,
+      StoppedAt stopped) final
+  {
+    std::cout << " !!! BEING TOLD TO STOP UNTIL " << time.seconds() << std::endl;
+  }
+
+  void resume() final
+  {
+    std::cout << " !!! BEING TOLD TO RESUME" << std::endl;
+  }
+
   void deadlock(std::vector<Blocker>) final
   {
-    _deadlock = true;
-    _stop_request.path.clear();
-    _stop_request.path.push_back(_last_state.location);
-    _stop_request.task_id = std::to_string(++_command_version);
-    _path_request_pub->publish(_stop_request);
-    const auto l = _stop_request.path.front();
-
-    if (!_deadlock_timer)
-    {
-      _deadlock_timer = _node->create_wall_timer(
-            std::chrono::seconds(5),
-            [this]()
-      {
-        this->_deadlock_timer = nullptr;
-
-        if (this->_deadlock)
-          this->_restart_path();
-      });
-    }
-
     RCLCPP_ERROR(_node->get_logger(), "Deadlock detected!");
   }
 
@@ -164,14 +174,6 @@ public:
   {
     std::lock_guard<std::mutex> lock(_mutex);
     _last_state = state;
-
-    if (_deadlock)
-    {
-      if (_stop_request.task_id != state.task_id)
-        _path_request_pub->publish(_stop_request);
-
-      return;
-    }
 
     if (!_moving)
       return;
@@ -191,8 +193,10 @@ public:
       }
 
       assert(!_checkpoints.empty());
-      if (_checkpoints.back().waypoint_index == _current_path.size()-2)
+      if (_checkpoints.back().has_value())
       {
+        // The fact that we have the last checkpoint and also reached the
+        // standby condition means
         _checkpoints.clear();
         _moving = false;
         _queue.pop_front();
@@ -200,31 +204,20 @@ public:
         return;
       }
 
-      _last_active_state = state;
-      assert(!_checkpoints.empty());
-
-      const auto& l = state.location;
-      _checkpoints.back().departed({l.x, l.y, l.yaw});
       return;
     }
 
-    _last_active_state = state;
-    const std::size_t ideal_checkpoint_num = state.path.size();
-    if (_checkpoints.size() < ideal_checkpoint_num)
+    if (state.path.size() < _update_location.size())
     {
-      // This means the robot has not started following its path yet
-      return;
-    }
-    else if (ideal_checkpoint_num < _checkpoints.size())
-    {
-      const std::size_t remove_N = _checkpoints.size() - ideal_checkpoint_num;
-      _checkpoints.erase(
-            _checkpoints.begin(),
-            _checkpoints.begin() + remove_N);
+      const std::size_t remove_N = _update_location.size() - state.path.size();
+      _update_location.erase(
+            _update_location.begin(),
+            _update_location.begin() + remove_N);
     }
 
+    assert(!_update_location.empty());
     const auto& l = state.location;
-    _checkpoints.front().departed({l.x, l.y, l.yaw});
+    _update_location.front()({l.x, l.y, l.yaw});
   }
 
   std::size_t queue_size() const
@@ -380,30 +373,7 @@ private:
       _current_path.emplace_back(map_name, p);
     }
 
-    _last_target = 0;
-    _path_version = _path_updater->follow_new_path(_current_path);
-  }
-
-  void _restart_path()
-  {
-    _current_path.clear();
-    _current_path.reserve(_last_active_state.path.size() + 1);
-
-    const auto& l0 = _last_state.location;
-    _current_path.emplace_back(
-          l0.level_name, Eigen::Vector3d{l0.x, l0.y, l0.yaw});
-
-    _current_path_request.path.clear();
-    _current_path_request.path.push_back(l0);
-
-    const auto& last_path = _last_active_state.path;
-    for (const auto& l : last_path)
-    {
-      _current_path.emplace_back(
-            l.level_name, Eigen::Vector3d{l.x, l.y, l.yaw});
-    }
-
-    _last_target = 0;
+    _checkpoints.resize(_current_path.size());
     _path_version = _path_updater->follow_new_path(_current_path);
   }
 
@@ -413,23 +383,19 @@ private:
   PathRequestPub _path_request_pub;
   rmf_fleet_msgs::msg::PathRequest _current_path_request;
 
-  rmf_fleet_msgs::msg::PathRequest _stop_request;
-  bool _deadlock = false;
-  std::shared_ptr<rclcpp::TimerBase> _deadlock_timer;
-
   std::chrono::steady_clock::time_point _path_requested_time;
   TravelInfo _travel_info;
   std::shared_ptr<const rmf_traffic::agv::Planner> _planner;
   rmf_fleet_msgs::msg::RobotState _last_state;
-  rmf_fleet_msgs::msg::RobotState _last_active_state;
 
   std::size_t _path_version = 0;
   std::size_t _command_version = 0;
   std::size_t _last_target = 0;
   bool _moving = false;
-  std::vector<rmf_fleet_adapter::agv::Waypoint> _current_path;
 
-  std::vector<Checkpoint> _checkpoints;
+  std::vector<rmf_fleet_adapter::agv::Waypoint> _current_path;
+  std::vector<std::optional<Checkpoint>> _checkpoints;
+  std::vector<std::function<void(Eigen::Vector3d)>> _update_location;
   OnStandby _on_standby;
 
   std::mutex _mutex;

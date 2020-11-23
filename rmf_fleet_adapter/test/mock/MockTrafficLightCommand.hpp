@@ -50,6 +50,16 @@ public:
     // Do nothing
   }
 
+  void immediately_stop_until(rclcpp::Time, StoppedAt) final
+  {
+    // Do nothing
+  }
+
+  void resume() final
+  {
+    // Do nothing
+  }
+
   rmf_utils::optional<std::size_t> current_version;
   std::size_t command_counter = 0;
   std::vector<Checkpoint> current_checkpoints;
