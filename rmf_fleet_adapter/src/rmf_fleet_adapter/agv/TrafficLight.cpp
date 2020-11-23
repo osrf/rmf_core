@@ -51,6 +51,8 @@ public:
 
   std::shared_ptr<rclcpp::Node> node;
 
+  Eigen::Vector3d latest_location;
+
   std::size_t current_version = 0;
 
   std::shared_ptr<rmf_traffic::Profile> profile;
@@ -117,8 +119,6 @@ public:
       const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
       Eigen::Vector3d location,
       std::size_t checkpoint_index);
-
-  rmf_utils::optional<rmf_traffic::agv::Plan::Start> estimate_location() const;
 
   void new_range(
       const rmf_traffic::blockade::ReservationId reservation_id,
@@ -266,6 +266,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
         rmf_traffic::agv::Plan::Configuration(graph, traits),
         rmf_traffic::agv::Plan::Options(nullptr));
 
+  latest_location = new_path.front().position();
   rmf_traffic::agv::Plan::Start start{now, 0, new_path.front().position()[2]};
   plan_timing(std::move(start), version, new_path, std::move(new_planner));
 
@@ -566,14 +567,6 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
 
   return rmf_utils::nullopt;
 }
-
-//==============================================================================
-double calculate_orientation(
-    const Eigen::Vector2d& p0,
-    const Eigen::Vector2d& p1)
-{
-  return std::atan2(p1.y() - p0.y(), p1.x() - p0.x());
-}
 } // anonymous namespace
 
 //==============================================================================
@@ -649,26 +642,8 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     pending_waypoint_index[*current_wp] = i;
   }
 
-  std::vector<rmf_traffic::Route> full_itinerary;
-  for (auto& r : active_itinerary)
-  {
-    // Adjust the times of the active itinerary to match any delays that have
-    // built up.
-    if (!r.trajectory().empty())
-      r.trajectory().front().adjust_times(itinerary.delay());
-  }
-  full_itinerary.insert(
-        full_itinerary.end(),
-        active_itinerary.begin(),
-        active_itinerary.end());
-
-  // Add the pending itinerary so the schedule can see as far ahead as possible.
-  full_itinerary.insert(
-        full_itinerary.end(),
-        plan_itinerary.begin(),
-        plan_itinerary.end());
-
-  itinerary.set(full_itinerary);
+  active_itinerary.clear();
+  itinerary.set(plan_itinerary);
   return itinerary.version();
 }
 
@@ -696,6 +671,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     if (version != data->current_version)
       return;
 
+    data->latest_location = location;
     data->blockade.reached(checkpoint_index);
 
     assert(checkpoint_index < data->arrival_timing.size());
@@ -724,83 +700,46 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
 }
 
 //==============================================================================
-rmf_utils::optional<rmf_traffic::agv::Plan::Start>
-TrafficLight::UpdateHandle::Implementation::Data::estimate_location() const
+void update_active_itinerary(
+    std::vector<rmf_traffic::Route>& active_itinerary,
+    const std::vector<rmf_traffic::Route>& plan_itinerary,
+    const std::vector<rmf_traffic::agv::Plan::Waypoint>& pending_waypoints,
+    const std::vector<rmf_traffic::agv::Plan::Waypoint>::const_iterator& end_plan_it)
 {
-  // Estimate the current position of the robot based on its intended trajectory
-  // and the delays that it has reported.
-
-  const auto now = rmf_traffic_ros2::convert(node->now());
-
-  const auto effective_time = now - itinerary.delay();
-  const rclcpp::Time effective_time_rcl =
-      rmf_traffic_ros2::convert(effective_time);
-
-  if (departure_timing.crbegin()->second < effective_time_rcl)
+  for (auto it = pending_waypoints.begin(); it != end_plan_it; ++it)
   {
-    // The time that this robot is scheduled for has passed, so there's no way
-    // to estimate its position.
-    return rmf_utils::nullopt;
-  }
+    const auto& wp = *it;
 
-  const auto& graph = planner->get_configuration().graph();
-
-  rmf_traffic::agv::Plan::Start start(
-        now, 0,
-        calculate_orientation(
-          path[0].position().block<2,1>(0,0),
-          path[1].position().block<2,1>(0,0)));
-
-  if (effective_time_rcl <= departure_timing.begin()->second)
-  {
-    // The robot has not made progress from its starting point, so we'll just
-    // report its original starting conditions.
-    return start;
-  }
-
-  bool traversing_lane = false;
-  for (std::size_t i=1; i < departure_timing.size(); ++i)
-  {
-    if (effective_time_rcl < departure_timing.at(i))
+    for (std::size_t i=active_itinerary.size()-1; i <= wp.itinerary_index(); ++i)
     {
-      start.waypoint(i);
+      const auto& route = plan_itinerary.at(i);
+      const auto& planned = route.trajectory();
 
-      if (effective_time < arrival_timing.at(i))
+      if (active_itinerary.size() <= i)
+        active_itinerary.push_back({route.map(), {}});
+
+      auto& active = active_itinerary.at(i).trajectory();
+
+      const auto begin_it = [&]()
       {
-        // The vehicle is still moving towards this waypoint.
-        const auto* lane = graph.lane_from(i-1, i);
-        assert(lane);
-        start.lane(lane->index());
-        start.orientation(
-              calculate_orientation(
-                path[i-1].position().block<2,1>(0,0),
-                path[i].position().block<2,1>(0,0)));
+        if (active.empty())
+          return planned.begin();
 
-        traversing_lane = true;
-      }
+        return ++planned.find(active.back().time());
+      }();
 
-      break;
+      const auto* last_wp = [&]() -> const rmf_traffic::Trajectory::Waypoint*
+      {
+        if (i == wp.itinerary_index())
+          return &planned[wp.trajectory_index()];
+
+        return &planned.back();
+      }();
+
+      for (auto it = begin_it; &(*it) != last_wp; ++it)
+        active.insert(*it);
     }
   }
-
-
-  for (const auto& route : active_itinerary)
-  {
-    if (*route.trajectory().start_time() <= effective_time
-        && effective_time <= *route.trajectory().finish_time())
-    {
-      const auto motion =
-          rmf_traffic::Motion::compute_cubic_splines(route.trajectory());
-
-      const auto p = motion->compute_position(effective_time);
-      start.orientation(p[2]);
-
-      if (traversing_lane)
-        start.location(Eigen::Vector2d(p.block<2,1>(0,0)));
-    }
-  }
-
-  return start;
 }
 
 //==============================================================================
@@ -952,6 +891,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::new_range(
 
     return it;
   }();
+
+  update_active_itinerary(
+        active_itinerary, plan_itinerary, pending_waypoints, end_plan_it);
 
   pending_waypoints.erase(pending_waypoints.begin(), end_plan_it);
 
@@ -1138,6 +1080,22 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     const TableViewerPtr& table_viewer,
     const ResponderPtr& responder)
 {
+//  const bool first_attempt = [&]() -> bool
+//  {
+//    if (table_viewer->rejected())
+//      return false;
+
+//    if (table_viewer->parent_id().has_value())
+//    {
+//      const auto& s = table_viewer->sequence();
+//      assert(s.size() >= 2);
+//      if (s[s.size()-2].version > 1)
+//        return false;
+//    }
+
+//    return true;
+//  }();
+
   const auto data = _data.lock();
   if (!data || !data->planner || data->pending_waypoints.empty())
   {
@@ -1146,8 +1104,72 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     return responder->forfeit({});
   }
 
-  rmf_traffic::schedule::StubbornNegotiator(data->itinerary)
-      .respond(table_viewer, responder);
+  const std::size_t last_reached = data->blockade.last_reached();
+  if (last_reached >= data->path.size())
+  {
+    // If we have reached the end of the path, we can just submit an empty
+    // proposal.
+    return responder->submit({});
+  }
+
+  const auto* lane = data->planner->get_configuration().graph().lane_from(
+        last_reached, last_reached+1);
+  assert(lane);
+
+  rmf_traffic::agv::Plan::Start start(
+        rmf_traffic_ros2::convert(data->node->now()),
+        last_reached+1,
+        data->latest_location[2],
+        data->latest_location.block<2,1>(0,0),
+        lane->index());
+
+  rmf_traffic::agv::Plan::Goal goal(
+        data->planner->get_configuration().graph().num_waypoints()-1);
+
+  auto approval_cb =
+      [w = data->weak_from_this(),
+       version = data->current_version](
+      const rmf_traffic::agv::Plan& plan)
+      -> rmf_utils::optional<rmf_traffic::schedule::ItineraryVersion>
+  {
+    const auto data = w.lock();
+    if (!data)
+      return std::nullopt;
+
+    return data->update_timing(version, data->path, plan, data->planner);
+  };
+
+  // TODO(MXG): The management of negotiation services should probably get
+  // wrapped in its own class to be shared between this module and the GoToPlace
+  // phase implementation.
+  services::ProgressEvaluator evaluator;
+  if (table_viewer->parent_id())
+  {
+    const auto& s = table_viewer->sequence();
+    assert(s.size() >= 2);
+    evaluator.compliant_leeway_base *= s[s.size()-2].version + 1;
+  }
+
+  auto negotiate = services::Negotiate::path(
+        data->planner, {std::move(start)}, std::move(goal),
+        table_viewer, responder, std::move(approval_cb), std::move(evaluator));
+
+  auto negotiate_sub =
+      rmf_rxcpp::make_job<services::Negotiate::Result>(negotiate)
+      .observe_on(rxcpp::identity_same_worker(data->worker))
+      .subscribe(
+        [w = data->weak_from_this()](const auto& result)
+  {
+    if (const auto data = w.lock())
+    {
+      result.respond();
+      data->negotiate_services.erase(result.service);
+    }
+    else
+    {
+      result.service->responder()->forfeit({});
+    }
+  });
 }
 
 //==============================================================================
