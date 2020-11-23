@@ -16,10 +16,34 @@
 */
 
 #include <string>
+#include <sstream>
+#include <random>
+
 #include <rmf_task/requests/ChargeBattery.hpp>
 
 namespace rmf_task {
 namespace requests {
+
+//==============================================================================
+namespace {
+std::string generate_uuid(const std::size_t length = 3)
+{
+  std::stringstream ss;
+  for (std::size_t i = 0; i < length; ++i)
+  {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 255);
+    const auto random_char = dis(gen);
+    std::stringstream hexstream;
+    hexstream << std::hex << random_char;
+    auto hex = hexstream.str();
+    ss << (hex.length() < 2 ? '0' + hex : hex);
+  }
+  return ss.str();
+}
+
+} // anonymous namespace
 
 //==============================================================================
 class ChargeBattery::Implementation
@@ -53,6 +77,7 @@ rmf_task::ConstRequestPtr ChargeBattery::make(
   bool drain_battery)
 {
   std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery());
+  charge_battery->_pimpl->_id += generate_uuid();
   charge_battery->_pimpl->_battery_system =
     rmf_battery::agv::BatterySystemPtr(new rmf_battery::agv::BatterySystem(
       battery_system.nominal_voltage(),
