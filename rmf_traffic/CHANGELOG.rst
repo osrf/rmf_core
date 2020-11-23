@@ -2,9 +2,6 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
-
 1.1.0 (2020-09-XX)
 ------------------
 * Allow a Negotiation Table Viewer to see rejected and forfeited statuses, and to check for a submission: [#140](https://github.com/osrf/rmf_core/pull/140/)
@@ -13,6 +10,7 @@ Forthcoming
 * Add a generic waiting event: [#158](https://github.com/osrf/rmf_core/pull/158)
 * Fix bug that caused exit events to get skipped sometimes: [#166](https://github.com/osrf/rmf_core/pull/166)
 * Bump to C++17 and migrate to `std::optional`: [#177](https://github.com/osrf/rmf_core/pull/177)
+* Contributors: Aaron Chong, Geoffrey Biggs, Grey, Kevin_Skywalker, Yadu, ddengster
 
 1.0.2 (2020-07-27)
 ------------------
