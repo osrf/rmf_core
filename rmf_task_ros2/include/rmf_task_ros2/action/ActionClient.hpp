@@ -166,6 +166,18 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
             _on_terminate_callback(weak_status);
         }
       }
+      else
+      {
+        // will still provide onchange even if the task_id is unknown.
+        std::cout << "[action] Unknown task: "  << task_id << std::endl;
+        auto task_status = std::make_shared<TaskStatus>(convert(*msg));
+        
+        if (_on_change_callback)
+          _on_change_callback(task_status);
+        
+        if(!task_status->is_terminated())
+          _active_task_status[task_id] = task_status;
+      }
     });
 }
 

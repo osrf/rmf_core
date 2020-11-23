@@ -58,6 +58,8 @@ public:
       std::bind(&Implementation::receive_bidding_winner_cb, this, _1, _2));
     action_client->on_terminate(
       std::bind(&Implementation::terminate_task, this, _1));
+    action_client->on_change(
+      std::bind(&Implementation::task_status_cb, this, _1));
   }
 
   TaskID submit_task(const TaskProfile& task)
@@ -183,6 +185,17 @@ public:
     (*terminal_dispatch_tasks)[id] = status;
     active_dispatch_tasks->erase(id);
   }
+
+  void task_status_cb(const TaskStatusPtr status_msg)
+  {
+    // check if task exist, if not add new
+    auto id = status_msg->task_profile.task_id;
+    if (!(*active_dispatch_tasks).count(id))
+      (*active_dispatch_tasks)[id] = status_msg;
+
+    if (on_change_fn)
+      on_change_fn(status_msg);
+  }
 };
 
 //==============================================================================
@@ -250,7 +263,7 @@ const DispatchTasksPtr& Dispatcher::terminated_tasks() const
 //==============================================================================
 void Dispatcher::on_change(StatusCallback on_change_fn)
 {
-  _pimpl->action_client->on_change(on_change_fn);
+  // _pimpl->action_client->on_change(on_change_fn);
   _pimpl->on_change_fn = on_change_fn;
 }
 
