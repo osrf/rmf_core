@@ -245,24 +245,6 @@ public:
     return std::make_shared<FleetUpdateHandle>(std::move(handle));
   }
 
-  // struct DeliveryEstimate
-  // {
-  //   rmf_traffic::Time time = rmf_traffic::Time::max();
-  //   RobotContextPtr robot = nullptr;
-  //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> pickup_start;
-  //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> dropoff_start;
-  //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> finish;
-  // };
-
-  // struct LoopEstimate
-  // {
-  //   rmf_traffic::Time time = rmf_traffic::Time::max();
-  //   RobotContextPtr robot = nullptr;
-  //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> init_start;
-  //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_start;
-  //   rmf_utils::optional<rmf_traffic::agv::Plan::Start> loop_end;
-  // };
-
   void dock_summary_cb(const DockSummary::SharedPtr msg);
 
   void bid_notice_cb(const BidNotice::SharedPtr msg);
@@ -283,31 +265,7 @@ public:
     return *fleet._pimpl;
   }
 
-  // TODO(MXG): Come up with a better design for task dispatch
-  // rmf_utils::optional<DeliveryEstimate> estimate_delivery(
-  //     const rmf_task_msgs::msg::Delivery& request) const;
-
-  // void perform_delivery(
-  //     const rmf_task_msgs::msg::Delivery& request,
-  //     const DeliveryEstimate& estimate);
-
-  // rmf_utils::optional<LoopEstimate> estimate_loop(
-  //     const rmf_task_msgs::msg::Loop& request) const;
-
-  // void perform_loop(
-  //     const rmf_task_msgs::msg::Loop& request,
-  //     const LoopEstimate& estimate);
 };
-
-//==============================================================================
-// void request_delivery(
-//     const rmf_task_msgs::msg::Delivery& request,
-//     const std::vector<std::shared_ptr<FleetUpdateHandle>>& fleets);
-
-// //==============================================================================
-// void request_loop(
-//     const rmf_task_msgs::msg::Loop& request,
-//     const std::vector<std::shared_ptr<FleetUpdateHandle>>& fleets);
 
 } // namespace agv
 } // namespace rmf_fleet_adapter
