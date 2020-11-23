@@ -117,11 +117,14 @@ public:
       _update_location.emplace_back(std::move(update));
     };
 
-    for (std::size_t i=_last_target; i < _checkpoints.size(); ++i)
+    for (std::size_t i=_last_target; i <= _checkpoints.size(); ++i)
     {
-      const auto& c = _checkpoints.at(i);
       auto departure_time = [&]()
       {
+        if (i == _checkpoints.size())
+          return _checkpoints.at(i-1)->departure_time;
+
+        const auto& c = _checkpoints.at(i);
         if (c.has_value())
           return c->departure_time;
 
@@ -140,7 +143,7 @@ public:
 
       push_back(i, departure_time, std::move(updater));
 
-      if (!c.has_value())
+      if (i < _checkpoints.size() && !_checkpoints.at(i).has_value())
         break;
     }
 
