@@ -85,6 +85,10 @@ public:
   std::map<rmf_traffic::Time, std::string> task_times;
   rclcpp::TimerBase::SharedPtr task_purge_timer;
 
+  // This mutex protects the initialization of traffic lights
+  std::mutex traffic_light_init_mutex;
+
+
   Implementation(
       rxcpp::schedulers::worker worker_,
       std::shared_ptr<Node> node_,
@@ -294,7 +298,8 @@ void Adapter::add_traffic_light(
 
   _pimpl->schedule_writer->async_make_participant(
       std::move(description),
-      [command = std::move(command),
+      [mutex = &_pimpl->traffic_light_init_mutex,
+       command = std::move(command),
        traits = std::move(traits),
        blockade_writer = _pimpl->blockade_writer,
        schedule = _pimpl->mirror_manager.snapshot_handle(),
@@ -304,6 +309,7 @@ void Adapter::add_traffic_light(
        node = _pimpl->node](
         rmf_traffic::schedule::Participant participant)
   {
+    std::lock_guard<std::mutex> lock(*mutex);
     RCLCPP_INFO(
       node->get_logger(),
       "Added a traffic light controller for [%s] with participant ID [%d]",

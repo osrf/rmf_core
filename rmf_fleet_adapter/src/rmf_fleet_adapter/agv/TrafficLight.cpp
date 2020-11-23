@@ -615,6 +615,8 @@ void update_itineraries(
         full_itinerary.end(),
         plan_itinerary.begin(),
         plan_itinerary.end());
+
+  scheduled_itinerary.set(std::move(full_itinerary));
 }
 
 //==============================================================================
@@ -1303,6 +1305,7 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
   {
     // If we no longer have access to the traffic light data or there is no
     // plan being followed, then we simply forfeit the negotiation.
+    std::cout << " !!! PLAN IS FINISHED, FORFEITING" << std::endl;
     return responder->forfeit({});
   }
 
@@ -1408,6 +1411,7 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     }
     else
     {
+      std::cout << " !!! DATA IS DEAD, FORFEITING" << std::endl;
       result.service->responder()->forfeit({});
     }
   });

@@ -89,18 +89,19 @@ public:
     _on_standby = std::move(on_standby);
 
     for (const auto& c : checkpoints)
-      _checkpoints[c.waypoint_index] = c;
+      _checkpoints.at(c.waypoint_index) = c;
 
     _current_path_request.path.clear();
     _current_path_request.path.reserve(_checkpoints.size());
 
     _current_path_request.path.push_back(_last_state.location);
-    _update_location.push_back([](Eigen::Vector3d){});
+    _update_location.push_back(
+          [target = _last_target](Eigen::Vector3d){ return target; });
 
     const auto push_back = [&](
         const std::size_t index,
         rclcpp::Time t,
-        std::function<void(Eigen::Vector3d)> update)
+        std::function<std::size_t(Eigen::Vector3d)> update)
     {
       assert(index < _current_path.size());
 
@@ -118,7 +119,7 @@ public:
 
     for (std::size_t i=_last_target; i < _checkpoints.size(); ++i)
     {
-      const auto& c = _checkpoints[i];
+      const auto& c = _checkpoints.at(i);
       auto departure_time = [&]()
       {
         if (c.has_value())
@@ -128,12 +129,13 @@ public:
         return _checkpoints.at(i-1)->departure_time;
       }();
 
-      auto updater = [&]() -> std::function<void(Eigen::Vector3d)>
+      auto updater = [&]() -> std::function<std::size_t(Eigen::Vector3d)>
       {
         if (i == 0)
-          return [](Eigen::Vector3d){};
+          return [](Eigen::Vector3d){ return 0; };
 
-        return _checkpoints[i-1]->departed;
+        return [i, departed = _checkpoints.at(i-1)->departed](
+            Eigen::Vector3d location){ departed(location); return i; };
       }();
 
       push_back(i, departure_time, std::move(updater));
@@ -217,7 +219,7 @@ public:
 
     assert(!_update_location.empty());
     const auto& l = state.location;
-    _update_location.front()({l.x, l.y, l.yaw});
+    _last_target = _update_location.front()({l.x, l.y, l.yaw});
   }
 
   std::size_t queue_size() const
@@ -373,7 +375,7 @@ private:
       _current_path.emplace_back(map_name, p);
     }
 
-    _checkpoints.resize(_current_path.size());
+    _checkpoints.resize(_current_path.size()-1);
     _path_version = _path_updater->follow_new_path(_current_path);
   }
 
@@ -395,7 +397,7 @@ private:
 
   std::vector<rmf_fleet_adapter::agv::Waypoint> _current_path;
   std::vector<std::optional<Checkpoint>> _checkpoints;
-  std::vector<std::function<void(Eigen::Vector3d)>> _update_location;
+  std::vector<std::function<std::size_t(Eigen::Vector3d)>> _update_location;
   OnStandby _on_standby;
 
   std::mutex _mutex;
