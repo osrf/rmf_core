@@ -72,8 +72,6 @@ public:
   std::vector<rmf_traffic::Route> active_itinerary;
   std::vector<rmf_traffic::Route> plan_itinerary;
   std::vector<rmf_traffic::agv::Plan::Waypoint> pending_waypoints;
-  bool waiting_for_departure = false;
-  std::optional<std::vector<CommandHandle::Checkpoint>> ready_checkpoints;
 
   // Remember which checkpoint we need to depart from next
   std::size_t next_departure_checkpoint = 0;
@@ -195,8 +193,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
   itinerary.clear();
   ready_check_timer = nullptr;
   waiting_timer = nullptr;
-  waiting_for_departure = true;
-  ready_checkpoints.reset();
 
   if (new_path.empty())
   {
@@ -1001,15 +997,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::prepare_checkpoints()
   std::size_t current_checkpoint_index = next_departure_checkpoint;
   next_departure_checkpoint = current_range.end;
 
-#ifndef NDEBUG
-  if (ready_checkpoints.has_value())
-  {
-    assert(!ready_checkpoints.value().empty());
-    assert(ready_checkpoints.value().back().waypoint_index
-           == current_checkpoint_index-1);
-  }
-#endif
-
   while (in_range_inclusive(next, current_checkpoint_index))
     ++next;
   --next;
@@ -1120,22 +1107,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::prepare_checkpoints()
   // Cancel this timer that is watching to see if we need to delay our schedule
   // while waiting to depart
   waiting_timer = nullptr;
-
-  if (waiting_for_departure)
-  {
-    send_checkpoints(std::move(checkpoints), current_range.end);
-  }
-  else
-  {
-    if (!ready_checkpoints.has_value())
-      ready_checkpoints = std::vector<CommandHandle::Checkpoint>();
-
-    // TODO(MXG): We could probably use a move-iterator here
-    ready_checkpoints->insert(
-          ready_checkpoints->end(),
-          checkpoints.begin(),
-          checkpoints.end());
-  }
+  send_checkpoints(std::move(checkpoints), current_range.end);
 }
 
 //==============================================================================
@@ -1154,23 +1126,13 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
 
   blockade.reached(checkpoint_id);
 
-  waiting_for_departure = true;
-
-  if (ready_checkpoints.has_value())
+  waiting_timer = node->create_wall_timer(
+        std::chrono::seconds(1),
+        [w = weak_from_this(), version, checkpoint_id]()
   {
-    send_checkpoints(std::move(ready_checkpoints.value()), current_range.end);
-    ready_checkpoints.reset();
-  }
-  else
-  {
-    waiting_timer = node->create_wall_timer(
-          std::chrono::seconds(1),
-          [w = weak_from_this(), version, checkpoint_id]()
-    {
-      if (const auto data = w.lock())
-        data->check_waiting_delay(version, checkpoint_id);
-    });
-  }
+    if (const auto data = w.lock())
+      data->check_waiting_delay(version, checkpoint_id);
+  });
 
   if (check_if_ready(version, checkpoint_id))
     return;
@@ -1253,7 +1215,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
     std::vector<CommandHandle::Checkpoint> checkpoints,
     std::size_t standby_checkpoint)
 {
-  waiting_for_departure = false;
   command->receive_checkpoints(
         current_version,
         std::move(checkpoints),
@@ -1305,7 +1266,6 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
   {
     // If we no longer have access to the traffic light data or there is no
     // plan being followed, then we simply forfeit the negotiation.
-    std::cout << " !!! PLAN IS FINISHED, FORFEITING" << std::endl;
     return responder->forfeit({});
   }
 
@@ -1341,7 +1301,9 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     }();
 
     if (first_attempt)
+    {
       return responder->reject(make_reservation_alts(data));
+    }
   }
 
   const auto* lane = data->planner->get_configuration().graph().lane_from(
@@ -1411,10 +1373,25 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     }
     else
     {
-      std::cout << " !!! DATA IS DEAD, FORFEITING" << std::endl;
       result.service->responder()->forfeit({});
     }
   });
+
+  using namespace std::chrono_literals;
+  const auto wait_duration = 2s + table_viewer->sequence().back().version * 10s;
+  auto negotiate_timer = data->node->create_wall_timer(
+        wait_duration,
+        [s = negotiate->weak_from_this()]()
+  {
+    if (const auto service = s.lock())
+      service->interrupt();
+  });
+
+  data->negotiate_services[negotiate] =
+      Data::NegotiateManagers{
+        std::move(negotiate_sub),
+        std::move(negotiate_timer)
+      };
 }
 
 //==============================================================================
