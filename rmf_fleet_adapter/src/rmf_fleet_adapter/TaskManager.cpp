@@ -230,6 +230,7 @@ void TaskManager::set_queue(
     msg.task_profile.task_id = _queue.back()->id();
     msg.state = msg.STATE_QUEUED;
     msg.robot_name = _context->name();
+    msg.fleet_name = _context->description().owner();
     msg.task_profile.task_type = task_type_msg;
     msg.start_time = rmf_traffic_ros2::convert(
       _queue.back()->deployment_time());
@@ -300,6 +301,7 @@ void TaskManager::_begin_next_task()
       msg.task_id = id;
       msg.task_profile.task_id = id;
       msg.robot_name = _context->name();
+      msg.fleet_name = _context->description().owner();
       msg.start_time = rmf_traffic_ros2::convert(
         _active_task->deployment_time());
       msg.end_time = rmf_traffic_ros2::convert(
@@ -321,6 +323,7 @@ void TaskManager::_begin_next_task()
       msg.task_id = id;
       msg.task_profile.task_id = id;
       msg.robot_name = _context->name();
+      msg.fleet_name = _context->description().owner();
       msg.start_time = rmf_traffic_ros2::convert(
         _active_task->deployment_time());
       msg.end_time = rmf_traffic_ros2::convert(
@@ -335,6 +338,7 @@ void TaskManager::_begin_next_task()
       msg.task_profile.task_id = id;
       msg.state = msg.STATE_COMPLETED;
       msg.robot_name = _context->name();
+      msg.fleet_name = _context->description().owner();
       msg.start_time = rmf_traffic_ros2::convert(
         _active_task->deployment_time());
       msg.end_time = rmf_traffic_ros2::convert(

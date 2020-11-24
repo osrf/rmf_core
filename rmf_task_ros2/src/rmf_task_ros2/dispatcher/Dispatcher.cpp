@@ -163,6 +163,21 @@ public:
     std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
     pending_task_status->fleet_name = winner->fleet_name;
 
+    // Remove prev auto-generated charging task from "active_dispatch_tasks"
+    // TODO: a better way to impl this
+    for (auto it = active_dispatch_tasks->begin(); 
+      it != active_dispatch_tasks->end(); )
+    {
+      auto task_type = it->second->task_profile.task_type.type;
+      bool is_charging_task = (task_type == TaskType::TYPE_CHARGE_BATTERY);
+      bool is_fleet_name = (winner->fleet_name == it->second->fleet_name);
+
+      if (is_charging_task && is_fleet_name)
+        it = active_dispatch_tasks->erase(it);
+      else
+        ++it;
+    }
+
     // add task to action server
     action_client->add_task(
       winner->fleet_name,
@@ -188,7 +203,8 @@ public:
 
   void task_status_cb(const TaskStatusPtr status_msg)
   {
-    // check if task exist, if not add new
+    // check if task exist in cache, 
+    // if missing add stray task to "active_dispatch_tasks"
     auto id = status_msg->task_profile.task_id;
     if (!(*active_dispatch_tasks).count(id))
       (*active_dispatch_tasks)[id] = status_msg;
@@ -263,7 +279,6 @@ const DispatchTasksPtr& Dispatcher::terminated_tasks() const
 //==============================================================================
 void Dispatcher::on_change(StatusCallback on_change_fn)
 {
-  // _pimpl->action_client->on_change(on_change_fn);
   _pimpl->on_change_fn = on_change_fn;
 }
 
