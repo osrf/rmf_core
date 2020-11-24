@@ -201,8 +201,8 @@ public:
       if (_checkpoints.back().has_value())
       {
         // The fact that we have the last checkpoint and also reached the
-        // standby condition means
-        _checkpoints.clear();
+        // standby condition means we are done moving and can proceed to the
+        // next loop.
         _moving = false;
         _queue.pop_front();
         _go_to_next_waypoint();

@@ -616,10 +616,33 @@ void update_itineraries(
 }
 
 //==============================================================================
-bool conflicts_with_reservations(
-    const rmf_traffic::schedule::Negotiator::TableViewerPtr& table_viewer,
+std::vector<rmf_traffic::Route> get_reserved_itinerary(
     const std::vector<rmf_traffic::Route>& stashed_itinerary,
     const std::vector<rmf_traffic::Route>& active_itinerary,
+    const rmf_traffic::Duration delay)
+{
+  std::vector<rmf_traffic::Route> full_itinerary;
+  full_itinerary.reserve(stashed_itinerary.size() + active_itinerary.size());
+
+  for (const auto& it : {stashed_itinerary, active_itinerary})
+  {
+    for (const auto& r : it)
+      full_itinerary.push_back(r);
+  }
+
+  for (auto& r : full_itinerary)
+  {
+    assert(!r.trajectory().empty());
+    r.trajectory().front().adjust_times(delay);
+  }
+
+  return full_itinerary;
+}
+
+//==============================================================================
+bool conflicts_with_reservations(
+    const rmf_traffic::schedule::Negotiator::TableViewerPtr& table_viewer,
+    const std::vector<rmf_traffic::Route>& reservation,
     const rmf_traffic::Profile& profile)
 {
   const auto& proposals = table_viewer->base_proposals();
@@ -632,20 +655,17 @@ bool conflicts_with_reservations(
 
     for (const auto& other_r : p.itinerary)
     {
-      for (const auto& itinerary : {stashed_itinerary, active_itinerary})
+      for (const auto& r : reservation)
       {
-        for (const auto& r : itinerary)
-        {
-          if (r.map() != other_r->map())
-            continue;
+        if (r.map() != other_r->map())
+          continue;
 
-          if (rmf_traffic::DetectConflict::between(
-                profile,
-                r.trajectory(),
-                other_profile,
-                other_r->trajectory()))
-            return true;
-        }
+        if (rmf_traffic::DetectConflict::between(
+              profile,
+              r.trajectory(),
+              other_profile,
+              other_r->trajectory()))
+          return true;
       }
     }
   }
@@ -1197,17 +1217,21 @@ void TrafficLight::UpdateHandle::Implementation::Data::check_waiting_delay(
   if (pending_waypoints.empty())
     return;
 
-  assert(pending_waypoints.front().graph_index().has_value());
-  if (checkpoint_id != pending_waypoints.front().graph_index().value())
+  const auto depart_it = departure_timing.find(checkpoint_id);
+  if (depart_it == departure_timing.end())
     return;
 
   const auto now = node->now();
-  const auto new_delay = now - departure_timing.at(checkpoint_id);
+  const auto new_delay = now - depart_it->second;
   const auto time_shift = (new_delay - itinerary.delay())
       .to_chrono<std::chrono::nanoseconds>();
 
-  if (time_shift > std::chrono::seconds(1))
-    itinerary.delay(time_shift);
+  // We add some extra margin in here, because we don't know exactly when
+  // we will get permission to continue.
+  if (time_shift > -std::chrono::seconds(1))
+  {
+    itinerary.delay(time_shift + std::chrono::seconds(2));
+  }
 }
 
 //==============================================================================
@@ -1277,9 +1301,15 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     return responder->submit({});
   }
 
+  auto reservation = get_reserved_itinerary(
+        data->stashed_itinerary,
+        data->active_itinerary,
+        data->itinerary.delay());
+
   const bool reservation_conflict =
       conflicts_with_reservations(
-        table_viewer, data->stashed_itinerary, data->active_itinerary,
+        table_viewer,
+        reservation,
         data->itinerary.description().profile());
 
   if (reservation_conflict)
@@ -1324,10 +1354,13 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
 
     const auto& start_wp = data->pending_waypoints.front();
     return rmf_traffic::agv::Plan::Start(
-      start_wp.time(),
+      start_wp.time() + data->itinerary.delay(),
       *start_wp.graph_index(),
       start_wp.position()[2]);
   }();
+
+  if (reservation_conflict)
+    reservation.clear();
 
   rmf_traffic::agv::Plan::Goal goal(
         data->planner->get_configuration().graph().num_waypoints()-1);
@@ -1358,7 +1391,8 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
 
   auto negotiate = services::Negotiate::path(
         data->planner, {std::move(start)}, std::move(goal),
-        table_viewer, responder, std::move(approval_cb), std::move(evaluator));
+        table_viewer, responder, std::move(approval_cb), std::move(evaluator),
+        std::move(reservation));
 
   auto negotiate_sub =
       rmf_rxcpp::make_job<services::Negotiate::Result>(negotiate)
