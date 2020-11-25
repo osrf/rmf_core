@@ -825,6 +825,10 @@ SCENARIO("Grid World")
     std::cout << "Optimal solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
     display_solution("Optimal", optimal_assignments, optimal_cost);
+
+  REQUIRE(optimal_assignments.empty());
+  REQUIRE(greedy_assignments.empty());
+  REQUIRE(optimal_cost <= greedy_cost);
   }
 
 }

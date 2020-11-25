@@ -193,7 +193,7 @@ public:
   // Map finish time to Entry
   using Map = std::multimap<rmf_traffic::Time, Entry>;
 
-  static Candidates make(
+  static std::shared_ptr<Candidates> make(
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const rmf_task::Request& request,
@@ -283,7 +283,7 @@ private:
   }
 };
 
-Candidates Candidates::make(
+std::shared_ptr<Candidates> Candidates::make(
   const std::vector<State>& initial_states,
   const std::vector<StateConfig>& state_configs,
   const rmf_task::Request& request,
@@ -317,50 +317,81 @@ Candidates Candidates::make(
       {
         auto new_finish = request.estimate_finish(
           battery_estimate.value().finish_state(), state_config, estimate_cache);
-        assert(new_finish.has_value());
-        initial_map.insert(
-          {new_finish.value().finish_state().finish_time(),
-          Entry{
-            i,
-            new_finish.value().finish_state(),
-            new_finish.value().wait_until(),
-            state,
-            true}});
-      }
-      else
-      {
-        std::cerr << "Unable to create entry for candidate [" << i 
-                  << "] and request [" << request.id() << " ]" << std::endl;
-        assert(false);
+        if (new_finish.has_value())
+        {
+          initial_map.insert(
+            {new_finish.value().finish_state().finish_time(),
+            Entry{
+              i,
+              new_finish.value().finish_state(),
+              new_finish.value().wait_until(),
+              state,
+              true}});
+        }
       }
     }
     
   }
 
-  return Candidates(std::move(initial_map));
+  if (initial_map.empty())
+  {
+    std::cout << "Unable to create candidates for request [" << request.id()
+              << "]" << std::endl;
+    return nullptr;
+  }
+
+  std::shared_ptr<Candidates> candidates(
+    new Candidates(std::move(initial_map)));
+  return candidates;
 }
 
 // ============================================================================
-struct PendingTask
+class PendingTask
 {
-  PendingTask(
+public:
+
+  static std::shared_ptr<PendingTask> make(
       std::vector<rmf_task::agv::State>& initial_states,
       std::vector<rmf_task::agv::StateConfig>& state_configs,
       rmf_task::ConstRequestPtr request_,
       rmf_task::ConstRequestPtr charge_battery_request,
-      std::shared_ptr<EstimateCache> estimate_cache)
-    : request(std::move(request_)),
-      candidates(Candidates::make(initial_states, state_configs,
-        *request, *charge_battery_request, estimate_cache)),
-      earliest_start_time(request->earliest_start_time())
-  {
-    // Do nothing
-  }
+      std::shared_ptr<EstimateCache> estimate_cache);
 
   rmf_task::ConstRequestPtr request;
   Candidates candidates;
   rmf_traffic::Time earliest_start_time;
+
+private:
+  PendingTask(
+      rmf_task::ConstRequestPtr request_,
+      Candidates candidates_)
+    : request(std::move(request_)),
+      candidates(candidates_),
+      earliest_start_time(request->earliest_start_time())
+  {
+    // Do nothing
+  }
 };
+
+std::shared_ptr<PendingTask> PendingTask::make(
+    std::vector<rmf_task::agv::State>& initial_states,
+    std::vector<rmf_task::agv::StateConfig>& state_configs,
+    rmf_task::ConstRequestPtr request_,
+    rmf_task::ConstRequestPtr charge_battery_request,
+    std::shared_ptr<EstimateCache> estimate_cache)
+{
+  const auto candidates = Candidates::make(initial_states, state_configs,
+        *request_, *charge_battery_request, estimate_cache);
+  
+  if (!candidates)
+    return nullptr;
+
+  std::shared_ptr<PendingTask> pending_task(
+    new PendingTask(request_, *candidates));
+  return pending_task;
+}
+
+
 
 // ============================================================================
 struct Node
@@ -726,6 +757,8 @@ public:
     assert(initial_states.size() == state_configs.size());
 
     auto node = make_initial_node(initial_states, state_configs, requests, time_now);
+    if (!node)
+      return {};
 
     TaskPlanner::Assignments complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
@@ -777,6 +810,8 @@ public:
       }
 
       node = make_initial_node(estimates, state_configs, new_tasks, time_now);
+      if (!node)
+        return {};
       initial_states = estimates;
     }
 
@@ -871,10 +906,20 @@ public:
       // Generate a unique internal id for the request. Currently, multiple
       // requests with the same string id will be assigned different internal ids
       std::size_t internal_id = initial_node->get_available_internal_id();
+      const auto pending_task= PendingTask::make(
+          initial_states,
+          state_configs,
+          request,
+          charge_battery,
+          estimate_cache);
+
+      if (!pending_task)
+        return nullptr;
+
       initial_node->unassigned_tasks.insert(
         {
           internal_id,
-          PendingTask(initial_states, state_configs, request, charge_battery, estimate_cache)
+          *pending_task
         });
     }
 
