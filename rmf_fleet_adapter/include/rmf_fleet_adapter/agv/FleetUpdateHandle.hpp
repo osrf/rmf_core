@@ -96,13 +96,12 @@ public:
     const bool drain_battery);
 
 
-  /// Set the threshold state of charge below which the robot should 
-  /// automatically head back to its charging dock. The user is responsible to 
-  /// set this value such that the robot is capable of reaching its nearest
-  /// charging station from anywhere on the map. Default value is 0.2.
+  /// Set the threshold for state of charge below which robots in this fleet
+  /// will cease to operate and require recharging. A value between 0.0 and 1.0
+  /// should be specified. Default value is 0.2.
   ///
   /// \param[in] threshold
-  ///   The fraction of the total battery capacity
+  ///   Threshold as a fraction of the total battery capacity
   FleetUpdateHandle& set_recharge_threshold(const double threshold);
 
   /// A callback function that evaluates whether a fleet will accept a task
@@ -143,7 +142,8 @@ public:
   /// Provide a callback that indicates whether this fleet will accept a
   /// delivery request. By default all delivery requests will be rejected.
   ///
-  /// \note The callback function that you give should ideally be non-blocking
+  /// \note This function will be deprecated in favor of accept_task_requests() 
+  /// The callback function that you give should ideally be non-blocking
   /// and return quickly. It's meant to check whether this fleet's vehicles are
   /// compatible with the requested payload, pickup, and dropoff behavior
   /// settings. The path planning feasibility will be taken care of by the
