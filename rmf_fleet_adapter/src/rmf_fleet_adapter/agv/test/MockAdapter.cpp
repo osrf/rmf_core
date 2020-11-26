@@ -128,6 +128,7 @@ void MockAdapter::start()
 void MockAdapter::stop()
 {
   _pimpl->node->stop();
+  _pimpl->node.reset();
 }
 
 //==============================================================================
