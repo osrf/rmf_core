@@ -21,6 +21,7 @@
 #include <rmf_task/agv/StateConfig.hpp>
 #include <rmf_task/requests/Delivery.hpp>
 #include <rmf_task/requests/ChargeBattery.hpp>
+#include <rmf_task/requests/Loop.hpp>
 
 #include <rmf_traffic/agv/Graph.hpp>
 #include <rmf_traffic/Trajectory.hpp>
@@ -764,6 +765,70 @@ SCENARIO("Grid World")
 
 
     REQUIRE(optimal_cost <= greedy_cost);
+  }
+
+  WHEN("A loop request is impossible to fulfil")
+  {
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 9, 1.0},
+    };
+
+    std::vector<rmf_task::agv::StateConfig> state_configs =
+    {
+      rmf_task::agv::StateConfig{0.2},
+    };
+
+    std::vector<rmf_task::ConstRequestPtr> requests =
+    {
+      rmf_task::requests::Loop::make(
+        "Loop1",
+        0,
+        15,
+        1000,
+        motion_sink,
+        device_sink,
+        planner,
+        now,
+        true)
+    };
+
+    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
+      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    rmf_task::agv::TaskPlanner task_planner(task_config);
+
+
+    auto start_time = std::chrono::steady_clock::now();
+    const auto greedy_assignments = task_planner.greedy_plan(
+      now, initial_states, state_configs, requests);
+    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Greedy", greedy_assignments, greedy_cost);
+
+    task_planner = rmf_task::agv::TaskPlanner(task_config);
+    start_time = std::chrono::steady_clock::now();
+    const auto optimal_assignments = task_planner.optimal_plan(
+      now, initial_states, state_configs, requests, nullptr);
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    finish_time = std::chrono::steady_clock::now();
+    std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Optimal", optimal_assignments, optimal_cost);
+
+  REQUIRE(optimal_assignments.empty());
+  REQUIRE(greedy_assignments.empty());
+  REQUIRE(optimal_cost <= greedy_cost);
   }
 
 }
