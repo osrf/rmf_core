@@ -297,15 +297,13 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       CHECK_FALSE(negotiation->complete());
 
       next_table = negotiation->table(p1.id(), {});
-      negotiator_2.respond(
+      negotiator_1.respond(
         next_table->viewer(),
         rmf_traffic::schedule::SimpleResponder::make(next_table));
 
-      CHECK(negotiation->complete());
+      CHECK_FALSE(negotiation->complete());
 
       next_table = negotiation->table(p2.id(), {p1.id()});
-      REQUIRE(next_table);
-
       negotiator_2.respond(
         next_table->viewer(),
         rmf_traffic::schedule::SimpleResponder::make(next_table));
