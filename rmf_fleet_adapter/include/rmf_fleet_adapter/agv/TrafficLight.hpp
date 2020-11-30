@@ -82,9 +82,22 @@ public:
     using Departed = std::function<void(Eigen::Vector3d location)>;
     using StoppedAt = Departed;
 
-    /// Use this function to indicate that your robot is waiting for its next
-    /// batch of waypoints.
+    /// Use this function signature to indicate that your robot is waiting for
+    /// its next batch of waypoints.
     using OnStandby = std::function<void()>;
+
+    /// Use this function signature to indicate that your robot cannot comply
+    /// with the given plan because it has already passed one of the waypoints
+    /// that it was not supposed to.
+    ///
+    /// When issuing a rejection, you should have the robot halt immediately and
+    /// trigger the rejection when the robot comes to a halt.
+    ///
+    /// Provide the last waypoint that was departed from, and the current
+    /// location of the robot once
+    using Reject = std::function<void(
+        std::size_t last_departed,
+        Eigen::Vector3d stopped_location)>;
 
     /// The Checkpoint struct contains information about when the robot may
     /// depart from a Waypoint that was passed into
@@ -113,8 +126,8 @@ public:
     /// must not depart from a waypoint before it receives checkpoint
     /// information for that waypoint.
     ///
-    /// The next sequence of checkpoints will not be given until the on_standby
-    /// callback gets triggered.
+    /// The last checkpoint in the batch is the last checkpoint that the robot
+    /// is allowed to depart from. New batches override previous batches, so
     ///
     /// \param[in] version
     ///   The version number of the path whose timing is being provided. If this
@@ -133,7 +146,8 @@ public:
     virtual void receive_checkpoints(
         std::size_t version,
         std::vector<Checkpoint> checkpoints,
-        OnStandby on_standby) = 0;
+        OnStandby on_standby,
+        Reject reject) = 0;
 
     /// Immediately stop until the specified time.
     ///
@@ -152,9 +166,13 @@ public:
     ///   Trigger this callback while the robot is stopped and update the
     ///   location. As long as the robot truly comes to a stop, this only needs
     ///   to be called once.
+    ///
+    /// \param[in] departed
+    ///   Trigger this callback when the robot departs from this stop.
     virtual void immediately_stop_until(
         rclcpp::Time time,
-        StoppedAt stopped_at) = 0;
+        StoppedAt stopped_at,
+        Departed departed) = 0;
 
     /// Resume travel, even if immediately_stop_until(~) was activated and the
     /// given time has not been reached yet.
@@ -167,7 +185,7 @@ public:
     public:
 
       /// Get the schedule participant ID of the blocker.
-      rmf_traffic::schedule::ParticipantId participand_id() const;
+      rmf_traffic::schedule::ParticipantId participant_id() const;
 
       /// Get the description of the blocker.
       const rmf_traffic::schedule::ParticipantDescription& description() const;
