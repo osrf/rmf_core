@@ -288,13 +288,19 @@ SCENARIO("Test Plan Negotiation Between Two Participants")
       CHECK(negotiation->ready());
 
       next_table = negotiation->table(p2.id(), {p1.id()});
-      // there should be a rejection of the alternative itinerary
+      // there should be a rejection of the proposed itinerary
       negotiator_2.respond(
         next_table->viewer(),
         rmf_traffic::schedule::SimpleResponder::make(next_table));
 
-      // in this scenario, the negotiation never completes
+      // at this point, the negotiation is incomplete
       CHECK_FALSE(negotiation->complete());
+
+      next_table = negotiation->table(p1.id(), {});
+      negotiator_2.respond(
+        next_table->viewer(),
+        rmf_traffic::schedule::SimpleResponder::make(next_table));
+      CHECK(negotiation->complete());
     }
   }
 
