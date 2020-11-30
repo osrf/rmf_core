@@ -152,7 +152,7 @@ public:
 
     /// None of the agents in the initial states have sufficient battery
     /// capacity to accommodate one or more requests. This may be remedied by
-    /// increasing the battery capcity or by lowering the threshold_soc in the 
+    /// increasing the battery capacity or by lowering the threshold_soc in the 
     /// state configs of the agents or by modifying the original request.
     limited_capacity
   };
