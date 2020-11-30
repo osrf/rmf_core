@@ -197,7 +197,7 @@ public:
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const rmf_task::Request& request,
-    const rmf_task::Request& charge_battery_request,
+    const rmf_task::requests::ChargeBattery& charge_battery_request,
     const std::shared_ptr<EstimateCache> estimate_cache,
     TaskPlanner::TaskPlannerError& error);
 
@@ -288,7 +288,7 @@ std::shared_ptr<Candidates> Candidates::make(
   const std::vector<State>& initial_states,
   const std::vector<StateConfig>& state_configs,
   const rmf_task::Request& request,
-  const rmf_task::Request& charge_battery_request,
+  const rmf_task::requests::ChargeBattery& charge_battery_request,
   const std::shared_ptr<EstimateCache> estimate_cache,
   TaskPlanner::TaskPlannerError& error)
 {
@@ -341,11 +341,11 @@ std::shared_ptr<Candidates> Candidates::make(
         // Control reaches here either if ChargeBattery::estimate_finish() was
         // called on initial state with full battery or low battery such that
         // agent is unable to make it back to the charger
-        if (abs(state.battery_soc() - 1.0) < 1e-3) 
+        if (abs(
+          state.battery_soc() - charge_battery_request.max_charge_soc()) < 1e-3) 
             error = TaskPlanner::TaskPlannerError::limited_capacity;
         else
           error = TaskPlanner::TaskPlannerError::low_battery;
-        
       }
       
     }
@@ -399,8 +399,12 @@ std::shared_ptr<PendingTask> PendingTask::make(
     std::shared_ptr<EstimateCache> estimate_cache,
     TaskPlanner::TaskPlannerError& error)
 {
+
+  auto battery_request = std::dynamic_pointer_cast<
+    const rmf_task::requests::ChargeBattery>(charge_battery_request);
+
   const auto candidates = Candidates::make(initial_states, state_configs,
-        *request_, *charge_battery_request, estimate_cache, error);
+        *request_, *battery_request, estimate_cache, error);
 
   if (!candidates)
     return nullptr;
