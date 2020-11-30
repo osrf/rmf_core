@@ -50,6 +50,7 @@ private:
 
   void _send_reservation();
   void _send_ready();
+  void _send_release(CheckpointId checkpoint);
   void _send_reached();
 
   ParticipantId _id;

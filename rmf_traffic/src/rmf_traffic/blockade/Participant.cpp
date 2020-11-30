@@ -70,31 +70,27 @@ void Participant::Implementation::check(const Status& status)
   {
     if (status.last_ready.has_value() && !_last_ready.has_value())
     {
-      std::stringstream str;
-      str << "Impossible blockade moderator status: The moderator thinks we "
-          << "are ready for checkpoint [" << *status.last_ready
-          << "] on reservation [" << status.reservation << "] of participant ["
-          << _id << "], but no checkpoints are ready for that reservation.";
-
-      throw std::runtime_error(str.str());
+      // The moderator thinks we are ready for some checkpoints, but we are not
+      // ready for any. Releasing checkpoint 0 will tell the moderator that we
+      // are not ready for any of these.
+      _send_release(0);
     }
-    else if (status.last_ready.has_value())
+    else
     {
       assert(_last_ready.has_value());
-      if (*status.last_ready > *_last_ready)
+      if (status.last_ready.has_value() && *status.last_ready > *_last_ready)
       {
-        std::stringstream str;
-        str << "Impossible blockade moderator status: The moderator thinks we "
-            << "are ready for checkpoint [" << *status.last_ready
-            << "] on reservation [" << status.reservation
-            << "] of participant [" << _id << "], but we are only ready for "
-            << "checkpoint [" << *_last_ready << "].";
-
-        throw std::runtime_error(str.str());
+        _send_release(_last_ready.value() + 1);
+      }
+      else
+      {
+        // We will reach this condition if:
+        // 1. The moderator incorrectly thinks we are not ready for any
+        //    departures, or
+        // 2. The moderator does not know about our latest ready departure
+        _send_ready();
       }
     }
-
-    _send_ready();
   }
 
   if (status.last_reached != _last_reached)
@@ -140,6 +136,12 @@ void Participant::Implementation::_send_reservation()
 void Participant::Implementation::_send_ready()
 {
   _writer->ready(_id, _reservation_id.value(), _last_ready.value());
+}
+
+//==============================================================================
+void Participant::Implementation::_send_release(CheckpointId checkpoint)
+{
+  _writer->release(_id, _reservation_id.value(), checkpoint);
 }
 
 //==============================================================================
@@ -196,6 +198,23 @@ void Participant::ready(CheckpointId checkpoint)
 
   _pimpl->_last_ready = checkpoint;
   _pimpl->_send_ready();
+}
+
+//==============================================================================
+void Participant::release(CheckpointId checkpoint)
+{
+  if (!_pimpl->_last_ready.has_value())
+    return;
+
+  if (_pimpl->_last_ready.value() < checkpoint)
+    return;
+
+  if (checkpoint > 0)
+    _pimpl->_last_ready = checkpoint - 1;
+  else
+    _pimpl->_last_ready.reset();
+
+  _pimpl->_send_release(checkpoint);
 }
 
 //==============================================================================

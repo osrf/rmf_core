@@ -67,6 +67,13 @@ public:
       ReservationId reservation_id,
       CheckpointId checkpoint) = 0;
 
+  /// Release a checkpoint (and all checkpoints that come after it) from ready
+  /// status if the participant has not departed from it yet.
+  virtual void release(
+      ParticipantId participant_id,
+      ReservationId reservation_id,
+      CheckpointId checkpoint) = 0;
+
   /// Indicate when a participant has reached a checkpoint.
   ///
   /// If reservation_id is not equal to the last reservation_id value given to

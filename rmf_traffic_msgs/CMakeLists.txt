@@ -23,6 +23,7 @@ set(msg_files
   "msg/BlockadeHeartbeat.msg"
   "msg/BlockadeReached.msg"
   "msg/BlockadeReady.msg"
+  "msg/BlockadeRelease.msg"
   "msg/BlockadeSet.msg"
   "msg/BlockadeStatus.msg"
   "msg/Circle.msg"

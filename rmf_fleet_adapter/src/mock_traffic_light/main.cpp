@@ -77,6 +77,11 @@ public:
     _planner = planner;
   }
 
+  const std::string& name() const
+  {
+    return _travel_info.robot_name;
+  }
+
   void receive_checkpoints(
     const std::size_t version,
     std::vector<Checkpoint> checkpoints,
@@ -86,10 +91,19 @@ public:
     if (_path_version != version)
       return;
 
+    std::cout << name() << " > new checkpoints:";
+    for (const auto& c : checkpoints)
+      std::cout << " " << c.waypoint_index;
+    std::cout << std::endl;
+
     _on_standby = std::move(on_standby);
 
     for (const auto& c : checkpoints)
       _checkpoints.at(c.waypoint_index) = c;
+
+    const auto last_ready_checkpoint = checkpoints.back().waypoint_index;
+    for (std::size_t c = last_ready_checkpoint+1; c < _checkpoints.size(); ++c)
+      _checkpoints.at(c).reset();
 
     _current_path_request.path.clear();
     _current_path_request.path.reserve(_checkpoints.size());
@@ -137,7 +151,7 @@ public:
         if (i == 0)
           return [](Eigen::Vector3d){ return 0; };
 
-        return [i, departed = _checkpoints.at(i-1)->departed](
+        return [i, departed = _checkpoints.at(i-1).value().departed](
             Eigen::Vector3d location){ departed(location); return i; };
       }();
 
@@ -189,6 +203,12 @@ public:
       return;
     }
 
+    if (_queue.empty())
+    {
+      std::cout << " ??? MOVING WHILE QUEUE IS EMPTY?? " << name()
+                << " | task_id: " << _current_path_request.task_id << std::endl;
+    }
+
     if (state.path.empty())
     {
       if (_on_standby)
@@ -204,7 +224,13 @@ public:
         // standby condition means we are done moving and can proceed to the
         // next loop.
         _moving = false;
+        assert(!_queue.empty());
+        std::cout << "Remaining queue size: " << _queue.size() << " - 1" << std::endl;
+
+        std::cout << __LINE__ << ": popping " << name() << " " << _queue.size();
         _queue.pop_front();
+        std::cout << " -> " << _queue.size() << " | task_id: " << _current_path_request.task_id << std::endl;
+
         _go_to_next_waypoint();
         return;
       }
@@ -221,6 +247,10 @@ public:
     }
 
     assert(!_update_location.empty());
+    if (_update_location.empty())
+    {
+      std::cout << " !!!! Empty _update_location for " << name() << std::endl;
+    }
     const auto& l = state.location;
     _last_target = _update_location.front()({l.x, l.y, l.yaw});
   }
@@ -267,11 +297,6 @@ public:
     return rmf_utils::nullopt;
   }
 
-  const std::string& name() const
-  {
-    return _travel_info.robot_name;
-  }
-
 private:
 
   void _go_to_next_waypoint()
@@ -303,7 +328,11 @@ private:
               _node->get_logger(),
               "Could not find a goal named [%s] for robot [%s]",
               next.c_str(), _travel_info.robot_name.c_str());
+
+        std::cout << __LINE__ << ": popping " << name() << " " << _queue.size();
         _queue.pop_front();
+        std::cout << " -> " << _queue.size() << std::endl;
+
         continue;
       }
 
@@ -314,15 +343,24 @@ private:
               _node->get_logger(),
               "Could not find a plan to get robot [%s] to waypoint [%s]",
               _travel_info.robot_name.c_str(), next.c_str());
+
+        std::cout << __LINE__ << ": popping " << name() << " " << _queue.size();
         _queue.pop_front();
+        std::cout << " -> " << _queue.size() << std::endl;
+
+
         continue;
       }
 
       if (result->get_waypoints().size() < 2)
       {
+        std::cout << __LINE__ << ": popping " << name() << " " << _queue.size();
         _queue.pop_front();
+        std::cout << " -> " << _queue.size() << std::endl;
         continue;
       }
+
+      std::cout << "Moving " << name() << " towards " << _queue.front() << std::endl;
 
       _follow_new_path(result->get_waypoints());
       return;
@@ -342,7 +380,7 @@ private:
     {
       if (wp.graph_index())
       {
-        first_level = graph->get_waypoint(*wp.graph_index()).get_map_name();
+        first_level = graph->get_waypoint(wp.graph_index().value()).get_map_name();
         break;
       }
     }
@@ -350,7 +388,7 @@ private:
     const auto get_map_name = [&](rmf_utils::optional<std::size_t> index)
     {
       if (index)
-        return graph->get_waypoint(*index).get_map_name();
+        return graph->get_waypoint(index.value()).get_map_name();
 
       return first_level;
     };
@@ -378,6 +416,7 @@ private:
       _current_path.emplace_back(map_name, p);
     }
 
+    _checkpoints.clear();
     _checkpoints.resize(_current_path.size()-1);
     _path_version = _path_updater->follow_new_path(_current_path);
   }

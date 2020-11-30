@@ -62,6 +62,8 @@ const std::string BlockadeReachedTopicName = Prefix +
   "blockade_reached";
 const std::string BlockadeReadyTopicName = Prefix +
   "blockade_ready";
+const std::string BlockadeReleaseTopicName = Prefix +
+  "blockade_release";
 const std::string BlockadeSetTopicName = Prefix +
   "blockade_set";
 

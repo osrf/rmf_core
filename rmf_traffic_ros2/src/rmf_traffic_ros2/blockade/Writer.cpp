@@ -22,6 +22,7 @@
 #include <rmf_traffic_msgs/msg/blockade_heartbeat.hpp>
 #include <rmf_traffic_msgs/msg/blockade_reached.hpp>
 #include <rmf_traffic_msgs/msg/blockade_ready.hpp>
+#include <rmf_traffic_msgs/msg/blockade_release.hpp>
 #include <rmf_traffic_msgs/msg/blockade_set.hpp>
 
 #include <unordered_set>
@@ -62,7 +63,6 @@ public:
   {
     Requester& requester;
     std::optional<ReservationId> last_reservation_id;
-    ReservedRange last_range;
     NewRangeCallback range_cb;
   };
 
@@ -117,7 +117,6 @@ public:
           RectifierStub{
             *requester,
             std::nullopt,
-            ReservedRange{0, 0},
             std::move(callback)});
 
     stub_map.insert({participant_id, requester->stub});
@@ -196,16 +195,8 @@ public:
       stub->requester.rectifier.check(convert(status));
 
       const auto range = get_range(status);
-
-      const bool repeat_range =
-          stub->last_range == range
-          && stub->last_reservation_id == status.reservation;
-
-      if (!repeat_range)
-        stub->range_cb(status.reservation, range);
-
       stub->last_reservation_id = status.reservation;
-      stub->last_range = range;
+      stub->range_cb(status.reservation, range);
 
       stub_map_copy.erase(it);
     }
@@ -240,11 +231,13 @@ public:
     using Set = rmf_traffic_msgs::msg::BlockadeSet;
     using Ready = rmf_traffic_msgs::msg::BlockadeReady;
     using Reached = rmf_traffic_msgs::msg::BlockadeReached;
+    using Release = rmf_traffic_msgs::msg::BlockadeRelease;
     using Cancel = rmf_traffic_msgs::msg::BlockadeCancel;
     using Checkpoint = rmf_traffic_msgs::msg::BlockadeCheckpoint;
 
     rclcpp::Publisher<Set>::SharedPtr set_pub;
     rclcpp::Publisher<Ready>::SharedPtr ready_pub;
+    rclcpp::Publisher<Release>::SharedPtr release_pub;
     rclcpp::Publisher<Reached>::SharedPtr reached_pub;
     rclcpp::Publisher<Cancel>::SharedPtr cancel_pub;
 
@@ -269,6 +262,10 @@ public:
 
       reached_pub = node.create_publisher<Reached>(
             BlockadeReachedTopicName,
+            rclcpp::SystemDefaultsQoS().best_effort());
+
+      release_pub = node.create_publisher<Release>(
+            BlockadeReleaseTopicName,
             rclcpp::SystemDefaultsQoS().best_effort());
 
       cancel_pub = node.create_publisher<Cancel>(
@@ -331,6 +328,20 @@ public:
           .checkpoint(checkpoint);
 
       ready_pub->publish(msg);
+    }
+
+    void release(
+        ParticipantId participant_id,
+        ReservationId reservation_id,
+        CheckpointId checkpoint) final
+    {
+      auto msg =
+          rmf_traffic_msgs::build<rmf_traffic_msgs::msg::BlockadeRelease>()
+          .participant(participant_id)
+          .reservation(reservation_id)
+          .checkpoint(checkpoint);
+
+      release_pub->publish(msg);
     }
 
     void reached(

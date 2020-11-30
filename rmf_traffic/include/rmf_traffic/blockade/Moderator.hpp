@@ -47,6 +47,12 @@ public:
       CheckpointId checkpoint) final;
 
   // Documentation inherited
+  void release(
+      ParticipantId participant_id,
+      ReservationId reservation_id,
+      CheckpointId checkpoint) final;
+
+  // Documentation inherited
   void reached(
       ParticipantId participant_id,
       ReservationId reservation_id,

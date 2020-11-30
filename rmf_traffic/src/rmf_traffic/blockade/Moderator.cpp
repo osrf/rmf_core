@@ -367,6 +367,78 @@ public:
     process_ready_queue();
   }
 
+  void release(
+      const ParticipantId participant_id,
+      const ReservationId reservation_id,
+      CheckpointId checkpoint)
+  {
+    const auto r_it = last_known_reservation.find(participant_id);
+    if (r_it == last_known_reservation.end())
+      return;
+
+    if (r_it->second.id != reservation_id)
+      return;
+
+    const auto& path = r_it->second.reservation.path;
+    if (path.empty())
+      return;
+
+    if (checkpoint >= path.size() - 1)
+      return;
+
+    auto& status = statuses.at(participant_id);
+    if (checkpoint <= status.last_reached)
+      checkpoint = status.last_reached;
+
+    std::optional<std::size_t> new_ready;
+    if (checkpoint > 0)
+      new_ready = checkpoint - 1;
+
+    status.last_ready = new_ready;
+
+    auto& range = Assignments::Implementation::modify(assignments)
+        .ranges.at(participant_id);
+
+    if (checkpoint < range.end)
+      range.end = checkpoint;
+
+    if (new_ready.has_value())
+    {
+      for (auto r_it = ready_queue.begin(); r_it != ready_queue.end(); ++r_it)
+      {
+        if (participant_id != r_it->participant_id)
+          continue;
+
+        // This ready entry probably shouldn't exist anyway, but we'll leave
+        // that up to process_ready_queue() to deal with.
+        if (reservation_id != r_it->reservation_id)
+          continue;
+
+        if (checkpoint <= r_it->checkpoint)
+          r_it->checkpoint = checkpoint;
+      }
+    }
+    else
+    {
+      // The participant no longer has any checkpoints that it is ready to move
+      // from, so we should erase any entries that this participant has in the
+      // ready queue.
+      auto r_it = ready_queue.begin();
+      while (r_it != ready_queue.end())
+      {
+        if (participant_id != r_it->participant_id)
+        {
+          ++r_it;
+          continue;
+        }
+
+        ready_queue.erase(r_it++);
+      }
+    }
+
+    process_ready_queue();
+  }
+
   void reached(
       const ParticipantId participant_id,
       const ReservationId reservation_id,
@@ -498,6 +570,15 @@ void Moderator::ready(
     const CheckpointId checkpoint)
 {
   _pimpl->ready(participant_id, reservation_id, checkpoint);
+}
+
+//==============================================================================
+void Moderator::release(
+    ParticipantId participant_id,
+    ReservationId reservation_id,
+    CheckpointId checkpoint)
+{
+  _pimpl->release(participant_id, reservation_id, checkpoint);
 }
 
 //==============================================================================

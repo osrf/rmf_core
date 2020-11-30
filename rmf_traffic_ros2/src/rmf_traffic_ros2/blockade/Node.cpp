@@ -24,6 +24,7 @@
 #include <rmf_traffic_msgs/msg/blockade_heartbeat.hpp>
 #include <rmf_traffic_msgs/msg/blockade_reached.hpp>
 #include <rmf_traffic_msgs/msg/blockade_ready.hpp>
+#include <rmf_traffic_msgs/msg/blockade_release.hpp>
 #include <rmf_traffic_msgs/msg/blockade_set.hpp>
 #include <rmf_traffic_msgs/msg/blockade_status.hpp>
 
@@ -67,6 +68,15 @@ public:
           [=](const ReachedMsg::UniquePtr msg)
     {
       this->blockade_reached(*msg);
+    });
+
+    blockade_release_sub =
+        create_subscription<ReleaseMsg>(
+          BlockadeReleaseTopicName,
+          rclcpp::SystemDefaultsQoS().best_effort(),
+          [=](const ReleaseMsg::UniquePtr msg)
+    {
+      this->blockade_release(*msg);
     });
 
     blockade_cancel_sub =
@@ -132,6 +142,24 @@ public:
     {
       RCLCPP_ERROR(
             get_logger(), "Exception due to [ready] update: %s", e.what());
+    }
+
+    check_for_updates();
+  }
+
+  using ReleaseMsg = rmf_traffic_msgs::msg::BlockadeRelease;
+  rclcpp::Subscription<ReleaseMsg>::SharedPtr blockade_release_sub;
+  void blockade_release(const ReleaseMsg& release)
+  {
+    try
+    {
+      moderator->release(
+            release.participant, release.reservation, release.checkpoint);
+    }
+    catch (const std::exception& e)
+    {
+      RCLCPP_ERROR(
+            get_logger(), "Exception due to [release] update: %s", e.what());
     }
 
     check_for_updates();

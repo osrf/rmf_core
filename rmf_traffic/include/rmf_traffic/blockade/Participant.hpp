@@ -49,6 +49,10 @@ public:
   /// given checkpoint.
   void ready(CheckpointId checkpoint);
 
+  /// Tell the blockade writer that the participant is releasing its departure
+  /// from the given checkpoint.
+  void release(CheckpointId checkpoint);
+
   /// Get the last checkpoint that this participant said it is ready to depart
   /// from.
   std::optional<CheckpointId> last_ready() const;

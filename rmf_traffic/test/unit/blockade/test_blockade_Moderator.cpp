@@ -63,6 +63,15 @@ public:
       _real_moderator->ready(participant_id, reservation_id, checkpoint);
   }
 
+  void release(
+      const ParticipantId participant_id,
+      const ReservationId reservation_id,
+      const CheckpointId checkpoint) final
+  {
+    if (_dist(_rng) < _success_rate)
+      _real_moderator->release(participant_id, reservation_id, checkpoint);
+  }
+
   void reached(
       const ParticipantId participant_id,
       const ReservationId reservation_id,
