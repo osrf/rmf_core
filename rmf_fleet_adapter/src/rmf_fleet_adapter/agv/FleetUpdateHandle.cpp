@@ -467,7 +467,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
         " initial battery charge for all robots in this fleet.", id.c_str());
     }
 
-    else if (*error == rmf_task::agv::TaskPlanner::TaskPlannerError::low_battery)
+    else if (*error ==
+      rmf_task::agv::TaskPlanner::TaskPlannerError::limited_capacity)
     {
       RCLCPP_INFO(
         node->get_logger(),
