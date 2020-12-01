@@ -151,6 +151,9 @@ public:
   /// The configuration for the planner
   TaskPlanner(std::shared_ptr<Configuration> config);
 
+  /// Get a shared pointer to the configuration of this task planner
+  const std::shared_ptr<Configuration> config() const;
+
   /// Get the greedy planner based assignments for a set of initial states and 
   /// requests
   Assignments greedy_plan(

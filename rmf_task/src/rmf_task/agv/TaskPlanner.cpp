@@ -679,9 +679,11 @@ bool Filter::ignore(const Node& node)
   return !new_node;
 }
 
+// ============================================================================
 const rmf_traffic::Duration segmentation_threshold =
     rmf_traffic::time::from_seconds(1.0);
 
+// ============================================================================
 inline double compute_g_assignment(const TaskPlanner::Assignment& assignment)
 {
   if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
@@ -696,6 +698,7 @@ inline double compute_g_assignment(const TaskPlanner::Assignment& assignment)
 
 } // anonymous namespace
 
+// ============================================================================
 class TaskPlanner::Implementation
 {
 public:
@@ -1345,6 +1348,7 @@ public:
   
 };
 
+// ============================================================================
 TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
@@ -1355,6 +1359,7 @@ TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
   // Do nothing
 }
 
+// ============================================================================
 auto TaskPlanner::greedy_plan(
   rmf_traffic::Time time_now,
   std::vector<State> initial_states,
@@ -1370,6 +1375,7 @@ auto TaskPlanner::greedy_plan(
     true);
 }
 
+// ============================================================================
 auto TaskPlanner::optimal_plan(
   rmf_traffic::Time time_now,
   std::vector<State> initial_states,
@@ -1386,16 +1392,23 @@ auto TaskPlanner::optimal_plan(
     false);
 }
 
+// ============================================================================
 auto TaskPlanner::compute_cost(const Assignments& assignments) -> double
 {
   return _pimpl->compute_g(assignments);
 }
 
+// ============================================================================
 const std::shared_ptr<EstimateCache> TaskPlanner::estimate_cache() const
 {
   return _pimpl->estimate_cache;
 }
 
+// ============================================================================
+const std::shared_ptr<TaskPlanner::Configuration> TaskPlanner::config() const
+{
+  return _pimpl->config;
+}
 
 } // namespace agv
 } // namespace rmf_task
