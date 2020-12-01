@@ -461,27 +461,29 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     if (*error == rmf_task::agv::TaskPlanner::TaskPlannerError::low_battery)
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
-        "Failed to compute assignments for task_id:[%s] due to insufficient"
-        " initial battery charge for all robots in this fleet.", id.c_str());
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
+        " insufficient initial battery charge for all robots in this fleet.",
+        id.c_str());
     }
 
     else if (*error ==
       rmf_task::agv::TaskPlanner::TaskPlannerError::limited_capacity)
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
-        "Failed to compute assignments for task_id:[%s] due to insufficient"
-        " battery capacity to accommodate one or more requests by any of the"
-        " robots in this fleet.", id.c_str());
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
+        " insufficient battery capacity to accommodate one or more requests by"
+        " any of the robots in this fleet.", id.c_str());
     }
 
     else
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
-        "Failed to compute assignments for task_id:[%s]", id.c_str());
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
+        id.c_str());
     }
 
     return;
@@ -491,9 +493,10 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   if (assignments.empty())
   {
-    RCLCPP_INFO(
+    RCLCPP_ERROR(
       node->get_logger(),
-      "Failed to compute assignments for task_id:[%s]", id.c_str());
+      "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
+      id.c_str());
 
     return;
   }
