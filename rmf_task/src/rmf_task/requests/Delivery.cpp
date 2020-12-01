@@ -152,7 +152,7 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
       variant_duration = cache_result->duration;
       battery_soc = battery_soc - cache_result->dsoc;
     }
-    else
+    else if (endpoints.first != endpoints.second)
     {
       // Compute plan to pickup waypoint along with battery drain
       rmf_traffic::agv::Planner::Goal goal{endpoints.second};
@@ -185,6 +185,19 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
   const rmf_traffic::Time wait_until =
     initial_state.finish_time() > ideal_start ?
     initial_state.finish_time() : ideal_start;
+
+
+  if (wait_until > initial_state.finish_time() && initial_state.waypoint() != initial_state.charging_waypoint())
+  {
+    rmf_traffic::Duration wait_duration(wait_until - initial_state.finish_time());
+    dSOC_device = _pimpl->_device_sink->compute_change_in_charge(
+      rmf_traffic::time::to_seconds(wait_duration));
+    battery_soc = battery_soc - dSOC_device;
+    if (battery_soc <= state_config.threshold_soc())
+    {
+      return rmf_utils::nullopt;
+    }
+  }
 
   // Factor in invariants
   state.finish_time(
