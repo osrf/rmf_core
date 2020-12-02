@@ -178,6 +178,22 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
     initial_state.finish_time() > ideal_start ?
     initial_state.finish_time() : ideal_start;
 
+  // Factor in battery drain while waiting to move to start waypoint. If a robot
+  // is initially at a charging waypoint, it is assumed to be continually charging
+  if (_pimpl->drain_battery && wait_until > initial_state.finish_time() &&
+    initial_state.waypoint() != initial_state.charging_waypoint())
+  {
+    rmf_traffic::Duration wait_duration(wait_until - initial_state.finish_time());
+    dSOC_device = _pimpl->ambient_sink->compute_change_in_charge(
+      rmf_traffic::time::to_seconds(wait_duration));
+    battery_soc = battery_soc - dSOC_device;
+
+    if (battery_soc <= state_config.threshold_soc())
+    {
+      return rmf_utils::nullopt;
+    }
+  }
+
   // Compute finish time
   const rmf_traffic::Time state_finish_time =
     wait_until + variant_duration  + _pimpl->invariant_duration;

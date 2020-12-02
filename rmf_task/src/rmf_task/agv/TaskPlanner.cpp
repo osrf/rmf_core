@@ -1367,7 +1367,6 @@ public:
       // Add copies and with a newly assigned task to queue
       for (const auto&n : new_nodes)
         priority_queue.push(n);
-      
     }
 
     return nullptr;
