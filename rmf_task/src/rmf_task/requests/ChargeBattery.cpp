@@ -112,7 +112,14 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
   const agv::StateConfig& state_config,
   const std::shared_ptr<EstimateCache> estimate_cache) const
 {
-  if (abs(initial_state.battery_soc() - _pimpl->_charge_soc) < 1e-3)
+  // Important to return nullopt if a charging task is not needed. In the task
+  // planner, if a charging task is added, the node's latest time may be set to
+  // the finishing time of the charging task, and consequently fall below the
+  // segmentation threshold, causing `solve` to return. This may cause an infinite
+  // loop as a new identical charging task is added in each call to `solve` before
+  // returning.
+  if ((abs(initial_state.battery_soc() - _pimpl->_charge_soc) < 1e-3)
+    && initial_state.waypoint() == initial_state.charging_waypoint())
     return rmf_utils::nullopt;
 
   // Compute time taken to reach charging waypoint from current location

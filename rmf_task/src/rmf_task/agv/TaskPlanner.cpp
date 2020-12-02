@@ -231,7 +231,7 @@ public:
     Range range;
     range.begin = _value_map.begin();
     auto it = range.begin;
-    while (it->first == range.begin->first && it != _value_map.end())
+    while (it->first == range.begin->first)
       ++it;
 
     range.end = it;
@@ -251,18 +251,8 @@ public:
     State previous_state,
     bool require_charge_battery)
   {
-    if (candidate >= _candidate_map.size())
-    {
-      _candidate_map.resize(candidate + 1);
-    }
-    else
-    {
-      const auto it = _candidate_map.at(candidate);
-      if (it != _value_map.end())
-      {
-        _value_map.erase(it);
-      }
-    }
+    const auto it = _candidate_map.at(candidate);
+    _value_map.erase(it);
     _candidate_map[candidate] = _value_map.insert(
       {
         state.finish_time(),
@@ -286,7 +276,7 @@ private:
     {
       const auto c = it->second.candidate;
       if (_candidate_map.size() <= c)
-        _candidate_map.resize(c+1, _value_map.end());
+        _candidate_map.resize(c+1);
 
       _candidate_map[c] = it;
     }
@@ -1347,7 +1337,6 @@ public:
       // Add copies and with a newly assigned task to queue
       for (const auto&n : new_nodes)
         priority_queue.push(n);
-      
     }
 
     return nullptr;
