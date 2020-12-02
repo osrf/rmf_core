@@ -213,5 +213,10 @@ const rmf_battery::agv::BatterySystem& ChargeBattery::battery_system() const
   return *_pimpl->battery_system;
 }
 
+double ChargeBattery::max_charge_soc() const
+{
+  return _pimpl->charge_soc;
+}
+
 } // namespace requests
 } // namespace rmf_task

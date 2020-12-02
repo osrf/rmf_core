@@ -253,6 +253,12 @@ const rxcpp::observable<double>& RobotContext::observe_battery_soc() const
   return _battery_soc_obs;
 }
 
+//==============================================================================
+const std::shared_ptr<const rmf_task::agv::TaskPlanner>& 
+RobotContext::task_planner() const
+{
+  return _task_planner;
+}
 
 //==============================================================================
 void RobotContext::respond(
@@ -284,7 +290,8 @@ RobotContext::RobotContext(
   const rxcpp::schedulers::worker& worker,
   rmf_utils::optional<rmf_traffic::Duration> maximum_delay,
   rmf_task::agv::State state,
-  rmf_task::agv::StateConfig state_config)
+  rmf_task::agv::StateConfig state_config,
+  std::shared_ptr<const rmf_task::agv::TaskPlanner> task_planner)
   : _command_handle(std::move(command_handle)),
     _location(std::move(_initial_location)),
     _itinerary(std::move(itinerary)),
@@ -296,7 +303,8 @@ RobotContext::RobotContext(
     _requester_id(
       _itinerary.description().owner() + "/" + _itinerary.description().name()),
     _state(state),
-    _state_config(state_config)
+    _state_config(state_config),
+    _task_planner(std::move(task_planner))
 {
   _profile = std::make_shared<rmf_traffic::Profile>(
         _itinerary.description().profile());
