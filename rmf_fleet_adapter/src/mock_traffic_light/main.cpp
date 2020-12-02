@@ -27,6 +27,7 @@
 #include <rmf_fleet_adapter/StandardNames.hpp>
 
 // Fleet driver state/command messages
+#include <rmf_fleet_msgs/msg/location.hpp>
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
 #include <rmf_fleet_msgs/msg/path_request.hpp>
 #include <rmf_fleet_msgs/msg/mode_request.hpp>
@@ -45,18 +46,31 @@
 
 namespace {
 //==============================================================================
+std::string time_to_str(const rclcpp::Time& t)
+{
+  double s = t.seconds();
+  int hours = static_cast<int>(s)/3600;
+  s = s - 3600*hours;
+  int minutes = static_cast<int>(s)/60;
+  s = s - 60*minutes;
+
+  std::stringstream ss;
+  ss << hours << ":" << minutes << ":" << s;
+  return ss.str();
+}
+
+//==============================================================================
 rmf_fleet_msgs::msg::Location make_location(
     rclcpp::Time t,
     const Eigen::Vector3d& p,
-    const std::string& map_name)
+    const std::string& map_name,
+    const std::size_t index)
 {
-  rmf_fleet_msgs::msg::Location location;
-  location.t = t;
-  location.x = p[0];
-  location.y = p[1];
-  location.yaw = p[2];
-  location.level_name = map_name;
-  return location;
+  return rmf_fleet_msgs::build<rmf_fleet_msgs::msg::Location>()
+      .t(t)
+      .x(p[0]).y(p[1]).yaw(p[2])
+      .level_name(map_name)
+      .index(index);
 }
 
 } // anonymous namespace
@@ -103,131 +117,17 @@ public:
   void receive_checkpoints(
     const std::size_t version,
     std::vector<Checkpoint> checkpoints,
+    std::size_t standby_at,
     OnStandby on_standby,
     Reject reject) final
   {
     std::lock_guard<std::mutex> lock(_mutex);
-    if (_path_version != version)
-      return;
-
-    std::cout << name() << " > new checkpoints:";
-    for (const auto& c : checkpoints)
-      std::cout << " " << c.waypoint_index;
-    std::cout << std::endl;
-
-    _on_standby = std::move(on_standby);
-
-    for (const auto& c : checkpoints)
-      _checkpoints.at(c.waypoint_index) = c;
-
-    const auto last_ready_checkpoint = checkpoints.back().waypoint_index;
-    for (std::size_t c = last_ready_checkpoint+1; c < _checkpoints.size(); ++c)
-      _checkpoints.at(c).reset();
-
-    _current_path_request.path.clear();
-    _current_path_request.path.reserve(_checkpoints.size());
-
-    _update_location.clear();
-    _update_location.reserve(_checkpoints.size());
-
-    _current_path_request.path.push_back(_last_state.location);
-    _update_location.push_back(
-          [target = _last_target](Eigen::Vector3d){ return target; });
-
-    if (checkpoints.back().waypoint_index+1 < _last_target)
-    {
-      // The last checkpoint is earlier than the current target of the robot.
-      // That means we are already violating the expectations of this plan.
-      // We must reject it to get a new plan.
-      RCLCPP_INFO(
-            _node->get_logger(),
-            " !!! REJECTING NEW CHECKPOINTS FOR [%s]. Last target: %u",
-            name().c_str(),
-            _last_target);
-
-      // This effectively tells the robot to stop in place
-      _current_path_request.path.push_back(_last_state.location);
-      _update_location.push_back(
-          [target = _last_target](Eigen::Vector3d){ return target; });
-
-      const auto& p = _last_state.location;
-      reject(_last_target-1, {p.x, p.y, p.yaw});
-    }
-    else
-    {
-      const auto push_back = [&](
-          const std::size_t index,
-          rclcpp::Time t,
-          std::function<std::size_t(Eigen::Vector3d)> update)
-      {
-        assert(index < _current_path.size());
-        const auto& p = _current_path.at(index).position();
-        auto location = make_location(t, p, _current_path.at(index).map_name());
-
-        _current_path_request.path.emplace_back(std::move(location));
-        _update_location.emplace_back(std::move(update));
-      };
-
-      for (std::size_t i=_last_target; i <= _checkpoints.size(); ++i)
-      {
-        auto departure_time = [&]()
-        {
-          if (i == _checkpoints.size())
-          {
-            // The last checkpoint won't receive a departure time, but the
-            // rmf_fleet_msgs API demands one. So we'll just use the previous
-            // checkpoint's departure time since the value doesn't matter
-            // anyway.
-            return _checkpoints.at(i-1).value().departure_time;
-          }
-
-          const auto& c = _checkpoints.at(i);
-          if (c.has_value())
-            return c->departure_time;
-
-          // Similar to the last checkpoint case, if we've made it past the last
-          // checkpoint that has been assigned a departure time, we will use the
-          // departure time of the previous checkpoint. We only ever iterate one
-          // past the last departure checkpoint, so this should be okay.
-          assert(i > 0);
-          return _checkpoints.at(i-1).value().departure_time;
-        }();
-
-        auto updater = [&]() -> std::function<std::size_t(Eigen::Vector3d)>
-        {
-          if (i == 0)
-            return [](Eigen::Vector3d){ return 0; };
-
-          if (_checkpoints.at(i-1).has_value())
-          {
-            return [i, departed = _checkpoints.at(i-1).value().departed](
-                Eigen::Vector3d location){ departed(location); return i; };
-          }
-
-          // If the previous checkpoint does not have a departed callback, then
-          // we should assume that we were given an immediate stop command, and
-          // we'll use the _depart_resuming callback.
-          if (!_depart_resuming)
-          {
-            throw std::runtime_error(
-                "[MockTrafficLightCommandHandle::receive_checkpoints] Missing "
-                "_depart_resuming for robot " + name());
-          }
-
-          return [i, departed = _depart_resuming](
-              Eigen::Vector3d location){ departed(location); return i; };
-        }();
-
-        push_back(i, departure_time, std::move(updater));
-
-        if (i < _checkpoints.size() && !_checkpoints.at(i).has_value())
-          break;
-      }
-    }
-
-    _current_path_request.task_id = std::to_string(++_command_version);
-    _path_request_pub->publish(_current_path_request);
-    _moving = true;
+    _internal_receive_checkpoints(
+          version,
+          std::move(checkpoints),
+          standby_at,
+          std::move(on_standby),
+          std::move(reject));
   }
 
   void immediately_stop_until(
@@ -235,7 +135,7 @@ public:
       StoppedAt stopped,
       Departed departed) final
   {
-    std::cout << name() << " !!! BEING TOLD TO STOP UNTIL " << time.seconds()
+    std::cout << name() << " !!! BEING TOLD TO STOP UNTIL " << time_to_str(time)
               << " | current target: " << _last_target << std::endl;
     _depart_resuming = departed;
 
@@ -244,6 +144,11 @@ public:
 
     _current_path_request.path.clear();
     _update_location.clear();
+
+    // We set this index value before adding this location to the path so that
+    // we definitively embed its target checkpoint index into the path that we
+    // will read back from the robot.
+    _last_state.location.index = _last_target;
 
     // The initial confirmation waypoint
     _current_path_request.path.push_back(_last_state.location);
@@ -260,7 +165,9 @@ public:
     {
       // The target waypoint
       const auto& wp = _current_path.at(_last_target);
-      auto location = make_location(time, wp.position(), wp.map_name());
+      auto location = make_location(
+            time, wp.position(), wp.map_name(), _last_target);
+
       _current_path_request.path.emplace_back(location);
       _update_location.push_back(
             [target = _last_target, departed](
@@ -273,6 +180,10 @@ public:
     _current_path_request.task_id = std::to_string(++_command_version);
     _path_request_pub->publish(_current_path_request);
     _moving = true;
+    _finishing = (_last_target == _checkpoints.size());
+
+    // receive_checkpoints should give us a new standby callback soon
+    _on_standby = nullptr;
   }
 
   void resume() final
@@ -305,6 +216,25 @@ public:
       return;
     }
 
+    if (state.mode.mode == rmf_fleet_msgs::msg::RobotMode::MODE_ADAPTER_ERROR)
+    {
+      std::cout << name() << " > Adapter Error!! Resending checkpoints! Version: "
+                << _path_version << std::endl;
+      if (state.path.empty())
+        _last_target = _last_accepted_goal.value();
+      else
+        _last_target = state.path.front().index;
+
+      _last_state.location.index = _last_target;
+      _internal_receive_checkpoints(
+            _last_received_version,
+            _last_received_checkpoints,
+            _last_received_standby_at,
+            _on_standby,
+            _last_received_reject);
+      return;
+    }
+
     if (_queue.empty())
     {
       std::cout << name() << " ??? MOVING WHILE QUEUE IS EMPTY?? " << name()
@@ -321,12 +251,10 @@ public:
       }
 
       assert(!_checkpoints.empty());
-      if (_checkpoints.back().has_value())
+      if (_finishing)
       {
-        // The fact that we have the last checkpoint and also reached the
-        // standby condition means we are done moving and can proceed to the
-        // next loop.
         _moving = false;
+        _finishing = false;
         assert(!_queue.empty());
         std::cout << "Remaining queue size: " << _queue.size() << " - 1" << std::endl;
 
@@ -340,6 +268,8 @@ public:
 
       return;
     }
+
+    _last_accepted_goal = state.path.back().index;
 
     if (state.path.size() < _update_location.size())
     {
@@ -356,6 +286,7 @@ public:
     }
     const auto& l = state.location;
     _last_target = _update_location.front()({l.x, l.y, l.yaw});
+    _last_state.location.index = _last_target;
   }
 
   std::size_t queue_size() const
@@ -406,7 +337,7 @@ private:
   {
     while (!_queue.empty())
     {
-      const std::string next = std::move(_queue.front());
+      const std::string next = _queue.front();
 
       const auto& l = _last_state.location;
       const auto starts = rmf_traffic::agv::compute_plan_starts(
@@ -450,8 +381,6 @@ private:
         std::cout << __LINE__ << ": popping " << name() << " " << _queue.size();
         _queue.pop_front();
         std::cout << " -> " << _queue.size() << std::endl;
-
-
         continue;
       }
 
@@ -463,7 +392,8 @@ private:
         continue;
       }
 
-      std::cout << "Moving " << name() << " towards " << _queue.front() << std::endl;
+      std::cout << "Moving " << name() << " towards " << _queue.front()
+                << " with " << result->get_waypoints().size() << " checkpoints" << std::endl;
 
       _follow_new_path(result->get_waypoints());
       return;
@@ -524,6 +454,160 @@ private:
     _path_version = _path_updater->follow_new_path(_current_path);
   }
 
+  void _internal_receive_checkpoints(
+      const std::size_t version,
+      std::vector<Checkpoint> checkpoints,
+      const std::size_t standby_at,
+      OnStandby on_standby,
+      Reject reject)
+  {
+    if (_path_version != version)
+      return;
+
+    _last_received_version = version;
+    _last_received_checkpoints = checkpoints;
+    _last_received_standby_at = standby_at;
+    _last_received_reject = reject;
+
+    std::cout << name() << " > new checkpoints:";
+    for (const auto& c : checkpoints)
+      std::cout << " " << c.waypoint_index;
+
+    std::cout << " | standby_at: " << standby_at << " | _last_target: " << _last_target;
+    std::cout << std::endl;
+
+    if (standby_at < _last_target)
+    {
+      // The last checkpoint is earlier than the current target of the robot.
+      // That means we are already violating the expectations of this plan.
+      // We must reject it to get a new plan.
+      RCLCPP_INFO(
+            _node->get_logger(),
+            " !!! REJECTING NEW CHECKPOINTS FOR [%s]. Last target: %u",
+            name().c_str(),
+            _last_target);
+
+      _last_state.location.index = _last_target;
+
+      // This effectively tells the robot to stop in place
+      _current_path_request.path.push_back(_last_state.location);
+      _update_location.push_back(
+          [target = _last_target](Eigen::Vector3d){ return target; });
+
+      const auto& p = _last_state.location;
+      reject(_last_target-1, {p.x, p.y, p.yaw});
+    }
+
+    _on_standby = std::move(on_standby);
+
+    if (checkpoints.empty())
+    {
+      // This should only happen if immediately_stop_until was called
+      // beforehand. In that case, we shouldn't need to send any new command
+      // to the robot
+      return;
+    }
+
+    for (const auto& c : checkpoints)
+      _checkpoints.at(c.waypoint_index) = c;
+
+    const auto last_ready_checkpoint = checkpoints.back().waypoint_index;
+    for (std::size_t c = last_ready_checkpoint+1; c < _checkpoints.size(); ++c)
+      _checkpoints.at(c).reset();
+
+    _current_path_request.path.clear();
+    _current_path_request.path.reserve(_checkpoints.size());
+
+    _update_location.clear();
+    _update_location.reserve(_checkpoints.size());
+
+    _last_state.location.index = _last_target;
+    _current_path_request.path.push_back(_last_state.location);
+    _update_location.push_back(
+          [target = _last_target](Eigen::Vector3d){ return target; });
+
+    _finishing = standby_at == _checkpoints.size();
+
+    const auto push_back = [&](
+        const std::size_t index,
+        rclcpp::Time t,
+        std::function<std::size_t(Eigen::Vector3d)> update)
+    {
+      assert(index < _current_path.size());
+      const auto& p = _current_path.at(index).position();
+      auto location = make_location(
+            t, p, _current_path.at(index).map_name(), index);
+
+      _current_path_request.path.emplace_back(std::move(location));
+      _update_location.emplace_back(std::move(update));
+    };
+
+    for (std::size_t i=_last_target; i <= _checkpoints.size(); ++i)
+    {
+      auto departure_time = [&]()
+      {
+        if (i == _checkpoints.size())
+        {
+          // The last checkpoint won't receive a departure time, but the
+          // rmf_fleet_msgs API demands one. So we'll just use the previous
+          // checkpoint's departure time since the value doesn't matter
+          // anyway.
+          return _checkpoints.at(i-1).value().departure_time;
+        }
+
+        const auto& c = _checkpoints.at(i);
+        if (c.has_value())
+          return c->departure_time;
+
+        // Similar to the last checkpoint case, if we've made it past the last
+        // checkpoint that has been assigned a departure time, we will use the
+        // departure time of the previous checkpoint. We only ever iterate one
+        // past the last departure checkpoint, so this should be okay.
+        assert(i > 0);
+        return _checkpoints.at(i-1).value().departure_time;
+      }();
+
+      auto updater = [&]() -> std::function<std::size_t(Eigen::Vector3d)>
+      {
+        if (i == 0)
+          return [](Eigen::Vector3d){ return 0; };
+
+        if (_checkpoints.at(i-1).has_value())
+        {
+          return [i, departed = _checkpoints.at(i-1).value().departed](
+              Eigen::Vector3d location){ departed(location); return i; };
+        }
+
+        // If the previous checkpoint does not have a departed callback, then
+        // we should assume that we were given an immediate stop command, and
+        // we'll use the _depart_resuming callback.
+        if (!_depart_resuming)
+        {
+          throw std::runtime_error(
+              "[MockTrafficLightCommandHandle::receive_checkpoints] Missing "
+              "_depart_resuming for robot " + name());
+        }
+
+        return [i, departed = _depart_resuming](
+            Eigen::Vector3d location){ departed(location); return i; };
+      }();
+
+      push_back(i, departure_time, std::move(updater));
+
+      if (i < _checkpoints.size() && !_checkpoints.at(i).has_value())
+        break;
+    }
+
+    std::cout << name() << " > issuing path request:";
+    for (const auto& l : _current_path_request.path)
+      std::cout << " " << l.index;
+    std::cout << std::endl;
+
+    _current_path_request.task_id = std::to_string(++_command_version);
+    _path_request_pub->publish(_current_path_request);
+    _moving = true;
+  }
+
   std::deque<std::string> _queue;
 
   rclcpp::Node* _node;
@@ -539,12 +623,20 @@ private:
   std::size_t _command_version = 0;
   std::size_t _last_target = 0;
   bool _moving = false;
+  bool _finishing = false;
 
   std::vector<rmf_fleet_adapter::agv::Waypoint> _current_path;
   std::vector<std::optional<Checkpoint>> _checkpoints;
   std::vector<std::function<std::size_t(Eigen::Vector3d)>> _update_location;
+
+  std::size_t _last_received_version;
+  std::vector<Checkpoint> _last_received_checkpoints;
+  std::size_t _last_received_standby_at;
+  Reject _last_received_reject;
   OnStandby _on_standby;
   Departed _depart_resuming;
+
+  std::optional<std::size_t> _last_accepted_goal;
 
   std::mutex _mutex;
 

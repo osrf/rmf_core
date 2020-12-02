@@ -139,13 +139,20 @@ public:
     ///   robot is allowed to depart each waypoint, and callback functions to
     ///   keep the fleet adapter up to date on the robot's progress.
     ///
+    /// \param[in] standby_at
+    ///   Have the robot wait once it reaches this waypoint.
+    ///
     /// \param[in] on_standby
     ///   Trigger this callback when the robot has arrived at the first waypoint
     ///   that it has not received a checkpoint for, or when the robot has
     ///   arrived at the last waypoint in its path.
+    ///
+    /// \param[in] reject
+    ///   Trigger this callback if the plan must be rejected.
     virtual void receive_checkpoints(
         std::size_t version,
         std::vector<Checkpoint> checkpoints,
+        std::size_t standby_at,
         OnStandby on_standby,
         Reject reject) = 0;
 

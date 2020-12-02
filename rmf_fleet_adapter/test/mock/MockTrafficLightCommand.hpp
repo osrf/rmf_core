@@ -35,6 +35,7 @@ public:
   void receive_checkpoints(
       const std::size_t version,
       std::vector<Checkpoint> checkpoints,
+      const std::size_t,
       std::function<void()> on_standby,
       Reject)
   {
