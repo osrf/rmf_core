@@ -11,6 +11,7 @@
 
 #include <rmf_task/agv/State.hpp>
 #include <rmf_task/agv/StateConfig.hpp>
+#include <rmf_task/agv/TaskPlanner.hpp>
 
 #include <rclcpp/node.hpp>
 
@@ -134,6 +135,10 @@ public:
   // Get a reference to the battery soc observer of this robot.
   const rxcpp::observable<double>& observe_battery_soc() const;
 
+  /// Get a mutable reference to the task planner for this robot
+  const std::shared_ptr<const rmf_task::agv::TaskPlanner>& task_planner() const;
+
+
 private:
   friend class FleetUpdateHandle;
   friend class RobotUpdateHandle;
@@ -148,7 +153,8 @@ private:
     const rxcpp::schedulers::worker& worker,
     rmf_utils::optional<rmf_traffic::Duration> maximum_delay,
     rmf_task::agv::State state,
-    rmf_task::agv::StateConfig state_config);
+    rmf_task::agv::StateConfig state_config,
+    std::shared_ptr<const rmf_task::agv::TaskPlanner> task_planner);
 
   std::weak_ptr<RobotCommandHandle> _command_handle;
   std::vector<rmf_traffic::agv::Plan::Start> _location;
@@ -175,6 +181,7 @@ private:
   rxcpp::observable<double> _battery_soc_obs;
   rmf_task::agv::State _state;
   rmf_task::agv::StateConfig _state_config;
+  std::shared_ptr<const rmf_task::agv::TaskPlanner> _task_planner;
 };
 
 using RobotContextPtr = std::shared_ptr<RobotContext>;

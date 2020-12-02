@@ -673,7 +673,8 @@ void FleetUpdateHandle::add_robot(
             fleet->_pimpl->worker,
             fleet->_pimpl->default_maximum_delay,
             state,
-            state_config
+            state_config,
+            fleet->_pimpl->task_planner
           });
 
     // We schedule the following operations on the worker to make sure we do not
