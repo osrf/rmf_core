@@ -444,20 +444,60 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   // Generate new task assignments while accommodating for the new
   // request
-  // Call greedy_plan but run optimal_plan() in a separate thread
-  const auto assignments = task_planner->optimal_plan(
+  const auto result = task_planner->optimal_plan(
     rmf_traffic_ros2::convert(node->now()),
     states,
     state_configs,
     pending_requests,
     nullptr);
 
+  auto assignments_ptr = std::get_if<
+    rmf_task::agv::TaskPlanner::Assignments>(&result);
+
+  if (!assignments_ptr)
+  {
+    auto error = std::get_if<
+      rmf_task::agv::TaskPlanner::TaskPlannerError>(&result);
+
+    if (*error == rmf_task::agv::TaskPlanner::TaskPlannerError::low_battery)
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
+        " insufficient initial battery charge for all robots in this fleet.",
+        id.c_str());
+    }
+
+    else if (*error ==
+      rmf_task::agv::TaskPlanner::TaskPlannerError::limited_capacity)
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
+        " insufficient battery capacity to accommodate one or more requests by"
+        " any of the robots in this fleet.", id.c_str());
+    }
+
+    else
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
+        id.c_str());
+    }
+
+    return;
+  }
+
+  const auto assignments = *assignments_ptr;
+
   if (assignments.empty())
   {
-    RCLCPP_INFO(
+    RCLCPP_ERROR(
       node->get_logger(),
-      "Failed to compute assignments for task_id:[%s]", id.c_str());
-    
+      "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
+      id.c_str());
+
     return;
   }
 

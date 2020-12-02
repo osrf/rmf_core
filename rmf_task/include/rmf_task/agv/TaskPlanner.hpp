@@ -33,6 +33,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <variant>
 
 namespace rmf_task {
 namespace agv {
@@ -142,8 +143,23 @@ public:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
 
+  enum class TaskPlannerError
+  {
+    /// None of the agents in the initial states have sufficient initial charge 
+    /// to even head back to their charging stations. Manual intervention is
+    /// needed to recharge one or more agents.
+    low_battery,
+
+    /// None of the agents in the initial states have sufficient battery
+    /// capacity to accommodate one or more requests. This may be remedied by
+    /// increasing the battery capacity or by lowering the threshold_soc in the 
+    /// state configs of the agents or by modifying the original request.
+    limited_capacity
+  };
+
   /// Container for assignments for each agent
   using Assignments = std::vector<std::vector<Assignment>>;
+  using Result = std::variant<Assignments, TaskPlannerError>;
 
   /// Constructor
   ///
@@ -153,7 +169,7 @@ public:
 
   /// Get the greedy planner based assignments for a set of initial states and 
   /// requests
-  Assignments greedy_plan(
+  Result greedy_plan(
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
@@ -165,15 +181,17 @@ public:
   /// segment, this plan may take a while to be generated. Hence, it is
   /// recommended to call plan() method and use the greedy solution for bidding.
   /// If a bid is awarded, the optimal solution may be used for assignments.
-  Assignments optimal_plan(
+  Result optimal_plan(
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
     std::vector<ConstRequestPtr> requests,
     std::function<bool()> interrupter);
 
+  /// Compute the cost of a set of assignments
   double compute_cost(const Assignments& assignments);
 
+  /// Retrieve the task planner cache
   const std::shared_ptr<EstimateCache> estimate_cache() const;
 
   class Implementation;

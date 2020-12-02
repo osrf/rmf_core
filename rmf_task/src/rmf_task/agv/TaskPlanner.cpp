@@ -197,8 +197,9 @@ public:
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const rmf_task::Request& request,
-    const rmf_task::Request& charge_battery_request,
-    const std::shared_ptr<EstimateCache> estimate_cache);
+    const rmf_task::requests::ChargeBattery& charge_battery_request,
+    const std::shared_ptr<EstimateCache> estimate_cache,
+    TaskPlanner::TaskPlannerError& error);
 
   Candidates(const Candidates& other)
   {
@@ -287,8 +288,9 @@ std::shared_ptr<Candidates> Candidates::make(
   const std::vector<State>& initial_states,
   const std::vector<StateConfig>& state_configs,
   const rmf_task::Request& request,
-  const rmf_task::Request& charge_battery_request,
-  const std::shared_ptr<EstimateCache> estimate_cache)
+  const rmf_task::requests::ChargeBattery& charge_battery_request,
+  const std::shared_ptr<EstimateCache> estimate_cache,
+  TaskPlanner::TaskPlannerError& error)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
@@ -328,15 +330,30 @@ std::shared_ptr<Candidates> Candidates::make(
               state,
               true}});
         }
+        else
+        {
+          error = TaskPlanner::TaskPlannerError::limited_capacity;
+        }
+        
       }
+      else
+      {
+        // Control reaches here either if ChargeBattery::estimate_finish() was
+        // called on initial state with full battery or low battery such that
+        // agent is unable to make it back to the charger
+        if (abs(
+          state.battery_soc() - charge_battery_request.max_charge_soc()) < 1e-3) 
+            error = TaskPlanner::TaskPlannerError::limited_capacity;
+        else
+          error = TaskPlanner::TaskPlannerError::low_battery;
+      }
+      
     }
     
   }
 
   if (initial_map.empty())
   {
-    std::cout << "Unable to create candidates for request [" << request.id()
-              << "]" << std::endl;
     return nullptr;
   }
 
@@ -355,7 +372,8 @@ public:
       std::vector<rmf_task::agv::StateConfig>& state_configs,
       rmf_task::ConstRequestPtr request_,
       rmf_task::ConstRequestPtr charge_battery_request,
-      std::shared_ptr<EstimateCache> estimate_cache);
+      std::shared_ptr<EstimateCache> estimate_cache,
+      TaskPlanner::TaskPlannerError& error);
 
   rmf_task::ConstRequestPtr request;
   Candidates candidates;
@@ -378,11 +396,16 @@ std::shared_ptr<PendingTask> PendingTask::make(
     std::vector<rmf_task::agv::StateConfig>& state_configs,
     rmf_task::ConstRequestPtr request_,
     rmf_task::ConstRequestPtr charge_battery_request,
-    std::shared_ptr<EstimateCache> estimate_cache)
+    std::shared_ptr<EstimateCache> estimate_cache,
+    TaskPlanner::TaskPlannerError& error)
 {
+
+  auto battery_request = std::dynamic_pointer_cast<
+    const rmf_task::requests::ChargeBattery>(charge_battery_request);
+
   const auto candidates = Candidates::make(initial_states, state_configs,
-        *request_, *charge_battery_request, estimate_cache);
-  
+        *request_, *battery_request, estimate_cache, error);
+
   if (!candidates)
     return nullptr;
 
@@ -745,8 +768,8 @@ public:
 
     return assignments;
   }
-  
-  Assignments complete_solve(
+
+  Result complete_solve(
     rmf_traffic::Time time_now,
     std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
@@ -755,10 +778,11 @@ public:
     bool greedy)
   {
     assert(initial_states.size() == state_configs.size());
-
-    auto node = make_initial_node(initial_states, state_configs, requests, time_now);
+    TaskPlannerError error;
+    auto node = make_initial_node(
+      initial_states, state_configs, requests, time_now, error);
     if (!node)
-      return {};
+      return error;
 
     TaskPlanner::Assignments complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
@@ -809,9 +833,10 @@ public:
           estimates[i] = assignments.back().assignment.state();
       }
 
-      node = make_initial_node(estimates, state_configs, new_tasks, time_now);
+      node = make_initial_node(
+        estimates, state_configs, new_tasks, time_now, error);
       if (!node)
-        return {};
+        return error;
       initial_states = estimates;
     }
 
@@ -893,7 +918,8 @@ public:
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
     std::vector<ConstRequestPtr> requests,
-    rmf_traffic::Time time_now)
+    rmf_traffic::Time time_now,
+    TaskPlannerError& error)
   {
     auto initial_node = std::make_shared<Node>();
 
@@ -911,8 +937,9 @@ public:
           state_configs,
           request,
           charge_battery,
-          estimate_cache);
-
+          estimate_cache,
+          error);
+      
       if (!pending_task)
         return nullptr;
 
@@ -1359,7 +1386,7 @@ auto TaskPlanner::greedy_plan(
   rmf_traffic::Time time_now,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
-  std::vector<ConstRequestPtr> requests) -> Assignments
+  std::vector<ConstRequestPtr> requests) -> Result
 {
   return _pimpl->complete_solve(
     time_now,
@@ -1375,7 +1402,7 @@ auto TaskPlanner::optimal_plan(
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<ConstRequestPtr> requests,
-  std::function<bool()> interrupter) -> Assignments
+  std::function<bool()> interrupter) -> Result
 {
   return _pimpl->complete_solve(
     time_now,
