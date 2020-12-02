@@ -287,6 +287,7 @@ auto EasyTrafficLight::Implementation::moving_from(
             "[EasyTrafficLight::moving_from] Moving away from checkpoint [%u] "
             "when the robot was supposed to standby at [%u]",
             checkpoint, standby_at);
+      pause_cb();
       return MovingError;
     }
 
