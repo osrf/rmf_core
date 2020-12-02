@@ -993,13 +993,14 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         rmf_traffic_ros2::convert(immediately_stop_until.value());
 
     command->immediately_stop_until(
+          current_path_version,
           last_immediate_stop.value(),
           std::move(stopped_at), std::move(departed));
   }
   else if (last_immediate_stop.has_value())
   {
     if (now < *last_immediate_stop)
-      command->resume();
+      command->resume(current_path_version);
   }
 
   if (!immediately_stop_until.has_value())
@@ -2054,6 +2055,34 @@ std::size_t TrafficLight::UpdateHandle::follow_new_path(
   });
 
   return version;
+}
+
+//==============================================================================
+class TrafficLight::CommandHandle::Blocker::Implementation
+{
+public:
+  rmf_traffic::schedule::ParticipantId id;
+  rmf_traffic::schedule::ParticipantDescription description;
+};
+
+//==============================================================================
+rmf_traffic::schedule::ParticipantId
+TrafficLight::CommandHandle::Blocker::participant_id() const
+{
+  return _pimpl->id;
+}
+
+//==============================================================================
+const rmf_traffic::schedule::ParticipantDescription&
+TrafficLight::CommandHandle::Blocker::description() const
+{
+  return _pimpl->description;
+}
+
+//==============================================================================
+TrafficLight::CommandHandle::Blocker::Blocker()
+{
+  // Do nothing
 }
 
 } // namespace agv

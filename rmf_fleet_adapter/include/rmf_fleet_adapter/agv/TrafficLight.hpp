@@ -166,6 +166,11 @@ public:
     /// If the specified time has already passed by the time this function is
     /// called, then there is no need to stop.
     ///
+    /// \param[in] version
+    ///   The version number of the path whose timing is being provided. If this
+    ///   version number does not match the latest path that you submitted, then
+    ///   simply ignore and discard the timing information.
+    ///
     /// \param[in] time
     ///   The time to wait until
     ///
@@ -177,13 +182,19 @@ public:
     /// \param[in] departed
     ///   Trigger this callback when the robot departs from this stop.
     virtual void immediately_stop_until(
+        std::size_t version,
         rclcpp::Time time,
         StoppedAt stopped_at,
         Departed departed) = 0;
 
     /// Resume travel, even if immediately_stop_until(~) was activated and the
     /// given time has not been reached yet.
-    virtual void resume() = 0;
+    ///
+    /// \param[in] version
+    ///   The version number of the path whose timing is being provided. If this
+    ///   version number does not match the latest path that you submitted, then
+    ///   simply ignore and discard the timing information.
+    virtual void resume(std::size_t version) = 0;
 
     /// This class is given to the deadlock() function to describe the
     /// participants that are blocking the robot and creating the deadlock.
@@ -199,6 +210,7 @@ public:
 
       class Implementation;
     private:
+      Blocker();
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 

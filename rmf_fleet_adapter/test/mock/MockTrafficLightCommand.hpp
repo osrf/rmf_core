@@ -52,12 +52,13 @@ public:
     // Do nothing
   }
 
-  void immediately_stop_until(rclcpp::Time, StoppedAt, Departed) final
+  void immediately_stop_until(
+      std::size_t, rclcpp::Time, StoppedAt, Departed) final
   {
     // Do nothing
   }
 
-  void resume() final
+  void resume(std::size_t) final
   {
     // Do nothing
   }

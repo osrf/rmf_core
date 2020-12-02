@@ -30,6 +30,7 @@
 #include <rmf_task_msgs/msg/loop.hpp>
 
 #include "internal_TrafficLight.hpp"
+#include "internal_EasyTrafficLight.hpp"
 
 #include "../load_param.hpp"
 
@@ -278,7 +279,7 @@ void Adapter::add_traffic_light(
 {
   if (!handle_cb)
   {
-    RCLCPP_WARN(
+    RCLCPP_ERROR(
       _pimpl->node->get_logger(),
       "Adapter::add_traffic_light(~) was not provided a callback to receive "
       "the TrafficLight::UpdateHandle for the robot [%s] owned by [%s]. This "
@@ -330,6 +331,97 @@ void Adapter::add_traffic_light(
            update_handle = std::move(update_handle)](const auto&)
     {
       handle_cb(std::move(update_handle));
+    });
+  });
+}
+
+//==============================================================================
+void Adapter::add_easy_traffic_light(
+    std::function<void(EasyTrafficLightPtr)> handle_callback,
+    const std::string& fleet_name,
+    const std::string& robot_name,
+    rmf_traffic::agv::VehicleTraits traits,
+    std::function<void()> pause_callback,
+    std::function<void()> resume_callback,
+    std::function<void(Blockers)> blocker_callback)
+{
+  if (!handle_callback)
+  {
+    RCLCPP_ERROR(
+      _pimpl->node->get_logger(),
+      "Adapter::add_easy_traffic_light(~) was not provided a callback to "
+      "receive the TrafficLight::UpdateHandle for the robot [%s] owned by "
+      "[%s]. This means the traffic light controller will not be able to work "
+      "since you cannot provide information about where the robot is going. We "
+      "will not create the requested traffic light controller.",
+      robot_name.c_str(), fleet_name.c_str());
+
+    return;
+  }
+
+  if (!pause_callback)
+  {
+    RCLCPP_ERROR(
+      _pimpl->node->get_logger(),
+      "Adapter::add_easy_traffic_light(~) was not provided a pause_callback "
+      "value for the robot [%s] owned by [%s]. This means the easy traffic "
+      "light controller will not be able to work correctly since we cannot "
+      "command on-demand pauses. We will not create the requested easy traffic "
+      "light controller.",
+      robot_name.c_str(), fleet_name.c_str());
+    return;
+  }
+
+  if (!resume_callback)
+  {
+    RCLCPP_ERROR(
+      _pimpl->node->get_logger(),
+      "Adapter::add_easy_traffic_light(~) was not provided a resume_callback "
+      "value for the robot [%s] owned by [%s]. This means the easy traffic "
+      "light controller will not be able to work correctly since we cannot "
+      "command on-demand resuming. We will not create the requested easy "
+      "traffic light controller.",
+      robot_name.c_str(), fleet_name.c_str());
+    return;
+  }
+
+  const auto command_handle =
+      std::make_shared<EasyTrafficLight::Implementation::CommandHandle>();
+
+  add_traffic_light(
+        command_handle,
+        fleet_name,
+        robot_name,
+        std::move(traits),
+        [command_handle,
+         pause_callback = std::move(pause_callback),
+         resume_callback = std::move(resume_callback),
+         handle_callback = std::move(handle_callback),
+         blocker_callback = std::move(blocker_callback),
+         worker = _pimpl->worker,
+         node = _pimpl->node,
+         fleet_name,
+         robot_name](
+        TrafficLight::UpdateHandlePtr update_handle)
+  {
+    EasyTrafficLightPtr easy_handle =
+        EasyTrafficLight::Implementation::make(
+          std::move(update_handle),
+          std::move(pause_callback),
+          std::move(resume_callback),
+          std::move(blocker_callback),
+          worker,
+          node,
+          robot_name,
+          fleet_name);
+
+    command_handle->pimpl = easy_handle;
+
+    worker.schedule(
+          [easy_handle = std::move(easy_handle),
+           handle_callback = std::move(handle_callback)](const auto&)
+    {
+      handle_callback(easy_handle);
     });
   });
 }

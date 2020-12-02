@@ -131,10 +131,14 @@ public:
   }
 
   void immediately_stop_until(
+      std::size_t version,
       rclcpp::Time time,
       StoppedAt stopped,
       Departed departed) final
   {
+    if (version != _path_version)
+      return;
+
     std::cout << name() << " !!! BEING TOLD TO STOP UNTIL " << time_to_str(time)
               << " | current target: " << _last_target << std::endl;
     _depart_resuming = departed;
@@ -186,7 +190,7 @@ public:
     _on_standby = nullptr;
   }
 
-  void resume() final
+  void resume(std::size_t) final
   {
     std::cout << name() << " !!! being told to resume" << std::endl;
   }
@@ -246,6 +250,7 @@ public:
       if (_on_standby)
       {
         std::cout << name() << " > Triggering _on_standby for " << _last_target << std::endl;
+        _last_target = _last_received_standby_at;
         _on_standby();
         _on_standby = nullptr;
       }
@@ -407,6 +412,13 @@ private:
 
     _moving = false;
     _last_target = 0;
+
+    // This deals with the edge case where an ADAPTER_ERROR happens just after
+    // the robot finishes a path and has not responded positively to the next
+    // path. In that situation, we want _last_accepted_goal to have a value of 0
+    // so that _last_target will be given a value of 0.
+    _last_accepted_goal = 0;
+
     const auto& graph = _travel_info.graph;
     std::string first_level;
     for (const auto& wp : waypoints)
