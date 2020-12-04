@@ -110,7 +110,7 @@ public:
 
   void accept_new_checkpoints();
 
-  bool handle_new_checkpoints_moving(
+  std::optional<MovingInstruction> handle_new_checkpoints_moving(
       const std::size_t last_departed_checkpoint);
 
   MovingInstruction moving_from(
@@ -132,6 +132,8 @@ public:
       std::size_t checkpoint,
       Eigen::Vector3d location);
 
+  std::size_t get_last_reached() const;
+
   std::optional<CheckpointInfo> last_received_checkpoints;
   std::optional<ImmediateStopInfo> last_received_stop_info;
   std::optional<ResumeInfo> resume_info;
@@ -148,6 +150,7 @@ public:
   OnStandby on_standby;
 
   std::optional<std::size_t> last_departed_checkpoint;
+  std::size_t last_reached = 0;
 
   std::function<void()> pause_cb;
   std::function<void()> resume_cb;
@@ -160,6 +163,8 @@ public:
 
   std::string name;
   std::string owner;
+
+  mutable std::mutex mutex;
 
   static EasyTrafficLightPtr make(
       TrafficLight::UpdateHandlePtr update_handle_,

@@ -33,21 +33,25 @@ public:
   void follow_new_path(const std::vector<Waypoint>& new_path);
 
   /// This instruction is given for moving updates. It
-  enum MovingInstruction
+  enum class MovingInstruction : uint8_t
   {
-    /// When the robot reaches the next checkpoint, it should continue.
-    ContinueAtNextCheckpoint,
-
-    /// When the robot reaches the next checkpoint, it must wait.
-    WaitAtNextCheckpoint,
-
     /// This indicates that your robot has not obeyed its instructions to stop.
     /// When this happens, it could mean serious problems for the overall
     /// traffic light system, including permanent deadlocks with other robots.
     /// This error may be seen if moving_from(~) is called during the time gap
     /// between the robot being instructed to pause and the feedback from the
     /// robot that it has paused.
-    MovingError = 0
+    MovingError = 0,
+
+    /// When the robot reaches the next checkpoint, it should continue.
+    ContinueAtNextCheckpoint,
+
+    /// When the robot reaches the next checkpoint, it must wait.
+    WaitAtNextCheckpoint,
+
+    /// The robot should pause immediately. This typically means there has been
+    /// a change of plans and now the robot is scheduled to give way to another.
+    PauseImmediately
   };
 
   /// Tell the traffic light that the robot is moving.
@@ -68,18 +72,18 @@ public:
       std::size_t checkpoint,
       Eigen::Vector3d location);
 
-  enum WaitingInstruction
+  enum class WaitingInstruction : uint8_t
   {
+    /// This indicates that your robot has not obeyed its instructions to stop.
+    /// When this happens, it could mean serious problems for the overall
+    /// traffic light system, including permanent deadlocks with other robots.
+    WaitingError = 0,
+
     /// The robot can continue along its path. It no longer needs to wait here.
     Resume,
 
     /// The robot must continue waiting here.
     Wait,
-
-    /// This indicates that your robot has not obeyed its instructions to stop.
-    /// When this happens, it could mean serious problems for the overall
-    /// traffic light system, including permanent deadlocks with other robots.
-    WaitingError = 0
   };
 
   /// Tell the traffic light that the robot is waiting at a checkpoint.
@@ -103,6 +107,9 @@ public:
   WaitingInstruction waiting_after(
       std::size_t checkpoint,
       Eigen::Vector3d location);
+
+  /// Get the last checkpoint that the traffic light knows has been reached.
+  std::size_t last_reached() const;
 
   class Implementation;
 private:

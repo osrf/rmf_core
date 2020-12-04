@@ -11,3 +11,5 @@ uint32 MODE_DOCKING=7
 # Use this when a command received from the fleet adapter
 # has a problem and needs to be recomputed.
 uint32 MODE_ADAPTER_ERROR=8
+
+uint64 mode_request_id

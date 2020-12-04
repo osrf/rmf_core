@@ -219,7 +219,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
 
   const auto now = rmf_traffic_ros2::convert(node->now());
 
-  current_range = rmf_traffic::blockade::ReservedRange{0, 0};
   plan_itinerary.clear();
   pending_waypoints.clear();
   itinerary.clear();
@@ -320,7 +319,10 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
        checkpoints = std::move(checkpoints)]()
   {
     if (const auto data = w.lock())
+    {
+      data->current_range = rmf_traffic::blockade::ReservedRange{0, 0};
       data->blockade.set(checkpoints);
+    }
   };
 
   plan_timing(
@@ -1124,11 +1126,11 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
 
     if (checkpoint_index != data->blockade.last_reached())
     {
-      std::cout << data->name() << " < reached "
-                << checkpoint_index << " with update_location | previously: "
-                << data->blockade.last_reached()
-                << " | current_range: [" << data->current_range.begin
-                << ", " << data->current_range.end << "]" << std::endl;
+//      std::cout << data->name() << " < reached "
+//                << checkpoint_index << " with update_location | previously: "
+//                << data->blockade.last_reached()
+//                << " | current_range: [" << data->current_range.begin
+//                << ", " << data->current_range.end << "]" << std::endl;
     }
     data->blockade.reached(checkpoint_index);
 
@@ -1472,10 +1474,15 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
     return;
   }
 
-  std::cout << name() << " < Sending checkpoints. Plan " << current_plan_version << ". Range: ["
+  std::cout << name() << " < Sending checkpoints";
+  for (const auto& c : checkpoints)
+    std::cout << " " << c.waypoint_index;
+
+  std::cout << ". Plan " << current_plan_version << ". Range: ["
             << current_range.begin << ", " << current_range.end
             << "]. next_departure_checkpoint was: " << DEBUG_initial_next_departure_checkpoint
             << " | Initial pending:";
+
   for (const auto& wp : pending_waypoints)
     std::cout << " " << wp.graph_index().value();
 
@@ -1631,18 +1638,18 @@ void TrafficLight::UpdateHandle::Implementation::Data::check_waiting_delay(
     const std::size_t version,
     const std::size_t checkpoint_id)
 {
-  std::cout << name() << " < check_waiting_delay at " << checkpoint_id << " | ";
+//  std::cout << name() << " < check_waiting_delay at " << checkpoint_id << " | ";
 
   if (version != current_path_version)
   {
-    std::cout << "wrong version: " << version << " vs " << current_path_version << std::endl;
+//    std::cout << "wrong version: " << version << " vs " << current_path_version << std::endl;
     return;
   }
 
   const auto depart_it = departure_timing.find(checkpoint_id);
   if (depart_it == departure_timing.end())
   {
-    std::cout << "no depart time: " << checkpoint_id << std::endl;
+//    std::cout << "no depart time: " << checkpoint_id << std::endl;
     return;
   }
 
@@ -1651,24 +1658,24 @@ void TrafficLight::UpdateHandle::Implementation::Data::check_waiting_delay(
   const auto time_shift = (new_delay - itinerary.delay())
       .to_chrono<std::chrono::nanoseconds>();
 
-  if (blockade.last_ready().has_value())
-    std::cout << "last_ready: " << blockade.last_ready().value() << ", ";
-  else
-    std::cout << "last_ready: (null), ";
+//  if (blockade.last_ready().has_value())
+//    std::cout << "last_ready: " << blockade.last_ready().value() << ", ";
+//  else
+//    std::cout << "last_ready: (null), ";
 
-  std::cout << "ready_check_timer: " << ready_check_timer << " | ";
+//  std::cout << "ready_check_timer: " << ready_check_timer << " | ";
 
   // We add some extra margin in here, because we don't know exactly when
   // we will get permission to continue.
   if (time_shift > -std::chrono::seconds(1))
   {
     const auto chosen_shift = time_shift + std::chrono::seconds(2);
-    std::cout << "shifting by " << rmf_traffic::time::to_seconds(chosen_shift) << std::endl;
+//    std::cout << "shifting by " << rmf_traffic::time::to_seconds(chosen_shift) << std::endl;
     itinerary.delay(chosen_shift);
   }
   else
   {
-    std::cout << "shift below threshold: " << rmf_traffic::time::to_seconds(time_shift) << std::endl;
+//    std::cout << "shift below threshold: " << rmf_traffic::time::to_seconds(time_shift) << std::endl;
   }
 }
 
