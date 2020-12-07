@@ -67,6 +67,19 @@ public:
   /// from ContinueAtNextCheckpoint to WaitAtNextCheckpoint if a negotiation
   /// decided to have this robot give way to another robot. You must always use
   /// the latest value received from this function.
+  ///
+  /// \warning This function should only be called if the system has enough time
+  /// for the robot to stop at the next checkpoint (i.e. accounting for the
+  /// network latency of sending out the stop command and the deceleration of
+  /// the robot). The expectation is that if this function returns a
+  /// WaitAtNextCheckpoint instruction, then the robot will definitely wait at
+  /// the next checkpoint (until instructed otherwise). If that expectation is
+  /// violated, you may get MovingError and/or WaitingError results, and the
+  /// overall traffic flow may get interrupted or deadlocked.
+  ///
+  /// \note If your might not be able to stop in time to wait at the next
+  /// checkpoint, then call moving_from(checkpoint+1, location) instead, even if
+  /// your robot has not physically reached checkpoint+1 yet.
   [[nodiscard]]
   MovingInstruction moving_from(
       std::size_t checkpoint,
