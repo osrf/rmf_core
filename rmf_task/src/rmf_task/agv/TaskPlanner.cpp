@@ -193,12 +193,13 @@ public:
   // Map finish time to Entry
   using Map = std::multimap<rmf_traffic::Time, Entry>;
 
-  static Candidates make(
+  static std::shared_ptr<Candidates> make(
     const std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
     const rmf_task::Request& request,
-    const rmf_task::Request& charge_battery_request,
-    const std::shared_ptr<EstimateCache> estimate_cache);
+    const rmf_task::requests::ChargeBattery& charge_battery_request,
+    const std::shared_ptr<EstimateCache> estimate_cache,
+    TaskPlanner::TaskPlannerError& error);
 
   Candidates(const Candidates& other)
   {
@@ -283,12 +284,13 @@ private:
   }
 };
 
-Candidates Candidates::make(
+std::shared_ptr<Candidates> Candidates::make(
   const std::vector<State>& initial_states,
   const std::vector<StateConfig>& state_configs,
   const rmf_task::Request& request,
-  const rmf_task::Request& charge_battery_request,
-  const std::shared_ptr<EstimateCache> estimate_cache)
+  const rmf_task::requests::ChargeBattery& charge_battery_request,
+  const std::shared_ptr<EstimateCache> estimate_cache,
+  TaskPlanner::TaskPlannerError& error)
 {
   Map initial_map;
   for (std::size_t i = 0; i < initial_states.size(); ++i)
@@ -317,50 +319,102 @@ Candidates Candidates::make(
       {
         auto new_finish = request.estimate_finish(
           battery_estimate.value().finish_state(), state_config, estimate_cache);
-        assert(new_finish.has_value());
-        initial_map.insert(
-          {new_finish.value().finish_state().finish_time(),
-          Entry{
-            i,
-            new_finish.value().finish_state(),
-            new_finish.value().wait_until(),
-            state,
-            true}});
+        if (new_finish.has_value())
+        {
+          initial_map.insert(
+            {new_finish.value().finish_state().finish_time(),
+            Entry{
+              i,
+              new_finish.value().finish_state(),
+              new_finish.value().wait_until(),
+              state,
+              true}});
+        }
+        else
+        {
+          error = TaskPlanner::TaskPlannerError::limited_capacity;
+        }
+        
       }
       else
       {
-        std::cerr << "Unable to create entry for candidate [" << i 
-                  << "] and request [" << request.id() << " ]" << std::endl;
-        assert(false);
+        // Control reaches here either if ChargeBattery::estimate_finish() was
+        // called on initial state with full battery or low battery such that
+        // agent is unable to make it back to the charger
+        if (abs(
+          state.battery_soc() - charge_battery_request.max_charge_soc()) < 1e-3) 
+            error = TaskPlanner::TaskPlannerError::limited_capacity;
+        else
+          error = TaskPlanner::TaskPlannerError::low_battery;
       }
+      
     }
     
   }
 
-  return Candidates(std::move(initial_map));
+  if (initial_map.empty())
+  {
+    return nullptr;
+  }
+
+  std::shared_ptr<Candidates> candidates(
+    new Candidates(std::move(initial_map)));
+  return candidates;
 }
 
 // ============================================================================
-struct PendingTask
+class PendingTask
 {
-  PendingTask(
+public:
+
+  static std::shared_ptr<PendingTask> make(
       std::vector<rmf_task::agv::State>& initial_states,
       std::vector<rmf_task::agv::StateConfig>& state_configs,
       rmf_task::ConstRequestPtr request_,
       rmf_task::ConstRequestPtr charge_battery_request,
-      std::shared_ptr<EstimateCache> estimate_cache)
-    : request(std::move(request_)),
-      candidates(Candidates::make(initial_states, state_configs,
-        *request, *charge_battery_request, estimate_cache)),
-      earliest_start_time(request->earliest_start_time())
-  {
-    // Do nothing
-  }
+      std::shared_ptr<EstimateCache> estimate_cache,
+      TaskPlanner::TaskPlannerError& error);
 
   rmf_task::ConstRequestPtr request;
   Candidates candidates;
   rmf_traffic::Time earliest_start_time;
+
+private:
+  PendingTask(
+      rmf_task::ConstRequestPtr request_,
+      Candidates candidates_)
+    : request(std::move(request_)),
+      candidates(candidates_),
+      earliest_start_time(request->earliest_start_time())
+  {
+    // Do nothing
+  }
 };
+
+std::shared_ptr<PendingTask> PendingTask::make(
+    std::vector<rmf_task::agv::State>& initial_states,
+    std::vector<rmf_task::agv::StateConfig>& state_configs,
+    rmf_task::ConstRequestPtr request_,
+    rmf_task::ConstRequestPtr charge_battery_request,
+    std::shared_ptr<EstimateCache> estimate_cache,
+    TaskPlanner::TaskPlannerError& error)
+{
+
+  auto battery_request = std::dynamic_pointer_cast<
+    const rmf_task::requests::ChargeBattery>(charge_battery_request);
+
+  const auto candidates = Candidates::make(initial_states, state_configs,
+        *request_, *battery_request, estimate_cache, error);
+
+  if (!candidates)
+    return nullptr;
+
+  std::shared_ptr<PendingTask> pending_task(
+    new PendingTask(request_, *candidates));
+  return pending_task;
+}
+
+
 
 // ============================================================================
 struct Node
@@ -648,9 +702,11 @@ bool Filter::ignore(const Node& node)
   return !new_node;
 }
 
+// ============================================================================
 const rmf_traffic::Duration segmentation_threshold =
     rmf_traffic::time::from_seconds(1.0);
 
+// ============================================================================
 inline double compute_g_assignment(const TaskPlanner::Assignment& assignment)
 {
   if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
@@ -665,6 +721,7 @@ inline double compute_g_assignment(const TaskPlanner::Assignment& assignment)
 
 } // anonymous namespace
 
+// ============================================================================
 class TaskPlanner::Implementation
 {
 public:
@@ -714,8 +771,8 @@ public:
 
     return assignments;
   }
-  
-  Assignments complete_solve(
+
+  Result complete_solve(
     rmf_traffic::Time time_now,
     std::vector<State>& initial_states,
     const std::vector<StateConfig>& state_configs,
@@ -724,8 +781,11 @@ public:
     bool greedy)
   {
     assert(initial_states.size() == state_configs.size());
-
-    auto node = make_initial_node(initial_states, state_configs, requests, time_now);
+    TaskPlannerError error;
+    auto node = make_initial_node(
+      initial_states, state_configs, requests, time_now, error);
+    if (!node)
+      return error;
 
     TaskPlanner::Assignments complete_assignments;
     complete_assignments.resize(node->assigned_tasks.size());
@@ -776,7 +836,10 @@ public:
           estimates[i] = assignments.back().assignment.state();
       }
 
-      node = make_initial_node(estimates, state_configs, new_tasks, time_now);
+      node = make_initial_node(
+        estimates, state_configs, new_tasks, time_now, error);
+      if (!node)
+        return error;
       initial_states = estimates;
     }
 
@@ -858,7 +921,8 @@ public:
     std::vector<State> initial_states,
     std::vector<StateConfig> state_configs,
     std::vector<ConstRequestPtr> requests,
-    rmf_traffic::Time time_now)
+    rmf_traffic::Time time_now,
+    TaskPlannerError& error)
   {
     auto initial_node = std::make_shared<Node>();
 
@@ -871,10 +935,21 @@ public:
       // Generate a unique internal id for the request. Currently, multiple
       // requests with the same string id will be assigned different internal ids
       std::size_t internal_id = initial_node->get_available_internal_id();
+      const auto pending_task= PendingTask::make(
+          initial_states,
+          state_configs,
+          request,
+          charge_battery,
+          estimate_cache,
+          error);
+      
+      if (!pending_task)
+        return nullptr;
+
       initial_node->unassigned_tasks.insert(
         {
           internal_id,
-          PendingTask(initial_states, state_configs, request, charge_battery, estimate_cache)
+          *pending_task
         });
     }
 
@@ -1292,7 +1367,6 @@ public:
       // Add copies and with a newly assigned task to queue
       for (const auto&n : new_nodes)
         priority_queue.push(n);
-      
     }
 
     return nullptr;
@@ -1300,6 +1374,7 @@ public:
   
 };
 
+// ============================================================================
 TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
@@ -1310,11 +1385,12 @@ TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
   // Do nothing
 }
 
+// ============================================================================
 auto TaskPlanner::greedy_plan(
   rmf_traffic::Time time_now,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
-  std::vector<ConstRequestPtr> requests) -> Assignments
+  std::vector<ConstRequestPtr> requests) -> Result
 {
   return _pimpl->complete_solve(
     time_now,
@@ -1325,12 +1401,13 @@ auto TaskPlanner::greedy_plan(
     true);
 }
 
+// ============================================================================
 auto TaskPlanner::optimal_plan(
   rmf_traffic::Time time_now,
   std::vector<State> initial_states,
   std::vector<StateConfig> state_configs,
   std::vector<ConstRequestPtr> requests,
-  std::function<bool()> interrupter) -> Assignments
+  std::function<bool()> interrupter) -> Result
 {
   return _pimpl->complete_solve(
     time_now,
@@ -1341,16 +1418,23 @@ auto TaskPlanner::optimal_plan(
     false);
 }
 
+// ============================================================================
 auto TaskPlanner::compute_cost(const Assignments& assignments) -> double
 {
   return _pimpl->compute_g(assignments);
 }
 
+// ============================================================================
 const std::shared_ptr<EstimateCache> TaskPlanner::estimate_cache() const
 {
   return _pimpl->estimate_cache;
 }
 
+// ============================================================================
+const std::shared_ptr<TaskPlanner::Configuration> TaskPlanner::config() const
+{
+  return _pimpl->config;
+}
 
 } // namespace agv
 } // namespace rmf_task

@@ -24,6 +24,8 @@
 
 #include <rmf_traffic_ros2/Time.hpp>
 
+#include <rmf_traffic/agv/Planner.hpp>
+
 #include "tasks/Clean.hpp"
 #include "tasks/ChargeBattery.hpp"
 #include "tasks/Delivery.hpp"
@@ -52,13 +54,23 @@ TaskManagerPtr TaskManager::make(agv::RobotContextPtr context)
       }
     });
 
-  mgr->_timer = mgr->context()->node()->create_wall_timer(
+  mgr->_task_timer = mgr->context()->node()->create_wall_timer(
     std::chrono::seconds(1),
     [w = mgr->weak_from_this()]()
     {
       if (auto mgr = w.lock())
       {
         mgr->_begin_next_task();
+      }
+    });
+
+  mgr->_retreat_timer = mgr->context()->node()->create_wall_timer(
+    std::chrono::seconds(10),
+    [w = mgr->weak_from_this()]()
+    {
+      if (auto mgr = w.lock())
+      {
+        mgr->retreat_to_charger();
       }
     });
   return mgr;
@@ -357,6 +369,97 @@ void TaskManager::clear_queue()
 {
   std::lock_guard<std::mutex> guard(_mutex);
   _queue.clear();
+}
+
+//==============================================================================
+void TaskManager::retreat_to_charger()
+{
+  if (_active_task || !_queue.empty())
+    return;
+
+  const auto task_planner = _context->task_planner();
+  if (!task_planner)
+    return;
+
+  const auto current_state = expected_finish_state();
+  if (current_state.waypoint() == current_state.charging_waypoint())
+    return;
+
+  const double threshold_soc = _context->state_config().threshold_soc();
+  const double retreat_threshold = 1.2 * threshold_soc;
+  const double current_battery_soc = _context->current_battery_soc();
+
+  const auto task_planner_config = task_planner->config();
+  const auto estimate_cache = task_planner->estimate_cache();
+
+  double retreat_battery_drain = 0.0;
+  const auto endpoints = std::make_pair(current_state.waypoint(),
+    current_state.charging_waypoint());
+  const auto& cache_result = estimate_cache->get(endpoints);
+
+  if (cache_result)
+  {
+    retreat_battery_drain = cache_result->dsoc;
+  }
+  else
+  {
+    const rmf_traffic::agv::Planner::Goal retreat_goal{current_state.charging_waypoint()};
+    const auto result_to_charger = task_planner_config->planner()->plan(
+      current_state.location(), retreat_goal);
+
+    // We assume we can always compute a plan
+    const auto& trajectory =
+        result_to_charger->get_itinerary().back().trajectory();
+    const auto& finish_time = *trajectory.finish_time();
+    const rmf_traffic::Duration retreat_duration =
+      finish_time - current_state.finish_time();
+
+    const double dSOC_motion =
+      task_planner_config->motion_sink()->compute_change_in_charge(trajectory);
+    const double dSOC_device =
+      task_planner_config->ambient_sink()->compute_change_in_charge(
+        rmf_traffic::time::to_seconds(retreat_duration));
+    retreat_battery_drain = dSOC_motion + dSOC_device;
+
+    // TODO(YV) Protect this call with a mutex
+    estimate_cache->set(endpoints, retreat_duration,
+      retreat_battery_drain);
+  }
+
+  const double battery_soc_after_retreat =
+    current_battery_soc - retreat_battery_drain;
+
+  if ((battery_soc_after_retreat < retreat_threshold) &&
+    (battery_soc_after_retreat > threshold_soc))
+  {
+    // Add a new charging task to the task queue
+    auto charging_request = rmf_task::requests::ChargeBattery::make(
+      task_planner_config->battery_system(),
+      task_planner_config->motion_sink(),
+      task_planner_config->ambient_sink(),
+      task_planner_config->planner(),
+      current_state.finish_time());
+
+    const auto finish = charging_request->estimate_finish(
+      current_state,
+      _context->state_config(),
+      estimate_cache);
+    
+    if (!finish)
+      return;
+
+    rmf_task::agv::TaskPlanner::Assignment charging_assignment(
+      charging_request,
+      finish.value().finish_state(),
+      current_state.finish_time());
+
+    set_queue({charging_assignment});
+
+    RCLCPP_INFO(
+      _context->node()->get_logger(),
+      "Initiating automatic retreat to charger for robot [%s]",
+      _context->name().c_str());
+  }
 }
 
 } // namespace rmf_fleet_adapter

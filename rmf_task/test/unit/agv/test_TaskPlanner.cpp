@@ -21,6 +21,7 @@
 #include <rmf_task/agv/StateConfig.hpp>
 #include <rmf_task/requests/Delivery.hpp>
 #include <rmf_task/requests/ChargeBattery.hpp>
+#include <rmf_task/requests/Loop.hpp>
 
 #include <rmf_traffic/agv/Graph.hpp>
 #include <rmf_traffic/Trajectory.hpp>
@@ -40,10 +41,11 @@
 
 #include <iostream>
 
+using TaskPlanner = rmf_task::agv::TaskPlanner;
 
 //==============================================================================
 inline bool check_implicit_charging_task_start(
-  const rmf_task::agv::TaskPlanner::Assignments& assignments,
+  const TaskPlanner::Assignments& assignments,
   const double initial_soc)
 {
   bool implicit_charging_task_added = false;
@@ -75,7 +77,7 @@ inline bool check_implicit_charging_task_start(
 //==============================================================================
 inline void display_solution(
   std::string parent,
-  const rmf_task::agv::TaskPlanner::Assignments& assignments,
+  const TaskPlanner::Assignments& assignments,
   const double cost)
 {
   std::cout << parent << " cost: " << cost << std::endl;
@@ -224,34 +226,39 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
-      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
         battery_system,
         motion_sink,
         device_sink,
         planner);
-    rmf_task::agv::TaskPlanner task_planner(task_config);
+    TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_assignments = task_planner.greedy_plan(
+    const auto greedy_result = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    const auto greedy_assignments = std::get_if<
+      TaskPlanner::Assignments>(&greedy_result);
+    REQUIRE(greedy_assignments);
+    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
     std::cout << "Greedy solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    display_solution("Greedy", *greedy_assignments, greedy_cost);
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
-    task_planner = rmf_task::agv::TaskPlanner(task_config);
+    task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
-    const auto optimal_assignments = task_planner.optimal_plan(
+    const auto optimal_result = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    const auto optimal_assignments = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
     std::cout << "Optimal solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", optimal_assignments, optimal_cost);
+    display_solution("Optimal", *optimal_assignments, optimal_cost);
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -422,32 +429,39 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
-      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
         battery_system,
         motion_sink,
         device_sink,
         planner);
-    rmf_task::agv::TaskPlanner task_planner(task_config);
+    TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_assignments = task_planner.greedy_plan(
+    const auto greedy_result = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    const auto greedy_assignments = std::get_if<
+      TaskPlanner::Assignments>(&greedy_result);
+    REQUIRE(greedy_assignments);
+    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
     std::cout << "Greedy solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    display_solution("Greedy", *greedy_assignments, greedy_cost);
 
-    task_planner = rmf_task::agv::TaskPlanner(task_config);
+    // Create new TaskPlanner to reset cache so that measured run times
+    // remain independent of one another
+    task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
-    const auto optimal_assignments = task_planner.optimal_plan(
+    const auto optimal_result = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    const auto optimal_assignments = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
     std::cout << "Optimal solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", optimal_assignments, optimal_cost);
+    display_solution("Optimal", *optimal_assignments, optimal_cost);
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -528,32 +542,39 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
-      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
         battery_system,
         motion_sink,
         device_sink,
         planner);
-    rmf_task::agv::TaskPlanner task_planner(task_config);
+    TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_assignments = task_planner.greedy_plan(
+    const auto greedy_result = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    const auto greedy_assignments = std::get_if<
+      TaskPlanner::Assignments>(&greedy_result);
+    REQUIRE(greedy_assignments);
+    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
     std::cout << "Greedy solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    display_solution("Greedy", *greedy_assignments, greedy_cost);
 
-    task_planner = rmf_task::agv::TaskPlanner(task_config);
+    // Create new TaskPlanner to reset cache so that measured run times
+    // remain independent of one another
+    task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
-    const auto optimal_assignments = task_planner.optimal_plan(
+    const auto optimal_result = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    const auto optimal_assignments = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
     std::cout << "Optimal solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", optimal_assignments, optimal_cost);
+    display_solution("Optimal", *optimal_assignments, optimal_cost);
 
 
     REQUIRE(optimal_cost <= greedy_cost);
@@ -561,11 +582,11 @@ SCENARIO("Grid World")
     // Checks if Assignments take into account a charging task in the beginning
     // without explicitly including the task in Assignments.
     bool implicit_charging_task_added = check_implicit_charging_task_start(
-      greedy_assignments, initial_soc);
+      *greedy_assignments, initial_soc);
     REQUIRE(!implicit_charging_task_added);
 
     implicit_charging_task_added = check_implicit_charging_task_start(
-      optimal_assignments, initial_soc);
+      *optimal_assignments, initial_soc);
     REQUIRE(!implicit_charging_task_added);
   }
 
@@ -735,35 +756,164 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<rmf_task::agv::TaskPlanner::Configuration>  task_config =
-      std::make_shared<rmf_task::agv::TaskPlanner::Configuration>(
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
         battery_system,
         motion_sink,
         device_sink,
         planner);
-    rmf_task::agv::TaskPlanner task_planner(task_config);
+    TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_assignments = task_planner.greedy_plan(
+    const auto greedy_result = task_planner.greedy_plan(
       now, initial_states, state_configs, requests);
-    const double greedy_cost = task_planner.compute_cost(greedy_assignments);
+    const auto greedy_assignments = std::get_if<
+      TaskPlanner::Assignments>(&greedy_result);
+    REQUIRE(greedy_assignments);
+    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
     std::cout << "Greedy solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", greedy_assignments, greedy_cost);
+    display_solution("Greedy", *greedy_assignments, greedy_cost);
 
-    task_planner = rmf_task::agv::TaskPlanner(task_config);
+    // Create new TaskPlanner to reset cache so that measured run times
+    // remain independent of one another
+    task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
-    const auto optimal_assignments = task_planner.optimal_plan(
+    const auto optimal_result = task_planner.optimal_plan(
       now, initial_states, state_configs, requests, nullptr);
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    const auto optimal_assignments = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
     std::cout << "Optimal solution found in: "
               << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", optimal_assignments, optimal_cost);
+    display_solution("Optimal", *optimal_assignments, optimal_cost);
 
 
     REQUIRE(optimal_cost <= greedy_cost);
+  }
+
+  WHEN("A loop request is impossible to fulfil due to battery capacity")
+  {
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 13, 1.0},
+    };
+
+    std::vector<rmf_task::agv::StateConfig> state_configs =
+    {
+      rmf_task::agv::StateConfig{0.2},
+    };
+
+    std::vector<rmf_task::ConstRequestPtr> requests =
+    {
+      rmf_task::requests::Loop::make(
+        "Loop1",
+        0,
+        15,
+        1000,
+        motion_sink,
+        device_sink,
+        planner,
+        now,
+        true)
+    };
+
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    TaskPlanner task_planner(task_config);
+
+    const auto greedy_result = task_planner.greedy_plan(
+      now, initial_states, state_configs, requests);
+    const auto greedy_assignments = std::get_if<
+      TaskPlanner::Assignments>(&greedy_result);
+    REQUIRE_FALSE(greedy_assignments);
+    auto error = std::get_if<
+      TaskPlanner::TaskPlannerError>(&greedy_result);
+    CHECK(*error == TaskPlanner::TaskPlannerError::limited_capacity);
+    
+    // Create new TaskPlanner to reset cache so that measured run times
+    // remain independent of one another
+    task_planner = TaskPlanner(task_config);
+    const auto optimal_result = task_planner.optimal_plan(
+      now, initial_states, state_configs, requests, nullptr);
+    const auto optimal_assignments = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    REQUIRE_FALSE(optimal_assignments);
+    error = std::get_if<TaskPlanner::TaskPlannerError>(
+      &optimal_result);
+    CHECK(*error == TaskPlanner::TaskPlannerError::limited_capacity);
+  }
+
+  WHEN("A loop request is impossible to fulfil due to low initial battery")
+  {
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 9, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 13, 0.0},
+    };
+
+    std::vector<rmf_task::agv::StateConfig> state_configs =
+    {
+      rmf_task::agv::StateConfig{0.2},
+    };
+
+    std::vector<rmf_task::ConstRequestPtr> requests =
+    {
+      rmf_task::requests::Loop::make(
+        "Loop1",
+        0,
+        15,
+        1000,
+        motion_sink,
+        device_sink,
+        planner,
+        now,
+        true)
+    };
+
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    TaskPlanner task_planner(task_config);
+
+    const auto greedy_result = task_planner.greedy_plan(
+      now, initial_states, state_configs, requests);
+    const auto greedy_assignments = std::get_if<
+      TaskPlanner::Assignments>(&greedy_result);
+    REQUIRE_FALSE(greedy_assignments);
+    auto error = std::get_if<
+      TaskPlanner::TaskPlannerError>(&greedy_result);
+    CHECK(*error == TaskPlanner::TaskPlannerError::low_battery);
+    
+    // Create new TaskPlanner to reset cache so that measured run times
+    // remain independent of one another
+    task_planner = TaskPlanner(task_config);
+    const auto optimal_result = task_planner.optimal_plan(
+      now, initial_states, state_configs, requests, nullptr);
+    const auto optimal_assignments = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    REQUIRE_FALSE(optimal_assignments);
+    error = std::get_if<TaskPlanner::TaskPlannerError>(
+      &optimal_result);
+    CHECK(*error == TaskPlanner::TaskPlannerError::low_battery);
   }
 
 }
