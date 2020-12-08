@@ -84,7 +84,7 @@ target_link_libraries(rmf_traffic
   PUBLIC
     rmf_utils::rmf_utils
   PRIVATE
-    fcl
+    ${FCL_LIBRARIES}
 )
 
 target_include_directories(rmf_traffic
