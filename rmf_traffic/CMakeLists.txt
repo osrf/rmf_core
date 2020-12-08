@@ -54,7 +54,7 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
     TIMEOUT 300)
   target_link_libraries(test_rmf_traffic
       rmf_traffic
-      fcl
+      ${FCL_LIBRARIES}
       Threads::Threads
   )
 
