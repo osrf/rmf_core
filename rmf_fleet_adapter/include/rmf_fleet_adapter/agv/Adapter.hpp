@@ -119,7 +119,7 @@ public:
   ///
   /// \param[in] handle_cb
   ///   The callback that will be triggered when the traffic light handle is
-  ///   ready to be used
+  ///   ready to be used. This callback will only be triggered once.
   void add_traffic_light(
       std::shared_ptr<TrafficLight::CommandHandle> command,
       const std::string& fleet_name,
@@ -139,6 +139,10 @@ public:
   /// This API should only be used for demo purposes, or if system integrators
   /// can ensure very low-latency and reliable connections to the robots to
   /// ensure that the commands arrive on time.
+  ///
+  /// \param[in] handle_callback
+  ///   The callback that will be triggered when the EasyTrafficLight handle is
+  ///   ready to be used. This callback will only be triggered once.
   ///
   /// \param[in] fleet_name
   ///   The name of the fleet

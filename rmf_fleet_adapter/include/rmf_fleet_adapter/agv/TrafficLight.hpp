@@ -126,8 +126,14 @@ public:
     /// must not depart from a waypoint before it receives checkpoint
     /// information for that waypoint.
     ///
-    /// The last checkpoint in the batch is the last checkpoint that the robot
-    /// is allowed to depart from. New batches override previous batches, so
+    /// After traffic negotiations happen, it is possible that some checkpoint
+    /// departure times might get postponed or temporarily canceled. When that
+    /// happens, this function will get triggered again for the same checkpoint
+    /// indices. The latest values given by the checkpoints argument of this
+    /// function are the values that need to be obeyed.
+    ///
+    /// When receiving a repeated batch of checkpoints, all old checkpoints from
+    /// the new standby_at index and higher must be discarded.
     ///
     /// \param[in] version
     ///   The version number of the path whose timing is being provided. If this
@@ -140,7 +146,8 @@ public:
     ///   keep the fleet adapter up to date on the robot's progress.
     ///
     /// \param[in] standby_at
-    ///   Have the robot wait once it reaches this waypoint.
+    ///   Trigger the on_standby callback and have the robot wait once it
+    ///   reaches this waypoint.
     ///
     /// \param[in] on_standby
     ///   Trigger this callback when the robot has arrived at the first waypoint
@@ -148,7 +155,13 @@ public:
     ///   arrived at the last waypoint in its path.
     ///
     /// \param[in] reject
-    ///   Trigger this callback if the plan must be rejected.
+    ///   Trigger this callback if the plan must be rejected because the robot
+    ///   has already passed the standby_at checkpoint. If you trigger this
+    ///   callback, you must not trigger any of the new checkpoint departure
+    ///   callbacks. Vice-versa, if you trigger any of the new checkpoint
+    ///   departure callbacks, then you must not trigger this reject callback.
+    ///   Before triggering any of these newly received callbacks, first
+    ///   determine whether this new plan can be obeyed.
     virtual void receive_checkpoints(
         std::size_t version,
         std::vector<Checkpoint> checkpoints,
