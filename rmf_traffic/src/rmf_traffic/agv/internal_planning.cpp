@@ -24,8 +24,6 @@
 
 #include <rmf_utils/math.hpp>
 
-#include <rmf_traffic/DetectConflict.hpp>
-
 #include <iostream>
 #include <map>
 #include <unordered_map>
