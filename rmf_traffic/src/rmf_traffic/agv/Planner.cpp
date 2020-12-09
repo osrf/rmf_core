@@ -892,9 +892,21 @@ rmf_traffic::Time Plan::Waypoint::time() const
 }
 
 //==============================================================================
-rmf_utils::optional<std::size_t> Plan::Waypoint::graph_index() const
+std::optional<std::size_t> Plan::Waypoint::graph_index() const
 {
   return _pimpl->graph_index;
+}
+
+//==============================================================================
+std::size_t Plan::Waypoint::itinerary_index() const
+{
+  return _pimpl->itinerary_index;
+}
+
+//==============================================================================
+std::size_t Plan::Waypoint::trajectory_index() const
+{
+  return _pimpl->trajectory_index;
 }
 
 //==============================================================================

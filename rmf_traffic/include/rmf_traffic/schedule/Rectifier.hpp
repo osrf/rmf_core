@@ -30,7 +30,7 @@ namespace schedule {
 /// rectification protocol is important when the schedule is being managed over
 /// an unreliable network.
 ///
-/// The Rectifier class can be used by a RectifierRequester to ask a participent
+/// The Rectifier class can be used by a RectifierRequester to ask a participant
 /// to retransmit a range of its past itinerary changes.
 ///
 /// Only the Participant class is able to create a Rectifier instance. Users of
@@ -148,6 +148,7 @@ public:
   // TODO(MXG): Should this demand a std::shared_ptr<Database> instead?
   DatabaseRectificationRequesterFactory(const Database& database);
 
+  // Documentation inherited
   std::unique_ptr<RectificationRequester> make(
     Rectifier rectifier,
     ParticipantId participant_id) final;

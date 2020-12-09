@@ -23,9 +23,15 @@
 
 #include "DetectConflictInternal.hpp"
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+#include <fcl/narrowphase/continuous_collision.h>
+#include <fcl/math/motion/spline_motion.h>
+#include <fcl/narrowphase/collision.h>
+#else
 #include <fcl/continuous_collision.h>
 #include <fcl/ccd/motion.h>
 #include <fcl/collision.h>
+#endif
 
 #include <unordered_map>
 
@@ -318,25 +324,45 @@ bool overlap(
 }
 
 //==============================================================================
-std::shared_ptr<fcl::SplineMotion> make_uninitialized_fcl_spline_motion()
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+using FclContinuousCollisionRequest = fcl::ContinuousCollisionRequestd;
+using FclContinuousCollisionResult = fcl::ContinuousCollisionResultd;
+using FclContinuousCollisionObject = fcl::ContinuousCollisionObjectd;
+using FclCollisionGeometry = fcl::CollisionGeometryd;
+using FclVec3 = fcl::Vector3d;
+#else
+using FclContinuousCollisionRequest = fcl::ContinuousCollisionRequest;
+using FclContinuousCollisionResult = fcl::ContinuousCollisionResult;
+using FclContinuousCollisionObject = fcl::ContinuousCollisionObject;
+using FclCollisionGeometry = fcl::CollisionGeometry;
+using FclVec3 = fcl::Vec3f;
+#endif
+
+//==============================================================================
+std::shared_ptr<FclSplineMotion> make_uninitialized_fcl_spline_motion()
 {
   // This function is only necessary because SplineMotion does not provide a
   // default constructor, and we want to be able to instantiate one before
   // we have any paramters to provide to it.
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  fcl::Matrix3d R;
+#else
   fcl::Matrix3f R;
-  fcl::Vec3f T;
+#endif
+  FclVec3 T;
 
   // The constructor that we are using is a no-op (apparently it was declared,
   // but its definition is just `// TODO`, so we don't need to worry about
   // unintended consequences. If we update the version of FCL, this may change,
   // so I'm going to leave a FIXME tag here to keep us aware of that.
-  return std::make_shared<fcl::SplineMotion>(R, T, R, T);
+  return std::make_shared<FclSplineMotion>(R, T, R, T);
 }
 
 //==============================================================================
-fcl::ContinuousCollisionRequest make_fcl_request()
+FclContinuousCollisionRequest make_fcl_request()
 {
-  fcl::ContinuousCollisionRequest request;
+  FclContinuousCollisionRequest request;
+
   request.ccd_solver_type = fcl::CCDC_CONSERVATIVE_ADVANCEMENT;
   request.gjk_solver_type = fcl::GST_LIBCCD;
 
@@ -344,22 +370,22 @@ fcl::ContinuousCollisionRequest make_fcl_request()
 }
 
 //==============================================================================
-rmf_utils::optional<fcl::FCL_REAL> check_collision(
+rmf_utils::optional<double> check_collision(
   const geometry::FinalConvexShape& shape_a,
-  const std::shared_ptr<fcl::SplineMotion>& motion_a,
+  const std::shared_ptr<FclSplineMotion>& motion_a,
   const geometry::FinalConvexShape& shape_b,
-  const std::shared_ptr<fcl::SplineMotion>& motion_b,
-  const fcl::ContinuousCollisionRequest& request)
+  const std::shared_ptr<FclSplineMotion>& motion_b,
+  const FclContinuousCollisionRequest& request)
 {
-  const auto obj_a = fcl::ContinuousCollisionObject(
+  const auto obj_a = FclContinuousCollisionObject(
     geometry::FinalConvexShape::Implementation::get_collision(shape_a),
     motion_a);
 
-  const auto obj_b = fcl::ContinuousCollisionObject(
+  const auto obj_b = FclContinuousCollisionObject(
     geometry::FinalConvexShape::Implementation::get_collision(shape_b),
     motion_b);
 
-  fcl::ContinuousCollisionResult result;
+  FclContinuousCollisionResult result;
   fcl::collide(&obj_a, &obj_b, request, result);
 
   if (result.is_collide)
@@ -380,7 +406,7 @@ Profile::Implementation convert_profile(const Profile& profile)
 
 //==============================================================================
 Time compute_time(
-  const fcl::FCL_REAL scaled_time,
+  const double scaled_time,
   const Time start_time,
   const Time finish_time)
 {
@@ -408,13 +434,6 @@ rmf_utils::optional<rmf_traffic::Time> DetectConflict::between(
 }
 
 namespace {
-//==============================================================================
-fcl::Transform3f convert(Eigen::Vector3d p)
-{
-  fcl::Matrix3f R;
-  R.setEulerZYX(0.0, 0.0, p[2]);
-  return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
-}
 
 //==============================================================================
 bool check_overlap(
@@ -432,8 +451,41 @@ bool check_overlap(
     ConvexPair{profile_a.vicinity, profile_b.footprint}
   };
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  fcl::CollisionRequestd request;
+  fcl::CollisionResultd result;
+  for (const auto pair : pairs)
+  {
+    auto pos_a = spline_a.compute_position(time);
+    auto pos_b = spline_b.compute_position(time);
+    
+    auto rot_a = fcl::AngleAxisd(pos_a[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    auto  rot_b = fcl::AngleAxisd(pos_b[2], Eigen::Vector3d::UnitZ()).toRotationMatrix();
+
+    fcl::CollisionObjectd obj_a(
+      geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
+      rot_a,
+      fcl::Vector3d(pos_a[0], pos_a[1], 0.0));
+
+    fcl::CollisionObjectd obj_b(
+      geometry::FinalConvexShape::Implementation::get_collision(*pair[1]),
+      rot_b,
+      fcl::Vector3d(pos_b[0], pos_b[1], 0.0));
+
+    if (fcl::collide(&obj_a, &obj_b, request, result) > 0)
+      return true;
+  }
+#else
   fcl::CollisionRequest request;
   fcl::CollisionResult result;
+
+  auto convert = [](Eigen::Vector3d p) -> fcl::Transform3f
+  {
+    fcl::Matrix3f R;
+    R.setEulerZYX(0.0, 0.0, p[2]);
+    return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
+  };
+
   for (const auto pair : pairs)
   {
     fcl::CollisionObject obj_a(
@@ -447,7 +499,8 @@ bool check_overlap(
     if (fcl::collide(&obj_a, &obj_b, request, result) > 0)
       return true;
   }
-
+#endif
+  
   return false;
 }
 
@@ -483,12 +536,12 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
   rmf_utils::optional<Spline> spline_a;
   rmf_utils::optional<Spline> spline_b;
 
-  std::shared_ptr<fcl::SplineMotion> motion_a =
+  std::shared_ptr<FclSplineMotion> motion_a =
     make_uninitialized_fcl_spline_motion();
-  std::shared_ptr<fcl::SplineMotion> motion_b =
+  std::shared_ptr<FclSplineMotion> motion_b =
     make_uninitialized_fcl_spline_motion();
 
-  const fcl::ContinuousCollisionRequest request = make_fcl_request();
+  const FclContinuousCollisionRequest request = make_fcl_request();
 
   // This flag lets us know that we need to test both a's footprint in b's
   // vicinity and b's footprint in a's vicinity.
@@ -831,15 +884,20 @@ bool detect_conflicts(
     finish_time < trajectory_finish_time ?
     ++trajectory.find(finish_time) : trajectory.end();
 
-  std::shared_ptr<fcl::SplineMotion> motion_trajectory =
+  std::shared_ptr<FclSplineMotion> motion_trajectory =
     make_uninitialized_fcl_spline_motion();
   std::shared_ptr<internal::StaticMotion> motion_region =
     std::make_shared<internal::StaticMotion>(region.pose);
 
-  const fcl::ContinuousCollisionRequest request = make_fcl_request();
+  const FclContinuousCollisionRequest request = make_fcl_request();
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  const std::shared_ptr<fcl::CollisionGeometryd> vicinity_geom =
+    geometry::FinalConvexShape::Implementation::get_collision(*vicinity);
+#else
   const std::shared_ptr<fcl::CollisionGeometry> vicinity_geom =
     geometry::FinalConvexShape::Implementation::get_collision(*vicinity);
+#endif
 
   if (output_conflicts)
     output_conflicts->clear();
@@ -855,22 +913,31 @@ bool detect_conflicts(
 
     *motion_trajectory = spline_trajectory.to_fcl(
       spline_start_time, spline_finish_time);
-
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+    const auto obj_trajectory = fcl::ContinuousCollisionObjectd(
+      vicinity_geom, motion_trajectory);
+#else
     const auto obj_trajectory = fcl::ContinuousCollisionObject(
       vicinity_geom, motion_trajectory);
+#endif
 
     assert(region.shape);
     const auto& region_shapes = geometry::FinalShape::Implementation
       ::get_collisions(*region.shape);
     for (const auto& region_shape : region_shapes)
     {
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+      const auto obj_region = fcl::ContinuousCollisionObjectd(
+        region_shape, motion_region);
+#else
       const auto obj_region = fcl::ContinuousCollisionObject(
         region_shape, motion_region);
+#endif
 
       // TODO(MXG): We should do a broadphase test here before using
       // fcl::collide
 
-      fcl::ContinuousCollisionResult result;
+      FclContinuousCollisionResult result;
       fcl::collide(&obj_trajectory, &obj_region, request, result);
       if (result.is_collide)
       {

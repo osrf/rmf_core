@@ -20,7 +20,12 @@
 //#include <rmf_traffic/geometry/Box.hpp>
 #include "Box.hpp"
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+#include <fcl/geometry/shape/box.h>
+#else
 #include <fcl/shape/geometric_shapes.h>
+
+#endif
 
 namespace rmf_traffic {
 namespace geometry {
@@ -40,7 +45,11 @@ public:
   CollisionGeometries make_fcl() const final
   {
     // Note: The z-value doesn't really matter, as long as it's greater than 0.0
-    return {std::make_shared<fcl::Box>(_x, _y, 1.0)};
+    #ifdef RMF_TRAFFIC__USING_FCL_0_6
+      return {std::make_shared<fcl::Boxd>(_x, _y, 1.0)};
+    #else
+      return {std::make_shared<fcl::Box>(_x, _y, 1.0)};
+    #endif
   }
 
   double _x;

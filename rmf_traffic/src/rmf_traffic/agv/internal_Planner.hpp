@@ -36,6 +36,10 @@ public:
 
   rmf_utils::optional<std::size_t> graph_index;
 
+  std::size_t itinerary_index;
+
+  std::size_t trajectory_index;
+
   Graph::Lane::EventPtr event;
 
   template<typename... Args>

@@ -18,6 +18,14 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
+  "msg/BlockadeCancel.msg"
+  "msg/BlockadeCheckpoint.msg"
+  "msg/BlockadeHeartbeat.msg"
+  "msg/BlockadeReached.msg"
+  "msg/BlockadeReady.msg"
+  "msg/BlockadeRelease.msg"
+  "msg/BlockadeSet.msg"
+  "msg/BlockadeStatus.msg"
   "msg/Circle.msg"
   "msg/ConvexShape.msg"
   "msg/ConvexShapeContext.msg"
