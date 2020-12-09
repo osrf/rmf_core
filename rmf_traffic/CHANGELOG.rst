@@ -2,7 +2,13 @@
 Changelog for package rmf_traffic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1.1.0 (2020-09-XX)
+1.2.0 (2021-01-XX)
+------------------
+* Add the blockade system for traffic light management: [#226](https://github.com/osrf/rmf_core/pull/226)
+* Access trajectory waypoints by element index: [#226](https://github.com/osrf/rmf_core/pull/226)
+* Get trajectory index of each plan waypoint: [#226](https://github.com/osrf/rmf_core/pull/226)
+
+1.1.0 (2020-09-24)
 ------------------
 * Allow a Negotiation Table Viewer to see rejected and forfeited statuses, and to check for a submission: [#140](https://github.com/osrf/rmf_core/pull/140/)
 * Improve heuristic to account for events: [#159](https://github.com/osrf/rmf_core/pull/159/)
