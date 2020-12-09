@@ -162,7 +162,7 @@ public:
     for ( ; sit != segments.end(); ++sit, ++oit)
     {
       sit->myself = make_segment(sit);
-      oit->second = sit;
+      oit->value = sit;
     }
 
     return *this;
@@ -171,17 +171,17 @@ public:
   InsertionResult insert(internal::WaypointElement::Data data)
   {
     const internal::OrderMap::iterator hint = ordering.lower_bound(data.time);
-    if (hint != ordering.end() && hint->first == data.time)
+    if (hint != ordering.end() && hint->key == data.time)
     {
       // We already have a Waypoint in the Trajectory that ends at this same
       // exact moment in time, so we will return the existing iterator along
       // with inserted==false.
       assert(segments.size() > 0);
-      return InsertionResult{make_iterator<Waypoint>(hint->second), false};
+      return InsertionResult{make_iterator<Waypoint>(hint->value), false};
     }
 
     const internal::WaypointList::const_iterator list_destination =
-      (hint == ordering.end()) ? segments.end() : hint->second;
+      (hint == ordering.end()) ? segments.end() : hint->value;
 
     const internal::WaypointList::iterator result =
       segments.emplace(list_destination, std::move(data));
@@ -205,7 +205,7 @@ public:
     if (time < segments.begin()->data.time)
       return make_iterator<Waypoint>(segments.end());
 
-    return make_iterator<Waypoint>(it->second);
+    return make_iterator<Waypoint>(it->value);
   }
 
   iterator lower_bound(Time time)
@@ -214,7 +214,7 @@ public:
     if (it == ordering.end())
       return make_iterator<Waypoint>(segments.end());
 
-    return make_iterator<Waypoint>(it->second);
+    return make_iterator<Waypoint>(it->value);
   }
 
   iterator erase(iterator waypoint)
@@ -303,7 +303,7 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
     ordering.find(current_time);
   assert(current_order_it != ordering.end());
 
-  const internal::OrderMap::const_iterator hint =
+  const internal::OrderMap::iterator hint =
     ordering.lower_bound(new_time);
 
   if (current_order_it == hint)
@@ -314,8 +314,8 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
     // We need to create a new_hint iterator which points to the iterator after
     // hint because the hint iterator will be invalidated when we erase
     // current_order_it (because they are iterators to the same element).
-    const internal::OrderMap::const_iterator new_hint =
-      ++internal::OrderMap::const_iterator(hint);
+    const internal::OrderMap::iterator new_hint =
+      ++internal::OrderMap::iterator(hint);
     ordering.erase(current_order_it);
     ordering.emplace_hint(new_hint, new_time, std::move(data_it));
   }
@@ -328,7 +328,7 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
   }
   else
   {
-    const internal::WaypointList::const_iterator destination = hint->second;
+    const internal::WaypointList::const_iterator destination = hint->value;
     assert(destination != segments.end());
 
     if (destination->data.time == new_time)
@@ -469,6 +469,31 @@ Trajectory::iterator Trajectory::find(Time time)
 }
 
 //==============================================================================
+Trajectory::Waypoint& Trajectory::operator[](const std::size_t index)
+{
+  return *_pimpl->ordering[index].value->myself;
+}
+
+//==============================================================================
+const Trajectory::Waypoint& Trajectory::operator[](
+    const std::size_t index) const
+{
+  return *_pimpl->ordering[index].value->myself;
+}
+
+//==============================================================================
+Trajectory::Waypoint& Trajectory::at(const std::size_t index)
+{
+  return *_pimpl->ordering.at(index).value->myself;
+}
+
+//==============================================================================
+const Trajectory::Waypoint& Trajectory::at(const std::size_t index) const
+{
+  return *_pimpl->ordering.at(index).value->myself;
+}
+
+//==============================================================================
 Trajectory::const_iterator Trajectory::find(Time time) const
 {
   return const_cast<Implementation&>(*_pimpl).find(time);
@@ -585,6 +610,12 @@ Duration Trajectory::duration() const
 std::size_t Trajectory::size() const
 {
   return _pimpl->segments.size();
+}
+
+//==============================================================================
+bool Trajectory::empty() const
+{
+  return _pimpl->segments.empty();
 }
 
 //==============================================================================
@@ -739,7 +770,7 @@ bool Trajectory::Debug::check_iterator_time_consistency(
   internal::OrderMap::const_iterator o_it = ordering.begin();
   for ( ; s_it != segments.end() && o_it != ordering.end(); ++s_it, ++o_it)
   {
-    consistent &= s_it->data.time == o_it->first;
+    consistent &= s_it->data.time == o_it->key;
   }
 
   consistent &= s_it == segments.end();
@@ -755,9 +786,9 @@ bool Trajectory::Debug::check_iterator_time_consistency(
     for ( ; s_it != segments.end() && o_it != ordering.end();
       ++s_it, ++o_it, ++index)
     {
-      const auto difference = o_it->first - s_it->data.time;
+      const auto difference = o_it->key - s_it->data.time;
       std::cout << " -- [" << index << "] "
-                << o_it->first.time_since_epoch().count()/1e9 << " | "
+                << o_it->key.time_since_epoch().count()/1e9 << " | "
                 << s_it->data.time.time_since_epoch().count()/1e9
                 << " | Difference: " << difference.count()/1e9 << "\n";
     }
@@ -778,7 +809,7 @@ bool Trajectory::Debug::check_iterator_time_consistency(
       for ( ; o_it != ordering.end(); ++o_it, ++index)
       {
         std::cout << "     -- [" << index << "] "
-                  << o_it->first.time_since_epoch().count()/1e9 << "\n";
+                  << o_it->key.time_since_epoch().count()/1e9 << "\n";
       }
     }
     std::cout << std::endl;

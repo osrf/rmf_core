@@ -257,6 +257,37 @@ SCENARIO("Waypoint Unit Tests")
   }
 }
 
+SCENARIO("Insertion time tests")
+{
+  using namespace std::chrono_literals;
+  const auto now = std::chrono::steady_clock::now();
+
+  const Eigen::Vector3d x = {0, 0, 0};
+  const Eigen::Vector3d v = {0, 0, 0};
+
+  rmf_traffic::Trajectory trajectory;
+  trajectory.insert(now + 10s, x, v);
+  trajectory.insert(now + 1s, x, v);
+  trajectory.insert(now + 1001ms, x, v);
+  trajectory.insert(now, x, v);
+  trajectory.insert(now - 100s, x, v);
+  trajectory.insert(now + 1h, x, v);
+  trajectory.insert(now + 12s, x, v);
+
+  CHECK_FALSE(trajectory.insert(now + 12s, x ,v).inserted);
+  CHECK_FALSE(trajectory.insert(now + 1001ms, x, v).inserted);
+
+  rmf_traffic::Time last_time = trajectory.front().time();
+  CHECK(last_time == trajectory[0].time());
+  for (std::size_t i=1; i < trajectory.size(); ++i)
+    CHECK(last_time < trajectory[i].time());
+
+  auto last_it = trajectory.begin();
+  auto it = ++trajectory.begin();
+  for (; it != trajectory.end(); ++last_it, ++it)
+    CHECK(last_it->time() < it->time());
+}
+
 SCENARIO("Trajectory and base_iterator unit tests")
 {
   // Trajectory construction

@@ -255,22 +255,27 @@ std::array<Eigen::Vector3d, 4> Spline::compute_knots(
 }
 
 //==============================================================================
-fcl::SplineMotion Spline::to_fcl(
+FclSplineMotion Spline::to_fcl(
   const Time start_time, const Time finish_time) const
 {
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  using FclVec3 = fcl::Vector3d;
+#else
+  using FclVec3 = fcl::Vec3f;
+#endif
   std::array<Eigen::Vector3d, 4> knots = compute_knots(start_time, finish_time);
 
-  std::array<fcl::Vec3f, 4> Td;
-  std::array<fcl::Vec3f, 4> Rd;
+  std::array<FclVec3, 4> Td;
+  std::array<FclVec3, 4> Rd;
 
   for (std::size_t i = 0; i < 4; ++i)
   {
     const Eigen::Vector3d p = knots[i];
-    Td[i] = fcl::Vec3f(p[0], p[1], 0.0);
-    Rd[i] = fcl::Vec3f(0.0, 0.0, p[2]);
+    Td[i] = FclVec3(p[0], p[1], 0.0);
+    Rd[i] = FclVec3(0.0, 0.0, p[2]);
   }
 
-  return fcl::SplineMotion(
+  return FclSplineMotion(
     Td[0], Td[1], Td[2], Td[3],
     Rd[0], Rd[1], Rd[2], Rd[3]);
 }
