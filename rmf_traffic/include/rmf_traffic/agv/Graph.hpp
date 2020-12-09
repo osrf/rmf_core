@@ -396,20 +396,38 @@ public:
       /// \note Before if this is an entry node or after if this is an exit node
       const Event* event() const;
 
+      /// Set the event that must occur before or after this Node is visited
+      Node& event(rmf_utils::clone_ptr<Event> new_event);
+
       /// Get the constraint on orientation that is tied to this Node.
       const OrientationConstraint* orientation_constraint() const;
 
       class Implementation;
     private:
+      // We make the Lane a friend so it can copy and move the Nodes
+      friend class Lane;
+
+      // These constructors are private to make sure a user can't modify the
+      // waypoint_index of a Node by copying or moving
+      Node(const Node&) = default;
+      Node(Node&&) = default;
+      Node& operator=(const Node&) = default;
+      Node& operator=(Node&&) = default;
       rmf_utils::impl_ptr<Implementation> _pimpl;
     };
 
     /// Get the entry node of this Lane. The lane represents an edge in the
     /// graph that goes away from this node.
+    Node& entry();
+
+    /// const-qualified entry()
     const Node& entry() const;
 
     /// Get the exit node of this Lane. The lane represents an edge in the graph
     /// that goes into this node.
+    Node& exit();
+
+    /// const-qualified exit()
     const Node& exit() const;
 
     /// Get the index of this Lane within the Graph.
@@ -471,8 +489,8 @@ public:
   /// Make a lane for this graph. Lanes connect waypoints together, allowing the
   /// graph to know how the robot is allowed to traverse between waypoints.
   Lane& add_lane(
-    Lane::Node entry,
-    Lane::Node exit);
+    const Lane::Node& entry,
+    const Lane::Node& exit);
 
   /// Get the lane at the specified index
   Lane& get_lane(std::size_t index);

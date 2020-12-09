@@ -20,13 +20,21 @@
 
 #include "DetectConflictInternal.hpp"
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+#include <fcl/math/motion/motion_base.h>
+#else
 #include <fcl/ccd/motion.h>
+#endif
 
 namespace rmf_traffic {
 namespace internal {
 
 //==============================================================================
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+class StaticMotion : public fcl::MotionBased
+#else
 class StaticMotion : public fcl::MotionBase
+#endif
 {
 public:
 
@@ -34,12 +42,26 @@ public:
 
   StaticMotion(const Eigen::Isometry2d& tf);
 
-  bool integrate(double dt) const final;
+  virtual bool integrate(double dt) const final;
 
-  fcl::FCL_REAL computeMotionBound(
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+  virtual double computeMotionBound(
+    const fcl::BVMotionBoundVisitor<double>&) const final;
+
+  virtual double computeMotionBound(
+    const fcl::TriangleMotionBoundVisitor<double>&) const final;
+
+  void getCurrentTransform(fcl::Transform3d& tf) const final;
+
+  void getTaylorModel(fcl::TMatrix3<double>&, fcl::TVector3<double>&) const final;
+
+private:
+  fcl::Transform3d _tf;
+#else
+  virtual double computeMotionBound(
     const fcl::BVMotionBoundVisitor&) const final;
 
-  fcl::FCL_REAL computeMotionBound(
+  virtual double computeMotionBound(
     const fcl::TriangleMotionBoundVisitor&) const final;
 
   void getCurrentTransform(fcl::Transform3f& tf) const final;
@@ -47,9 +69,8 @@ public:
   void getTaylorModel(fcl::TMatrix3&, fcl::TVector3&) const final;
 
 private:
-
   fcl::Transform3f _tf;
-
+#endif
 };
 
 } // namespace internal

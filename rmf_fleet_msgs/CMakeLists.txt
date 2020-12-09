@@ -24,14 +24,12 @@ set(msg_files
   "msg/ModeRequest.msg"
   "msg/DestinationRequest.msg"
   "msg/PathRequest.msg"
+  "msg/PauseRequest.msg"
   "msg/ModeParameter.msg"
   "msg/DockParameter.msg"
   "msg/Dock.msg"
   "msg/DockSummary.msg"
 )
-
-# set(srv_files
-#   "srv/Foo.srv")
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}

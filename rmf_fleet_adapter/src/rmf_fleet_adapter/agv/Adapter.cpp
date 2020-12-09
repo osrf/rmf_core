@@ -24,11 +24,10 @@
 #include <rmf_traffic_ros2/schedule/MirrorManager.hpp>
 #include <rmf_traffic_ros2/schedule/Negotiation.hpp>
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
-
-// #include <rmf_task_msgs/msg/delivery.hpp>
-// #include <rmf_task_msgs/msg/loop.hpp>
+#include <rmf_traffic_ros2/blockade/Writer.hpp>
 
 #include "internal_TrafficLight.hpp"
+#include "internal_EasyTrafficLight.hpp"
 
 #include "../load_param.hpp"
 
@@ -63,25 +62,17 @@ public:
   rxcpp::schedulers::worker worker;
   std::shared_ptr<Node> node;
   std::shared_ptr<rmf_traffic_ros2::schedule::Negotiation> negotiation;
-  std::shared_ptr<ParticipantFactory> writer;
+  std::shared_ptr<ParticipantFactory> schedule_writer;
+  std::shared_ptr<rmf_traffic_ros2::blockade::Writer> blockade_writer;
   rmf_traffic_ros2::schedule::MirrorManager mirror_manager;
-
-  // using Delivery = rmf_task_msgs::msg::Delivery;
-  // using DeliverySub = rclcpp::Subscription<Delivery>::SharedPtr;
-  // DeliverySub delivery_sub;
-
-  // using Loop = rmf_task_msgs::msg::Loop;
-  // using LoopSub = rclcpp::Subscription<Loop>::SharedPtr;
-  // LoopSub loop_sub;
 
   std::vector<std::shared_ptr<FleetUpdateHandle>> fleets = {};
 
   // TODO(MXG): This mutex probably isn't needed
   std::mutex mutex;
 
-  // std::unordered_set<std::string> received_tasks;
-  // std::map<rmf_traffic::Time, std::string> task_times;
-  // rclcpp::TimerBase::SharedPtr task_purge_timer;
+  // This mutex protects the initialization of traffic lights
+  std::mutex traffic_light_init_mutex;
 
   Implementation(
       rxcpp::schedulers::worker worker_,
@@ -92,53 +83,11 @@ public:
     : worker{std::move(worker_)},
       node{std::move(node_)},
       negotiation{std::move(negotiation_)},
-      writer{std::move(writer_)},
+      schedule_writer{std::move(writer_)},
+      blockade_writer{rmf_traffic_ros2::blockade::Writer::make(*node)},
       mirror_manager{std::move(mirror_manager_)}
   {
-    // const auto default_qos = rclcpp::SystemDefaultsQoS();
-    // delivery_sub = node->create_subscription<Delivery>(
-    //       DeliveryTopicName, default_qos,
-    //       [this](Delivery::SharedPtr msg)
-    // {
-    //   std::lock_guard<std::mutex> lock(mutex);
-    //   if (!received_tasks.insert(msg->task_id).second)
-    //     return;
-
-    //   task_times.insert(
-    //       task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
-
-    //   rmf_fleet_adapter::agv::request_delivery(*msg, fleets);
-    // });
-
-    // loop_sub = node->create_subscription<Loop>(
-    //       LoopRequestTopicName, default_qos,
-    //       [this](Loop::SharedPtr msg)
-    // {
-    //   std::lock_guard<std::mutex> lock(mutex);
-    //   if (!received_tasks.insert(msg->task_id).second)
-    //     return;
-
-    //   task_times.insert(
-    //       task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
-
-    //   rmf_fleet_adapter::agv::request_loop(*msg, fleets);
-    // });
-
-    // task_purge_timer = node->create_wall_timer(
-    //       std::chrono::minutes(60), [this]()
-    // {
-    //   // This purge of task ids is to prevent the log of tasks from growing
-    //   // infinitely.
-    //   const auto purge_end =
-    //       std::chrono::steady_clock::now() - std::chrono::minutes(60);
-
-    //   auto it = task_times.begin();
-    //   for (; it != task_times.end() && it->first < purge_end; ++it)
-    //     received_tasks.erase(it->second);
-
-    //   if (it != task_times.begin())
-    //     task_times.erase(task_times.begin(), it);
-    // });
+    // Do nothing
   }
 
   static rmf_utils::unique_impl_ptr<Implementation> make(
@@ -254,7 +203,7 @@ std::shared_ptr<FleetUpdateHandle> Adapter::add_fleet(
 
   auto fleet = FleetUpdateHandle::Implementation::make(
         fleet_name, std::move(planner), _pimpl->node, _pimpl->worker,
-        _pimpl->writer, _pimpl->mirror_manager.snapshot_handle(),
+        _pimpl->schedule_writer, _pimpl->mirror_manager.snapshot_handle(),
         _pimpl->negotiation);
 
   _pimpl->fleets.push_back(fleet);
@@ -271,7 +220,7 @@ void Adapter::add_traffic_light(
 {
   if (!handle_cb)
   {
-    RCLCPP_WARN(
+    RCLCPP_ERROR(
       _pimpl->node->get_logger(),
       "Adapter::add_traffic_light(~) was not provided a callback to receive "
       "the TrafficLight::UpdateHandle for the robot [%s] owned by [%s]. This "
@@ -289,10 +238,12 @@ void Adapter::add_traffic_light(
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       traits.profile());
 
-  _pimpl->writer->async_make_participant(
+  _pimpl->schedule_writer->async_make_participant(
       std::move(description),
-      [command = std::move(command),
+      [mutex = &_pimpl->traffic_light_init_mutex,
+       command = std::move(command),
        traits = std::move(traits),
+       blockade_writer = _pimpl->blockade_writer,
        schedule = _pimpl->mirror_manager.snapshot_handle(),
        worker = _pimpl->worker,
        handle_cb = std::move(handle_cb),
@@ -300,6 +251,7 @@ void Adapter::add_traffic_light(
        node = _pimpl->node](
         rmf_traffic::schedule::Participant participant)
   {
+    std::lock_guard<std::mutex> lock(*mutex);
     RCLCPP_INFO(
       node->get_logger(),
       "Added a traffic light controller for [%s] with participant ID [%d]",
@@ -308,6 +260,7 @@ void Adapter::add_traffic_light(
     auto update_handle = TrafficLight::UpdateHandle::Implementation::make(
           std::move(command),
           std::move(participant),
+          blockade_writer,
           std::move(traits),
           std::move(schedule),
           worker,
@@ -319,6 +272,97 @@ void Adapter::add_traffic_light(
            update_handle = std::move(update_handle)](const auto&)
     {
       handle_cb(std::move(update_handle));
+    });
+  });
+}
+
+//==============================================================================
+void Adapter::add_easy_traffic_light(
+    std::function<void(EasyTrafficLightPtr)> handle_callback,
+    const std::string& fleet_name,
+    const std::string& robot_name,
+    rmf_traffic::agv::VehicleTraits traits,
+    std::function<void()> pause_callback,
+    std::function<void()> resume_callback,
+    std::function<void(Blockers)> blocker_callback)
+{
+  if (!handle_callback)
+  {
+    RCLCPP_ERROR(
+      _pimpl->node->get_logger(),
+      "Adapter::add_easy_traffic_light(~) was not provided a callback to "
+      "receive the TrafficLight::UpdateHandle for the robot [%s] owned by "
+      "[%s]. This means the traffic light controller will not be able to work "
+      "since you cannot provide information about where the robot is going. We "
+      "will not create the requested traffic light controller.",
+      robot_name.c_str(), fleet_name.c_str());
+
+    return;
+  }
+
+  if (!pause_callback)
+  {
+    RCLCPP_ERROR(
+      _pimpl->node->get_logger(),
+      "Adapter::add_easy_traffic_light(~) was not provided a pause_callback "
+      "value for the robot [%s] owned by [%s]. This means the easy traffic "
+      "light controller will not be able to work correctly since we cannot "
+      "command on-demand pauses. We will not create the requested easy traffic "
+      "light controller.",
+      robot_name.c_str(), fleet_name.c_str());
+    return;
+  }
+
+  if (!resume_callback)
+  {
+    RCLCPP_ERROR(
+      _pimpl->node->get_logger(),
+      "Adapter::add_easy_traffic_light(~) was not provided a resume_callback "
+      "value for the robot [%s] owned by [%s]. This means the easy traffic "
+      "light controller will not be able to work correctly since we cannot "
+      "command on-demand resuming. We will not create the requested easy "
+      "traffic light controller.",
+      robot_name.c_str(), fleet_name.c_str());
+    return;
+  }
+
+  const auto command_handle =
+      std::make_shared<EasyTrafficLight::Implementation::CommandHandle>();
+
+  add_traffic_light(
+        command_handle,
+        fleet_name,
+        robot_name,
+        std::move(traits),
+        [command_handle,
+         pause_callback = std::move(pause_callback),
+         resume_callback = std::move(resume_callback),
+         handle_callback = std::move(handle_callback),
+         blocker_callback = std::move(blocker_callback),
+         worker = _pimpl->worker,
+         node = _pimpl->node,
+         fleet_name,
+         robot_name](
+        TrafficLight::UpdateHandlePtr update_handle)
+  {
+    EasyTrafficLightPtr easy_handle =
+        EasyTrafficLight::Implementation::make(
+          std::move(update_handle),
+          std::move(pause_callback),
+          std::move(resume_callback),
+          std::move(blocker_callback),
+          worker,
+          node,
+          robot_name,
+          fleet_name);
+
+    command_handle->pimpl = easy_handle;
+
+    worker.schedule(
+          [easy_handle = std::move(easy_handle),
+           handle_callback = std::move(handle_callback)](const auto&)
+    {
+      handle_callback(easy_handle);
     });
   });
 }
