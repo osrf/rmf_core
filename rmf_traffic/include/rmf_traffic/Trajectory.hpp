@@ -199,6 +199,22 @@ public:
   /// const-qualified version of find()
   const_iterator find(Time time) const;
 
+  /// Get a reference to the Waypoint at the specified index. No bounds checking
+  /// is performed, so there will be undefined behavior if the index is out of
+  /// bounds.
+  Waypoint& operator[](std::size_t index);
+
+  /// Const-qualified index operator
+  const Waypoint& operator[](std::size_t index) const;
+
+  /// Get a reference to the Waypoint at the specified index. Bound checking
+  /// will be performed, and an exception will be thrown if index is out of
+  /// bounds.
+  Waypoint& at(std::size_t index);
+
+  /// Const-qualified at()
+  const Waypoint& at(std::size_t index) const;
+
   /// Get the first waypoint of this Trajectory that occurs at a time greater
   /// than or equal to the specified time. This is effectively the same as
   /// find(Time), except it will return Trajectory::begin() if the time comes
@@ -290,7 +306,8 @@ public:
   /// detection, the Trajectory must have a size of at least 2.
   std::size_t size() const;
 
-  // TODO(MXG): Add operator[]
+  /// Return true if the trajectory has no waypoints, false otherwise.
+  bool empty() const;
 
   /// \internal Used internally by unit and integration tests so we can test
   /// private imeplementation details.

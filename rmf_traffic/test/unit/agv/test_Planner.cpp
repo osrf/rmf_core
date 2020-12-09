@@ -340,6 +340,25 @@ inline void CHECK_PLAN(
   {
     if (wp.graph_index())
       plan_indices.push_back(*wp.graph_index());
+
+    const std::size_t i_itin = wp.itinerary_index();
+    const std::size_t i_wp = wp.trajectory_index();
+    REQUIRE(i_itin < plan->get_itinerary().size());
+    REQUIRE(i_wp < plan->get_itinerary()[i_itin].trajectory().size());
+
+    const auto& traj_wp = plan->get_itinerary()
+        .at(i_itin).trajectory().at(i_wp);
+
+    const Eigen::Vector2d wp_p = wp.position().block<2,1>(0,0);
+    const Eigen::Vector2d traj_wp_p = traj_wp.position().block<2,1>(0,0);
+    CHECK((wp_p - traj_wp_p).norm() == Approx(0.0).margin(1e-6));
+
+    const auto wp_R = wp.position()[2];
+    const auto traj_wp_R = traj_wp.position()[2];
+    const auto R_diff = wp_R - traj_wp_R;
+    CHECK(rmf_utils::wrap_to_pi(R_diff) == Approx(0.0).margin(1e-6));
+
+    CHECK(wp.time() == traj_wp.time());
   }
 
   auto ip = std::unique(plan_indices.begin(), plan_indices.end());
@@ -355,6 +374,24 @@ inline void CHECK_PLAN(
   for (const auto& route : plan->get_itinerary())
   {
     CHECK(route.trajectory().size() >= 2);
+  }
+
+  for (std::size_t i=0; i < plan->get_itinerary().size(); ++i)
+  {
+    std::optional<rmf_traffic::Time> last_time;
+    const auto& trajectory = plan->get_itinerary()[i].trajectory();
+
+    for (std::size_t j=0; j < trajectory.size(); ++j)
+    {
+      if (!last_time.has_value())
+      {
+        last_time = trajectory[j].time();
+        continue;
+      }
+
+      CHECK(last_time.value() < trajectory[j].time());
+      last_time = trajectory[j].time();
+    }
   }
 }
 // ____________________________________________________________________________
@@ -734,7 +771,7 @@ SCENARIO("Test planning")
 
     REQUIRE(plan);
     CHECK(plan->get_itinerary().size() == 0);
-    CHECK(plan->get_waypoints().size() == 1);
+    CHECK(plan->get_waypoints().size() == 0);
   }
 
   WHEN("initial and goal waypoints are same but goal_orientation is different")

@@ -677,7 +677,14 @@ public:
     rmf_traffic::Time time() const;
 
     /// Get the graph index of this Waypoint
-    rmf_utils::optional<std::size_t> graph_index() const;
+    std::optional<std::size_t> graph_index() const;
+
+    /// Get the index of the Route in the plan's Itinerary that this Waypoint
+    /// belongs to.
+    std::size_t itinerary_index() const;
+
+    /// Get the Trajectory::Waypoint index that arrives at this Plan::Waypoint
+    std::size_t trajectory_index() const;
 
     /// An event that should occur when this waypoint is reached.
     const Graph::Lane::Event* event() const;
