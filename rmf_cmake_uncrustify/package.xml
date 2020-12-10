@@ -9,14 +9,14 @@
   <maintainer email="yadunund@openrobotics.org">Yadunund Vijay</maintainer>
   <license>Apache License 2.0</license>
 
-  <buildtool_depend>ament_cmake_core</buildtool_depend>
-  <buildtool_depend>ament_cmake_test</buildtool_depend>
+  <buildtool_depend>ament_cmake_core_rolling</buildtool_depend>
+  <buildtool_depend>ament_cmake_test_rolling</buildtool_depend>
 
-  <buildtool_export_depend>ament_cmake_test</buildtool_export_depend>
-  <buildtool_export_depend>ament_uncrustify</buildtool_export_depend>
+  <buildtool_export_depend>ament_cmake_test_rolling</buildtool_export_depend>
+  <buildtool_export_depend>ament_uncrustify_rolling</buildtool_export_depend>
 
-  <test_depend>ament_cmake_copyright</test_depend>
-  <test_depend>ament_cmake_lint_cmake</test_depend>
+  <test_depend>ament_cmake_copyright_rolling</test_depend>
+  <test_depend>ament_cmake_lint_cmake_rolling</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
