@@ -27,7 +27,18 @@ namespace agv {
 class MechanicalSystem
 {
 public:
-
+  /// Constructor
+  ///
+  /// \param[in] mass
+  ///   The mass of the robot in kilograms
+  ///
+  /// \param[in] inertia
+  ///   The moment of inertia of the robot along its yaw axis
+  ///
+  /// \param[in] friction_coefficient
+  ///   The coefficient of kinetic friction measured at the wheels of the robot. 
+  ///   This value is used to compute the energy loss due to rotation of the
+  ///   vehicle's wheels during locomotion.
   MechanicalSystem(
     double mass,
     double inertia,
