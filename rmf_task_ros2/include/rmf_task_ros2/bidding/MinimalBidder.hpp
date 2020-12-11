@@ -35,22 +35,20 @@ namespace bidding {
 class MinimalBidder
 {
 public:
-  struct Profile
-  {
-    std::string fleet_name;
-    std::set<uint32_t> valid_tasks;
-  };
-
   /// Create a bidder to bid for incoming task requests from Task Dispatcher
   ///
   /// \param[in] node
-  ///   The ROS 2 node
+  ///   ROS 2 node instance
   ///
-  /// \param[in] profile
-  ///   The profile of the bidder
+  /// \param[in] fleet_name
+  ///   Name of the bidder
+
+  /// \param[in] valid_tasks
+  ///   A list of tasks types which are supported by the bidder
   static std::shared_ptr<MinimalBidder> make(
     const std::shared_ptr<rclcpp::Node>& node,
-    const Profile& profile);
+    const std::string& fleet_name,
+    const std::set<uint32_t>& valid_tasks);
 
   /// Callback function which user provide a bid submission after receiving
   /// a bid notice from the autioneer
@@ -63,10 +61,10 @@ public:
   using ParseSubmissionCallback =
     std::function<Submission(const BidNotice& notice)>;
 
-  /// Create a call for bid callback instance
+  /// Functino to trigger when a bidding process starts (aka call for bid)
   ///
   /// \param[in] submission_cb
-  ///   callback function to provide submission when a BidNotice is requested
+  ///   callback function to provide submission when a BidNotice is received
   void call_for_bid(ParseSubmissionCallback submission_cb);
 
   class Implementation;

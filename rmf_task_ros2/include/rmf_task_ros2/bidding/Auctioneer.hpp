@@ -73,7 +73,8 @@ public:
   ///   This fn will be called when a bidding result is derived
   void receive_bidding_result(BiddingResultCallback result_callback);
 
-  /// A pure abstract interface class for choosing the best submissions.
+  /// A pure abstract interface class for the auctioneer to choose the best
+  /// choosing the best submissions.
   class Evaluator
   {
   public:

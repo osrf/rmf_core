@@ -21,7 +21,7 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/TaskStatus.hpp>
+#include <rmf_task_ros2/action/TaskStatus.hpp>
 #include <rmf_traffic/Time.hpp>
 
 namespace rmf_task_ros2 {
@@ -29,16 +29,15 @@ namespace action {
 
 //==============================================================================
 // Task Action Client -- responsible for initiating a rmf task to a target
-// server. The server will work on the requested task and provides a status to 
-// the client when the task progresses. Termination will be triggered when the 
+// server. The server will work on the requested task and provides a status to
+// the client when the task progresses. Termination will be triggered when the
 // task ends.
 
 template<typename RequestMsg, typename StatusMsg>
 class TaskActionClient
 {
 public:
-
-  /// Initialize action client
+  /// make an action client
   ///
   /// \param[in] node
   ///   ros2 node instance
@@ -92,25 +91,19 @@ public:
   void on_terminate(StatusCallback status_cb_fn);
 
 private:
+  TaskActionClient(std::shared_ptr<rclcpp::Node> node);
+
   std::shared_ptr<rclcpp::Node> _node;
-
-  typename rclcpp::Publisher<RequestMsg>::SharedPtr _request_msg_pub;
-  typename rclcpp::Subscription<StatusMsg>::SharedPtr _status_msg_sub;
-
   StatusCallback _on_change_callback;
   StatusCallback _on_terminate_callback;
-
-  // Task Tracker
-  using TaskStatusWeakPtr = std::weak_ptr<TaskStatus>;
-  std::map<TaskID, TaskStatusWeakPtr> _active_task_status;
-
-  // Private Constructor
-  TaskActionClient(std::shared_ptr<rclcpp::Node> node);
+  std::map<TaskID, std::weak_ptr<TaskStatus>> _active_task_status;
+  typename rclcpp::Publisher<RequestMsg>::SharedPtr _request_msg_pub;
+  typename rclcpp::Subscription<StatusMsg>::SharedPtr _status_msg_sub;
 };
 
 } // namespace action
 } // namespace rmf_task_ros2
 
-#include "internal_ActionClient.tpp"
+#include "details/internal_ActionClient.tpp"
 
 #endif // SRC__RMF_TASK_ROS2__ACTION_CLIENT_HPP

@@ -27,13 +27,15 @@
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 #include <rmf_task_ros2/action/ActionClient.hpp>
 
+#include <rmf_task_msgs/msg/dispatch_request.hpp>
+#include <rmf_task_msgs/msg/task_summary.hpp>
+
 namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
 using DispatchTasks = std::map<TaskID, TaskStatusPtr>;
 using DispatchTasksPtr = std::shared_ptr<DispatchTasks>;
-using DispatchState = TaskStatus::State;
 
 //==============================================================================
 class Dispatcher : public std::enable_shared_from_this<Dispatcher>
@@ -91,7 +93,7 @@ public:
   ///   request task id
   ///
   /// \return State of the task
-  rmf_utils::optional<DispatchState> get_task_state(
+  rmf_utils::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id);
 
   /// Get a mutable ref of active tasks map list handled by dispatcher
@@ -134,8 +136,6 @@ private:
 };
 
 } // namespace dispatcher
-
-
 } // namespace rmf_task_ros2
 
 #endif // RMF_TASK_ROS2__DISPATCHER__NODE_HPP

@@ -18,6 +18,9 @@
 #include <rmf_utils/optional.hpp>
 #include <rmf_task_ros2/action/ActionClient.hpp>
 #include <rmf_task_ros2/action/ActionServer.hpp>
+#include <rmf_task_msgs/msg/dispatch_request.hpp>
+#include <rmf_task_msgs/msg/task_summary.hpp>
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <chrono>
@@ -47,9 +50,13 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_ActionInferface");
-  auto action_server = TaskActionServer<RequestMsg, StatusMsg>::make(
+
+  using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
+  using TaskSummary = rmf_task_msgs::msg::TaskSummary;
+
+  auto action_server = TaskActionServer<DispatchRequest, TaskSummary>::make(
     node, "test_server");
-  auto action_client = TaskActionClient<RequestMsg, StatusMsg>::make(
+  auto action_client = TaskActionClient<DispatchRequest, TaskSummary>::make(
     node);
 
   rclcpp::executors::SingleThreadedExecutor executor;

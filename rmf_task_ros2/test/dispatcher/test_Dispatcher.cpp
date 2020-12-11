@@ -19,7 +19,7 @@
 #include <rmf_task_ros2/dispatcher/Dispatcher.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-// mock system to test dispatcher
+// mock Fleet Adapter to test dispatcher
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 #include <rmf_task_ros2/action/ActionServer.hpp>
 
@@ -108,12 +108,10 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   }
 
 //==============================================================================
-  // setup a mock bidder to test
-  bidding::MinimalBidder::Profile profile{
-    "dummy_fleet", { TaskType::TYPE_STATION, TaskType::TYPE_CLEAN}};
-
+  // Setup Mock Fleetadapter: mock bidder to test
   auto node = dispatcher->node();
-  auto bidder = bidding::MinimalBidder::make(node, profile);
+  auto bidder = bidding::MinimalBidder::make(
+    node, "dummy_fleet", {TaskType::TYPE_STATION, TaskType::TYPE_CLEAN});
 
   bidder->call_for_bid(
     [](const bidding::BidNotice& notice)
@@ -126,9 +124,13 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   );
 
 //==============================================================================
-  // setup the action server to test
-  auto action_server = action::TaskActionServer<RequestMsg, StatusMsg>::make(
-    node, profile.fleet_name);
+  // Setup Mock Fleetadapter: action server to test
+  using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
+  using TaskSummary = rmf_task_msgs::msg::TaskSummary;
+
+  auto action_server =
+    action::TaskActionServer<DispatchRequest, TaskSummary>::make(
+    node, "dummy_fleet");
 
   bool task_canceled_flag = false;
 
@@ -146,8 +148,8 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
           status.robot_name = "dumbot";
           std::cout << " [task impl] Queued " << profile.task_id << std::endl;
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          
-          if(task_canceled_flag)
+
+          if (task_canceled_flag)
           {
             std::cout << "[task impl] Cancelled!" << std::endl;
             return;

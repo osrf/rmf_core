@@ -27,7 +27,8 @@ class MinimalBidder::Implementation
 public:
 
   std::shared_ptr<rclcpp::Node> node;
-  Profile profile;
+  std::string fleet_name;
+  std::set<uint32_t> valid_tasks;
   ParseSubmissionCallback get_submission_fn;
 
   using BidNoticeSub = rclcpp::Subscription<BidNotice>;
@@ -38,8 +39,9 @@ public:
 
   Implementation(
     std::shared_ptr<rclcpp::Node> node_,
-    const Profile& profile)
-  : node(std::move(node_)), profile(profile)
+    const std::string& fleet_name_,
+    const std::set<uint32_t>& valid_tasks_)
+  : node(std::move(node_)), fleet_name(fleet_name_), valid_tasks(valid_tasks_)
   {
     const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
@@ -55,28 +57,27 @@ public:
   }
 
   // Callback fn when a dispatch notice is received
-  // todo change to taskprofile
   void receive_notice(const BidNotice& msg)
   {
     std::cout << " [Bidder] Received Bidding notice for task_id: "
               << msg.task_profile.task_id << std::endl;
 
     // check if tasktype is supported by this F.A
-    if (!profile.valid_tasks.count(msg.task_profile.task_type.type))
+    if (!valid_tasks.count(msg.task_profile.task_type.type))
     {
-      std::cout << profile.fleet_name << ": task type "
-                << msg.task_profile.task_type.type << " is invalid" << std::endl;
+      std::cout << fleet_name << ": task type "
+                << msg.task_profile.task_type.type <<" is invalid"<< std::endl;
       return;
     }
 
     // check if get submission function is declared
     if (!get_submission_fn)
       return;
-    auto bid_submission = get_submission_fn(msg);
 
     // Submit proposal
+    auto bid_submission = get_submission_fn(msg);
     auto best_proposal = convert(bid_submission);
-    best_proposal.fleet_name = profile.fleet_name;
+    best_proposal.fleet_name = fleet_name;
     best_proposal.task_profile = msg.task_profile;
     dispatch_proposal_pub->publish(best_proposal);
   }
@@ -85,9 +86,11 @@ public:
 //==============================================================================
 std::shared_ptr<MinimalBidder> MinimalBidder::make(
   const std::shared_ptr<rclcpp::Node>& node,
-  const Profile& profile)
+  const std::string& fleet_name,
+  const std::set<uint32_t>& valid_tasks)
 {
-  auto pimpl = rmf_utils::make_unique_impl<Implementation>(node, profile);
+  auto pimpl = rmf_utils::make_unique_impl<Implementation>(
+    node, fleet_name, valid_tasks);
 
   if (pimpl)
   {

@@ -21,7 +21,7 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/TaskStatus.hpp>
+#include <rmf_task_ros2/action/TaskStatus.hpp>
 #include <rmf_traffic/Time.hpp>
 
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;
@@ -29,10 +29,11 @@ using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 namespace rmf_task_ros2 {
 namespace action {
 
-// ==============================================================================
-// Task Action Server - responsible for listening to request, and execute
-// incoming task which is being requested by the client. "fleet_name" is key
-// to differentiate between multiple action servers.
+//==============================================================================
+// Task Action Server - Responsibility is to execute a tasks which based of
+// an incoming requests (from a action_client). The idea of having a template
+// here is to make it as a lib which can be used by future tasks oriented
+// rmf system. (e.g. workcell, lift, door....)
 
 template<typename RequestMsg, typename StatusMsg>
 class TaskActionServer
@@ -48,16 +49,15 @@ public:
   static std::shared_ptr<TaskActionServer> make(
     std::shared_ptr<rclcpp::Node> node,
     const std::string& fleet_name);
-  using AddTaskCallback =
-    std::function<bool(const TaskProfile& task_profile)>;
-  using CancelTaskCallback =
-    std::function<bool(const TaskProfile& task_profile)>;
+
+  using AddTaskCallback = std::function<bool(const TaskProfile& task)>;
+  using CancelTaskCallback = std::function<bool(const TaskProfile& task)>;
 
   /// Add event callback functions. These functions will be triggered when a
-  /// requests msg is received
+  /// relevant task requests msg is received.
   ///
   /// \param[in] add_task_cb
-  ///   When an add task request is called
+  ///   When a new task request is called.
   ///
   /// \param[in] cancel_task_cb
   ///   when a cancel task request is called
@@ -74,23 +74,21 @@ public:
     const TaskStatus& task_status);
 
 private:
+  TaskActionServer(
+    std::shared_ptr<rclcpp::Node> node,
+    const std::string& fleet_name);
+
   std::shared_ptr<rclcpp::Node> _node;
   std::string _fleet_name;
   AddTaskCallback _add_task_cb_fn;
   CancelTaskCallback _cancel_task_cb_fn;
-
   typename rclcpp::Subscription<RequestMsg>::SharedPtr _request_msg_sub;
   typename rclcpp::Publisher<StatusMsg>::SharedPtr _status_msg_pub;
-
-  // Private Constructor
-  TaskActionServer(
-    std::shared_ptr<rclcpp::Node> node,
-    const std::string& fleet_name);
 };
 
 } // namespace action
 } // namespace rmf_task_ros2
 
-#include "internal_ActionServer.tpp"
+#include "details/internal_ActionServer.tpp"
 
 #endif // SRC__RMF_TASK_ROS2__ACTION_SERVER_HPP

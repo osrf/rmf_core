@@ -46,7 +46,7 @@ template<typename RequestMsg, typename StatusMsg>
 void TaskActionServer<RequestMsg, StatusMsg>::update_status(
   const TaskStatus& task_status)
 {
-  auto msg = convert(task_status);
+  auto msg = convert_status<StatusMsg>(task_status);
   msg.fleet_name = _fleet_name;
   _status_msg_pub->publish(msg);
 }
@@ -78,23 +78,15 @@ TaskActionServer<RequestMsg, StatusMsg>::TaskActionServer(
         // Add Request
         case RequestMsg::ADD:
         {
-          if (!_add_task_cb_fn)
-            return;
-
-          if (_add_task_cb_fn(msg->task_profile))
+          if (_add_task_cb_fn && _add_task_cb_fn(msg->task_profile))
             status_msg.state = StatusMsg::STATE_QUEUED;
-
           break;
         }
         // Cancel Request
         case RequestMsg::CANCEL:
         {
-          if (!_cancel_task_cb_fn)
-            return;
-
-          if (_cancel_task_cb_fn(msg->task_profile))
+          if (_cancel_task_cb_fn && _cancel_task_cb_fn(msg->task_profile))
             status_msg.state = StatusMsg::STATE_CANCELED;
-     
           break;
         }
         default:

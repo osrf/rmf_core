@@ -60,7 +60,7 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
         // TODO: hack to retain task profile and fleet name (to remove)
         auto cache_profile = weak_status->task_profile;
         // update status to ptr
-        *weak_status = convert(*msg);
+        *weak_status = convert_status(*msg);
         weak_status->task_profile = cache_profile;
 
         if (_on_change_callback)
@@ -81,7 +81,7 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
       {
         // will still provide onchange even if the task_id is unknown.
         std::cout << "[action] Unknown task: "  << task_id << std::endl;
-        auto task_status = std::make_shared<TaskStatus>(convert(*msg));
+        auto task_status = std::make_shared<TaskStatus>(convert_status(*msg));
         
         if (_on_change_callback)
           _on_change_callback(task_status);
@@ -192,4 +192,4 @@ void TaskActionClient<RequestMsg, StatusMsg>::on_terminate(
 } // namespace action
 } // namespace rmf_task_ros2
 
-#endif // SRC__RMF_TASK_ROS2__INTERNAL_ACTION_CLIENT_TPP
+#endif // SRC__RMF_TASK_ROS2__INTERNAL_ACTION_TPP

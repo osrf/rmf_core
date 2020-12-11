@@ -15,35 +15,35 @@
  *
 */
 
-/// This is a testing bidder node script
+/// Note: This is a testing bidder node script
 
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 #include <rmf_task_ros2/action/ActionServer.hpp>
+#include <rmf_task_msgs/msg/dispatch_request.hpp>
+#include <rmf_task_msgs/msg/task_summary.hpp>
 
 #include <rclcpp/rclcpp.hpp>
+
+using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
+using TaskSummary = rmf_task_msgs::msg::TaskSummary;
 
 using namespace rmf_task_ros2;
 
 int main(int argc, char* argv[])
 {
+  std::string fleet_name = "dummy_fleet";
+
   rclcpp::init(argc, argv);
-  std::shared_ptr<rclcpp::Node> node =
-    rclcpp::Node::make_shared("example_bidder");
+  std::shared_ptr<rclcpp::Node> node = rclcpp::Node::make_shared(fleet_name);
 
   RCLCPP_INFO(
     node->get_logger(),
     "Beginning example task bidder node");
 
-  bidding::MinimalBidder::Profile profile{
-    "dummy_fleet",
-    { TaskType::TYPE_CLEAN, TaskType::TYPE_DELIVERY }
-  };
-
   //============================================================================
   // Create Bidder instance
-
-  std::shared_ptr<bidding::MinimalBidder> bidder =
-    bidding::MinimalBidder::make(node, profile);
+  std::shared_ptr<bidding::MinimalBidder> bidder = bidding::MinimalBidder::make(
+    node, fleet_name, {TaskType::TYPE_CLEAN, TaskType::TYPE_DELIVERY});
 
   bidder->call_for_bid(
     [](const bidding::BidNotice& notice)
@@ -65,9 +65,9 @@ int main(int argc, char* argv[])
 
   //============================================================================
   // Create sample RMF task action server
-
-  auto action_server = action::TaskActionServer<RequestMsg, StatusMsg>::make(
-    node, profile.fleet_name);
+  auto action_server =
+    action::TaskActionServer<DispatchRequest, TaskSummary>::make(
+    node, fleet_name);
 
   action_server->register_callbacks(
     [&action_server, &node](const TaskProfile& task_profile)

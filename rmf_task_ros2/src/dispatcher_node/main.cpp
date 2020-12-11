@@ -62,26 +62,26 @@ int main(int argc, char* argv[])
       {
         using namespace rmf_task_ros2::bidding;
         case SubmitTaskSrv::Request::LOWEST_DIFF_COST_EVAL:
-        {
-          auto eval = std::shared_ptr<LeastFleetDiffCostEvaluator>(
-            new LeastFleetDiffCostEvaluator());
-          dispatcher->evaluator(eval);
-          break;
-        }
+          {
+            auto eval = std::shared_ptr<LeastFleetDiffCostEvaluator>(
+              new LeastFleetDiffCostEvaluator());
+            dispatcher->evaluator(eval);
+            break;
+          }
         case SubmitTaskSrv::Request::LOWEST_COST_EVAL:
-        {
-          auto eval = std::shared_ptr<LeastFleetCostEvaluator>(
-            new LeastFleetCostEvaluator());
-          dispatcher->evaluator(eval);
-          break;
-        }
+          {
+            auto eval = std::shared_ptr<LeastFleetCostEvaluator>(
+              new LeastFleetCostEvaluator());
+            dispatcher->evaluator(eval);
+            break;
+          }
         case SubmitTaskSrv::Request::QUICKEST_FINISH_EVAL:
-        {
-          auto eval = std::shared_ptr<QuickestFinishEvaluator>(
-            new QuickestFinishEvaluator());
-          dispatcher->evaluator(eval);
-          break;
-        }
+          {
+            auto eval = std::shared_ptr<QuickestFinishEvaluator>(
+              new QuickestFinishEvaluator());
+            dispatcher->evaluator(eval);
+            break;
+          }
       }
 
       std::cout << " Generated ID is: " << id << std::endl;
@@ -109,9 +109,10 @@ int main(int argc, char* argv[])
       const std::shared_ptr<GetTaskSrv::Request> request,
       std::shared_ptr<GetTaskSrv::Response> response)
     {
-      RCLCPP_WARN(node->get_logger(), "Get Task!!!  %d active | %d done",
-      dispatcher->active_tasks()->size(),
-      dispatcher->terminated_tasks()->size());
+      RCLCPP_WARN(
+        node->get_logger(), "Get Task!!!  %d active | %d done",
+        dispatcher->active_tasks()->size(),
+        dispatcher->terminated_tasks()->size());
 
       // currently return all tasks
       std::cout << "\n - Active Tasks >>>> ";
@@ -120,7 +121,8 @@ int main(int argc, char* argv[])
         std::cout << " {" << task.first << " * "
                   << (int)task.second->state << "} ";
         response->active_tasks.push_back(
-          rmf_task_ros2::convert(*(task.second)));
+          rmf_task_ros2::convert_status<rmf_task_msgs::msg::TaskSummary>(
+            *(task.second)));
       }
       std::cout << std::endl;
 
@@ -132,10 +134,10 @@ int main(int argc, char* argv[])
                   << (int)task.second->state << "} "
                   << std::flush;
         response->terminated_tasks.push_back(
-          rmf_task_ros2::convert(*(task.second)));
+          rmf_task_ros2::convert_status<rmf_task_msgs::msg::TaskSummary>(
+            *(task.second)));
       }
       std::cout << std::endl;
-
       response->success = true;
     }
   );

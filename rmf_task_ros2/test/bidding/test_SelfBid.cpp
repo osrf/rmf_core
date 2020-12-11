@@ -30,13 +30,6 @@ using TaskType = rmf_task_msgs::msg::TaskType;
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 
 //==============================================================================
-MinimalBidder::Profile bidder1_profile {
-  "bidder1", { TaskType::TYPE_STATION, TaskType::TYPE_DELIVERY }
-};
-MinimalBidder::Profile bidder2_profile {
-  "bidder2", { TaskType::TYPE_DELIVERY, TaskType::TYPE_CLEAN }
-};
-
 BidNotice bidding_task1;
 BidNotice bidding_task2;
 
@@ -50,7 +43,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   bidding_task1.task_profile.task_id = "bid1";
   bidding_task1.task_profile.task_type.type = TaskType::TYPE_STATION;
   bidding_task1.time_window = timeout;
-  
+
   bidding_task2.task_profile.task_id = "bid2";
   bidding_task2.task_profile.task_type.type = TaskType::TYPE_DELIVERY;
   bidding_task2.time_window = timeout;
@@ -59,9 +52,12 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_selfbidding");
+
   auto auctioneer = Auctioneer::make(node);
-  auto bidder1 = MinimalBidder::make(node, bidder1_profile);
-  auto bidder2 = MinimalBidder::make(node, bidder2_profile);
+  auto bidder1 = MinimalBidder::make(
+    node, "bidder1", { TaskType::TYPE_STATION, TaskType::TYPE_DELIVERY });
+  auto bidder2 = MinimalBidder::make(
+    node, "bidder2", { TaskType::TYPE_DELIVERY, TaskType::TYPE_CLEAN });
 
   // test received msg
   rmf_utils::optional<TaskProfile> test_notice_bidder1;

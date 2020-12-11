@@ -73,7 +73,7 @@ endif()
 #===============================================================================
 
 add_executable(rmf_bidder_node 
-  src/bidder/main.cpp
+  src/mock_bidder/main.cpp
 )
 target_link_libraries(rmf_bidder_node PUBLIC rmf_task_ros2)
 

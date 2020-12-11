@@ -22,19 +22,22 @@
 namespace rmf_task_ros2 {
 namespace dispatcher {
 
+using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
+using TaskSummary = rmf_task_msgs::msg::TaskSummary;
+
 //==============================================================================
 class Dispatcher::Implementation
 {
 public:
   std::shared_ptr<rclcpp::Node> node;
   std::shared_ptr<bidding::Auctioneer> auctioneer;
-  std::shared_ptr<action::TaskActionClient<RequestMsg,
-    StatusMsg>> action_client;
+  std::shared_ptr<action::TaskActionClient<DispatchRequest,
+    TaskSummary>> action_client;
 
   StatusCallback on_change_fn;
 
   DispatchTasksPtr active_dispatch_tasks;
-  DispatchTasksPtr terminal_dispatch_tasks; // todo limit size
+  DispatchTasksPtr terminal_dispatch_tasks;
   int i = 0; // temp index for generating task_id
   double bidding_time_window;
 
@@ -66,12 +69,12 @@ public:
   {
     auto submitted_task = task;
 
-    // auto generate a taskid for a given submitted task
-    // todo: fix a way to generate unique task_id
+    // auto generate a task_id for a given submitted task
+    // TODO: generate a unique task_id based of clock
     submitted_task.task_id =
-      // "task" + std::to_string((int)task.task_type)
-      //   + "-" + std::to_string((int)(node->now().seconds()));
       std::to_string( ((int)task.task_type.type)*1000 + (i++) );
+    // "task" + std::to_string((int)task.task_type)
+    //   + "-" + std::to_string((int)(node->now().seconds()));
 
     submitted_task.submission_time = node->now();
 
@@ -106,9 +109,9 @@ public:
       profile = cancel_task_status->task_profile;
 
       // Cancel bidding. This will remove the bidding process
-      if (cancel_task_status->state == DispatchState::Pending)
+      if (cancel_task_status->state == TaskStatus::State::Pending)
       {
-        cancel_task_status->state = DispatchState::Canceled;
+        cancel_task_status->state = TaskStatus::State::Canceled;
         terminate_task(cancel_task_status);
 
         if (on_change_fn)
@@ -124,7 +127,7 @@ public:
     return action_client->cancel_task(profile);
   }
 
-  rmf_utils::optional<DispatchState> get_task_state(
+  rmf_utils::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id)
   {
     // check if key doesnt exist
@@ -150,7 +153,7 @@ public:
     if (!winner)
     {
       std::cerr << " | No winner found :( " <<  std::endl;
-      pending_task_status->state = DispatchState::Failed;
+      pending_task_status->state = TaskStatus::State::Failed;
       terminate_task(pending_task_status);
 
       if (on_change_fn)
@@ -163,9 +166,11 @@ public:
     std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
     pending_task_status->fleet_name = winner->fleet_name;
 
-    // Remove prev auto-generated charging task from "active_dispatch_tasks"
+    // Remove previous self-generated charging task from "active_dispatch_tasks"
+    // this is to prevenet duplicated charging task (as certain queued charging
+    // tasks are not terminated when task is reassigned).
     // TODO: a better way to impl this
-    for (auto it = active_dispatch_tasks->begin(); 
+    for (auto it = active_dispatch_tasks->begin();
       it != active_dispatch_tasks->end(); )
     {
       auto task_type = it->second->task_profile.task_type.type;
@@ -184,8 +189,8 @@ public:
       pending_task_status->task_profile,
       pending_task_status);
 
-    // Todo: this might not be untrue since task might be ignored by server
-    pending_task_status->state = DispatchState::Queued;
+    // Note: this might not be untrue since task might be ignored by server
+    pending_task_status->state = TaskStatus::State::Queued;
   }
 
   void terminate_task(const TaskStatusPtr terminate_status)
@@ -203,8 +208,9 @@ public:
 
   void task_status_cb(const TaskStatusPtr status_msg)
   {
-    // check if task exist in cache, 
-    // if missing add stray task to "active_dispatch_tasks"
+    // This is to solve the issue that the dispatcher is not aware of those
+    // "stray" tasks that are not dispatched by the dispatcher. This will add
+    // the stray tasks when an unknown TaskSummary is heard.
     auto id = status_msg->task_profile.task_id;
     if (!(*active_dispatch_tasks).count(id))
       (*active_dispatch_tasks)[id] = status_msg;
@@ -235,7 +241,7 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
   {
     pimpl->auctioneer = bidding::Auctioneer::make(node);
     pimpl->action_client =
-      action::TaskActionClient<RequestMsg, StatusMsg>::make(node);
+      action::TaskActionClient<DispatchRequest, TaskSummary>::make(node);
 
     auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
     dispatcher->_pimpl = pimpl;
@@ -258,7 +264,7 @@ bool Dispatcher::cancel_task(const TaskID& task_id)
 }
 
 //==============================================================================
-rmf_utils::optional<DispatchState> Dispatcher::get_task_state(
+rmf_utils::optional<TaskStatus::State> Dispatcher::get_task_state(
   const TaskID& task_id)
 {
   return _pimpl->get_task_state(task_id);
@@ -314,11 +320,4 @@ Dispatcher::~Dispatcher()
 }
 
 } // namespace dispatcher
-
-namespace action {
-
-template class TaskActionClient<RequestMsg, StatusMsg>;
-
-} // namespace action
-
 } // namespace rmf_task_ros2
