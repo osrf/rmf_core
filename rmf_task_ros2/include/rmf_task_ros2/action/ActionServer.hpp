@@ -24,6 +24,7 @@
 #include <rmf_task_ros2/TaskStatus.hpp>
 #include <rmf_traffic/Time.hpp>
 
+using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 
 namespace rmf_task_ros2 {
 namespace action {
@@ -37,32 +38,38 @@ template<typename RequestMsg, typename StatusMsg>
 class TaskActionServer
 {
 public:
-
   /// initialize action server
   ///
-  /// \param[in] ros2 node instance
-  /// \param[in] action server id (e.g. fleet adapter name)
+  /// \param[in] node
+  ///   ros2 node instance
+  ///
+  /// \param[in] fleet_name
+  ///   action server id (e.g. fleet adapter name)
   static std::shared_ptr<TaskActionServer> make(
     std::shared_ptr<rclcpp::Node> node,
     const std::string& fleet_name);
-
   using AddTaskCallback =
     std::function<bool(const TaskProfile& task_profile)>;
   using CancelTaskCallback =
     std::function<bool(const TaskProfile& task_profile)>;
 
-  /// Add event callback fns
+  /// Add event callback functions. These functions will be triggered when a
+  /// requests msg is received
   ///
-  /// \param[in] When a add task is called
-  /// \param[in] when a cancel task is called
+  /// \param[in] add_task_cb
+  ///   When an add task request is called
+  ///
+  /// \param[in] cancel_task_cb
+  ///   when a cancel task request is called
   void register_callbacks(
-    AddTaskCallback add_task_cb_fn,
-    CancelTaskCallback cancel_task_cb_fn);
+    AddTaskCallback add_task_cb,
+    CancelTaskCallback cancel_task_cb);
 
   /// Use this to send a status update to action client
   /// A On Change update is recommended to inform the task progress
   ///
-  /// \param[in] task status
+  /// \param[in] task_status
+  ///   latest status of the task
   void update_status(
     const TaskStatus& task_status);
 
@@ -79,119 +86,11 @@ private:
   TaskActionServer(
     std::shared_ptr<rclcpp::Node> node,
     const std::string& fleet_name);
-
-  void add_task_impl(const TaskProfile& task_profile);
-
-  void cancel_task_impl(const TaskProfile& task_profile);
 };
-
-//==============================================================================
-//==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-std::shared_ptr<TaskActionServer<RequestMsg, StatusMsg>>
-TaskActionServer<RequestMsg, StatusMsg>::make(
-  std::shared_ptr<rclcpp::Node> node,
-  const std::string& fleet_name)
-{
-  return std::shared_ptr<TaskActionServer>(new
-      TaskActionServer(node, fleet_name));
-}
-
-//==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionServer<RequestMsg, StatusMsg>::register_callbacks(
-  AddTaskCallback add_task_cb_fn,
-  CancelTaskCallback cancel_task_cb_fn)
-{
-  _add_task_cb_fn = std::move(add_task_cb_fn);
-  _cancel_task_cb_fn = std::move(cancel_task_cb_fn);
-}
-
-//==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionServer<RequestMsg, StatusMsg>::update_status(
-  const TaskStatus& task_status)
-{
-  auto msg = convert(task_status);
-  msg.fleet_name = _fleet_name;
-  _status_msg_pub->publish(msg);
-}
-
-//==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-TaskActionServer<RequestMsg, StatusMsg>::TaskActionServer(
-  std::shared_ptr<rclcpp::Node> node,
-  const std::string& fleet_name)
-: _node(node), _fleet_name(fleet_name)
-{
-  const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
-
-  _request_msg_sub = _node->create_subscription<RequestMsg>(
-    TaskRequestTopicName, dispatch_qos,
-    [&](const std::unique_ptr<RequestMsg> msg)
-    {
-      if (msg->fleet_name != _fleet_name)
-        return;// not me
-
-      std::cout << "[action] Receive a task request!!!"<< std::endl;
-      switch (msg->method)
-      {
-        case RequestMsg::ADD:
-          this->add_task_impl(msg->task_profile);
-          break;
-        case RequestMsg::CANCEL:
-          this->cancel_task_impl(msg->task_profile);
-          break;
-        default:
-          std::cerr << "Request Method is not supported!!!"<< std::endl;
-      }
-    });
-
-  _status_msg_pub = _node->create_publisher<StatusMsg>(
-    TaskStatusTopicName, dispatch_qos);
-}
-
-//==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionServer<RequestMsg, StatusMsg>::add_task_impl(
-  const TaskProfile& task_profile)
-{
-  StatusMsg status_msg;
-  status_msg.task_profile = task_profile;
-  status_msg.fleet_name = _fleet_name;
-
-  if (!_add_task_cb_fn)
-    return;
-
-  if (_add_task_cb_fn(task_profile))
-    status_msg.state = (uint8_t)TaskStatus::State::Queued;
-  else
-    status_msg.state = (uint8_t)TaskStatus::State::Failed;
-
-  _status_msg_pub->publish(status_msg);
-}
-
-//==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionServer<RequestMsg, StatusMsg>::cancel_task_impl(
-  const TaskProfile& task_profile)
-{
-  StatusMsg status_msg;
-  status_msg.task_profile = task_profile;
-  status_msg.fleet_name = _fleet_name;
-
-  if (!_cancel_task_cb_fn)
-    return;
-
-  if (_cancel_task_cb_fn(task_profile))
-    status_msg.state = (uint8_t)TaskStatus::State::Canceled;
-  else
-    status_msg.state = (uint8_t)TaskStatus::State::Failed;
-
-  _status_msg_pub->publish(status_msg);
-}
 
 } // namespace action
 } // namespace rmf_task_ros2
+
+#include "internal_ActionServer.tpp"
 
 #endif // SRC__RMF_TASK_ROS2__ACTION_SERVER_HPP

@@ -46,7 +46,7 @@ public:
   /// \param[in] node
   ///   The ROS 2 node
   ///
-  /// \param[in]
+  /// \param[in] profile
   ///   The profile of the bidder
   static std::shared_ptr<MinimalBidder> make(
     const std::shared_ptr<rclcpp::Node>& node,

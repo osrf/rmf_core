@@ -130,27 +130,34 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   auto action_server = action::TaskActionServer<RequestMsg, StatusMsg>::make(
     node, profile.fleet_name);
 
+  bool task_canceled_flag = false;
+
   action_server->register_callbacks(
     // Add Task callback
-    [&action_server](const TaskProfile& task_profile)
+    [&action_server, &task_canceled_flag](const TaskProfile& task_profile)
     {
       std::cout << "[Action] ~Start Queue Task: "
                 << task_profile.task_id<<std::endl;
       auto t = std::thread(
-        [&action_server](auto profile)
+        [&action_server, &task_canceled_flag](auto profile)
         {
           TaskStatus status;
           status.task_profile = profile;
           status.robot_name = "dumbot";
           std::cout << " [task impl] Queued " << profile.task_id << std::endl;
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          std::cout << " [task impl] Executing " << profile.task_id <<
-            std::endl;
+          
+          if(task_canceled_flag)
+          {
+            std::cout << "[task impl] Cancelled!" << std::endl;
+            return;
+          }
+
+          std::cout << " [task impl] Executing" << profile.task_id <<std::endl;
           status.state = TaskStatus::State::Executing;
           action_server->update_status(status);
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          std::cout << " [task impl] Completed " << profile.task_id <<
-            std::endl;
+          std::cout << " [task impl] Completed" << profile.task_id << std::endl;
           status.state = TaskStatus::State::Completed;
           action_server->update_status(status);
         }, task_profile
@@ -159,8 +166,9 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
       return true; //successs (send State::Queued)
     },
     // Cancel Task callback
-    [&action_server](const TaskProfile& task_profile)
+    [&action_server, &task_canceled_flag](const TaskProfile& task_profile)
     {
+      task_canceled_flag = true;
       return true; //success ,send State::Canceled when dispatcher->cancel_task
     }
   );
@@ -168,6 +176,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 //==============================================================================
   WHEN("Full Dispatch cycle")
   {
+    std::cout << "TEST: FULL Dispatch Cycle Test!" << std::endl;
     auto id = dispatcher->submit_task(task_profile2);
     task_profile2.task_id = id;
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
@@ -186,6 +195,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
   WHEN("Half way cancel Dispatch cycle")
   {
+    std::cout << "TEST: Cancel Dispatch Test!" << std::endl;
     auto id = dispatcher->submit_task(task_profile2);
     task_profile2.task_id = id;
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
@@ -196,10 +206,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     dispatcher->cancel_task(id);
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // Just make sure task is still being canceled
-    std::this_thread::sleep_for(std::chrono::seconds(2));
     REQUIRE(dispatcher->terminated_tasks()->begin()->first == id);
-
     auto status = dispatcher->terminated_tasks()->begin()->second;
     REQUIRE(status->state == TaskStatus::State::Canceled);
     REQUIRE(change_times == 3); // Pending -> Queued -> Canceled

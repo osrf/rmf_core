@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__TASK_PROFILE_HPP
-#define RMF_TASK_ROS2__TASK_PROFILE_HPP
+#ifndef RMF_TASK_ROS2__TASK_STATUS_HPP
+#define RMF_TASK_ROS2__TASK_STATUS_HPP
 
 #include <unordered_map>
 #include <rmf_traffic/Time.hpp>
@@ -41,12 +41,12 @@ struct TaskStatus
 {
   enum class State : uint8_t
   {
-    Pending     = StatusMsg::STATE_PENDING,
-    Queued      = StatusMsg::STATE_QUEUED,
-    Executing   = StatusMsg::STATE_ACTIVE,
-    Completed   = StatusMsg::STATE_COMPLETED,   // terminal
-    Failed      = StatusMsg::STATE_FAILED,      // terminal
-    Canceled    = StatusMsg::STATE_CANCELED     // terminal
+    Pending     = StatusMsg::STATE_PENDING,     // 5
+    Queued      = StatusMsg::STATE_QUEUED,      // 0
+    Executing   = StatusMsg::STATE_ACTIVE,      // 1
+    Completed   = StatusMsg::STATE_COMPLETED,   // terminal: 2
+    Failed      = StatusMsg::STATE_FAILED,      // terminal: 3
+    Canceled    = StatusMsg::STATE_CANCELED     // terminal: 4
   };
 
   std::string fleet_name;
@@ -75,4 +75,4 @@ StatusMsg convert(const TaskStatus& from);
 
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__TASK_PROFILE_HPP
+#endif // RMF_TASK_ROS2__TASK_STATUS_HPP
