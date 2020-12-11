@@ -45,10 +45,10 @@ SCENARIO("Test battery drain with RobotA")
   REQUIRE(battery_system.valid());
   MechanicalSystem mechanical_system{20, 10, 0.3};
   REQUIRE(mechanical_system.valid());
-  PowerSystem power_system_1{"processor", 10};
-  REQUIRE(power_system_1.valid());
+  PowerSystem power_system_processor{10.0};
+  REQUIRE(power_system_processor.valid());
   SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
-  SimpleDevicePowerSink device_power_sink{battery_system, power_system_1};
+  SimpleDevicePowerSink device_power_sink{battery_system, power_system_processor};
   
 
   // Initializing vehicle traits
@@ -116,10 +116,10 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
   REQUIRE(battery_system.valid());
   MechanicalSystem mechanical_system{70, 40, 0.22};
   REQUIRE(mechanical_system.valid());
-  PowerSystem power_system_1{"processor", 20};
-  REQUIRE(power_system_1.valid());
+  PowerSystem power_system_processor{20.0};
+  REQUIRE(power_system_processor.valid());
   SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
-  SimpleDevicePowerSink device_power_sink{battery_system, power_system_1};
+  SimpleDevicePowerSink device_power_sink{battery_system, power_system_processor};
   
   // Initializing vehicle traits
   const rmf_traffic::agv::VehicleTraits traits(
@@ -256,10 +256,10 @@ SCENARIO("Testing Cleaning Request")
   REQUIRE(battery_system.valid());
   MechanicalSystem mechanical_system{70, 40, 0.22};
   REQUIRE(mechanical_system.valid());
-  PowerSystem power_system_1{"processor", 20};
-  REQUIRE(power_system_1.valid());
+  PowerSystem power_system_processor{20.0};
+  REQUIRE(power_system_processor.valid());
   SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
-  SimpleDevicePowerSink device_power_sink{battery_system, power_system_1};
+  SimpleDevicePowerSink device_power_sink{battery_system, power_system_processor};
   
   // Initializing vehicle traits
   const rmf_traffic::agv::VehicleTraits traits(

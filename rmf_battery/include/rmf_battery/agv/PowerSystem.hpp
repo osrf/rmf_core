@@ -30,23 +30,14 @@ public:
 
   /// Constructor
   ///
-  /// \param[in] name
-  ///   A string representing the name of this power system
-  ///
   /// \param[in] nominal_power
   ///   The rated nominal power consumption in Watts for this power system
-  ///
-  PowerSystem(
-    std::string name,
-    double nominal_power);
-
-  PowerSystem& name(std::string name);
-  const std::string& name() const;
+  PowerSystem(double nominal_power);
 
   PowerSystem& nominal_power(double nom_power);
   double nominal_power() const;
 
-  /// Returns true if the values are valid, i.e. greater than zero.
+  /// Returns true if the nominal power is valid, i.e. greater than zero.
   bool valid() const;
 
   class Implementation;

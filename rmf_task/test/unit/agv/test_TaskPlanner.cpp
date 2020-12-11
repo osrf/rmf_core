@@ -156,13 +156,13 @@ SCENARIO("Grid World")
   REQUIRE(battery_system.valid());
   rmf_battery::agv::MechanicalSystem mechanical_system{70.0, 40.0, 0.22};
   REQUIRE(mechanical_system.valid());
-  rmf_battery::agv::PowerSystem power_system{"processor", 20.0};
-  REQUIRE(power_system.valid());
+  rmf_battery::agv::PowerSystem power_system_processor{20.0};
+  REQUIRE(power_system_processor.valid());
 
   std::shared_ptr<SimpleMotionPowerSink> motion_sink =
     std::make_shared<SimpleMotionPowerSink>(battery_system, mechanical_system);
   std::shared_ptr<SimpleDevicePowerSink> device_sink =
-    std::make_shared<SimpleDevicePowerSink>(battery_system, power_system);
+    std::make_shared<SimpleDevicePowerSink>(battery_system, power_system_processor);
 
   WHEN("Planning for 3 requests and 2 agents")
   {

@@ -23,31 +23,15 @@ namespace agv {
 class PowerSystem::Implementation
 {
 public:
-  std::string name;
   double nominal_power;
 };
 
 //==============================================================================
-PowerSystem::PowerSystem(
-  const std::string name,
-  const double nominal_power)
+PowerSystem::PowerSystem(const double nominal_power)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{name, nominal_power}))
+      Implementation{nominal_power}))
 {
   // Do nothing
-}
-
-//==============================================================================
-auto PowerSystem::name(std::string name) -> PowerSystem&
-{
-  _pimpl->name = name;
-  return *this;
-}
-
-//==============================================================================
-const std::string& PowerSystem::name() const
-{
-  return _pimpl->name;
 }
 
 //==============================================================================
@@ -66,7 +50,7 @@ double PowerSystem::nominal_power() const
 //==============================================================================
 bool PowerSystem::valid() const
 {
-  return !_pimpl->name.empty() && _pimpl->nominal_power >= 0.0;
+  return _pimpl->nominal_power >= 0.0;
 }
 
 

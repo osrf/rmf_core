@@ -523,8 +523,7 @@ std::shared_ptr<Connections> make_fleet(
   const double ambient_power_drain =
     rmf_fleet_adapter::get_parameter_or_default(
       *node, "ambient_power_drain", 20.0);
-  rmf_battery::agv::PowerSystem ambient_power_system{
-    "ambient", ambient_power_drain};
+  rmf_battery::agv::PowerSystem ambient_power_system{ambient_power_drain};
   if (!ambient_power_system.valid())
   {
     RCLCPP_ERROR(
@@ -540,8 +539,7 @@ std::shared_ptr<Connections> make_fleet(
   // Tool power system
   const double tool_power_drain = rmf_fleet_adapter::get_parameter_or_default(
     *node, "tool_power_drain", 10.0);
-  rmf_battery::agv::PowerSystem tool_power_system{
-    "ambient", tool_power_drain};
+  rmf_battery::agv::PowerSystem tool_power_system{tool_power_drain};
   if (!tool_power_system.valid())
   {
     RCLCPP_ERROR(

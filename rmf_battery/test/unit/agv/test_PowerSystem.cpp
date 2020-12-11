@@ -21,29 +21,20 @@
 
 SCENARIO("Test PowerSystem")
 {
-  rmf_battery::agv::PowerSystem power_system(
-    "cleaning_system", 60);
-  REQUIRE(power_system.name() == "cleaning_system");
-  REQUIRE(power_system.nominal_power() - 60 == Approx(0.0));
+  rmf_battery::agv::PowerSystem power_system(60.0);
+  REQUIRE(power_system.nominal_power() - 60.0 == Approx(0.0));
   REQUIRE(power_system.valid());
   
-  WHEN("Name is set")
+  WHEN("A valid nomial power is set")
   {
-    power_system.name("vacuuming_system");
-    CHECK(power_system.name() == "vacuuming_system");
-    CHECK(power_system.nominal_power() - 60 == Approx(0.0));
-    CHECK(power_system.valid());
-  }
-  WHEN("Nominal power is set")
-  {
-    power_system.nominal_power(80);
-    CHECK(power_system.nominal_power() - 80 == Approx(0.0));
+    power_system.nominal_power(80.0);
+    CHECK(power_system.nominal_power() - 80.0 == Approx(0.0));
     CHECK(power_system.valid());
   }
 
-  WHEN("A property is negative")
+  WHEN("An invalid nomimal power is set")
   {
-    power_system.nominal_power(-12);
+    power_system.nominal_power(-12.0);
     CHECK_FALSE(power_system.valid());
   }
 }
