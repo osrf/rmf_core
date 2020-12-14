@@ -32,7 +32,7 @@ SCENARIO("Test PowerSystem")
 
   WHEN("In-valid nominal power is supplied to make()")
   {
-    auto power_system = PowerSystem::make(0.0);
+    auto power_system = PowerSystem::make(-10.0);
     CHECK_FALSE(power_system);
   }
 }

@@ -19,8 +19,6 @@
 
 #include <cmath>
 
-#include <iostream>
-
 namespace rmf_battery {
 namespace agv {
 
@@ -58,9 +56,6 @@ const PowerSystem& SimpleDevicePowerSink::power_system() const
 double SimpleDevicePowerSink::compute_change_in_charge(
   const double run_time) const
 {
-  assert(_pimpl->battery_system.valid());
-  assert(_pimpl->power_system.valid());
-
   const double capacity = _pimpl->battery_system.capacity();
   const double nominal_voltage = _pimpl->battery_system.nominal_voltage();
   const double nominal_power = _pimpl->power_system.nominal_power();

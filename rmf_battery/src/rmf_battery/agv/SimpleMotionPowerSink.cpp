@@ -23,8 +23,6 @@
 #include <vector>
 #include <cmath>
 
-#include <iostream>
-
 namespace rmf_battery {
 namespace agv {
 
@@ -76,8 +74,8 @@ double compute_friction_energy(
 double SimpleMotionPowerSink::compute_change_in_charge(
   const rmf_traffic::Trajectory& trajectory) const
 {
-  assert(_pimpl->battery_system.valid());
-  assert(_pimpl->mechanical_system.valid());
+  if (trajectory.size() < 2)
+    return 0.0;
 
   const double capacity = _pimpl->battery_system.capacity();
   const double nominal_voltage = _pimpl->battery_system.nominal_voltage();
@@ -86,10 +84,9 @@ double SimpleMotionPowerSink::compute_change_in_charge(
   const double friction = _pimpl->mechanical_system.friction_coefficient();
 
   auto begin_it = trajectory.begin();
-  auto end_it = --trajectory.end();
 
   auto start_time = begin_it->time();
-  const auto end_time = end_it->time();
+  const auto end_time = *trajectory.finish_time();
   const auto motion = rmf_traffic::Motion::compute_cubic_splines(
     begin_it, trajectory.end());
 
