@@ -29,8 +29,6 @@
 
 #include <rmf_utils/catch.hpp>
 
-#include <iostream>
-
 SCENARIO("Test battery drain with RobotA")
 {
   using BatterySystem = rmf_battery::agv::BatterySystem;
@@ -41,12 +39,18 @@ SCENARIO("Test battery drain with RobotA")
   using namespace std::chrono_literals;
 
   // Initializing system traits
-  BatterySystem battery_system{12, 24, 2};
-  REQUIRE(battery_system.valid());
-  MechanicalSystem mechanical_system{20, 10, 0.3};
-  REQUIRE(mechanical_system.valid());
-  PowerSystem power_system_processor{10.0};
-  REQUIRE(power_system_processor.valid());
+  auto battery_system_optional = BatterySystem::make(12.0, 24.0, 2.0);
+  REQUIRE(battery_system_optional);
+  BatterySystem& battery_system = *battery_system_optional;
+
+  auto mechanical_system_optional = MechanicalSystem::make(20.0, 10.0, 0.3);
+  REQUIRE(mechanical_system_optional);
+  MechanicalSystem& mechanical_system = *mechanical_system_optional;
+
+  auto power_system_optional = PowerSystem::make(10.0);
+  REQUIRE(power_system_optional);
+  PowerSystem& power_system_processor = *power_system_optional;
+  
   SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
   SimpleDevicePowerSink device_power_sink{battery_system, power_system_processor};
   
@@ -73,8 +77,6 @@ SCENARIO("Test battery drain with RobotA")
       rmf_traffic::time::to_seconds(trajectory.duration()));
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
-
-    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
     CHECK(ok);
   }
@@ -95,8 +97,6 @@ SCENARIO("Test battery drain with RobotA")
       rmf_traffic::time::to_seconds(trajectory.duration()));
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
-
-    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1 && remaining_soc < 0.05;
     CHECK(ok);
   }
@@ -112,12 +112,18 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
   using namespace std::chrono_literals;
 
   // Initializing system traits
-  BatterySystem battery_system{24, 40, 2};
-  REQUIRE(battery_system.valid());
-  MechanicalSystem mechanical_system{70, 40, 0.22};
-  REQUIRE(mechanical_system.valid());
-  PowerSystem power_system_processor{20.0};
-  REQUIRE(power_system_processor.valid());
+  auto battery_system_optional = BatterySystem::make(24.0, 40.0, 8.8);
+  REQUIRE(battery_system_optional);
+  BatterySystem& battery_system = *battery_system_optional;
+
+  auto mechanical_system_optional = MechanicalSystem::make(70.0, 40.0, 0.22);
+  REQUIRE(mechanical_system_optional);
+  MechanicalSystem& mechanical_system = *mechanical_system_optional;
+
+  auto power_system_optional = PowerSystem::make(20.0);
+  REQUIRE(power_system_optional);
+  PowerSystem& power_system_processor = *power_system_optional;
+
   SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
   SimpleDevicePowerSink device_power_sink{battery_system, power_system_processor};
   
@@ -143,8 +149,6 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
       rmf_traffic::time::to_seconds(trajectory.duration()));
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
-
-    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.98 && remaining_soc < 1.0;
     CHECK(ok);
   }
@@ -165,8 +169,6 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
       rmf_traffic::time::to_seconds(trajectory.duration()));
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
-
-    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > -1.0 && remaining_soc < 0.10;
     CHECK(ok);
   }
@@ -235,8 +237,6 @@ SCENARIO("Test SimpleBatteryEstimator with RobotB")
       rmf_traffic::time::to_seconds(trajectory.duration()));
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
-
-    // std::cout << "Remaining soc: " << remaining_soc << std::endl;
     const bool ok = remaining_soc > 0.99 && remaining_soc < 1.0;
     CHECK(ok);
   }
@@ -252,12 +252,18 @@ SCENARIO("Testing Cleaning Request")
   using namespace std::chrono_literals;
 
   // Initializing system traits
-  BatterySystem battery_system{24, 40, 8.8};
-  REQUIRE(battery_system.valid());
-  MechanicalSystem mechanical_system{70, 40, 0.22};
-  REQUIRE(mechanical_system.valid());
-  PowerSystem power_system_processor{20.0};
-  REQUIRE(power_system_processor.valid());
+  auto battery_system_optional = BatterySystem::make(24.0, 40.0, 8.8);
+  REQUIRE(battery_system_optional);
+  BatterySystem& battery_system = *battery_system_optional;
+
+  auto mechanical_system_optional = MechanicalSystem::make(70.0, 40.0, 0.22);
+  REQUIRE(mechanical_system_optional);
+  MechanicalSystem& mechanical_system = *mechanical_system_optional;
+
+  auto power_system_optional = PowerSystem::make(20.0);
+  REQUIRE(power_system_optional);
+  PowerSystem& power_system_processor = *power_system_optional;
+
   SimpleMotionPowerSink motion_power_sink{battery_system, mechanical_system};
   SimpleDevicePowerSink device_power_sink{battery_system, power_system_processor};
   
@@ -287,8 +293,6 @@ SCENARIO("Testing Cleaning Request")
       trajectory);
     const double dSOC_device = device_power_sink.compute_change_in_charge(
       rmf_traffic::time::to_seconds(trajectory.duration()));
-
-    // std::cout << "Motion: " << dSOC_motion << "Device: " << dSOC_device << std::endl;
 
     const double remaining_soc = initial_soc - dSOC_motion - dSOC_device;
     REQUIRE(remaining_soc <= 1.0);

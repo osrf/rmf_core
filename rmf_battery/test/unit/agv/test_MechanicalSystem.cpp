@@ -19,47 +19,40 @@
 
 #include <rmf_utils/catch.hpp>
 
-
-
 SCENARIO("Test MechanicalSystem")
 {
   using MechanicalSystem = rmf_battery::agv::MechanicalSystem;
-  MechanicalSystem mechanical_system{70.0, 30.0, 0.3};
-  REQUIRE(mechanical_system.valid());
-  CHECK(mechanical_system.mass() - 70.0 == Approx(0.0));
-  CHECK(mechanical_system.inertia() - 30.0 == Approx(0.0));
-  CHECK(mechanical_system.friction_coefficient() - 0.3 == Approx(0.0));
-
-  WHEN("Mass is set")
+  
+  WHEN("Valid values are supplied to make()")
   {
-    mechanical_system.mass(75.0);
-    CHECK(mechanical_system.valid());
-    CHECK(mechanical_system.mass() - 75.0 == Approx(0.0));
-    CHECK(mechanical_system.inertia() - 30.0 == Approx(0.0));
-    CHECK(mechanical_system.friction_coefficient() - 0.3 == Approx(0.0));
+    auto mechanical_system = MechanicalSystem::make(10.0, 20.0, 0.3);
+    REQUIRE(mechanical_system);
+    CHECK(mechanical_system->mass() == 10.0);
+    CHECK(mechanical_system->inertia() == 20.0);
+    CHECK(mechanical_system->friction_coefficient() == 0.3);
   }
 
-  WHEN("Inertia is set")
+  WHEN("In-valid mass is supplied to make()")
   {
-    mechanical_system.inertia(35.0);
-    CHECK(mechanical_system.valid());
-    CHECK(mechanical_system.mass() - 70.0 == Approx(0.0));
-    CHECK(mechanical_system.inertia() - 35.0 == Approx(0.0));
-    CHECK(mechanical_system.friction_coefficient() - 0.3 == Approx(0.0));
-  }
-    
-  WHEN("Friction coefficient is set")
-  {
-    mechanical_system.friction_coefficient(0.4);
-    CHECK(mechanical_system.valid());
-    CHECK(mechanical_system.mass() - 70.0 == Approx(0.0));
-    CHECK(mechanical_system.inertia() - 30.0 == Approx(0.0));
-    CHECK(mechanical_system.friction_coefficient() - 0.4 == Approx(0.0));
+    auto mechanical_system = MechanicalSystem::make(-10.0, 20.0, 0.3);
+    CHECK_FALSE(mechanical_system);
   }
 
-  WHEN("A negative value is set")
+  WHEN("In-valid inertia is supplied to make()")
   {
-    mechanical_system.mass(-10.0);
-    CHECK_FALSE(mechanical_system.valid());
+    auto mechanical_system = MechanicalSystem::make(10.0, -20.0, 0.3);
+    CHECK_FALSE(mechanical_system);
+  }
+
+  WHEN("In-valid friction coefficient is supplied to make()")
+  {
+    auto mechanical_system = MechanicalSystem::make(10.0, 20.0, -0.3);
+    CHECK_FALSE(mechanical_system);
+  }
+
+  WHEN("In-valid values are supplied to make()")
+  {
+    auto mechanical_system = MechanicalSystem::make(-10.0, -20.0, -0.3);
+    CHECK_FALSE(mechanical_system);
   }
 }

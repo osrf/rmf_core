@@ -20,6 +20,7 @@
 namespace rmf_battery {
 namespace agv {
 
+//==============================================================================
 class PowerSystem::Implementation
 {
 public:
@@ -27,18 +28,22 @@ public:
 };
 
 //==============================================================================
-PowerSystem::PowerSystem(const double nominal_power)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{nominal_power}))
+std::optional<PowerSystem> PowerSystem::make(double nominal_power)
 {
-  // Do nothing
+  if (nominal_power < 0.0)
+    return std::nullopt;
+  
+  PowerSystem power_system;
+  power_system._pimpl->nominal_power = nominal_power;
+
+  return power_system;
 }
 
 //==============================================================================
-auto PowerSystem::nominal_power(double nom_power) ->PowerSystem&
+PowerSystem::PowerSystem()
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
-  _pimpl->nominal_power = nom_power;
-  return *this;
+  // Do nothing
 }
 
 //==============================================================================
@@ -46,13 +51,6 @@ double PowerSystem::nominal_power() const
 {
   return _pimpl->nominal_power;
 }
-
-//==============================================================================
-bool PowerSystem::valid() const
-{
-  return _pimpl->nominal_power >= 0.0;
-}
-
 
 } // namespace agv
 } // namespace rmf_battery

@@ -50,10 +50,6 @@ class ChargeBattery::Implementation
 {
 public:
 
-  Implementation()
-  {}
-
-  // fixed id for now
   std::string id = "Charge";
   rmf_battery::agv::BatterySystemPtr battery_system;
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
@@ -78,13 +74,8 @@ rmf_task::ConstRequestPtr ChargeBattery::make(
 {
   std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery());
   charge_battery->_pimpl->id += generate_uuid();
-  charge_battery->_pimpl->battery_system =
-    rmf_battery::agv::BatterySystemPtr(new rmf_battery::agv::BatterySystem(
-      battery_system.nominal_voltage(),
-      battery_system.capacity(),
-      battery_system.charging_current(),
-      battery_system.type(),
-      battery_system.profile()));
+  charge_battery->_pimpl->battery_system = std::make_shared<
+    rmf_battery::agv::BatterySystem>(battery_system);
   charge_battery->_pimpl->motion_sink = std::move(motion_sink);
   charge_battery->_pimpl->device_sink = std::move(device_sink);
   charge_battery->_pimpl->planner = std::move(planner);

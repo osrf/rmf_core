@@ -20,6 +20,8 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <optional>
+
 namespace rmf_battery {
 namespace agv {
 
@@ -28,20 +30,19 @@ class PowerSystem
 {
 public:
 
-  /// Constructor
-  ///
+  /// Returns a PowerSystem object if valid values were supplied for the
+  /// various fields else returns std::nullopt. Here valid implies that the
+  /// values are greater than zero.
   /// \param[in] nominal_power
   ///   The rated nominal power consumption in Watts for this power system
-  PowerSystem(double nominal_power);
+  static std::optional<PowerSystem> make(double nominal_power);
 
-  PowerSystem& nominal_power(double nom_power);
+  /// Get the nominal power of this power system
   double nominal_power() const;
-
-  /// Returns true if the nominal power is valid, i.e. greater than zero.
-  bool valid() const;
 
   class Implementation;
 private:
+  PowerSystem();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

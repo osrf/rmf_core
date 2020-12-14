@@ -30,25 +30,26 @@ public:
 };
 
 //==============================================================================
-MechanicalSystem::MechanicalSystem(
-  const double mass,
-  const double inertia,
-  const double friction_coefficient)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        mass,
-        inertia,
-        friction_coefficient,
-      }))
+std::optional<MechanicalSystem> MechanicalSystem::make(
+  double mass,
+  double inertia,
+  double friction_coefficient)
+{
+  if (mass <= 0.0 || inertia <= 0.0 || friction_coefficient <= 0.0)
+    return std::nullopt;
+
+  MechanicalSystem mechanical_system;
+  mechanical_system._pimpl->mass = mass;
+  mechanical_system._pimpl->inertia = inertia;
+  mechanical_system._pimpl->friction_coefficient = friction_coefficient;
+
+  return mechanical_system;
+}
+//==============================================================================
+MechanicalSystem::MechanicalSystem()
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
   // Do nothing
-}
-
-//==============================================================================
-auto MechanicalSystem::mass(double mass) -> MechanicalSystem&
-{
-  _pimpl->mass = mass;
-  return *this;
 }
 
 //==============================================================================
@@ -58,38 +59,15 @@ double MechanicalSystem::mass() const
 }
 
 //==============================================================================
-auto MechanicalSystem::friction_coefficient(double friction_coeff)
--> MechanicalSystem&
-{
-  _pimpl->friction_coefficient = friction_coeff;
-  return *this;
-}
-
-//==============================================================================
 double MechanicalSystem::friction_coefficient() const
 {
   return _pimpl->friction_coefficient;
 }
 
 //==============================================================================
-auto MechanicalSystem::inertia(double inertia)
--> MechanicalSystem&
-{
-  _pimpl->inertia = inertia;
-  return *this;
-}
-
-//==============================================================================
 double MechanicalSystem::inertia() const
 {
   return _pimpl->inertia;
-}
-
-//==============================================================================
-bool MechanicalSystem::valid() const
-{
-  return _pimpl->mass > 0.0 && _pimpl->friction_coefficient > 0.0 &&
-    _pimpl->inertia > 0.0;
 }
 
 } // namespace agv

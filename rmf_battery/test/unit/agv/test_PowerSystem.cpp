@@ -21,20 +21,18 @@
 
 SCENARIO("Test PowerSystem")
 {
-  rmf_battery::agv::PowerSystem power_system(60.0);
-  REQUIRE(power_system.nominal_power() - 60.0 == Approx(0.0));
-  REQUIRE(power_system.valid());
-  
-  WHEN("A valid nomial power is set")
+  using PowerSystem = rmf_battery::agv::PowerSystem;
+
+  WHEN("Valid nominal power is supplied to make()")
   {
-    power_system.nominal_power(80.0);
-    CHECK(power_system.nominal_power() - 80.0 == Approx(0.0));
-    CHECK(power_system.valid());
+    auto power_system = PowerSystem::make(60.0);
+    REQUIRE(power_system);
+    CHECK(power_system->nominal_power() == 60.0);
   }
 
-  WHEN("An invalid nomimal power is set")
+  WHEN("In-valid nominal power is supplied to make()")
   {
-    power_system.nominal_power(-12.0);
-    CHECK_FALSE(power_system.valid());
+    auto power_system = PowerSystem::make(0.0);
+    CHECK_FALSE(power_system);
   }
 }

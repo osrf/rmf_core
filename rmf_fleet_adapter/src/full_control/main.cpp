@@ -493,9 +493,9 @@ std::shared_ptr<Connections> make_fleet(
 
   // Parameters required for task planner
   // Battery system
-  auto battery_system = std::make_shared<rmf_battery::agv::BatterySystem>(
-    rmf_fleet_adapter::get_battery_system(*node, 24.0, 40.0, 8.8));
-  if (!battery_system->valid())
+  auto battery_system_optional = rmf_fleet_adapter::get_battery_system(
+    *node, 24.0, 40.0, 8.8);
+  if (!battery_system_optional)
   {
     RCLCPP_ERROR(
       node->get_logger(),
@@ -503,11 +503,13 @@ std::shared_ptr<Connections> make_fleet(
     
     return nullptr;
   }
+  auto battery_system = std::make_shared<rmf_battery::agv::BatterySystem>(
+    *battery_system_optional);
 
   // Mechanical system and motion_sink
-  auto mechanical_system = rmf_fleet_adapter::get_mechanical_system(
+  auto mechanical_system_optional = rmf_fleet_adapter::get_mechanical_system(
     *node, 70.0, 40.0, 0.22);
-  if (!mechanical_system.valid())
+  if (!mechanical_system_optional)
   {
     RCLCPP_ERROR(
       node->get_logger(),
@@ -515,6 +517,9 @@ std::shared_ptr<Connections> make_fleet(
     
     return nullptr;
   }
+  rmf_battery::agv::MechanicalSystem& mechanical_system =
+    *mechanical_system_optional;
+
   std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> motion_sink =
     std::make_shared<rmf_battery::agv::SimpleMotionPowerSink>(
       *battery_system, mechanical_system);
@@ -523,8 +528,9 @@ std::shared_ptr<Connections> make_fleet(
   const double ambient_power_drain =
     rmf_fleet_adapter::get_parameter_or_default(
       *node, "ambient_power_drain", 20.0);
-  rmf_battery::agv::PowerSystem ambient_power_system{ambient_power_drain};
-  if (!ambient_power_system.valid())
+  auto ambient_power_system = rmf_battery::agv::PowerSystem::make(
+    ambient_power_drain);
+  if (!ambient_power_system)
   {
     RCLCPP_ERROR(
       node->get_logger(),
@@ -534,13 +540,14 @@ std::shared_ptr<Connections> make_fleet(
   }
   std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> ambient_sink =
     std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
-      *battery_system, ambient_power_system);
+      *battery_system, *ambient_power_system);
 
   // Tool power system
   const double tool_power_drain = rmf_fleet_adapter::get_parameter_or_default(
     *node, "tool_power_drain", 10.0);
-  rmf_battery::agv::PowerSystem tool_power_system{tool_power_drain};
-  if (!tool_power_system.valid())
+  auto tool_power_system = rmf_battery::agv::PowerSystem::make(
+    tool_power_drain);
+  if (!tool_power_system)
   {
     RCLCPP_ERROR(
       node->get_logger(),
@@ -550,7 +557,7 @@ std::shared_ptr<Connections> make_fleet(
   }
   std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> tool_sink =
     std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
-      *battery_system, tool_power_system);
+      *battery_system, *tool_power_system);
 
   // Drain battery
   const bool drain_battery = rmf_fleet_adapter::get_parameter_or_default(
