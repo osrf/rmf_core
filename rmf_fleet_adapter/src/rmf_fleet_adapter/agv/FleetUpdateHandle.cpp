@@ -754,8 +754,7 @@ bool FleetUpdateHandle::set_task_planner_params(
     std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
-    const bool drain_battery)
+    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink)
 {
   if (battery_system && motion_sink && ambient_sink && tool_sink)
   {
@@ -774,8 +773,6 @@ bool FleetUpdateHandle::set_task_planner_params(
     
     _pimpl->task_planner = std::make_shared<rmf_task::agv::TaskPlanner>(
       task_config);
-
-    _pimpl->drain_battery = drain_battery;
     
     _pimpl->initialized_task_planner = true;
 
@@ -785,6 +782,11 @@ bool FleetUpdateHandle::set_task_planner_params(
     return false;
 }
 
+bool FleetUpdateHandle::account_for_battery_drain(bool value)
+{
+  _pimpl->drain_battery = value;
+  return _pimpl->drain_battery;
+}
 //==============================================================================
 FleetUpdateHandle& FleetUpdateHandle::set_recharge_threshold(
   const double threshold)
