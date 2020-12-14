@@ -92,10 +92,6 @@ rmf_task::ConstRequestPtr ChargeBattery::make(
   charge_battery->_pimpl->drain_battery = drain_battery;
   charge_battery->_pimpl->invariant_duration =
     rmf_traffic::time::from_seconds(0.0);
-
-  // use charge start time to construct an ID: TODO: better way
-  auto time_id = start_time.time_since_epoch().count();
-  charge_battery->_pimpl->id += std::to_string(time_id%1000);
   return charge_battery;
 }
 
