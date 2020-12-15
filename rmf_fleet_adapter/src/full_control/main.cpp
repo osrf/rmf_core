@@ -319,9 +319,10 @@ public:
         if (trajectory.size() < 2)
           return;
 
-        if (auto participant = _travel_info.updater->get_participant())
+        if (auto participant =
+          _travel_info.updater->unstable().get_participant())
         {
-          participant.value().get().set(
+          participant->set(
             {rmf_traffic::Route{state.location.level_name, trajectory}});
           _dock_schedule_time = now;
         }

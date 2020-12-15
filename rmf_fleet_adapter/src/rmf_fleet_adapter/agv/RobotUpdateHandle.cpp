@@ -205,22 +205,35 @@ RobotUpdateHandle::maximum_delay() const
 }
 
 //==============================================================================
-rmf_utils::optional<std::reference_wrapper<rmf_traffic::schedule::Participant>>
-  RobotUpdateHandle::get_participant()
-{
-  if (const auto context = _pimpl->get_context())
-  {
-    auto& itinerary = context->itinerary();
-    return itinerary;
-  }
-  return rmf_utils::nullopt;
-}
-
-//==============================================================================
 RobotUpdateHandle::RobotUpdateHandle()
 {
   // Do nothing
 }
+
+//==============================================================================
+RobotUpdateHandle::Unstable& RobotUpdateHandle::unstable()
+{
+  return _pimpl->unstable;
+}
+
+//==============================================================================
+const RobotUpdateHandle::Unstable& RobotUpdateHandle::unstable() const
+{
+  return _pimpl->unstable;
+}
+
+//==============================================================================
+rmf_traffic::schedule::Participant*
+RobotUpdateHandle::Unstable::get_participant()
+{
+  if (const auto context = _pimpl->get_context())
+  {
+    auto& itinerary = context->itinerary();
+    return &itinerary;
+  }
+  return nullptr;
+}
+
 
 } // namespace agv
 } // namespace rmf_fleet_adapter

@@ -105,11 +105,26 @@ public:
   /// value that was given to the setter.
   rmf_utils::optional<rmf_traffic::Duration> maximum_delay() const;
 
-  /// Get the schedule participant of this robot
-  rmf_utils::optional<std::reference_wrapper<rmf_traffic::schedule::Participant>>
-    get_participant();
-
   class Implementation;
+
+  /// This API is experimental and will not be supported in the future. Users
+  /// are to avoid relying on these feature for any integration.
+  class Unstable
+  {
+  public:
+    /// Get the schedule participant of this robot
+    rmf_traffic::schedule::Participant* get_participant();
+
+  private:
+    friend Implementation;
+    Implementation* _pimpl;
+  };
+
+  /// Get a mutable reference to the unstable API extension
+  Unstable& unstable();
+  /// Get a const reference to the unstable API extension
+  const Unstable& unstable() const;
+
 private:
   RobotUpdateHandle();
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
