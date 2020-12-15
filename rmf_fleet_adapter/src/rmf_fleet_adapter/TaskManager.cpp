@@ -84,6 +84,7 @@ TaskManager::TaskManager(agv::RobotContextPtr context)
 //==============================================================================
 void TaskManager::queue_task(std::shared_ptr<Task> task, Start expected_finish)
 {
+  std::lock_guard<std::mutex> guard(_mutex);
   _queue.push_back(std::move(task));
   _expected_finish_location = std::move(expected_finish);
 
@@ -153,10 +154,9 @@ agv::ConstRobotContextPtr TaskManager::context() const
 void TaskManager::set_queue(
   const std::vector<TaskManager::Assignment>& assignments)
 {
-  {
-    std::lock_guard<std::mutex> guard(_mutex);
-    _queue.clear();
-  }
+  std::lock_guard<std::mutex> guard(_mutex);
+  _queue.clear();
+
   // We use dynamic cast to determine the type of request and then call the
   // appropriate make(~) function to convert the request into a task
   for (std::size_t i = 0; i < assignments.size(); ++i)
@@ -179,7 +179,6 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
       
-      std::lock_guard<std::mutex> guard(_mutex);
       _queue.push_back(task);
     }
 
@@ -195,7 +194,6 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
 
-      std::lock_guard<std::mutex> guard(_mutex);
       _queue.push_back(task);
     }
 
@@ -211,7 +209,6 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
 
-      std::lock_guard<std::mutex> guard(_mutex);
       _queue.push_back(task);
     }
 
@@ -226,7 +223,6 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
 
-      std::lock_guard<std::mutex> guard(_mutex);
       _queue.push_back(task);
     }
 
@@ -272,6 +268,8 @@ void TaskManager::_begin_next_task()
   if (_active_task)
     return;
 
+  std::lock_guard<std::mutex> guard(_mutex);
+
   if (_queue.empty())
   {
     // _task_sub.unsubscribe();
@@ -285,7 +283,6 @@ void TaskManager::_begin_next_task()
     return;
   }
 
-  std::lock_guard<std::mutex> guard(_mutex);
   const rmf_traffic::Time now = rmf_traffic_ros2::convert(
     _context->node()->now());
   const auto next_task = _queue.front();
@@ -373,8 +370,11 @@ void TaskManager::clear_queue()
 //==============================================================================
 void TaskManager::retreat_to_charger()
 {
-  if (_active_task || !_queue.empty())
-    return;
+  {
+    std::lock_guard<std::mutex> guard(_mutex);
+    if (_active_task || !_queue.empty())
+      return;
+  }
 
   const auto task_planner = _context->task_planner();
   if (!task_planner)
