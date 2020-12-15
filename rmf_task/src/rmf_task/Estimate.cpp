@@ -14,7 +14,9 @@
  * limitations under the License.
  *
 */
+
 #include <unordered_map>
+#include <mutex>
 
 #include <rmf_task/Estimate.hpp>
 
@@ -81,17 +83,19 @@ class EstimateCache::Implementation
     using Cache = std::unordered_map<std::pair<size_t,size_t>,
       CacheElement, PairHash>;
     Cache _cache;
+    std::shared_ptr<std::mutex> _mutex = std::make_shared<std::mutex>();
 };
 
 //==============================================================================
 EstimateCache::EstimateCache()
-  : _pimpl(rmf_utils::make_impl<Implementation>())
+  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {}
 
 //==============================================================================
 std::optional<EstimateCache::CacheElement> EstimateCache::get(
   std::pair<size_t, size_t> waypoints) const
 {
+  std::lock_guard<std::mutex> guard(*_pimpl->_mutex);
   auto it = _pimpl->_cache.find(waypoints);
   if (it != _pimpl->_cache.end())
   {
@@ -104,6 +108,7 @@ std::optional<EstimateCache::CacheElement> EstimateCache::get(
 void EstimateCache::set(std::pair<size_t, size_t> waypoints,
   rmf_traffic::Duration duration, double dsoc)
 {
+  std::lock_guard<std::mutex> guard(*_pimpl->_mutex);
   _pimpl->_cache[waypoints] = CacheElement{duration, dsoc};
 }
 

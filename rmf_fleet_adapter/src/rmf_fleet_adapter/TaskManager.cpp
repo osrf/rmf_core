@@ -420,7 +420,6 @@ void TaskManager::retreat_to_charger()
         rmf_traffic::time::to_seconds(retreat_duration));
     retreat_battery_drain = dSOC_motion + dSOC_device;
 
-    // TODO(YV) Protect this call with a mutex
     estimate_cache->set(endpoints, retreat_duration,
       retreat_battery_drain);
   }
@@ -457,6 +456,16 @@ void TaskManager::retreat_to_charger()
     RCLCPP_INFO(
       _context->node()->get_logger(),
       "Initiating automatic retreat to charger for robot [%s]",
+      _context->name().c_str());
+  }
+
+  if ((battery_soc_after_retreat < retreat_threshold) &&
+    (battery_soc_after_retreat < threshold_soc))
+  {
+    RCLCPP_WARN(
+      _context->node()->get_logger(),
+      "Robot [%s] needs to be charged but has insufficient battery remaining "
+      "to retreat to its designated charger.",
       _context->name().c_str());
   }
 }
