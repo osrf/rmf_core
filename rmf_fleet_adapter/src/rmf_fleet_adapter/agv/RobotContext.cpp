@@ -214,16 +214,16 @@ RobotContext& RobotContext::maximum_delay(
 }
 
 //==============================================================================
-rmf_task::agv::State& RobotContext::state()
+rmf_task::agv::State& RobotContext::current_task_end_state()
 {
-  return _state;
+  return _current_task_end_state;
 }
 
 //==============================================================================
-RobotContext& RobotContext::state(
+RobotContext& RobotContext::current_task_end_state(
     const rmf_task::agv::State& state)
 {
-  _state = state;
+  _current_task_end_state = state;
   return *this;
 }
 
@@ -302,7 +302,7 @@ RobotContext::RobotContext(
     _maximum_delay(maximum_delay),
     _requester_id(
       _itinerary.description().owner() + "/" + _itinerary.description().name()),
-    _state(state),
+    _current_task_end_state(state),
     _state_config(state_config),
     _task_planner(std::move(task_planner))
 {

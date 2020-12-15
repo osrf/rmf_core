@@ -123,10 +123,10 @@ auto TaskManager::expected_finish_state() const -> State
   // If an active task exists, return the estimated finish state of that task
   /// else update the current time and battery level for the state and return
   if (_active_task)
-    return _context->state();
+    return _context->current_task_end_state();
 
   // Update battery soc and finish time in the current state
-  auto& finish_state = _context->state();
+  auto& finish_state = _context->current_task_end_state();
   auto location = finish_state.location();
   location.time(rmf_traffic_ros2::convert(_context->node()->now()));
   finish_state.location(location);
@@ -159,7 +159,7 @@ void TaskManager::set_queue(
   for (std::size_t i = 0; i < assignments.size(); ++i)
   {
     const auto& a = assignments[i];
-    auto start = _context->state().location();
+    auto start = _context->current_task_end_state().location();
     if (i != 0)
       start = assignments[i-1].state().location();
     start.time(a.deployment_time());
@@ -291,7 +291,7 @@ void TaskManager::_begin_next_task()
   if (now > deployment_time)
   {
     // Update state in RobotContext and Assign active task
-    _context->state(_queue.front()->finish_state());
+    _context->current_task_end_state(_queue.front()->finish_state());
     _active_task = std::move(_queue.front());
     _queue.erase(_queue.begin());
 

@@ -116,11 +116,12 @@ public:
       const TableViewerPtr& table_viewer,
       const ResponderPtr& responder) final;
 
-  /// Set the state of this robot
-  RobotContext& state(const rmf_task::agv::State& state);
+  /// Set the state of this robot at the end of its current task
+  RobotContext& current_task_end_state(const rmf_task::agv::State& state);
 
-  /// Get a mutable reference to the state of this robot
-  rmf_task::agv::State& state();
+  /// Get a mutable reference to the state of this robot at the end of its
+  // current task
+  rmf_task::agv::State& current_task_end_state();
 
   /// Get the state config of this robot 
   const rmf_task::agv::StateConfig state_config() const;
@@ -179,7 +180,7 @@ private:
   double _current_battery_soc;
   rxcpp::subjects::subject<double> _battery_soc_publisher;
   rxcpp::observable<double> _battery_soc_obs;
-  rmf_task::agv::State _state;
+  rmf_task::agv::State _current_task_end_state;
   rmf_task::agv::StateConfig _state_config;
   std::shared_ptr<const rmf_task::agv::TaskPlanner> _task_planner;
 };
