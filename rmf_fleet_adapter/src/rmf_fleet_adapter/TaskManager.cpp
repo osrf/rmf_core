@@ -31,8 +31,6 @@
 #include "tasks/Delivery.hpp"
 #include "tasks/Loop.hpp"
 
-#include <iostream>
-
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -89,8 +87,6 @@ void TaskManager::queue_task(std::shared_ptr<Task> task, Start expected_finish)
   _queue.push_back(std::move(task));
   _expected_finish_location = std::move(expected_finish);
 
-  std::cout << "Queuing new task for [" << _context->requester_id()
-            << "]. New queue size: " << _queue.size() << std::endl;
   RCLCPP_INFO(
         _context->node()->get_logger(),
         "Queuing new task [%s] for [%s]. New queue size: %d",

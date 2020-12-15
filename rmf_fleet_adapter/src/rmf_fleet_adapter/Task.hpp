@@ -97,8 +97,6 @@ public:
   using PendingPhases = std::vector<std::unique_ptr<PendingPhase>>;
 
   // Make a new task
-  // TODO(YV) Remove default nullptr for request after refactoring Loop and
-  // Delivery
   static std::shared_ptr<Task> make(
       std::string id,
       PendingPhases phases,
