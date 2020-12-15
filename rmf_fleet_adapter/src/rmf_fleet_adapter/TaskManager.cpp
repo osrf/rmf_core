@@ -337,7 +337,6 @@ void TaskManager::_begin_next_task()
       msg.end_time = rmf_traffic_ros2::convert(
         _active_task->finish_state().finish_time());
       _context->node()->task_summary()->publish(msg);
-      // _begin_next_task();
     },
           [this, id = _active_task->id()]()
     {
@@ -358,13 +357,6 @@ void TaskManager::_begin_next_task()
 
     _active_task->begin();
   }
-}
-
-//==============================================================================
-void TaskManager::clear_queue()
-{
-  std::lock_guard<std::mutex> guard(_mutex);
-  _queue.clear();
 }
 
 //==============================================================================
