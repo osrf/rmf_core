@@ -126,7 +126,7 @@ auto TaskManager::expected_finish_state() const -> State
     return _context->current_task_end_state();
 
   // Update battery soc and finish time in the current state
-  auto& finish_state = _context->current_task_end_state();
+  auto finish_state = _context->current_task_end_state();
   auto location = finish_state.location();
   location.time(rmf_traffic_ros2::convert(_context->node()->now()));
   finish_state.location(location);
@@ -153,7 +153,10 @@ agv::ConstRobotContextPtr TaskManager::context() const
 void TaskManager::set_queue(
   const std::vector<TaskManager::Assignment>& assignments)
 {
-  _queue.clear();
+  {
+    std::lock_guard<std::mutex> guard(_mutex);
+    _queue.clear();
+  }
   // We use dynamic cast to determine the type of request and then call the
   // appropriate make(~) function to convert the request into a task
   for (std::size_t i = 0; i < assignments.size(); ++i)
@@ -177,7 +180,6 @@ void TaskManager::set_queue(
         a.state());
       
       std::lock_guard<std::mutex> guard(_mutex);
-
       _queue.push_back(task);
     }
 
@@ -192,9 +194,8 @@ void TaskManager::set_queue(
         start,
         a.deployment_time(),
         a.state());
-      
-      std::lock_guard<std::mutex> guard(_mutex);
 
+      std::lock_guard<std::mutex> guard(_mutex);
       _queue.push_back(task);
     }
 
@@ -210,6 +211,7 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
 
+      std::lock_guard<std::mutex> guard(_mutex);
       _queue.push_back(task);
     }
 
@@ -224,6 +226,7 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
 
+      std::lock_guard<std::mutex> guard(_mutex);
       _queue.push_back(task);
     }
 
@@ -288,7 +291,7 @@ void TaskManager::_begin_next_task()
   const auto next_task = _queue.front();
   const auto deployment_time = next_task->deployment_time();
 
-  if (now > deployment_time)
+  if (now >= deployment_time)
   {
     // Update state in RobotContext and Assign active task
     _context->current_task_end_state(_queue.front()->finish_state());
