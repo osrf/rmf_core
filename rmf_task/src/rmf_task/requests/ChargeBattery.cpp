@@ -128,6 +128,7 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
   double battery_soc = initial_state.battery_soc();
   double dSOC_motion = 0.0;
   double dSOC_device = 0.0;
+  double variant_battery_drain = 0.0;
   rmf_traffic::Duration variant_duration(0);
 
   if (initial_state.waypoint() != initial_state.charging_waypoint())
@@ -147,21 +148,28 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
       rmf_traffic::agv::Planner::Goal goal{endpoints.second};
       const auto result = _pimpl->planner->plan(
         initial_state.location(), goal);
-      const auto& trajectory = result->get_itinerary().back().trajectory();
-      const auto& finish_time = *trajectory.finish_time();
-      variant_duration = finish_time - start_time;
-
-      if (_pimpl->drain_battery)
+      auto itinerary_start_time = start_time;
+      for (const auto& itinerary : result->get_itinerary())
       {
-        dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(
-          trajectory);
-        dSOC_device = _pimpl->device_sink->compute_change_in_charge(
-          rmf_traffic::time::to_seconds(variant_duration));
-        battery_soc = battery_soc - dSOC_motion - dSOC_device;
-      }
+        const auto& trajectory = itinerary.trajectory();
+        const auto& finish_time = *trajectory.finish_time();
+        const rmf_traffic::Duration itinerary_duration =
+          finish_time - itinerary_start_time;
 
+        if (_pimpl->drain_battery)
+        {
+          dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(
+            trajectory);
+          dSOC_device = _pimpl->device_sink->compute_change_in_charge(
+            rmf_traffic::time::to_seconds(itinerary_duration));
+          variant_battery_drain += dSOC_motion + dSOC_device;
+          battery_soc = battery_soc - dSOC_motion - dSOC_device;
+        }
+        itinerary_start_time = finish_time;
+        variant_duration += itinerary_duration;
+      }
       estimate_cache->set(endpoints, variant_duration,
-        dSOC_motion + dSOC_device);
+        variant_battery_drain);
     }
 
     // If a robot cannot reach its charging dock given its initial battery soc

@@ -412,10 +412,10 @@ void TaskManager::retreat_to_charger()
       const rmf_traffic::Duration itinerary_duration =
         finish_time - itinerary_start_time;
 
-      dSOC_motion +=
+      dSOC_motion =
         task_planner_config->motion_sink()->compute_change_in_charge(
           trajectory);
-      dSOC_device +=
+      dSOC_device =
         task_planner_config->ambient_sink()->compute_change_in_charge(
           rmf_traffic::time::to_seconds(itinerary_duration));
       retreat_battery_drain += dSOC_motion + dSOC_device;
