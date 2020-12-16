@@ -79,29 +79,34 @@ rmf_task::ConstRequestPtr Delivery::make(
 
   if (delivery->_pimpl->pickup_waypoint != delivery->_pimpl->dropoff_waypoint)
   {
-    const auto plan_start_time = std::chrono::steady_clock::now();
     rmf_traffic::agv::Planner::Start start{
-      plan_start_time,
+      start_time,
       delivery->_pimpl->pickup_waypoint,
       0.0};
 
     rmf_traffic::agv::Planner::Goal goal{delivery->_pimpl->dropoff_waypoint};
     const auto result_to_dropoff = delivery->_pimpl->planner->plan(start, goal);
 
-    const auto trajectory = result_to_dropoff->get_itinerary().back().trajectory();
-    const auto& finish_time = *trajectory.finish_time();
-    
-    delivery->_pimpl->invariant_duration = finish_time - plan_start_time;
-
-    if (delivery->_pimpl->drain_battery)
+    auto itinerary_start_time = start_time;
+    for (const auto& itinerary : result_to_dropoff->get_itinerary())
     {
-      // Compute battery drain
-      const double dSOC_motion =
-        delivery->_pimpl->motion_sink->compute_change_in_charge(trajectory);
-      const double dSOC_device =
-        delivery->_pimpl->device_sink->compute_change_in_charge(
-          rmf_traffic::time::to_seconds(delivery->_pimpl->invariant_duration));
-      delivery->_pimpl->invariant_battery_drain = dSOC_motion + dSOC_device;  
+      const auto& trajectory = itinerary.trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+      const auto itinerary_duration = finish_time - itinerary_start_time;
+
+      if (delivery->_pimpl->drain_battery)
+      {
+        // Compute battery drain
+        const double dSOC_motion =
+          delivery->_pimpl->motion_sink->compute_change_in_charge(trajectory);
+        const double dSOC_device =
+          delivery->_pimpl->device_sink->compute_change_in_charge(
+            rmf_traffic::time::to_seconds(itinerary_duration));
+        delivery->_pimpl->invariant_battery_drain += dSOC_motion + dSOC_device;  
+      }
+
+      delivery->_pimpl->invariant_duration += itinerary_duration;
+      itinerary_start_time = finish_time;
     }
   }
 

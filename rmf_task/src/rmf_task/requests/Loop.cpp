@@ -80,24 +80,33 @@ ConstRequestPtr Loop::make(
     const auto forward_loop_plan = loop->_pimpl->planner->plan(
       loop_start, loop_end_goal);
 
-    const auto trajectory =
-      forward_loop_plan->get_itinerary().back().trajectory();
-    const auto& finish_time = *trajectory.finish_time();
-    const auto forward_duration = finish_time - start_time;
-    loop->_pimpl->invariant_duration = (2 * num_loops - 1) * forward_duration;
-
-    if (loop->_pimpl->drain_battery)
+    auto itinerary_start_time = start_time;
+    double forward_battery_drain = 0.0;
+    rmf_traffic::Duration forward_duration(0);
+    for (const auto& itinerary : forward_loop_plan->get_itinerary())
     {
-      // Compute battery drain
-      const double dSOC_motion =
-        loop->_pimpl->motion_sink->compute_change_in_charge(trajectory);
-      const double dSOC_device =
-        loop->_pimpl->ambient_sink->compute_change_in_charge(
-          rmf_traffic::time::to_seconds(forward_duration));
-      const double forward_battery_drain = dSOC_motion + dSOC_device;
-      loop->_pimpl->invariant_battery_drain =
-        (2 * num_loops - 1) * forward_battery_drain;
+      const auto& trajectory = itinerary.trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+      const auto itinerary_duration = finish_time - itinerary_start_time;
+
+      if (loop->_pimpl->drain_battery)
+      {
+        // Compute battery drain
+        const double dSOC_motion =
+          loop->_pimpl->motion_sink->compute_change_in_charge(trajectory);
+        const double dSOC_device =
+          loop->_pimpl->ambient_sink->compute_change_in_charge(
+            rmf_traffic::time::to_seconds(itinerary_duration));
+        forward_battery_drain += dSOC_motion + dSOC_device;
+      }
+
+      forward_duration += itinerary_duration;
+      itinerary_start_time = finish_time;
     }
+    loop->_pimpl->invariant_duration =
+      (2 * num_loops - 1) * forward_duration;
+    loop->_pimpl->invariant_battery_drain =
+      (2 * num_loops - 1) * forward_battery_drain;
   }
 
   return loop;
