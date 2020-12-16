@@ -82,19 +82,21 @@ public:
   /// \param[in] tool_sink
   ///   Specify the device sink for special tools used by the vehicles in this fleet.
   ///
-  /// \param[in] drain_battery
-  ///   If false, battery drain will not be considered when planning for tasks.
-  ///   As a consequence, charging tasks will not be automatically assigned to
-  ///   vehicles in this fleet when battery levels fall below their thresholds.
-  ///
   /// \return true if task planner parameters were successfully updated.
   bool set_task_planner_params(
     std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
-    const bool drain_battery);
+    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink);
 
+  /// Specify whether battery drain is to be considered while allocating tasks.
+  /// By default battery drain is considered.
+  ///
+  /// \param[in] value
+  ///   If false, battery drain will not be considered when planning for tasks.
+  ///   As a consequence, charging tasks will not be automatically assigned to
+  ///   vehicles in this fleet when battery levels fall below their thresholds.
+  bool account_for_battery_drain(bool value = true);
 
   /// Set the threshold for state of charge below which robots in this fleet
   /// will cease to operate and require recharging. A value between 0.0 and 1.0
@@ -134,20 +136,18 @@ public:
   /// \return true to indicate that this fleet should accept the request, false
   /// to reject the request.
   ///
-  /// \note This interface will be deprecated. Use the more general
-  ///   AcceptTaskRequest callback
   using AcceptDeliveryRequest =
       std::function<bool(const rmf_task_msgs::msg::Delivery& request)>;
 
   /// Provide a callback that indicates whether this fleet will accept a
   /// delivery request. By default all delivery requests will be rejected.
   ///
-  /// \note This function will be deprecated in favor of accept_task_requests() 
-  /// The callback function that you give should ideally be non-blocking
+  /// \note The callback function that you give should ideally be non-blocking
   /// and return quickly. It's meant to check whether this fleet's vehicles are
   /// compatible with the requested payload, pickup, and dropoff behavior
   /// settings. The path planning feasibility will be taken care of by the
   /// adapter internally.
+  [[deprecated("Use accept_task_requests() instead")]]
   FleetUpdateHandle& accept_delivery_requests(AcceptDeliveryRequest check);
 
   /// Specify the default value for how high the delay of the current itinerary

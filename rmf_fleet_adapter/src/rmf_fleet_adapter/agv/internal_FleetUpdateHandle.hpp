@@ -245,7 +245,7 @@ public:
     return std::make_shared<FleetUpdateHandle>(std::move(handle));
   }
 
-  void dock_summary_cb(const DockSummary::SharedPtr msg);
+  void dock_summary_cb(const DockSummary::SharedPtr& msg);
 
   void bid_notice_cb(const BidNotice::SharedPtr msg);
 

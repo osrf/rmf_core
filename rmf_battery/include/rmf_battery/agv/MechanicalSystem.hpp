@@ -20,33 +20,45 @@
 
 #include <rmf_utils/impl_ptr.hpp>
 
+#include <optional>
+
 namespace rmf_battery {
 namespace agv {
-
 
 class MechanicalSystem
 {
 public:
 
-  MechanicalSystem(
+  /// Returns a MechanicalSystem object if valid values were supplied for the
+  /// various fields else returns std::nullopt. Here valid implies that the
+  /// values are greater than zero.
+  /// \param[in] mass
+  ///   The mass of the robot in Kilograms(kg)
+  ///
+  /// \param[in] inertia
+  ///   The moment of inertia of the robot along its yaw axis in kg.m^2
+  ///
+  /// \param[in] friction_coefficient
+  ///   The coefficient of kinetic friction measured at the wheels of the robot. 
+  ///   This value is used to compute the energy loss due to rotation of the
+  ///   vehicle's wheels during locomotion.
+  static std::optional<MechanicalSystem> make(
     double mass,
     double inertia,
     double friction_coefficient);
 
-  MechanicalSystem& mass(double mass);
+  /// Get the mass of this mechanical system
   double mass() const;
 
-  MechanicalSystem& inertia(double inertia);
+  /// Get the moment of inertia of this mechanical system
   double inertia() const;
 
-  MechanicalSystem& friction_coefficient(double friction_coeff);
+  /// Get the friction coefficient of this mechanical system
   double friction_coefficient() const;
-
-  /// Returns true if the values are valid, i.e. greater than zero.
-  bool valid() const;
 
   class Implementation;
 private:
+  MechanicalSystem();
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

@@ -108,6 +108,9 @@ SCENARIO("Grid World")
   const double edge_length = 1000;
   const bool drain_battery = true;
 
+  using BatterySystem = rmf_battery::agv::BatterySystem;
+  using MechanicalSystem = rmf_battery::agv::MechanicalSystem;
+  using PowerSystem = rmf_battery::agv::PowerSystem;
   using SimpleMotionPowerSink = rmf_battery::agv::SimpleMotionPowerSink;
   using SimpleDevicePowerSink = rmf_battery::agv::SimpleDevicePowerSink;
 
@@ -152,17 +155,20 @@ SCENARIO("Grid World")
       rmf_traffic::agv::Planner::Configuration{graph, traits},
       default_options);
 
-  rmf_battery::agv::BatterySystem battery_system{24.0, 40.0, 8.8};
-  REQUIRE(battery_system.valid());
-  rmf_battery::agv::MechanicalSystem mechanical_system{70.0, 40.0, 0.22};
-  REQUIRE(mechanical_system.valid());
-  rmf_battery::agv::PowerSystem power_system{"processor", 20.0};
-  REQUIRE(power_system.valid());
+  auto battery_system_optional = BatterySystem::make(24.0, 40.0, 8.8);
+  REQUIRE(battery_system_optional);
+  BatterySystem& battery_system = *battery_system_optional;
+  auto mechanical_system_optional = MechanicalSystem::make(70.0, 40.0, 0.22);
+  REQUIRE(mechanical_system_optional);
+  MechanicalSystem& mechanical_system = *mechanical_system_optional;
+  auto power_system_optional = PowerSystem::make(20.0);
+  REQUIRE(power_system_optional);
+  PowerSystem& power_system_processor = *power_system_optional;
 
   std::shared_ptr<SimpleMotionPowerSink> motion_sink =
     std::make_shared<SimpleMotionPowerSink>(battery_system, mechanical_system);
   std::shared_ptr<SimpleDevicePowerSink> device_sink =
-    std::make_shared<SimpleDevicePowerSink>(battery_system, power_system);
+    std::make_shared<SimpleDevicePowerSink>(battery_system, power_system_processor);
 
   WHEN("Planning for 3 requests and 2 agents")
   {

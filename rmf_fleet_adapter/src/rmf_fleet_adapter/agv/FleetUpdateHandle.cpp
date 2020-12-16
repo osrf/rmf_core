@@ -73,7 +73,7 @@ public:
 
 //==============================================================================
 void FleetUpdateHandle::Implementation::dock_summary_cb(
-  const DockSummary::SharedPtr msg)
+  const DockSummary::SharedPtr& msg)
 {
   for (const auto& dock : msg->docks)
   {
@@ -151,7 +151,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   {
     if (task_profile.clean.start_waypoint.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [clean.start_waypoint] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -184,10 +184,10 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
       return;
     }
-    const auto clean_param = clean_param_it->second;
+    const auto& clean_param = clean_param_it->second;
 
     // Check for valid finish waypoint
-    const std::string finish_wp_name = clean_param.finish;
+    const std::string& finish_wp_name = clean_param.finish;
     const auto finish_wp = graph.find_waypoint(finish_wp_name);
     if (!finish_wp)
     {
@@ -210,7 +210,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
         start_time,
         positions);
     
-    if (!(cleaning_trajectory.size() > 0))
+    if (cleaning_trajectory.size() == 0)
     {
       RCLCPP_INFO(
         node->get_logger(),
@@ -234,7 +234,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     RCLCPP_INFO(
       node->get_logger(),
-      "Generated Clean request");
+      "Generated Clean request for task_id:[%s]", id.c_str());
   }
 
   else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_DELIVERY)
@@ -242,7 +242,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     const auto& delivery = task_profile.delivery;
     if (delivery.pickup_place_name.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [delivery.pickup_place_name] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -252,7 +252,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     if (delivery.pickup_dispenser.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [delivery.pickup_dispenser] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -262,7 +262,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     if (delivery.dropoff_place_name.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [delivery.dropoff_place_name] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -272,7 +272,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     if (delivery.dropoff_place_name.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [delivery.dropoff_place_name] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -282,7 +282,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     if (delivery.dropoff_ingestor.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [delivery.dropoff_ingestor] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -329,7 +329,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     RCLCPP_INFO(
       node->get_logger(),
-      "Generated Delivery request");
+      "Generated Delivery request for task_id:[%s]", id.c_str());
 
   }
   else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_LOOP)
@@ -337,7 +337,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     const auto& loop = task_profile.loop;
     if (loop.start_name.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [loop.start_name] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -347,7 +347,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     if (loop.finish_name.empty())
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [loop.finish_name] missing in TaskProfile."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -357,7 +357,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     if (loop.num_loops < 1)
     {
-      RCLCPP_INFO(
+      RCLCPP_ERROR(
         node->get_logger(),
         "Required param [loop.num_loops] in TaskProfile is invalid."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
@@ -402,14 +402,15 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
     RCLCPP_INFO(
       node->get_logger(),
-      "Generated Loop request");
+      "Generated Loop request for task_id:[%s]", id.c_str());
   }
   else
   {
-    RCLCPP_INFO(
+    RCLCPP_ERROR(
       node->get_logger(),
-      "Invalid TaskType in TaskProfile. Rejecting BidNotice with task_id:[%s]",
-      id.c_str());
+      "Invalid TaskType [%d] in TaskProfile. Rejecting BidNotice with "
+      "task_id:[%s]",
+      task_type.type, id.c_str());
 
     return;
   }
@@ -754,8 +755,7 @@ bool FleetUpdateHandle::set_task_planner_params(
     std::shared_ptr<rmf_battery::agv::BatterySystem> battery_system,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink,
-    const bool drain_battery)
+    std::shared_ptr<rmf_battery::DevicePowerSink> tool_sink)
 {
   if (battery_system && motion_sink && ambient_sink && tool_sink)
   {
@@ -774,8 +774,6 @@ bool FleetUpdateHandle::set_task_planner_params(
     
     _pimpl->task_planner = std::make_shared<rmf_task::agv::TaskPlanner>(
       task_config);
-
-    _pimpl->drain_battery = drain_battery;
     
     _pimpl->initialized_task_planner = true;
 
@@ -785,6 +783,11 @@ bool FleetUpdateHandle::set_task_planner_params(
     return false;
 }
 
+bool FleetUpdateHandle::account_for_battery_drain(bool value)
+{
+  _pimpl->drain_battery = value;
+  return _pimpl->drain_battery;
+}
 //==============================================================================
 FleetUpdateHandle& FleetUpdateHandle::set_recharge_threshold(
   const double threshold)

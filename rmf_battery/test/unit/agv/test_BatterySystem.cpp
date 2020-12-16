@@ -19,9 +19,22 @@
 
 #include <rmf_utils/catch.hpp>
 
-
-
 SCENARIO("Test BatterySystem")
 {
-  // TODO
+  using BatterySystem = rmf_battery::agv::BatterySystem;
+
+  WHEN("Valid values are supplied to make()")
+  {
+    auto battery_system = BatterySystem::make(12.0, 20.0, 6.0);
+    REQUIRE(battery_system);
+    CHECK(battery_system->nominal_voltage() == 12.0);
+    CHECK(battery_system->capacity() == 20.0);
+    CHECK(battery_system->charging_current() == 6.0);
+  }
+
+  WHEN("In-valid values are supplied to make()")
+  {
+    auto battery_system = BatterySystem::make(-12.0, 20.0, 6.0);
+    CHECK_FALSE(battery_system);
+  }
 }

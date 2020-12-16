@@ -21,29 +21,18 @@
 
 SCENARIO("Test PowerSystem")
 {
-  rmf_battery::agv::PowerSystem power_system(
-    "cleaning_system", 60);
-  REQUIRE(power_system.name() == "cleaning_system");
-  REQUIRE(power_system.nominal_power() - 60 == Approx(0.0));
-  REQUIRE(power_system.valid());
-  
-  WHEN("Name is set")
+  using PowerSystem = rmf_battery::agv::PowerSystem;
+
+  WHEN("Valid nominal power is supplied to make()")
   {
-    power_system.name("vacuuming_system");
-    CHECK(power_system.name() == "vacuuming_system");
-    CHECK(power_system.nominal_power() - 60 == Approx(0.0));
-    CHECK(power_system.valid());
-  }
-  WHEN("Nominal power is set")
-  {
-    power_system.nominal_power(80);
-    CHECK(power_system.nominal_power() - 80 == Approx(0.0));
-    CHECK(power_system.valid());
+    auto power_system = PowerSystem::make(60.0);
+    REQUIRE(power_system);
+    CHECK(power_system->nominal_power() == 60.0);
   }
 
-  WHEN("A property is negative")
+  WHEN("In-valid nominal power is supplied to make()")
   {
-    power_system.nominal_power(-12);
-    CHECK_FALSE(power_system.valid());
+    auto power_system = PowerSystem::make(-10.0);
+    CHECK_FALSE(power_system);
   }
 }

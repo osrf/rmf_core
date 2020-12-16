@@ -31,8 +31,6 @@
 #include "tasks/Delivery.hpp"
 #include "tasks/Loop.hpp"
 
-#include <iostream>
-
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -86,11 +84,10 @@ TaskManager::TaskManager(agv::RobotContextPtr context)
 //==============================================================================
 void TaskManager::queue_task(std::shared_ptr<Task> task, Start expected_finish)
 {
+  std::lock_guard<std::mutex> guard(_mutex);
   _queue.push_back(std::move(task));
   _expected_finish_location = std::move(expected_finish);
 
-  std::cout << "Queuing new task for [" << _context->requester_id()
-            << "]. New queue size: " << _queue.size() << std::endl;
   RCLCPP_INFO(
         _context->node()->get_logger(),
         "Queuing new task [%s] for [%s]. New queue size: %d",
@@ -127,10 +124,10 @@ auto TaskManager::expected_finish_state() const -> State
   // If an active task exists, return the estimated finish state of that task
   /// else update the current time and battery level for the state and return
   if (_active_task)
-    return _context->state();
+    return _context->current_task_end_state();
 
   // Update battery soc and finish time in the current state
-  auto& finish_state = _context->state();
+  auto finish_state = _context->current_task_end_state();
   auto location = finish_state.location();
   location.time(rmf_traffic_ros2::convert(_context->node()->now()));
   finish_state.location(location);
@@ -157,13 +154,15 @@ agv::ConstRobotContextPtr TaskManager::context() const
 void TaskManager::set_queue(
   const std::vector<TaskManager::Assignment>& assignments)
 {
+  std::lock_guard<std::mutex> guard(_mutex);
   _queue.clear();
+
   // We use dynamic cast to determine the type of request and then call the
   // appropriate make(~) function to convert the request into a task
   for (std::size_t i = 0; i < assignments.size(); ++i)
   {
     const auto& a = assignments[i];
-    auto start = _context->state().location();
+    auto start = _context->current_task_end_state().location();
     if (i != 0)
       start = assignments[i-1].state().location();
     start.time(a.deployment_time());
@@ -180,8 +179,6 @@ void TaskManager::set_queue(
         a.deployment_time(),
         a.state());
       
-      std::lock_guard<std::mutex> guard(_mutex);
-
       _queue.push_back(task);
     }
 
@@ -196,8 +193,6 @@ void TaskManager::set_queue(
         start,
         a.deployment_time(),
         a.state());
-      
-      std::lock_guard<std::mutex> guard(_mutex);
 
       _queue.push_back(task);
     }
@@ -273,6 +268,8 @@ void TaskManager::_begin_next_task()
   if (_active_task)
     return;
 
+  std::lock_guard<std::mutex> guard(_mutex);
+
   if (_queue.empty())
   {
     // _task_sub.unsubscribe();
@@ -286,16 +283,15 @@ void TaskManager::_begin_next_task()
     return;
   }
 
-  std::lock_guard<std::mutex> guard(_mutex);
   const rmf_traffic::Time now = rmf_traffic_ros2::convert(
     _context->node()->now());
   const auto next_task = _queue.front();
   const auto deployment_time = next_task->deployment_time();
 
-  if (now > deployment_time)
+  if (now >= deployment_time)
   {
     // Update state in RobotContext and Assign active task
-    _context->state(_queue.front()->finish_state());
+    _context->current_task_end_state(_queue.front()->finish_state());
     _active_task = std::move(_queue.front());
     _queue.erase(_queue.begin());
 
@@ -341,7 +337,6 @@ void TaskManager::_begin_next_task()
       msg.end_time = rmf_traffic_ros2::convert(
         _active_task->finish_state().finish_time());
       _context->node()->task_summary()->publish(msg);
-      // _begin_next_task();
     },
           [this, id = _active_task->id()]()
     {
@@ -365,17 +360,13 @@ void TaskManager::_begin_next_task()
 }
 
 //==============================================================================
-void TaskManager::clear_queue()
-{
-  std::lock_guard<std::mutex> guard(_mutex);
-  _queue.clear();
-}
-
-//==============================================================================
 void TaskManager::retreat_to_charger()
 {
-  if (_active_task || !_queue.empty())
-    return;
+  {
+    std::lock_guard<std::mutex> guard(_mutex);
+    if (_active_task || !_queue.empty())
+      return;
+  }
 
   const auto task_planner = _context->task_planner();
   if (!task_planner)
@@ -421,7 +412,6 @@ void TaskManager::retreat_to_charger()
         rmf_traffic::time::to_seconds(retreat_duration));
     retreat_battery_drain = dSOC_motion + dSOC_device;
 
-    // TODO(YV) Protect this call with a mutex
     estimate_cache->set(endpoints, retreat_duration,
       retreat_battery_drain);
   }
@@ -458,6 +448,16 @@ void TaskManager::retreat_to_charger()
     RCLCPP_INFO(
       _context->node()->get_logger(),
       "Initiating automatic retreat to charger for robot [%s]",
+      _context->name().c_str());
+  }
+
+  if ((battery_soc_after_retreat < retreat_threshold) &&
+    (battery_soc_after_retreat < threshold_soc))
+  {
+    RCLCPP_WARN(
+      _context->node()->get_logger(),
+      "Robot [%s] needs to be charged but has insufficient battery remaining "
+      "to retreat to its designated charger.",
       _context->name().c_str());
   }
 }

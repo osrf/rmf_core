@@ -64,9 +64,6 @@ public:
   /// Get the non-charging requests among pending tasks
   const std::vector<rmf_task::ConstRequestPtr> requests() const;
 
-  /// Callback for task timer which begins next task if its deployment time has passed
-  void _begin_next_task();
-
   /// The state of the robot.
   State expected_finish_state() const;
 
@@ -85,11 +82,15 @@ private:
   rxcpp::subscription _task_sub;
   rxcpp::subscription _emergency_sub;
 
+  // TODO: Eliminate the need for a mutex by redesigning the use of the task
+  // manager so that modifications of shared data only happen on designated
+  // rxcpp worker
   std::mutex _mutex;
   rclcpp::TimerBase::SharedPtr _task_timer;
   rclcpp::TimerBase::SharedPtr _retreat_timer;
 
-  void clear_queue();
+  /// Callback for task timer which begins next task if its deployment time has passed
+  void _begin_next_task();
 };
 
 using TaskManagerPtr = std::shared_ptr<TaskManager>;

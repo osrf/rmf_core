@@ -20,41 +20,30 @@
 namespace rmf_battery {
 namespace agv {
 
+//==============================================================================
 class PowerSystem::Implementation
 {
 public:
-  std::string name;
   double nominal_power;
 };
 
 //==============================================================================
-PowerSystem::PowerSystem(
-  const std::string name,
-  const double nominal_power)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{name, nominal_power}))
+std::optional<PowerSystem> PowerSystem::make(double nominal_power)
+{
+  if (nominal_power < 0.0)
+    return std::nullopt;
+  
+  PowerSystem power_system;
+  power_system._pimpl->nominal_power = nominal_power;
+
+  return power_system;
+}
+
+//==============================================================================
+PowerSystem::PowerSystem()
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
   // Do nothing
-}
-
-//==============================================================================
-auto PowerSystem::name(std::string name) -> PowerSystem&
-{
-  _pimpl->name = name;
-  return *this;
-}
-
-//==============================================================================
-const std::string& PowerSystem::name() const
-{
-  return _pimpl->name;
-}
-
-//==============================================================================
-auto PowerSystem::nominal_power(double nom_power) ->PowerSystem&
-{
-  _pimpl->nominal_power = nom_power;
-  return *this;
 }
 
 //==============================================================================
@@ -62,13 +51,6 @@ double PowerSystem::nominal_power() const
 {
   return _pimpl->nominal_power;
 }
-
-//==============================================================================
-bool PowerSystem::valid() const
-{
-  return !_pimpl->name.empty() && _pimpl->nominal_power >= 0.0;
-}
-
 
 } // namespace agv
 } // namespace rmf_battery
