@@ -225,6 +225,13 @@ ScheduleNode::ScheduleNode(const rclcpp::NodeOptions& options)
 
   conflict_conclusion_pub = create_publisher<ConflictConclusion>(
     rmf_traffic_ros2::NegotiationConclusionTopicName, negotiation_qos);
+  
+  conflict_cancel_sub = create_subscription<ConflictCancel>(
+    rmf_traffic_ros2::NegotiationCancelTopicName, negotiation_qos,
+    [&](const ConflictCancel::UniquePtr msg)
+    {
+      this->receive_cancel(*msg);
+    });
 
   conflict_check_quit = false;
   conflict_check_thread = std::thread(
@@ -843,6 +850,22 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
   }
 }
 
+//==============================================================================
+void ScheduleNode::receive_cancel(const ConflictCancel& msg)
+{
+  std::string output = "Cancelled negotiation ["
+    + std::to_string(msg.conflict_version) + "]";
+  RCLCPP_INFO(get_logger(), output);
+
+  active_conflicts.conclude(msg.conflict_version);
+  ConflictConclusion conclusion;
+  conclusion.conflict_version = msg.conflict_version;
+  conclusion.resolved = false;
+
+  conflict_conclusion_pub->publish(conclusion); 
+}
+
+//==============================================================================
 std::shared_ptr<rclcpp::Node> make_node(const rclcpp::NodeOptions& options)
 {
   return std::make_shared<ScheduleNode>(options);

@@ -45,6 +45,7 @@ set(msg_files
   "msg/ScheduleChangeDelay.msg"
   "msg/NegotiationAck.msg"
   "msg/NegotiationKey.msg"
+  "msg/NegotiationCancel.msg"
   "msg/NegotiationConclusion.msg"
   "msg/NegotiationForfeit.msg"
   "msg/NegotiationNotice.msg"

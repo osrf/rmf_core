@@ -41,6 +41,7 @@
 #include <rmf_traffic_msgs/msg/negotiation_proposal.hpp>
 #include <rmf_traffic_msgs/msg/negotiation_rejection.hpp>
 #include <rmf_traffic_msgs/msg/negotiation_conclusion.hpp>
+#include <rmf_traffic_msgs/msg/negotiation_cancel.hpp>
 
 #include <rmf_traffic_msgs/msg/schedule_inconsistency.hpp>
 
@@ -205,6 +206,11 @@ public:
   using ConflictConclusion = rmf_traffic_msgs::msg::NegotiationConclusion;
   using ConflictConclusionPub = rclcpp::Publisher<ConflictConclusion>;
   ConflictConclusionPub::SharedPtr conflict_conclusion_pub;
+
+  using ConflictCancel = rmf_traffic_msgs::msg::NegotiationCancel;
+  using ConflictCancelSub = rclcpp::Subscription<ConflictCancel>;
+  ConflictCancelSub::SharedPtr conflict_cancel_sub;
+  void receive_cancel(const ConflictCancel& msg);
 
   using Version = rmf_traffic::schedule::Version;
   using ItineraryVersion = rmf_traffic::schedule::ItineraryVersion;
