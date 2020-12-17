@@ -35,7 +35,7 @@ public:
   /// \param[in] mass
   ///   The mass of the robot in Kilograms(kg)
   ///
-  /// \param[in] inertia
+  /// \param[in] moment_of_inertia
   ///   The moment of inertia of the robot along its yaw axis in kg.m^2
   ///
   /// \param[in] friction_coefficient
@@ -44,14 +44,14 @@ public:
   ///   vehicle's wheels during locomotion.
   static std::optional<MechanicalSystem> make(
     double mass,
-    double inertia,
+    double moment_of_inertia,
     double friction_coefficient);
 
   /// Get the mass of this mechanical system
   double mass() const;
 
   /// Get the moment of inertia of this mechanical system
-  double inertia() const;
+  double moment_of_inertia() const;
 
   /// Get the friction coefficient of this mechanical system
   double friction_coefficient() const;

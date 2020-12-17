@@ -25,22 +25,22 @@ class MechanicalSystem::Implementation
 {
 public:
   double mass;
-  double inertia;
+  double moment_of_inertia;
   double friction_coefficient;
 };
 
 //==============================================================================
 std::optional<MechanicalSystem> MechanicalSystem::make(
   double mass,
-  double inertia,
+  double moment_of_inertia,
   double friction_coefficient)
 {
-  if (mass <= 0.0 || inertia <= 0.0 || friction_coefficient <= 0.0)
+  if (mass <= 0.0 || moment_of_inertia <= 0.0 || friction_coefficient <= 0.0)
     return std::nullopt;
 
   MechanicalSystem mechanical_system;
   mechanical_system._pimpl->mass = mass;
-  mechanical_system._pimpl->inertia = inertia;
+  mechanical_system._pimpl->moment_of_inertia = moment_of_inertia;
   mechanical_system._pimpl->friction_coefficient = friction_coefficient;
 
   return mechanical_system;
@@ -65,9 +65,9 @@ double MechanicalSystem::friction_coefficient() const
 }
 
 //==============================================================================
-double MechanicalSystem::inertia() const
+double MechanicalSystem::moment_of_inertia() const
 {
-  return _pimpl->inertia;
+  return _pimpl->moment_of_inertia;
 }
 
 } // namespace agv
