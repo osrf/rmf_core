@@ -31,8 +31,8 @@ public:
 
 //==============================================================================
 SimpleDevicePowerSink::SimpleDevicePowerSink(
-  BatterySystem& battery_system,
-  PowerSystem& power_system)
+  const BatterySystem& battery_system,
+  const PowerSystem& power_system)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{battery_system, power_system}))
 {
@@ -62,6 +62,8 @@ double SimpleDevicePowerSink::compute_change_in_charge(
 
   const double dE = nominal_power * run_time;
   const double dQ = dE / nominal_voltage;
+  // We multiply the capacity by 3600 to convert from units of Ampere-hours to
+  // Ampere-seconds
   const double dSOC = dQ / (capacity * 3600.0);
 
   return dSOC;

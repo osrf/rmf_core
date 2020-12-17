@@ -35,8 +35,8 @@ public:
 
 //==============================================================================
 SimpleMotionPowerSink::SimpleMotionPowerSink(
-  BatterySystem& battery_system,
-  MechanicalSystem& mechanical_system)
+  const BatterySystem& battery_system,
+  const MechanicalSystem& mechanical_system)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{battery_system, mechanical_system}))
 {
@@ -118,9 +118,11 @@ double SimpleMotionPowerSink::compute_change_in_charge(
     dE += EA + EF;
   }
 
-  // The charge consumed
+  // Compute the charge consumed
   const double dQ = dE / nominal_voltage;
-  // The depleted state of charge
+  // Compute the change in state of charge
+  // We multiply the capacity by 3600 to convert from units of Ampere-hours to
+  // Ampere-seconds
   const double dSOC = dQ / (capacity * 3600.0);
   return dSOC;
 }
