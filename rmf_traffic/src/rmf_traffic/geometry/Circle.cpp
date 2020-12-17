@@ -19,7 +19,11 @@
 
 #include <rmf_traffic/geometry/Circle.hpp>
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+#include <fcl/geometry/shape/sphere.h>
+#else
 #include <fcl/shape/geometric_shapes.h>
+#endif
 
 namespace rmf_traffic {
 namespace geometry {
@@ -37,7 +41,11 @@ public:
 
   CollisionGeometries make_fcl() const final
   {
+    #ifdef RMF_TRAFFIC__USING_FCL_0_6
+    return {std::make_shared<fcl::Sphered>(_radius)};
+    #else
     return {std::make_shared<fcl::Sphere>(_radius)};
+    #endif
   }
 
   double _radius;
