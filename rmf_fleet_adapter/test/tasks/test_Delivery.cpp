@@ -33,6 +33,10 @@
 #include <rmf_ingestor_msgs/msg/ingestor_state.hpp>
 #include <rmf_ingestor_msgs/msg/ingestor_result.hpp>
 
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+
 #include <rmf_utils/catch.hpp>
 
 #include "../thread_cooldown.hpp"
@@ -325,10 +329,40 @@ SCENARIO("Test Delivery")
   });
 
   const auto fleet = adapter.add_fleet("test_fleet", traits, graph);
-  fleet->accept_delivery_requests(
-        [](const rmf_task_msgs::msg::Delivery&)
+
+  // Configure default battery param
+  using BatterySystem = rmf_battery::agv::BatterySystem;
+  using PowerSystem = rmf_battery::agv::PowerSystem;
+  using MechanicalSystem = rmf_battery::agv::MechanicalSystem;
+  using SimpleMotionPowerSink = rmf_battery::agv::SimpleMotionPowerSink;
+  using SimpleDevicePowerSink = rmf_battery::agv::SimpleDevicePowerSink;
+
+  auto battery_system = std::make_shared<BatterySystem>(
+    *BatterySystem::make(24.0, 40.0, 8.8));
+
+  auto mechanical_system = MechanicalSystem::make(70.0, 40.0, 0.22);
+  auto motion_sink = std::make_shared<SimpleMotionPowerSink>(
+      *battery_system, *mechanical_system);
+
+  auto ambient_power_system = PowerSystem::make(20.0);
+  auto ambient_sink =  std::make_shared<SimpleDevicePowerSink>(
+      *battery_system, *ambient_power_system);
+
+  auto tool_power_system = PowerSystem::make(10.0);
+  auto tool_sink = std::make_shared<SimpleDevicePowerSink>(
+      *battery_system, *tool_power_system);
+
+  fleet->account_for_battery_drain(false);
+  fleet->set_recharge_threshold(0.2);
+  fleet->set_task_planner_params(
+    battery_system, motion_sink, ambient_sink, tool_sink);
+
+  fleet->accept_task_requests(
+        [](const rmf_task_msgs::msg::TaskProfile& task)
   {
-    // Accept all delivery requests
+    // Accept all delivery task requests
+    CHECK(task.task_type.TYPE_DELIVERY == task.task_type.type);
+    CHECK(task.task_id == "test_delivery");
     return true;
   });
 
@@ -341,6 +375,8 @@ SCENARIO("Test Delivery")
         robot_cmd, "T0", profile, starts,
         [&robot_cmd](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
   {
+    // assume battery soc is full
+    updater->update_battery_soc(1.0);
     robot_cmd->updater = std::move(updater);
   });
 
@@ -356,16 +392,19 @@ SCENARIO("Test Delivery")
 
   adapter.start();
 
-  rmf_task_msgs::msg::Delivery request;
-  request.task_id = "test_delivery";
+  // wait for task_manager to start, else TM is suspicously "empty"
+  std::this_thread::sleep_for(1s);
 
-  request.pickup_place_name = pickup_name;
-  request.pickup_dispenser = quiet_dispenser_name;
+  rmf_task_msgs::msg::TaskProfile task_profile;
+  task_profile.task_id = "test_delivery";
+  task_profile.task_type.type = task_profile.task_type.TYPE_DELIVERY;
+  task_profile.delivery.pickup_place_name = pickup_name;
+  task_profile.delivery.pickup_dispenser = quiet_dispenser_name;
+  task_profile.delivery.dropoff_place_name = dropoff_name;
+  task_profile.delivery.dropoff_ingestor = flaky_ingestor_name;
+  task_profile.start_time = adapter.node()->now();
 
-  request.dropoff_place_name = dropoff_name;
-  request.dropoff_ingestor = flaky_ingestor_name;
-
-  adapter.request_delivery(request);
+  adapter.dispatch_task(task_profile);
 
   const auto quiet_status = quiet_future.wait_for(15s);
   REQUIRE(quiet_status == std::future_status::ready);

@@ -267,6 +267,11 @@ public:
 
 };
 
+//==============================================================================
+void dispatch_task(
+    const rmf_task_msgs::msg::TaskProfile profile,
+    const std::vector<std::shared_ptr<FleetUpdateHandle>>& fleets);
+
 } // namespace agv
 } // namespace rmf_fleet_adapter
 

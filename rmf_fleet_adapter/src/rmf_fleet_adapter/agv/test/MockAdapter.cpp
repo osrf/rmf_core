@@ -139,16 +139,11 @@ void MockAdapter::stop()
 }
 
 //==============================================================================
-void MockAdapter::request_delivery(const rmf_task_msgs::msg::Delivery& request)
+void MockAdapter::dispatch_task(const rmf_task_msgs::msg::TaskProfile& profile)
 {
-  // rmf_fleet_adapter::agv::request_delivery(request, _pimpl->fleets);
+  rmf_fleet_adapter::agv::dispatch_task(profile, _pimpl->fleets);
 }
 
-//==============================================================================
-void MockAdapter::request_loop(const rmf_task_msgs::msg::Loop& request)
-{
-  // rmf_fleet_adapter::agv::request_loop(request, _pimpl->fleets);
-}
 
 } // namespace test
 } // namespace agv

@@ -95,7 +95,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 {
   if (task_managers.empty())
     return;
-  
+
   if (msg->task_profile.task_id.empty())
     return;
 
@@ -800,6 +800,33 @@ FleetUpdateHandle& FleetUpdateHandle::set_recharge_threshold(
 FleetUpdateHandle::FleetUpdateHandle()
 {
   // Do nothing
+}
+
+//==============================================================================
+void dispatch_task(
+    const rmf_task_msgs::msg::TaskProfile profile,
+    const std::vector<std::shared_ptr<FleetUpdateHandle>>& fleets)
+{
+  for (auto& fleet : fleets)
+  {
+    auto& fimpl = FleetUpdateHandle::Implementation::get(*fleet);
+    if (!fimpl.accept_task)
+      continue;
+
+    // TODO: currently the adapter supports multiple fleets. The test
+    // assumption here is using a single fleet for each adapter
+    rmf_task_msgs::msg::BidNotice bid;
+    bid.task_profile = profile;
+    fimpl.bid_notice_cb(
+      std::make_shared<rmf_task_msgs::msg::BidNotice>(bid));
+    
+    rmf_task_msgs::msg::DispatchRequest req;
+    req.task_profile = profile;
+    req.fleet_name = fimpl.name;
+    req.method = req.ADD;
+    fimpl.dispatch_request_cb(
+      std::make_shared<rmf_task_msgs::msg::DispatchRequest>(req));
+  }
 }
 
 } // namespace agv

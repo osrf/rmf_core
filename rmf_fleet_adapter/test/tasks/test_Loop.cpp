@@ -29,6 +29,10 @@
 #include <rmf_dispenser_msgs/msg/dispenser_state.hpp>
 #include <rmf_dispenser_msgs/msg/dispenser_result.hpp>
 
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+
 #include <rmf_utils/catch.hpp>
 
 #include "../thread_cooldown.hpp"
@@ -212,8 +216,43 @@ SCENARIO("Test loop requests")
   const std::string fleet_type = "test_fleet";
   const auto fleet = adapter.add_fleet(fleet_type, traits, graph);
 
-  const auto now = rmf_traffic_ros2::convert(adapter.node()->now());
+  // Configure default battery param
+  using BatterySystem = rmf_battery::agv::BatterySystem;
+  using PowerSystem = rmf_battery::agv::PowerSystem;
+  using MechanicalSystem = rmf_battery::agv::MechanicalSystem;
+  using SimpleMotionPowerSink = rmf_battery::agv::SimpleMotionPowerSink;
+  using SimpleDevicePowerSink = rmf_battery::agv::SimpleDevicePowerSink;
 
+  auto battery_system = std::make_shared<BatterySystem>(
+    *BatterySystem::make(24.0, 40.0, 8.8));
+
+  auto mechanical_system = MechanicalSystem::make(70.0, 40.0, 0.22);
+  auto motion_sink = std::make_shared<SimpleMotionPowerSink>(
+    *battery_system, *mechanical_system);
+
+  auto ambient_power_system = PowerSystem::make(20.0);
+  auto ambient_sink =  std::make_shared<SimpleDevicePowerSink>(
+    *battery_system, *ambient_power_system);
+
+  auto tool_power_system = PowerSystem::make(10.0);
+  auto tool_sink = std::make_shared<SimpleDevicePowerSink>(
+    *battery_system, *tool_power_system);
+
+  fleet->account_for_battery_drain(false);
+  fleet->set_recharge_threshold(0.2);
+  fleet->set_task_planner_params(
+    battery_system, motion_sink, ambient_sink, tool_sink);
+
+  fleet->accept_task_requests(
+        [](const rmf_task_msgs::msg::TaskProfile& task)
+  {
+    // Accept all loop task requests
+    CHECK(task.task_type.TYPE_LOOP == task.task_type.type);
+    return true;
+  });
+
+  // Add Robot T0
+  const auto now = rmf_traffic_ros2::convert(adapter.node()->now());
   const rmf_traffic::agv::Plan::StartSet starts_0 = {{now, 0, 0.0}};
   auto robot_cmd_0 = std::make_shared<
       rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
@@ -221,9 +260,12 @@ SCENARIO("Test loop requests")
         robot_cmd_0, "T0", profile, starts_0,
         [&robot_cmd_0](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
   {
+    // assume battery soc is full
+    updater->update_battery_soc(1.0);
     robot_cmd_0->updater = std::move(updater);
   });
 
+  // Add Robot T1
   const rmf_traffic::agv::Plan::StartSet starts_1 = {{now, 7, 0.0}};
   auto robot_cmd_1 = std::make_shared<
       rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
@@ -231,25 +273,34 @@ SCENARIO("Test loop requests")
         robot_cmd_1, "T1", profile, starts_1,
         [&robot_cmd_1](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
   {
+    // assume battery soc is full
+    updater->update_battery_soc(1.0);
     robot_cmd_1->updater = std::move(updater);
   });
 
   adapter.start();
 
-  rmf_task_msgs::msg::Loop request;
-  request.task_id = loop_0;
-  request.num_loops = n_loops;
-  request.robot_type = fleet_type;
-  request.start_name = south;
-  request.finish_name = east;
-  adapter.request_loop(request);
+  // wait for task_manager to start, else TM is suspicously "empty"
+  std::this_thread::sleep_for(1s);
 
-  request.task_id = loop_1;
-  request.start_name = north;
-  request.finish_name = east;
-  adapter.request_loop(request);
+  // Loop 0 Task
+  rmf_task_msgs::msg::TaskProfile task_profile;
+  task_profile.task_id = loop_0;
+  task_profile.task_type.type = task_profile.task_type.TYPE_LOOP;
+  task_profile.start_time = adapter.node()->now();
+  task_profile.loop.num_loops = n_loops;
+  task_profile.loop.robot_type = fleet_type;
+  task_profile.loop.start_name = south;
+  task_profile.loop.finish_name = east;
+  adapter.dispatch_task(task_profile);
 
-  const auto task_0_completed_status = task_0_completed_future.wait_for(60s);
+  // Loop 1 Task
+  task_profile.task_id = loop_1;
+  task_profile.loop.start_name = north;
+  task_profile.loop.finish_name = east;
+  adapter.dispatch_task(task_profile);
+
+  const auto task_0_completed_status = task_0_completed_future.wait_for(20s);
   CHECK(task_0_completed_status == std::future_status::ready);
   CHECK(at_least_one_incomplete_task_0);
   if (task_0_completed_status != std::future_status::ready)
@@ -259,7 +310,7 @@ SCENARIO("Test loop requests")
               << std::endl;
   }
 
-  const auto task_1_completed_status = task_1_completed_future.wait_for(60s);
+  const auto task_1_completed_status = task_1_completed_future.wait_for(20s);
   CHECK(task_1_completed_status == std::future_status::ready);
   CHECK(at_least_one_incomplete_task_1);
   if (task_1_completed_status != std::future_status::ready)
