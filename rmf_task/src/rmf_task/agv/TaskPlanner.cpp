@@ -81,22 +81,52 @@ auto TaskPlanner::Configuration::battery_system(
 }
 
 //==============================================================================
-std::shared_ptr<rmf_battery::MotionPowerSink> TaskPlanner::Configuration::motion_sink() const
+std::shared_ptr<rmf_battery::MotionPowerSink>
+TaskPlanner::Configuration::motion_sink() const
 {
   return _pimpl->motion_sink;
 }
 
 //==============================================================================
-std::shared_ptr<rmf_battery::DevicePowerSink> TaskPlanner::Configuration::ambient_sink() const
+auto TaskPlanner::Configuration::motion_sink(
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink) -> Configuration&
+{
+  if (motion_sink)
+    _pimpl->motion_sink = motion_sink;
+  return *this;
+}
+
+//==============================================================================
+std::shared_ptr<rmf_battery::DevicePowerSink>
+TaskPlanner::Configuration::ambient_sink() const
 {
   return _pimpl->ambient_sink;
 }
 
 //==============================================================================
-std::shared_ptr<rmf_traffic::agv::Planner> TaskPlanner::Configuration::planner() const
+auto TaskPlanner::Configuration::ambient_sink(
+  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink) -> Configuration&
+{
+  if (ambient_sink)
+    _pimpl->ambient_sink = ambient_sink;
+  return *this;
+}
+
+//==============================================================================
+std::shared_ptr<rmf_traffic::agv::Planner>
+TaskPlanner::Configuration::planner() const
 {
   return _pimpl->planner;
-} 
+}
+
+//==============================================================================
+auto TaskPlanner::Configuration::planner(
+  std::shared_ptr<rmf_traffic::agv::Planner> planner) -> Configuration&
+{
+  if (planner)
+    _pimpl->planner = planner;
+  return *this;
+}
 
 //==============================================================================
 TaskPlanner::FilterType TaskPlanner::Configuration::filter_type() const

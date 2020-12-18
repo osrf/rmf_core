@@ -83,16 +83,28 @@ public:
     rmf_battery::agv::BatterySystem& battery_system();
 
     /// Set the battery_system
-    Configuration& battery_system(rmf_battery::agv::BatterySystem battery_system);
+    Configuration& battery_system(
+      rmf_battery::agv::BatterySystem battery_system);
 
     /// Get the motion sink
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink() const;
 
+    /// Set the motion_sink
+    Configuration& motion_sink(
+      std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink);
+
     /// Get the ambient device sink
     std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink() const;
 
+    /// Set the ambient device sink
+    Configuration& ambient_sink(
+      std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink);
+
     /// Get the planner
-    std::shared_ptr<rmf_traffic::agv::Planner> planner() const;    
+    std::shared_ptr<rmf_traffic::agv::Planner> planner() const;
+
+    /// Set the planner
+    Configuration& planner(std::shared_ptr<rmf_traffic::agv::Planner>);
 
     /// Get the filter type
     FilterType filter_type() const;
