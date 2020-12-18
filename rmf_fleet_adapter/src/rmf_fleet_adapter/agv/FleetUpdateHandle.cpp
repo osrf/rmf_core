@@ -359,7 +359,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     {
       RCLCPP_ERROR(
         node->get_logger(),
-        "Required param [loop.num_loops] in TaskProfile is invalid."
+        "Required param [loop.num_loops: %d] in TaskProfile is invalid."
         "Rejecting BidNotice with task_id:[%s]" , id.c_str());
 
       return;
