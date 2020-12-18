@@ -813,8 +813,8 @@ void dispatch_task(
     if (!fimpl.accept_task)
       continue;
 
-    // TODO: currently the adapter supports multiple fleets. The test
-    // assumption here is using a single fleet for each adapter
+    // NOTE: althought the current adapter supports multiple fleets. The test
+    // here assumses using a single fleet for each adapter
     rmf_task_msgs::msg::BidNotice bid;
     bid.task_profile = profile;
     fimpl.bid_notice_cb(

@@ -86,14 +86,14 @@ SCENARIO("Test loop requests")
     };
 
   auto add_dock_lane = [&](
-      const std::size_t w0,
-      const std::size_t w1,
-      std::string dock_name)
-  {
-    using Lane = rmf_traffic::agv::Graph::Lane;
-    graph.add_lane({w0, Lane::Event::make(Lane::Dock(dock_name, 10s))}, w1);
-    graph.add_lane(w1, w0);
-  };
+    const std::size_t w0,
+    const std::size_t w1,
+    std::string dock_name)
+    {
+      using Lane = rmf_traffic::agv::Graph::Lane;
+      graph.add_lane({w0, Lane::Event::make(Lane::Dock(dock_name, 10s))}, w1);
+      graph.add_lane(w1, w0);
+    };
 
   add_bidir_lane(0, 1);  // 0   1
   add_bidir_lane(1, 2);  // 2   3
@@ -132,7 +132,7 @@ SCENARIO("Test loop requests")
   auto rcl_context = std::make_shared<rclcpp::Context>();
   rcl_context->init(0, nullptr);
   rmf_fleet_adapter::agv::test::MockAdapter adapter(
-        "test_Loop", rclcpp::NodeOptions().context(rcl_context));
+    "test_Loop", rclcpp::NodeOptions().context(rcl_context));
 
   const std::string loop_0 = "loop_0";
   std::promise<bool> task_0_completed_promise;
@@ -153,63 +153,63 @@ SCENARIO("Test loop requests")
   std::vector<std::string> finding_a_plan_1_statuses;
 
   const auto task_sub = adapter.node()->create_subscription<
-      rmf_task_msgs::msg::TaskSummary>(
-        rmf_fleet_adapter::TaskSummaryTopicName, rclcpp::SystemDefaultsQoS(),
-        [&task_0_completed_promise, &loop_0, &at_least_one_incomplete_task_0,
-         &completed_0_count, &last_task_0_msg, &finding_a_plan_0_count,
-         &task_1_completed_promise, &loop_1, &at_least_one_incomplete_task_1,
-         &completed_1_count, &last_task_1_msg, &finding_a_plan_1_count,
-         &finding_a_plan_0_statuses, &finding_a_plan_1_statuses](
-        const rmf_task_msgs::msg::TaskSummary::SharedPtr msg)
-  {
-    if (msg->STATE_COMPLETED == msg->state)
+    rmf_task_msgs::msg::TaskSummary>(
+    rmf_fleet_adapter::TaskSummaryTopicName, rclcpp::SystemDefaultsQoS(),
+    [&task_0_completed_promise, &loop_0, &at_least_one_incomplete_task_0,
+    &completed_0_count, &last_task_0_msg, &finding_a_plan_0_count,
+    &task_1_completed_promise, &loop_1, &at_least_one_incomplete_task_1,
+    &completed_1_count, &last_task_1_msg, &finding_a_plan_1_count,
+    &finding_a_plan_0_statuses, &finding_a_plan_1_statuses](
+      const rmf_task_msgs::msg::TaskSummary::SharedPtr msg)
     {
+      if (msg->STATE_COMPLETED == msg->state)
+      {
+        if (msg->task_id == loop_0)
+        {
+          if (completed_0_count == 0)
+            task_0_completed_promise.set_value(true);
+
+          ++completed_0_count;
+        }
+        else if (msg->task_id == loop_1)
+        {
+          if (completed_1_count == 0)
+            task_1_completed_promise.set_value(true);
+
+          ++completed_1_count;
+        }
+        else
+          CHECK(false);
+      }
+      else
+      {
+        if (msg->task_id == loop_0)
+          at_least_one_incomplete_task_0 = true;
+        else if (msg->task_id == loop_1)
+          at_least_one_incomplete_task_1 = true;
+        else
+          CHECK(false);
+      }
+
       if (msg->task_id == loop_0)
       {
-        if (completed_0_count == 0)
-          task_0_completed_promise.set_value(true);
-
-        ++completed_0_count;
+        last_task_0_msg = *msg;
+        if (msg->status.find("Finding a plan for") != std::string::npos)
+        {
+          ++finding_a_plan_0_count;
+          finding_a_plan_0_statuses.push_back(msg->status);
+        }
       }
       else if (msg->task_id == loop_1)
       {
-        if (completed_1_count == 0)
-          task_1_completed_promise.set_value(true);
-
-        ++completed_1_count;
+        last_task_1_msg = *msg;
+        if (msg->status.find("Finding a plan for") != std::string::npos)
+        {
+          ++finding_a_plan_1_count;
+          finding_a_plan_1_statuses.push_back(msg->status);
+        }
       }
-      else
-        CHECK(false);
-    }
-    else
-    {
-      if (msg->task_id == loop_0)
-        at_least_one_incomplete_task_0 = true;
-      else if (msg->task_id == loop_1)
-        at_least_one_incomplete_task_1 = true;
-      else
-        CHECK(false);
-    }
-
-    if (msg->task_id == loop_0)
-    {
-      last_task_0_msg = *msg;
-      if (msg->status.find("Finding a plan for") != std::string::npos)
-      {
-        ++finding_a_plan_0_count;
-        finding_a_plan_0_statuses.push_back(msg->status);
-      }
-    }
-    else if (msg->task_id == loop_1)
-    {
-      last_task_1_msg = *msg;
-      if (msg->status.find("Finding a plan for") != std::string::npos)
-      {
-        ++finding_a_plan_1_count;
-        finding_a_plan_1_statuses.push_back(msg->status);
-      }
-    }
-  });
+    });
 
   const std::size_t n_loops = 5;
 
@@ -231,7 +231,7 @@ SCENARIO("Test loop requests")
     *battery_system, *mechanical_system);
 
   auto ambient_power_system = PowerSystem::make(20.0);
-  auto ambient_sink =  std::make_shared<SimpleDevicePowerSink>(
+  auto ambient_sink = std::make_shared<SimpleDevicePowerSink>(
     *battery_system, *ambient_power_system);
 
   auto tool_power_system = PowerSystem::make(10.0);
@@ -244,46 +244,46 @@ SCENARIO("Test loop requests")
     battery_system, motion_sink, ambient_sink, tool_sink);
 
   fleet->accept_task_requests(
-        [](const rmf_task_msgs::msg::TaskProfile& task)
-  {
-    // Accept all loop task requests
-    CHECK(task.task_type.TYPE_LOOP == task.task_type.type);
-    return true;
-  });
+    [](const rmf_task_msgs::msg::TaskProfile& task)
+    {
+      // Accept all loop task requests
+      CHECK(task.task_type.TYPE_LOOP == task.task_type.type);
+      return true;
+    });
 
   // Add Robot T0
   const auto now = rmf_traffic_ros2::convert(adapter.node()->now());
   const rmf_traffic::agv::Plan::StartSet starts_0 = {{now, 0, 0.0}};
   auto robot_cmd_0 = std::make_shared<
-      rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
+    rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
   fleet->add_robot(
-        robot_cmd_0, "T0", profile, starts_0,
-        [&robot_cmd_0](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
-  {
-    // assume battery soc is full
-    updater->update_battery_soc(1.0);
-    robot_cmd_0->updater = std::move(updater);
-  });
+    robot_cmd_0, "T0", profile, starts_0,
+    [&robot_cmd_0](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
+    {
+      // assume battery soc is full
+      updater->update_battery_soc(1.0);
+      robot_cmd_0->updater = std::move(updater);
+    });
 
   // Add Robot T1
   const rmf_traffic::agv::Plan::StartSet starts_1 = {{now, 7, 0.0}};
   auto robot_cmd_1 = std::make_shared<
-      rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
+    rmf_fleet_adapter_test::MockRobotCommand>(adapter.node(), graph);
   fleet->add_robot(
-        robot_cmd_1, "T1", profile, starts_1,
-        [&robot_cmd_1](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
-  {
-    // assume battery soc is full
-    updater->update_battery_soc(1.0);
-    robot_cmd_1->updater = std::move(updater);
-  });
+    robot_cmd_1, "T1", profile, starts_1,
+    [&robot_cmd_1](rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
+    {
+      // assume battery soc is full
+      updater->update_battery_soc(1.0);
+      robot_cmd_1->updater = std::move(updater);
+    });
 
   adapter.start();
 
-  // wait for task_manager to start, else TM is suspicously "empty"
+  // Note: wait for task_manager to start, else TM will be suspicously "empty"
   std::this_thread::sleep_for(1s);
 
-  // Loop 0 Task
+  // Dsipatch Loop 0 Task
   rmf_task_msgs::msg::TaskProfile task_profile;
   task_profile.task_id = loop_0;
   task_profile.task_type.type = task_profile.task_type.TYPE_LOOP;
@@ -294,7 +294,7 @@ SCENARIO("Test loop requests")
   task_profile.loop.finish_name = east;
   adapter.dispatch_task(task_profile);
 
-  // Loop 1 Task
+  // Dispatch Loop 1 Task
   task_profile.task_id = loop_1;
   task_profile.loop.start_name = north;
   task_profile.loop.finish_name = east;
@@ -322,28 +322,28 @@ SCENARIO("Test loop requests")
 
   using VisitMap = std::unordered_map<std::size_t, std::size_t>;
   const auto visited_wp = [](std::size_t wp, const VisitMap& v, std::size_t num)
-  {
-    const auto it = v.find(wp);
-    if (it == v.end())
-      return false;
+    {
+      const auto it = v.find(wp);
+      if (it == v.end())
+        return false;
 
-    return num <= it->second;
-  };
+      return num <= it->second;
+    };
 
   const auto visited_north = [&visited_wp](const VisitMap& v, std::size_t num)
-  {
-    return visited_wp(10, v, num);
-  };
+    {
+      return visited_wp(10, v, num);
+    };
 
   const auto visited_east = [&visited_wp](const VisitMap& v, std::size_t num)
-  {
-    return visited_wp(7, v, num);
-  };
+    {
+      return visited_wp(7, v, num);
+    };
 
   const auto visited_south = [&visited_wp](const VisitMap& v, std::size_t num)
-  {
-    return visited_wp(0, v, num);
-  };
+    {
+      return visited_wp(0, v, num);
+    };
 
   // Note: I don't assume which robot will be selected for each loop request, so
   // I expect that either robot will be selected for either request, but that
