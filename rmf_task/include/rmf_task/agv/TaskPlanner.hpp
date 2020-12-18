@@ -42,15 +42,7 @@ namespace agv {
 class TaskPlanner
 {
 public:
-
-  // The type of filter used for solving the task assignment problem
-  enum class FilterType
-  {
-    Passthrough,
-    Trie,
-    Hash
-  };
-  
+ 
   /// The Configuration class contains planning parameters that are immutable
   /// for each TaskPlanner instance and should not change in between plans.
   class Configuration
@@ -76,8 +68,7 @@ public:
       rmf_battery::agv::BatterySystem battery_system,
       std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
       std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-      std::shared_ptr<rmf_traffic::agv::Planner> planner,
-      FilterType filter_type= FilterType::Hash);
+      std::shared_ptr<rmf_traffic::agv::Planner> planner);
 
     /// Get the battery system
     rmf_battery::agv::BatterySystem& battery_system();
@@ -105,12 +96,6 @@ public:
 
     /// Set the planner
     Configuration& planner(std::shared_ptr<rmf_traffic::agv::Planner>);
-
-    /// Get the filter type
-    FilterType filter_type() const;
-
-    /// Set the filter type
-    Configuration& filter_type(FilterType filter_type);
 
     class Implementation;
 
