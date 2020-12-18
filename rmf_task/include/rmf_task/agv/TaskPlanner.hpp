@@ -38,8 +38,6 @@
 namespace rmf_task {
 namespace agv {
 
-
-
 //==============================================================================
 class TaskPlanner
 {

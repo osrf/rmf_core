@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#ifndef RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#define RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
 
 #include <string>
 
@@ -76,4 +76,4 @@ using ConstChargeBatteryRequestPtr = std::shared_ptr<const ChargeBattery>;
 } // namespace requests
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#endif // RMF_TASK__REQUESTS__CHARGEBATTERY_HPP

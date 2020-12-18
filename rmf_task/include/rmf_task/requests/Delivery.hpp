@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
+#ifndef RMF_TASK__REQUESTS__DELIVERY_HPP
+#define RMF_TASK__REQUESTS__DELIVERY_HPP
 
 #include <chrono>
 #include <string>
@@ -93,4 +93,4 @@ using ConstDeliveryRequestPtr = std::shared_ptr<const Delivery>;
 } // namespace requests
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
+#endif // RMF_TASK__REQUESTS__DELIVERY_HPP

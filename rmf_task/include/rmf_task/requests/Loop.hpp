@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
+#ifndef RMF_TASK__REQUESTS__LOOP_HPP
+#define RMF_TASK__REQUESTS__LOOP_HPP
 
 #include <chrono>
 #include <string>
@@ -87,4 +87,4 @@ using ConstLoopRequestPtr = std::shared_ptr<const Loop>;
 } // namespace tasks
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
+#endif // RMF_TASK__REQUESTS__LOOP_HPP

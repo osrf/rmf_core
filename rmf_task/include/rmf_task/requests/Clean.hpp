@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__CLEAN_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__CLEAN_HPP
+#ifndef RMF_TASK__REQUESTS__CLEAN_HPP
+#define RMF_TASK__REQUESTS__CLEAN_HPP
 
 #include <chrono>
 #include <string>
@@ -83,4 +83,4 @@ using ConstCleanRequestPtr = std::shared_ptr<const Clean>;
 } // namespace requests
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__CLEAN_HPP
+#endif // RMF_TASK__REQUESTS__CLEAN_HPP
