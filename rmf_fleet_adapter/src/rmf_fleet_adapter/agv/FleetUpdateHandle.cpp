@@ -30,7 +30,7 @@
 #include <rmf_task_msgs/msg/delivery.hpp> 
 #include <rmf_task_msgs/msg/loop.hpp>
 
-#include <iostream>
+#include <sstream>
 #include <unordered_map>
 
 namespace rmf_fleet_adapter {
@@ -504,11 +504,12 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   const double cost = task_planner->compute_cost(assignments);
 
-  // Display assignments for debugging
-  std::cout << "Cost: " << cost << std::endl;
+  // Display computed assignments for debugging
+  std::stringstream debug_stream;
+  debug_stream << "Cost: " << cost << std::endl;
   for (std::size_t i = 0; i < assignments.size(); ++i)
   {
-    std:: cout << "--Agent: " << i << std::endl;
+    debug_stream << "--Agent: " << i << std::endl;
     for (const auto& a : assignments[i])
     {
       const auto& s = a.state();
@@ -516,13 +517,15 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       const double start_seconds = a.deployment_time().time_since_epoch().count()/1e9;
       const rmf_traffic::Time finish_time = s.finish_time();
       const double finish_seconds = finish_time.time_since_epoch().count()/1e9;
-      std::cout << "    <" << a.request()->id() << ": " << request_seconds
+      debug_stream << "    <" << a.request()->id() << ": " << request_seconds
                 << ", " << start_seconds 
                 << ", "<< finish_seconds << ", " << 100* s.battery_soc() 
                 << "%>" << std::endl;
     }
   }
-  std::cout << " ----------------------" << std::endl;
+  debug_stream << " ----------------------" << std::endl;
+
+  RCLCPP_DEBUG(node->get_logger(), "%s", debug_stream.str().c_str());
 
   // Publish BidProposal
   rmf_task_msgs::msg::BidProposal bid_proposal;
