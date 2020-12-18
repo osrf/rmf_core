@@ -1,6 +1,6 @@
 # Submit Task | "POST" service call
 
-# Whom that call this srv 
+# Identifier for who is requesting the service
 string requester
 
 # generated task ID by dispatcher node
