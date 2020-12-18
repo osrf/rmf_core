@@ -130,7 +130,7 @@ public:
     // Get the request of this task
     rmf_task::ConstRequestPtr request() const;
 
-    // Get a const reference to the state
+    // Get a const reference to the predicted state at the end of the assignment
     const State& state() const;
 
     // Get the time when the robot begins executing
