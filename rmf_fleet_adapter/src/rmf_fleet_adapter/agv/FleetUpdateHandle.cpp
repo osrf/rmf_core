@@ -625,6 +625,8 @@ std::size_t FleetUpdateHandle::Implementation::get_nearest_charger(
   for (const auto& wp : charging_waypoints)
   {
     const auto loc = graph.get_waypoint(wp).get_location();
+    // TODO: Replace this with a planner call
+    // when the performance improvements are finished
     const double dist = (loc - p).norm();
     if (dist < min_dist)
     {
