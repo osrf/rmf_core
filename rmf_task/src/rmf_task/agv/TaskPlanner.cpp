@@ -684,8 +684,6 @@ bool Filter::ignore(const Node& node)
 
   bool new_node = false;
 
-  // TODO(MXG): Consider replacing this tree structure with a hash set
-
   AgentTable* agent_table = &_root;
   std::size_t a = 0;
   std::size_t t = 0;

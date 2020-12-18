@@ -69,16 +69,23 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  /// Get the pickup waypoint in this request
   std::size_t pickup_waypoint() const;
 
+  /// Get the name of the dispenser at the pickup waypoint
   const std::string& pickup_dispenser() const;
 
+  /// Get the dropoff waypoint in this request
   std::size_t dropoff_waypoint() const;
 
+  /// Get the name of the ingestor at the dropoff waypoint
   const std::string& dropoff_ingestor() const;
 
+  /// Get the list of dispenser request items in this request
   const std::vector<DispenserRequestItem>&  items() const;
 
+  /// Get the Start when the robot reaches the pickup_waypoint from an initial
+  /// start
   Start dropoff_start(const Start& start) const;  
 
   class Implementation;

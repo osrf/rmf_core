@@ -59,6 +59,7 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  /// Get the battery system in this request
   const rmf_battery::agv::BatterySystem& battery_system() const;
 
   /// Retrieve the charge soc which the battery will be charged upto

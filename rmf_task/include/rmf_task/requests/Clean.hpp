@@ -64,10 +64,13 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  /// Get the start waypoint in this request
   std::size_t start_waypoint() const;
 
+  /// Get the end waypoint in this request
   std::size_t end_waypoint() const;
 
+  /// Get the Start at the end of the cleaning trajectory from an initial Start
   rmf_traffic::agv::Planner::Start location_after_clean(
     rmf_traffic::agv::Planner::Start start) const;
 

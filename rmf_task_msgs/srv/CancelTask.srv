@@ -1,4 +1,4 @@
-# Submit Task | "POST" service call
+# Cancel Task | "Delete" service call
 
 # Identifier for who is requesting the service
 string requester
