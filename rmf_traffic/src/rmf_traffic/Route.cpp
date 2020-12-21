@@ -15,7 +15,7 @@
  *
 */
 
-#include "RouteInternal.hpp"
+#include "internal_Route.hpp"
 
 namespace rmf_traffic {
 

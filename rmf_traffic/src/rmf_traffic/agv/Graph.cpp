@@ -15,7 +15,7 @@
  *
 */
 
-#include "GraphInternal.hpp"
+#include "internal_Graph.hpp"
 
 #include <rmf_traffic/agv/Graph.hpp>
 

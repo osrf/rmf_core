@@ -15,12 +15,12 @@
  *
 */
 
-#include "InterpolateInternal.hpp"
+#include "internal_Interpolate.hpp"
 #include "internal_Planner.hpp"
 #include "internal_planning.hpp"
-#include "GraphInternal.hpp"
+#include "internal_Graph.hpp"
 
-#include "../RouteInternal.hpp"
+#include "../internal_Route.hpp"
 
 #include <rmf_utils/math.hpp>
 

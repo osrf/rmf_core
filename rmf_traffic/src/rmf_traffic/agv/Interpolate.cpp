@@ -17,7 +17,7 @@
 
 #include <rmf_traffic/agv/Interpolate.hpp>
 
-#include "InterpolateInternal.hpp"
+#include "internal_Interpolate.hpp"
 
 #include <rmf_utils/math.hpp>
 

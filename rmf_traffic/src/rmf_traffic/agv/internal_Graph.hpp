@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__GRAPHINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__AGV__GRAPHINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__AGV__INTERNAL_GRAPH_HPP
+#define SRC__RMF_TRAFFIC__AGV__INTERNAL_GRAPH_HPP
 
 #include <rmf_traffic/agv/Graph.hpp>
 
@@ -50,4 +50,4 @@ public:
 
 } // namespace agv
 } // namespace rmf_traffic
-#endif // SRC__RMF_TRAFFIC__AGV__GRAPHINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__AGV__INTERNAL_GRAPH_HPP

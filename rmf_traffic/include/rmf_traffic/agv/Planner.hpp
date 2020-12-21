@@ -301,7 +301,7 @@ public:
   {
   public:
 
-    // TODO(MXG): Consider uing optional for the goal orientation
+    // TODO(MXG): Consider using optional for the goal orientation
 
     // TODO(MXG): Consider supporting goals that have multiple acceptable goal
     // orientations.

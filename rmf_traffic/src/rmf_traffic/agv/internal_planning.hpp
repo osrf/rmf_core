@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__PLANNINGINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__AGV__PLANNINGINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__AGV__INTERNAL_PLANNING_HPP
+#define SRC__RMF_TRAFFIC__AGV__INTERNAL_PLANNING_HPP
 
 #include <rmf_traffic/agv/Planner.hpp>
 #include <rmf_traffic/agv/debug/Planner.hpp>
@@ -197,4 +197,4 @@ CacheManager make_cache(agv::Planner::Configuration config);
 } // namespace internal
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__AGV__PLANNINGINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__AGV__INTERNAL_PLANNING_HPP
