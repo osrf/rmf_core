@@ -31,7 +31,7 @@ public:
 
   std::weak_ptr<RobotContext> context;
   std::string name;
-  RobotUpdateHandle::Unstable unstable;
+  RobotUpdateHandle::Unstable unstable = RobotUpdateHandle::Unstable();
   bool reported_loss = false;
 
   static std::shared_ptr<RobotUpdateHandle> make(RobotContextPtr context)
