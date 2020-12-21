@@ -149,6 +149,9 @@ public:
   AcceptDeliveryRequest accept_delivery = nullptr;
   std::unordered_map<RobotContextPtr, std::shared_ptr<TaskManager>> task_managers = {};
 
+  rclcpp::Publisher<rmf_fleet_msgs::msg::FleetState>::SharedPtr fleet_state_pub = nullptr;
+  rclcpp::TimerBase::SharedPtr fleet_state_timer = nullptr;
+
   // Map task id to pair of <RequestPtr, Assignments>
   using Assignments = rmf_task::agv::TaskPlanner::Assignments;
   std::unordered_map<std::string,
@@ -194,6 +197,13 @@ public:
     FleetUpdateHandle handle;
     handle._pimpl = rmf_utils::make_unique_impl<Implementation>(
           Implementation{std::forward<Args>(args)...});
+
+    handle._pimpl->fleet_state_pub = handle._pimpl->node->fleet_state();
+    handle._pimpl->fleet_state_timer = handle._pimpl->node->create_wall_timer(
+          std::chrono::seconds(1), [self = handle._pimpl.get()]()
+    {
+      self->publish_fleet_state();
+    });
 
     // Create subs and pubs for bidding
     auto default_qos = rclcpp::SystemDefaultsQoS();
@@ -265,6 +275,10 @@ public:
     return *fleet._pimpl;
   }
 
+  void fleet_state_publish_period(
+      std::optional<rmf_traffic::Duration> value);
+
+  void publish_fleet_state() const;
 };
 
 } // namespace agv
