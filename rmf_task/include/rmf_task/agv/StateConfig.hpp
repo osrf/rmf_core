@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__AGV__STATECONFIG_HPP
-#define INCLUDE__RMF_TASK__AGV__STATECONFIG_HPP
+#ifndef RMF_TASK__AGV__STATECONFIG_HPP
+#define RMF_TASK__AGV__STATECONFIG_HPP
 
 #include <rmf_utils/impl_ptr.hpp>
 
@@ -49,4 +49,4 @@ private:
 } // namespace agv
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__AGV__STATE_HPP
+#endif // RMF_TASK__AGV__STATECONFIG_HPP

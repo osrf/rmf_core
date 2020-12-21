@@ -394,24 +394,34 @@ void TaskManager::retreat_to_charger()
   }
   else
   {
-    const rmf_traffic::agv::Planner::Goal retreat_goal{current_state.charging_waypoint()};
+    const rmf_traffic::agv::Planner::Goal retreat_goal{
+      current_state.charging_waypoint()};
     const auto result_to_charger = task_planner_config->planner()->plan(
       current_state.location(), retreat_goal);
 
     // We assume we can always compute a plan
-    const auto& trajectory =
-        result_to_charger->get_itinerary().back().trajectory();
-    const auto& finish_time = *trajectory.finish_time();
-    const rmf_traffic::Duration retreat_duration =
-      finish_time - current_state.finish_time();
+    double dSOC_motion = 0.0;
+    double dSOC_device = 0.0;
+    rmf_traffic::Duration retreat_duration = rmf_traffic::Duration{0};
+    rmf_traffic::Time itinerary_start_time = current_state.finish_time();
 
-    const double dSOC_motion =
-      task_planner_config->motion_sink()->compute_change_in_charge(trajectory);
-    const double dSOC_device =
-      task_planner_config->ambient_sink()->compute_change_in_charge(
-        rmf_traffic::time::to_seconds(retreat_duration));
-    retreat_battery_drain = dSOC_motion + dSOC_device;
+    for (const auto& itinerary : result_to_charger->get_itinerary())
+    {
+      const auto& trajectory = itinerary.trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+      const rmf_traffic::Duration itinerary_duration =
+        finish_time - itinerary_start_time;
 
+      dSOC_motion =
+        task_planner_config->motion_sink()->compute_change_in_charge(
+          trajectory);
+      dSOC_device =
+        task_planner_config->ambient_sink()->compute_change_in_charge(
+          rmf_traffic::time::to_seconds(itinerary_duration));
+      retreat_battery_drain += dSOC_motion + dSOC_device;
+      retreat_duration +=itinerary_duration;
+      itinerary_start_time = finish_time;
+    }
     estimate_cache->set(endpoints, retreat_duration,
       retreat_battery_drain);
   }

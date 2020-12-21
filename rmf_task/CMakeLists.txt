@@ -18,10 +18,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-
-
 include(GNUInstallDirs)
 
 find_package(rmf_utils REQUIRED)
@@ -47,7 +43,6 @@ add_library(rmf_task SHARED
 target_link_libraries(rmf_task
   PUBLIC
     rmf_battery::rmf_battery
-  PRIVATE
     ${rmf_dispenser_msgs_LIBRARIES}
 )
 
@@ -56,7 +51,6 @@ target_include_directories(rmf_task
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     ${EIGEN3_INCLUDE_DIRS}
-  PRIVATE
     ${rmf_dispenser_msgs_INCLUDE_DIRS}
 )
 

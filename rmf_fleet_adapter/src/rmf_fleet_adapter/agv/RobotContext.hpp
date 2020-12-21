@@ -121,7 +121,7 @@ public:
 
   /// Get a mutable reference to the state of this robot at the end of its
   // current task
-  rmf_task::agv::State& current_task_end_state();
+  const rmf_task::agv::State& current_task_end_state() const;
 
   /// Get the state config of this robot 
   const rmf_task::agv::StateConfig state_config() const;

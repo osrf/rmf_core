@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__ESTIMATE_HPP
-#define INCLUDE__RMF_TASK__ESTIMATE_HPP
+#ifndef RMF_TASK__ESTIMATE_HPP
+#define RMF_TASK__ESTIMATE_HPP
 
 #include <optional>
 #include <utility>
@@ -88,4 +88,4 @@ private:
 
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__ESTIMATE_HPP
+#endif // RMF_TASK__ESTIMATE_HPP

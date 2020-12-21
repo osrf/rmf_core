@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
+#ifndef RMF_TASK__REQUESTS__LOOP_HPP
+#define RMF_TASK__REQUESTS__LOOP_HPP
 
 #include <chrono>
 #include <string>
@@ -65,14 +65,21 @@ public:
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  /// Get the start waypoint of the loop in this request
   std::size_t start_waypoint() const;
 
+  /// Get the finish waypoint of the loop in this request
   std::size_t finish_waypoint() const;
 
+  /// Get the numbert of loops in this request
   std::size_t num_loops() const;
 
+  /// Get the Start when the robot reaches the start_waypoint from an initial
+  /// start
   Start loop_start(const Start& start) const;
 
+  /// Get the Start when the robot reaches the finish_waypoint from an initial
+  /// start
   Start loop_end(const Start& start) const;
 
   class Implementation;
@@ -87,4 +94,4 @@ using ConstLoopRequestPtr = std::shared_ptr<const Loop>;
 } // namespace tasks
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__LOOP_HPP
+#endif // RMF_TASK__REQUESTS__LOOP_HPP

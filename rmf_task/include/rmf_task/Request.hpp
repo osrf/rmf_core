@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__TASK_HPP
-#define INCLUDE__RMF_TASK__TASK_HPP
+#ifndef RMF_TASK__TASK_HPP
+#define RMF_TASK__TASK_HPP
 
 #include <memory>
 
@@ -60,4 +60,4 @@ using ConstRequestPtr = std::shared_ptr<const Request>;
 
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__TASK_HPP
+#endif // RMF_TASK__REQUEST_HPP

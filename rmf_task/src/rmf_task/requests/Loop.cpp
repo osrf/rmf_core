@@ -80,24 +80,33 @@ ConstRequestPtr Loop::make(
     const auto forward_loop_plan = loop->_pimpl->planner->plan(
       loop_start, loop_end_goal);
 
-    const auto trajectory =
-      forward_loop_plan->get_itinerary().back().trajectory();
-    const auto& finish_time = *trajectory.finish_time();
-    const auto forward_duration = finish_time - start_time;
-    loop->_pimpl->invariant_duration = (2 * num_loops - 1) * forward_duration;
-
-    if (loop->_pimpl->drain_battery)
+    auto itinerary_start_time = start_time;
+    double forward_battery_drain = 0.0;
+    rmf_traffic::Duration forward_duration(0);
+    for (const auto& itinerary : forward_loop_plan->get_itinerary())
     {
-      // Compute battery drain
-      const double dSOC_motion =
-        loop->_pimpl->motion_sink->compute_change_in_charge(trajectory);
-      const double dSOC_device =
-        loop->_pimpl->ambient_sink->compute_change_in_charge(
-          rmf_traffic::time::to_seconds(forward_duration));
-      const double forward_battery_drain = dSOC_motion + dSOC_device;
-      loop->_pimpl->invariant_battery_drain =
-        (2 * num_loops - 1) * forward_battery_drain;
+      const auto& trajectory = itinerary.trajectory();
+      const auto& finish_time = *trajectory.finish_time();
+      const auto itinerary_duration = finish_time - itinerary_start_time;
+
+      if (loop->_pimpl->drain_battery)
+      {
+        // Compute battery drain
+        const double dSOC_motion =
+          loop->_pimpl->motion_sink->compute_change_in_charge(trajectory);
+        const double dSOC_device =
+          loop->_pimpl->ambient_sink->compute_change_in_charge(
+            rmf_traffic::time::to_seconds(itinerary_duration));
+        forward_battery_drain += dSOC_motion + dSOC_device;
+      }
+
+      forward_duration += itinerary_duration;
+      itinerary_start_time = finish_time;
     }
+    loop->_pimpl->invariant_duration =
+      (2 * num_loops - 1) * forward_duration;
+    loop->_pimpl->invariant_battery_drain =
+      (2 * num_loops - 1) * forward_battery_drain;
   }
 
   return loop;
@@ -141,7 +150,8 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
     if (cache_result)
     {
       variant_duration = cache_result->duration;
-      battery_soc = battery_soc - cache_result->dsoc;
+      if (_pimpl->drain_battery)
+        battery_soc = battery_soc - cache_result->dsoc;
     }
     else
     {
@@ -150,22 +160,30 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
       const auto plan_to_start = _pimpl->planner->plan(
         initial_state.location(), loop_start_goal);
       // We assume we can always compute a plan
-      const auto& trajectory = plan_to_start->get_itinerary().back().trajectory();
-      const auto& finish_time = *trajectory.finish_time();
-      variant_duration = finish_time - start_time;
-
-      if (_pimpl->drain_battery)
+      auto itinerary_start_time = start_time;
+      double variant_battery_drain = 0.0;
+      for (const auto& itinerary : plan_to_start->get_itinerary())
       {
-        // Compute battery drain
-        dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(trajectory);
-        dSOC_device =
-          _pimpl->ambient_sink->compute_change_in_charge(
-            rmf_traffic::time::to_seconds(variant_duration));
-        battery_soc = battery_soc - dSOC_motion - dSOC_device;
-      }
+        const auto& trajectory = itinerary.trajectory();
+        const auto& finish_time = *trajectory.finish_time();
+        const rmf_traffic::Duration itinerary_duration =
+         finish_time - itinerary_start_time;
 
+        if (_pimpl->drain_battery)
+        {
+          // Compute battery drain
+          dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(trajectory);
+          dSOC_device =
+            _pimpl->ambient_sink->compute_change_in_charge(
+              rmf_traffic::time::to_seconds(itinerary_duration));
+          battery_soc = battery_soc - dSOC_motion - dSOC_device;
+          variant_battery_drain += dSOC_motion + dSOC_device;
+        }
+        itinerary_start_time = finish_time;
+        variant_duration += itinerary_duration;
+      }
       estimate_cache->set(endpoints, variant_duration,
-        dSOC_motion + dSOC_device);
+        variant_battery_drain);
     }
 
     if (battery_soc <= state_config.threshold_soc())
@@ -228,16 +246,24 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
         const auto result_to_charger = _pimpl->planner->plan(
           retreat_start, charger_goal);
         // We assume we can always compute a plan
-        const auto& trajectory =
-            result_to_charger->get_itinerary().back().trajectory();
-        const auto& finish_time = *trajectory.finish_time();
-        const rmf_traffic::Duration retreat_duration =
-          finish_time - state_finish_time;
+        auto itinerary_start_time = state_finish_time;
+        rmf_traffic::Duration retreat_duration(0);
+        for (const auto& itinerary : result_to_charger->get_itinerary())
+        {
+          const auto& trajectory = itinerary.trajectory();
+          const auto& finish_time = *trajectory.finish_time();
+          const rmf_traffic::Duration itinerary_duration =
+            finish_time - itinerary_start_time;
 
-        dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(trajectory);
-        dSOC_device = _pimpl->ambient_sink->compute_change_in_charge(
-            rmf_traffic::time::to_seconds(retreat_duration));
-        retreat_battery_drain = dSOC_motion + dSOC_device;
+          dSOC_motion = _pimpl->motion_sink->compute_change_in_charge(
+            trajectory);
+          dSOC_device = _pimpl->ambient_sink->compute_change_in_charge(
+              rmf_traffic::time::to_seconds(itinerary_duration));
+          retreat_battery_drain += dSOC_motion + dSOC_device;
+
+          itinerary_start_time = finish_time;
+          retreat_duration += itinerary_duration;
+        }
         estimate_cache->set(endpoints, retreat_duration,
           retreat_battery_drain);
       }

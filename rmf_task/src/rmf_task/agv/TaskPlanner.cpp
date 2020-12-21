@@ -34,7 +34,6 @@
 namespace rmf_task {
 namespace agv {
 
-
 //==============================================================================
 class TaskPlanner::Configuration::Implementation
 {
@@ -44,23 +43,19 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  FilterType filter_type;
-
 };
 
 TaskPlanner::Configuration::Configuration(
   rmf_battery::agv::BatterySystem battery_system,
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-  std::shared_ptr<rmf_traffic::agv::Planner> planner,
-  const FilterType filter_type)
+  std::shared_ptr<rmf_traffic::agv::Planner> planner)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         battery_system,
         std::move(motion_sink),
         std::move(ambient_sink),
-        std::move(planner),
-        filter_type
+        std::move(planner)
       }))
 {
   // Do nothing
@@ -81,34 +76,50 @@ auto TaskPlanner::Configuration::battery_system(
 }
 
 //==============================================================================
-std::shared_ptr<rmf_battery::MotionPowerSink> TaskPlanner::Configuration::motion_sink() const
+std::shared_ptr<rmf_battery::MotionPowerSink>
+TaskPlanner::Configuration::motion_sink() const
 {
   return _pimpl->motion_sink;
 }
 
 //==============================================================================
-std::shared_ptr<rmf_battery::DevicePowerSink> TaskPlanner::Configuration::ambient_sink() const
+auto TaskPlanner::Configuration::motion_sink(
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink) -> Configuration&
+{
+  if (motion_sink)
+    _pimpl->motion_sink = motion_sink;
+  return *this;
+}
+
+//==============================================================================
+std::shared_ptr<rmf_battery::DevicePowerSink>
+TaskPlanner::Configuration::ambient_sink() const
 {
   return _pimpl->ambient_sink;
 }
 
 //==============================================================================
-std::shared_ptr<rmf_traffic::agv::Planner> TaskPlanner::Configuration::planner() const
+auto TaskPlanner::Configuration::ambient_sink(
+  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink) -> Configuration&
 {
-  return _pimpl->planner;
-} 
-
-//==============================================================================
-TaskPlanner::FilterType TaskPlanner::Configuration::filter_type() const
-{
-  return _pimpl->filter_type;
+  if (ambient_sink)
+    _pimpl->ambient_sink = ambient_sink;
+  return *this;
 }
 
 //==============================================================================
-auto TaskPlanner::Configuration::filter_type(
-  TaskPlanner::FilterType filter_type) -> Configuration&
+std::shared_ptr<rmf_traffic::agv::Planner>
+TaskPlanner::Configuration::planner() const
 {
-  _pimpl->filter_type = filter_type;
+  return _pimpl->planner;
+}
+
+//==============================================================================
+auto TaskPlanner::Configuration::planner(
+  std::shared_ptr<rmf_traffic::agv::Planner> planner) -> Configuration&
+{
+  if (planner)
+    _pimpl->planner = planner;
   return *this;
 }
 
@@ -562,11 +573,20 @@ private:
 };
 
 // ============================================================================
+// The type of filter used for solving the task assignment problem
+enum class FilterType
+{
+  Passthrough,
+  Trie,
+  Hash
+};
+
+// ============================================================================
 class Filter
 {
 public:
 
-  Filter(TaskPlanner::FilterType type, const std::size_t N_tasks)
+  Filter(FilterType type, const std::size_t N_tasks)
     : _type(type),
       _set(N_tasks, AssignmentHash(N_tasks))
   {
@@ -649,22 +669,20 @@ private:
 
   using Set = std::unordered_set<Node::AssignedTasks, AssignmentHash, AssignmentEqual>;
 
-  TaskPlanner::FilterType _type;
+  FilterType _type;
   AgentTable _root;
   Set _set;
 };
 
 bool Filter::ignore(const Node& node)
 {
-  if (_type == TaskPlanner::FilterType::Passthrough)
+  if (_type == FilterType::Passthrough)
     return false;
 
-  if (_type == TaskPlanner::FilterType::Hash)
+  if (_type == FilterType::Hash)
     return !_set.insert(node.assigned_tasks).second;
 
   bool new_node = false;
-
-  // TODO(MXG): Consider replacing this tree structure with a hash set
 
   AgentTable* agent_table = &_root;
   std::size_t a = 0;
@@ -1344,7 +1362,7 @@ public:
     PriorityQueue priority_queue;
     priority_queue.push(std::move(initial_node));
 
-    Filter filter{config->filter_type(), num_tasks};
+    Filter filter{FilterType::Hash, num_tasks};
     ConstNodePtr top = nullptr;
 
     while (!priority_queue.empty() && !(interrupter && interrupter()))

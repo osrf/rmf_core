@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__AGV__STATE_HPP
-#define INCLUDE__RMF_TASK__AGV__STATE_HPP
+#ifndef RMF_TASK__AGV__STATE_HPP
+#define RMF_TASK__AGV__STATE_HPP
 
 #include <chrono>
 
@@ -93,4 +93,4 @@ private:
 } // namespace agv
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__AGV__STATE_HPP
+#endif // RMF_TASK__AGV__STATE_HPP

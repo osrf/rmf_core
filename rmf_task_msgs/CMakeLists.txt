@@ -25,7 +25,7 @@ set(msg_files
   "msg/TaskSummary.msg"
   "msg/Tasks.msg"
   "msg/Loop.msg"
-  # New task Msgs
+  "msg/Tow.msg"
   "msg/TaskType.msg"
   "msg/Clean.msg"
   "msg/TaskProfile.msg"
@@ -37,9 +37,9 @@ set(msg_files
 set(srv_files
   "srv/SubmitTask.srv"
   "srv/CancelTask.srv"
-  "srv/GetTask.srv"
+  "srv/GetTaskList.srv"
 )
-  
+
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${srv_files}
   ${msg_files}

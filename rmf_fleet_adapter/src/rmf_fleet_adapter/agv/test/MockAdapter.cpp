@@ -141,12 +141,14 @@ void MockAdapter::stop()
 //==============================================================================
 void MockAdapter::request_delivery(const rmf_task_msgs::msg::Delivery& request)
 {
+  // TODO fix this function which is used in the test script test_Delivery
   // rmf_fleet_adapter::agv::request_delivery(request, _pimpl->fleets);
 }
 
 //==============================================================================
 void MockAdapter::request_loop(const rmf_task_msgs::msg::Loop& request)
 {
+  // TODO fix this function which is used in the test script test_Loop.
   // rmf_fleet_adapter::agv::request_loop(request, _pimpl->fleets);
 }
 
