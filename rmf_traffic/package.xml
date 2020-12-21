@@ -8,8 +8,8 @@
   <license>Apache License 2.0</license>
   <author>Grey</author>
 
-  <build_depend>rmf_utils_rolling</build_depend>
-  <build_export_depend>rmf_utils_rolling</build_export_depend>
+  <build_depend>rmf_utils</build_depend>
+  <build_export_depend>rmf_utils</build_export_depend>
 
   <build_depend>libccd-dev</build_depend>
   <build_depend>libfcl-dev</build_depend>

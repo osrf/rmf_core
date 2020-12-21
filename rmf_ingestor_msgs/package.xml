@@ -13,12 +13,12 @@
 
   <build_depend>builtin_interfaces_rolling</build_depend>
   <build_depend>geometry_msgs_rolling</build_depend>
-  <build_depend>rmf_dispenser_msgs_rolling</build_depend>
+  <build_depend>rmf_dispenser_msgs</build_depend>
 
   <exec_depend>builtin_interfaces_rolling</exec_depend>
   <exec_depend>rosidl_default_runtime_rolling</exec_depend>
   <exec_depend>geometry_msgs_rolling</exec_depend>
-  <exec_depend>rmf_dispenser_msgs_rolling</exec_depend>
+  <exec_depend>rmf_dispenser_msgs</exec_depend>
 
   <test_depend>ament_lint_common_rolling</test_depend>
 
