@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Open Source Robotics Foundation
+ * Copyright (C) 2020 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 
 #include <rmf_task_msgs/srv/submit_task.hpp>
 #include <rmf_task_msgs/srv/cancel_task.hpp>
-#include <rmf_task_msgs/srv/get_task.hpp>
+#include <rmf_task_msgs/srv/get_task_list.hpp>
 
 //==============================================================================
 using SubmitTaskSrv = rmf_task_msgs::srv::SubmitTask;
 using CancelTaskSrv = rmf_task_msgs::srv::CancelTask;
-using GetTaskSrv = rmf_task_msgs::srv::GetTask;
+using GetTaskListSrv = rmf_task_msgs::srv::GetTaskList;
 
 //==============================================================================
 
@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
       const std::shared_ptr<SubmitTaskSrv::Request> request,
       std::shared_ptr<SubmitTaskSrv::Response> response)
     {
-      RCLCPP_WARN(node->get_logger(), "Submit New Task!!! ");
+      RCLCPP_INFO(node->get_logger(), "Received task submission!");
       // convert
       rmf_task_ros2::TaskProfile task_profile;
       task_profile.task_type = request->task_type;
@@ -63,28 +63,25 @@ int main(int argc, char* argv[])
         using namespace rmf_task_ros2::bidding;
         case SubmitTaskSrv::Request::LOWEST_DIFF_COST_EVAL:
           {
-            auto eval = std::shared_ptr<LeastFleetDiffCostEvaluator>(
-              new LeastFleetDiffCostEvaluator());
-            dispatcher->evaluator(eval);
+            dispatcher->evaluator(
+              std::make_shared<LeastFleetDiffCostEvaluator>());
             break;
           }
         case SubmitTaskSrv::Request::LOWEST_COST_EVAL:
           {
-            auto eval = std::shared_ptr<LeastFleetCostEvaluator>(
-              new LeastFleetCostEvaluator());
-            dispatcher->evaluator(eval);
+            dispatcher->evaluator(
+              std::make_shared<LeastFleetCostEvaluator>());
             break;
           }
         case SubmitTaskSrv::Request::QUICKEST_FINISH_EVAL:
           {
-            auto eval = std::shared_ptr<QuickestFinishEvaluator>(
-              new QuickestFinishEvaluator());
-            dispatcher->evaluator(eval);
+            dispatcher->evaluator(
+              std::make_shared<QuickestFinishEvaluator>());
             break;
           }
       }
 
-      std::cout << " Generated ID is: " << id << std::endl;
+      RCLCPP_DEBUG(node->get_logger(), "Generated ID is: %s", id.c_str());
       response->task_id = id;
       response->success = true;
     }
@@ -97,20 +94,19 @@ int main(int argc, char* argv[])
       std::shared_ptr<CancelTaskSrv::Response> response)
     {
       auto id = request->task_id;
-      std::cout << "\n";
-      RCLCPP_WARN(node->get_logger(), "Cancel Task!!! ID %s", id.c_str());
+      RCLCPP_WARN(node->get_logger(), "Cancel Task ID: %s", id.c_str());
       response->success = dispatcher->cancel_task(id);
     }
   );
 
-  auto get_task_srv = node->create_service<GetTaskSrv>(
-    rmf_task_ros2::GetTaskSrvName,
+  auto get_task_srv = node->create_service<GetTaskListSrv>(
+    rmf_task_ros2::GetTaskListSrvName,
     [&dispatcher, &node](
-      const std::shared_ptr<GetTaskSrv::Request> request,
-      std::shared_ptr<GetTaskSrv::Response> response)
+      const std::shared_ptr<GetTaskListSrv::Request> request,
+      std::shared_ptr<GetTaskListSrv::Response> response)
     {
       RCLCPP_WARN(
-        node->get_logger(), "Get Task!!!  %d active | %d done",
+        node->get_logger(), "Get Task List: %d active | %d terminated tasks",
         dispatcher->active_tasks()->size(),
         dispatcher->terminated_tasks()->size());
 

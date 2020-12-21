@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TASK_ROS2__ACTION_SERVER_HPP
-#define SRC__RMF_TASK_ROS2__ACTION_SERVER_HPP
+#ifndef RMF_TASK_ROS2__ACTION__ACTIONSERVER_HPP
+#define RMF_TASK_ROS2__ACTION__ACTIONSERVER_HPP
 
 #include <rclcpp/node.hpp>
 
@@ -91,4 +91,4 @@ private:
 
 #include "details/internal_ActionServer.tpp"
 
-#endif // SRC__RMF_TASK_ROS2__ACTION_SERVER_HPP
+#endif // RMF_TASK_ROS2__ACTION__ACTIONSERVER_HPP

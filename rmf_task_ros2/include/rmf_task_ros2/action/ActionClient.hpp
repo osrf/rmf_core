@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TASK_ROS2__ACTION_CLIENT_HPP
-#define SRC__RMF_TASK_ROS2__ACTION_CLIENT_HPP
+#ifndef RMF_TASK_ROS2__ACTION__ACTIONCLIENT_HPP
+#define RMF_TASK_ROS2__ACTION__ACTIONCLIENT_HPP
 
 #include <rclcpp/node.hpp>
 
@@ -44,7 +44,7 @@ public:
   static std::shared_ptr<TaskActionClient> make(
     std::shared_ptr<rclcpp::Node> node);
 
-  /// Add a task to a targetted server
+  /// Add a task to a targeted server
   ///
   /// \param[in] fleet_name
   ///   Target server which will execute this task
@@ -106,4 +106,4 @@ private:
 
 #include "details/internal_ActionClient.tpp"
 
-#endif // SRC__RMF_TASK_ROS2__ACTION_CLIENT_HPP
+#endif // RMF_TASK_ROS2__ACTION__ACTIONCLIENT_HPP

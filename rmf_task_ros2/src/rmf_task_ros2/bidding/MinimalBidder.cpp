@@ -91,18 +91,13 @@ std::shared_ptr<MinimalBidder> MinimalBidder::make(
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(
     node, fleet_name, valid_tasks);
-
-  if (pimpl)
-  {
-    auto bidder = std::shared_ptr<MinimalBidder>(new MinimalBidder());
-    bidder->_pimpl = std::move(pimpl);
-    return bidder;
-  }
-  return nullptr;
+  auto bidder = std::shared_ptr<MinimalBidder>(new MinimalBidder());
+  bidder->_pimpl = std::move(pimpl);
+  return bidder;
 }
 
 //==============================================================================
-void MinimalBidder::call_for_bid(
+void MinimalBidder::on_call_for_bid(
   ParseSubmissionCallback submission_cb)
 {
   _pimpl->get_submission_fn = std::move(submission_cb);

@@ -127,7 +127,7 @@ public:
     return action_client->cancel_task(profile);
   }
 
-  rmf_utils::optional<TaskStatus::State> get_task_state(
+  const rmf_utils::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id)
   {
     // check if key doesnt exist
@@ -144,11 +144,12 @@ public:
     const TaskID& task_id,
     const rmf_utils::optional<bidding::Submission> winner)
   {
-    if (!(*active_dispatch_tasks).count(task_id))
+    const auto it = active_dispatch_tasks->find(task_id);
+    if (it == active_dispatch_tasks->end())
       return;
 
     std::cout << "[Dispatch::BiddingResultCb] | task: " << task_id;
-    auto pending_task_status = (*active_dispatch_tasks)[task_id];
+    const auto& pending_task_status = it->second;
 
     if (!winner)
     {
@@ -167,7 +168,7 @@ public:
     pending_task_status->fleet_name = winner->fleet_name;
 
     // Remove previous self-generated charging task from "active_dispatch_tasks"
-    // this is to prevenet duplicated charging task (as certain queued charging
+    // this is to prevent duplicated charging task (as certain queued charging
     // tasks are not terminated when task is reassigned).
     // TODO: a better way to impl this
     for (auto it = active_dispatch_tasks->begin();
@@ -189,7 +190,7 @@ public:
       pending_task_status->task_profile,
       pending_task_status);
 
-    // Note: this might not be untrue since task might be ignored by server
+    // Note: this might be untrue since task might be ignored by server
     pending_task_status->state = TaskStatus::State::Queued;
   }
 
@@ -206,17 +207,17 @@ public:
     active_dispatch_tasks->erase(id);
   }
 
-  void task_status_cb(const TaskStatusPtr status_msg)
+  void task_status_cb(const TaskStatusPtr status)
   {
     // This is to solve the issue that the dispatcher is not aware of those
     // "stray" tasks that are not dispatched by the dispatcher. This will add
     // the stray tasks when an unknown TaskSummary is heard.
-    auto id = status_msg->task_profile.task_id;
-    if (!(*active_dispatch_tasks).count(id))
-      (*active_dispatch_tasks)[id] = status_msg;
+    const auto it = active_dispatch_tasks->find(status->task_profile.task_id);
+    if (it != active_dispatch_tasks->end())
+      it->second = status;
 
     if (on_change_fn)
-      on_change_fn(status_msg);
+      on_change_fn(status);
   }
 };
 
@@ -236,19 +237,14 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
     rclcpp::Node::make_shared(dispatcher_node_name);
 
   auto pimpl = rmf_utils::make_impl<Implementation>(node);
+  pimpl->auctioneer = bidding::Auctioneer::make(node);
+  pimpl->action_client =
+    action::TaskActionClient<DispatchRequest, TaskSummary>::make(node);
 
-  if (pimpl)
-  {
-    pimpl->auctioneer = bidding::Auctioneer::make(node);
-    pimpl->action_client =
-      action::TaskActionClient<DispatchRequest, TaskSummary>::make(node);
-
-    auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
-    dispatcher->_pimpl = pimpl;
-    dispatcher->_pimpl->start();
-    return dispatcher;
-  }
-  return nullptr;
+  auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
+  dispatcher->_pimpl = pimpl;
+  dispatcher->_pimpl->start();
+  return dispatcher;
 }
 
 //==============================================================================
@@ -264,7 +260,7 @@ bool Dispatcher::cancel_task(const TaskID& task_id)
 }
 
 //==============================================================================
-rmf_utils::optional<TaskStatus::State> Dispatcher::get_task_state(
+const rmf_utils::optional<TaskStatus::State> Dispatcher::get_task_state(
   const TaskID& task_id)
 {
   return _pimpl->get_task_state(task_id);

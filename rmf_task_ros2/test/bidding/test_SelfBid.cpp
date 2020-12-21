@@ -68,7 +68,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
 
-  bidder1->call_for_bid(
+  bidder1->on_call_for_bid(
     [&test_notice_bidder1](const BidNotice& notice)
     {
       Submission best_robot_estimate;
@@ -76,7 +76,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
       return best_robot_estimate;
     }
   );
-  bidder2->call_for_bid(
+  bidder2->on_call_for_bid(
     [&test_notice_bidder2](const BidNotice& notice)
     {
       // TaskType should not be supported

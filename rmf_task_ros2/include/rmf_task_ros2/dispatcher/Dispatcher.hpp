@@ -76,10 +76,11 @@ public:
   TaskID submit_task(
     const TaskProfile& task);
 
-  /// Cancel task which was previously submitted to this dispatcher. This
-  /// will Terminate the task with a State of: Canceled. If a task is being
-  /// Queued or executing, cancel_task will only mean sending a cancel req to
-  /// the respective FA. The fleet adapter will need to send a cancel status
+  /// Cancel an active task which was previously submitted to Dispatcher. This
+  /// will terminate the task with a State of: `STATE_CANCELED`. If a task is 
+  /// QUEUED_STATE or EXECUTING_STATE, this function will send a cancel req to
+  /// the respective fleet adapter. The fleet adapter will need ensure the proper
+  /// cancelation of the task, and update the task status as `STATE_CANCELED`.
   ///
   /// \param [in] task_id
   ///   Task to cancel
@@ -93,7 +94,7 @@ public:
   ///   request task id
   ///
   /// \return State of the task
-  rmf_utils::optional<TaskStatus::State> get_task_state(
+  const rmf_utils::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id);
 
   /// Get a mutable ref of active tasks map list handled by dispatcher

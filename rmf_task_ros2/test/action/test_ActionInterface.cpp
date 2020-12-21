@@ -41,7 +41,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   task_profile2.task_id = "task2";
   task_profile2.task_type.type = TaskType::TYPE_STATION;
 
-//==============================================================================
+  //============================================================================
 
   // received task to test
   rmf_utils::optional<TaskProfile> test_add_task;
@@ -135,7 +135,7 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(action_client->size() == 0);
   }
 
-//==============================================================================
+  //============================================================================
 
   rmf_utils::optional<TaskStatus> test_task_onchange;
   rmf_utils::optional<TaskStatus> test_task_onterminate;

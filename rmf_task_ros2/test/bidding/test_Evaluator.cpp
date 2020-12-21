@@ -49,8 +49,7 @@ SCENARIO("Auctioneer Winner Evaluator", "[Evaluator]")
 
   WHEN("Least Diff Cost Evaluator")
   {
-    auto eval = std::shared_ptr<LeastFleetDiffCostEvaluator>(
-      new LeastFleetDiffCostEvaluator());
+    auto eval = std::make_shared<LeastFleetDiffCostEvaluator>();
     auctioneer->select_evaluator(eval);
 
     AND_WHEN("0 submissions")
@@ -70,8 +69,7 @@ SCENARIO("Auctioneer Winner Evaluator", "[Evaluator]")
 
   WHEN("Least Fleet Cost Evaluator")
   {
-    auto eval = std::shared_ptr<LeastFleetCostEvaluator>(
-      new LeastFleetCostEvaluator());
+    auto eval = std::make_shared<LeastFleetCostEvaluator>();
     auctioneer->select_evaluator(eval);
 
     AND_WHEN("0 submissions")
@@ -91,8 +89,7 @@ SCENARIO("Auctioneer Winner Evaluator", "[Evaluator]")
 
   WHEN("Quickest Finish Time Evaluator")
   {
-    auto eval = std::shared_ptr<QuickestFinishEvaluator>(
-      new QuickestFinishEvaluator());
+    auto eval = std::make_shared<QuickestFinishEvaluator>();
     auctioneer->select_evaluator(eval);
 
     AND_WHEN("0 submissions")

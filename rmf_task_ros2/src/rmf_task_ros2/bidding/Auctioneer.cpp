@@ -28,7 +28,7 @@ public:
   std::shared_ptr<rclcpp::Node> node;
   rclcpp::TimerBase::SharedPtr timer;
   BiddingResultCallback bidding_result_callback;
-  std::shared_ptr<Evaluator> winner_evaluator;
+  std::shared_ptr<Evaluator> evaluator;
 
   struct BiddingTask
   {
@@ -51,14 +51,13 @@ public:
   using BidProposalSub = rclcpp::Subscription<BidProposal>;
   BidProposalSub::SharedPtr bid_proposal_sub;
 
-  Implementation(const std::shared_ptr<rclcpp::Node>& node_,
+  Implementation(
+    const std::shared_ptr<rclcpp::Node>& node_,
     const bool sequential)
   : node(node_), sequential(sequential)
   {
     // default evaluator
-    winner_evaluator = std::shared_ptr<LeastFleetDiffCostEvaluator>(
-      new LeastFleetDiffCostEvaluator());
-
+    evaluator = std::make_shared<LeastFleetDiffCostEvaluator>();
     const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
     bid_notice_pub = node->create_publisher<BidNotice>(
@@ -80,8 +79,8 @@ public:
   /// Start a bidding process
   void start_bidding(const BidNotice& bid_notice)
   {
-    std::cout << "\n[Auctioneer] Add Bidding task_id: "
-              << bid_notice.task_profile.task_id << " to queue"<< std::endl;
+    RCLCPP_INFO(node->get_logger(), "[Auctioneer] Add Bidding task_id: %s to queue",
+                bid_notice.task_profile.task_id.c_str());
 
     BiddingTask bidding_task;
     bidding_task.bid_notice = bid_notice;
@@ -102,8 +101,9 @@ public:
   void receive_proposal(const BidProposal& msg)
   {
     auto id_ = msg.task_profile.task_id;
-    std::cout << "[Auctioneer] Receive proposal from task_id: "
-              << id_ << " | from: " << msg.fleet_name << std::endl;
+    RCLCPP_DEBUG(node->get_logger(),
+                 "[Auctioneer] Receive proposal from task_id: %s | from: %s",
+                 id_.c_str(), msg.fleet_name.c_str());
 
     // check if bidding task is "mine", if found
     // add submited proposal to the current bidding tasks list
@@ -122,13 +122,13 @@ public:
   // determine the winner within a bidding task instance
   void check_bidding_process()
   {
-    // ugly!!!! to be clean up
+    // TODO ugly!!!! to be clean up
     if (sequential)
     {
       if (queue_bidding_tasks.size() == 0)
         return;
 
-      // Executing the task in front queue
+      // Executing the task at the front queue
       auto front_task = queue_bidding_tasks.front();
 
       if (bidding_in_proccess)
@@ -141,8 +141,8 @@ public:
       }
       else
       {
-        std::cout << " - Start new bidding task: "
-                  << front_task.bid_notice.task_profile.task_id << std::endl;
+        RCLCPP_DEBUG(node->get_logger(), " - Start new bidding task: %s",
+                     front_task.bid_notice.task_profile.task_id.c_str());
         front_task.start_time = node->now();
         bid_notice_pub->publish(front_task.bid_notice);
         bidding_in_proccess = true;
@@ -161,7 +161,6 @@ public:
           ++it;
       }
     }
-    std::cout << "." <<std::flush;
   }
 
   bool determine_winner(const BiddingTask& bidding_task)
@@ -171,18 +170,18 @@ public:
     if (duration > bidding_task.bid_notice.time_window)
     {
       auto id = bidding_task.bid_notice.task_profile.task_id;
-      std::cout << " - Deadline reached: "<< id << std::endl;
+      RCLCPP_INFO(node->get_logger(), "Bidding Deadline reached: %s", id.c_str());
       rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
 
       if (bidding_task.submissions.size() == 0)
       {
-        std::cerr << " Bidding task has not received any bids"<< std::endl;
+        RCLCPP_WARN(node->get_logger(), "Bidding task has not received any bids");
       }
       else
       {
         winner = evaluate(bidding_task.submissions);
-        std::cout << "Found winning Fleet Adapter: "
-                  << winner->fleet_name << std::endl;
+        RCLCPP_INFO(node->get_logger(), "Found winning Fleet Adapter: %s",
+                    winner->fleet_name.c_str());
       }
 
       // Call the user defined callback function
@@ -199,12 +198,12 @@ public:
     if (submissions.size() == 0)
       return rmf_utils::nullopt;
 
-    const std::size_t choice = winner_evaluator->choose(submissions);
+    const std::size_t choice = evaluator->choose(submissions);
 
-    if (choice > submissions.size())
+    if (choice >= submissions.size())
       return rmf_utils::nullopt;
 
-    return (submissions)[choice];
+    return submissions[choice];
   }
 };
 
@@ -214,14 +213,9 @@ std::shared_ptr<Auctioneer> Auctioneer::make(
   const bool sequential)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(node, sequential);
-
-  if (pimpl)
-  {
-    auto auctioneer = std::shared_ptr<Auctioneer>(new Auctioneer());
-    auctioneer->_pimpl = std::move(pimpl);
-    return auctioneer;
-  }
-  return nullptr;
+  auto auctioneer = std::shared_ptr<Auctioneer>(new Auctioneer());
+  auctioneer->_pimpl = std::move(pimpl);
+  return auctioneer;
 }
 
 //==============================================================================
@@ -240,7 +234,7 @@ void Auctioneer::receive_bidding_result(BiddingResultCallback result_callback)
 void Auctioneer::select_evaluator(
   std::shared_ptr<Auctioneer::Evaluator> evaluator)
 {
-  _pimpl->winner_evaluator = std::move(evaluator);
+  _pimpl->evaluator = std::move(evaluator);
 }
 
 //==============================================================================
@@ -262,7 +256,7 @@ std::size_t LeastFleetDiffCostEvaluator::choose(
 {
   auto winner_it = submissions.begin();
   float winner_cost_diff = winner_it->new_cost - winner_it->prev_cost;
-  for (auto nominee_it = submissions.begin();
+  for (auto nominee_it = ++submissions.begin();
     nominee_it != submissions.end(); ++nominee_it)
   {
     float nominee_cost_diff = nominee_it->new_cost - nominee_it->prev_cost;
@@ -280,7 +274,7 @@ std::size_t LeastFleetCostEvaluator::choose(
   const Submissions& submissions) const
 {
   auto winner_it = submissions.begin();
-  for (auto nominee_it = submissions.begin();
+  for (auto nominee_it = ++submissions.begin();
     nominee_it != submissions.end(); ++nominee_it)
   {
     if (nominee_it->new_cost < winner_it->new_cost)
@@ -294,7 +288,7 @@ std::size_t QuickestFinishEvaluator::choose(
   const Submissions& submissions) const
 {
   auto winner_it = submissions.begin();
-  for (auto nominee_it = submissions.begin();
+  for (auto nominee_it = ++submissions.begin();
     nominee_it != submissions.end(); ++nominee_it)
   {
     if (nominee_it->finish_time < winner_it->finish_time)

@@ -28,7 +28,7 @@ const std::string BidProposalTopicName = Prefix + "bid_proposal";
 
 const std::string SubmitTaskSrvName = "submit_task";
 const std::string CancelTaskSrvName = "cancel_task";
-const std::string GetTaskSrvName = "get_task";
+const std::string GetTaskListSrvName = "get_task";
 
 const std::string TaskRequestTopicName = Prefix + "dispatch_request";
 const std::string TaskStatusTopicName = "task_summaries";

@@ -40,8 +40,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   task_profile1.task_type.type = TaskType::TYPE_STATION;
   task_profile2.task_type.type = TaskType::TYPE_CLEAN;
 
-//==============================================================================
-  rclcpp::shutdown(); // todo: temp hack
+  //============================================================================
   auto dispatcher = Dispatcher::init_and_make("test_dispatcher_node");
 
   auto spin_thread = std::thread(
@@ -69,7 +68,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Canceled);
   }
 
-//==============================================================================
+  //============================================================================
   // test on change fn callback
   int change_times = 0;
   TaskProfile test_taskprofile;
@@ -107,14 +106,14 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(change_times == 4); // add and failed x2
   }
 
-//==============================================================================
+  //============================================================================
   // Setup Mock Fleetadapter: mock bidder to test
   auto node = dispatcher->node();
   auto bidder = bidding::MinimalBidder::make(
     node, "dummy_fleet", {TaskType::TYPE_STATION, TaskType::TYPE_CLEAN});
 
-  bidder->call_for_bid(
-    [](const bidding::BidNotice& notice)
+  bidder->on_call_for_bid(
+    [](const bidding::BidNotice&)
     {
       std::cout << "[Bidding] Providing best estimates" << std::endl;
       bidding::Submission best_robot_estimate;
@@ -123,7 +122,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     }
   );
 
-//==============================================================================
+  //============================================================================
   // Setup Mock Fleetadapter: action server to test
   using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
   using TaskSummary = rmf_task_msgs::msg::TaskSummary;
@@ -168,14 +167,14 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
       return true; //successs (send State::Queued)
     },
     // Cancel Task callback
-    [&action_server, &task_canceled_flag](const TaskProfile& task_profile)
+    [&action_server, &task_canceled_flag](const TaskProfile&)
     {
       task_canceled_flag = true;
       return true; //success ,send State::Canceled when dispatcher->cancel_task
     }
   );
 
-//==============================================================================
+  //============================================================================
   WHEN("Full Dispatch cycle")
   {
     std::cout << "TEST: FULL Dispatch Cycle Test!" << std::endl;

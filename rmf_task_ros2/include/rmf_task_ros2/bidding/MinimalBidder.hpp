@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TASK_ROS2__BIDDER_HPP
-#define SRC__RMF_TASK_ROS2__BIDDER_HPP
+#ifndef RMF_TASK_ROS2__BIDDER_HPP
+#define RMF_TASK_ROS2__BIDDER_HPP
 
 #include <set>
 
@@ -61,11 +61,12 @@ public:
   using ParseSubmissionCallback =
     std::function<Submission(const BidNotice& notice)>;
 
-  /// Functino to trigger when a bidding process starts (aka call for bid)
+  /// Provide the function that will be triggered when a bid is needed from
+  /// this MinimalBidder.
   ///
   /// \param[in] submission_cb
   ///   callback function to provide submission when a BidNotice is received
-  void call_for_bid(ParseSubmissionCallback submission_cb);
+  void on_call_for_bid(ParseSubmissionCallback submission_cb);
 
   class Implementation;
 
@@ -77,4 +78,4 @@ private:
 } // namespace bidder
 } // namespace rmf_task_ros2
 
-#endif // SRC__RMF_TASK_ROS2__BIDDER_HPPHAHA
+#endif // RMF_TASK_ROS2__BIDDER_HPP
