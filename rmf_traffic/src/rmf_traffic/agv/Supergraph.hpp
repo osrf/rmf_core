@@ -46,6 +46,8 @@ public:
   using FloorChangeMap = std::unordered_map<std::string, DestinationFloorMap>;
   const FloorChangeMap& floor_change() const;
 
+  // TODO(MXG): Consider having a reachability map in this class
+
 private:
   Graph::Implementation _original;
   FloorChangeMap _floor_changes;

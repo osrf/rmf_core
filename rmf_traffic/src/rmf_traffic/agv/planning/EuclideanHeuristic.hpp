@@ -42,7 +42,7 @@ public:
       double max_speed,
       std::shared_ptr<const Supergraph> graph);
 
-  const std::optional<double>& generate(
+  std::optional<double> generate(
       const std::size_t& key,
       const Storage& old_items,
       Storage& new_items) const final;
@@ -63,11 +63,17 @@ class EuclideanHeuristicFactory : public Factory<EuclideanHeuristic>
 {
 public:
 
-  EuclideanHeuristicFactory(std::shared_ptr<const Supergraph> graph);
+  using Generator = EuclideanHeuristic;
+
+  EuclideanHeuristicFactory(
+    std::shared_ptr<const Supergraph> graph,
+    double max_speed);
+
   ConstEuclideanHeuristicPtr make(const std::size_t goal) const final;
 
 private:
   std::shared_ptr<const Supergraph> _graph;
+  double _max_speed;
 };
 
 } // namespace planning

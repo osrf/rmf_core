@@ -37,11 +37,12 @@ public:
   using Key = typename Storage::key_type;
   using Value = typename Storage::mapped_type;
 
-  virtual const Value& generate(
+  virtual Value generate(
       const Key& key,
       const Storage& old_items,
       Storage& new_items) const = 0;
 
+  virtual ~Generator() = default;
 };
 
 //==============================================================================
@@ -55,6 +56,7 @@ public:
 
   virtual ConstGeneratorPtr make(const std::size_t goal) const = 0;
 
+  virtual ~Factory() = default;
 };
 
 //==============================================================================
@@ -99,13 +101,14 @@ public:
   using Key = typename Storage::key_type;
   using Value = typename Storage::mapped_type;
 
-  const Value* get(const Key& key);
+  Value get(const Key& key);
 
   ~Cache();
 
 private:
   std::shared_ptr<const Upstream> _upstream;
   std::shared_ptr<CacheManager<Self>> _manager;
+  Storage _all_items;
   Storage _new_items;
 };
 
@@ -121,32 +124,32 @@ public:
 
   CacheManager(std::shared_ptr<const Generator> generator);
 
-  CacheArg get() const;
+  CacheArg get();
 
 private:
 
   void update(Storage new_items);
 
-  template <typename S, typename G> friend class Cache;
+  template <typename G> friend class Cache;
   std::shared_ptr<Upstream> _upstream;
   std::mutex _update_mutex;
 };
 
 //==============================================================================
-template <typename CacheArg>
+template <typename GeneratorFactoryArg>
 class CacheManagerMap
 {
 public:
 
-  using Generator = typename CacheArg::Generator;
-  using GeneratorFactory = typename Generator::Factory;
+  using GeneratorFactory = GeneratorFactoryArg;
+  using Generator = typename GeneratorFactory::Generator;
   using Cache = Cache<Generator>;
   using CacheManager = CacheManager<Cache>;
   using CacheManagerPtr = std::shared_ptr<CacheManager>;
 
   CacheManagerMap(std::shared_ptr<const GeneratorFactory> factory);
 
-  CacheManagerPtr get(std::size_t goal_index) const;
+  CacheManagerPtr get(std::size_t goal_index);
 
 private:
   std::unordered_map<std::size_t, CacheManagerPtr> _managers;
@@ -160,20 +163,30 @@ Cache<GeneratorArg>::Cache(
   std::shared_ptr<const Upstream> upstream,
   std::shared_ptr<CacheManager<Self>> manager)
 : _upstream(std::move(upstream)),
-  _manager(std::move(manager))
+  _manager(std::move(manager)),
+  _all_items(*_upstream->storage)
 {
   // Do nothing
 }
 
 //==============================================================================
 template <typename GeneratorArg>
-auto Cache<GeneratorArg>::get(const Key& key) -> const Value*
+auto Cache<GeneratorArg>::get(const Key& key) -> Value
 {
-  const auto up_it = _upstream->storage->find(key);
-  if (up_it != _upstream->storage->end())
-    return &up_it->second;
+  const auto it = _all_items.find(key);
+  if (it != _all_items.end())
+    return it->second;
 
-  return _upstream->generator->generate(key, _upstream->storage, _new_items);
+  Storage new_items;
+  auto result = _upstream->generator->generate(key, _all_items, new_items);
+
+  for (const auto& item : new_items)
+  {
+    _all_items.insert(item);
+    _new_items.insert(item);
+  }
+
+  return result;
 }
 
 //==============================================================================
@@ -195,7 +208,7 @@ CacheManager<CacheArg>::CacheManager(
 
 //==============================================================================
 template <typename CacheArg>
-CacheArg CacheManager<CacheArg>::get() const
+CacheArg CacheManager<CacheArg>::get()
 {
   std::lock_guard<std::mutex> lock(_update_mutex);
   return CacheArg{_upstream, this->template shared_from_this()};
@@ -224,12 +237,12 @@ CacheManagerMap<CacheArg>::CacheManagerMap(
 
 //==============================================================================
 template <typename CacheArg>
-auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
+auto CacheManagerMap<CacheArg>::get(std::size_t goal_index)
 -> CacheManagerPtr
 {
   std::lock_guard<std::mutex> lock(_map_mutex);
   const auto it = _managers.insert({goal_index, nullptr});
-  auto& manager = it->second;
+  auto& manager = it.first->second;
   if (manager == nullptr)
   {
     manager = std::make_shared<CacheManager>(

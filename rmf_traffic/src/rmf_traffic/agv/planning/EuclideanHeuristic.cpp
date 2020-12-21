@@ -223,7 +223,7 @@ EuclideanHeuristic::EuclideanHeuristic(
 }
 
 //==============================================================================
-const std::optional<double>& EuclideanHeuristic::generate(
+std::optional<double> EuclideanHeuristic::generate(
     const std::size_t& key,
     const Storage& old_items,
     Storage& new_items) const
@@ -262,22 +262,40 @@ const std::optional<double>& EuclideanHeuristic::generate(
   if (!solution)
   {
     // This means there is no way to move to the goal from the start waypoint
-    const auto it = new_items.insert({key, std::nullopt});
-    return it.first->second;
+    new_items.insert({key, std::nullopt});
+    return std::nullopt;
   }
 
   const double final_cost = solution->current_cost;
   auto node = solution;
-  while (node->parent)
+  do
   {
+    new_items.insert({node->waypoint, final_cost - node->current_cost});
+
     // We can save the results for every waypoint that was used in this solution
     // because every segment of an optimal solution is an optimal solution
     // itself
     node = node->parent;
-    new_items.insert({node->waypoint, final_cost - node->current_cost});
-  }
+  } while (node);
 
-  return new_items.insert({solution->waypoint, final_cost}).first->second;
+  return final_cost;
+}
+
+//==============================================================================
+EuclideanHeuristicFactory::EuclideanHeuristicFactory(
+  std::shared_ptr<const Supergraph> graph,
+  double max_speed)
+: _graph(std::move(graph)),
+  _max_speed(max_speed)
+{
+  // Do nothing
+}
+
+//==============================================================================
+ConstEuclideanHeuristicPtr EuclideanHeuristicFactory::make(
+    const std::size_t goal) const
+{
+  return std::make_shared<EuclideanHeuristic>(goal, _max_speed, _graph);
 }
 
 } // namespace planning
