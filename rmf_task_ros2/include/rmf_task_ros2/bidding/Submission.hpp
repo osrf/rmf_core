@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__BIDDING_HPP
-#define RMF_TASK_ROS2__BIDDING_HPP
+#ifndef RMF_TASK_ROS2__BIDDING__SUBMISSION_HPP
+#define RMF_TASK_ROS2__BIDDING__SUBMISSION_HPP
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
@@ -54,4 +54,4 @@ bidding::Submission convert(const bidding::BidProposal& from);
 
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__BIDDING_HPP
+#endif // RMF_TASK_ROS2__BIDDING__SUBMISSION_HPP

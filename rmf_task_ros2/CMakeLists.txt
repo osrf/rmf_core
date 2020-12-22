@@ -20,12 +20,6 @@ find_package(rmf_task_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 
-if (rmf_traffic_FOUND)
-  message(STATUS "found rmf_traffic")
-  message(STATUS "rmf_traffic_LIBRARIES: ${rmf_traffic_LIBRARIES}")
-  message(STATUS "rmf_traffic_INCLUDE_DIRS: ${rmf_traffic_INCLUDE_DIRS}")
-endif()
-
 file(GLOB_RECURSE core_lib_srcs "src/rmf_task_ros2/*.cpp")
 add_library(rmf_task_ros2 SHARED ${core_lib_srcs})
 

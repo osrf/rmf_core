@@ -38,7 +38,7 @@ public:
 
   DispatchTasksPtr active_dispatch_tasks;
   DispatchTasksPtr terminal_dispatch_tasks;
-  int i = 0; // temp index for generating task_id
+  std::size_t i = 0; // temp index for generating task_id
   double bidding_time_window;
 
   Implementation(std::shared_ptr<rclcpp::Node> node_)
@@ -50,14 +50,14 @@ public:
     // ros2 param
     bidding_time_window =
       node->declare_parameter<double>("bidding_time_window", 2.0);
-    RCLCPP_WARN(node->get_logger(),
+    RCLCPP_INFO(node->get_logger(),
       " Declared Time Window Param as: %f secs", bidding_time_window);
   }
 
   void start()
   {
     using namespace std::placeholders;
-    auctioneer->receive_bidding_result(
+    auctioneer = bidding::Auctioneer::make(node, 
       std::bind(&Implementation::receive_bidding_winner_cb, this, _1, _2));
     action_client->on_terminate(
       std::bind(&Implementation::terminate_task, this, _1));
@@ -69,8 +69,8 @@ public:
   {
     auto submitted_task = task;
 
+    // TODO: generate a unique task_id based on clock
     // auto generate a task_id for a given submitted task
-    // TODO: generate a unique task_id based of clock
     submitted_task.task_id =
       std::to_string( ((int)task.task_type.type)*1000 + (i++) );
     // "task" + std::to_string((int)task.task_type)
@@ -102,10 +102,14 @@ public:
     if (!(*active_dispatch_tasks).count(task_id))
       return false;
 
+    const auto it = active_dispatch_tasks->find(task_id);
+    if (it == active_dispatch_tasks->end())
+      return false;
+
     TaskProfile profile;
     {
       // make sure status will expired, todo: cleaner way
-      auto cancel_task_status = (*active_dispatch_tasks)[task_id];
+      const auto& cancel_task_status = it->second;
       profile = cancel_task_status->task_profile;
 
       // Cancel bidding. This will remove the bidding process
@@ -128,7 +132,7 @@ public:
   }
 
   const rmf_utils::optional<TaskStatus::State> get_task_state(
-    const TaskID& task_id)
+    const TaskID& task_id) const
   {
     // check if key doesnt exist
     if ((*active_dispatch_tasks).count(task_id))
@@ -147,13 +151,12 @@ public:
     const auto it = active_dispatch_tasks->find(task_id);
     if (it == active_dispatch_tasks->end())
       return;
-
-    std::cout << "[Dispatch::BiddingResultCb] | task: " << task_id;
     const auto& pending_task_status = it->second;
 
     if (!winner)
     {
-      std::cerr << " | No winner found :( " <<  std::endl;
+      RCLCPP_WARN(node->get_logger(), "[Dispatch::Bidding Result] task \
+                  %s has no bidding valid submissions :(", task_id.c_str());
       pending_task_status->state = TaskStatus::State::Failed;
       terminate_task(pending_task_status);
 
@@ -164,8 +167,11 @@ public:
     }
 
     // now we know which fleet will execute the task
-    std::cout << " | Found a winner! " << winner->fleet_name << std::endl;
     pending_task_status->fleet_name = winner->fleet_name;
+
+    RCLCPP_INFO(node->get_logger(), "[Dispatch::Bidding Result] task \
+                %s is accepted by Fleet adapter %s",
+                task_id.c_str(), winner->fleet_name.c_str());
 
     // Remove previous self-generated charging task from "active_dispatch_tasks"
     // this is to prevent duplicated charging task (as certain queued charging
@@ -198,7 +204,7 @@ public:
   {
     assert(terminate_status->is_terminated());
 
-    auto id = terminate_status->task_profile.task_id;
+    const auto id = terminate_status->task_profile.task_id;
     RCLCPP_WARN(node->get_logger(), " Terminated Task!! ID: %s", id.c_str());
 
     // destroy prev status ptr and recreate one
@@ -237,13 +243,12 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
     rclcpp::Node::make_shared(dispatcher_node_name);
 
   auto pimpl = rmf_utils::make_impl<Implementation>(node);
-  pimpl->auctioneer = bidding::Auctioneer::make(node);
   pimpl->action_client =
     action::TaskActionClient<DispatchRequest, TaskSummary>::make(node);
 
   auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
-  dispatcher->_pimpl = pimpl;
-  dispatcher->_pimpl->start();
+  dispatcher->_pimpl = std::move(pimpl);
+  dispatcher->_pimpl->start(); 
   return dispatcher;
 }
 
@@ -261,7 +266,7 @@ bool Dispatcher::cancel_task(const TaskID& task_id)
 
 //==============================================================================
 const rmf_utils::optional<TaskStatus::State> Dispatcher::get_task_state(
-  const TaskID& task_id)
+  const TaskID& task_id) const
 {
   return _pimpl->get_task_state(task_id);
 }

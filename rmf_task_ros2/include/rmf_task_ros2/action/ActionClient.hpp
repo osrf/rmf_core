@@ -29,7 +29,7 @@ namespace action {
 
 //==============================================================================
 // Task Action Client -- responsible for initiating a rmf task to a target
-// server. The server will work on the requested task and provides a status to
+// fleet. The fleet will work on the requested task and provides a status to
 // the client when the task progresses. Termination will be triggered when the
 // task ends.
 
@@ -44,10 +44,10 @@ public:
   static std::shared_ptr<TaskActionClient> make(
     std::shared_ptr<rclcpp::Node> node);
 
-  /// Add a task to a targeted server
+  /// Add a task to a targeted fleet
   ///
   /// \param[in] fleet_name
-  ///   Target server which will execute this task
+  ///   Target fleet which will execute this task
   ///
   /// \param[in] task_profile
   ///   Task Description which will be executed

@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__DISPATCHER__NODE_HPP
-#define RMF_TASK_ROS2__DISPATCHER__NODE_HPP
+#ifndef RMF_TASK_ROS2__DISPATCHER_HPP
+#define RMF_TASK_ROS2__DISPATCHER_HPP
 
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -31,7 +31,7 @@
 #include <rmf_task_msgs/msg/task_summary.hpp>
 
 namespace rmf_task_ros2 {
-namespace dispatcher {
+namespace dispatcher { // TODO
 
 //==============================================================================
 using DispatchTasks = std::map<TaskID, TaskStatusPtr>;
@@ -95,7 +95,7 @@ public:
   ///
   /// \return State of the task
   const rmf_utils::optional<TaskStatus::State> get_task_state(
-    const TaskID& task_id);
+    const TaskID& task_id) const;
 
   /// Get a mutable ref of active tasks map list handled by dispatcher
   ///
@@ -133,10 +133,10 @@ public:
 
 private:
   Dispatcher();
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace dispatcher
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__DISPATCHER__NODE_HPP
+#endif // RMF_TASK_ROS2__DISPATCHER_HPP

@@ -17,8 +17,8 @@
 
 // Skeleton for Auctioneer
 
-#ifndef RMF_TASK_ROS2__AUCTIONEER__NODE_HPP
-#define RMF_TASK_ROS2__AUCTIONEER__NODE_HPP
+#ifndef RMF_TASK_ROS2__BIDDING__AUCTIONEER_HPP
+#define RMF_TASK_ROS2__BIDDING__AUCTIONEER_HPP
 
 #include <queue>
 #include <rclcpp/node.hpp>
@@ -27,7 +27,7 @@
 #include <rmf_traffic_ros2/Time.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/bidding/Bidding.hpp>
+#include <rmf_task_ros2/bidding/Submission.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
@@ -36,27 +36,7 @@ namespace bidding {
 class Auctioneer : public std::enable_shared_from_this<Auctioneer>
 {
 public:
-  /// Create an instance of the Auctioneer. Handling all the bidding mechanism
-  ///
-  /// \param[in] node
-  ///   ros2 node which will manage the bidding
-  ///
-  /// \param[in] sequential
-  ///   bid notice is sent sequentially or in async, default is sequential
-  ///
-  /// \sa make()
-  static std::shared_ptr<Auctioneer> make(
-    const std::shared_ptr<rclcpp::Node>& node,
-    const bool sequential = true);
-
-  /// Start a bidding process with a input task. If sequenctial, this will be
-  /// added in a queue, else, a bidding process will start instantly.
-  ///
-  /// \param[in] bid_notice
-  ///   bidding task, task which will call for bid
-  void start_bidding(const BidNotice& bid_notice);
-
-  /// callback which will provide the winner when a bid is concluded
+  /// Callback which will provide the winner when a bid is concluded
   ///
   /// \param[in] task_id
   ///   bidding task id
@@ -67,11 +47,31 @@ public:
     std::function<void( const TaskID& task_id,
       const rmf_utils::optional<Submission> winner)>;
 
-  /// Provide a callback fn which will be called when a bid is concluded
+  /// Create an instance of the Auctioneer. This instance will handle all 
+  /// the task dispatching bidding mechanism. A default evaluator is used.
+  ///
+  /// \param[in] node
+  ///   ros2 node which will manage the bidding
   ///
   /// \param[in] result_callback
-  ///   This fn will be called when a bidding result is derived
-  void receive_bidding_result(BiddingResultCallback result_callback);
+  ///   This callback fn will be called when a bidding result is concluded
+  ///
+  /// \param[in] sequential
+  ///   When true, bidding tasks are proccessed "one after the other". Else
+  ///   parallel bidding
+  ///
+  /// \sa make()
+  static std::shared_ptr<Auctioneer> make(
+    const std::shared_ptr<rclcpp::Node>& node,
+    BiddingResultCallback result_callback,
+    const bool sequential = true);
+
+  /// Start a bidding process with a input task. If sequential, this will be
+  /// added in a queue, else, a bidding process will start instantly.
+  ///
+  /// \param[in] bid_notice
+  ///   bidding task, task which will call for bid
+  void start_bidding(const BidNotice& bid_notice);
 
   /// A pure abstract interface class for the auctioneer to choose the best
   /// choosing the best submissions.
@@ -79,8 +79,8 @@ public:
   {
   public:
 
-    /// Given a list of submissions, choose the one that is the "best". It is up to
-    /// the implementation of the Evaluator to decide how to rank.
+    /// Given a list of submissions, choose the one that is the "best". It is
+    /// up to the implementation of the Evaluator to decide how to rank.
     virtual std::size_t choose(const Submissions& submissions) const = 0;
 
     virtual ~Evaluator() = default;
@@ -127,4 +127,4 @@ class QuickestFinishEvaluator : public Auctioneer::Evaluator
 } // namespace bidding
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__AUCTIONEER__NODE_HPP
+#endif // RMF_TASK_ROS2__BIDDING__AUCTIONEER_HPP

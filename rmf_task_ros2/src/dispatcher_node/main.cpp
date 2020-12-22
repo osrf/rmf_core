@@ -105,35 +105,33 @@ int main(int argc, char* argv[])
       const std::shared_ptr<GetTaskListSrv::Request> request,
       std::shared_ptr<GetTaskListSrv::Response> response)
     {
-      RCLCPP_WARN(
+      RCLCPP_INFO(
         node->get_logger(), "Get Task List: %d active | %d terminated tasks",
         dispatcher->active_tasks()->size(),
         dispatcher->terminated_tasks()->size());
 
       // currently return all tasks
-      std::cout << "\n - Active Tasks >>>> ";
+      std::stringstream printout;
+      printout << " - Active Tasks >> ";
       for (auto task : *(dispatcher->active_tasks()))
       {
-        std::cout << " {" << task.first << " * "
-                  << (int)task.second->state << "} ";
+        printout << "{"<< task.first <<"*"<< (int)task.second->state <<"}";
         response->active_tasks.push_back(
           rmf_task_ros2::convert_status<rmf_task_msgs::msg::TaskSummary>(
             *(task.second)));
       }
-      std::cout << std::endl;
 
       // Terminated Tasks
-      std::cout << " - Teminated Tasks >>>> " << std::flush;
+      printout << "\n - Teminated Tasks >> ";
       for (auto task : *(dispatcher->terminated_tasks()))
       {
-        std::cout << " {" << task.first << " * "
-                  << (int)task.second->state << "} "
-                  << std::flush;
+        printout << "{"<< task.first <<"*"<< (int)task.second->state <<"}";
         response->terminated_tasks.push_back(
           rmf_task_ros2::convert_status<rmf_task_msgs::msg::TaskSummary>(
             *(task.second)));
       }
-      std::cout << std::endl;
+      
+      RCLCPP_DEBUG( node->get_logger(), printout.str());
       response->success = true;
     }
   );

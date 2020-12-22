@@ -43,9 +43,9 @@ int main(int argc, char* argv[])
   //============================================================================
   // Create Bidder instance
   std::shared_ptr<bidding::MinimalBidder> bidder = bidding::MinimalBidder::make(
-    node, fleet_name, {TaskType::TYPE_CLEAN, TaskType::TYPE_DELIVERY});
-
-  bidder->on_call_for_bid(
+    node, 
+    fleet_name, 
+    { TaskType::TYPE_CLEAN, TaskType::TYPE_DELIVERY },
     [](const bidding::BidNotice& notice)
     {
       // Here user will provice the best robot as a bid submission

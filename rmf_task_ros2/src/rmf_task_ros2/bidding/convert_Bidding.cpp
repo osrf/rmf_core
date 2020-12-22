@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/bidding/Bidding.hpp>
+#include <rmf_task_ros2/bidding/Submission.hpp>
 
 namespace rmf_task_ros2 {
 

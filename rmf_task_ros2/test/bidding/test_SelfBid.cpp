@@ -48,27 +48,36 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   bidding_task2.task_profile.task_type.type = TaskType::TYPE_DELIVERY;
   bidding_task2.time_window = timeout;
 
-//==============================================================================
-  // Creating 1 auctioneer and 1 bidder
-  rclcpp::init(0, nullptr);
-  auto node = rclcpp::Node::make_shared("test_selfbidding");
-
-  auto auctioneer = Auctioneer::make(node);
-  auto bidder1 = MinimalBidder::make(
-    node, "bidder1", { TaskType::TYPE_STATION, TaskType::TYPE_DELIVERY });
-  auto bidder2 = MinimalBidder::make(
-    node, "bidder2", { TaskType::TYPE_DELIVERY, TaskType::TYPE_CLEAN });
-
+  //============================================================================
   // test received msg
   rmf_utils::optional<TaskProfile> test_notice_bidder1;
   rmf_utils::optional<TaskProfile> test_notice_bidder2;
   std::string r_result_id = "";
   std::string r_result_winner = "";
 
+  // Creating 1 auctioneer and 1 bidder
+  rclcpp::init(0, nullptr);
+  auto node = rclcpp::Node::make_shared("test_selfbidding");
+
+  auto auctioneer = Auctioneer::make(
+    node,
+    /// Bidding Result Callback Function
+    [&r_result_id, &r_result_winner](
+    const TaskID& task_id, const rmf_utils::optional<Submission> winner)
+    {
+      if (!winner)
+        return;
+      r_result_id = task_id;
+      r_result_winner = winner->fleet_name;
+      return;
+    }
+  );
+
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
 
-  bidder1->on_call_for_bid(
+  auto bidder1 = MinimalBidder::make(
+    node, "bidder1", { TaskType::TYPE_STATION, TaskType::TYPE_DELIVERY },
     [&test_notice_bidder1](const BidNotice& notice)
     {
       Submission best_robot_estimate;
@@ -76,7 +85,9 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
       return best_robot_estimate;
     }
   );
-  bidder2->on_call_for_bid(
+
+  auto bidder2 = MinimalBidder::make(
+    node, "bidder2", { TaskType::TYPE_DELIVERY, TaskType::TYPE_CLEAN },
     [&test_notice_bidder2](const BidNotice& notice)
     {
       // TaskType should not be supported
@@ -84,17 +95,6 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
       best_robot_estimate.new_cost = 2.3; // lower cost than bidder1
       test_notice_bidder2 = notice.task_profile;
       return best_robot_estimate;
-    }
-  );
-  auctioneer->receive_bidding_result(
-    [&r_result_id, &r_result_winner](
-      const TaskID& task_id, const rmf_utils::optional<Submission> winner)
-    {
-      if (!winner)
-        return;
-      r_result_id = task_id;
-      r_result_winner = winner->fleet_name;
-      return;
     }
   );
 

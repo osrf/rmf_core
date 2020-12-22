@@ -91,8 +91,8 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
 
     // Default 2s timeout, wait 3s for timetout, should fail here
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Failed);
+    std::this_thread::sleep_for(std::chrono::milliseconds(3500));
+    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Failed);
     REQUIRE(dispatcher->terminated_tasks()->size() == 1);
     REQUIRE(test_taskprofile.task_id == task_profile1.task_id);
     REQUIRE(change_times == 2); // add and failed
@@ -110,12 +110,12 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   // Setup Mock Fleetadapter: mock bidder to test
   auto node = dispatcher->node();
   auto bidder = bidding::MinimalBidder::make(
-    node, "dummy_fleet", {TaskType::TYPE_STATION, TaskType::TYPE_CLEAN});
-
-  bidder->on_call_for_bid(
+    node,
+    "dummy_fleet",
+    { TaskType::TYPE_STATION, TaskType::TYPE_CLEAN },
     [](const bidding::BidNotice&)
     {
-      std::cout << "[Bidding] Providing best estimates" << std::endl;
+      // Provide a best estimate
       bidding::Submission best_robot_estimate;
       best_robot_estimate.new_cost = 13.5;
       return best_robot_estimate;
@@ -145,7 +145,6 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
           TaskStatus status;
           status.task_profile = profile;
           status.robot_name = "dumbot";
-          std::cout << " [task impl] Queued " << profile.task_id << std::endl;
           std::this_thread::sleep_for(std::chrono::seconds(1));
 
           if (task_canceled_flag)
@@ -154,11 +153,12 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
             return;
           }
 
-          std::cout << " [task impl] Executing" << profile.task_id <<std::endl;
+          // Executing
           status.state = TaskStatus::State::Executing;
           action_server->update_status(status);
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          std::cout << " [task impl] Completed" << profile.task_id << std::endl;
+
+          // Completed
           status.state = TaskStatus::State::Completed;
           action_server->update_status(status);
         }, task_profile
@@ -177,39 +177,37 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   //============================================================================
   WHEN("Full Dispatch cycle")
   {
-    std::cout << "TEST: FULL Dispatch Cycle Test!" << std::endl;
     auto id = dispatcher->submit_task(task_profile2);
     task_profile2.task_id = id;
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // now should queue the task
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Queued);
+    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Queued);
     REQUIRE(dispatcher->terminated_tasks()->size() == 0);
     REQUIRE(change_times == 2); // Pending and Queued
 
     std::this_thread::sleep_for(std::chrono::seconds(3));
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Completed);
+    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Completed);
     REQUIRE(dispatcher->terminated_tasks()->size() == 1);
     REQUIRE(change_times == 4); // Pending > Queued > Executing > Completed
   }
 
   WHEN("Half way cancel Dispatch cycle")
   {
-    std::cout << "TEST: Cancel Dispatch Test!" << std::endl;
     auto id = dispatcher->submit_task(task_profile2);
     task_profile2.task_id = id;
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
     REQUIRE(dispatcher->active_tasks()->size() == 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
-    std::cout << " Cancel task after Queued !!! " << id << std::endl;
+    // cancel the task after QUEUED State
     dispatcher->cancel_task(id);
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     REQUIRE(dispatcher->terminated_tasks()->begin()->first == id);
     auto status = dispatcher->terminated_tasks()->begin()->second;
-    REQUIRE(status->state == TaskStatus::State::Canceled);
+    CHECK(status->state == TaskStatus::State::Canceled);
     REQUIRE(change_times == 3); // Pending -> Queued -> Canceled
   }
 }

@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/bidding/Bidding.hpp>
+#include <rmf_task_ros2/bidding/Submission.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 
 namespace rmf_task_ros2 {
@@ -53,8 +53,11 @@ public:
 
   Implementation(
     const std::shared_ptr<rclcpp::Node>& node_,
+    BiddingResultCallback result_callback,
     const bool sequential)
-  : node(node_), sequential(sequential)
+  : node(node_),
+    sequential(sequential),
+    bidding_result_callback(std::move(result_callback))
   {
     // default evaluator
     evaluator = std::make_shared<LeastFleetDiffCostEvaluator>();
@@ -79,7 +82,7 @@ public:
   /// Start a bidding process
   void start_bidding(const BidNotice& bid_notice)
   {
-    RCLCPP_INFO(node->get_logger(), "[Auctioneer] Add Bidding task_id: %s to queue",
+    RCLCPP_INFO(node->get_logger(), "[Auctioneer] Add Bidding task %s to queue",
                 bid_notice.task_profile.task_id.c_str());
 
     BiddingTask bidding_task;
@@ -100,22 +103,22 @@ public:
   // Receive proposal and evaluate
   void receive_proposal(const BidProposal& msg)
   {
-    auto id_ = msg.task_profile.task_id;
+    const auto id = msg.task_profile.task_id;
     RCLCPP_DEBUG(node->get_logger(),
                  "[Auctioneer] Receive proposal from task_id: %s | from: %s",
-                 id_.c_str(), msg.fleet_name.c_str());
+                 id.c_str(), msg.fleet_name.c_str());
 
     // check if bidding task is "mine", if found
     // add submited proposal to the current bidding tasks list
     if (sequential)
     {
-      if (queue_bidding_tasks.front().bid_notice.task_profile.task_id == id_)
+      if (queue_bidding_tasks.front().bid_notice.task_profile.task_id == id)
         queue_bidding_tasks.front().submissions.push_back(convert(msg));
     }
     else
     {
-      if (ongoing_bidding_tasks.count(id_))
-        ongoing_bidding_tasks[id_].submissions.push_back(convert(msg));
+      if (ongoing_bidding_tasks.count(id))
+        ongoing_bidding_tasks[id].submissions.push_back(convert(msg));
     }
   }
 
@@ -165,7 +168,7 @@ public:
 
   bool determine_winner(const BiddingTask& bidding_task)
   {
-    auto duration = node->now() - bidding_task.start_time;
+    const auto duration = node->now() - bidding_task.start_time;
 
     if (duration > bidding_task.bid_notice.time_window)
     {
@@ -210,9 +213,11 @@ public:
 //==============================================================================
 std::shared_ptr<Auctioneer> Auctioneer::make(
   const std::shared_ptr<rclcpp::Node>& node,
+  BiddingResultCallback result_callback,
   const bool sequential)
 {
-  auto pimpl = rmf_utils::make_unique_impl<Implementation>(node, sequential);
+  auto pimpl = rmf_utils::make_unique_impl<Implementation>(
+    node, result_callback, sequential);
   auto auctioneer = std::shared_ptr<Auctioneer>(new Auctioneer());
   auctioneer->_pimpl = std::move(pimpl);
   return auctioneer;
@@ -222,12 +227,6 @@ std::shared_ptr<Auctioneer> Auctioneer::make(
 void Auctioneer::start_bidding(const BidNotice& bid_notice)
 {
   _pimpl->start_bidding(bid_notice);
-}
-
-//==============================================================================
-void Auctioneer::receive_bidding_result(BiddingResultCallback result_callback)
-{
-  _pimpl->bidding_result_callback = std::move(result_callback);
 }
 
 //==============================================================================

@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__BIDDER_HPP
-#define RMF_TASK_ROS2__BIDDER_HPP
+#ifndef RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
+#define RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
 
 #include <set>
 
@@ -24,7 +24,7 @@
 #include <rmf_utils/impl_ptr.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/bidding/Bidding.hpp>
+#include <rmf_task_ros2/bidding/Submission.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
@@ -35,23 +35,7 @@ namespace bidding {
 class MinimalBidder
 {
 public:
-  /// Create a bidder to bid for incoming task requests from Task Dispatcher
-  ///
-  /// \param[in] node
-  ///   ROS 2 node instance
-  ///
-  /// \param[in] fleet_name
-  ///   Name of the bidder
-
-  /// \param[in] valid_tasks
-  ///   A list of tasks types which are supported by the bidder
-  static std::shared_ptr<MinimalBidder> make(
-    const std::shared_ptr<rclcpp::Node>& node,
-    const std::string& fleet_name,
-    const std::set<uint32_t>& valid_tasks);
-
-  /// Callback function which user provide a bid submission after receiving
-  /// a bid notice from the autioneer
+  /// Callback function when a bid notice is received from the autioneer
   ///
   /// \param[in] notice
   ///   bid notice msg
@@ -61,12 +45,24 @@ public:
   using ParseSubmissionCallback =
     std::function<Submission(const BidNotice& notice)>;
 
-  /// Provide the function that will be triggered when a bid is needed from
-  /// this MinimalBidder.
+  /// Create a bidder to bid for incoming task requests from Task Dispatcher
+  ///
+  /// \param[in] node
+  ///   ROS 2 node instance
+  ///
+  /// \param[in] fleet_name
+  ///   Name of the bidder
+  ///
+  /// \param[in] valid_task_types
+  ///   A list of valid tasks types which are supported by the bidder
   ///
   /// \param[in] submission_cb
-  ///   callback function to provide submission when a BidNotice is received
-  void on_call_for_bid(ParseSubmissionCallback submission_cb);
+  ///   fn which is used to provide a bid submission during a call for bid
+  static std::shared_ptr<MinimalBidder> make(
+    const std::shared_ptr<rclcpp::Node>& node,
+    const std::string& fleet_name,
+    const std::set<uint32_t>& valid_task_types,
+    ParseSubmissionCallback submission_cb);
 
   class Implementation;
 
@@ -75,7 +71,7 @@ private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
-} // namespace bidder
+} // namespace bidding
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__BIDDER_HPP
+#endif // RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP

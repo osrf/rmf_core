@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/bidding/Bidding.hpp>
+#include <rmf_task_ros2/bidding/Submission.hpp>
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 
 namespace rmf_task_ros2 {
@@ -28,7 +28,7 @@ public:
 
   std::shared_ptr<rclcpp::Node> node;
   std::string fleet_name;
-  std::set<uint32_t> valid_tasks;
+  std::set<uint32_t> valid_task_types;
   ParseSubmissionCallback get_submission_fn;
 
   using BidNoticeSub = rclcpp::Subscription<BidNotice>;
@@ -40,8 +40,12 @@ public:
   Implementation(
     std::shared_ptr<rclcpp::Node> node_,
     const std::string& fleet_name_,
-    const std::set<uint32_t>& valid_tasks_)
-  : node(std::move(node_)), fleet_name(fleet_name_), valid_tasks(valid_tasks_)
+    const std::set<uint32_t>& valid_task_types_,
+    ParseSubmissionCallback submission_cb)
+  : node(std::move(node_)),
+    fleet_name(fleet_name_),
+    valid_task_types(valid_task_types_),
+    get_submission_fn(std::move(submission_cb))
   {
     const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
@@ -59,14 +63,15 @@ public:
   // Callback fn when a dispatch notice is received
   void receive_notice(const BidNotice& msg)
   {
-    std::cout << " [Bidder] Received Bidding notice for task_id: "
-              << msg.task_profile.task_id << std::endl;
+    RCLCPP_INFO(node->get_logger(),
+                "[Bidder] Received Bidding notice for task_id: %s",
+                msg.task_profile.task_id.c_str());
 
-    // check if tasktype is supported by this F.A
-    if (!valid_tasks.count(msg.task_profile.task_type.type))
+    // check if task type is valid
+    if (!valid_task_types.count(msg.task_profile.task_type.type))
     {
-      std::cout << fleet_name << ": task type "
-                << msg.task_profile.task_type.type <<" is invalid"<< std::endl;
+      RCLCPP_WARN(node->get_logger(),"%s: task type %d",
+                  fleet_name.c_str(), msg.task_profile.task_type.type);
       return;
     }
 
@@ -75,7 +80,7 @@ public:
       return;
 
     // Submit proposal
-    auto bid_submission = get_submission_fn(msg);
+    const auto bid_submission = get_submission_fn(msg);
     auto best_proposal = convert(bid_submission);
     best_proposal.fleet_name = fleet_name;
     best_proposal.task_profile = msg.task_profile;
@@ -87,20 +92,14 @@ public:
 std::shared_ptr<MinimalBidder> MinimalBidder::make(
   const std::shared_ptr<rclcpp::Node>& node,
   const std::string& fleet_name,
-  const std::set<uint32_t>& valid_tasks)
+  const std::set<uint32_t>& valid_task_types,
+  ParseSubmissionCallback submission_cb)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(
-    node, fleet_name, valid_tasks);
+    node, fleet_name, valid_task_types, submission_cb);
   auto bidder = std::shared_ptr<MinimalBidder>(new MinimalBidder());
   bidder->_pimpl = std::move(pimpl);
   return bidder;
-}
-
-//==============================================================================
-void MinimalBidder::on_call_for_bid(
-  ParseSubmissionCallback submission_cb)
-{
-  _pimpl->get_submission_fn = std::move(submission_cb);
 }
 
 //==============================================================================

@@ -120,7 +120,7 @@ template<typename RequestMsg, typename StatusMsg>
 bool TaskActionClient<RequestMsg, StatusMsg>::cancel_task(
   const TaskProfile& task_profile)
 {
-  auto task_id = task_profile.task_id;
+  const auto task_id = task_profile.task_id;
   std::cout<< " ~ Cancel Active Task: "<< task_id << std::endl;
   
   // check if task is previously added
