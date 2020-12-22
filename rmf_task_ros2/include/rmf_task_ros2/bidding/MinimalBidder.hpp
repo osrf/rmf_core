@@ -18,7 +18,7 @@
 #ifndef RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
 #define RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
 
-#include <set>
+#include <unordered_set>
 
 #include <rclcpp/node.hpp>
 #include <rmf_utils/impl_ptr.hpp>
@@ -30,8 +30,6 @@ namespace rmf_task_ros2 {
 namespace bidding {
 
 //==============================================================================
-// Skeleton for a TaskBidder
-
 class MinimalBidder
 {
 public:
@@ -44,6 +42,16 @@ public:
   ///   Estimates of a task. This submission is used by dispatcher for eval
   using ParseSubmissionCallback =
     std::function<Submission(const BidNotice& notice)>;
+
+  enum class TaskType
+  {
+    Station       = TaskTypeMsg::TYPE_STATION,
+    Loop          = TaskTypeMsg::TYPE_LOOP,
+    Delivery      = TaskTypeMsg::TYPE_DELIVERY,
+    ChargeBattery = TaskTypeMsg::TYPE_CHARGE_BATTERY,
+    Clean         = TaskTypeMsg::TYPE_CLEAN,
+    Patrol        = TaskTypeMsg::TYPE_PATROL
+  };
 
   /// Create a bidder to bid for incoming task requests from Task Dispatcher
   ///
@@ -61,7 +69,7 @@ public:
   static std::shared_ptr<MinimalBidder> make(
     const std::shared_ptr<rclcpp::Node>& node,
     const std::string& fleet_name,
-    const std::set<uint32_t>& valid_task_types,
+    const std::unordered_set<TaskType>& valid_task_types,
     ParseSubmissionCallback submission_cb);
 
   class Implementation;

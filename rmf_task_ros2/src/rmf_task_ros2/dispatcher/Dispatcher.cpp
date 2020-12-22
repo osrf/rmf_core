@@ -32,17 +32,14 @@ public:
 
   StatusCallback on_change_fn;
 
-  DispatchTasksPtr active_dispatch_tasks;
-  DispatchTasksPtr terminal_dispatch_tasks;
+  DispatchTasks active_dispatch_tasks;
+  DispatchTasks terminal_dispatch_tasks;
   std::size_t i = 0; // temp index for generating task_id
   double bidding_time_window;
 
   Implementation(std::shared_ptr<rclcpp::Node> node_)
-  : node(std::move(node_))
+  : node{std::move(node_)}
   {
-    active_dispatch_tasks = std::make_shared<DispatchTasks>();
-    terminal_dispatch_tasks = std::make_shared<DispatchTasks>();
-
     // ros2 param
     bidding_time_window =
       node->declare_parameter<double>("bidding_time_window", 2.0);
@@ -78,7 +75,7 @@ public:
     TaskStatus status;
     status.task_profile = submitted_task;
     auto new_task_status = std::make_shared<TaskStatus>(status);
-    (*active_dispatch_tasks)[submitted_task.task_id] = new_task_status;
+    active_dispatch_tasks[submitted_task.task_id] = new_task_status;
 
     if (on_change_fn)
       on_change_fn(new_task_status);
@@ -95,11 +92,8 @@ public:
   bool cancel_task(const TaskID& task_id)
   {
     // check if key exists
-    if (!(*active_dispatch_tasks).count(task_id))
-      return false;
-
-    const auto it = active_dispatch_tasks->find(task_id);
-    if (it == active_dispatch_tasks->end())
+    const auto it = active_dispatch_tasks.find(task_id);
+    if (it == active_dispatch_tasks.end())
       return false;
 
     TaskProfile profile;
@@ -130,12 +124,15 @@ public:
   const rmf_utils::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id) const
   {
-    // check if key doesnt exist
-    if ((*active_dispatch_tasks).count(task_id))
-      return (*active_dispatch_tasks)[task_id]->state;
+    // check if taskid exists in active tasks
+    auto it = active_dispatch_tasks.find(task_id);
+    if (it != active_dispatch_tasks.end())
+      return it->second->state;
 
-    if ((*terminal_dispatch_tasks).count(task_id))
-      return (*terminal_dispatch_tasks)[task_id]->state;
+    // check if taskid exists in terminated tasks
+    it = terminal_dispatch_tasks.find(task_id);
+    if (it != terminal_dispatch_tasks.end())
+      return it->second->state;
 
     return rmf_utils::nullopt;
   }
@@ -144,8 +141,8 @@ public:
     const TaskID& task_id,
     const rmf_utils::optional<bidding::Submission> winner)
   {
-    const auto it = active_dispatch_tasks->find(task_id);
-    if (it == active_dispatch_tasks->end())
+    const auto it = active_dispatch_tasks.find(task_id);
+    if (it == active_dispatch_tasks.end())
       return;
     const auto& pending_task_status = it->second;
 
@@ -173,15 +170,16 @@ public:
     // this is to prevent duplicated charging task (as certain queued charging
     // tasks are not terminated when task is reassigned).
     // TODO: a better way to impl this
-    for (auto it = active_dispatch_tasks->begin();
-      it != active_dispatch_tasks->end(); )
+    for (auto it = active_dispatch_tasks.begin();
+      it != active_dispatch_tasks.end(); )
     {
       auto task_type = it->second->task_profile.task_type.type;
-      bool is_charging_task = (task_type == TaskType::TYPE_CHARGE_BATTERY);
       bool is_fleet_name = (winner->fleet_name == it->second->fleet_name);
+      bool is_charging_task = 
+        (task_type == rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY);
 
       if (is_charging_task && is_fleet_name)
-        it = active_dispatch_tasks->erase(it);
+        it = active_dispatch_tasks.erase(it);
       else
         ++it;
     }
@@ -205,8 +203,8 @@ public:
 
     // destroy prev status ptr and recreate one
     auto status = std::make_shared<TaskStatus>(*terminate_status);
-    (*terminal_dispatch_tasks)[id] = status;
-    active_dispatch_tasks->erase(id);
+    (terminal_dispatch_tasks)[id] = status;
+    active_dispatch_tasks.erase(id);
   }
 
   void task_status_cb(const TaskStatusPtr status)
@@ -214,8 +212,8 @@ public:
     // This is to solve the issue that the dispatcher is not aware of those
     // "stray" tasks that are not dispatched by the dispatcher. This will add
     // the stray tasks when an unknown TaskSummary is heard.
-    const auto it = active_dispatch_tasks->find(status->task_profile.task_id);
-    if (it != active_dispatch_tasks->end())
+    const auto it = active_dispatch_tasks.find(status->task_profile.task_id);
+    if (it != active_dispatch_tasks.end())
       it->second = status;
 
     if (on_change_fn)
@@ -267,13 +265,13 @@ const rmf_utils::optional<TaskStatus::State> Dispatcher::get_task_state(
 }
 
 //==============================================================================
-const DispatchTasksPtr& Dispatcher::active_tasks() const
+const DispatchTasks& Dispatcher::active_tasks() const
 {
   return _pimpl->active_dispatch_tasks;
 }
 
 //==============================================================================
-const DispatchTasksPtr& Dispatcher::terminated_tasks() const
+const DispatchTasks& Dispatcher::terminated_tasks() const
 {
   return _pimpl->terminal_dispatch_tasks;
 }

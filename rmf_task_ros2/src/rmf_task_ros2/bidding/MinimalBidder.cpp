@@ -28,7 +28,7 @@ public:
 
   std::shared_ptr<rclcpp::Node> node;
   std::string fleet_name;
-  std::set<uint32_t> valid_task_types;
+  std::unordered_set<TaskType> valid_task_types;
   ParseSubmissionCallback get_submission_fn;
 
   using BidNoticeSub = rclcpp::Subscription<BidNotice>;
@@ -40,12 +40,12 @@ public:
   Implementation(
     std::shared_ptr<rclcpp::Node> node_,
     const std::string& fleet_name_,
-    const std::set<uint32_t>& valid_task_types_,
+    const std::unordered_set<TaskType>& valid_task_types_,
     ParseSubmissionCallback submission_cb)
-  : node(std::move(node_)),
-    fleet_name(fleet_name_),
-    valid_task_types(valid_task_types_),
-    get_submission_fn(std::move(submission_cb))
+  : node{std::move(node_)},
+    fleet_name{std::move(fleet_name_)},
+    valid_task_types{std::move(valid_task_types_)},
+    get_submission_fn{std::move(submission_cb)}
   {
     const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
@@ -68,7 +68,7 @@ public:
       msg.task_profile.task_id.c_str());
 
     // check if task type is valid
-    if (!valid_task_types.count(msg.task_profile.task_type.type))
+    if (!valid_task_types.count((TaskType)msg.task_profile.task_type.type))
     {
       RCLCPP_WARN(node->get_logger(), "%s: task type %d",
         fleet_name.c_str(), msg.task_profile.task_type.type);
@@ -92,7 +92,7 @@ public:
 std::shared_ptr<MinimalBidder> MinimalBidder::make(
   const std::shared_ptr<rclcpp::Node>& node,
   const std::string& fleet_name,
-  const std::set<uint32_t>& valid_task_types,
+  const std::unordered_set<TaskType>& valid_task_types,
   ParseSubmissionCallback submission_cb)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(

@@ -34,11 +34,13 @@ namespace dispatcher {
 TaskProfile task_profile1;
 TaskProfile task_profile2;
 
+using TaskType = bidding::MinimalBidder::TaskType;
+
 //==============================================================================
 SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 {
-  task_profile1.task_type.type = TaskType::TYPE_STATION;
-  task_profile2.task_type.type = TaskType::TYPE_CLEAN;
+  task_profile1.task_type.type = (uint32_t)TaskType::Station;
+  task_profile2.task_type.type = (uint32_t)TaskType::Clean;
 
   //============================================================================
   auto dispatcher = Dispatcher::init_and_make("test_dispatcher_node");
@@ -54,8 +56,8 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   {
     // add task
     auto id = dispatcher->submit_task(task_profile1);
-    REQUIRE(dispatcher->active_tasks()->size() == 1);
-    REQUIRE(dispatcher->terminated_tasks()->size() == 0);
+    REQUIRE(dispatcher->active_tasks().size() == 1);
+    REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
 
     // check random id
@@ -63,8 +65,8 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
     // cancel task
     dispatcher->cancel_task(id);
-    REQUIRE(dispatcher->active_tasks()->size() == 0);
-    REQUIRE(dispatcher->terminated_tasks()->size() == 1);
+    REQUIRE(dispatcher->active_tasks().size() == 0);
+    REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Canceled);
   }
 
@@ -76,8 +78,6 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     [&change_times, &test_taskprofile](const TaskStatusPtr status)
     {
       test_taskprofile = status->task_profile;
-      // std::cout << " On change! id > " << test_taskprofile.task_id
-      //           << " | state >" << (int)status->state << std::endl;
       change_times++;
     }
   );
@@ -87,13 +87,13 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     // Submit first task and wait for bidding
     auto id = dispatcher->submit_task(task_profile1);
     task_profile1.task_id = id; // update id
-    REQUIRE(dispatcher->active_tasks()->size() == 1);
+    REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
 
     // Default 2s timeout, wait 3s for timetout, should fail here
     std::this_thread::sleep_for(std::chrono::milliseconds(3500));
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Failed);
-    REQUIRE(dispatcher->terminated_tasks()->size() == 1);
+    REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(test_taskprofile.task_id == task_profile1.task_id);
     REQUIRE(change_times == 2); // add and failed
 
@@ -101,7 +101,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     id = dispatcher->submit_task(task_profile2);
     task_profile2.task_id = id;
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    REQUIRE(dispatcher->terminated_tasks()->size() == 2);
+    REQUIRE(dispatcher->terminated_tasks().size() == 2);
     REQUIRE(test_taskprofile.task_id == task_profile2.task_id);
     REQUIRE(change_times == 4); // add and failed x2
   }
@@ -112,7 +112,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   auto bidder = bidding::MinimalBidder::make(
     node,
     "dummy_fleet",
-    { TaskType::TYPE_STATION, TaskType::TYPE_CLEAN },
+    { TaskType::Station, TaskType::Clean },
     [](const bidding::BidNotice&)
     {
       // Provide a best estimate
@@ -178,12 +178,12 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
     // now should queue the task
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Queued);
-    REQUIRE(dispatcher->terminated_tasks()->size() == 0);
+    REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(change_times == 2); // Pending and Queued
 
     std::this_thread::sleep_for(std::chrono::seconds(3));
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Completed);
-    REQUIRE(dispatcher->terminated_tasks()->size() == 1);
+    REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(change_times == 4); // Pending > Queued > Executing > Completed
   }
 
@@ -192,15 +192,15 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     auto id = dispatcher->submit_task(task_profile2);
     task_profile2.task_id = id;
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
-    REQUIRE(dispatcher->active_tasks()->size() == 1);
+    REQUIRE(dispatcher->active_tasks().size() == 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // cancel the task after QUEUED State
     dispatcher->cancel_task(id);
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    REQUIRE(dispatcher->terminated_tasks()->begin()->first == id);
-    auto status = dispatcher->terminated_tasks()->begin()->second;
+    REQUIRE(dispatcher->terminated_tasks().begin()->first == id);
+    auto status = dispatcher->terminated_tasks().begin()->second;
     CHECK(status->state == TaskStatus::State::Canceled);
     REQUIRE(change_times == 3); // Pending -> Queued -> Canceled
   }

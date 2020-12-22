@@ -26,8 +26,8 @@
 namespace rmf_task_ros2 {
 namespace bidding {
 
-using TaskType = rmf_task_msgs::msg::TaskType;
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;
+using TaskType = bidding::MinimalBidder::TaskType;
 
 //==============================================================================
 BidNotice bidding_task1;
@@ -41,11 +41,11 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
 {
   // Initializing bidding task
   bidding_task1.task_profile.task_id = "bid1";
-  bidding_task1.task_profile.task_type.type = TaskType::TYPE_STATION;
+  bidding_task1.task_profile.task_type.type = TaskTypeMsg::TYPE_STATION;
   bidding_task1.time_window = timeout;
 
   bidding_task2.task_profile.task_id = "bid2";
-  bidding_task2.task_profile.task_type.type = TaskType::TYPE_DELIVERY;
+  bidding_task2.task_profile.task_type.type = TaskTypeMsg::TYPE_DELIVERY;
   bidding_task2.time_window = timeout;
 
   //============================================================================
@@ -77,7 +77,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   executor.add_node(node);
 
   auto bidder1 = MinimalBidder::make(
-    node, "bidder1", { TaskType::TYPE_STATION, TaskType::TYPE_DELIVERY },
+    node, "bidder1", { TaskType::Station, TaskType::Delivery },
     [&test_notice_bidder1](const BidNotice& notice)
     {
       Submission best_robot_estimate;
@@ -87,7 +87,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   );
 
   auto bidder2 = MinimalBidder::make(
-    node, "bidder2", { TaskType::TYPE_DELIVERY, TaskType::TYPE_CLEAN },
+    node, "bidder2", { TaskType::Delivery, TaskType::Clean },
     [&test_notice_bidder2](const BidNotice& notice)
     {
       // TaskType should not be supported

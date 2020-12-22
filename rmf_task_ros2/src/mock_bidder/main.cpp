@@ -21,10 +21,8 @@
 #include <rmf_task_ros2/action/Server.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
-using TaskSummary = rmf_task_msgs::msg::TaskSummary;
-
 using namespace rmf_task_ros2;
+using TaskType = bidding::MinimalBidder::TaskType;
 
 int main(int argc, char* argv[])
 {
@@ -42,7 +40,7 @@ int main(int argc, char* argv[])
   std::shared_ptr<bidding::MinimalBidder> bidder = bidding::MinimalBidder::make(
     node,
     fleet_name,
-    { TaskType::TYPE_CLEAN, TaskType::TYPE_DELIVERY },
+    { TaskType::Clean, TaskType::Delivery },
     [](const bidding::BidNotice& notice)
     {
       // Here user will provice the best robot as a bid submission

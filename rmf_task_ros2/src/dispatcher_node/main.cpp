@@ -107,13 +107,13 @@ int main(int argc, char* argv[])
     {
       RCLCPP_INFO(
         node->get_logger(), "Get Task List: %d active | %d terminated tasks",
-        dispatcher->active_tasks()->size(),
-        dispatcher->terminated_tasks()->size());
+        dispatcher->active_tasks().size(),
+        dispatcher->terminated_tasks().size());
 
       // currently return all tasks
       std::stringstream printout;
       printout << " - Active Tasks >> ";
-      for (auto task : *(dispatcher->active_tasks()))
+      for (auto task : (dispatcher->active_tasks()))
       {
         printout << "{"<< task.first <<"*"<< (int)task.second->state <<"}";
         response->active_tasks.push_back(
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 
       // Terminated Tasks
       printout << "\n - Teminated Tasks >> ";
-      for (auto task : *(dispatcher->terminated_tasks()))
+      for (auto task : (dispatcher->terminated_tasks()))
       {
         printout << "{"<< task.first <<"*"<< (int)task.second->state <<"}";
         response->terminated_tasks.push_back(

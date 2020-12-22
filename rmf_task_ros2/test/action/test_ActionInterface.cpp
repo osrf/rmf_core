@@ -32,11 +32,11 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
 {
   TaskProfile task_profile1;
   task_profile1.task_id = "task1";
-  task_profile1.task_type.type = TaskType::TYPE_STATION;
+  task_profile1.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_STATION;
 
   TaskProfile task_profile2;
   task_profile2.task_id = "task2";
-  task_profile2.task_type.type = TaskType::TYPE_STATION;
+  task_profile2.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_STATION;
 
   //============================================================================
 
@@ -47,10 +47,6 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_ActionInferface");
-
-  using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
-  using TaskSummary = rmf_task_msgs::msg::TaskSummary;
-
   auto action_server = Server::make(node, "test_server");
   auto action_client = Client::make(node);
 

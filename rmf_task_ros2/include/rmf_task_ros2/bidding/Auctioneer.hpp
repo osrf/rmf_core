@@ -31,8 +31,11 @@
 
 namespace rmf_task_ros2 {
 namespace bidding {
-//==============================================================================
 
+//==============================================================================
+/// The Auctioneer class is responsible for initiating and mediating the bidding
+/// process during task dispatching. Hence, this class instance is solely used
+/// within the Dispatcher class
 class Auctioneer : public std::enable_shared_from_this<Auctioneer>
 {
 public:

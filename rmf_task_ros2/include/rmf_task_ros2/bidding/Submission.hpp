@@ -25,9 +25,11 @@
 #include <rmf_task_msgs/msg/bid_proposal.hpp>
 
 namespace rmf_task_ros2 {
+
 namespace bidding {
 
 //==============================================================================
+using TaskTypeMsg = rmf_task_msgs::msg::TaskType;
 using BidNotice = rmf_task_msgs::msg::BidNotice;
 using BidProposal = rmf_task_msgs::msg::BidProposal;
 using TaskID = std::string;

@@ -31,13 +31,12 @@ namespace rmf_task_ros2 {
 namespace dispatcher {
 
 //==============================================================================
-using DispatchTasks = std::unordered_map<TaskID, TaskStatusPtr>;
-using DispatchTasksPtr = std::shared_ptr<DispatchTasks>;
-
-//==============================================================================
+/// This dispatcher class holds an instance which handles the dispatching of
+/// tasks to all downstream RMF fleet adapters.
 class Dispatcher : public std::enable_shared_from_this<Dispatcher>
 {
 public:
+  using DispatchTasks = std::unordered_map<TaskID, TaskStatusPtr>;
 
   /// Initialize an rclcpp context and make an dispatcher instance. This will
   /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will
@@ -74,10 +73,10 @@ public:
     const TaskProfile& task);
 
   /// Cancel an active task which was previously submitted to Dispatcher. This
-  /// will terminate the task with a State of: `STATE_CANCELED`. If a task is
-  /// QUEUED_STATE or EXECUTING_STATE, this function will send a cancel req to
+  /// will terminate the task with a State of: `Canceled`. If a task is
+  /// `Queued` or `Executing`, this function will send a cancel req to
   /// the respective fleet adapter. The fleet adapter will need ensure the proper
-  /// cancelation of the task, and update the task status as `STATE_CANCELED`.
+  /// cancelation of the task, and update the task status as `Canceled`.
   ///
   /// \param [in] task_id
   ///   Task to cancel
@@ -95,14 +94,10 @@ public:
     const TaskID& task_id) const;
 
   /// Get a mutable ref of active tasks map list handled by dispatcher
-  ///
-  /// \return ptr to a map of active tasks
-  const DispatchTasksPtr& active_tasks() const;
+  const DispatchTasks& active_tasks() const;
 
   /// Get a mutable ref of terminated tasks map list
-  ///
-  /// \return ptr to a map of terminated tasks
-  const DispatchTasksPtr& terminated_tasks() const;
+  const DispatchTasks& terminated_tasks() const;
 
   using StatusCallback = std::function<void(const TaskStatusPtr status)>;
 
@@ -112,7 +107,8 @@ public:
   /// \param [in] callback function
   void on_change(StatusCallback on_change_fn);
 
-  /// Change the evaluator method used in auctioneer during the bidding process
+  /// Change the default evaluator to a custom evaluator, which is used by 
+  /// bidding auctioneer.
   ///
   /// \param [in] evaluator
   ///   evaluator used to select the best bid from fleets

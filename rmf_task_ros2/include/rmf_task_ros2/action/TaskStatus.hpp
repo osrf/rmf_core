@@ -29,7 +29,6 @@ namespace rmf_task_ros2 {
 
 //==============================================================================
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;
-using TaskType = rmf_task_msgs::msg::TaskType;
 using TaskID = std::string;
 
 //==============================================================================

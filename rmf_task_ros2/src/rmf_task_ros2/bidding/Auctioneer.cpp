@@ -55,9 +55,9 @@ public:
     const std::shared_ptr<rclcpp::Node>& node_,
     BiddingResultCallback result_callback,
     const bool sequential)
-  : node(node_),
+  : node{std::move(node_)},
     sequential(sequential),
-    bidding_result_callback(std::move(result_callback))
+    bidding_result_callback{std::move(result_callback)}
   {
     // default evaluator
     evaluator = std::make_shared<LeastFleetDiffCostEvaluator>();

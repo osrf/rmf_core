@@ -30,11 +30,9 @@ namespace rmf_task_ros2 {
 namespace action {
 
 //==============================================================================
-// Task Action Server - Responsibility is to execute a tasks which based of
-// an incoming requests (from a action_client). The idea of having a template
-// here is to make it as a lib which can be used by future tasks oriented
-// rmf system. (e.g. workcell, lift, door....)
-
+/// Task Action Server - This is used within the fleet adapter with the role of
+/// receiving incoming dispatch requests (from a action_client/Dispatcher),
+/// then execute the task accordingly.
 class Server
 {
 public:
