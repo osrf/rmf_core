@@ -42,7 +42,7 @@ SCENARIO("Shortest Path Heuristic -- Single Floor")
   graph.add_lane(2, 3);
   graph.add_lane(2, 0);
 
-  const auto supergraph = std::make_shared<rmf_traffic::agv::Supergraph>(
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
         rmf_traffic::agv::Graph::Implementation::get(graph));
 
   const double max_speed = 2.0;
@@ -142,7 +142,7 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
   graph.add_lane({7, lift_move}, 11);
   graph.add_lane({11, lift_move}, 7);
 
-  const auto supergraph = std::make_shared<rmf_traffic::agv::Supergraph>(
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
         rmf_traffic::agv::Graph::Implementation::get(graph));
 
   const double max_speed = 2.0;
@@ -283,7 +283,7 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
   // We intentionally do not have a reverse of this lane
   graph.add_lane({9, lift_move}, 5);
 
-  const auto supergraph = std::make_shared<rmf_traffic::agv::Supergraph>(
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
         rmf_traffic::agv::Graph::Implementation::get(graph));
 
   const double max_speed = 2.0;
@@ -393,7 +393,7 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
   graph.add_lane({9, lift_move}, 5);
   graph.add_lane({11, lift_move}, 7);
 
-  auto supergraph = std::make_shared<rmf_traffic::agv::Supergraph>(
+  auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
         rmf_traffic::agv::Graph::Implementation::get(graph));
 
   const double max_speed = 2.0;
@@ -471,7 +471,7 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
   graph.add_lane({5, lift_move}, 9);
   graph.add_lane({7, lift_move}, 11);
 
-  supergraph = std::make_shared<rmf_traffic::agv::Supergraph>(
+  supergraph = rmf_traffic::agv::planning::Supergraph::make(
         rmf_traffic::agv::Graph::Implementation::get(graph));
 
   // We need to completely reconstruct the cache map, because the supergraph has

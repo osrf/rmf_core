@@ -91,7 +91,8 @@ States compute_traversal(
 
 namespace internal {
 //==============================================================================
-void interpolate_translation(Trajectory& trajectory,
+void interpolate_translation(
+  Trajectory& trajectory,
   const double v_nom,
   const double a_nom,
   const Time start_time,

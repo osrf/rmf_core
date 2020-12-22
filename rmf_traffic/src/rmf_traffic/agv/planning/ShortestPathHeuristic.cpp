@@ -151,13 +151,11 @@ public:
 
   ShortestPathExpander(
       std::size_t goal,
-      Eigen::Vector2d goal_p,
       double max_speed,
       const ShortestPathHeuristic::Storage& old_items,
       Cache<EuclideanHeuristic> heuristic,
       std::shared_ptr<const Supergraph> graph)
     : _goal(goal),
-      _goal_p(goal_p),
       _max_speed(max_speed),
       _old_items(old_items),
       _heuristic(std::move(heuristic)),
@@ -168,7 +166,6 @@ public:
 
 private:
   std::size_t _goal;
-  Eigen::Vector2d _goal_p;
   double _max_speed;
   const ShortestPathHeuristic::Storage& _old_items;
   Cache<EuclideanHeuristic> _heuristic;
@@ -187,9 +184,7 @@ ShortestPathHeuristic::ShortestPathHeuristic(
     _graph(std::move(graph)),
     _heuristic(std::move(heuristic))
 {
-  const auto& goal_wp = _graph->original().waypoints.at(goal);
-  _goal_p = goal_wp.get_location();
-  _goal_map = &goal_wp.get_map_name();
+  // Do nothing
 }
 
 //==============================================================================
@@ -220,7 +215,6 @@ std::optional<double> ShortestPathHeuristic::generate(
 
   ShortestPathExpander expander{
     _goal,
-    _goal_p,
     _max_speed,
     old_items,
     std::move(heuristic),

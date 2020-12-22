@@ -19,7 +19,7 @@
 #define SRC__RMF_TRAFFIC__AGV__PLANNING__SHORTESTPATHHEURISTIC_HPP
 
 #include "CacheManager.hpp"
-#include "../Supergraph.hpp"
+#include "Supergraph.hpp"
 
 #include "EuclideanHeuristic.hpp"
 
@@ -37,20 +37,18 @@ class ShortestPathHeuristic
 public:
 
   ShortestPathHeuristic(
-      std::size_t goal,
-      double max_speed,
-      std::shared_ptr<const Supergraph> graph,
-      CacheManagerPtr<EuclideanHeuristic> heuristic);
+    std::size_t goal,
+    double max_speed,
+    std::shared_ptr<const Supergraph> graph,
+    CacheManagerPtr<EuclideanHeuristic> heuristic);
 
   std::optional<double> generate(
-      const std::size_t& key,
-      const Storage& old_items,
-      Storage& new_items) const final;
+    const std::size_t& key,
+    const Storage& old_items,
+    Storage& new_items) const final;
 
 private:
   std::size_t _goal;
-  Eigen::Vector2d _goal_p;
-  const std::string* _goal_map;
   double _max_speed;
   std::shared_ptr<const Supergraph> _graph;
   CacheManagerPtr<EuclideanHeuristic> _heuristic;
@@ -68,8 +66,8 @@ public:
   using Generator = ShortestPathHeuristic;
 
   ShortestPathHeuristicFactory(
-      std::shared_ptr<const Supergraph> graph,
-      double max_speed);
+    std::shared_ptr<const Supergraph> graph,
+    double max_speed);
 
   ConstShortestPathHeuristicPtr make(const std::size_t goal) const final;
 
@@ -79,6 +77,9 @@ private:
   EuclideanHeuristicCacheMap _heuristic_cache;
 };
 
+//==============================================================================
+using ShortestPathHeuristicCacheMap =
+  CacheManagerMap<ShortestPathHeuristicFactory>;
 
 } // namespace planning
 } // namespace agv

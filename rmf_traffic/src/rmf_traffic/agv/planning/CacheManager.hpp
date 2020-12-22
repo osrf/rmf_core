@@ -54,6 +54,8 @@ public:
   using Generator = GeneratorArg;
   using ConstGeneratorPtr = std::shared_ptr<const Generator>;
 
+  // TODO(MXG): Should we take orientation into account here? It could matter
+  // for cases where the goal's orientation is constrained.
   virtual ConstGeneratorPtr make(const std::size_t goal) const = 0;
 
   virtual ~Factory() = default;

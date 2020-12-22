@@ -628,7 +628,7 @@ double compute_current_cost(
 }
 
 //==============================================================================
-class DifferentialDriveConstraint
+class OldDifferentialDriveConstraint
 {
 public:
 
@@ -640,7 +640,7 @@ public:
 
   static const Eigen::Rotation2Dd R_pi;
 
-  DifferentialDriveConstraint(
+  OldDifferentialDriveConstraint(
     const Eigen::Vector2d& forward,
     const bool reversible)
   : R_f_inv(compute_forward_offset(forward).inverse()),
@@ -673,7 +673,7 @@ public:
 };
 
 //==============================================================================
-const Eigen::Rotation2Dd DifferentialDriveConstraint::R_pi =
+const Eigen::Rotation2Dd OldDifferentialDriveConstraint::R_pi =
   Eigen::Rotation2Dd(M_PI);
 
 //==============================================================================
@@ -1740,7 +1740,7 @@ private:
 
   Context& _context;
   schedule::Query _query;
-  DifferentialDriveConstraint _differential_constraint;
+  OldDifferentialDriveConstraint _differential_constraint;
   LaneEventExecutor _executor;
 };
 
