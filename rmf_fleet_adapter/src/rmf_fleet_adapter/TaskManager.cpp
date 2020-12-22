@@ -382,7 +382,8 @@ void TaskManager::retreat_to_charger()
   if (current_state.waypoint() == current_state.charging_waypoint())
     return;
 
-  const double threshold_soc = _context->state_config().threshold_soc();
+  const double threshold_soc =
+    _context->task_planning_constraints().threshold_soc();
   const double retreat_threshold = 1.2 * threshold_soc;
   const double current_battery_soc = _context->current_battery_soc();
 
@@ -448,7 +449,7 @@ void TaskManager::retreat_to_charger()
 
     const auto finish = charging_request->estimate_finish(
       current_state,
-      _context->state_config(),
+      _context->task_planning_constraints(),
       estimate_cache);
     
     if (!finish)

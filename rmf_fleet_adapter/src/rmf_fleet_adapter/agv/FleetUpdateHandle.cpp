@@ -427,7 +427,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   // Collate robot states and combine new requestptr with requestptr of
   // non-charging tasks in task manager queues
   std::vector<rmf_task::agv::State> states;
-  std::vector<rmf_task::agv::StateConfig> state_configs;
+  std::vector<rmf_task::agv::Constraints> constraints_set;
   std::vector<rmf_task::ConstRequestPtr> pending_requests;
   pending_requests.push_back(new_request);
   // Map robot index to name for BidProposal
@@ -436,7 +436,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   for (const auto& t : task_managers)
   {
     states.push_back(t.second->expected_finish_state());
-    state_configs.push_back(t.first->state_config());
+    constraints_set.push_back(t.first->task_planning_constraints());
     const auto requests = t.second->requests();
     pending_requests.insert(pending_requests.end(), requests.begin(), requests.end());
 
@@ -454,7 +454,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   const auto result = task_planner->optimal_plan(
     rmf_traffic_ros2::convert(node->now()),
     states,
-    state_configs,
+    constraints_set,
     pending_requests,
     nullptr);
 
@@ -760,12 +760,12 @@ void FleetUpdateHandle::add_robot(
          fleet = shared_from_this()](
         rmf_traffic::schedule::Participant participant)
   {
-    // TODO(YV) Get the battery % of this robot
-    const std::size_t charger = fleet->_pimpl->get_nearest_charger(
+    const std::size_t charger_wp = fleet->_pimpl->get_nearest_charger(
         start[0], fleet->_pimpl->charging_waypoints);
-    rmf_task::agv::State state = rmf_task::agv::State{start[0], charger, 1.0};
-    rmf_task::agv::StateConfig state_config = rmf_task::agv::StateConfig{
-      fleet->_pimpl->recharge_threshold};
+    rmf_task::agv::State state = rmf_task::agv::State{
+      start[0], charger_wp, 1.0};
+    rmf_task::agv::Constraints task_planning_constraints =
+      rmf_task::agv::Constraints{fleet->_pimpl->recharge_threshold};
     auto context = std::make_shared<RobotContext>(
           RobotContext{
             std::move(command),
@@ -777,7 +777,7 @@ void FleetUpdateHandle::add_robot(
             fleet->_pimpl->worker,
             fleet->_pimpl->default_maximum_delay,
             state,
-            state_config,
+            task_planning_constraints,
             fleet->_pimpl->task_planner
           });
 

@@ -17,19 +17,19 @@
 
 #include <stdexcept>
 
-#include <rmf_task/agv/StateConfig.hpp>
+#include <rmf_task/agv/Constraints.hpp>
 
 namespace rmf_task {
 namespace agv {
 
-class StateConfig::Implementation
+class Constraints::Implementation
 {
 public:
   double threshold_soc;
 
 };
 
-StateConfig::StateConfig(double threshold_soc)
+Constraints::Constraints(double threshold_soc)
 : _pimpl(rmf_utils::make_impl<Implementation>(
     Implementation
     {
@@ -41,12 +41,12 @@ StateConfig::StateConfig(double threshold_soc)
       "Battery State of Charge threshold needs be between 0.0 and 1.0.");
 }
 
-double StateConfig::threshold_soc() const
+double Constraints::threshold_soc() const
 {
   return _pimpl->threshold_soc;
 }
 
-auto StateConfig::threshold_soc(double threshold_soc) -> StateConfig&
+auto Constraints::threshold_soc(double threshold_soc) -> Constraints&
 {
   if (threshold_soc < 0.0 || threshold_soc > 1.0)
     throw std::invalid_argument(
