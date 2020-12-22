@@ -95,7 +95,7 @@ public:
 
   Cache(
     std::shared_ptr<const Upstream> upstream,
-    std::shared_ptr<CacheManager<Self>> manager);
+    std::shared_ptr<const CacheManager<Self>> manager);
 
 
   using Key = typename Storage::key_type;
@@ -107,7 +107,7 @@ public:
 
 private:
   std::shared_ptr<const Upstream> _upstream;
-  std::shared_ptr<CacheManager<Self>> _manager;
+  std::shared_ptr<const CacheManager<Self>> _manager;
   Storage _all_items;
   Storage _new_items;
 };
@@ -124,15 +124,15 @@ public:
 
   CacheManager(std::shared_ptr<const Generator> generator);
 
-  CacheArg get();
+  CacheArg get() const;
 
 private:
 
-  void update(Storage new_items);
+  void update(Storage new_items) const;
 
   template <typename G> friend class Cache;
   std::shared_ptr<Upstream> _upstream;
-  std::mutex _update_mutex;
+  mutable std::mutex _update_mutex;
 };
 
 //==============================================================================
@@ -149,19 +149,22 @@ public:
 
   CacheManagerMap(std::shared_ptr<const GeneratorFactory> factory);
 
-  CacheManagerPtr get(std::size_t goal_index);
+  CacheManagerPtr get(std::size_t goal_index) const;
 
 private:
-  std::unordered_map<std::size_t, CacheManagerPtr> _managers;
-  std::mutex _map_mutex;
+  // NOTE(MXG): We take some significant liberties with mutability here because
+  // this cache manager is always logically const, even as its physical state is
+  // changing significantly. Besides memoizing the results of previous
+  // computations, the cache manager does not actually have any internal state.
+  mutable std::unordered_map<std::size_t, CacheManagerPtr> _managers;
+  mutable std::mutex _map_mutex;
   const std::shared_ptr<const GeneratorFactory> _generator_factory;
 };
 
 //==============================================================================
 template <typename GeneratorArg>
-Cache<GeneratorArg>::Cache(
-  std::shared_ptr<const Upstream> upstream,
-  std::shared_ptr<CacheManager<Self>> manager)
+Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream> upstream,
+  std::shared_ptr<const CacheManager<Self> > manager)
 : _upstream(std::move(upstream)),
   _manager(std::move(manager)),
   _all_items(*_upstream->storage)
@@ -208,15 +211,15 @@ CacheManager<CacheArg>::CacheManager(
 
 //==============================================================================
 template <typename CacheArg>
-CacheArg CacheManager<CacheArg>::get()
+CacheArg CacheManager<CacheArg>::get() const
 {
   std::lock_guard<std::mutex> lock(_update_mutex);
-  return CacheArg{_upstream, this->template shared_from_this()};
+  return CacheArg{_upstream, this->shared_from_this()};
 }
 
 //==============================================================================
 template <typename CacheArg>
-void CacheManager<CacheArg>::update(Storage new_items)
+void CacheManager<CacheArg>::update(Storage new_items) const
 {
   std::lock_guard<std::mutex> lock(_update_mutex);
   auto new_storage = std::make_shared<Storage>(*_upstream->storage);
@@ -237,7 +240,7 @@ CacheManagerMap<CacheArg>::CacheManagerMap(
 
 //==============================================================================
 template <typename CacheArg>
-auto CacheManagerMap<CacheArg>::get(std::size_t goal_index)
+auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
 -> CacheManagerPtr
 {
   std::lock_guard<std::mutex> lock(_map_mutex);

@@ -15,32 +15,32 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__PLANNING__EUCLIDEANHEURISTIC_HPP
-#define SRC__RMF_TRAFFIC__AGV__PLANNING__EUCLIDEANHEURISTIC_HPP
+#ifndef SRC__RMF_TRAFFIC__AGV__PLANNING__SHORTESTPATHHEURISTIC_HPP
+#define SRC__RMF_TRAFFIC__AGV__PLANNING__SHORTESTPATHHEURISTIC_HPP
 
 #include "CacheManager.hpp"
 #include "../Supergraph.hpp"
-#include <rmf_traffic/agv/Planner.hpp>
+
+#include "EuclideanHeuristic.hpp"
 
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
 
 //==============================================================================
-/// The EuclideanHeuristic helps with computing a Euclidean distance heuristic
-/// for the nav graph search, but with a twist: When calculating the heuristic
-/// for a goal waypoint that is on a different map, it will perform a search to
-/// figure out which choice of floor-changing lane will allow for the shortest
-/// Euclidean distance traveling.
-class EuclideanHeuristic
+/// The ShortestPathHeuristic finds the shortest (in terms of time required)
+/// path between two waypoints, not accounting for acceleration, deceleration,
+/// turning, or orientation constraints.
+class ShortestPathHeuristic
     : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
 {
 public:
 
-  EuclideanHeuristic(
+  ShortestPathHeuristic(
       std::size_t goal,
       double max_speed,
-      std::shared_ptr<const Supergraph> graph);
+      std::shared_ptr<const Supergraph> graph,
+      ConstEuclideanHeuristicPtr heuristic);
 
   std::optional<double> generate(
       const std::size_t& key,
@@ -53,34 +53,35 @@ private:
   const std::string* _goal_map;
   double _max_speed;
   std::shared_ptr<const Supergraph> _graph;
+  ConstEuclideanHeuristicPtr _heuristic;
 };
 
 //==============================================================================
-using ConstEuclideanHeuristicPtr = std::shared_ptr<const EuclideanHeuristic>;
+using ConstShortestPathHeuristicPtr =
+  std::shared_ptr<const ShortestPathHeuristic>;
 
 //==============================================================================
-class EuclideanHeuristicFactory : public Factory<EuclideanHeuristic>
+class ShortestPathHeuristicFactory : public Factory<ShortestPathHeuristic>
 {
 public:
 
-  using Generator = EuclideanHeuristic;
+  using Generator = ShortestPathHeuristic;
 
-  EuclideanHeuristicFactory(
-    std::shared_ptr<const Supergraph> graph,
-    double max_speed);
+  ShortestPathHeuristicFactory(
+      std::shared_ptr<const Supergraph> graph,
+      double max_speed);
 
-  ConstEuclideanHeuristicPtr make(const std::size_t goal) const final;
+  ConstShortestPathHeuristicPtr make(const std::size_t goal) const final;
 
 private:
   std::shared_ptr<const Supergraph> _graph;
   double _max_speed;
+  EuclideanHeuristicCacheMap _heuristic_cache;
 };
 
-//==============================================================================
-using EuclideanHeuristicCacheMap = CacheManagerMap<EuclideanHeuristicFactory>;
 
 } // namespace planning
 } // namespace agv
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__AGV__PLANNING__EUCLIDEANHEURISTIC_HPP
+#endif // SRC__RMF_TRAFFIC__AGV__PLANNING__SHORTESTPATHHEURISTIC_HPP
