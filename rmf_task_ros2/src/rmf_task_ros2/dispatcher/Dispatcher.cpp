@@ -175,7 +175,7 @@ public:
     {
       auto task_type = it->second->task_profile.task_type.type;
       bool is_fleet_name = (winner->fleet_name == it->second->fleet_name);
-      bool is_charging_task = 
+      bool is_charging_task =
         (task_type == rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY);
 
       if (is_charging_task && is_fleet_name)
@@ -265,13 +265,13 @@ const rmf_utils::optional<TaskStatus::State> Dispatcher::get_task_state(
 }
 
 //==============================================================================
-const DispatchTasks& Dispatcher::active_tasks() const
+const Dispatcher::DispatchTasks& Dispatcher::active_tasks() const
 {
   return _pimpl->active_dispatch_tasks;
 }
 
 //==============================================================================
-const DispatchTasks& Dispatcher::terminated_tasks() const
+const Dispatcher::DispatchTasks& Dispatcher::terminated_tasks() const
 {
   return _pimpl->terminal_dispatch_tasks;
 }

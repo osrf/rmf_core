@@ -107,7 +107,7 @@ public:
   /// \param [in] callback function
   void on_change(StatusCallback on_change_fn);
 
-  /// Change the default evaluator to a custom evaluator, which is used by 
+  /// Change the default evaluator to a custom evaluator, which is used by
   /// bidding auctioneer.
   ///
   /// \param [in] evaluator
