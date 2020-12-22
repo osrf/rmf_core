@@ -83,8 +83,7 @@ public:
   {
     PairHash(std::size_t N)
     {
-      // We add 1 to N because
-      _shift = std::ceil(std::log2(N+1));
+      _shift = std::ceil(std::log2(N));
     }
 
     size_t operator()(const std::pair<size_t,size_t>& p) const
