@@ -76,7 +76,9 @@ class EstimateCache::Implementation
     {
       size_t operator()(const std::pair<size_t,size_t>& p) const
       {
-        return std::hash<size_t>()(p.first) ^ std::hash<size_t>()(p.second);
+        const auto hash_first = std::hash<size_t>()(p.first);
+        const auto hash_second = std::hash<size_t>()(p.second);
+        return  hash_first + hash_second + (hash_second << 10) ;
       }
     };
 

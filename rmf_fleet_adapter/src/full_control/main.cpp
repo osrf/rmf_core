@@ -495,9 +495,12 @@ std::shared_ptr<Connections> make_fleet(
   for (const auto& key : connections->graph->keys())
     std::cout << " -- " << key.first << std::endl;
 
-
   connections->fleet = adapter->add_fleet(
         fleet_name, *connections->traits, *connections->graph);
+
+  // We disable fleet state publishing for this fleet adapter because we expect
+  // the fleet drivers to publish these messages.
+  connections->fleet->fleet_state_publish_period(std::nullopt);
 
   // Parameters required for task planner
   // Battery system

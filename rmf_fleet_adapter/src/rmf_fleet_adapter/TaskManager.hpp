@@ -50,12 +50,14 @@ public:
   void queue_task(std::shared_ptr<Task> task, Start expected_finish);
 
   /// The location where we expect this robot to be at the end of its current
-  /// task queue
+  /// task queue.
   StartSet expected_finish_location() const;
 
   const agv::RobotContextPtr& context();
 
   agv::ConstRobotContextPtr context() const;
+
+  const Task* current_task() const;
 
   /// Set the queue for this task manager with assignments generated from the
   /// task planner
