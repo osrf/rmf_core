@@ -47,7 +47,7 @@ public:
     std::function<void( const TaskID& task_id,
       const rmf_utils::optional<Submission> winner)>;
 
-  /// Create an instance of the Auctioneer. This instance will handle all 
+  /// Create an instance of the Auctioneer. This instance will handle all
   /// the task dispatching bidding mechanism. A default evaluator is used.
   ///
   /// \param[in] node
@@ -109,18 +109,21 @@ private:
 //==============================================================================
 class LeastFleetDiffCostEvaluator : public Auctioneer::Evaluator
 {
+public:
   std::size_t choose(const Submissions& submissions) const final;
 };
 
 //==============================================================================
 class LeastFleetCostEvaluator : public Auctioneer::Evaluator
 {
+public:
   std::size_t choose(const Submissions& submissions) const final;
 };
 
 //==============================================================================
 class QuickestFinishEvaluator : public Auctioneer::Evaluator
 {
+public:
   std::size_t choose(const Submissions& submissions) const final;
 };
 

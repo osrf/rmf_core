@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__ACTION__ACTIONSERVER_HPP
-#define RMF_TASK_ROS2__ACTION__ACTIONSERVER_HPP
+#ifndef RMF_TASK_ROS2__ACTION__SERVER_HPP
+#define RMF_TASK_ROS2__ACTION__SERVER_HPP
 
 #include <rclcpp/node.hpp>
 
@@ -35,8 +35,7 @@ namespace action {
 // here is to make it as a lib which can be used by future tasks oriented
 // rmf system. (e.g. workcell, lift, door....)
 
-template<typename RequestMsg, typename StatusMsg>
-class TaskActionServer
+class Server
 {
 public:
   /// initialize action server
@@ -46,7 +45,7 @@ public:
   ///
   /// \param[in] fleet_name
   ///   action server id (e.g. fleet adapter name)
-  static std::shared_ptr<TaskActionServer> make(
+  static std::shared_ptr<Server> make(
     std::shared_ptr<rclcpp::Node> node,
     const std::string& fleet_name);
 
@@ -70,11 +69,10 @@ public:
   ///
   /// \param[in] task_status
   ///   latest status of the task
-  void update_status(
-    const TaskStatus& task_status);
+  void update_status(const TaskStatus& task_status);
 
 private:
-  TaskActionServer(
+  Server(
     std::shared_ptr<rclcpp::Node> node,
     const std::string& fleet_name);
 
@@ -82,13 +80,11 @@ private:
   std::string _fleet_name;
   AddTaskCallback _add_task_cb_fn;
   CancelTaskCallback _cancel_task_cb_fn;
-  typename rclcpp::Subscription<RequestMsg>::SharedPtr _request_msg_sub;
-  typename rclcpp::Publisher<StatusMsg>::SharedPtr _status_msg_pub;
+  rclcpp::Subscription<RequestMsg>::SharedPtr _request_msg_sub;
+  rclcpp::Publisher<StatusMsg>::SharedPtr _status_msg_pub;
 };
 
 } // namespace action
 } // namespace rmf_task_ros2
 
-#include "details/internal_ActionServer.tpp"
-
-#endif // RMF_TASK_ROS2__ACTION__ACTIONSERVER_HPP
+#endif // RMF_TASK_ROS2__ACTION__SERVER_HPP

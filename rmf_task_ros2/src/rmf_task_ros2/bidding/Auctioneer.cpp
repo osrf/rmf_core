@@ -38,7 +38,7 @@ public:
   };
 
   // non-sequential tasks
-  std::map<TaskID, BiddingTask> ongoing_bidding_tasks;
+  std::unordered_map<TaskID, BiddingTask> ongoing_bidding_tasks;
 
   // sequential bidding tasks
   bool sequential;
@@ -83,7 +83,7 @@ public:
   void start_bidding(const BidNotice& bid_notice)
   {
     RCLCPP_INFO(node->get_logger(), "[Auctioneer] Add Bidding task %s to queue",
-                bid_notice.task_profile.task_id.c_str());
+      bid_notice.task_profile.task_id.c_str());
 
     BiddingTask bidding_task;
     bidding_task.bid_notice = bid_notice;
@@ -105,8 +105,8 @@ public:
   {
     const auto id = msg.task_profile.task_id;
     RCLCPP_DEBUG(node->get_logger(),
-                 "[Auctioneer] Receive proposal from task_id: %s | from: %s",
-                 id.c_str(), msg.fleet_name.c_str());
+      "[Auctioneer] Receive proposal from task_id: %s | from: %s",
+      id.c_str(), msg.fleet_name.c_str());
 
     // check if bidding task is "mine", if found
     // add submited proposal to the current bidding tasks list
@@ -145,7 +145,7 @@ public:
       else
       {
         RCLCPP_DEBUG(node->get_logger(), " - Start new bidding task: %s",
-                     front_task.bid_notice.task_profile.task_id.c_str());
+          front_task.bid_notice.task_profile.task_id.c_str());
         front_task.start_time = node->now();
         bid_notice_pub->publish(front_task.bid_notice);
         bidding_in_proccess = true;
@@ -173,18 +173,20 @@ public:
     if (duration > bidding_task.bid_notice.time_window)
     {
       auto id = bidding_task.bid_notice.task_profile.task_id;
-      RCLCPP_INFO(node->get_logger(), "Bidding Deadline reached: %s", id.c_str());
+      RCLCPP_INFO(node->get_logger(), "Bidding Deadline reached: %s",
+        id.c_str());
       rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
 
       if (bidding_task.submissions.size() == 0)
       {
-        RCLCPP_WARN(node->get_logger(), "Bidding task has not received any bids");
+        RCLCPP_WARN(node->get_logger(),
+          "Bidding task has not received any bids");
       }
       else
       {
         winner = evaluate(bidding_task.submissions);
         RCLCPP_INFO(node->get_logger(), "Found winning Fleet Adapter: %s",
-                    winner->fleet_name.c_str());
+          winner->fleet_name.c_str());
       }
 
       // Call the user defined callback function
@@ -200,6 +202,12 @@ public:
   {
     if (submissions.size() == 0)
       return rmf_utils::nullopt;
+
+    if (!evaluator)
+    {
+      RCLCPP_WARN(node->get_logger(), "Evaluator is not set");
+      return rmf_utils::nullopt;
+    }
 
     const std::size_t choice = evaluator->choose(submissions);
 

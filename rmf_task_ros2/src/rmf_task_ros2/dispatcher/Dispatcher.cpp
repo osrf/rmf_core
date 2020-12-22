@@ -22,17 +22,13 @@
 namespace rmf_task_ros2 {
 namespace dispatcher {
 
-using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
-using TaskSummary = rmf_task_msgs::msg::TaskSummary;
-
 //==============================================================================
 class Dispatcher::Implementation
 {
 public:
   std::shared_ptr<rclcpp::Node> node;
   std::shared_ptr<bidding::Auctioneer> auctioneer;
-  std::shared_ptr<action::TaskActionClient<DispatchRequest,
-    TaskSummary>> action_client;
+  std::shared_ptr<action::Client> action_client;
 
   StatusCallback on_change_fn;
 
@@ -57,8 +53,8 @@ public:
   void start()
   {
     using namespace std::placeholders;
-    auctioneer = bidding::Auctioneer::make(node, 
-      std::bind(&Implementation::receive_bidding_winner_cb, this, _1, _2));
+    auctioneer = bidding::Auctioneer::make(node,
+        std::bind(&Implementation::receive_bidding_winner_cb, this, _1, _2));
     action_client->on_terminate(
       std::bind(&Implementation::terminate_task, this, _1));
     action_client->on_change(
@@ -155,8 +151,8 @@ public:
 
     if (!winner)
     {
-      RCLCPP_WARN(node->get_logger(), "[Dispatch::Bidding Result] task \
-                  %s has no bidding valid submissions :(", task_id.c_str());
+      RCLCPP_WARN(node->get_logger(), "[Dispatch::Bidding Result] task"
+        "%s has no bidding valid submissions :(", task_id.c_str());
       pending_task_status->state = TaskStatus::State::Failed;
       terminate_task(pending_task_status);
 
@@ -169,9 +165,9 @@ public:
     // now we know which fleet will execute the task
     pending_task_status->fleet_name = winner->fleet_name;
 
-    RCLCPP_INFO(node->get_logger(), "[Dispatch::Bidding Result] task \
-                %s is accepted by Fleet adapter %s",
-                task_id.c_str(), winner->fleet_name.c_str());
+    RCLCPP_INFO(node->get_logger(), "[Dispatch::Bidding Result] task"
+      "%s is accepted by Fleet adapter %s",
+      task_id.c_str(), winner->fleet_name.c_str());
 
     // Remove previous self-generated charging task from "active_dispatch_tasks"
     // this is to prevent duplicated charging task (as certain queued charging
@@ -243,12 +239,11 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
     rclcpp::Node::make_shared(dispatcher_node_name);
 
   auto pimpl = rmf_utils::make_impl<Implementation>(node);
-  pimpl->action_client =
-    action::TaskActionClient<DispatchRequest, TaskSummary>::make(node);
+  pimpl->action_client = action::Client::make(node);
 
   auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
   dispatcher->_pimpl = std::move(pimpl);
-  dispatcher->_pimpl->start(); 
+  dispatcher->_pimpl->start();
   return dispatcher;
 }
 

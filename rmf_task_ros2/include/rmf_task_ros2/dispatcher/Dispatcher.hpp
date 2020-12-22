@@ -25,16 +25,13 @@
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
-#include <rmf_task_ros2/action/ActionClient.hpp>
-
-#include <rmf_task_msgs/msg/dispatch_request.hpp>
-#include <rmf_task_msgs/msg/task_summary.hpp>
+#include <rmf_task_ros2/action/Client.hpp>
 
 namespace rmf_task_ros2 {
-namespace dispatcher { // TODO
+namespace dispatcher {
 
 //==============================================================================
-using DispatchTasks = std::map<TaskID, TaskStatusPtr>;
+using DispatchTasks = std::unordered_map<TaskID, TaskStatusPtr>;
 using DispatchTasksPtr = std::shared_ptr<DispatchTasks>;
 
 //==============================================================================
@@ -77,7 +74,7 @@ public:
     const TaskProfile& task);
 
   /// Cancel an active task which was previously submitted to Dispatcher. This
-  /// will terminate the task with a State of: `STATE_CANCELED`. If a task is 
+  /// will terminate the task with a State of: `STATE_CANCELED`. If a task is
   /// QUEUED_STATE or EXECUTING_STATE, this function will send a cancel req to
   /// the respective fleet adapter. The fleet adapter will need ensure the proper
   /// cancelation of the task, and update the task status as `STATE_CANCELED`.

@@ -63,7 +63,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     node,
     /// Bidding Result Callback Function
     [&r_result_id, &r_result_winner](
-    const TaskID& task_id, const rmf_utils::optional<Submission> winner)
+      const TaskID& task_id, const rmf_utils::optional<Submission> winner)
     {
       if (!winner)
         return;

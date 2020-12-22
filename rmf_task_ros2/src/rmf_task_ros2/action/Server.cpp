@@ -15,25 +15,20 @@
  *
 */
 
-#ifndef SRC__RMF_TASK_ROS2__INTERNAL_ACTION_SERVER_TPP
-#define SRC__RMF_TASK_ROS2__INTERNAL_ACTION_SERVER_TPP
+#include <rmf_task_ros2/action/Server.hpp>
 
 namespace rmf_task_ros2 {
 namespace action {
 
-template<typename RequestMsg, typename StatusMsg>
-std::shared_ptr<TaskActionServer<RequestMsg, StatusMsg>>
-TaskActionServer<RequestMsg, StatusMsg>::make(
+std::shared_ptr<Server> Server::make(
   std::shared_ptr<rclcpp::Node> node,
   const std::string& fleet_name)
 {
-  return std::shared_ptr<TaskActionServer>(new
-      TaskActionServer(node, fleet_name));
+  return std::shared_ptr<Server>(new Server(node, fleet_name));
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionServer<RequestMsg, StatusMsg>::register_callbacks(
+void Server::register_callbacks(
   AddTaskCallback add_task_cb_fn,
   CancelTaskCallback cancel_task_cb_fn)
 {
@@ -42,18 +37,16 @@ void TaskActionServer<RequestMsg, StatusMsg>::register_callbacks(
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionServer<RequestMsg, StatusMsg>::update_status(
+void Server::update_status(
   const TaskStatus& task_status)
 {
-  auto msg = convert_status<StatusMsg>(task_status);
+  auto msg = convert_status(task_status);
   msg.fleet_name = _fleet_name;
   _status_msg_pub->publish(msg);
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-TaskActionServer<RequestMsg, StatusMsg>::TaskActionServer(
+Server::Server(
   std::shared_ptr<rclcpp::Node> node,
   const std::string& fleet_name)
 : _node(node), _fleet_name(fleet_name)
@@ -67,7 +60,7 @@ TaskActionServer<RequestMsg, StatusMsg>::TaskActionServer(
       if (msg->fleet_name != _fleet_name)
         return;// not me
 
-      std::cout << "[action] Receive a task request!!!"<< std::endl;
+      RCLCPP_INFO(_node->get_logger(), "[action] Receive a task request!");
       StatusMsg status_msg;
       status_msg.fleet_name = _fleet_name;
       status_msg.state = StatusMsg::STATE_FAILED;
@@ -77,20 +70,20 @@ TaskActionServer<RequestMsg, StatusMsg>::TaskActionServer(
       {
         // Add Request
         case RequestMsg::ADD:
-        {
-          if (_add_task_cb_fn && _add_task_cb_fn(msg->task_profile))
-            status_msg.state = StatusMsg::STATE_QUEUED;
-          break;
-        }
+          {
+            if (_add_task_cb_fn && _add_task_cb_fn(msg->task_profile))
+              status_msg.state = StatusMsg::STATE_QUEUED;
+            break;
+          }
         // Cancel Request
         case RequestMsg::CANCEL:
-        {
-          if (_cancel_task_cb_fn && _cancel_task_cb_fn(msg->task_profile))
-            status_msg.state = StatusMsg::STATE_CANCELED;
-          break;
-        }
+          {
+            if (_cancel_task_cb_fn && _cancel_task_cb_fn(msg->task_profile))
+              status_msg.state = StatusMsg::STATE_CANCELED;
+            break;
+          }
         default:
-          std::cerr << "Request Method is not supported!!!"<< std::endl;
+          RCLCPP_ERROR(_node->get_logger(), "Request Method is not supported!");
       }
 
       _status_msg_pub->publish(status_msg);
@@ -102,5 +95,3 @@ TaskActionServer<RequestMsg, StatusMsg>::TaskActionServer(
 
 } // namespace action
 } // namespace rmf_task_ros2
-
-#endif // SRC__RMF_TASK_ROS2__INTERNAL_ACTION_SERVER_TPP

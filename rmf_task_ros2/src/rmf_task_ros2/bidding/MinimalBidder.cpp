@@ -64,14 +64,14 @@ public:
   void receive_notice(const BidNotice& msg)
   {
     RCLCPP_INFO(node->get_logger(),
-                "[Bidder] Received Bidding notice for task_id: %s",
-                msg.task_profile.task_id.c_str());
+      "[Bidder] Received Bidding notice for task_id: %s",
+      msg.task_profile.task_id.c_str());
 
     // check if task type is valid
     if (!valid_task_types.count(msg.task_profile.task_type.type))
     {
-      RCLCPP_WARN(node->get_logger(),"%s: task type %d",
-                  fleet_name.c_str(), msg.task_profile.task_type.type);
+      RCLCPP_WARN(node->get_logger(), "%s: task type %d",
+        fleet_name.c_str(), msg.task_profile.task_type.type);
       return;
     }
 

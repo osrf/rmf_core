@@ -15,24 +15,19 @@
  *
 */
 
-#ifndef SRC__RMF_TASK_ROS2__INTERNAL_ACTION_CLIENT_TPP
-#define SRC__RMF_TASK_ROS2__INTERNAL_ACTION_CLIENT_TPP
+#include <rmf_task_ros2/action/Client.hpp>
 
 namespace rmf_task_ros2 {
 namespace action {
 
-template<typename RequestMsg, typename StatusMsg>
-std::shared_ptr<TaskActionClient<RequestMsg, StatusMsg>>
-TaskActionClient<RequestMsg, StatusMsg>::make(
-  std::shared_ptr<rclcpp::Node> node)
+std::shared_ptr<Client>
+Client::make(std::shared_ptr<rclcpp::Node> node)
 {
-  return std::shared_ptr<TaskActionClient>(new TaskActionClient(node));
+  return std::shared_ptr<Client>(new Client(node));
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
-  std::shared_ptr<rclcpp::Node> node)
+Client::Client(std::shared_ptr<rclcpp::Node> node)
 : _node(node)
 {
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
@@ -69,8 +64,8 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
         // if active task terminated
         if (weak_status->is_terminated())
         {
-          std::cout << "[action] Done Terminated Task: "
-                    << task_id << std::endl;
+          RCLCPP_INFO(_node->get_logger(),
+          "[action] Done Terminated Task: %s", task_id.c_str());
           _active_task_status.erase(task_id);
 
           if (_on_terminate_callback)
@@ -80,21 +75,21 @@ TaskActionClient<RequestMsg, StatusMsg>::TaskActionClient(
       else
       {
         // will still provide onchange even if the task_id is unknown.
-        std::cout << "[action] Unknown task: "  << task_id << std::endl;
+        RCLCPP_WARN(_node->get_logger(),
+        "[action] Unknown task: %s", task_id.c_str());
         auto task_status = std::make_shared<TaskStatus>(convert_status(*msg));
-        
+
         if (_on_change_callback)
           _on_change_callback(task_status);
-        
-        if(!task_status->is_terminated())
+
+        if (!task_status->is_terminated())
           _active_task_status[task_id] = task_status;
       }
     });
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionClient<RequestMsg, StatusMsg>::add_task(
+void Client::add_task(
   const std::string& fleet_name,
   const TaskProfile& task_profile,
   TaskStatusPtr status_ptr)
@@ -110,23 +105,23 @@ void TaskActionClient<RequestMsg, StatusMsg>::add_task(
   status_ptr->fleet_name = fleet_name;
   status_ptr->task_profile = task_profile;
   _active_task_status[task_profile.task_id] = status_ptr;
-  std::cout<< " ~ Add Action Task: "<< task_profile.task_id << std::endl;
-
+  RCLCPP_INFO(_node->get_logger(), "Add Action Task: %s",
+    task_profile.task_id.c_str());
   return;
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-bool TaskActionClient<RequestMsg, StatusMsg>::cancel_task(
+bool Client::cancel_task(
   const TaskProfile& task_profile)
 {
   const auto task_id = task_profile.task_id;
-  std::cout<< " ~ Cancel Active Task: "<< task_id << std::endl;
-  
+  RCLCPP_INFO(_node->get_logger(), "Cancel Active Task: %s", task_id.c_str());
+
   // check if task is previously added
   if (!_active_task_status.count(task_id))
   {
-    std::cerr << " ~ Not found Task: "<< task_id << std::endl;
+    RCLCPP_WARN(_node->get_logger(),
+      "[action] Not found Task: %s", task_id.c_str());
     return false;
   }
 
@@ -134,7 +129,7 @@ bool TaskActionClient<RequestMsg, StatusMsg>::cancel_task(
 
   if (!weak_status)
   {
-    std::cerr << "weak status is expired, canceled failed \n";
+    std::cerr << "weak status has expired, cancel failed \n";
     _active_task_status.erase(task_id);
     return false;
   }
@@ -149,8 +144,7 @@ bool TaskActionClient<RequestMsg, StatusMsg>::cancel_task(
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-int TaskActionClient<RequestMsg, StatusMsg>::size()
+int Client::size()
 {
   for (auto it = _active_task_status.begin(); it != _active_task_status.end(); )
   {
@@ -159,31 +153,23 @@ int TaskActionClient<RequestMsg, StatusMsg>::size()
       if (weak_status->is_terminated())
         it = _active_task_status.erase(it);
       else
-      {
-        std::cout << "[Action Debug] active "
-                  << weak_status->task_profile.task_id << "  state: "
-                  << (int)weak_status->state  << std::endl;
         ++it;
-      }
     }
     else
       it = _active_task_status.erase(it);
   }
-  std::cout << " status: " << _active_task_status.size() << std::endl;
   return _active_task_status.size();
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionClient<RequestMsg, StatusMsg>::on_change(
+void Client::on_change(
   StatusCallback status_cb_fn)
 {
   _on_change_callback = std::move(status_cb_fn);
 }
 
 //==============================================================================
-template<typename RequestMsg, typename StatusMsg>
-void TaskActionClient<RequestMsg, StatusMsg>::on_terminate(
+void Client::on_terminate(
   StatusCallback status_cb_fn)
 {
   _on_terminate_callback = std::move(status_cb_fn);
@@ -191,5 +177,3 @@ void TaskActionClient<RequestMsg, StatusMsg>::on_terminate(
 
 } // namespace action
 } // namespace rmf_task_ros2
-
-#endif // SRC__RMF_TASK_ROS2__INTERNAL_ACTION_TPP

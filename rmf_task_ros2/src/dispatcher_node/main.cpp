@@ -117,8 +117,7 @@ int main(int argc, char* argv[])
       {
         printout << "{"<< task.first <<"*"<< (int)task.second->state <<"}";
         response->active_tasks.push_back(
-          rmf_task_ros2::convert_status<rmf_task_msgs::msg::TaskSummary>(
-            *(task.second)));
+          rmf_task_ros2::convert_status(*(task.second)));
       }
 
       // Terminated Tasks
@@ -127,11 +126,10 @@ int main(int argc, char* argv[])
       {
         printout << "{"<< task.first <<"*"<< (int)task.second->state <<"}";
         response->terminated_tasks.push_back(
-          rmf_task_ros2::convert_status<rmf_task_msgs::msg::TaskSummary>(
-            *(task.second)));
+          rmf_task_ros2::convert_status(*(task.second)));
       }
-      
-      RCLCPP_DEBUG( node->get_logger(), printout.str());
+
+      RCLCPP_DEBUG(node->get_logger(), printout.str());
       response->success = true;
     }
   );

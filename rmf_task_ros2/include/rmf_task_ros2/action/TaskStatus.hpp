@@ -22,6 +22,8 @@
 #include <rmf_traffic/Time.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_task_msgs/msg/task_profile.hpp>
+#include <rmf_task_msgs/msg/dispatch_request.hpp>
+#include <rmf_task_msgs/msg/task_summary.hpp>
 
 namespace rmf_task_ros2 {
 
@@ -31,18 +33,21 @@ using TaskType = rmf_task_msgs::msg::TaskType;
 using TaskID = std::string;
 
 //==============================================================================
+using StatusMsg = rmf_task_msgs::msg::TaskSummary;
+using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
 
+//==============================================================================
 /// \note This is a local stuct of a task status (now is based on TaskSummary)
 struct TaskStatus
 {
   enum class State : uint8_t
   {
-    Queued    = 0, // StatusMsg::STATE_QUEUED
-    Executing = 1, // StatusMsg::STATE_ACTIVE
-    Completed = 2, // StatusMsg::STATE_COMPLETED
-    Failed    = 3, // StatusMsg::STATE_FAILED
-    Canceled  = 4, // StatusMsg::STATE_CANCELED
-    Pending   = 5, // StatusMsg::STATE_PENDING
+    Queued    = StatusMsg::STATE_QUEUED,
+    Executing = StatusMsg::STATE_ACTIVE,
+    Completed = StatusMsg::STATE_COMPLETED,
+    Failed    = StatusMsg::STATE_FAILED,
+    Canceled  = StatusMsg::STATE_CANCELED,
+    Pending   = StatusMsg::STATE_PENDING
   };
 
   std::string fleet_name;
@@ -64,35 +69,10 @@ struct TaskStatus
 using TaskStatusPtr = std::shared_ptr<TaskStatus>;
 
 // ==============================================================================
-template<typename StatusMsg>
-TaskStatus convert_status(const StatusMsg& from)
-{
-  TaskStatus status;
-  status.fleet_name = from.fleet_name;
-  status.task_profile = from.task_profile;
-  status.start_time = rmf_traffic_ros2::convert(from.start_time);
-  status.end_time = rmf_traffic_ros2::convert(from.end_time);
-  status.robot_name = from.robot_name;
-  status.status = from.status;
-  status.state = (TaskStatus::State)from.state;
-  return status;
-}
+TaskStatus convert_status(const StatusMsg& from);
 
 // ==============================================================================
-template<typename StatusMsg>
-StatusMsg convert_status(const TaskStatus& from)
-{
-  StatusMsg status;
-  status.fleet_name = from.fleet_name;
-  status.task_id = from.task_profile.task_id;  // duplication
-  status.task_profile = from.task_profile;
-  status.start_time = rmf_traffic_ros2::convert(from.start_time);
-  status.end_time = rmf_traffic_ros2::convert(from.end_time);
-  status.robot_name = from.robot_name;
-  status.status = from.status;
-  status.state = (uint32_t)from.state;
-  return status;
-}
+StatusMsg convert_status(const TaskStatus& from);
 
 } // namespace rmf_task_ros2
 

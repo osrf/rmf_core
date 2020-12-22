@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__ACTION__ACTIONCLIENT_HPP
-#define RMF_TASK_ROS2__ACTION__ACTIONCLIENT_HPP
+#ifndef RMF_TASK_ROS2__ACTION__CLIENT_HPP
+#define RMF_TASK_ROS2__ACTION__CLIENT_HPP
 
 #include <rclcpp/node.hpp>
 
@@ -33,15 +33,14 @@ namespace action {
 // the client when the task progresses. Termination will be triggered when the
 // task ends.
 
-template<typename RequestMsg, typename StatusMsg>
-class TaskActionClient
+class Client
 {
 public:
   /// make an action client
   ///
   /// \param[in] node
   ///   ros2 node instance
-  static std::shared_ptr<TaskActionClient> make(
+  static std::shared_ptr<Client> make(
     std::shared_ptr<rclcpp::Node> node);
 
   /// Add a task to a targeted fleet
@@ -91,19 +90,17 @@ public:
   void on_terminate(StatusCallback status_cb_fn);
 
 private:
-  TaskActionClient(std::shared_ptr<rclcpp::Node> node);
+  Client(std::shared_ptr<rclcpp::Node> node);
 
   std::shared_ptr<rclcpp::Node> _node;
   StatusCallback _on_change_callback;
   StatusCallback _on_terminate_callback;
-  std::map<TaskID, std::weak_ptr<TaskStatus>> _active_task_status;
-  typename rclcpp::Publisher<RequestMsg>::SharedPtr _request_msg_pub;
-  typename rclcpp::Subscription<StatusMsg>::SharedPtr _status_msg_sub;
+  std::unordered_map<TaskID, std::weak_ptr<TaskStatus>> _active_task_status;
+  rclcpp::Publisher<RequestMsg>::SharedPtr _request_msg_pub;
+  rclcpp::Subscription<StatusMsg>::SharedPtr _status_msg_sub;
 };
 
 } // namespace action
 } // namespace rmf_task_ros2
 
-#include "details/internal_ActionClient.tpp"
-
-#endif // RMF_TASK_ROS2__ACTION__ACTIONCLIENT_HPP
+#endif // RMF_TASK_ROS2__ACTION__CLIENT_HPP

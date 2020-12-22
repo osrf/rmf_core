@@ -21,7 +21,7 @@
 
 // mock Fleet Adapter to test dispatcher
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
-#include <rmf_task_ros2/action/ActionServer.hpp>
+#include <rmf_task_ros2/action/Server.hpp>
 
 #include <chrono>
 #include <thread>
@@ -76,8 +76,8 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     [&change_times, &test_taskprofile](const TaskStatusPtr status)
     {
       test_taskprofile = status->task_profile;
-      std::cout << " On change! id > " << test_taskprofile.task_id
-                << " | state >" << (int)status->state << std::endl;
+      // std::cout << " On change! id > " << test_taskprofile.task_id
+      //           << " | state >" << (int)status->state << std::endl;
       change_times++;
     }
   );
@@ -124,12 +124,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
   //============================================================================
   // Setup Mock Fleetadapter: action server to test
-  using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
-  using TaskSummary = rmf_task_msgs::msg::TaskSummary;
-
-  auto action_server =
-    action::TaskActionServer<DispatchRequest, TaskSummary>::make(
-    node, "dummy_fleet");
+  auto action_server = action::Server::make(node, "dummy_fleet");
 
   bool task_canceled_flag = false;
 
@@ -137,8 +132,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     // Add Task callback
     [&action_server, &task_canceled_flag](const TaskProfile& task_profile)
     {
-      std::cout << "[Action] ~Start Queue Task: "
-                << task_profile.task_id<<std::endl;
+      // Start action task
       auto t = std::thread(
         [&action_server, &task_canceled_flag](auto profile)
         {
@@ -149,7 +143,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
           if (task_canceled_flag)
           {
-            std::cout << "[task impl] Cancelled!" << std::endl;
+            // std::cout << "[task impl] Cancelled!" << std::endl;
             return;
           }
 

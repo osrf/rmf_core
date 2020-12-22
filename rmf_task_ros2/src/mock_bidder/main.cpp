@@ -18,10 +18,7 @@
 /// Note: This is a testing bidder node script
 
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
-#include <rmf_task_ros2/action/ActionServer.hpp>
-#include <rmf_task_msgs/msg/dispatch_request.hpp>
-#include <rmf_task_msgs/msg/task_summary.hpp>
-
+#include <rmf_task_ros2/action/Server.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
@@ -43,8 +40,8 @@ int main(int argc, char* argv[])
   //============================================================================
   // Create Bidder instance
   std::shared_ptr<bidding::MinimalBidder> bidder = bidding::MinimalBidder::make(
-    node, 
-    fleet_name, 
+    node,
+    fleet_name,
     { TaskType::TYPE_CLEAN, TaskType::TYPE_DELIVERY },
     [](const bidding::BidNotice& notice)
     {
@@ -65,9 +62,7 @@ int main(int argc, char* argv[])
 
   //============================================================================
   // Create sample RMF task action server
-  auto action_server =
-    action::TaskActionServer<DispatchRequest, TaskSummary>::make(
-    node, fleet_name);
+  auto action_server = action::Server::make(node, fleet_name);
 
   action_server->register_callbacks(
     [&action_server, &node](const TaskProfile& task_profile)

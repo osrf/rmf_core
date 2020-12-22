@@ -16,11 +16,8 @@
 */
 
 #include <rmf_utils/optional.hpp>
-#include <rmf_task_ros2/action/ActionClient.hpp>
-#include <rmf_task_ros2/action/ActionServer.hpp>
-#include <rmf_task_msgs/msg/dispatch_request.hpp>
-#include <rmf_task_msgs/msg/task_summary.hpp>
-
+#include <rmf_task_ros2/action/Client.hpp>
+#include <rmf_task_ros2/action/Server.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <chrono>
@@ -54,10 +51,8 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   using DispatchRequest = rmf_task_msgs::msg::DispatchRequest;
   using TaskSummary = rmf_task_msgs::msg::TaskSummary;
 
-  auto action_server = TaskActionServer<DispatchRequest, TaskSummary>::make(
-    node, "test_server");
-  auto action_client = TaskActionClient<DispatchRequest, TaskSummary>::make(
-    node);
+  auto action_server = Server::make(node, "test_server");
+  auto action_client = Client::make(node);
 
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
