@@ -1396,8 +1396,9 @@ public:
 TaskPlanner::TaskPlanner(std::shared_ptr<Configuration> config)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        std::move(config),
-        std::make_shared<EstimateCache>()
+        config,
+        std::make_shared<EstimateCache>(
+          config->planner()->get_configuration().graph().num_waypoints())
       }))
 {
   // Do nothing
