@@ -136,6 +136,10 @@ private:
 };
 
 //==============================================================================
+template<typename T>
+using CacheManagerPtr = std::shared_ptr<const CacheManager<Cache<T>>>;
+
+//==============================================================================
 template <typename GeneratorFactoryArg>
 class CacheManagerMap
 {
@@ -145,7 +149,7 @@ public:
   using Generator = typename GeneratorFactory::Generator;
   using Cache = Cache<Generator>;
   using CacheManager = CacheManager<Cache>;
-  using CacheManagerPtr = std::shared_ptr<CacheManager>;
+  using CacheManagerPtr = std::shared_ptr<const CacheManager>;
 
   CacheManagerMap(std::shared_ptr<const GeneratorFactory> factory);
 

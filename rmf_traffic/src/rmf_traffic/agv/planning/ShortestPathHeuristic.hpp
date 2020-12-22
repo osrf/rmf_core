@@ -40,7 +40,7 @@ public:
       std::size_t goal,
       double max_speed,
       std::shared_ptr<const Supergraph> graph,
-      ConstEuclideanHeuristicPtr heuristic);
+      CacheManagerPtr<EuclideanHeuristic> heuristic);
 
   std::optional<double> generate(
       const std::size_t& key,
@@ -53,7 +53,7 @@ private:
   const std::string* _goal_map;
   double _max_speed;
   std::shared_ptr<const Supergraph> _graph;
-  ConstEuclideanHeuristicPtr _heuristic;
+  CacheManagerPtr<EuclideanHeuristic> _heuristic;
 };
 
 //==============================================================================

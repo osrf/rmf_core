@@ -136,6 +136,17 @@ public:
     {
       for (const auto& change : routes)
       {
+        const auto change_finish_wp_index =
+            _graph->original().lanes[change.lane]
+            .exit().waypoint_index();
+
+        if (_visited.count(change_finish_wp_index))
+        {
+          // If we have already expanded from the finish waypoint, then there is
+          // no point in creating this node, because we will never expand it.
+          continue;
+        }
+
         const auto change_start_wp_index =
             _graph->original().lanes[change.lane]
             .entry().waypoint_index();
@@ -157,10 +168,6 @@ public:
           floor_change_cost +=
               rmf_traffic::time::to_seconds(exit_event->duration());
         }
-
-        const auto change_finish_wp_index =
-            _graph->original().lanes[change.lane]
-            .exit().waypoint_index();
 
         const Eigen::Vector2d last_p =
             _graph->original().waypoints[change_finish_wp_index].get_location();
@@ -268,15 +275,14 @@ std::optional<double> EuclideanHeuristic::generate(
 
   const double final_cost = solution->current_cost;
   auto node = solution;
-  do
+  while (node)
   {
-    new_items.insert({node->waypoint, final_cost - node->current_cost});
-
     // We can save the results for every waypoint that was used in this solution
     // because every segment of an optimal solution is an optimal solution
     // itself
+    new_items.insert({node->waypoint, final_cost - node->current_cost});
     node = node->parent;
-  } while (node);
+  }
 
   return final_cost;
 }
