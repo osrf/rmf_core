@@ -37,11 +37,6 @@ public:
     std::vector<bidding::Submission> submissions;
   };
 
-  // non-sequential tasks
-  std::unordered_map<TaskID, BiddingTask> ongoing_bidding_tasks;
-
-  // sequential bidding tasks
-  bool sequential;
   bool bidding_in_proccess = false;
   std::queue<BiddingTask> queue_bidding_tasks;
 
@@ -53,10 +48,8 @@ public:
 
   Implementation(
     const std::shared_ptr<rclcpp::Node>& node_,
-    BiddingResultCallback result_callback,
-    const bool sequential)
+    BiddingResultCallback result_callback)
   : node{std::move(node_)},
-    sequential(sequential),
     bidding_result_callback{std::move(result_callback)}
   {
     // default evaluator
@@ -88,16 +81,7 @@ public:
     BiddingTask bidding_task;
     bidding_task.bid_notice = bid_notice;
     bidding_task.start_time = node->now();
-
-    if (sequential)
-    {
-      queue_bidding_tasks.push(bidding_task);
-    }
-    else
-    {
-      ongoing_bidding_tasks[bid_notice.task_profile.task_id] = bidding_task;
-      bid_notice_pub->publish(bid_notice);
-    }
+    queue_bidding_tasks.push(bidding_task);
   }
 
   // Receive proposal and evaluate
@@ -108,61 +92,36 @@ public:
       "[Auctioneer] Receive proposal from task_id: %s | from: %s",
       id.c_str(), msg.fleet_name.c_str());
 
-    // check if bidding task is "mine", if found
+    // check if bidding task is initiated by the auctioneer previously
     // add submited proposal to the current bidding tasks list
-    if (sequential)
-    {
-      if (queue_bidding_tasks.front().bid_notice.task_profile.task_id == id)
-        queue_bidding_tasks.front().submissions.push_back(convert(msg));
-    }
-    else
-    {
-      if (ongoing_bidding_tasks.count(id))
-        ongoing_bidding_tasks[id].submissions.push_back(convert(msg));
-    }
+    if (queue_bidding_tasks.front().bid_notice.task_profile.task_id == id)
+      queue_bidding_tasks.front().submissions.push_back(convert(msg));
   }
 
   // determine the winner within a bidding task instance
   void check_bidding_process()
   {
-    // TODO ugly!!!! to be clean up
-    if (sequential)
+    if (queue_bidding_tasks.size() == 0)
+      return;
+
+    // Executing the task at the front queue
+    auto front_task = queue_bidding_tasks.front();
+
+    if (bidding_in_proccess)
     {
-      if (queue_bidding_tasks.size() == 0)
-        return;
-
-      // Executing the task at the front queue
-      auto front_task = queue_bidding_tasks.front();
-
-      if (bidding_in_proccess)
+      if (determine_winner(front_task))
       {
-        if (determine_winner(front_task))
-        {
-          queue_bidding_tasks.pop();
-          bidding_in_proccess = false;
-        }
-      }
-      else
-      {
-        RCLCPP_DEBUG(node->get_logger(), " - Start new bidding task: %s",
-          front_task.bid_notice.task_profile.task_id.c_str());
-        front_task.start_time = node->now();
-        bid_notice_pub->publish(front_task.bid_notice);
-        bidding_in_proccess = true;
+        queue_bidding_tasks.pop();
+        bidding_in_proccess = false;
       }
     }
     else
     {
-      // check if timeout is reached
-      for (auto it = ongoing_bidding_tasks.begin();
-        it != ongoing_bidding_tasks.end(); )
-      {
-        // bidding task
-        if (determine_winner(it->second))
-          it = ongoing_bidding_tasks.erase(it);
-        else
-          ++it;
-      }
+      RCLCPP_DEBUG(node->get_logger(), " - Start new bidding task: %s",
+        front_task.bid_notice.task_profile.task_id.c_str());
+      front_task.start_time = node->now();
+      bid_notice_pub->publish(front_task.bid_notice);
+      bidding_in_proccess = true;
     }
   }
 
@@ -221,11 +180,10 @@ public:
 //==============================================================================
 std::shared_ptr<Auctioneer> Auctioneer::make(
   const std::shared_ptr<rclcpp::Node>& node,
-  BiddingResultCallback result_callback,
-  const bool sequential)
+  BiddingResultCallback result_callback)
 {
   auto pimpl = rmf_utils::make_unique_impl<Implementation>(
-    node, result_callback, sequential);
+    node, result_callback);
   auto auctioneer = std::shared_ptr<Auctioneer>(new Auctioneer());
   auctioneer->_pimpl = std::move(pimpl);
   return auctioneer;

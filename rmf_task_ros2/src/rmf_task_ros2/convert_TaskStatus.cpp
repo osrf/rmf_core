@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/action/TaskStatus.hpp>
+#include <rmf_task_ros2/TaskStatus.hpp>
 
 namespace rmf_task_ros2 {
 

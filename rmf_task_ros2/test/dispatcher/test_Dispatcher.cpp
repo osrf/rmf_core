@@ -16,19 +16,22 @@
 */
 
 #include <rmf_utils/optional.hpp>
-#include <rmf_task_ros2/dispatcher/Dispatcher.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rmf_task_ros2/Dispatcher.hpp>
 
 // mock Fleet Adapter to test dispatcher
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
-#include <rmf_task_ros2/action/Server.hpp>
+#include "../../src/rmf_task_ros2/action/Server.hpp"
+
+#include <rmf_task_msgs/srv/submit_task.hpp>
+#include <rmf_task_msgs/srv/cancel_task.hpp>
+#include <rmf_task_msgs/srv/get_task_list.hpp>
 
 #include <chrono>
 #include <thread>
 #include <rmf_utils/catch.hpp>
 
 namespace rmf_task_ros2 {
-namespace dispatcher {
 
 // ==============================================================================
 TaskProfile task_profile1;
@@ -52,22 +55,34 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     });
   spin_thread.detach();
 
+
+  WHEN("Check service interfaces")
+  {
+    using SubmitTaskSrv = rmf_task_msgs::srv::SubmitTask;
+    using CancelTaskSrv = rmf_task_msgs::srv::CancelTask;
+    using GetTaskListSrv = rmf_task_msgs::srv::GetTaskList;
+
+    auto submit_client = dispatcher->node()->create_client<SubmitTaskSrv>(
+      rmf_task_ros2::SubmitTaskSrvName);
+    REQUIRE(submit_client->wait_for_service(std::chrono::milliseconds(0)));
+    auto cancel_client = dispatcher->node()->create_client<CancelTaskSrv>(
+      rmf_task_ros2::CancelTaskSrvName);
+    REQUIRE(cancel_client->wait_for_service(std::chrono::milliseconds(0)));
+    auto get_tasks_client = dispatcher->node()->create_client<GetTaskListSrv>(
+      rmf_task_ros2::GetTaskListSrvName);
+    REQUIRE(get_tasks_client->wait_for_service(std::chrono::milliseconds(0)));
+  }
+
   WHEN("Add 1 and cancel task")
   {
     // add task
-    auto id = dispatcher->submit_task(task_profile1);
+    const auto id = dispatcher->submit_task(task_profile1);
     REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
 
     // check random id
     REQUIRE(!(dispatcher->get_task_state("non_existence_id")));
-
-    // cancel task
-    dispatcher->cancel_task(id);
-    REQUIRE(dispatcher->active_tasks().size() == 0);
-    REQUIRE(dispatcher->terminated_tasks().size() == 1);
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Canceled);
   }
 
   //============================================================================
@@ -86,7 +101,6 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   {
     // Submit first task and wait for bidding
     auto id = dispatcher->submit_task(task_profile1);
-    task_profile1.task_id = id; // update id
     REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
 
@@ -94,15 +108,14 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     std::this_thread::sleep_for(std::chrono::milliseconds(3500));
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Failed);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
-    REQUIRE(test_taskprofile.task_id == task_profile1.task_id);
+    REQUIRE(test_taskprofile.task_id == id);
     REQUIRE(change_times == 2); // add and failed
 
     // Submit another task
     id = dispatcher->submit_task(task_profile2);
-    task_profile2.task_id = id;
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     REQUIRE(dispatcher->terminated_tasks().size() == 2);
-    REQUIRE(test_taskprofile.task_id == task_profile2.task_id);
+    REQUIRE(test_taskprofile.task_id == id);
     REQUIRE(change_times == 4); // add and failed x2
   }
 
@@ -171,8 +184,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   //============================================================================
   WHEN("Full Dispatch cycle")
   {
-    auto id = dispatcher->submit_task(task_profile2);
-    task_profile2.task_id = id;
+    const auto id = dispatcher->submit_task(task_profile2);
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
@@ -189,8 +201,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
   WHEN("Half way cancel Dispatch cycle")
   {
-    auto id = dispatcher->submit_task(task_profile2);
-    task_profile2.task_id = id;
+    const auto id = dispatcher->submit_task(task_profile2);
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
     REQUIRE(dispatcher->active_tasks().size() == 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
@@ -204,7 +215,8 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     CHECK(status->state == TaskStatus::State::Canceled);
     REQUIRE(change_times == 3); // Pending -> Queued -> Canceled
   }
+
+  rclcpp::shutdown();
 }
 
-} // namespace action
 } // namespace rmf_task_ros2

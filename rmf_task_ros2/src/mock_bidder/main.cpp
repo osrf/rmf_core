@@ -18,7 +18,7 @@
 /// Note: This is a testing bidder node script
 
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
-#include <rmf_task_ros2/action/Server.hpp>
+#include "../rmf_task_ros2/action/Server.hpp"
 #include <rclcpp/rclcpp.hpp>
 
 using namespace rmf_task_ros2;
@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     [](const bidding::BidNotice& notice)
     {
       // Here user will provice the best robot as a bid submission
-      std::cout << "[Bidding] Providing best estimates" << std::endl;
+      std::cout << "[MockBidder] Providing best estimates" << std::endl;
       auto req_start_time =
       rmf_traffic_ros2::convert(notice.task_profile.start_time);
 
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
   action_server->register_callbacks(
     [&action_server, &node](const TaskProfile& task_profile)
     {
-      std::cout << "[Action] ~Start Queue Task: "
+      std::cout << "[MockBidder] ~Start Queue Task: "
                 << task_profile.task_id<<std::endl;
 
       // async on executing task
@@ -80,17 +80,19 @@ int main(int argc, char* argv[])
           status.end_time =
           rmf_traffic::time::apply_offset(status.start_time, 7);
 
-          // todo: should mock wait until start time is reached
-          std::cout << " [impl] Queued " << profile.task_id << std::endl;
+          std::cout << " [MockBidder] Queued, TaskID:  " 
+                    << profile.task_id << std::endl;
           action_server->update_status(status);
 
           std::this_thread::sleep_for(std::chrono::seconds(2));
-          std::cout << " [impl] Executing " << profile.task_id << std::endl;
+          std::cout << " [MockBidder] Executing, TaskID: "
+                    << profile.task_id << std::endl;
           status.state = TaskStatus::State::Executing;
           action_server->update_status(status);
 
           std::this_thread::sleep_for(std::chrono::seconds(5));
-          std::cout << " [impl] Completed " << profile.task_id << std::endl;
+          std::cout << " [MockBidder] Completed, TaskID: "
+                    << profile.task_id << std::endl;
           status.state = TaskStatus::State::Completed;
           action_server->update_status(status);
         }, task_profile
@@ -101,7 +103,7 @@ int main(int argc, char* argv[])
     },
     [&action_server](const TaskProfile& task_profile)
     {
-      std::cout << "[Action] ~Cancel Executing Task: "
+      std::cout << "[MockBidder] ~Cancel Executing Task: "
                 << task_profile.task_id<<std::endl;
       return true; //success , send State::Canceled
     }

@@ -21,7 +21,7 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/action/TaskStatus.hpp>
+#include <rmf_task_ros2/TaskStatus.hpp>
 #include <rmf_traffic/Time.hpp>
 
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;

@@ -21,7 +21,7 @@
 #include <rclcpp/node.hpp>
 
 #include <rmf_task_ros2/StandardNames.hpp>
-#include <rmf_task_ros2/action/TaskStatus.hpp>
+#include <rmf_task_ros2/TaskStatus.hpp>
 #include <rmf_traffic/Time.hpp>
 
 namespace rmf_task_ros2 {

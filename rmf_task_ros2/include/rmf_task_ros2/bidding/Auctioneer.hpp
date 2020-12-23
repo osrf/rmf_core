@@ -59,18 +59,13 @@ public:
   /// \param[in] result_callback
   ///   This callback fn will be called when a bidding result is concluded
   ///
-  /// \param[in] sequential
-  ///   When true, bidding tasks are proccessed "one after the other". Else
-  ///   parallel bidding
-  ///
   /// \sa make()
   static std::shared_ptr<Auctioneer> make(
     const std::shared_ptr<rclcpp::Node>& node,
-    BiddingResultCallback result_callback,
-    const bool sequential = true);
+    BiddingResultCallback result_callback);
 
-  /// Start a bidding process with a input task. If sequential, this will be
-  /// added in a queue, else, a bidding process will start instantly.
+  /// Start a bidding process by provide a bidding task. Note the each
+  /// bidding process is conducted sequentially
   ///
   /// \param[in] bid_notice
   ///   bidding task, task which will call for bid

@@ -16,8 +16,8 @@
 */
 
 #include <rmf_utils/optional.hpp>
-#include <rmf_task_ros2/action/Client.hpp>
-#include <rmf_task_ros2/action/Server.hpp>
+#include "../../src/rmf_task_ros2/action/Client.hpp"
+#include "../../src/rmf_task_ros2/action/Server.hpp"
 #include <rclcpp/rclcpp.hpp>
 
 #include <chrono>

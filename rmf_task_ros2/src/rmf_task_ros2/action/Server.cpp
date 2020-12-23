@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/action/Server.hpp>
+#include "Server.hpp"
 
 namespace rmf_task_ros2 {
 namespace action {

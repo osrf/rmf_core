@@ -15,12 +15,17 @@
  *
 */
 
-#include <rmf_task_ros2/dispatcher/Dispatcher.hpp>
+#include <rmf_task_ros2/Dispatcher.hpp>
 
 #include <rclcpp/node.hpp>
 
+#include "action/Client.hpp"
+
+#include <rmf_task_msgs/srv/submit_task.hpp>
+#include <rmf_task_msgs/srv/cancel_task.hpp>
+#include <rmf_task_msgs/srv/get_task_list.hpp>
+
 namespace rmf_task_ros2 {
-namespace dispatcher {
 
 //==============================================================================
 class Dispatcher::Implementation
@@ -30,12 +35,22 @@ public:
   std::shared_ptr<bidding::Auctioneer> auctioneer;
   std::shared_ptr<action::Client> action_client;
 
+  using SubmitTaskSrv = rmf_task_msgs::srv::SubmitTask;
+  using CancelTaskSrv = rmf_task_msgs::srv::CancelTask;
+  using GetTaskListSrv = rmf_task_msgs::srv::GetTaskList;
+
+  rclcpp::Service<SubmitTaskSrv>::SharedPtr submit_task_srv;
+  rclcpp::Service<CancelTaskSrv>::SharedPtr cancel_task_srv;
+  rclcpp::Service<GetTaskListSrv>::SharedPtr get_task_list_srv;
+
   StatusCallback on_change_fn;
 
   DispatchTasks active_dispatch_tasks;
   DispatchTasks terminal_dispatch_tasks;
   std::size_t i = 0; // temp index for generating task_id
   double bidding_time_window;
+  int terminated_tasks_max_size;
+
 
   Implementation(std::shared_ptr<rclcpp::Node> node_)
   : node{std::move(node_)}
@@ -45,6 +60,87 @@ public:
       node->declare_parameter<double>("bidding_time_window", 2.0);
     RCLCPP_INFO(node->get_logger(),
       " Declared Time Window Param as: %f secs", bidding_time_window);
+    terminated_tasks_max_size =
+      node->declare_parameter<int>("terminated_tasks_max_size", 100);
+    RCLCPP_INFO(node->get_logger(),
+      " Declared Terminated Tasks Max Size Param as: %d",
+      terminated_tasks_max_size);
+
+    // Setup up stream srv interfaces
+    submit_task_srv = node->create_service<SubmitTaskSrv>(
+      rmf_task_ros2::SubmitTaskSrvName,
+      [this](
+        const std::shared_ptr<SubmitTaskSrv::Request> request,
+        std::shared_ptr<SubmitTaskSrv::Response> response)
+      {
+        rmf_task_ros2::TaskProfile task_profile;
+        task_profile.task_type = request->task_type;
+        task_profile.start_time = request->start_time;
+        task_profile.clean = request->clean;
+        task_profile.loop = request->loop;
+        task_profile.delivery = request->delivery;
+        task_profile.station = request->station;
+
+        switch (request->evaluator)
+        {
+          using namespace rmf_task_ros2::bidding;
+          case SubmitTaskSrv::Request::LOWEST_DIFF_COST_EVAL:
+            {
+              this->auctioneer->select_evaluator(
+                std::make_shared<LeastFleetDiffCostEvaluator>());
+              break;
+            }
+          case SubmitTaskSrv::Request::LOWEST_COST_EVAL:
+            {
+              this->auctioneer->select_evaluator(
+                std::make_shared<LeastFleetCostEvaluator>());
+              break;
+            }
+          case SubmitTaskSrv::Request::QUICKEST_FINISH_EVAL:
+            {
+              this->auctioneer->select_evaluator(
+                std::make_shared<QuickestFinishEvaluator>());
+              break;
+            }
+        }
+
+        response->task_id = this->submit_task(task_profile);;
+        response->success = true;
+      }
+    );
+
+    cancel_task_srv = node->create_service<CancelTaskSrv>(
+      rmf_task_ros2::CancelTaskSrvName,
+      [this](
+        const std::shared_ptr<CancelTaskSrv::Request> request,
+        std::shared_ptr<CancelTaskSrv::Response> response)
+      {
+        auto id = request->task_id;
+        response->success = this->cancel_task(id);
+      }
+    );
+
+    get_task_list_srv = node->create_service<GetTaskListSrv>(
+      rmf_task_ros2::GetTaskListSrvName,
+      [this](
+        const std::shared_ptr<GetTaskListSrv::Request> request,
+        std::shared_ptr<GetTaskListSrv::Response> response)
+      {
+        for (auto task : (this->active_dispatch_tasks))
+        {
+          response->active_tasks.push_back(
+            rmf_task_ros2::convert_status(*(task.second)));
+        }
+
+        // Terminated Tasks
+        for (auto task : (this->terminal_dispatch_tasks))
+        {
+          response->terminated_tasks.push_back(
+            rmf_task_ros2::convert_status(*(task.second)));
+        }
+        response->success = true;
+      }
+    );
   }
 
   void start()
@@ -198,8 +294,16 @@ public:
   {
     assert(terminate_status->is_terminated());
 
+    // prevent terminal_dispatch_tasks from piling up meaning
+    if (terminal_dispatch_tasks.size() >= terminated_tasks_max_size)
+    {
+      RCLCPP_WARN(node->get_logger(), 
+        "Terminated tasks reached max size, remove first element");
+      terminal_dispatch_tasks.erase ( terminal_dispatch_tasks.begin() );
+    }
+
     const auto id = terminate_status->task_profile.task_id;
-    RCLCPP_WARN(node->get_logger(), " Terminated Task!! ID: %s", id.c_str());
+    RCLCPP_WARN(node->get_logger(), "Terminate Task ID: %s", id.c_str());
 
     // destroy prev status ptr and recreate one
     auto status = std::make_shared<TaskStatus>(*terminate_status);
@@ -307,11 +411,4 @@ Dispatcher::Dispatcher()
   // Do Nothing
 }
 
-//==============================================================================
-Dispatcher::~Dispatcher()
-{
-  rclcpp::shutdown();
-}
-
-} // namespace dispatcher
 } // namespace rmf_task_ros2

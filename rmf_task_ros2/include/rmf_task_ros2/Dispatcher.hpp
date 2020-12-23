@@ -25,10 +25,10 @@
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
-#include <rmf_task_ros2/action/Client.hpp>
+#include <rmf_task_ros2/TaskStatus.hpp>
+
 
 namespace rmf_task_ros2 {
-namespace dispatcher {
 
 //==============================================================================
 /// This dispatcher class holds an instance which handles the dispatching of
@@ -36,7 +36,7 @@ namespace dispatcher {
 class Dispatcher : public std::enable_shared_from_this<Dispatcher>
 {
 public:
-  using DispatchTasks = std::unordered_map<TaskID, TaskStatusPtr>;
+  using DispatchTasks = std::map<TaskID, TaskStatusPtr>;
 
   /// Initialize an rclcpp context and make an dispatcher instance. This will
   /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will
@@ -120,8 +120,6 @@ public:
   /// spin dispatcher node
   void spin();
 
-  ~Dispatcher();
-
   class Implementation;
 
 private:
@@ -129,7 +127,6 @@ private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
-} // namespace dispatcher
 } // namespace rmf_task_ros2
 
 #endif // RMF_TASK_ROS2__DISPATCHER_HPP
