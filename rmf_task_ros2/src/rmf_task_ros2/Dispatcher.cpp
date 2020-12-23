@@ -47,10 +47,19 @@ public:
 
   DispatchTasks active_dispatch_tasks;
   DispatchTasks terminal_dispatch_tasks;
-  std::size_t task_counter = 0; // temp index for generating task_id
+  std::size_t task_counter = 0; // index for generating task_id
   double bidding_time_window;
   int terminated_tasks_max_size;
 
+  std::unordered_map<std::size_t, std::string> task_type_name =
+  {
+    {0, "Station"},
+    {1, "Loop"},
+    {2, "Delivery"},
+    {3, "ChargeBattery"},
+    {4, "Clean"},
+    {5, "Patrol"}
+  };
 
   Implementation(std::shared_ptr<rclcpp::Node> node_)
   : node{std::move(node_)}
@@ -77,25 +86,31 @@ public:
         {
           using namespace rmf_task_ros2::bidding;
           case SubmitTaskSrv::Request::LOWEST_DIFF_COST_EVAL:
-            {
-              this->auctioneer->select_evaluator(
-                std::make_shared<LeastFleetDiffCostEvaluator>());
-              break;
-            }
+            this->auctioneer->select_evaluator(
+              std::make_shared<LeastFleetDiffCostEvaluator>());
+            break;
           case SubmitTaskSrv::Request::LOWEST_COST_EVAL:
-            {
-              this->auctioneer->select_evaluator(
-                std::make_shared<LeastFleetCostEvaluator>());
-              break;
-            }
+            this->auctioneer->select_evaluator(
+              std::make_shared<LeastFleetCostEvaluator>());
+            break;
           case SubmitTaskSrv::Request::QUICKEST_FINISH_EVAL:
-            {
-              this->auctioneer->select_evaluator(
-                std::make_shared<QuickestFinishEvaluator>());
-              break;
-            }
+            this->auctioneer->select_evaluator(
+              std::make_shared<QuickestFinishEvaluator>());
+            break;
+          default:
+            RCLCPP_WARN(this->node->get_logger(),
+            "Selected Evaluator is invalid, switch back t0 previous");
+            break;
         }
-        response->task_id = this->submit_task(request->description);
+
+        const auto id = this->submit_task(request->description);
+        if (id == std::nullopt)
+        {
+          response->success = false;
+          return;
+        }
+
+        response->task_id = *id;
         response->success = true;
       }
     );
@@ -145,19 +160,23 @@ public:
       std::bind(&Implementation::task_status_cb, this, _1));
   }
 
-  TaskID submit_task(const TaskDescription& description)
+  std::optional<TaskID> submit_task(const TaskDescription& description)
   {
     TaskProfile submitted_task;
     submitted_task.submission_time = node->now();
     submitted_task.description = description;
 
-    // TODO: generate a unique task_id based on clock
+    const auto task_type = static_cast<std::size_t>(description.task_type.type);
+
+    if (!task_type_name.count(task_type))
+    {
+      RCLCPP_ERROR(node->get_logger(), "TaskType: %d is invalid", task_type);
+      return std::nullopt;
+    }
+
     // auto generate a task_id for a given submitted task
-    submitted_task.task_id = "Task"
-      + std::to_string( static_cast<std::size_t>(description.task_type.type))
-      + "-" + std::to_string(task_counter++);
-    // "task" + std::to_string((int)task.task_type)
-    //   + "-" + std::to_string((int)(node->now().seconds()));
+    submitted_task.task_id =
+      task_type_name[task_type] + std::to_string(task_counter++);
 
     // add task to internal cache
     TaskStatus status;
@@ -209,7 +228,7 @@ public:
     return action_client->cancel_task(profile);
   }
 
-  const rmf_utils::optional<TaskStatus::State> get_task_state(
+  const std::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id) const
   {
     // check if taskid exists in active tasks
@@ -222,7 +241,7 @@ public:
     if (it != terminal_dispatch_tasks.end())
       return it->second->state;
 
-    return rmf_utils::nullopt;
+    return std::nullopt;
   }
 
   void receive_bidding_winner_cb(
@@ -237,7 +256,7 @@ public:
     if (!winner)
     {
       RCLCPP_WARN(node->get_logger(), "[Dispatch::Bidding Result] task"
-        "%s has no bidding valid submissions :(", task_id.c_str());
+        "%s has no submissions during bidding :(", task_id.c_str());
       pending_task_status->state = TaskStatus::State::Failed;
       terminate_task(pending_task_status);
 
@@ -289,9 +308,9 @@ public:
     // prevent terminal_dispatch_tasks from piling up meaning
     if (terminal_dispatch_tasks.size() >= terminated_tasks_max_size)
     {
-      RCLCPP_WARN(node->get_logger(), 
+      RCLCPP_WARN(node->get_logger(),
         "Terminated tasks reached max size, remove first element");
-      terminal_dispatch_tasks.erase ( terminal_dispatch_tasks.begin() );
+      terminal_dispatch_tasks.erase(terminal_dispatch_tasks.begin() );
     }
 
     const auto id = terminate_status->task_profile.task_id;
@@ -342,7 +361,8 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
 }
 
 //==============================================================================
-TaskID Dispatcher::submit_task(const TaskDescription& task_description)
+std::optional<TaskID> Dispatcher::submit_task(
+  const TaskDescription& task_description)
 {
   return _pimpl->submit_task(task_description);
 }
@@ -354,7 +374,7 @@ bool Dispatcher::cancel_task(const TaskID& task_id)
 }
 
 //==============================================================================
-const rmf_utils::optional<TaskStatus::State> Dispatcher::get_task_state(
+const std::optional<TaskStatus::State> Dispatcher::get_task_state(
   const TaskID& task_id) const
 {
   return _pimpl->get_task_state(task_id);

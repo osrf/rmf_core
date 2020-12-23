@@ -42,12 +42,12 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   // Initializing bidding task
   bidding_task1.task_profile.task_id = "bid1";
   bidding_task1.time_window = timeout;
-  bidding_task1.task_profile.description.task_type.type = 
+  bidding_task1.task_profile.description.task_type.type =
     TaskTypeMsg::TYPE_STATION;
 
   bidding_task2.task_profile.task_id = "bid2";
   bidding_task2.time_window = timeout;
-  bidding_task2.task_profile.description.task_type.type = 
+  bidding_task2.task_profile.description.task_type.type =
     TaskTypeMsg::TYPE_DELIVERY;
 
   //============================================================================

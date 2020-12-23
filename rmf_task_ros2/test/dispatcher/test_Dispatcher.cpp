@@ -15,7 +15,6 @@
  *
 */
 
-#include <rmf_utils/optional.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rmf_task_ros2/Dispatcher.hpp>
 
@@ -35,7 +34,7 @@ namespace rmf_task_ros2 {
 
 //==============================================================================
 SCENARIO("Dispatcehr API Test", "[Dispatcher]")
-{ 
+{
   TaskDescription task_desc1;
   TaskDescription task_desc2;
   task_desc1.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_STATION;
@@ -75,10 +74,14 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     const auto id = dispatcher->submit_task(task_desc1);
     REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    REQUIRE(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
 
     // check random id
     REQUIRE(!(dispatcher->get_task_state("non_existence_id")));
+
+    // add an invalid task
+    task_desc2.task_type.type = 10; // this is invalid
+    REQUIRE(dispatcher->submit_task(task_desc2) == std::nullopt);
   }
 
   //============================================================================
@@ -98,11 +101,11 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     // Submit first task and wait for bidding
     auto id = dispatcher->submit_task(task_desc1);
     REQUIRE(dispatcher->active_tasks().size() == 1);
-    REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    REQUIRE(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
 
     // Default 2s timeout, wait 3s for timetout, should fail here
     std::this_thread::sleep_for(std::chrono::milliseconds(3500));
-    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Failed);
+    CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Failed);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(test_taskprofile.task_id == id);
     REQUIRE(change_times == 2); // add and failed
@@ -111,7 +114,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     id = dispatcher->submit_task(task_desc2);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     REQUIRE(dispatcher->terminated_tasks().size() == 2);
-    REQUIRE(test_taskprofile.task_id == id);
+    REQUIRE(test_taskprofile.task_id == *id);
     REQUIRE(change_times == 4); // add and failed x2
   }
 
@@ -182,16 +185,16 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   WHEN("Full Dispatch cycle")
   {
     const auto id = dispatcher->submit_task(task_desc1);
-    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // now should queue the task
-    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Queued);
+    CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Queued);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(change_times == 2); // Pending and Queued
 
     std::this_thread::sleep_for(std::chrono::seconds(3));
-    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Completed);
+    CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Completed);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(change_times == 4); // Pending > Queued > Executing > Completed
   }
@@ -199,15 +202,15 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   WHEN("Half way cancel Dispatch cycle")
   {
     const auto id = dispatcher->submit_task(task_desc2);
-    CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
+    CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
     REQUIRE(dispatcher->active_tasks().size() == 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // cancel the task after QUEUED State
-    dispatcher->cancel_task(id);
+    dispatcher->cancel_task(*id);
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    REQUIRE(dispatcher->terminated_tasks().begin()->first == id);
+    REQUIRE(dispatcher->terminated_tasks().begin()->first == *id);
     auto status = dispatcher->terminated_tasks().begin()->second;
     CHECK(status->state == TaskStatus::State::Canceled);
     REQUIRE(change_times == 3); // Pending -> Queued -> Canceled

@@ -146,8 +146,9 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   // Determine task type and convert to request pointer
   rmf_task::ConstRequestPtr new_request = nullptr;
   const auto& task_profile = msg->task_profile;
-  const auto& task_type = task_profile.task_type;
-  const rmf_traffic::Time start_time = rmf_traffic_ros2::convert(task_profile.start_time);
+  const auto& task_type = task_profile.description.task_type;
+  const rmf_traffic::Time start_time = 
+    rmf_traffic_ros2::convert(task_profile.description.start_time);
   // TODO (YV) get rid of ID field in RequestPtr
   std::string id = msg->task_profile.task_id;
   const auto& graph = planner->get_configuration().graph();
@@ -155,7 +156,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   // Process Cleaning task
   if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_CLEAN)
   {
-    if (task_profile.clean.start_waypoint.empty())
+    if (task_profile.description.clean.start_waypoint.empty())
     {
       RCLCPP_ERROR(
         node->get_logger(),
@@ -166,7 +167,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     }
 
     // Check for valid start waypoint
-    const std::string start_wp_name = task_profile.clean.start_waypoint;
+    const std::string start_wp_name = 
+      task_profile.description.clean.start_waypoint;
     const auto start_wp = graph.find_waypoint(start_wp_name);
     if (!start_wp)
     {
@@ -245,7 +247,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_DELIVERY)
   {
-    const auto& delivery = task_profile.delivery;
+    const auto& delivery = task_profile.description.delivery;
     if (delivery.pickup_place_name.empty())
     {
       RCLCPP_ERROR(
@@ -340,7 +342,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   }
   else if (task_type.type == rmf_task_msgs::msg::TaskType::TYPE_LOOP)
   {
-    const auto& loop = task_profile.loop;
+    const auto& loop = task_profile.description.loop;
     if (loop.start_name.empty())
     {
       RCLCPP_ERROR(

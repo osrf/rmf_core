@@ -29,7 +29,7 @@ TaskStatus convert_status(const StatusMsg& from)
   status.end_time = rmf_traffic_ros2::convert(from.end_time);
   status.robot_name = from.robot_name;
   status.status = from.status;
-  status.state = (TaskStatus::State)from.state;
+  status.state = static_cast<TaskStatus::State>(from.state);
   return status;
 }
 
@@ -44,7 +44,7 @@ StatusMsg convert_status(const TaskStatus& from)
   status.end_time = rmf_traffic_ros2::convert(from.end_time);
   status.robot_name = from.robot_name;
   status.status = from.status;
-  status.state = (uint32_t)from.state;
+  status.state = static_cast<uint32_t>(from.state);
   return status;
 }
 

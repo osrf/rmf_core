@@ -68,8 +68,8 @@ public:
   ///   Submit a task to dispatch
   ///
   /// \return task_id
-  ///   self-generated task_id
-  TaskID submit_task(
+  ///   self-generated task_id, nullopt is submit task failed
+  std::optional<TaskID> submit_task(
     const TaskDescription& task_description);
 
   /// Cancel an active task which was previously submitted to Dispatcher. This
@@ -87,9 +87,9 @@ public:
   /// Check the state of a submited task. It can be either active or terminated
   ///
   /// \param [in] task_id
-  ///   request task id
+  ///   task_id obtained from `submit_task()`
   ///
-  /// \return State of the task
+  /// \return State of the task, nullopt if task is not available
   const rmf_utils::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id) const;
 

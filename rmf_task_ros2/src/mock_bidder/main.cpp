@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
           status.robot_name = "dumbot";
           status.start_time = rmf_traffic_ros2::convert(node->now());
           status.end_time =
-            rmf_traffic::time::apply_offset(status.start_time, 7);
+          rmf_traffic::time::apply_offset(status.start_time, 7);
 
           const auto id = profile.task_id;
           std::cout << " [MockBidder] Queued, TaskID: "  << id << std::endl;
