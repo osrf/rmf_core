@@ -62,8 +62,11 @@ private:
 class EstimateCache
 {
 public:
-  /// Constructs an empty EstimateCache
-  EstimateCache();
+  /// Constructs an EstimateCache
+  ///
+  /// \param[in] N
+  ///   The maximum number of waypoints in the navigation graph
+  EstimateCache(std::size_t N);
 
   /// Struct containing the estimated duration and charge required to travel between
   /// a waypoint pair.

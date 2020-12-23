@@ -18,7 +18,7 @@
 
 #include <rmf_task/agv/TaskPlanner.hpp>
 #include <rmf_task/agv/State.hpp>
-#include <rmf_task/agv/StateConfig.hpp>
+#include <rmf_task/agv/Constraints.hpp>
 #include <rmf_task/requests/Delivery.hpp>
 #include <rmf_task/requests/ChargeBattery.hpp>
 #include <rmf_task/requests/Loop.hpp>
@@ -184,10 +184,10 @@ SCENARIO("Grid World")
       rmf_task::agv::State{second_location, 2, 1.0}
     };
 
-    std::vector<rmf_task::agv::StateConfig> state_configs =
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
     {
-      rmf_task::agv::StateConfig{0.2},
-      rmf_task::agv::StateConfig{0.2}
+      rmf_task::agv::Constraints{0.2},
+      rmf_task::agv::Constraints{0.2}
     };
 
     std::vector<rmf_task::ConstRequestPtr> requests =
@@ -242,29 +242,29 @@ SCENARIO("Grid World")
 
     auto start_time = std::chrono::steady_clock::now();
     const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, state_configs, requests);
+      now, initial_states, task_planning_constraints, requests);
     const auto greedy_assignments = std::get_if<
       TaskPlanner::Assignments>(&greedy_result);
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    std::cout << "Greedy solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", *greedy_assignments, greedy_cost);
+    // std::cout << "Greedy solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Greedy", *greedy_assignments, greedy_cost);
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
     task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, state_configs, requests, nullptr);
+      now, initial_states, task_planning_constraints, requests, nullptr);
     const auto optimal_assignments = std::get_if<
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    std::cout << "Optimal solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", *optimal_assignments, optimal_cost);
+    // std::cout << "Optimal solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Optimal", *optimal_assignments, optimal_cost);
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -283,10 +283,10 @@ SCENARIO("Grid World")
       rmf_task::agv::State{second_location, 2, 1.0}
     };
 
-    std::vector<rmf_task::agv::StateConfig> state_configs =
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
     {
-      rmf_task::agv::StateConfig{0.2},
-      rmf_task::agv::StateConfig{0.2}
+      rmf_task::agv::Constraints{0.2},
+      rmf_task::agv::Constraints{0.2}
     };
 
     std::vector<rmf_task::ConstRequestPtr> requests =
@@ -445,29 +445,29 @@ SCENARIO("Grid World")
 
     auto start_time = std::chrono::steady_clock::now();
     const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, state_configs, requests);
+      now, initial_states, task_planning_constraints, requests);
     const auto greedy_assignments = std::get_if<
       TaskPlanner::Assignments>(&greedy_result);
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    std::cout << "Greedy solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", *greedy_assignments, greedy_cost);
+    // std::cout << "Greedy solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Greedy", *greedy_assignments, greedy_cost);
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
     task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, state_configs, requests, nullptr);
+      now, initial_states, task_planning_constraints, requests, nullptr);
     const auto optimal_assignments = std::get_if<
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    std::cout << "Optimal solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", *optimal_assignments, optimal_cost);
+    // std::cout << "Optimal solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Optimal", *optimal_assignments, optimal_cost);
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -487,10 +487,10 @@ SCENARIO("Grid World")
       rmf_task::agv::State{second_location, 2, initial_soc}
     };
 
-    std::vector<rmf_task::agv::StateConfig> state_configs =
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
     {
-      rmf_task::agv::StateConfig{0.2},
-      rmf_task::agv::StateConfig{0.2}
+      rmf_task::agv::Constraints{0.2},
+      rmf_task::agv::Constraints{0.2}
     };
 
     std::vector<rmf_task::ConstRequestPtr> requests =
@@ -558,29 +558,29 @@ SCENARIO("Grid World")
 
     auto start_time = std::chrono::steady_clock::now();
     const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, state_configs, requests);
+      now, initial_states, task_planning_constraints, requests);
     const auto greedy_assignments = std::get_if<
       TaskPlanner::Assignments>(&greedy_result);
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    std::cout << "Greedy solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", *greedy_assignments, greedy_cost);
+    // std::cout << "Greedy solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Greedy", *greedy_assignments, greedy_cost);
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
     task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, state_configs, requests, nullptr);
+      now, initial_states, task_planning_constraints, requests, nullptr);
     const auto optimal_assignments = std::get_if<
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    std::cout << "Optimal solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", *optimal_assignments, optimal_cost);
+    // std::cout << "Optimal solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Optimal", *optimal_assignments, optimal_cost);
 
 
     REQUIRE(optimal_cost <= greedy_cost);
@@ -610,10 +610,10 @@ SCENARIO("Grid World")
       rmf_task::agv::State{second_location, 2, 1.0}
     };
 
-    std::vector<rmf_task::agv::StateConfig> state_configs =
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
     {
-      rmf_task::agv::StateConfig{0.2},
-      rmf_task::agv::StateConfig{0.2}
+      rmf_task::agv::Constraints{0.2},
+      rmf_task::agv::Constraints{0.2}
     };
 
     std::vector<rmf_task::ConstRequestPtr> requests =
@@ -772,29 +772,29 @@ SCENARIO("Grid World")
 
     auto start_time = std::chrono::steady_clock::now();
     const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, state_configs, requests);
+      now, initial_states, task_planning_constraints, requests);
     const auto greedy_assignments = std::get_if<
       TaskPlanner::Assignments>(&greedy_result);
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    std::cout << "Greedy solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Greedy", *greedy_assignments, greedy_cost);
+    // std::cout << "Greedy solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Greedy", *greedy_assignments, greedy_cost);
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
     task_planner = TaskPlanner(task_config);
     start_time = std::chrono::steady_clock::now();
     const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, state_configs, requests, nullptr);
+      now, initial_states, task_planning_constraints, requests, nullptr);
     const auto optimal_assignments = std::get_if<
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    std::cout << "Optimal solution found in: "
-              << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", *optimal_assignments, optimal_cost);
+    // std::cout << "Optimal solution found in: "
+    //          << (finish_time - start_time).count() / 1e9 << std::endl;
+    // display_solution("Optimal", *optimal_assignments, optimal_cost);
 
 
     REQUIRE(optimal_cost <= greedy_cost);
@@ -812,9 +812,9 @@ SCENARIO("Grid World")
       rmf_task::agv::State{first_location, 13, 1.0},
     };
 
-    std::vector<rmf_task::agv::StateConfig> state_configs =
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
     {
-      rmf_task::agv::StateConfig{0.2},
+      rmf_task::agv::Constraints{0.2},
     };
 
     std::vector<rmf_task::ConstRequestPtr> requests =
@@ -840,7 +840,7 @@ SCENARIO("Grid World")
     TaskPlanner task_planner(task_config);
 
     const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, state_configs, requests);
+      now, initial_states, task_planning_constraints, requests);
     const auto greedy_assignments = std::get_if<
       TaskPlanner::Assignments>(&greedy_result);
     REQUIRE_FALSE(greedy_assignments);
@@ -852,7 +852,7 @@ SCENARIO("Grid World")
     // remain independent of one another
     task_planner = TaskPlanner(task_config);
     const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, state_configs, requests, nullptr);
+      now, initial_states, task_planning_constraints, requests, nullptr);
     const auto optimal_assignments = std::get_if<
       TaskPlanner::Assignments>(&optimal_result);
     REQUIRE_FALSE(optimal_assignments);
@@ -873,9 +873,9 @@ SCENARIO("Grid World")
       rmf_task::agv::State{first_location, 13, 0.0},
     };
 
-    std::vector<rmf_task::agv::StateConfig> state_configs =
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
     {
-      rmf_task::agv::StateConfig{0.2},
+      rmf_task::agv::Constraints{0.2},
     };
 
     std::vector<rmf_task::ConstRequestPtr> requests =
@@ -901,7 +901,7 @@ SCENARIO("Grid World")
     TaskPlanner task_planner(task_config);
 
     const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, state_configs, requests);
+      now, initial_states, task_planning_constraints, requests);
     const auto greedy_assignments = std::get_if<
       TaskPlanner::Assignments>(&greedy_result);
     REQUIRE_FALSE(greedy_assignments);
@@ -913,7 +913,7 @@ SCENARIO("Grid World")
     // remain independent of one another
     task_planner = TaskPlanner(task_config);
     const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, state_configs, requests, nullptr);
+      now, initial_states, task_planning_constraints, requests, nullptr);
     const auto optimal_assignments = std::get_if<
       TaskPlanner::Assignments>(&optimal_result);
     REQUIRE_FALSE(optimal_assignments);

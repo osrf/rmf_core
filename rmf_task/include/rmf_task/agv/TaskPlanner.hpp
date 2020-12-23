@@ -20,7 +20,7 @@
 
 #include <rmf_task/Request.hpp>
 #include <rmf_task/agv/State.hpp>
-#include <rmf_task/agv/StateConfig.hpp>
+#include <rmf_task/agv/Constraints.hpp>
 
 #include <rmf_battery/agv/BatterySystem.hpp>
 #include <rmf_battery/MotionPowerSink.hpp>
@@ -170,7 +170,7 @@ public:
   Result greedy_plan(
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
-    std::vector<StateConfig> state_configs,
+    std::vector<Constraints> constraints_set,
     std::vector<ConstRequestPtr> requests);
 
   /// Get the optimal planner based assignments for a set of initial states and 
@@ -182,7 +182,7 @@ public:
   Result optimal_plan(
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
-    std::vector<StateConfig> state_configs,
+    std::vector<Constraints> constraints_set,
     std::vector<ConstRequestPtr> requests,
     std::function<bool()> interrupter);
 

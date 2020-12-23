@@ -18,41 +18,41 @@
 #include <chrono>
 #include <memory>
 
-#include <rmf_task/agv/StateConfig.hpp>
+#include <rmf_task/agv/Constraints.hpp>
 
 #include <rmf_utils/catch.hpp>
 
-SCENARIO("Robot State Configs")
+SCENARIO("Test Constraints")
 {
-  std::unique_ptr<rmf_task::agv::StateConfig> basic_state_config;
+  std::unique_ptr<rmf_task::agv::Constraints> constraints;
 
   WHEN("Minimum battery threshold")
   {
     CHECK_NOTHROW(
-      basic_state_config.reset(new rmf_task::agv::StateConfig{0.0}));
+      constraints.reset(new rmf_task::agv::Constraints{0.0}));
   }
 
   WHEN("Maximum battery threshold")
   {
     CHECK_NOTHROW(
-      basic_state_config.reset(new rmf_task::agv::StateConfig{1.0}));
+      constraints.reset(new rmf_task::agv::Constraints{1.0}));
   }
 
   WHEN("Half battery threshold")
   {
     CHECK_NOTHROW(
-      basic_state_config.reset(new rmf_task::agv::StateConfig{0.5}));
+      constraints.reset(new rmf_task::agv::Constraints{0.5}));
   }
 
   WHEN("Below minimum battery threshold")
   {
     CHECK_THROWS(
-      basic_state_config.reset(new rmf_task::agv::StateConfig{0.0 - 1e-4}));
+      constraints.reset(new rmf_task::agv::Constraints{0.0 - 1e-4}));
   }
 
   WHEN("Above maximum battery threshold")
   {
     CHECK_THROWS(
-      basic_state_config.reset(new rmf_task::agv::StateConfig{1.0 + 1e-4}));
+      constraints.reset(new rmf_task::agv::Constraints{1.0 + 1e-4}));
   }
 }

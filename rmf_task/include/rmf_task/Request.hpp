@@ -22,7 +22,7 @@
 
 #include <rmf_task/Estimate.hpp>
 #include <rmf_task/agv/State.hpp>
-#include <rmf_task/agv/StateConfig.hpp>
+#include <rmf_task/agv/Constraints.hpp>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_utils/impl_ptr.hpp>
@@ -43,7 +43,7 @@ public:
   /// time the robot has to wait before commencing the task
   virtual rmf_utils::optional<Estimate> estimate_finish(
     const agv::State& initial_state,
-    const agv::StateConfig& state_config,
+    const agv::Constraints& task_planning_constraints,
     const std::shared_ptr<EstimateCache> estimate_cache) const = 0;
 
   /// Estimate the invariant component of the task's duration

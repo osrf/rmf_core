@@ -100,7 +100,7 @@ std::string ChargeBattery::id() const
 //==============================================================================
 rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
   const agv::State& initial_state,
-  const agv::StateConfig& state_config,
+  const agv::Constraints& task_planning_constraints,
   const std::shared_ptr<EstimateCache> estimate_cache) const
 {
   // Important to return nullopt if a charging task is not needed. In the task
@@ -173,7 +173,7 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
     }
 
     // If a robot cannot reach its charging dock given its initial battery soc
-    if (battery_soc <= state_config.threshold_soc())
+    if (battery_soc <= task_planning_constraints.threshold_soc())
       return rmf_utils::nullopt;
   }
 
