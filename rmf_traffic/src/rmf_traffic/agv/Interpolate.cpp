@@ -110,6 +110,8 @@ void interpolate_translation(
 
   const Eigen::Vector2d dir = diff_p/dist;
 
+  // This function assumes that the initial position is already inside of the
+  // trajectory.
   States states = compute_traversal(start_time, dist, v_nom, a_nom);
   for (const State& state : states)
   {

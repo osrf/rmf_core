@@ -17,6 +17,8 @@
 
 #include <src/rmf_traffic/agv/planning/ShortestPathHeuristic.hpp>
 
+#include "../../utils_Trajectory.hpp"
+
 #include <rmf_utils/catch.hpp>
 
 // TODO(MXG): It would be good to add tests to see that the cache is behaving
@@ -42,10 +44,13 @@ SCENARIO("Shortest Path Heuristic -- Single Floor")
   graph.add_lane(2, 3);
   graph.add_lane(2, 0);
 
-  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
@@ -142,10 +147,13 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
   graph.add_lane({7, lift_move}, 11);
   graph.add_lane({11, lift_move}, 7);
 
-  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
@@ -283,10 +291,13 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
   // We intentionally do not have a reverse of this lane
   graph.add_lane({9, lift_move}, 5);
 
-  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
@@ -393,10 +404,13 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
   graph.add_lane({9, lift_move}, 5);
   graph.add_lane({11, lift_move}, 7);
 
-  auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   auto cache_map =
     std::make_optional<rmf_traffic::agv::planning::CacheManagerMap<
@@ -472,7 +486,8 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
   graph.add_lane({7, lift_move}, 11);
 
   supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   // We need to completely reconstruct the cache map, because the supergraph has
   // changed.

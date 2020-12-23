@@ -17,6 +17,8 @@
 
 #include <src/rmf_traffic/agv/planning/EuclideanHeuristic.hpp>
 
+#include "../../utils_Trajectory.hpp"
+
 #include <rmf_utils/catch.hpp>
 
 // TODO(MXG): It would be good to add tests to see that the cache is behaving
@@ -34,10 +36,13 @@ SCENARIO("Euclidean Heuristic -- Single Floor")
   graph.add_waypoint(test_map, {0, 1}); // 2
   graph.add_waypoint(test_map, {1, 1}); // 3
 
-  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
@@ -106,10 +111,13 @@ SCENARIO("Euclidean Heuristic -- Easy Multifloor")
   graph.add_lane({7, lift_move}, 11);
   graph.add_lane({11, lift_move}, 7);
 
-  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
@@ -220,10 +228,13 @@ SCENARIO("Euclidean Heuristic -- Complex Multifloor")
   // We intentionally do not have a reverse of this lane
   graph.add_lane({9, lift_move}, 5);
 
-  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
@@ -318,10 +329,13 @@ SCENARIO("Euclidean Heuristic -- No Connection")
   graph.add_lane({9, lift_move}, 5);
   graph.add_lane({11, lift_move}, 7);
 
-  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
-        rmf_traffic::agv::Graph::Implementation::get(graph));
-
   const double max_speed = 2.0;
+  const rmf_traffic::agv::VehicleTraits traits(
+    {max_speed, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
+
+  const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
+        rmf_traffic::agv::Graph::Implementation::get(graph),
+        traits, rmf_traffic::agv::Interpolate::Options());
 
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(

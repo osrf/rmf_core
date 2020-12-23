@@ -19,8 +19,10 @@
 #define SRC__RMF_TRAFFIC__AGV__PLANNING__SUPERGRAPH_HPP
 
 #include "../internal_Graph.hpp"
+#include "../internal_Interpolate.hpp"
 #include "CacheManager.hpp"
 
+#include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
 
@@ -32,12 +34,17 @@ namespace planning {
 class Supergraph;
 
 //==============================================================================
+enum Orientation
+{
+  Forward = 0,
+  Backward,
+  Any
+};
+
+//==============================================================================
 class DifferentialDriveConstraint
 {
 public:
-
-  static Eigen::Rotation2Dd compute_forward_offset(
-    const Eigen::Vector2d& forward);
 
   static const Eigen::Rotation2Dd R_pi;
 
@@ -45,19 +52,27 @@ public:
     const Eigen::Vector2d& forward,
     const bool reversible);
 
-  std::vector<double> get_orientations(
-    const Eigen::Vector2d& course_vector);
+  std::array<std::optional<double>, 2> get_orientations(
+    const Eigen::Vector2d& course_vector) const;
 
+private:
   Eigen::Rotation2Dd R_f_inv;
   bool reversible;
-
 };
 
 //==============================================================================
 struct Traversal
 {
-  std::vector<double> valid_angles;
-  std::vector<std::size_t> lanes;
+  std::size_t finish_waypoint_index;
+  Graph::Lane::EventPtr entry_event;
+  Graph::Lane::EventPtr exit_event;
+
+  struct Alternative
+  {
+    std::vector<Route> routes;
+  };
+
+  std::array<std::optional<Alternative>, 3> alternatives;
 };
 using Traversals = std::vector<Traversal>;
 using ConstTraversalsPtr = std::shared_ptr<const Traversals>;
@@ -70,16 +85,29 @@ public:
 
   TraversalGenerator(
     std::shared_ptr<const Supergraph> graph,
-    std::optional<DifferentialDriveConstraint> constraint);
+    const VehicleTraits& traits,
+    const Interpolate::Options::Implementation& interpolate);
 
   ConstTraversalsPtr generate(
       const std::size_t& key,
       const Storage& old_items,
       Storage& new_items) const final;
 
+  struct Kinematics
+  {
+    Kinematics(
+      const VehicleTraits& traits,
+      const Interpolate::Options::Implementation& interpolate);
+
+    double v_nom;
+    double a_nom;
+    std::optional<DifferentialDriveConstraint> constraint;
+    Interpolate::Options::Implementation interpolate;
+  };
+
 private:
   std::weak_ptr<const Supergraph> _graph;
-  std::optional<DifferentialDriveConstraint> _constraint;
+  Kinematics _kinematics;
 };
 
 //==============================================================================
@@ -96,7 +124,8 @@ public:
 
   static std::shared_ptr<const Supergraph> make(
     Graph::Implementation original,
-    const rmf_traffic::agv::VehicleTraits* traits = nullptr);
+    const VehicleTraits& traits,
+    const Interpolate::Options::Implementation& interpolate);
 
   const Graph::Implementation& original() const;
 
