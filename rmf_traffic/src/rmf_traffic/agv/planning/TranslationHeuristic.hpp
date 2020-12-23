@@ -38,8 +38,6 @@ public:
 
   TranslationHeuristic(
     std::size_t goal,
-    double max_speed,
-    double acceleration,
     std::shared_ptr<const Supergraph> graph,
     CacheManagerPtr<ShortestPathHeuristic> heuristic);
 
@@ -50,8 +48,6 @@ public:
 
 private:
   std::size_t _goal;
-  double _max_speed;
-  double _acceleration;
   std::shared_ptr<const Supergraph> _graph;
   CacheManagerPtr<ShortestPathHeuristic> _heuristic;
 };
@@ -69,15 +65,12 @@ public:
 
   TranslationHeuristicFactory(
     std::shared_ptr<const Supergraph> graph,
-    double max_speed,
-    double acceleration);
+    double max_speed);
 
   ConstTranslationHeuristicPtr make(const std::size_t goal) const final;
 
 private:
   std::shared_ptr<const Supergraph> _graph;
-  double _max_speed;
-  double _acceleration;
   ShortestPathHeuristicCacheMap _heuristic_cache;
 };
 

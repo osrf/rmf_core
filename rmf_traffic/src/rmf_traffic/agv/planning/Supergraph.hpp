@@ -66,6 +66,7 @@ struct Traversal
   std::size_t finish_waypoint_index;
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
+  double best_time;
 
   struct Alternative
   {

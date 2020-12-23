@@ -101,12 +101,53 @@ public:
       return;
     }
 
+    const auto traversals = _graph->traversals().get(current_wp_index);
+    assert(traversals);
+    for (const auto& traversal : *traversals)
+    {
+      const auto next_waypoint_index = traversal.finish_waypoint_index;
+      if (_visited.count(next_waypoint_index))
+      {
+        // If we have already expanded from this waypoint, then there is no
+        // point in re-expanding to it.
+        continue;
+      }
 
+      const auto remaining_cost_estimate = _heuristic.get(next_waypoint_index);
+      if (!remaining_cost_estimate.has_value())
+      {
+        // If the heuristic for this waypoint is a nullopt, then there is no way
+        // to reach the goal from this node. We should just skip this expansion.
+        continue;
+      }
+
+      auto new_node = std::make_shared<Node>(
+            Node{
+              next_waypoint_index,
+              remaining_cost_estimate.value(),
+              current_cost + traversal.best_time,
+              top
+            });
+
+      queue.push(std::move(new_node));
+    }
+  }
+
+  TranslationExpander(
+      std::size_t goal,
+      const TranslationHeuristic::Storage& old_items,
+      Cache<ShortestPathHeuristic> heuristic,
+      std::shared_ptr<const Supergraph> graph)
+    : _goal(goal),
+      _old_items(old_items),
+      _heuristic(heuristic),
+      _graph(std::move(graph))
+  {
+    // Do nothing
   }
 
 private:
   std::size_t _goal;
-  double _max_speed;
   const TranslationHeuristic::Storage& _old_items;
   Cache<ShortestPathHeuristic> _heuristic;
   std::shared_ptr<const Supergraph> _graph;
@@ -116,13 +157,9 @@ private:
 //==============================================================================
 TranslationHeuristic::TranslationHeuristic(
   std::size_t goal,
-  double max_speed,
-  double acceleration,
   std::shared_ptr<const Supergraph> graph,
   CacheManagerPtr<ShortestPathHeuristic> heuristic)
 : _goal(goal),
-  _max_speed(max_speed),
-  _acceleration(acceleration),
   _graph(std::move(graph)),
   _heuristic(std::move(heuristic))
 {
@@ -144,16 +181,51 @@ std::optional<double> TranslationHeuristic::generate(
     new_items.insert({key, std::nullopt});
     return std::nullopt;
   }
+
+  TranslationExpander::SearchQueue queue;
+  queue.push(
+    std::make_shared<TranslationExpander::Node>(
+      TranslationExpander::Node{
+        key,
+        start_heuristic.value(),
+        0.0,
+        nullptr
+      }));
+
+  TranslationExpander expander{
+    _goal,
+    old_items,
+    std::move(heuristic),
+    _graph
+  };
+
+  const TranslationExpander::NodePtr solution = a_star_search(expander, queue);
+  if (!solution)
+  {
+    // This means there is no way to move to the goal from the start waypoint
+    new_items.insert({key, std::nullopt});
+    return std::nullopt;
+  }
+
+  const double final_cost = solution->current_cost;
+  auto node = solution;
+  while (node)
+  {
+    // We can save the results for every waypoint that was used in this solution
+    // because every segment of an optimal solution is an optimal solution
+    // itself.
+    new_items.insert({node->waypoint, final_cost - node->current_cost});
+    node = node->parent;
+  }
+
+  return final_cost;
 }
 
 //==============================================================================
 TranslationHeuristicFactory::TranslationHeuristicFactory(
   std::shared_ptr<const Supergraph> graph,
-  double max_speed,
-  double acceleration)
+  double max_speed)
   : _graph(std::move(graph)),
-    _max_speed(max_speed),
-    _acceleration(acceleration),
     _heuristic_cache(
       std::make_shared<ShortestPathHeuristicFactory>(_graph, max_speed))
 {
@@ -165,7 +237,7 @@ ConstTranslationHeuristicPtr TranslationHeuristicFactory::make(
     const std::size_t goal) const
 {
   return std::make_shared<TranslationHeuristic>(
-        goal, _max_speed, _acceleration, _graph, _heuristic_cache.get(goal));
+        goal, _graph, _heuristic_cache.get(goal));
 }
 
 } // namespace planning

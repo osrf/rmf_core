@@ -21,37 +21,14 @@
 
 #include <rmf_utils/catch.hpp>
 
-
-#include <iostream>
-
-
-
 // TODO(MXG): It would be good to add tests to see that the cache is behaving
 // as intended, caching and using the values in the way that it should. This
 // could be done by adding a proprocessor token into the cache manager header
 // that enables some debug info which tells us when the cache has been used.
 
-//==============================================================================
-void print_traversals(
-    const rmf_traffic::agv::planning::Traversals& traversals)
-{
-  std::cout << "Traversals:\n";
-  for (const auto& traversal : traversals)
-  {
-    for (const auto& alt : traversal.alternatives)
-    {
-      if (!alt.has_value())
-        continue;
+// TODO(MXG): We could add tests for the Traversal::best_time field
 
-      std::cout << " -- " << traversal.finish_waypoint_index << ", ";
-      if (alt->routes.empty())
-        std::cout << "(null)";
-      else
-        std::cout << alt->routes.back().trajectory().back().position()[2];
-      std::cout << std::endl;
-    }
-  }
-}
+// TODO(MXG): We could add tests for multiple floors
 
 //==============================================================================
 std::size_t count_alternatives(
@@ -70,6 +47,32 @@ std::size_t count_alternatives(
   }
 
   return alternatives_counter;
+}
+
+//==============================================================================
+bool has_only_map(
+    const std::string& reference_map,
+    const rmf_traffic::agv::planning::Traversals& traversals)
+{
+  bool at_least_one = false;
+  for (const auto& traversal : traversals)
+  {
+    for (const auto& alt : traversal.alternatives)
+    {
+      if (!alt.has_value())
+        continue;
+
+      for (const auto& route : alt->routes)
+      {
+        if (route.map() != reference_map)
+          return false;
+
+        at_least_one = true;
+      }
+    }
+  }
+
+  return at_least_one;
 }
 
 //==============================================================================
@@ -144,56 +147,67 @@ SCENARIO("Supergraph -- Single Floor, Reversible")
   REQUIRE(traversals);
   CHECK(traversals->size() == 8);
   CHECK(count_alternatives(*traversals) == 13);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(1);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 6);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(2);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 6);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(3);
   REQUIRE(traversals);
   CHECK(traversals->size() == 6);
   CHECK(count_alternatives(*traversals) == 12);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(4);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 4);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(5);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 4);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(6);
   REQUIRE(traversals);
   CHECK(traversals->size() == 0);
   CHECK(count_alternatives(*traversals) == 0);
+  // This traversal has no route in it, so it won't contain any map
 
   traversals = supergraph->traversals().get(7);
   REQUIRE(traversals);
   CHECK(traversals->size() == 1);
   CHECK(count_alternatives(*traversals) == 1);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(8);
   REQUIRE(traversals);
   CHECK(traversals->size() == 1);
   CHECK(count_alternatives(*traversals) == 1);
+  CHECK(has_only_map(test_map, *traversals));
 
   traversals = supergraph->traversals().get(9);
   REQUIRE(traversals);
   CHECK(traversals->size() == 0);
   CHECK(count_alternatives(*traversals) == 0);
+  // This traversal has no route in it, so it won't contain any map
 
   traversals = supergraph->traversals().get(10);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 5);
+  CHECK(has_only_map(test_map, *traversals));
 }
 
 //==============================================================================
@@ -258,4 +272,5 @@ SCENARIO("Supergraph -- Single Floor, Events, Irreversible")
   REQUIRE(traversals);
   CHECK(traversals->size() == 6);
   CHECK(count_alternatives(*traversals) == 6);
+  CHECK(has_only_map(test_map, *traversals));
 }

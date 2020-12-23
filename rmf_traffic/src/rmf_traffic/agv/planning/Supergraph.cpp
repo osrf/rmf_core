@@ -119,12 +119,21 @@ void node_to_traversals(
   assert(valid_traversal(node));
   Traversal traversal;
   traversal.finish_waypoint_index = node.finish_waypoint_index;
+  traversal.best_time = 0.0;
 
   if (node.entry_event)
+  {
     traversal.entry_event = node.entry_event->clone();
+    traversal.best_time += rmf_traffic::time::to_seconds(
+          traversal.entry_event->duration());
+  }
 
   if (node.exit_event)
+  {
     traversal.exit_event = node.exit_event->clone();
+    traversal.best_time += rmf_traffic::time::to_seconds(
+          traversal.exit_event->duration());
+  }
 
   if (node.standstill)
   {
@@ -137,6 +146,7 @@ void node_to_traversals(
            && !node.orientations[Backward].has_value());
   }
 
+  std::optional<double> best_trajectory_time;
   for (std::size_t i=0; i < 2; ++i)
   {
     const auto orientation = node.orientations[i];
@@ -174,7 +184,16 @@ void node_to_traversals(
       alternative.routes.push_back({map, trajectory});
 
     traversal.alternatives[i] = std::move(alternative);
+
+    const double time = rmf_traffic::time::to_seconds(
+          *trajectory.finish_time() - *trajectory.start_time());
+
+    if (!best_trajectory_time.has_value() || time < *best_trajectory_time)
+      best_trajectory_time = time;
   }
+
+  if (best_trajectory_time.has_value())
+    traversal.best_time += *best_trajectory_time;
 
   output.emplace_back(std::move(traversal));
 }
@@ -212,15 +231,15 @@ void perform_traversal(
 
   if (parent)
   {
-    node.initial_p = parent->initial_p;
-    node.map_names = parent->map_names;
-
     if (entry.event())
     {
       // If this lane has an entry event, then we cannot continue the traversal.
       // A new traversal will have to begin from this waypoint.
       return;
     }
+
+    node.initial_p = parent->initial_p;
+    node.map_names = parent->map_names;
   }
   else
   {
