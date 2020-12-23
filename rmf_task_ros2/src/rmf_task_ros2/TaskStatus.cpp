@@ -20,6 +20,14 @@
 namespace rmf_task_ros2 {
 
 // ==============================================================================
+bool TaskStatus::is_terminated() const
+{
+  return (state == State::Failed) ||
+    (state == State::Completed) ||
+    (state == State::Canceled);
+}
+
+// ==============================================================================
 TaskStatus convert_status(const StatusMsg& from)
 {
   TaskStatus status;

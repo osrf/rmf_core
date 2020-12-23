@@ -16,6 +16,7 @@
 */
 
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
+#include "../../src/rmf_task_ros2/bidding/internal_Auctioneer.hpp"
 #include <rmf_utils/catch.hpp>
 
 namespace rmf_task_ros2 {
@@ -56,14 +57,14 @@ SCENARIO("Auctioneer Winner Evaluator", "[Evaluator]")
     AND_WHEN("0 submissions")
     {
       std::vector<Submission> submissions{};
-      auto winner = auctioneer->evaluate(submissions);
+      auto winner = evaluate(*auctioneer, submissions);
       REQUIRE(!winner); // no winner
     }
     AND_WHEN("5 submissions")
     {
       std::vector<Submission> submissions{
         submission1, submission2, submission3, submission4, submission5 };
-      auto winner = auctioneer->evaluate(submissions);
+      auto winner = evaluate(*auctioneer, submissions);
       REQUIRE(winner->fleet_name == "fleet2"); // least diff cost agent
     }
   }
@@ -76,14 +77,14 @@ SCENARIO("Auctioneer Winner Evaluator", "[Evaluator]")
     AND_WHEN("0 submissions")
     {
       std::vector<Submission> submissions{};
-      auto winner = auctioneer->evaluate(submissions);
+      auto winner = evaluate(*auctioneer, submissions);
       REQUIRE(!winner); // no winner
     }
     AND_WHEN("5 submissions")
     {
       std::vector<Submission> submissions{
         submission1, submission2, submission3, submission4, submission5 };
-      auto winner = auctioneer->evaluate(submissions);
+      auto winner = evaluate(*auctioneer, submissions);
       REQUIRE(winner->fleet_name == "fleet5"); // least diff cost agent
     }
   }
@@ -96,14 +97,14 @@ SCENARIO("Auctioneer Winner Evaluator", "[Evaluator]")
     AND_WHEN("0 submissions")
     {
       std::vector<Submission> submissions{};
-      auto winner = auctioneer->evaluate(submissions);
+      auto winner = evaluate(*auctioneer, submissions);
       REQUIRE(!winner); // no winner
     }
     AND_WHEN("5 submissions")
     {
       std::vector<Submission> submissions{
         submission1, submission2, submission3, submission4, submission5 };
-      auto winner = auctioneer->evaluate(submissions);
+      auto winner = evaluate(*auctioneer, submissions);
       REQUIRE(winner->fleet_name == "fleet3"); // least diff cost agent
     }
   }

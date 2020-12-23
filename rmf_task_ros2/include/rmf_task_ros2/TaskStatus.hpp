@@ -37,7 +37,7 @@ using StatusMsg = rmf_task_msgs::msg::TaskSummary;
 using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
 
 //==============================================================================
-/// \note This is a local stuct of a task status (now is based on TaskSummary)
+/// \note TaskStatus struct is based on TaskSummary.msg
 struct TaskStatus
 {
   enum class State : uint8_t
@@ -58,12 +58,7 @@ struct TaskStatus
   std::string status; // verbose msg
   State state = State::Pending; // default
 
-  bool is_terminated() const
-  {
-    return (state == State::Failed) ||
-      (state == State::Completed) ||
-      (state == State::Canceled);
-  }
+  bool is_terminated() const;
 };
 
 using TaskStatusPtr = std::shared_ptr<TaskStatus>;

@@ -17,165 +17,148 @@
 
 #include <rmf_task_ros2/bidding/Submission.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
+#include "internal_Auctioneer.hpp"
 
 namespace rmf_task_ros2 {
 namespace bidding {
 
 //==============================================================================
-class Auctioneer::Implementation
+Auctioneer::Implementation::Implementation(
+  const std::shared_ptr<rclcpp::Node>& node_,
+  BiddingResultCallback result_callback)
+: node{std::move(node_)},
+  bidding_result_callback{std::move(result_callback)}
 {
-public:
-  std::shared_ptr<rclcpp::Node> node;
-  rclcpp::TimerBase::SharedPtr timer;
-  BiddingResultCallback bidding_result_callback;
-  std::shared_ptr<Evaluator> evaluator;
+  // default evaluator
+  evaluator = std::make_shared<LeastFleetDiffCostEvaluator>();
+  const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
-  struct BiddingTask
-  {
-    BidNotice bid_notice;
-    builtin_interfaces::msg::Time start_time;
-    std::vector<bidding::Submission> submissions;
-  };
+  bid_notice_pub = node->create_publisher<BidNotice>(
+    rmf_task_ros2::BidNoticeTopicName, dispatch_qos);
 
-  bool bidding_in_proccess = false;
-  std::queue<BiddingTask> queue_bidding_tasks;
-
-  using BidNoticePub = rclcpp::Publisher<BidNotice>;
-  BidNoticePub::SharedPtr bid_notice_pub;
-
-  using BidProposalSub = rclcpp::Subscription<BidProposal>;
-  BidProposalSub::SharedPtr bid_proposal_sub;
-
-  Implementation(
-    const std::shared_ptr<rclcpp::Node>& node_,
-    BiddingResultCallback result_callback)
-  : node{std::move(node_)},
-    bidding_result_callback{std::move(result_callback)}
-  {
-    // default evaluator
-    evaluator = std::make_shared<LeastFleetDiffCostEvaluator>();
-    const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
-
-    bid_notice_pub = node->create_publisher<BidNotice>(
-      rmf_task_ros2::BidNoticeTopicName, dispatch_qos);
-
-    bid_proposal_sub = node->create_subscription<BidProposal>(
-      rmf_task_ros2::BidProposalTopicName, dispatch_qos,
-      [&](const BidProposal::UniquePtr msg)
-      {
-        this->receive_proposal(*msg);
-      });
-
-    timer = node->create_wall_timer(std::chrono::milliseconds(1000), [&]()
-        {
-          this->check_bidding_process();
-        });
-  }
-
-  /// Start a bidding process
-  void start_bidding(const BidNotice& bid_notice)
-  {
-    RCLCPP_INFO(node->get_logger(), "[Auctioneer] Add Bidding task %s to queue",
-      bid_notice.task_profile.task_id.c_str());
-
-    BiddingTask bidding_task;
-    bidding_task.bid_notice = bid_notice;
-    bidding_task.start_time = node->now();
-    queue_bidding_tasks.push(bidding_task);
-  }
-
-  // Receive proposal and evaluate
-  void receive_proposal(const BidProposal& msg)
-  {
-    const auto id = msg.task_profile.task_id;
-    RCLCPP_DEBUG(node->get_logger(),
-      "[Auctioneer] Receive proposal from task_id: %s | from: %s",
-      id.c_str(), msg.fleet_name.c_str());
-
-    // check if bidding task is initiated by the auctioneer previously
-    // add submited proposal to the current bidding tasks list
-    if (queue_bidding_tasks.front().bid_notice.task_profile.task_id == id)
-      queue_bidding_tasks.front().submissions.push_back(convert(msg));
-  }
-
-  // determine the winner within a bidding task instance
-  void check_bidding_process()
-  {
-    if (queue_bidding_tasks.size() == 0)
-      return;
-
-    // Executing the task at the front queue
-    auto front_task = queue_bidding_tasks.front();
-
-    if (bidding_in_proccess)
+  bid_proposal_sub = node->create_subscription<BidProposal>(
+    rmf_task_ros2::BidProposalTopicName, dispatch_qos,
+    [&](const BidProposal::UniquePtr msg)
     {
-      if (determine_winner(front_task))
+      this->receive_proposal(*msg);
+    });
+
+  timer = node->create_wall_timer(std::chrono::milliseconds(1000), [&]()
       {
-        queue_bidding_tasks.pop();
-        bidding_in_proccess = false;
-      }
+        this->check_bidding_process();
+      });
+}
+
+//==============================================================================
+void Auctioneer::Implementation::start_bidding(
+  const BidNotice& bid_notice)
+{
+  RCLCPP_INFO(node->get_logger(), "[Auctioneer] Add Bidding task %s to queue",
+    bid_notice.task_profile.task_id.c_str());
+
+  BiddingTask bidding_task;
+  bidding_task.bid_notice = bid_notice;
+  bidding_task.start_time = node->now();
+  queue_bidding_tasks.push(bidding_task);
+}
+
+//==============================================================================
+void Auctioneer::Implementation::receive_proposal(
+  const BidProposal& msg)
+{
+  const auto id = msg.task_profile.task_id;
+  RCLCPP_DEBUG(node->get_logger(),
+    "[Auctioneer] Receive proposal from task_id: %s | from: %s",
+    id.c_str(), msg.fleet_name.c_str());
+
+  // check if bidding task is initiated by the auctioneer previously
+  // add submited proposal to the current bidding tasks list
+  if (queue_bidding_tasks.front().bid_notice.task_profile.task_id == id)
+    queue_bidding_tasks.front().submissions.push_back(convert(msg));
+}
+
+//==============================================================================
+// determine the winner within a bidding task instance
+void Auctioneer::Implementation::check_bidding_process()
+{
+  if (queue_bidding_tasks.size() == 0)
+    return;
+
+  // Executing the task at the front queue
+  auto front_task = queue_bidding_tasks.front();
+
+  if (bidding_in_proccess)
+  {
+    if (determine_winner(front_task))
+    {
+      queue_bidding_tasks.pop();
+      bidding_in_proccess = false;
+    }
+  }
+  else
+  {
+    RCLCPP_DEBUG(node->get_logger(), " - Start new bidding task: %s",
+      front_task.bid_notice.task_profile.task_id.c_str());
+    front_task.start_time = node->now();
+    bid_notice_pub->publish(front_task.bid_notice);
+    bidding_in_proccess = true;
+  }
+}
+
+//==============================================================================
+bool Auctioneer::Implementation::determine_winner(
+  const BiddingTask& bidding_task)
+{
+  const auto duration = node->now() - bidding_task.start_time;
+
+  if (duration > bidding_task.bid_notice.time_window)
+  {
+    auto id = bidding_task.bid_notice.task_profile.task_id;
+    RCLCPP_INFO(node->get_logger(), "Bidding Deadline reached: %s",
+      id.c_str());
+    rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
+
+    if (bidding_task.submissions.size() == 0)
+    {
+      RCLCPP_WARN(node->get_logger(),
+        "Bidding task has not received any bids");
     }
     else
     {
-      RCLCPP_DEBUG(node->get_logger(), " - Start new bidding task: %s",
-        front_task.bid_notice.task_profile.task_id.c_str());
-      front_task.start_time = node->now();
-      bid_notice_pub->publish(front_task.bid_notice);
-      bidding_in_proccess = true;
+      winner = evaluate(bidding_task.submissions);
+      RCLCPP_INFO(node->get_logger(), "Found winning Fleet Adapter: %s",
+        winner->fleet_name.c_str());
     }
-  }
 
-  bool determine_winner(const BiddingTask& bidding_task)
+    // Call the user defined callback function
+    if (bidding_result_callback)
+      bidding_result_callback(id, winner);
+
+    return true;
+  }
+  return false;
+}
+
+//==============================================================================
+rmf_utils::optional<Submission> Auctioneer::Implementation::evaluate(
+  const Submissions& submissions)
+{
+  if (submissions.size() == 0)
+    return rmf_utils::nullopt;
+
+  if (!evaluator)
   {
-    const auto duration = node->now() - bidding_task.start_time;
-
-    if (duration > bidding_task.bid_notice.time_window)
-    {
-      auto id = bidding_task.bid_notice.task_profile.task_id;
-      RCLCPP_INFO(node->get_logger(), "Bidding Deadline reached: %s",
-        id.c_str());
-      rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
-
-      if (bidding_task.submissions.size() == 0)
-      {
-        RCLCPP_WARN(node->get_logger(),
-          "Bidding task has not received any bids");
-      }
-      else
-      {
-        winner = evaluate(bidding_task.submissions);
-        RCLCPP_INFO(node->get_logger(), "Found winning Fleet Adapter: %s",
-          winner->fleet_name.c_str());
-      }
-
-      // Call the user defined callback function
-      if (bidding_result_callback)
-        bidding_result_callback(id, winner);
-
-      return true;
-    }
-    return false;
+    RCLCPP_WARN(node->get_logger(), "Evaluator is not set");
+    return rmf_utils::nullopt;
   }
 
-  rmf_utils::optional<Submission> evaluate(const Submissions& submissions)
-  {
-    if (submissions.size() == 0)
-      return rmf_utils::nullopt;
+  const std::size_t choice = evaluator->choose(submissions);
 
-    if (!evaluator)
-    {
-      RCLCPP_WARN(node->get_logger(), "Evaluator is not set");
-      return rmf_utils::nullopt;
-    }
+  if (choice >= submissions.size())
+    return rmf_utils::nullopt;
 
-    const std::size_t choice = evaluator->choose(submissions);
-
-    if (choice >= submissions.size())
-      return rmf_utils::nullopt;
-
-    return submissions[choice];
-  }
-};
+  return submissions[choice];
+}
 
 //==============================================================================
 std::shared_ptr<Auctioneer> Auctioneer::make(
@@ -200,13 +183,6 @@ void Auctioneer::select_evaluator(
   std::shared_ptr<Auctioneer::Evaluator> evaluator)
 {
   _pimpl->evaluator = std::move(evaluator);
-}
-
-//==============================================================================
-rmf_utils::optional<Submission> Auctioneer::evaluate(
-  const Submissions& submissions)
-{
-  return _pimpl->evaluate(submissions);
 }
 
 //==============================================================================

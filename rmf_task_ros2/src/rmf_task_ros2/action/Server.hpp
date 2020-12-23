@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__ACTION__SERVER_HPP
-#define RMF_TASK_ROS2__ACTION__SERVER_HPP
+#ifndef SRC__RMF_TASK_ROS2__ACTION__SERVER_HPP
+#define SRC__RMF_TASK_ROS2__ACTION__SERVER_HPP
 
 #include <rclcpp/node.hpp>
 
@@ -85,4 +85,4 @@ private:
 } // namespace action
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__ACTION__SERVER_HPP
+#endif // SRC__RMF_TASK_ROS2__ACTION__SERVER_HPP

@@ -15,8 +15,6 @@
  *
 */
 
-// Skeleton for Auctioneer
-
 #ifndef RMF_TASK_ROS2__BIDDING__AUCTIONEER_HPP
 #define RMF_TASK_ROS2__BIDDING__AUCTIONEER_HPP
 
@@ -89,13 +87,6 @@ public:
   ///
   /// \param[in] evaluator
   void select_evaluator(std::shared_ptr<Evaluator> evaluator);
-
-  /// Get the best winner from all submissions
-  ///
-  /// \param[in] submissions
-  ///
-  /// \return Winner, nullopt if no winner
-  rmf_utils::optional<Submission> evaluate(const Submissions& submissions);
 
   class Implementation;
 

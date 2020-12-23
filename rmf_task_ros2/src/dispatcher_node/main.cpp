@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
   rclcpp::init(argc, argv);
   std::cout << "~Initializing Dispatcher Node~" << std::endl;
 
-  auto dispatcher = rmf_task_ros2::Dispatcher::make(
+  auto dispatcher = rmf_task_ros2::Dispatcher::make_node(
     "rmf_dispatcher_node");
 
   const auto& node = dispatcher->node();

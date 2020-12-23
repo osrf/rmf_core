@@ -337,20 +337,24 @@ public:
 };
 
 //==============================================================================
-std::shared_ptr<Dispatcher> Dispatcher::init_and_make(
+std::shared_ptr<Dispatcher> Dispatcher::init_and_make_node(
   const std::string dispatcher_node_name)
 {
   rclcpp::init(0, nullptr);
-  return make(dispatcher_node_name);
+  return make_node(dispatcher_node_name);
+}
+
+//==============================================================================
+std::shared_ptr<Dispatcher> Dispatcher::make_node(
+  const std::string dispatcher_node_name)
+{
+  return make(rclcpp::Node::make_shared(dispatcher_node_name));
 }
 
 //==============================================================================
 std::shared_ptr<Dispatcher> Dispatcher::make(
-  const std::string dispatcher_node_name)
+  const std::shared_ptr<rclcpp::Node>& node)
 {
-  std::shared_ptr<rclcpp::Node> node =
-    rclcpp::Node::make_shared(dispatcher_node_name);
-
   auto pimpl = rmf_utils::make_impl<Implementation>(node);
   pimpl->action_client = action::Client::make(node);
 

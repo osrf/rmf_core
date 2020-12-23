@@ -41,7 +41,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   task_desc2.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_CLEAN;
 
   //============================================================================
-  auto dispatcher = Dispatcher::init_and_make("test_dispatcher_node");
+  auto dispatcher = Dispatcher::init_and_make_node("test_dispatcher_node");
 
   auto spin_thread = std::thread(
     [&dispatcher]()

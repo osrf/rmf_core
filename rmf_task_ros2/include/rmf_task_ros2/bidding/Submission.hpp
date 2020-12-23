@@ -29,16 +29,16 @@ namespace rmf_task_ros2 {
 namespace bidding {
 
 //==============================================================================
-using TaskTypeMsg = rmf_task_msgs::msg::TaskType;
 using BidNotice = rmf_task_msgs::msg::BidNotice;
 using BidProposal = rmf_task_msgs::msg::BidProposal;
+using TaskTypeMsg = rmf_task_msgs::msg::TaskType;
 using TaskID = std::string;
 
 //==============================================================================
 struct Submission
 {
-  std::string fleet_name = "";
-  std::string robot_name = ""; // optional
+  std::string fleet_name;
+  std::string robot_name;
   double prev_cost = 0.0;
   double new_cost = std::numeric_limits<double>::max();
   rmf_traffic::Time finish_time;

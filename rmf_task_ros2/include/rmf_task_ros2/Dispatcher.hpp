@@ -42,22 +42,31 @@ public:
   /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will
   /// allow you to dispatch submitted task to the best fleet/robot within RMF.
   ///
-  /// \param[in] node
+  /// \param[in] dispatcher_node_name
   ///   The ROS 2 node to manage the Dispatching of Task
   ///
-  /// \sa make()
-  static std::shared_ptr<Dispatcher> init_and_make(
+  /// \sa init_and_make_node()
+  static std::shared_ptr<Dispatcher> init_and_make_node(
     const std::string dispatcher_node_name);
 
   /// Similarly this will init the dispatcher, but you will also need to init
   /// rclcpp via rclcpp::init(~).
   ///
-  /// \param[in] node
+  /// \param[in] dispatcher_node_name
   ///   The ROS 2 node to manage the Dispatching of Task
+  ///
+  /// \sa make_node()
+  static std::shared_ptr<Dispatcher> make_node(
+    const std::string dispatcher_node_name);
+
+  /// Create a dispatcher by providing the ros2 node
+  ///
+  /// \param[in] node
+  ///   ROS 2 node instance
   ///
   /// \sa make()
   static std::shared_ptr<Dispatcher> make(
-    const std::string dispatcher_node_name);
+    const std::shared_ptr<rclcpp::Node>& node);
 
   /// Submit task to dispatcher node. Calling this function will immediately
   /// trigger the bidding process, then the task "action". Once submmitted,
