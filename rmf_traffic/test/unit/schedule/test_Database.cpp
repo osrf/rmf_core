@@ -301,3 +301,8 @@ SCENARIO("Test Database Conflicts")
     }
   }
 }
+
+SCENARIO("Load participant ids from a static config")
+{
+  
+}

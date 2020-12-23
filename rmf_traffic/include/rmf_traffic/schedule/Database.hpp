@@ -23,7 +23,6 @@
 #include <rmf_traffic/schedule/Patch.hpp>
 #include <rmf_traffic/schedule/Writer.hpp>
 #include <rmf_traffic/schedule/Snapshot.hpp>
-#include <rmf_traffic/schedule/ParticipantConfig.hpp>
 
 #include <rmf_utils/macros.hpp>
 
