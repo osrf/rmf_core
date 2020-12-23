@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
       // Here user will provice the best robot as a bid submission
       std::cout << "[MockBidder] Providing best estimates" << std::endl;
       auto req_start_time =
-      rmf_traffic_ros2::convert(notice.task_profile.start_time);
+      rmf_traffic_ros2::convert(notice.task_profile.description.start_time);
 
       bidding::Submission best_robot_estimate;
       best_robot_estimate.robot_name = "dumbot";
@@ -78,21 +78,19 @@ int main(int argc, char* argv[])
           status.robot_name = "dumbot";
           status.start_time = rmf_traffic_ros2::convert(node->now());
           status.end_time =
-          rmf_traffic::time::apply_offset(status.start_time, 7);
+            rmf_traffic::time::apply_offset(status.start_time, 7);
 
-          std::cout << " [MockBidder] Queued, TaskID:  " 
-                    << profile.task_id << std::endl;
+          const auto id = profile.task_id;
+          std::cout << " [MockBidder] Queued, TaskID: "  << id << std::endl;
           action_server->update_status(status);
 
           std::this_thread::sleep_for(std::chrono::seconds(2));
-          std::cout << " [MockBidder] Executing, TaskID: "
-                    << profile.task_id << std::endl;
+          std::cout << " [MockBidder] Executing, TaskID: " << id << std::endl;
           status.state = TaskStatus::State::Executing;
           action_server->update_status(status);
 
           std::this_thread::sleep_for(std::chrono::seconds(5));
-          std::cout << " [MockBidder] Completed, TaskID: "
-                    << profile.task_id << std::endl;
+          std::cout << " [MockBidder] Completed, TaskID: " << id << std::endl;
           status.state = TaskStatus::State::Completed;
           action_server->update_status(status);
         }, task_profile

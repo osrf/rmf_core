@@ -67,11 +67,13 @@ public:
       "[Bidder] Received Bidding notice for task_id: %s",
       msg.task_profile.task_id.c_str());
 
+    const auto task_type = (msg.task_profile.description.task_type.type);
+
     // check if task type is valid
-    if (!valid_task_types.count((TaskType)msg.task_profile.task_type.type))
+    if (!valid_task_types.count(static_cast<TaskType>(task_type)))
     {
       RCLCPP_WARN(node->get_logger(), "%s: task type %d",
-        fleet_name.c_str(), msg.task_profile.task_type.type);
+        fleet_name.c_str(), task_type);
       return;
     }
 

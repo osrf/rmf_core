@@ -64,13 +64,13 @@ public:
   /// Task State will be in 'Pending' State, till the task is awarded to a fleet
   /// then the state will turn to 'Queued'
   ///
-  /// \param [in] task
+  /// \param [in] task_description
   ///   Submit a task to dispatch
   ///
   /// \return task_id
   ///   self-generated task_id
   TaskID submit_task(
-    const TaskProfile& task);
+    const TaskDescription& task_description);
 
   /// Cancel an active task which was previously submitted to Dispatcher. This
   /// will terminate the task with a State of: `Canceled`. If a task is

@@ -47,7 +47,7 @@ public:
 
   DispatchTasks active_dispatch_tasks;
   DispatchTasks terminal_dispatch_tasks;
-  std::size_t i = 0; // temp index for generating task_id
+  std::size_t task_counter = 0; // temp index for generating task_id
   double bidding_time_window;
   int terminated_tasks_max_size;
 
@@ -73,14 +73,6 @@ public:
         const std::shared_ptr<SubmitTaskSrv::Request> request,
         std::shared_ptr<SubmitTaskSrv::Response> response)
       {
-        rmf_task_ros2::TaskProfile task_profile;
-        task_profile.task_type = request->task_type;
-        task_profile.start_time = request->start_time;
-        task_profile.clean = request->clean;
-        task_profile.loop = request->loop;
-        task_profile.delivery = request->delivery;
-        task_profile.station = request->station;
-
         switch (request->evaluator)
         {
           using namespace rmf_task_ros2::bidding;
@@ -103,8 +95,7 @@ public:
               break;
             }
         }
-
-        response->task_id = this->submit_task(task_profile);;
+        response->task_id = this->submit_task(request->description);
         response->success = true;
       }
     );
@@ -154,18 +145,19 @@ public:
       std::bind(&Implementation::task_status_cb, this, _1));
   }
 
-  TaskID submit_task(const TaskProfile& task)
+  TaskID submit_task(const TaskDescription& description)
   {
-    auto submitted_task = task;
+    TaskProfile submitted_task;
+    submitted_task.submission_time = node->now();
+    submitted_task.description = description;
 
     // TODO: generate a unique task_id based on clock
     // auto generate a task_id for a given submitted task
-    submitted_task.task_id =
-      std::to_string( ((int)task.task_type.type)*1000 + (i++) );
+    submitted_task.task_id = "Task"
+      + std::to_string( static_cast<std::size_t>(description.task_type.type))
+      + "-" + std::to_string(task_counter++);
     // "task" + std::to_string((int)task.task_type)
     //   + "-" + std::to_string((int)(node->now().seconds()));
-
-    submitted_task.submission_time = node->now();
 
     // add task to internal cache
     TaskStatus status;
@@ -269,10 +261,10 @@ public:
     for (auto it = active_dispatch_tasks.begin();
       it != active_dispatch_tasks.end(); )
     {
-      auto task_type = it->second->task_profile.task_type.type;
-      bool is_fleet_name = (winner->fleet_name == it->second->fleet_name);
-      bool is_charging_task =
-        (task_type == rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY);
+      const auto type = it->second->task_profile.description.task_type.type;
+      const bool is_fleet_name = (winner->fleet_name == it->second->fleet_name);
+      const bool is_charging_task =
+        (type == rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY);
 
       if (is_charging_task && is_fleet_name)
         it = active_dispatch_tasks.erase(it);
@@ -350,9 +342,9 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
 }
 
 //==============================================================================
-TaskID Dispatcher::submit_task(const TaskProfile& task)
+TaskID Dispatcher::submit_task(const TaskDescription& task_description)
 {
-  return _pimpl->submit_task(task);
+  return _pimpl->submit_task(task_description);
 }
 
 //==============================================================================

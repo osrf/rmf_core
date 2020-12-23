@@ -32,11 +32,13 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
 {
   TaskProfile task_profile1;
   task_profile1.task_id = "task1";
-  task_profile1.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_STATION;
+  task_profile1.description.task_type.type = 
+    rmf_task_msgs::msg::TaskType::TYPE_STATION;
 
   TaskProfile task_profile2;
   task_profile2.task_id = "task2";
-  task_profile2.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_STATION;
+  task_profile2.description.task_type.type = 
+    rmf_task_msgs::msg::TaskType::TYPE_STATION;
 
   //============================================================================
 

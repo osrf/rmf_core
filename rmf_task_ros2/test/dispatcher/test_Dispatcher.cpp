@@ -33,17 +33,13 @@
 
 namespace rmf_task_ros2 {
 
-// ==============================================================================
-TaskProfile task_profile1;
-TaskProfile task_profile2;
-
-using TaskType = bidding::MinimalBidder::TaskType;
-
 //==============================================================================
 SCENARIO("Dispatcehr API Test", "[Dispatcher]")
-{
-  task_profile1.task_type.type = (uint32_t)TaskType::Station;
-  task_profile2.task_type.type = (uint32_t)TaskType::Clean;
+{ 
+  TaskDescription task_desc1;
+  TaskDescription task_desc2;
+  task_desc1.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_STATION;
+  task_desc2.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_CLEAN;
 
   //============================================================================
   auto dispatcher = Dispatcher::init_and_make("test_dispatcher_node");
@@ -76,7 +72,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   WHEN("Add 1 and cancel task")
   {
     // add task
-    const auto id = dispatcher->submit_task(task_profile1);
+    const auto id = dispatcher->submit_task(task_desc1);
     REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
@@ -100,7 +96,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   WHEN("Track Task till Bidding Failed")
   {
     // Submit first task and wait for bidding
-    auto id = dispatcher->submit_task(task_profile1);
+    auto id = dispatcher->submit_task(task_desc1);
     REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
 
@@ -112,7 +108,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(change_times == 2); // add and failed
 
     // Submit another task
-    id = dispatcher->submit_task(task_profile2);
+    id = dispatcher->submit_task(task_desc2);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     REQUIRE(dispatcher->terminated_tasks().size() == 2);
     REQUIRE(test_taskprofile.task_id == id);
@@ -121,6 +117,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
   //============================================================================
   // Setup Mock Fleetadapter: mock bidder to test
+  using TaskType = bidding::MinimalBidder::TaskType;
   auto node = dispatcher->node();
   auto bidder = bidding::MinimalBidder::make(
     node,
@@ -184,7 +181,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   //============================================================================
   WHEN("Full Dispatch cycle")
   {
-    const auto id = dispatcher->submit_task(task_profile2);
+    const auto id = dispatcher->submit_task(task_desc1);
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
@@ -201,7 +198,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
   WHEN("Half way cancel Dispatch cycle")
   {
-    const auto id = dispatcher->submit_task(task_profile2);
+    const auto id = dispatcher->submit_task(task_desc2);
     CHECK(dispatcher->get_task_state(id) == TaskStatus::State::Pending);
     REQUIRE(dispatcher->active_tasks().size() == 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
