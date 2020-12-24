@@ -108,14 +108,14 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Failed);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(test_taskprofile.task_id == id);
-    REQUIRE(change_times == 2); // add and failed
+    CHECK(change_times == 2); // add and failed
 
     // Submit another task
     id = dispatcher->submit_task(task_desc2);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     REQUIRE(dispatcher->terminated_tasks().size() == 2);
     REQUIRE(test_taskprofile.task_id == *id);
-    REQUIRE(change_times == 4); // add and failed x2
+    CHECK(change_times == 4); // add and failed x2
   }
 
   //============================================================================
@@ -191,12 +191,25 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     // now should queue the task
     CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Queued);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
-    REQUIRE(change_times == 2); // Pending and Queued
+    CHECK(change_times == 2); // Pending and Queued
 
     std::this_thread::sleep_for(std::chrono::seconds(3));
     CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Completed);
+    REQUIRE(dispatcher->active_tasks().size() == 0);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
-    REQUIRE(change_times == 4); // Pending > Queued > Executing > Completed
+    CHECK(change_times == 4); // Pending > Queued > Executing > Completed
+
+    // Add auto generated ChargeBattery Task from fleet adapter
+    TaskStatus status;
+    status.task_profile.task_id = "ChargeBattery10";
+    status.state = TaskStatus::State::Queued;
+    status.task_profile.description.task_type.type = 
+      rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY;
+    action_server->update_status(status);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    
+    CHECK(change_times == 5); // new stray charge task
+    REQUIRE(dispatcher->active_tasks().size() == 1);
   }
 
   WHEN("Half way cancel Dispatch cycle")
@@ -213,7 +226,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(dispatcher->terminated_tasks().begin()->first == *id);
     auto status = dispatcher->terminated_tasks().begin()->second;
     CHECK(status->state == TaskStatus::State::Canceled);
-    REQUIRE(change_times == 3); // Pending -> Queued -> Canceled
+    CHECK(change_times == 3); // Pending -> Queued -> Canceled
   }
 
   rclcpp::shutdown();

@@ -255,7 +255,7 @@ public:
 
     if (!winner)
     {
-      RCLCPP_WARN(node->get_logger(), "[Dispatch::Bidding Result] task"
+      RCLCPP_WARN(node->get_logger(), "[Dispatch::Bidding Result] task "
         "%s has no submissions during bidding :(", task_id.c_str());
       pending_task_status->state = TaskStatus::State::Failed;
       terminate_task(pending_task_status);
@@ -269,7 +269,7 @@ public:
     // now we know which fleet will execute the task
     pending_task_status->fleet_name = winner->fleet_name;
 
-    RCLCPP_INFO(node->get_logger(), "[Dispatch::Bidding Result] task"
+    RCLCPP_INFO(node->get_logger(), "[Dispatch::Bidding Result] task "
       "%s is accepted by Fleet adapter %s",
       task_id.c_str(), winner->fleet_name.c_str());
 
@@ -327,9 +327,14 @@ public:
     // This is to solve the issue that the dispatcher is not aware of those
     // "stray" tasks that are not dispatched by the dispatcher. This will add
     // the stray tasks when an unknown TaskSummary is heard.
-    const auto it = active_dispatch_tasks.find(status->task_profile.task_id);
-    if (it != active_dispatch_tasks.end())
-      it->second = status;
+    const std::string id = status->task_profile.task_id;
+    const auto it = active_dispatch_tasks.find(id);
+    if (it == active_dispatch_tasks.end())
+    {
+      active_dispatch_tasks[id] = status;
+      RCLCPP_WARN( node->get_logger(), 
+        "Add previously unheard task: %s", id.c_str());
+    }
 
     if (on_change_fn)
       on_change_fn(status);

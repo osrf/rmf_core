@@ -47,7 +47,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
 
         if (!weak_status)
         {
-          std::cout << "weak status has expired\n";
+          RCLCPP_INFO(_node->get_logger(), "status has expired");
           _active_task_status.erase(task_id);
           return;
         }
