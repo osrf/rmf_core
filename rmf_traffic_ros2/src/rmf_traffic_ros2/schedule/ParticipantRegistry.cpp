@@ -105,9 +105,9 @@ rmf_traffic::Profile profile(YAML::Node node)
     throw std::runtime_error("Profile information missing footprint");
   
   rmf_traffic_msgs::msg::Profile profile_msg;
-  rmf_traffic_msgs::msg::ConvexShape footprint = convexshape(node["footprint"]);
-  rmf_traffic_msgs::msg::ConvexShape vicinity = convexshape(node["vicinity"]);
-  rmf_traffic_msgs::msg::ConvexShapeContext context = shapecontext(node["shapecontext"]);
+  auto footprint = convexshape(node["footprint"]);
+  auto vicinity = convexshape(node["vicinity"]);
+  auto context = shapecontext(node["shapecontext"]);
 
   profile_msg.footprint = footprint;
   profile_msg.vicinity = vicinity;
@@ -115,6 +115,63 @@ rmf_traffic::Profile profile(YAML::Node node)
   
   rmf_traffic::Profile profile = convert(profile_msg);
   return profile;
+}
+
+
+//=============================================================================
+YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
+{
+  //For now since only circles are supported, so I'm just going to store their
+  //Radii. In future this should change.
+  YAML::Node node;
+  for(auto circle: context.circles)
+  {
+    node.push_back(circle.radius);
+  }
+  return node;
+}
+
+//=============================================================================
+std::string serialize_shape_type(uint8_t shape_type)
+{
+
+}
+
+//=============================================================================
+YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShape shape)
+{
+  
+}
+
+//=============================================================================
+YAML::Node serialize(rmf_traffic::Profile profile)
+{
+  
+}
+
+//=============================================================================
+std::string serialize_responsiveness(ParticipantDescription::Rx resp)
+{
+  if(resp == ParticipantDescription::Rx::Invalid)
+    return "Invalid";
+  if(resp == ParticipantDescription::Rx::Unresponsive)
+    return "Unresponsive";
+  if(resp == ParticipantDescription::Rx::Responsive)
+    return "Responsive";
+  throw std::runtime_error("Failed to seriallize responsiveness");
+}
+
+//=============================================================================
+YAML::Node serialize(ParticipantDescription participant)
+{
+  YAML::Node node;
+
+  node["name"] = participant.name();
+  node["owner"] = participant.owner();
+  node["responsiveness"] = serialize_responsiveness(participant.responsiveness());
+  node["profile"] = serialize(participant.profile());
+
+  return node;
 }
 
 //=============================================================================
