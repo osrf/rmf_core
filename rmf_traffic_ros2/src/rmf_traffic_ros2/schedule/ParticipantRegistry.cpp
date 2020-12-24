@@ -15,8 +15,9 @@
  *
 */
 
-#include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
+#include <rmf_traffic_ros2/Profile.hpp>
 #include <rmf_traffic_ros2/geometry/ConvexShape.hpp>
+#include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
 
 namespace rmf_traffic_ros2 {
 
@@ -39,13 +40,15 @@ ParticipantDescription::Rx responsiveness(std::string response)
 //=============================================================================
 uint8_t shapetype(YAML::Node node)
 {
-  auto type = node.as<std::string>(node);
+  auto type = node.as<std::string>();
   if(type == "None")
     return rmf_traffic_msgs::msg::ConvexShape::NONE;
   if(type == "Box")
     return rmf_traffic_msgs::msg::ConvexShape::BOX;
   if(type == "Circle")
     return rmf_traffic_msgs::msg::ConvexShape::CIRCLE;
+
+  throw std::runtime_error("Shape type must be one of None, Box, Circle");
 }
 
 //=============================================================================
@@ -67,9 +70,23 @@ rmf_traffic_msgs::msg::ConvexShape convexshape(YAML::Node node)
 }
 
 //=============================================================================
-rmf_traffic_msgs::msg::ShapeContext context(YAML::Node node)
+rmf_traffic_msgs::msg::ConvexShapeContext shapecontext(YAML::Node node)
 {
-  //For now since only circles are supported,
+  //For now since only circles are supported, so I'm just going to store their
+  //Radii. In future this should change.
+  rmf_traffic_msgs::msg::ConvexShapeContext shape_context;
+  if(!node.IsSequence())
+    throw std::runtime_error("Expected a list");
+
+  for(auto item: node)
+  {
+    double radius = item.as<double>();
+    rmf_traffic_msgs::msg::Circle circle;
+    circle.radius = radius;
+    shape_context.circles.push_back(circle);
+  }
+
+  return shape_context;
 }
 
 //=============================================================================
@@ -90,10 +107,13 @@ rmf_traffic::Profile profile(YAML::Node node)
   rmf_traffic_msgs::msg::Profile profile_msg;
   rmf_traffic_msgs::msg::ConvexShape footprint = convexshape(node["footprint"]);
   rmf_traffic_msgs::msg::ConvexShape vicinity = convexshape(node["vicinity"]);
-  rmf_traffic_msgs::msg::ShapeContext context = context(node["shapecontext"]);
+  rmf_traffic_msgs::msg::ConvexShapeContext context = shapecontext(node["shapecontext"]);
+
+  profile_msg.footprint = footprint;
+  profile_msg.vicinity = vicinity;
+  profile_msg.shape_context = context;
   
-  
-  rmf_traffic::Profile profile = convert(profile)
+  rmf_traffic::Profile profile = convert(profile_msg);
   return profile;
 }
 
