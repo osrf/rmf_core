@@ -98,7 +98,7 @@ SCENARIO("Translation Heuristic")
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory>;
   ShortestPathCache shortest_path_cache(
     std::make_shared<rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-      supergraph, v_nom));
+      supergraph));
 
   auto shortest_path = shortest_path_cache.get(goal_index)->get();
   const auto shortest_path_result = shortest_path.get(start_index);
@@ -112,7 +112,7 @@ SCENARIO("Translation Heuristic")
       rmf_traffic::agv::planning::TranslationHeuristicFactory>;
   TranslationCache translation_cache(
     std::make_shared<rmf_traffic::agv::planning::TranslationHeuristicFactory>(
-      supergraph, v_nom));
+      supergraph));
 
   // The translation heuristic will use the path that goes to the peak, to avoid
   // all the accelerations and decelerations needed along the shortest path.

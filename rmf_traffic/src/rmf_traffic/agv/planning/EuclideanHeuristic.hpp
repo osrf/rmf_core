@@ -65,9 +65,7 @@ public:
 
   using Generator = EuclideanHeuristic;
 
-  EuclideanHeuristicFactory(
-    std::shared_ptr<const Supergraph> graph,
-    double max_speed);
+  EuclideanHeuristicFactory(std::shared_ptr<const Supergraph> graph);
 
   ConstEuclideanHeuristicPtr make(const std::size_t goal) const final;
 

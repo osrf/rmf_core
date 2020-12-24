@@ -47,7 +47,7 @@ SCENARIO("Euclidean Heuristic -- Single Floor")
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
         std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph, max_speed));
+          supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -122,7 +122,7 @@ SCENARIO("Euclidean Heuristic -- Easy Multifloor")
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
         std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph, max_speed));
+          supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -239,7 +239,7 @@ SCENARIO("Euclidean Heuristic -- Complex Multifloor")
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
         std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph, max_speed));
+          supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -340,7 +340,7 @@ SCENARIO("Euclidean Heuristic -- No Connection")
   rmf_traffic::agv::planning::CacheManagerMap<
       rmf_traffic::agv::planning::EuclideanHeuristicFactory> cache_map(
         std::make_shared<rmf_traffic::agv::planning::EuclideanHeuristicFactory>(
-          supergraph, max_speed));
+          supergraph));
 
   const std::size_t goal = 8;
 

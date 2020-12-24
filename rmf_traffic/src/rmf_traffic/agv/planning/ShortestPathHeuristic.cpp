@@ -245,12 +245,10 @@ std::optional<double> ShortestPathHeuristic::generate(
 
 //==============================================================================
 ShortestPathHeuristicFactory::ShortestPathHeuristicFactory(
-    std::shared_ptr<const Supergraph> graph,
-    double max_speed)
-  : _graph(std::move(graph)),
-    _max_speed(max_speed),
-    _heuristic_cache(
-      std::make_shared<EuclideanHeuristicFactory>(_graph, max_speed))
+  std::shared_ptr<const Supergraph> graph)
+: _graph(std::move(graph)),
+  _max_speed(_graph->traits().linear().get_nominal_velocity()),
+  _heuristic_cache(std::make_shared<EuclideanHeuristicFactory>(_graph))
 {
   // Do nothing
 }

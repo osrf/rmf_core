@@ -63,9 +63,7 @@ public:
 
   using Generator = TranslationHeuristic;
 
-  TranslationHeuristicFactory(
-    std::shared_ptr<const Supergraph> graph,
-    double max_speed);
+  TranslationHeuristicFactory(std::shared_ptr<const Supergraph> graph);
 
   ConstTranslationHeuristicPtr make(const std::size_t goal) const final;
 

@@ -60,6 +60,8 @@ Eigen::Rotation2Dd compute_forward_offset(
 //==============================================================================
 struct TraversalNode
 {
+  std::size_t initial_lane_index;
+  std::size_t finish_lane_index;
   std::size_t finish_waypoint_index;
 
   Eigen::Vector2d initial_p;
@@ -118,6 +120,8 @@ void node_to_traversals(
 {
   assert(valid_traversal(node));
   Traversal traversal;
+  traversal.initial_lane_index = node.initial_lane_index;
+  traversal.finish_lane_index = node.finish_lane_index;
   traversal.finish_waypoint_index = node.finish_waypoint_index;
   traversal.best_time = 0.0;
 
@@ -227,6 +231,7 @@ void perform_traversal(
   const Eigen::Vector2d p1 = wp1.get_location();
 
   TraversalNode node;
+  node.finish_lane_index = lane_index;
   node.finish_waypoint_index = wp_index_1;
 
   if (parent)
@@ -238,11 +243,13 @@ void perform_traversal(
       return;
     }
 
+    node.initial_lane_index = parent->initial_lane_index;
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
   }
   else
   {
+    node.initial_lane_index = lane_index;
     node.initial_p = p0;
 
     if (const auto* entry_event = entry.event())
@@ -411,11 +418,10 @@ TraversalGenerator::Kinematics::Kinematics(
 
 //==============================================================================
 TraversalGenerator::TraversalGenerator(
-  std::shared_ptr<const Supergraph> graph,
-  const VehicleTraits& traits,
+  const std::shared_ptr<const Supergraph>& graph,
   const Interpolate::Options::Implementation& interpolate)
-: _graph(std::move(graph)),
-  _kinematics(traits, interpolate)
+: _graph(graph),
+  _kinematics(graph->traits(), interpolate)
 {
   // Do nothing
 }
@@ -472,15 +478,15 @@ ConstTraversalsPtr TraversalGenerator::generate(
 //==============================================================================
 std::shared_ptr<const Supergraph> Supergraph::make(
     Graph::Implementation original,
-    const VehicleTraits& traits,
+    VehicleTraits traits,
     const Interpolate::Options::Implementation& interpolate)
 {
   auto supergraph = std::shared_ptr<Supergraph>(
-        new Supergraph(std::move(original)));
+        new Supergraph(std::move(original), std::move(traits)));
 
   supergraph->_traversals =
       std::make_shared<CacheManager<TraversalCache>>(
-        std::make_shared<TraversalGenerator>(supergraph, traits, interpolate));
+        std::make_shared<TraversalGenerator>(supergraph, interpolate));
 
   return supergraph;
 }
@@ -489,6 +495,12 @@ std::shared_ptr<const Supergraph> Supergraph::make(
 const Graph::Implementation& Supergraph::original() const
 {
   return _original;
+}
+
+//==============================================================================
+const VehicleTraits& Supergraph::traits() const
+{
+  return _traits;
 }
 
 //==============================================================================
@@ -504,8 +516,9 @@ TraversalCache Supergraph::traversals() const
 }
 
 //==============================================================================
-Supergraph::Supergraph(Graph::Implementation original)
+Supergraph::Supergraph(Graph::Implementation original, VehicleTraits traits)
 : _original(std::move(original)),
+  _traits(std::move(traits)),
   _floor_changes(find_floor_changes(_original))
 {
   // Do nothing

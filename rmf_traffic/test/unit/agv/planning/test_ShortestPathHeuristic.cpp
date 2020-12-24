@@ -56,7 +56,7 @@ SCENARIO("Shortest Path Heuristic -- Single Floor")
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
         std::make_shared<
           rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph, max_speed));
+            supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -159,7 +159,7 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
         std::make_shared<
           rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph, max_speed));
+            supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -303,7 +303,7 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory> cache_map(
         std::make_shared<
           rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph, max_speed));
+            supergraph));
 
   const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
   const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
@@ -417,7 +417,7 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
       rmf_traffic::agv::planning::ShortestPathHeuristicFactory>>(
         std::make_shared<
           rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph, max_speed));
+            supergraph));
 
   const std::size_t goal = 8;
 
@@ -493,9 +493,8 @@ SCENARIO("Shortest Path Heuristic -- No Connection")
   // changed.
   cache_map.reset();
   cache_map.emplace(
-        std::make_shared<
-          rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
-            supergraph, max_speed));
+    std::make_shared<
+      rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(supergraph));
 
   cache = cache_map->get(goal)->get();
 

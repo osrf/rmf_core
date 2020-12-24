@@ -169,7 +169,8 @@ private:
 
 //==============================================================================
 template <typename GeneratorArg>
-Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream> upstream,
+Cache<GeneratorArg>::Cache(
+  std::shared_ptr<const Upstream> upstream,
   std::shared_ptr<const CacheManager<Self> > manager)
 : _upstream(std::move(upstream)),
   _manager(std::move(manager)),

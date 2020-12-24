@@ -223,11 +223,9 @@ std::optional<double> TranslationHeuristic::generate(
 
 //==============================================================================
 TranslationHeuristicFactory::TranslationHeuristicFactory(
-  std::shared_ptr<const Supergraph> graph,
-  double max_speed)
+    std::shared_ptr<const Supergraph> graph)
   : _graph(std::move(graph)),
-    _heuristic_cache(
-      std::make_shared<ShortestPathHeuristicFactory>(_graph, max_speed))
+    _heuristic_cache(std::make_shared<ShortestPathHeuristicFactory>(_graph))
 {
   // Do nothing
 }

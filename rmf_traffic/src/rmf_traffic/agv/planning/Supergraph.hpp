@@ -63,6 +63,8 @@ private:
 //==============================================================================
 struct Traversal
 {
+  std::size_t initial_lane_index;
+  std::size_t finish_lane_index;
   std::size_t finish_waypoint_index;
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
@@ -85,8 +87,7 @@ class TraversalGenerator
 public:
 
   TraversalGenerator(
-    std::shared_ptr<const Supergraph> graph,
-    const VehicleTraits& traits,
+    const std::shared_ptr<const Supergraph>& graph,
     const Interpolate::Options::Implementation& interpolate);
 
   ConstTraversalsPtr generate(
@@ -125,10 +126,11 @@ public:
 
   static std::shared_ptr<const Supergraph> make(
     Graph::Implementation original,
-    const VehicleTraits& traits,
+    VehicleTraits traits,
     const Interpolate::Options::Implementation& interpolate);
 
   const Graph::Implementation& original() const;
+  const VehicleTraits& traits() const;
 
   struct FloorChange
   {
@@ -146,11 +148,29 @@ public:
   /// rotate.
   TraversalCache traversals() const;
 
-  // TODO(MXG): Consider having a reachability map in this class
+  struct Entry
+  {
+    std::size_t lane;
+    Orientation orientation;
+  };
+
+  class Entries
+  {
+  public:
+
+    std::vector<Entry> relevant_entries(
+        std::optional<double> orientation) const;
+
+  private:
+
+  };
+
+  const Entries& entries_into(std::size_t waypoint_index) const;
 
 private:
-  Supergraph(Graph::Implementation original);
+  Supergraph(Graph::Implementation original, VehicleTraits traits);
   Graph::Implementation _original;
+  VehicleTraits _traits;
   FloorChangeMap _floor_changes;
   std::shared_ptr<const CacheManager<TraversalCache>> _traversals;
 };

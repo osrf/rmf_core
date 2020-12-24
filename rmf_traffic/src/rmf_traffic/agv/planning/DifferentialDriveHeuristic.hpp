@@ -15,72 +15,74 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__PLANNING__SHORTESTPATHHEURISTIC_HPP
-#define SRC__RMF_TRAFFIC__AGV__PLANNING__SHORTESTPATHHEURISTIC_HPP
+#ifndef SRC__RMF_TRAFFIC__AGV__PLANNING__DIFFERENTIALDRIVEHEURISTIC_HPP
+#define SRC__RMF_TRAFFIC__AGV__PLANNING__DIFFERENTIALDRIVEHEURISTIC_HPP
 
 #include "CacheManager.hpp"
 #include "Supergraph.hpp"
+#include "DifferentialDriveMap.hpp"
 
-#include "EuclideanHeuristic.hpp"
+#include "TranslationHeuristic.hpp"
 
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
 
 //==============================================================================
-/// The ShortestPathHeuristic finds the shortest (in terms of time required)
-/// path between two waypoints, not accounting for acceleration, deceleration,
-/// turning, or orientation constraints.
-class ShortestPathHeuristic
-    : public Generator<std::unordered_map<std::size_t, std::optional<double>>>
+class DifferentialDriveHeuristic : public Generator<DifferentialDriveMap>
 {
 public:
 
-  ShortestPathHeuristic(
+  DifferentialDriveHeuristic(
     std::size_t goal,
-    double max_speed,
     std::shared_ptr<const Supergraph> graph,
-    CacheManagerPtr<EuclideanHeuristic> heuristic);
+    CacheManagerPtr<TranslationHeuristic> heuristic);
 
-  std::optional<double> generate(
-    const std::size_t& key,
+  using NodePtr = DifferentialDriveMapTypes::NodePtr;
+
+  NodePtr generate(
+    const Key& key,
     const Storage& old_items,
     Storage& new_items) const final;
 
 private:
   std::size_t _goal;
-  double _max_speed;
   std::shared_ptr<const Supergraph> _graph;
-  CacheManagerPtr<EuclideanHeuristic> _heuristic;
+  CacheManagerPtr<TranslationHeuristic> _heuristic;
 };
 
 //==============================================================================
-using ConstShortestPathHeuristicPtr =
-  std::shared_ptr<const ShortestPathHeuristic>;
+using ConstDifferentialDriveHeuristicPtr =
+  std::shared_ptr<const DifferentialDriveHeuristic>;
 
 //==============================================================================
-class ShortestPathHeuristicFactory : public Factory<ShortestPathHeuristic>
+class DifferentialDriveHeuristicFactory
+    : public Factory<DifferentialDriveHeuristic>
 {
 public:
 
-  using Generator = ShortestPathHeuristic;
+  using Generator = DifferentialDriveHeuristic;
 
-  ShortestPathHeuristicFactory(std::shared_ptr<const Supergraph> graph);
+  DifferentialDriveHeuristicFactory(std::shared_ptr<const Supergraph> graph);
 
-  ConstShortestPathHeuristicPtr make(const std::size_t goal) const final;
+  ConstDifferentialDriveHeuristicPtr make(const std::size_t goal) const final;
+
+  std::vector<Generator::Key> keys_for(
+      std::size_t start_waypoint_index,
+      std::size_t goal_waypoint_index,
+      std::optional<double> goal_orientation) const;
 
 private:
   std::shared_ptr<const Supergraph> _graph;
-  double _max_speed;
-  EuclideanHeuristicCacheMap _heuristic_cache;
+  TranslationHeuristicCacheMap _heuristic_cache;
 };
 
 //==============================================================================
-using ShortestPathHeuristicCacheMap =
-  CacheManagerMap<ShortestPathHeuristicFactory>;
+using DifferentialDriveHeuristicCacheMap =
+  CacheManagerMap<DifferentialDriveHeuristicFactory>;
 
 } // namespace planning
 } // namespace agv
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__AGV__PLANNING__SHORTESTPATHHEURISTIC_HPP
+#endif // SRC__RMF_TRAFFIC__AGV__PLANNING__DIFFERENTIALDRIVEHEURISTIC_HPP

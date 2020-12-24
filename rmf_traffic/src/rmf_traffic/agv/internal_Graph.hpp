@@ -34,6 +34,11 @@ public:
 
   // A map from a waypoint index to the set of lanes that can exit from it
   std::vector<std::vector<std::size_t>> lanes_from;
+
+  // A map from a waypoint index to the set of lanes that can enter into it
+  // TODO(MXG): Consider giving the public Graph API a way to access this
+  std::vector<std::vector<std::size_t>> lanes_into;
+
   std::vector<std::unordered_map<std::size_t, std::size_t>> lane_between;
 
   static Graph::Implementation& get(Graph& graph)
