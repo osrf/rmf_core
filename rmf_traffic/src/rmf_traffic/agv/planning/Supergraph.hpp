@@ -144,7 +144,7 @@ public:
   /// Get the continuous traversals that can be done from the given waypoint.
   /// This means traversals during which the robot does not need to stop or
   /// rotate.
-  TraversalCache traversals() const;
+  ConstTraversalsPtr traversals_from(std::size_t waypoint_index) const;
 
   struct Entry
   {
@@ -205,6 +205,9 @@ private:
 
   private:
     std::weak_ptr<const Supergraph> _graph;
+    // TODO(MXG): We could refactor EntriesGenerator and TraversalGenerator by
+    // moving these fields into the supergraph and just having them both use the
+    // supergraph version of these fields.
     Interpolate::Options::Implementation _interpolate;
     std::optional<DifferentialDriveConstraint> _constraint;
   };

@@ -101,7 +101,7 @@ public:
       return;
     }
 
-    const auto traversals = _graph->traversals().get(current_wp_index);
+    const auto traversals = _graph->traversals_from(current_wp_index);
     assert(traversals);
     for (const auto& traversal : *traversals)
     {

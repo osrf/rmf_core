@@ -488,6 +488,10 @@ std::shared_ptr<const Supergraph> Supergraph::make(
       std::make_shared<CacheManager<TraversalCache>>(
         std::make_shared<TraversalGenerator>(supergraph, interpolate));
 
+  supergraph->_entries_cache =
+      std::make_shared<CacheManager<EntriesCache>>(
+        std::make_shared<EntriesGenerator>(supergraph, interpolate));
+
   return supergraph;
 }
 
@@ -510,9 +514,10 @@ auto Supergraph::floor_change() const -> const FloorChangeMap&
 }
 
 //==============================================================================
-TraversalCache Supergraph::traversals() const
+ConstTraversalsPtr Supergraph::traversals_from(
+    const std::size_t waypoint_index) const
 {
-  return _traversals->get();
+  return _traversals->get().get(waypoint_index);
 }
 
 //==============================================================================
@@ -579,7 +584,7 @@ Supergraph::Entries::Entries(
 Supergraph::ConstEntriesPtr Supergraph::entries_into(
   const std::size_t waypoint_index) const
 {
-
+  return _entries_cache->get().get(waypoint_index);
 }
 
 //==============================================================================
@@ -595,8 +600,8 @@ Supergraph::keys_for(
   const auto relevant_entries = entries_into(goal_waypoint_index)
       ->relevant_entries(goal_orientation);
 
-  const auto relevant_traversals = traversals().get(start_waypoint_index);
-  assert(traversals);
+  const auto relevant_traversals = traversals_from(start_waypoint_index);
+  assert(relevant_traversals);
 
   for (const auto& traversal : *relevant_traversals)
   {

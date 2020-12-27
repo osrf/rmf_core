@@ -143,67 +143,67 @@ SCENARIO("Supergraph -- Single Floor, Reversible")
         rmf_traffic::agv::Graph::Implementation::get(graph),
         traits, rmf_traffic::agv::Interpolate::Options());
 
-  auto traversals = supergraph->traversals().get(0);
+  auto traversals = supergraph->traversals_from(0);
   REQUIRE(traversals);
   CHECK(traversals->size() == 8);
   CHECK(count_alternatives(*traversals) == 13);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(1);
+  traversals = supergraph->traversals_from(1);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 6);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(2);
+  traversals = supergraph->traversals_from(2);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 6);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(3);
+  traversals = supergraph->traversals_from(3);
   REQUIRE(traversals);
   CHECK(traversals->size() == 6);
   CHECK(count_alternatives(*traversals) == 12);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(4);
+  traversals = supergraph->traversals_from(4);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 4);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(5);
+  traversals = supergraph->traversals_from(5);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 4);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(6);
+  traversals = supergraph->traversals_from(6);
   REQUIRE(traversals);
   CHECK(traversals->size() == 0);
   CHECK(count_alternatives(*traversals) == 0);
   // This traversal has no route in it, so it won't contain any map
 
-  traversals = supergraph->traversals().get(7);
+  traversals = supergraph->traversals_from(7);
   REQUIRE(traversals);
   CHECK(traversals->size() == 1);
   CHECK(count_alternatives(*traversals) == 1);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(8);
+  traversals = supergraph->traversals_from(8);
   REQUIRE(traversals);
   CHECK(traversals->size() == 1);
   CHECK(count_alternatives(*traversals) == 1);
   CHECK(has_only_map(test_map, *traversals));
 
-  traversals = supergraph->traversals().get(9);
+  traversals = supergraph->traversals_from(9);
   REQUIRE(traversals);
   CHECK(traversals->size() == 0);
   CHECK(count_alternatives(*traversals) == 0);
   // This traversal has no route in it, so it won't contain any map
 
-  traversals = supergraph->traversals().get(10);
+  traversals = supergraph->traversals_from(10);
   REQUIRE(traversals);
   CHECK(traversals->size() == 3);
   CHECK(count_alternatives(*traversals) == 5);
@@ -268,7 +268,7 @@ SCENARIO("Supergraph -- Single Floor, Events, Irreversible")
         rmf_traffic::agv::Graph::Implementation::get(graph),
         traits, rmf_traffic::agv::Interpolate::Options());
 
-  auto traversals = supergraph->traversals().get(0);
+  auto traversals = supergraph->traversals_from(0);
   REQUIRE(traversals);
   CHECK(traversals->size() == 6);
   CHECK(count_alternatives(*traversals) == 6);
