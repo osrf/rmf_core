@@ -284,7 +284,7 @@ void perform_traversal(
     const auto orientations =
         kin.constraint->get_orientations(course_vector);
 
-    for (std::size_t i = 0; i < 2; ++i)
+    for (std::size_t i = 0; i < orientations.size(); ++i)
     {
       const auto orientation = orientations[i];
       if (!orientation.has_value())
@@ -429,7 +429,7 @@ TraversalGenerator::TraversalGenerator(
 //==============================================================================
 ConstTraversalsPtr TraversalGenerator::generate(
     const std::size_t& key,
-    const Storage&,
+    const Storage&, // old items are irrelevant
     Storage& new_items) const
 {
   const auto supergraph = _graph.lock();
@@ -513,6 +513,193 @@ auto Supergraph::floor_change() const -> const FloorChangeMap&
 TraversalCache Supergraph::traversals() const
 {
   return _traversals->get();
+}
+
+//==============================================================================
+std::vector<Supergraph::Entry> Supergraph::Entries::relevant_entries(
+    std::optional<double> orientation_opt) const
+{
+  std::vector<Supergraph::Entry> output;
+  output.reserve(_total_entries);
+  output.insert(
+    output.end(),
+    _agnostic_entries.begin(),
+    _agnostic_entries.end());
+
+  if (!orientation_opt.has_value())
+  {
+    // If there isn't a specific orientation being asked for, then we need to
+    // consider every possible entry.
+    for (const auto& [_, entry] : _angled_entries)
+      output.push_back(entry);
+
+    return output;
+  }
+
+  if (_angled_entries.empty())
+    return output;
+
+  const double orientation = rmf_utils::wrap_to_pi(*orientation_opt);
+  const double lower_bound = _angled_entries.begin()->first;
+  const double upper_bound = _angled_entries.rbegin()->first;
+  if (orientation < lower_bound || upper_bound < orientation)
+  {
+    output.push_back(_angled_entries.begin()->second);
+    if (lower_bound != upper_bound)
+      output.push_back(_angled_entries.rbegin()->second);
+
+    return output;
+  }
+
+  const auto it = _angled_entries.lower_bound(orientation);
+  output.push_back(it->second);
+  if (orientation < it->first)
+  {
+    // it cannot be begin() because the earlier if-statement would have caught
+    // it if it were. So we can safely decrement and dereference this iterator,
+    // and it will certainly provide the lower bound for the requested
+    // orientation.
+    output.push_back((--std::map<double, Entry>::const_iterator(it))->second);
+  }
+
+  return output;
+}
+
+//==============================================================================
+Supergraph::Entries::Entries(
+  std::map<double, Entry> angled_entries,
+  std::vector<Entry> agnostic_entries)
+: _angled_entries(std::move(angled_entries)),
+  _agnostic_entries(std::move(agnostic_entries))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Supergraph::ConstEntriesPtr Supergraph::entries_into(
+  const std::size_t waypoint_index) const
+{
+
+}
+
+//==============================================================================
+std::vector<DifferentialDriveMapTypes::Key>
+Supergraph::keys_for(
+  const std::size_t start_waypoint_index,
+  const std::size_t goal_waypoint_index,
+  std::optional<double> goal_orientation) const
+{
+  using Key = DifferentialDriveMapTypes::Key;
+  std::vector<Key> keys;
+
+  const auto relevant_entries = entries_into(goal_waypoint_index)
+      ->relevant_entries(goal_orientation);
+
+  const auto relevant_traversals = traversals().get(start_waypoint_index);
+  assert(traversals);
+
+  for (const auto& traversal : *relevant_traversals)
+  {
+    const std::size_t lane_index = traversal.initial_lane_index;
+    for (std::size_t orientation = 0; orientation < 3; ++orientation)
+    {
+      const auto& alt = traversal.alternatives[orientation];
+      if (!alt.has_value())
+        continue;
+
+      for (const auto& entry : relevant_entries)
+      {
+        keys.push_back(
+          Key{
+            lane_index, Orientation(orientation),
+            entry.lane, entry.orientation
+          });
+      }
+    }
+  }
+
+  return keys;
+}
+
+//==============================================================================
+Supergraph::EntriesGenerator::EntriesGenerator(
+  const std::shared_ptr<const Supergraph>& graph,
+  const Interpolate::Options::Implementation& interpolate)
+: _graph(graph),
+  _interpolate(interpolate)
+{
+  if (const auto* differential = graph->traits().get_differential())
+  {
+    _constraint = DifferentialDriveConstraint(
+          differential->get_forward(),
+          differential->is_reversible());
+  }
+}
+
+//==============================================================================
+auto Supergraph::EntriesGenerator::generate(
+  const std::size_t& key,
+  const Storage&, // old items are irrelevant
+  Storage& new_items) const -> ConstEntriesPtr
+{
+  const auto supergraph = _graph.lock();
+  if (!supergraph)
+  {
+    // This means the supergraph that's being traversed has destructed while
+    // this cache is still alive. That's really weird and shouldn't happen.
+    // The only reason we keep the graph as a nullptr is
+    // 1) to avoid a circular dependency
+    // 2) we cannot technically guarantee that the cache's lifecycle will fit
+    //    within the supergraph's lifecycle, and throwing an exception is
+    //    preferable to Undefined Behavior.
+    throw std::runtime_error(
+          "[rmf_traffic::agv::planning::Supergraph::EntriesGenerator::generate]"
+          " Supergraph died while a EntriesCache was still being used. "
+          "Please report this critical bug to the maintainers of rmf_traffic.");
+  }
+
+  const std::size_t waypoint_index = key;
+  const auto& graph = supergraph->original();
+  const auto& entry_lanes = graph.lanes_into[waypoint_index];
+
+  std::map<double, Entry> angled_entries;
+  std::vector<Entry> agnostic_entries;
+
+  const Eigen::Vector2d p1 = graph.waypoints[waypoint_index].get_location();
+
+  for (const auto& lane_index : entry_lanes)
+  {
+    const auto& lane = graph.lanes[lane_index];
+    const auto& wp0 = graph.waypoints[lane.entry().waypoint_index()];
+    const Eigen::Vector2d p0 = wp0.get_location();
+
+    const double dist = (p1 - p0).norm();
+    if (!_constraint.has_value() || dist < _interpolate.translation_thresh)
+    {
+      agnostic_entries.push_back({lane_index, Orientation::Any});
+    }
+    else
+    {
+      const Eigen::Vector2d course_vector = (p1 - p0)/dist;
+      const auto orientations =
+          _constraint->get_orientations(course_vector);
+
+      for (std::size_t i=0; i < orientations.size(); ++i)
+      {
+        const auto orientation = orientations[i];
+        if (!orientation.has_value())
+          continue;
+
+        angled_entries[*orientation] = Entry{lane_index, Orientation(i)};
+      }
+    }
+  }
+
+  auto new_entries = std::make_shared<Entries>(
+        std::move(angled_entries), std::move(agnostic_entries));
+
+  new_items.insert({key, new_entries});
+  return new_entries;
 }
 
 //==============================================================================

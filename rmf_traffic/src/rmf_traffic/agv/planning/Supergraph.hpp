@@ -21,10 +21,13 @@
 #include "../internal_Graph.hpp"
 #include "../internal_Interpolate.hpp"
 #include "CacheManager.hpp"
+#include "DifferentialDriveMap.hpp"
 
 #include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/agv/VehicleTraits.hpp>
+
+#include <map>
 
 namespace rmf_traffic {
 namespace agv {
@@ -32,14 +35,6 @@ namespace planning {
 
 //==============================================================================
 class Supergraph;
-
-//==============================================================================
-enum Orientation
-{
-  Forward = 0,
-  Backward,
-  Any
-};
 
 //==============================================================================
 class DifferentialDriveConstraint
@@ -124,6 +119,9 @@ class Supergraph : public std::enable_shared_from_this<Supergraph>
 {
 public:
 
+  // TODO(MXG): We could consider moving some of this class's nested classes out
+  // into the global scope to clean up the API here.
+
   static std::shared_ptr<const Supergraph> make(
     Graph::Implementation original,
     VehicleTraits traits,
@@ -161,11 +159,29 @@ public:
     std::vector<Entry> relevant_entries(
         std::optional<double> orientation) const;
 
+    Entries(
+        std::map<double, Entry> angled_entries,
+        std::vector<Entry> agnostic_entries);
+
   private:
+    // These are entries that require a specific entry angle
+    std::map<double, Entry> _angled_entries;
 
+    // These are entries that do not require any specific entry angle
+    std::vector<Entry> _agnostic_entries;
+
+    std::size_t _total_entries;
   };
+  using ConstEntriesPtr = std::shared_ptr<const Entries>;
 
-  const Entries& entries_into(std::size_t waypoint_index) const;
+  ConstEntriesPtr entries_into(std::size_t waypoint_index) const;
+
+  /// Get the keys for the DifferentialDriveHeuristic cache entries that are
+  /// relevant for a given combination of start and goal conditions.
+  std::vector<DifferentialDriveMapTypes::Key> keys_for(
+      std::size_t start_waypoint_index,
+      std::size_t goal_waypoint_index,
+      std::optional<double> goal_orientation) const;
 
 private:
   Supergraph(Graph::Implementation original, VehicleTraits traits);
@@ -173,6 +189,27 @@ private:
   VehicleTraits _traits;
   FloorChangeMap _floor_changes;
   std::shared_ptr<const CacheManager<TraversalCache>> _traversals;
+
+  class EntriesGenerator
+      : public Generator<std::unordered_map<std::size_t, ConstEntriesPtr>>
+  {
+  public:
+    EntriesGenerator(
+      const std::shared_ptr<const Supergraph>& graph,
+      const Interpolate::Options::Implementation& interpolate);
+
+    ConstEntriesPtr generate(
+      const std::size_t& key,
+      const Storage& old_items,
+      Storage& new_items) const final;
+
+  private:
+    std::weak_ptr<const Supergraph> _graph;
+    Interpolate::Options::Implementation _interpolate;
+    std::optional<DifferentialDriveConstraint> _constraint;
+  };
+  using EntriesCache = Cache<EntriesGenerator>;
+  std::shared_ptr<const CacheManager<EntriesCache>> _entries_cache;
 };
 
 } // namespace planning

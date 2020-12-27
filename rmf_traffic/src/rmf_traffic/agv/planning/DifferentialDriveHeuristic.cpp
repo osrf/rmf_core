@@ -59,44 +59,6 @@ ConstDifferentialDriveHeuristicPtr DifferentialDriveHeuristicFactory
         goal, _graph, _heuristic_cache.get(goal));
 }
 
-//==============================================================================
-auto DifferentialDriveHeuristicFactory::keys_for(
-  std::size_t start_waypoint_index,
-  std::size_t goal_waypoint_index,
-  std::optional<double> goal_orientation) const -> std::vector<Generator::Key>
-{
-  using Key = Generator::Key;
-  std::vector<Key> keys;
-
-  const auto relevant_entries = _graph->entries_into(goal_waypoint_index)
-      .relevant_entries(goal_orientation);
-
-  const auto traversals = _graph->traversals().get(start_waypoint_index);
-  assert(traversals);
-
-  for (const auto& traversal : *traversals)
-  {
-    const std::size_t lane_index = traversal.initial_lane_index;
-    for (std::size_t orientation = 0; orientation < 3; ++orientation)
-    {
-      const auto& alt = traversal.alternatives[orientation];
-      if (!alt.has_value())
-        continue;
-
-      for (const auto& entry : relevant_entries)
-      {
-        keys.push_back(
-          Key{
-            lane_index, Orientation(orientation),
-            entry.lane, entry.orientation
-          });
-      }
-    }
-  }
-
-  return keys;
-}
-
 } // namespace planning
 } // namespace agv
 } // namespace rmf_traffic

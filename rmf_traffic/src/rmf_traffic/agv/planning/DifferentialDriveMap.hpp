@@ -18,7 +18,8 @@
 #ifndef SRC__RMF_TRAFFIC__AGV__PLANNING__DIFFERENTIALDRIVEMAP_HPP
 #define SRC__RMF_TRAFFIC__AGV__PLANNING__DIFFERENTIALDRIVEMAP_HPP
 
-#include "Supergraph.hpp"
+#include <rmf_traffic/Route.hpp>
+#include <rmf_traffic/agv/Graph.hpp>
 
 #include <memory>
 #include <unordered_map>
@@ -26,6 +27,14 @@
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
+
+//==============================================================================
+enum Orientation
+{
+  Forward = 0,
+  Backward,
+  Any
+};
 
 //==============================================================================
 struct DifferentialDriveMapTypes

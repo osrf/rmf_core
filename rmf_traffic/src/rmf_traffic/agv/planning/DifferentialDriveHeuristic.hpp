@@ -67,11 +67,6 @@ public:
 
   ConstDifferentialDriveHeuristicPtr make(const std::size_t goal) const final;
 
-  std::vector<Generator::Key> keys_for(
-      std::size_t start_waypoint_index,
-      std::size_t goal_waypoint_index,
-      std::optional<double> goal_orientation) const;
-
 private:
   std::shared_ptr<const Supergraph> _graph;
   TranslationHeuristicCacheMap _heuristic_cache;
