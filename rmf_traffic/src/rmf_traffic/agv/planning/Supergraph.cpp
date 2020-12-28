@@ -153,21 +153,21 @@ void node_to_traversals(
   std::optional<double> best_trajectory_time;
   for (std::size_t i=0; i < 2; ++i)
   {
-    const auto orientation = node.orientations[i];
+    const auto yaw = node.orientations[i];
 
-    if (!orientation.has_value())
+    if (!yaw.has_value())
       continue;
 
     const Eigen::Vector3d start{
       node.initial_p.x(),
       node.initial_p.y(),
-      *orientation
+      *yaw
     };
 
     const Eigen::Vector3d finish{
       node.finish_p.x(),
       node.finish_p.y(),
-      *orientation
+      *yaw
     };
 
     const auto start_time = rmf_traffic::Time(std::chrono::seconds(0));
@@ -184,16 +184,18 @@ void node_to_traversals(
           kin.interpolate.translation_thresh);
 
     Traversal::Alternative alternative;
+    alternative.yaw = *yaw;
     for (const auto& map : node.map_names)
       alternative.routes.push_back({map, trajectory});
 
-    traversal.alternatives[i] = std::move(alternative);
-
     const double time = rmf_traffic::time::to_seconds(
           *trajectory.finish_time() - *trajectory.start_time());
+    alternative.time = time;
 
     if (!best_trajectory_time.has_value() || time < *best_trajectory_time)
       best_trajectory_time = time;
+
+    traversal.alternatives[i] = std::move(alternative);
   }
 
   if (best_trajectory_time.has_value())
@@ -418,10 +420,9 @@ TraversalGenerator::Kinematics::Kinematics(
 
 //==============================================================================
 TraversalGenerator::TraversalGenerator(
-  const std::shared_ptr<const Supergraph>& graph,
-  const Interpolate::Options::Implementation& interpolate)
+  const std::shared_ptr<const Supergraph>& graph)
 : _graph(graph),
-  _kinematics(graph->traits(), interpolate)
+  _kinematics(graph->traits(), graph->options())
 {
   // Do nothing
 }
@@ -433,6 +434,8 @@ ConstTraversalsPtr TraversalGenerator::generate(
     Storage& new_items) const
 {
   const auto supergraph = _graph.lock();
+
+  // TODO(MXG): When we have C++20 support, we can label this with [[unlikely]]
   if (!supergraph)
   {
     // This means the supergraph that's being traversed has destructed while
@@ -482,15 +485,21 @@ std::shared_ptr<const Supergraph> Supergraph::make(
     const Interpolate::Options::Implementation& interpolate)
 {
   auto supergraph = std::shared_ptr<Supergraph>(
-        new Supergraph(std::move(original), std::move(traits)));
+        new Supergraph(std::move(original), std::move(traits), interpolate));
 
   supergraph->_traversals =
       std::make_shared<CacheManager<TraversalCache>>(
-        std::make_shared<TraversalGenerator>(supergraph, interpolate));
+        std::make_shared<TraversalGenerator>(supergraph));
 
   supergraph->_entries_cache =
       std::make_shared<CacheManager<EntriesCache>>(
-        std::make_shared<EntriesGenerator>(supergraph, interpolate));
+        std::make_shared<EntriesGenerator>(supergraph));
+
+  const std::size_t N_lanes = supergraph->original().lanes.size();
+  supergraph->_lane_yaw_cache =
+      std::make_shared<CacheManager<LaneYawCache>>(
+        std::make_shared<LaneYawGenerator>(supergraph),
+        [N_lanes](){ return LaneYawMap(251, EntryHash(N_lanes)); });
 
   return supergraph;
 }
@@ -505,6 +514,12 @@ const Graph::Implementation& Supergraph::original() const
 const VehicleTraits& Supergraph::traits() const
 {
   return _traits;
+}
+
+//==============================================================================
+const Interpolate::Options::Implementation& Supergraph::options() const
+{
+  return _interpolate;
 }
 
 //==============================================================================
@@ -526,10 +541,10 @@ std::vector<Supergraph::Entry> Supergraph::Entries::relevant_entries(
 {
   std::vector<Supergraph::Entry> output;
   output.reserve(_total_entries);
-  output.insert(
-    output.end(),
-    _agnostic_entries.begin(),
-    _agnostic_entries.end());
+  if (_agnostic_entry.has_value())
+  {
+    output.push_back(*_agnostic_entry);
+  }
 
   if (!orientation_opt.has_value())
   {
@@ -573,11 +588,12 @@ std::vector<Supergraph::Entry> Supergraph::Entries::relevant_entries(
 //==============================================================================
 Supergraph::Entries::Entries(
   std::map<double, Entry> angled_entries,
-  std::vector<Entry> agnostic_entries)
+  std::optional<Entry> agnostic_entry)
 : _angled_entries(std::move(angled_entries)),
-  _agnostic_entries(std::move(agnostic_entries))
+  _agnostic_entry(std::move(agnostic_entry))
 {
-  // Do nothing
+  _total_entries = _angled_entries.size()
+      + (_agnostic_entry.has_value()? 1 : 0);
 }
 
 //==============================================================================
@@ -585,6 +601,15 @@ Supergraph::ConstEntriesPtr Supergraph::entries_into(
   const std::size_t waypoint_index) const
 {
   return _entries_cache->get().get(waypoint_index);
+}
+
+//==============================================================================
+std::optional<double> Supergraph::yaw_of(const Entry& entry) const
+{
+  if (entry.orientation == Orientation::Any)
+    return std::nullopt;
+
+  return _lane_yaw_cache->get().get(entry);
 }
 
 //==============================================================================
@@ -628,10 +653,8 @@ Supergraph::keys_for(
 
 //==============================================================================
 Supergraph::EntriesGenerator::EntriesGenerator(
-  const std::shared_ptr<const Supergraph>& graph,
-  const Interpolate::Options::Implementation& interpolate)
-: _graph(graph),
-  _interpolate(interpolate)
+  const std::shared_ptr<const Supergraph>& graph)
+: _graph(graph)
 {
   if (const auto* differential = graph->traits().get_differential())
   {
@@ -648,6 +671,8 @@ auto Supergraph::EntriesGenerator::generate(
   Storage& new_items) const -> ConstEntriesPtr
 {
   const auto supergraph = _graph.lock();
+
+  // TODO(MXG): When we have C++20 support, we can label this with [[unlikely]]
   if (!supergraph)
   {
     // This means the supergraph that's being traversed has destructed while
@@ -665,10 +690,11 @@ auto Supergraph::EntriesGenerator::generate(
 
   const std::size_t waypoint_index = key;
   const auto& graph = supergraph->original();
+  const auto& interpolate = supergraph->options();
   const auto& entry_lanes = graph.lanes_into[waypoint_index];
 
   std::map<double, Entry> angled_entries;
-  std::vector<Entry> agnostic_entries;
+  std::optional<Entry> agnostic_entry;
 
   const Eigen::Vector2d p1 = graph.waypoints[waypoint_index].get_location();
 
@@ -679,9 +705,9 @@ auto Supergraph::EntriesGenerator::generate(
     const Eigen::Vector2d p0 = wp0.get_location();
 
     const double dist = (p1 - p0).norm();
-    if (!_constraint.has_value() || dist < _interpolate.translation_thresh)
+    if (!_constraint.has_value() || dist < interpolate.translation_thresh)
     {
-      agnostic_entries.push_back({lane_index, Orientation::Any});
+      agnostic_entry = Entry{lane_index, Orientation::Any};
     }
     else
     {
@@ -701,16 +727,102 @@ auto Supergraph::EntriesGenerator::generate(
   }
 
   auto new_entries = std::make_shared<Entries>(
-        std::move(angled_entries), std::move(agnostic_entries));
+        std::move(angled_entries), std::move(agnostic_entry));
 
   new_items.insert({key, new_entries});
   return new_entries;
 }
 
 //==============================================================================
-Supergraph::Supergraph(Graph::Implementation original, VehicleTraits traits)
+Supergraph::LaneYawGenerator::LaneYawGenerator(
+  const std::shared_ptr<const Supergraph>& graph)
+: _graph(graph)
+{
+  if (const auto* diff_drive = graph->traits().get_differential())
+  {
+    // We pretend the vehicle is always reversible, because this isn't the place
+    // where the reversibility constraint is enforced.
+    _constraint = DifferentialDriveConstraint(diff_drive->get_forward(), true);
+  }
+}
+
+//==============================================================================
+std::optional<double> Supergraph::LaneYawGenerator::generate(
+  const Entry& key,
+  const Storage& /*old_items*/,
+  Storage& new_items) const
+{
+  if (key.orientation == Orientation::Any)
+  {
+    new_items.insert({{key.lane, Orientation::Any}, std::nullopt});
+    return std::nullopt;
+  }
+
+  if (!_constraint.has_value())
+  {
+    for (std::size_t i=0; i <= Orientation::Any; ++i)
+      new_items.insert({{key.lane, Orientation(i)}, std::nullopt});
+
+    return std::nullopt;
+  }
+
+  const auto supergraph = _graph.lock();
+
+  // TODO(MXG): When we have C++20 support, we can label this with [[unlikely]]
+  if (!supergraph)
+  {
+    // This means the supergraph that's being traversed has destructed while
+    // this cache is still alive. That's really weird and shouldn't happen.
+    // The only reason we keep the graph as a nullptr is
+    // 1) to avoid a circular dependency
+    // 2) we cannot technically guarantee that the cache's lifecycle will fit
+    //    within the supergraph's lifecycle, and throwing an exception is
+    //    preferable to Undefined Behavior.
+    throw std::runtime_error(
+          "[rmf_traffic::agv::planning::Supergraph::EntriesGenerator::generate]"
+          " Supergraph died while a EntriesCache was still being used. "
+          "Please report this critical bug to the maintainers of rmf_traffic.");
+  }
+
+  const auto& original = supergraph->original();
+  const auto& lane = original.lanes[key.lane];
+  const std::size_t waypoint_index_0 = lane.entry().waypoint_index();
+  const std::size_t waypoint_index_1 = lane.exit().waypoint_index();
+  const auto& wp0 = original.waypoints[waypoint_index_0];
+  const auto& wp1 = original.waypoints[waypoint_index_1];
+
+  const Eigen::Vector2d p0 = wp0.get_location();
+  const Eigen::Vector2d p1 = wp1.get_location();
+  const double dist = (p1 - p0).norm();
+  if (dist <= supergraph->options().translation_thresh)
+  {
+    for (std::size_t i=0; i <= Orientation::Any; ++i)
+      new_items.insert({{key.lane, Orientation(i)}, std::nullopt});
+
+    return std::nullopt;
+  }
+
+  const Eigen::Vector2d course_vector = (p1 - p0)/dist;
+  const auto orientations = _constraint->get_orientations(course_vector);
+  for (std::size_t i=0; i < orientations.size(); ++i)
+  {
+    const auto yaw = orientations[i];
+    assert(yaw.has_value());
+
+    new_items.insert({{key.lane, Orientation(i)}, yaw});
+  }
+
+  return orientations[key.lane];
+}
+
+//==============================================================================
+Supergraph::Supergraph(
+  Graph::Implementation original,
+  VehicleTraits traits,
+  const Interpolate::Options::Implementation& interpolate)
 : _original(std::move(original)),
   _traits(std::move(traits)),
+  _interpolate(interpolate),
   _floor_changes(find_floor_changes(_original))
 {
   // Do nothing

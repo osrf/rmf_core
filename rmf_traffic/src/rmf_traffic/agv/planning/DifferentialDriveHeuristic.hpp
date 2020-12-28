@@ -34,19 +34,18 @@ class DifferentialDriveHeuristic : public Generator<DifferentialDriveMap>
 public:
 
   DifferentialDriveHeuristic(
-    std::size_t goal,
     std::shared_ptr<const Supergraph> graph,
     CacheManagerPtr<TranslationHeuristic> heuristic);
 
-  using NodePtr = DifferentialDriveMapTypes::NodePtr;
+  using SolutionNode = DifferentialDriveMapTypes::SolutionNode;
+  using SolutionNodePtr = DifferentialDriveMapTypes::SolutionNodePtr;
 
-  NodePtr generate(
+  SolutionNodePtr generate(
     const Key& key,
     const Storage& old_items,
     Storage& new_items) const final;
 
 private:
-  std::size_t _goal;
   std::shared_ptr<const Supergraph> _graph;
   CacheManagerPtr<TranslationHeuristic> _heuristic;
 };

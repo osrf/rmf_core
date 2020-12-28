@@ -677,7 +677,7 @@ const Eigen::Rotation2Dd OldDifferentialDriveConstraint::R_pi =
   Eigen::Rotation2Dd(M_PI);
 
 //==============================================================================
-struct DifferentialDriveExpander
+struct OldDifferentialDriveExpander
 {
   struct Node;
   using NodePtr = std::shared_ptr<Node>;
@@ -758,7 +758,7 @@ struct DifferentialDriveExpander
       _event = agv::Graph::Lane::Event::make(wait);
     }
 
-    NodePtr get(DifferentialDriveExpander* expander)
+    NodePtr get(OldDifferentialDriveExpander* expander)
     {
       assert(_event);
       const auto duration = _event->duration();
@@ -770,7 +770,7 @@ struct DifferentialDriveExpander
     }
 
     LaneEventExecutor& add_exit_if_valid(
-      DifferentialDriveExpander* expander,
+      OldDifferentialDriveExpander* expander,
       SearchQueue& queue)
     {
       assert(_event);
@@ -916,7 +916,7 @@ struct DifferentialDriveExpander
     const rmf_traffic::Time initial_time = rmf_traffic::Time(rmf_traffic::Duration(0));
   };
 
-  DifferentialDriveExpander(Context& context)
+  OldDifferentialDriveExpander(Context& context)
   : _context(context),
     _query(schedule::make_query({}, nullptr, nullptr)),
     _differential_constraint(
@@ -1750,9 +1750,9 @@ class DifferentialDriveCache : public Cache
 {
 public:
 
-  using Heuristic = DifferentialDriveExpander::Heuristic;
-  using NodePtr = DifferentialDriveExpander::NodePtr;
-  using Node = DifferentialDriveExpander::Node;
+  using Heuristic = OldDifferentialDriveExpander::Heuristic;
+  using NodePtr = OldDifferentialDriveExpander::NodePtr;
+  using Node = OldDifferentialDriveExpander::Node;
 
   DifferentialDriveCache(agv::Planner::Configuration config)
   : _config(std::move(config)),
@@ -1795,7 +1795,7 @@ public:
   class InternalState : public State::Internal
   {
   public:
-    DifferentialDriveExpander::SearchQueue queue;
+    OldDifferentialDriveExpander::SearchQueue queue;
 
     rmf_utils::optional<double> cost_estimate() const final
     {
@@ -1835,11 +1835,11 @@ public:
           state.popped_count,
           false);
 
-    DifferentialDriveExpander expander(context);
+    OldDifferentialDriveExpander expander(context);
     auto& queue = static_cast<InternalState*>(state.internal.get())->queue;
 
     expander.make_initial_nodes(
-          DifferentialDriveExpander::InitialNodeArgs{
+          OldDifferentialDriveExpander::InitialNodeArgs{
             state.conditions.starts
           }, queue);
 
@@ -1861,12 +1861,12 @@ public:
           state.popped_count,
           false);
 
-    DifferentialDriveExpander expander(context);
+    OldDifferentialDriveExpander expander(context);
     auto& queue = static_cast<InternalState*>(state.internal.get())->queue;
     const auto& interrupter = state.conditions.options.interrupter();
 
     const NodePtr solution =
-        search<DifferentialDriveExpander>(expander, queue, interrupter);
+        search<OldDifferentialDriveExpander>(expander, queue, interrupter);
 
     if (interrupter && interrupter())
       state.issues.interrupted = true;
@@ -1974,12 +1974,12 @@ public:
     std::size_t popped_count = 0;
     auto context = make_context(goal, options, temp_blocked_nodes,
                                 popped_count, true);
-    DifferentialDriveExpander expander(context);
+    OldDifferentialDriveExpander expander(context);
 
     const auto& interrupter = options.interrupter();
 
-    DifferentialDriveExpander::SearchQueue search_queue;
-    DifferentialDriveExpander::SearchQueue finished_rollouts;
+    OldDifferentialDriveExpander::SearchQueue search_queue;
+    OldDifferentialDriveExpander::SearchQueue finished_rollouts;
 
     while (!rollout_queue.empty() && !(interrupter && interrupter()))
     {
@@ -2063,7 +2063,7 @@ public:
       return terminal_nodes_;
     }
 
-    DifferentialDriveExpander::NodePtr convert(
+    OldDifferentialDriveExpander::NodePtr convert(
         agv::Planner::Debug::ConstNodePtr from)
     {
       auto output = _from_debug[from];
@@ -2073,13 +2073,13 @@ public:
     }
 
     agv::Planner::Debug::ConstNodePtr convert(
-        DifferentialDriveExpander::NodePtr from)
+        OldDifferentialDriveExpander::NodePtr from)
     {
       const auto it = _to_debug.find(from);
       if (it != _to_debug.end())
         return it->second;
 
-      std::vector<DifferentialDriveExpander::NodePtr> queue;
+      std::vector<OldDifferentialDriveExpander::NodePtr> queue;
       queue.push_back(from);
       while (!queue.empty())
       {
@@ -2142,10 +2142,10 @@ public:
   private:
     std::unordered_map<
         agv::Planner::Debug::ConstNodePtr,
-        DifferentialDriveExpander::NodePtr> _from_debug;
+        OldDifferentialDriveExpander::NodePtr> _from_debug;
 
     std::unordered_map<
-        DifferentialDriveExpander::NodePtr,
+        OldDifferentialDriveExpander::NodePtr,
         agv::Planner::Debug::ConstNodePtr> _to_debug;
   };
 
@@ -2164,11 +2164,11 @@ public:
           debugger->goal_, debugger->options_, debugger->blocked_nodes_,
           popped_count, false);
 
-    DifferentialDriveExpander expander(context);
+    OldDifferentialDriveExpander expander(context);
 
-    DifferentialDriveExpander::SearchQueue queue;
+    OldDifferentialDriveExpander::SearchQueue queue;
     expander.make_initial_nodes(
-          DifferentialDriveExpander::InitialNodeArgs{starts}, queue);
+          OldDifferentialDriveExpander::InitialNodeArgs{starts}, queue);
 
     while (!queue.empty())
     {
@@ -2192,11 +2192,11 @@ public:
           debugger.goal_, debugger.options_, debugger.blocked_nodes_,
           popped_count, false);
 
-    DifferentialDriveExpander expander(context);
+    OldDifferentialDriveExpander expander(context);
     if (expander.is_finished(top))
       return make_plan(debugger.starts_, top, context.validator);
 
-    DifferentialDriveExpander::SearchQueue queue;
+    OldDifferentialDriveExpander::SearchQueue queue;
     expander.expand(top, queue);
     if (queue.empty())
       debugger.terminal_nodes_.push_back(debugger.convert(top));
@@ -2232,7 +2232,7 @@ private:
     };
   }
 
-  DifferentialDriveExpander::Context make_context(
+  OldDifferentialDriveExpander::Context make_context(
       const agv::Planner::Goal& goal,
       const agv::Planner::Options& options,
       Issues::BlockerMap& blocked_nodes,
@@ -2245,7 +2245,7 @@ private:
     Heuristic& h = _heuristics.insert(
           std::make_pair(goal_waypoint, Heuristic{})).first->second;
 
-    return DifferentialDriveExpander::Context{
+    return OldDifferentialDriveExpander::Context{
       _graph,
       _traits,
       _profile,

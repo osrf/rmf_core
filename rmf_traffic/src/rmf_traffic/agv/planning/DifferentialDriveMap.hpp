@@ -23,6 +23,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace rmf_traffic {
 namespace agv {
@@ -39,6 +40,7 @@ enum Orientation
 //==============================================================================
 struct DifferentialDriveMapTypes
 {
+  // TODO(MXG): Consider refactoring Key into two Entry fields
   struct Key
   {
     std::size_t start_lane;
@@ -48,6 +50,14 @@ struct DifferentialDriveMapTypes
 
     inline bool operator==(const Key& other) const
     {
+      if (goal_orientation == Orientation::Any)
+      {
+        return
+            start_lane == other.start_lane &&
+            start_orientation == other.start_orientation &&
+            goal_orientation == other.goal_orientation;
+      }
+
       return
           start_lane == other.start_lane &&
           start_orientation == other.start_orientation &&
@@ -56,36 +66,89 @@ struct DifferentialDriveMapTypes
     }
   };
 
-  struct Node;
-  using NodePtr = std::shared_ptr<const Node>;
-
-  struct Node
+  struct Entry
   {
-    std::size_t waypoint;
-    double orientation;
+    std::size_t lane;
+    Orientation orientation;
 
-    double remaining_cost_estimate;
-    double current_cost;
-
-    Graph::Lane::EventPtr event;
-    std::vector<Route> route_from_parent;
-
-    NodePtr parent;
+    inline bool operator==(const Entry& other) const
+    {
+      return
+          lane == other.lane &&
+          orientation == other.orientation;
+    }
   };
 
-  struct Hash
+  struct SolutionNode;
+  using SolutionNodePtr = std::shared_ptr<const SolutionNode>;
+
+  struct NodeInfo
   {
-    Hash(std::size_t N_lanes)
+    // The entry field may be a nullopt if it is an intermediate node
+    // e.g. a node that comes before or after an event to represent a waiting
+    // period
+    std::optional<Entry> entry;
+
+    std::size_t waypoint;
+    Eigen::Vector2d position;
+    double yaw;
+
+    double remaining_cost_estimate;
+    double cost_from_parent;
+
+    // An event that should occur when this node is reached,
+    // i.e. after route_from_parent has been traversed
+    Graph::Lane::EventPtr event;
+
+    // The route to get to this node from the parent node
+    std::vector<Route> route_from_parent;
+    // TODO(MXG): Create a RelativeTrajectory class to store the trajectory
+    // information for these nodes. The use of absolute trajectories may lead to
+    // bugs if we forget to adjust the times for each case.
+  };
+
+  struct SolutionNode
+  {
+    NodeInfo info;
+    SolutionNodePtr child;
+  };
+
+  struct KeyHash
+  {
+    KeyHash(std::size_t N_lanes)
     {
       _lane_shift = std::ceil(std::log2(N_lanes));
     }
 
     std::size_t operator()(const Key& key) const
     {
+      if (key.goal_orientation == Orientation::Any)
+      {
+        return key.start_lane
+            + (key.start_orientation << _lane_shift)
+            + (key.goal_orientation << 2*(_lane_shift + 2));
+      }
+
       return key.start_lane
           + (key.start_orientation << _lane_shift)
           + (key.goal_lane << (_lane_shift + 2))
           + (key.goal_orientation << 2*(_lane_shift + 2));
+    }
+
+  private:
+    std::size_t _lane_shift;
+  };
+
+  struct EntryHash
+  {
+    EntryHash(std::size_t N_lanes)
+    {
+      _lane_shift = std::ceil(std::log2(N_lanes));
+    }
+
+    std::size_t operator()(const Entry& entry) const
+    {
+      return entry.lane + (entry.orientation << _lane_shift);
     }
 
   private:
@@ -97,8 +160,15 @@ struct DifferentialDriveMapTypes
 using DifferentialDriveMap =
   std::unordered_map<
     DifferentialDriveMapTypes::Key,
-    DifferentialDriveMapTypes::NodePtr,
-    DifferentialDriveMapTypes::Hash
+    DifferentialDriveMapTypes::SolutionNodePtr,
+    DifferentialDriveMapTypes::KeyHash
+  >;
+
+//==============================================================================
+using DifferentialDriveEntrySet =
+  std::unordered_set<
+    DifferentialDriveMapTypes::Entry,
+    DifferentialDriveMapTypes::EntryHash
   >;
 
 } // namespace planning

@@ -21,6 +21,7 @@
 #include <optional>
 #include <memory>
 #include <mutex>
+#include <functional>
 #include <unordered_map>
 
 namespace rmf_traffic {
@@ -70,8 +71,10 @@ public:
   using Generator = GeneratorArg;
   using Storage = typename Generator::Storage;
 
-  Upstream(std::shared_ptr<const Generator> generator_)
-  : storage(std::make_shared<Storage>()),
+  Upstream(
+    std::function<Storage()> storage_initializer,
+    std::shared_ptr<const Generator> generator_)
+  : storage(std::make_shared<Storage>(storage_initializer())),
     generator(std::move(generator_))
   {
     // Do nothing
@@ -97,7 +100,8 @@ public:
 
   Cache(
     std::shared_ptr<const Upstream> upstream,
-    std::shared_ptr<const CacheManager<Self>> manager);
+    std::shared_ptr<const CacheManager<Self>> manager,
+    std::function<Storage()> storage_initializer);
 
 
   using Key = typename Storage::key_type;
@@ -110,6 +114,7 @@ public:
 private:
   std::shared_ptr<const Upstream> _upstream;
   std::shared_ptr<const CacheManager<Self>> _manager;
+  std::function<Storage()> _storage_initializer;
   Storage _all_items;
   Storage _new_items;
 };
@@ -124,7 +129,9 @@ public:
   using Generator = typename CacheArg::Generator;
   using Upstream = Upstream<Generator>;
 
-  CacheManager(std::shared_ptr<const Generator> generator);
+  CacheManager(
+    std::shared_ptr<const Generator> generator,
+    std::function<Storage()> storage_initializer = [](){ return Storage(); });
 
   CacheArg get() const;
 
@@ -134,6 +141,7 @@ private:
 
   template <typename G> friend class Cache;
   std::shared_ptr<Upstream> _upstream;
+  const std::function<Storage()> _storage_initializer;
   mutable std::mutex _update_mutex;
 };
 
@@ -152,8 +160,11 @@ public:
   using Cache = Cache<Generator>;
   using CacheManager = CacheManager<Cache>;
   using CacheManagerPtr = std::shared_ptr<const CacheManager>;
+  using Storage = typename Cache::Storage;
 
-  CacheManagerMap(std::shared_ptr<const GeneratorFactory> factory);
+  CacheManagerMap(
+    std::shared_ptr<const GeneratorFactory> factory,
+    std::function<Storage()> storage_initializer = [](){ return Storage() ; });
 
   CacheManagerPtr get(std::size_t goal_index) const;
 
@@ -165,16 +176,20 @@ private:
   mutable std::unordered_map<std::size_t, CacheManagerPtr> _managers;
   mutable std::mutex _map_mutex;
   const std::shared_ptr<const GeneratorFactory> _generator_factory;
+  const std::function<Storage()> _storage_initializer;
 };
 
 //==============================================================================
 template <typename GeneratorArg>
 Cache<GeneratorArg>::Cache(
   std::shared_ptr<const Upstream> upstream,
-  std::shared_ptr<const CacheManager<Self> > manager)
+  std::shared_ptr<const CacheManager<Self>> manager,
+  std::function<Storage()> storage_initializer)
 : _upstream(std::move(upstream)),
   _manager(std::move(manager)),
-  _all_items(*_upstream->storage)
+  _storage_initializer(std::move(storage_initializer)),
+  _all_items(*_upstream->storage),
+  _new_items(_storage_initializer())
 {
   // Do nothing
 }
@@ -187,7 +202,7 @@ auto Cache<GeneratorArg>::get(const Key& key) -> Value
   if (it != _all_items.end())
     return it->second;
 
-  Storage new_items;
+  Storage new_items = _storage_initializer();
   auto result = _upstream->generator->generate(key, _all_items, new_items);
 
   for (const auto& item : new_items)
@@ -210,8 +225,11 @@ Cache<GeneratorArg>::~Cache()
 //==============================================================================
 template <typename CacheArg>
 CacheManager<CacheArg>::CacheManager(
-    std::shared_ptr<const Generator> generator)
-: _upstream(std::make_shared<Upstream>(std::move(generator)))
+  std::shared_ptr<const Generator> generator,
+  std::function<Storage()> storage_initializer)
+: _upstream(
+    std::make_shared<Upstream>(storage_initializer, std::move(generator))),
+  _storage_initializer(std::move(storage_initializer))
 {
   // Do nothing
 }
@@ -221,7 +239,7 @@ template <typename CacheArg>
 CacheArg CacheManager<CacheArg>::get() const
 {
   std::lock_guard<std::mutex> lock(_update_mutex);
-  return CacheArg{_upstream, this->shared_from_this()};
+  return CacheArg{_upstream, this->shared_from_this(), _storage_initializer};
 }
 
 //==============================================================================
@@ -239,8 +257,10 @@ void CacheManager<CacheArg>::update(Storage new_items) const
 //==============================================================================
 template <typename CacheArg>
 CacheManagerMap<CacheArg>::CacheManagerMap(
-  std::shared_ptr<const GeneratorFactory> factory)
-: _generator_factory(std::move(factory))
+  std::shared_ptr<const GeneratorFactory> factory,
+  std::function<Storage()> storage_initializer)
+: _generator_factory(std::move(factory)),
+  _storage_initializer(std::move(storage_initializer))
 {
   // Do nothing
 }
@@ -256,7 +276,8 @@ auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
   if (manager == nullptr)
   {
     manager = std::make_shared<CacheManager>(
-          _generator_factory->make(goal_index));
+          _generator_factory->make(goal_index),
+          _storage_initializer);
   }
 
   return manager;

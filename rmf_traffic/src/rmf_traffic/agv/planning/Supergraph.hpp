@@ -67,6 +67,8 @@ struct Traversal
 
   struct Alternative
   {
+    double time = 0.0;
+    std::optional<double> yaw;
     std::vector<Route> routes;
   };
 
@@ -82,8 +84,7 @@ class TraversalGenerator
 public:
 
   TraversalGenerator(
-    const std::shared_ptr<const Supergraph>& graph,
-    const Interpolate::Options::Implementation& interpolate);
+    const std::shared_ptr<const Supergraph>& graph);
 
   ConstTraversalsPtr generate(
       const std::size_t& key,
@@ -129,6 +130,7 @@ public:
 
   const Graph::Implementation& original() const;
   const VehicleTraits& traits() const;
+  const Interpolate::Options::Implementation& options() const;
 
   struct FloorChange
   {
@@ -146,11 +148,8 @@ public:
   /// rotate.
   ConstTraversalsPtr traversals_from(std::size_t waypoint_index) const;
 
-  struct Entry
-  {
-    std::size_t lane;
-    Orientation orientation;
-  };
+  using Entry = DifferentialDriveMapTypes::Entry;
+  using EntryHash = DifferentialDriveMapTypes::EntryHash;
 
   class Entries
   {
@@ -161,20 +160,25 @@ public:
 
     Entries(
         std::map<double, Entry> angled_entries,
-        std::vector<Entry> agnostic_entries);
+        std::optional<Entry> agnostic_entry);
 
   private:
     // These are entries that require a specific entry angle
     std::map<double, Entry> _angled_entries;
 
-    // These are entries that do not require any specific entry angle
-    std::vector<Entry> _agnostic_entries;
+    // If there are any entries that don't require a specific entry angle, then
+    // that will be captured here.
+    std::optional<Entry> _agnostic_entry;
 
     std::size_t _total_entries;
   };
   using ConstEntriesPtr = std::shared_ptr<const Entries>;
 
+  // Get all the ways to enter into the given waypoint
   ConstEntriesPtr entries_into(std::size_t waypoint_index) const;
+
+  // Get the yaw of this lane+orientation combo
+  std::optional<double> yaw_of(const Entry& entry) const;
 
   /// Get the keys for the DifferentialDriveHeuristic cache entries that are
   /// relevant for a given combination of start and goal conditions.
@@ -184,9 +188,14 @@ public:
       std::optional<double> goal_orientation) const;
 
 private:
-  Supergraph(Graph::Implementation original, VehicleTraits traits);
+  Supergraph(
+    Graph::Implementation original,
+    VehicleTraits traits,
+    const Interpolate::Options::Implementation& interpolate);
+
   Graph::Implementation _original;
   VehicleTraits _traits;
+  Interpolate::Options::Implementation _interpolate;
   FloorChangeMap _floor_changes;
   std::shared_ptr<const CacheManager<TraversalCache>> _traversals;
 
@@ -195,8 +204,7 @@ private:
   {
   public:
     EntriesGenerator(
-      const std::shared_ptr<const Supergraph>& graph,
-      const Interpolate::Options::Implementation& interpolate);
+      const std::shared_ptr<const Supergraph>& graph);
 
     ConstEntriesPtr generate(
       const std::size_t& key,
@@ -205,14 +213,31 @@ private:
 
   private:
     std::weak_ptr<const Supergraph> _graph;
-    // TODO(MXG): We could refactor EntriesGenerator and TraversalGenerator by
-    // moving these fields into the supergraph and just having them both use the
-    // supergraph version of these fields.
-    Interpolate::Options::Implementation _interpolate;
     std::optional<DifferentialDriveConstraint> _constraint;
   };
   using EntriesCache = Cache<EntriesGenerator>;
   std::shared_ptr<const CacheManager<EntriesCache>> _entries_cache;
+
+  using LaneYawMap =
+    std::unordered_map<Entry, std::optional<double>, EntryHash>;
+
+  class LaneYawGenerator : public Generator<LaneYawMap>
+  {
+  public:
+    LaneYawGenerator(
+      const std::shared_ptr<const Supergraph>& graph);
+
+    std::optional<double> generate(
+        const Entry& key,
+        const Storage& old_items,
+        Storage& new_items) const final;
+
+  private:
+    std::weak_ptr<const Supergraph> _graph;
+    std::optional<DifferentialDriveConstraint> _constraint;
+  };
+  using LaneYawCache = Cache<LaneYawGenerator>;
+  std::shared_ptr<const CacheManager<LaneYawCache>> _lane_yaw_cache;
 };
 
 } // namespace planning
