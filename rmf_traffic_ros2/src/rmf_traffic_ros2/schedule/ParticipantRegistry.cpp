@@ -15,6 +15,7 @@
  *
 */
 
+#include <mutex>
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
 
 namespace rmf_traffic_ros2 {
@@ -23,6 +24,38 @@ using Database = rmf_traffic::schedule::Database;
 using ParticipantId = rmf_traffic::schedule::ParticipantId;
 using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
 
+//=============================================================================
+struct UniqueId
+{
+  std::string name;
+  std::string owner;
+
+  bool operator==(const UniqueId &other) const
+  {
+    return name == other.name && owner == other.owner;
+  }
+};
+
+//=============================================================================
+struct UniqueIdHasher
+{
+  std::size_t operator()(UniqueId id) const
+  {
+    return std::hash<std::string>{}(id.name + id.owner);
+  }
+};
+
+//=============================================================================
+struct AtomicOperation
+{
+  enum class OpType : uint8_t
+  {
+    Add = 0,
+    Remove
+  };
+  OpType operation;
+  ParticipantDescription description;
+};
 //=============================================================================
 ParticipantDescription::Rx responsiveness(std::string response)
 {
@@ -115,6 +148,44 @@ rmf_traffic::Profile profile(YAML::Node node)
   return profile;
 }
 
+//=============================================================================
+ParticipantDescription participant_description(YAML::Node node)
+{
+
+  if(node.IsMap())
+  {
+    throw std::runtime_error("Malformatted YAML file. Expected a map");
+  }
+  
+  if(!node["name"]) {
+    throw std::runtime_error("Malformatted YAML file. Expected a name.");
+  }
+  
+  if(!node["owner"]) {
+    throw std::runtime_error("Malformatted YAML file. Expected a owner.");
+  }
+  
+  if(!node["responsiveness"]) {
+    throw std::runtime_error(
+      "Malformatted YAML file. Expected a responsiveness field"
+    );
+  }
+  
+  if(!node["profile"]) {
+    throw std::runtime_error("Malformatted YAML file. Expected a profile");
+  }
+  
+  std::string name = node["name"].as<std::string>();
+  std::string owner = node["owner"].as<std::string>();
+  ParticipantDescription final_desc(
+    name,
+    owner,
+    responsiveness(node["responsiveness"].as<std::string>()),
+    profile(node["profile"])
+  );
+
+  return final_desc;
+}
 
 //=============================================================================
 YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
@@ -155,17 +226,10 @@ YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShape shape)
 YAML::Node serialize(rmf_traffic::Profile profile)
 {
   YAML::Node node;
-  return node;
-}
-
-//=============================================================================
-YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext shape)
-{
-  YAML::Node node;
-  for(auto circle: shape.circles)
-  {
-    node.push_back(circle.radius);
-  }
+  rmf_traffic_msgs::msg::Profile profile_msg= convert(profile);
+  node["footprint"] = serialize(profile_msg.footprint);
+  node["vicinity"] = serialize(profile_msg.vicinity);
+  node["shapecontext"] = serialize(profile_msg.shape_context);
   return node;
 }
 
@@ -198,104 +262,180 @@ YAML::Node serialize(ParticipantDescription participant)
 class ParticipantRegistry::Implementation
 {
 public:
-  bool _writeable;
-  std::unordered_map<ParticipantId, ParticipantDescription> _descriptions;
-  
   //===========================================================================
   Implementation(std::string file_name, bool writeable)
   {
-    auto node = YAML::LoadFile(file_name);
-    if(!node.IsMap()) {
-      throw std::runtime_error(
-        "Malformatted YAML file. Expected a map"  
-      );
-    }
-    
-    for(YAML::const_iterator it=node.begin(); it!=node.end(); ++it)
-    {
-      ParticipantId id = it->first.as<uint64_t>();
-      if(!it->second.IsMap())
-      {
-        throw std::runtime_error(
-          "Malformatted YAML file. Expected a map under participant id: " +
-          std::to_string(id) 
-        );
-      }
-  
-      auto description = it->second;
-      if(!description["name"]) {
-        throw std::runtime_error(
-          "Malformatted YAML file. Expected a name under participant id: " +
-          std::to_string(id) 
-        );
-      }
-  
-      if(!description["owner"]) {
-        throw std::runtime_error(
-          "Malformatted YAML file. Expected a owner under participant id: " +
-          std::to_string(id) 
-        );
-      }
-  
-      if(!description["responsiveness"]) {
-        throw std::runtime_error(
-          "Malformatted YAML file. Expected a responsiveness field under participant id: " +
-          std::to_string(id) 
-        );
-      }
-  
-      if(!description["profile"]) {
-        throw std::runtime_error(
-          "Malformatted YAML file. Expected a  under participant id: " +
-          std::to_string(id) 
-        );
-      }
-  
-  
-      ParticipantDescription final_desc(
-          description["name"].as<std::string>(),
-          description["owner"].as<std::string>(),
-          responsiveness(description["responsiveness"].as<std::string>()),
-          profile(description["profile"])
-      );
-  
-      _descriptions.insert({id, final_desc});
-    }
     _writeable = writeable;
+    auto node = YAML::LoadFile(file_name);
+    init(node);
+  }
+
+  //===========================================================================
+  Implementation(YAML::Node node)
+  {
+    _writeable = false;
+    init(node);
+  }
+
+  //===========================================================================
+  Implementation()
+  {
+    _next_id = 0;
+    _writeable = false;
+  }
+
+  //===========================================================================
+  void restore_database(Database& db)
+  {
+
+  }
+  
+  //===========================================================================
+  YAML::Node to_yaml()
+  {
+    YAML::Node node;
+    
+    std::lock_guard<std::mutex> lock(mutex);
+    for(auto participant: _descriptions)
+    {
+      auto _id = participant.first;
+      node[_id] = serialize(participant.second);
+    }
+    return node;
   }
 
   //===========================================================================
   void write_to_file()
   {
-
+    if(!_writeable) return;
   }
+
+  //===========================================================================
+  void add_participant(ParticipantDescription description)
+  {
+    ParticipantId curr_id;
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      UniqueId key = {description.name(), description.owner()};
+
+      if(_id_from_name.count(key))
+      {
+        throw std::runtime_error("Participant with name: "+description.name()
+          + "and owner: "+description.owner() + "already exists" );
+      }
+
+      _descriptions.insert({_next_id, description});
+      _id_from_name[key] = _next_id;
+      curr_id = _next_id;
+      _next_id++;
+    }
+  }
+
+  //===========================================================================
+  void remove_participant(ParticipantId id)
+  {
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      auto description = _descriptions.find(id);
+      if(description == _descriptions.end())
+      {
+        throw std::runtime_error("Participant with id " + std::to_string(id)
+          + " does not exist");
+      }
+      
+      UniqueId key = {description->second.name(), 
+        description->second.owner()};
+
+      _descriptions.erase(id);
+      _id_from_name.erase(key);
+    }
+    write_to_file();
+  }
+private:
+
+  //===========================================================================
+  void init(YAML::Node node)
+  {
+    _next_id = 0;
+
+    if(!node.IsMap()) {
+      throw std::runtime_error(
+        "Malformatted YAML file. Expected a map"  
+      );
+    }
+
+    for(YAML::const_iterator it=node.begin(); it!=node.end(); ++it)
+    {
+      ParticipantId id = it->first.as<uint64_t>();
+
+      auto final_desc = participant_description(it->second);    
+  
+      UniqueId key = {final_desc.name(), final_desc.owner()}; 
+      _descriptions.insert({id, final_desc});
+      _id_from_name.insert({key, id});
+
+      if(id >= _next_id)
+      {
+        _next_id += 1;
+      }
+    }
+   
+  }
+
+  //==========================================================================
+  bool _writeable;
+  ParticipantId _next_id; ///Holds the next id
+  std::unordered_map<ParticipantId, ParticipantDescription> _descriptions;
+  std::unordered_map<UniqueId, 
+    ParticipantId, UniqueIdHasher> _id_from_name;
+  std::vector<AtomicOperation> _journal;
+  std::mutex mutex, file_mutex;
 };
 
 //=============================================================================
 ParticipantRegistry::ParticipantRegistry(std::string file_name, bool writeable)
 :_pimpl(rmf_utils::make_unique_impl<Implementation>(file_name, writeable))
 {
- 
+  
 }
 
 //=============================================================================
-void ParticipantRegistry::initiallize_database(Database& db)
+ParticipantRegistry::ParticipantRegistry(YAML::Node node)
+:_pimpl(rmf_utils::make_unique_impl<Implementation>(node))
 {
-  //_descriptions
-  //db.initiallize_with_static_participants();
+
 }
 
 //=============================================================================
-void ParticipantRegistry::add_participant(ParticipantId id,
-  ParticipantDescription decription)
+ParticipantRegistry::ParticipantRegistry()
+:_pimpl(rmf_utils::make_unique_impl<Implementation>())
 {
 
+}
+
+//=============================================================================
+void ParticipantRegistry::restore_database(Database& db)
+{
+  _pimpl->restore_database(db);
+}
+
+//=============================================================================
+void ParticipantRegistry::add_participant(
+  ParticipantId id,
+  ParticipantDescription description)
+{
+  _pimpl->add_participant(description);
 }
 
 //=============================================================================
 void ParticipantRegistry::remove_participant(ParticipantId id)
 {
-
+  return _pimpl->remove_participant(id);
 }
 
+//=============================================================================
+YAML::Node ParticipantRegistry::to_yaml()
+{
+  return _pimpl->to_yaml();
+}
 }//end namespace rmf_traffic_ros2

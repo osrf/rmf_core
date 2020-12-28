@@ -8,7 +8,7 @@ SCENARIO("Test idempotency of shape type")
 
   // Check "None"
   auto serialized = serialize_shape_type(rmf_traffic_msgs::msg::ConvexShape::NONE);
-  node["type"] = serialized;
+  node["type"] = serialized;  
   CHECK(shapetype(node["type"]) == rmf_traffic_msgs::msg::ConvexShape::NONE);
 
   // Check "Box"
@@ -24,4 +24,12 @@ SCENARIO("Test idempotency of shape type")
   REQUIRE_THROWS(serialize_shape_type(42));
   node["type"] = "not a shape";
   REQUIRE_THROWS(shapetype(node["type"]));
+}
+
+SCENARIO("Test idempotency of ParticipantDescription.")
+{
+  using namespace rmf_traffic_ros2;
+  YAML::Node node;
+
+  
 }

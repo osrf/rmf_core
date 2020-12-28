@@ -34,23 +34,42 @@ using ParticipantId = rmf_traffic::schedule::ParticipantId;
 using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;  
 //=============================================================================
 /// Adds a persistance layer to the participant ids. This allows the scheduler 
-/// to restart without the need to restart fleet adapters.
-///
+/// to restart without the need to restart fleet adapters. 
+/// Internally, this class implements a an append only journal. This makes it 
+/// independent of any id generation inside the database, as long as the said 
+/// database id generation algorithm is deterministic.
 class ParticipantRegistry
 {
-  
 public:
   ParticipantRegistry(std::string file_name, bool writeable=false);
-  void initiallize_database(Database& database);
-  void add_participant(ParticipantId id, ParticipantDescription decription);
+  ParticipantRegistry(YAML::Node node);
+  ParticipantRegistry();
+
+  /// Restores participants from a log file to a database.
+  /// \param[in] database - The database which the participants will be
+  ///    restored to.  
+  void restore_database(Database& database);
+
+  /// Adds a participant
+  /// \param[in] description - The description of the participant that one
+  ///   wishes to register.
+  /// 
+  /// \throws std::runtime_error if a participant with the same name and owner
+  ///   are already in the registry.
+  void add_participant(ParticipantId id, ParticipantDescription description);
+  
+  /// Removes a participant from the registry.
+  /// \param[in] id - participant to remove
   void remove_participant(ParticipantId id);
+  
+  /// Get the YAML output that is written to a file.
+  YAML::Node to_yaml();
   class Implementation;
-  class Debug;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
-//==============================================================================
+//=============================================================================
 ParticipantDescription::Rx responsiveness(std::string response);
 
 //=============================================================================
@@ -64,6 +83,9 @@ rmf_traffic_msgs::msg::ConvexShapeContext shapecontext(YAML::Node node);
 
 //=============================================================================
 rmf_traffic::Profile profile(YAML::Node node);
+
+//=============================================================================
+ParticipantDescription participant_description(YAML::Node node);
 
 //=============================================================================
 YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context);
