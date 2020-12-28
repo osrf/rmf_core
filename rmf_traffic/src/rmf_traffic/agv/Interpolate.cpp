@@ -125,7 +125,7 @@ void interpolate_translation(
 }
 
 //==============================================================================
-void interpolate_rotation(
+bool interpolate_rotation(
   Trajectory& trajectory,
   const double w_nom,
   const double alpha_nom,
@@ -141,7 +141,7 @@ void interpolate_rotation(
 
   const double diff_heading_abs = std::abs(diff_heading);
   if (diff_heading_abs < threshold)
-    return;
+    return false;
 
   const double dir = diff_heading < 0.0 ? -1.0 : 1.0;
 
@@ -157,6 +157,8 @@ void interpolate_rotation(
     const Eigen::Vector3d v{0.0, 0.0, w};
     trajectory.insert(state.t, p, v);
   }
+
+  return true;
 }
 } // namespace internal
 

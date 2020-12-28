@@ -21,6 +21,12 @@
 
 #include <unordered_set>
 
+
+
+#include <iostream>
+
+
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -607,20 +613,22 @@ Supergraph::ConstEntriesPtr Supergraph::entries_into(
 std::optional<double> Supergraph::yaw_of(const Entry& entry) const
 {
   if (entry.orientation == Orientation::Any)
+  {
+    std::cout << " >> entry.orientation == Any" << std::endl;
     return std::nullopt;
+  }
 
   return _lane_yaw_cache->get().get(entry);
 }
 
 //==============================================================================
-std::vector<DifferentialDriveMapTypes::Key>
-Supergraph::keys_for(
+DifferentialDriveKeySet Supergraph::keys_for(
   const std::size_t start_waypoint_index,
   const std::size_t goal_waypoint_index,
   std::optional<double> goal_orientation) const
 {
-  using Key = DifferentialDriveMapTypes::Key;
-  std::vector<Key> keys;
+  using KeyHash = DifferentialDriveMapTypes::KeyHash;
+  DifferentialDriveKeySet keys(31, KeyHash{_original.lanes.size()});
 
   const auto relevant_entries = entries_into(goal_waypoint_index)
       ->relevant_entries(goal_orientation);
@@ -639,8 +647,8 @@ Supergraph::keys_for(
 
       for (const auto& entry : relevant_entries)
       {
-        keys.push_back(
-          Key{
+        keys.insert(
+          {
             lane_index, Orientation(orientation),
             entry.lane, entry.orientation
           });
@@ -754,12 +762,14 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 {
   if (key.orientation == Orientation::Any)
   {
+    std::cout << " >> key.orientation == Any" << std::endl;
     new_items.insert({{key.lane, Orientation::Any}, std::nullopt});
     return std::nullopt;
   }
 
   if (!_constraint.has_value())
   {
+    std::cout << " >> NO CONSTRAINT!" << std::endl;
     for (std::size_t i=0; i <= Orientation::Any; ++i)
       new_items.insert({{key.lane, Orientation(i)}, std::nullopt});
 
@@ -796,6 +806,8 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
   const double dist = (p1 - p0).norm();
   if (dist <= supergraph->options().translation_thresh)
   {
+    std::cout << " >> Within dist threshold: " << dist << " <= " << supergraph->options().translation_thresh
+              << std::endl;
     for (std::size_t i=0; i <= Orientation::Any; ++i)
       new_items.insert({{key.lane, Orientation(i)}, std::nullopt});
 
@@ -809,10 +821,12 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
     const auto yaw = orientations[i];
     assert(yaw.has_value());
 
+    std::cout << " >> inserting " << i << ": " << yaw.value()*180.0/M_PI << std::endl;
     new_items.insert({{key.lane, Orientation(i)}, yaw});
   }
 
-  return orientations[key.lane];
+  std::cout << " >> returning " << orientations[key.orientation].value()*180.0/M_PI << std::endl;
+  return orientations[key.orientation];
 }
 
 //==============================================================================

@@ -120,11 +120,21 @@ public:
     if (info.waypoint == _goal_waypoint)
     {
       if (!_goal_yaw.has_value())
+      {
+        std::cout << " -- Found solution at (" << _goal_waypoint
+                  << ", nullopt)" << std::endl;
+        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
         return true;
+      }
 
       const double angle_diff = rmf_utils::wrap_to_pi(info.yaw - *_goal_yaw);
       if (std::abs(angle_diff) <= _interpolate.rotation_thresh)
+      {
+        std::cout << " -- Found solution at (" << _goal_waypoint
+                  << ", " << info.yaw*180.0/M_PI << ")" << std::endl;
+        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
         return true;
+      }
     }
 
     return false;
@@ -132,28 +142,42 @@ public:
 
   void expand(const SearchNodePtr& top, SearchQueue& queue)
   {
+    std::cout << "Expanding from " << top->info.waypoint << ": "
+              << top->info.entry->lane << ", " << top->info.entry->orientation
+              << std::endl;
+
     const auto& info = top->info;
     const auto current_entry = info.entry;
     assert(current_entry.has_value());
     if (!_visited.insert(current_entry.value()).second)
     {
+      std::cout << " -- already visited" << std::endl;
       // This means we have already expanded from this entry before.
       // Expanding from here again is pointless because expanding from a more
       // costly parent cannot be better than expanding from a less costly one.
       return;
     }
 
+    ++_expansion_count;
+
     const auto current_wp_index = info.waypoint;
     if (current_wp_index == _goal_waypoint)
     {
       // If there is no goal yaw, then is_finished should have caught this node
       assert(_goal_yaw.has_value());
-      queue.push(rotate_to_goal(top));
+
+      auto node = rotate_to_goal(top);
+      std::cout << __LINE__ << " pushing rotation to goal: ("
+                << node->info.waypoint << ", " << node->info.yaw << ")"
+                << std::endl;
+
+      queue.push(std::move(node));
       return;
     }
 
     const auto traversals = _graph->traversals_from(current_wp_index);
     assert(traversals);
+    std::cout << " -- " << traversals->size() << " traversals" << std::endl;
     for (const auto& traversal : *traversals)
     {
       const auto next_waypoint_index = traversal.finish_waypoint_index;
@@ -166,10 +190,13 @@ public:
             rmf_traffic::time::to_seconds(traversal.exit_event->duration())
           : 0.0;
 
+      std::cout << "    " << next_waypoint_index << ": ";
+
       const auto next_lane_index = traversal.finish_lane_index;
       const auto remaining_cost_estimate = _heuristic.get(next_waypoint_index);
       if (!remaining_cost_estimate.has_value())
       {
+        std::cout << "nullopt remaining_cost_estimate" << std::endl;
         // If the heuristic for this waypoint is a nullopt, then there is no way
         // to reach the goal from this node. We should just skip this expansion.
         continue;
@@ -179,7 +206,10 @@ public:
       {
         const auto& alt = traversal.alternatives[i];
         if (!alt.has_value())
+        {
+          std::cout << "skipping nullopt alt " << i << " | ";
           continue;
+        }
 
         const Orientation orientation = Orientation(i);
 
@@ -189,8 +219,9 @@ public:
               traversal.entry_event);
 
         Entry entry{next_lane_index, orientation};
-        if (!_visited.count(entry))
+        if (_visited.count(entry))
         {
+          std::cout << "skipping pre-visited alt " << i << " | ";
           // If we have already expanded from this waypoint, then there is no
           // point in re-expanding to it.
           continue;
@@ -200,7 +231,10 @@ public:
         // this entry
         // point to the solution.
         if (check_old_items(oriented_top, entry, queue))
+        {
+          std::cout << "skipping old alt " << i << " | ";
           continue;
+        }
 
         // TODO(MXG): We should probably refactor the below into its own
         // function.
@@ -230,6 +264,7 @@ public:
                 oriented_top->current_cost + alt->time,
                 oriented_top
               });
+        std::cout << " " << __LINE__ << " making[" << new_node << "] ";
 
         if (traversal.exit_event)
         {
@@ -254,10 +289,15 @@ public:
                   new_node->current_cost + exit_event_duration,
                   new_node
                 });
+          std::cout << " " << __LINE__ << " making[" << new_node << "] ";
         }
 
+        std::cout << __LINE__ << " pushing traversal: ("
+                  << new_node->info.waypoint << ", " << new_node->info.yaw << ") | ";
         queue.push(std::move(new_node));
       }
+
+      std::cout << std::endl;
     }
   }
 
@@ -287,10 +327,10 @@ public:
     const double rotation_cost = rmf_traffic::time::to_seconds(
           trajectory_from_parent.duration());
 
-    return std::make_shared<SearchNode>(
+    auto new_node = std::make_shared<SearchNode>(
           SearchNode{
             NodeInfo{
-              std::nullopt,
+              _goal_entry,
               top->info.waypoint,
               p,
               target_yaw,
@@ -302,6 +342,8 @@ public:
             top->current_cost + rotation_cost,
             top
           });
+    std::cout << " " << __LINE__ << " making[" << new_node << "] ";
+    return new_node;
   }
 
   bool check_old_items(
@@ -309,8 +351,6 @@ public:
       const Entry& entry,
       SearchQueue& queue)
   {
-    const double base_cost = top->current_cost;
-
     Key key{
       entry.lane,
       entry.orientation,
@@ -318,33 +358,34 @@ public:
       _goal_entry.orientation
     };
 
+    std::cout << " > looking up ["
+              << key.start_lane << ", "
+              << key.start_orientation << ", "
+              << key.goal_lane << ", "
+              << key.goal_orientation << "] < ";
+
     const auto old_it = _old_items.find(key);
     if (old_it == _old_items.end())
       return false;
 
     auto solution = old_it->second;
-    std::vector<NodeInfo> solution_info;
+    auto node = top;
     while (solution)
     {
-      solution_info.push_back(solution->info);
+      node = std::make_shared<SearchNode>(
+            SearchNode{
+              solution->info,
+              node->current_cost + solution->info.cost_from_parent,
+              node
+            });
+      std::cout << " " << __LINE__ << " making[" << node << "] ";
+
       solution = solution->child;
     }
 
-    std::reverse(solution_info.begin(), solution_info.end());
-    SearchNodePtr node = top;
-    double current_cost = base_cost;
-    for (auto&& info : solution_info)
-    {
-      current_cost += info.cost_from_parent;
-      auto next_node = std::make_shared<SearchNode>(
-            SearchNode{
-              std::move(info),
-              current_cost,
-              node
-            });
-      node = next_node;
-    }
-
+    std::cout << __LINE__ << " pushing from old archives: ("
+              << node->info.waypoint << ", " << node->info.yaw << ")"
+              << std::endl;
     queue.push(node);
 
     return true;
@@ -378,10 +419,11 @@ public:
 
     const double base_cost = top->current_cost;
     double rotation_cost = 0.0;
+    bool needs_rotation = false;
     if (yaw.has_value())
     {
       finish_position[2] = *yaw;
-      internal::interpolate_rotation(
+      needs_rotation = internal::interpolate_rotation(
             trajectory_from_parent,
             _w_nom, _alpha_nom,
             trajectory_from_parent.back().time(),
@@ -399,7 +441,10 @@ public:
     if (entry_event && entry_event->duration() > std::chrono::nanoseconds(0))
       event_duration = rmf_traffic::time::to_seconds(entry_event->duration());
 
-    auto oriented_node = std::make_shared<SearchNode>(
+    SearchNodePtr oriented_node = top;
+    if (needs_rotation)
+    {
+      oriented_node = std::make_shared<SearchNode>(
           SearchNode{
             NodeInfo{
               Entry{
@@ -417,6 +462,7 @@ public:
             base_cost + rotation_cost,
             top
           });
+    }
 
     if (!entry_event || event_duration <= 0.0)
       return oriented_node;
@@ -468,7 +514,14 @@ public:
     const auto& original = _graph->original();
     const auto& goal_lane = original.lanes[_goal_entry.lane];
     _goal_waypoint = goal_lane.exit().waypoint_index();
+
+    std::cout << " ----- Getting goal yaw:" << std::endl;
     _goal_yaw = _graph->yaw_of(_goal_entry);
+    std::cout << " ----- Done: ";
+    if (_goal_yaw.has_value())
+      std::cout << _goal_yaw.value() << std::endl;
+    else
+      std::cout << "nullopt" << std::endl;
   }
 
 private:
@@ -482,6 +535,7 @@ private:
   double _alpha_nom;
   Interpolate::Options::Implementation _interpolate;
   DifferentialDriveEntrySet _visited;
+  std::size_t _expansion_count = 0;
 };
 
 //==============================================================================
@@ -560,6 +614,10 @@ auto DifferentialDriveHeuristic::generate(
   }
   else
   {
+    const auto hash =
+        DifferentialDriveMapTypes::EntryHash(_graph->original().lanes.size());
+    DifferentialDriveEntrySet initialized(31, hash);
+
     // We cannot immediately identify the starting yaw, so let's look at every
     // traversal that comes out of the initial lane.
     const auto traversals = _graph->traversals_from(start_waypoint_index);
@@ -574,6 +632,14 @@ auto DifferentialDriveHeuristic::generate(
 
         const auto yaw = alt->yaw;
         if (!yaw.has_value())
+          continue;
+
+        const Entry entry = {
+          traversal.initial_lane_index,
+          key.start_orientation
+        };
+
+        if (!initialized.insert(entry).second)
           continue;
 
         queue.push(make_start_node(*yaw));
@@ -605,6 +671,7 @@ auto DifferentialDriveHeuristic::generate(
     _graph
   };
 
+  std::cout << "Initial queue size: " << queue.size() << std::endl;
   const auto search = a_star_search(expander, queue);
   if (!search)
   {
@@ -613,30 +680,69 @@ auto DifferentialDriveHeuristic::generate(
   }
 
   std::vector<DifferentialDriveExpander::NodeInfo> node_info;
-  auto node = search;
+  auto goal_node = search;
+  SolutionNodePtr output = nullptr;
   SolutionNodePtr solution = nullptr;
-  while (node)
+
+
+  while (goal_node)
   {
-    solution = std::make_shared<SolutionNode>(
-          SolutionNode{
-            node->info,
-            solution
-          });
-
-    if (const auto& entry = solution->info.entry)
+    while (goal_node && !goal_node->info.entry.has_value())
     {
-      Key new_key{
-        entry->lane, entry->orientation,
-        key.goal_lane, key.goal_orientation
-      };
-
-      new_items.insert({new_key, solution});
+      // Keep moving goal_node forward until it has entry info
+      goal_node = goal_node->parent;
     }
 
-    node = node->parent;
+    // TODO(MXG): We're stashing some unnecessary solutions here, like [x y x y]
+    // We could add in some more logic here to prevent that unnecessary stashing
+    // but we're leaving it as-is right now to minimize code complexity.
+    auto node = goal_node;
+
+    solution = nullptr;
+    double remaining_cost = 0.0;
+    while (node)
+    {
+      auto info = node->info;
+      info.remaining_cost_estimate = remaining_cost;
+      remaining_cost += info.cost_from_parent;
+
+      solution = std::make_shared<SolutionNode>(
+            SolutionNode{
+              std::move(info),
+              solution
+            });
+
+      if (const auto& entry = solution->info.entry)
+      {
+        const auto goal_entry = goal_node->info.entry.value();
+        Key new_key{
+          entry->lane, entry->orientation,
+          goal_entry.lane, goal_entry.orientation
+        };
+
+        std::cout << " << stashing " << node << " -> " << goal_node << " ["
+                  << new_key.start_lane << ", "
+                  << new_key.start_orientation << ", "
+                  << new_key.goal_lane << ", "
+                  << new_key.goal_orientation << "]: ("
+                  << solution->info.waypoint << ", "
+                  << solution->info.yaw*180.0/M_PI << ") -> ("
+                  << goal_node->info.waypoint << ", "
+                  << goal_node->info.yaw*180.0/M_PI << ") => "
+                  << solution->info.remaining_cost_estimate << std::endl;
+        new_items.insert({new_key, solution});
+      }
+
+      node = node->parent;
+    }
+
+    if (!output)
+      output = solution;
+
+    goal_node = goal_node->parent;
   }
 
-  return solution;
+  return output;
 }
 
 //==============================================================================

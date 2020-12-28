@@ -79,7 +79,7 @@ void interpolate_translation(
   const double threshold);
 
 //==============================================================================
-void interpolate_rotation(
+bool interpolate_rotation(
   Trajectory& trajectory,
   const double w_nom,
   const double alpha_nom,

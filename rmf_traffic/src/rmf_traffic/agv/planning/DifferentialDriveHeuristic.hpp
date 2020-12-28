@@ -39,6 +39,7 @@ public:
 
   using SolutionNode = DifferentialDriveMapTypes::SolutionNode;
   using SolutionNodePtr = DifferentialDriveMapTypes::SolutionNodePtr;
+  using Entry = DifferentialDriveMapTypes::Entry;
 
   SolutionNodePtr generate(
     const Key& key,

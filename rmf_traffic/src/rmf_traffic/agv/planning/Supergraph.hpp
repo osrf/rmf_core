@@ -182,7 +182,7 @@ public:
 
   /// Get the keys for the DifferentialDriveHeuristic cache entries that are
   /// relevant for a given combination of start and goal conditions.
-  std::vector<DifferentialDriveMapTypes::Key> keys_for(
+  DifferentialDriveKeySet keys_for(
       std::size_t start_waypoint_index,
       std::size_t goal_waypoint_index,
       std::optional<double> goal_orientation) const;

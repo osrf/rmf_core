@@ -165,6 +165,13 @@ using DifferentialDriveMap =
   >;
 
 //==============================================================================
+using DifferentialDriveKeySet =
+  std::unordered_set<
+    DifferentialDriveMapTypes::Key,
+    DifferentialDriveMapTypes::KeyHash
+  >;
+
+//==============================================================================
 using DifferentialDriveEntrySet =
   std::unordered_set<
     DifferentialDriveMapTypes::Entry,
