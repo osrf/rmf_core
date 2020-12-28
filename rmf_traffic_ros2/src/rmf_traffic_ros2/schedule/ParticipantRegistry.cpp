@@ -15,8 +15,6 @@
  *
 */
 
-#include <rmf_traffic_ros2/Profile.hpp>
-#include <rmf_traffic_ros2/geometry/ConvexShape.hpp>
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
 
 namespace rmf_traffic_ros2 {
@@ -134,19 +132,41 @@ YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
 //=============================================================================
 std::string serialize_shape_type(uint8_t shape_type)
 {
+  if(shape_type == rmf_traffic_msgs::msg::ConvexShape::NONE)
+    return "None";
+  if(shape_type == rmf_traffic_msgs::msg::ConvexShape::BOX)
+    return "Box";
+  if(shape_type == rmf_traffic_msgs::msg::ConvexShape::CIRCLE)
+    return "Circle";
 
+  throw std::runtime_error("Shape type must be one of None, Box, Circle");
 }
 
 //=============================================================================
 YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShape shape)
 {
-  
+  YAML::Node node;
+  node["type"] = serialize_shape_type(shape.type);
+  node["index"] = shape.index;
+  return node;
 }
 
 //=============================================================================
 YAML::Node serialize(rmf_traffic::Profile profile)
 {
-  
+  YAML::Node node;
+  return node;
+}
+
+//=============================================================================
+YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext shape)
+{
+  YAML::Node node;
+  for(auto circle: shape.circles)
+  {
+    node.push_back(circle.radius);
+  }
+  return node;
 }
 
 //=============================================================================
