@@ -22,6 +22,8 @@
 
 #include <queue>
 
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -586,6 +588,12 @@ auto DifferentialDriveHeuristic::generate(
       //
       // FIXME(MXG): Come up with a more robust (and guaranteed optimal) way of
       // handling this edge case.
+      std::cerr << "[rmf_traffic::agv::planning::DifferentialDriveHeuristic] "
+                   "You have encountered an edge case that is not guaranteed "
+                   "to be handled optimally by the rmf_traffic planner. If you "
+                   "see this warning for an important use case, please report "
+                   "it to the rmf_traffic developers, along with the graph "
+                   "and planner conditions that caused it." << std::endl;
       queue.push(make_start_node(0.0));
     }
   }
