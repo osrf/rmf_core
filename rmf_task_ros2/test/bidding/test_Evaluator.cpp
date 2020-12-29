@@ -47,7 +47,7 @@ SCENARIO("Auctioneer Winner Evaluator", "[Evaluator]")
   rclcpp::init(0, nullptr);
   auto node = rclcpp::Node::make_shared("test_selfbidding");
   auto auctioneer = Auctioneer::make(node,
-      [](const TaskID&, const rmf_utils::optional<Submission>) {});
+      [](const TaskID&, const std::optional<Submission>) {});
 
   WHEN("Least Diff Cost Evaluator")
   {

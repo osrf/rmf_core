@@ -116,7 +116,7 @@ bool Auctioneer::Implementation::determine_winner(
     auto id = bidding_task.bid_notice.task_profile.task_id;
     RCLCPP_INFO(node->get_logger(), "Bidding Deadline reached: %s",
       id.c_str());
-    rmf_utils::optional<Submission> winner = rmf_utils::nullopt;
+    std::optional<Submission> winner = std::nullopt;
 
     if (bidding_task.submissions.size() == 0)
     {
@@ -140,22 +140,22 @@ bool Auctioneer::Implementation::determine_winner(
 }
 
 //==============================================================================
-rmf_utils::optional<Submission> Auctioneer::Implementation::evaluate(
+std::optional<Submission> Auctioneer::Implementation::evaluate(
   const Submissions& submissions)
 {
   if (submissions.size() == 0)
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   if (!evaluator)
   {
     RCLCPP_WARN(node->get_logger(), "Evaluator is not set");
-    return rmf_utils::nullopt;
+    return std::nullopt;
   }
 
   const std::size_t choice = evaluator->choose(submissions);
 
   if (choice >= submissions.size())
-    return rmf_utils::nullopt;
+    return std::nullopt;
 
   return submissions[choice];
 }

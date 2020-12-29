@@ -43,8 +43,8 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   //============================================================================
 
   // received task to test
-  rmf_utils::optional<TaskProfile> test_add_task;
-  rmf_utils::optional<TaskProfile> test_cancel_task;
+  std::optional<TaskProfile> test_add_task;
+  std::optional<TaskProfile> test_cancel_task;
 
   // Creating 1 auctioneer and 1 bidder
   rclcpp::init(0, nullptr);
@@ -130,8 +130,8 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
 
   //============================================================================
 
-  rmf_utils::optional<TaskStatus> test_task_onchange;
-  rmf_utils::optional<TaskStatus> test_task_onterminate;
+  std::optional<TaskStatus> test_task_onchange;
+  std::optional<TaskStatus> test_task_onterminate;
 
   // received status update from server
   action_client->on_change(

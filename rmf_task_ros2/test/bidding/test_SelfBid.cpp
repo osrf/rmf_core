@@ -52,8 +52,8 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
 
   //============================================================================
   // test received msg
-  rmf_utils::optional<TaskProfile> test_notice_bidder1;
-  rmf_utils::optional<TaskProfile> test_notice_bidder2;
+  std::optional<TaskProfile> test_notice_bidder1;
+  std::optional<TaskProfile> test_notice_bidder2;
   std::string r_result_id = "";
   std::string r_result_winner = "";
 
@@ -65,7 +65,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     node,
     /// Bidding Result Callback Function
     [&r_result_id, &r_result_winner](
-      const TaskID& task_id, const rmf_utils::optional<Submission> winner)
+      const TaskID& task_id, const std::optional<Submission> winner)
     {
       if (!winner)
         return;

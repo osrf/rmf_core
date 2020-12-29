@@ -20,7 +20,6 @@
 
 #include <queue>
 #include <rclcpp/node.hpp>
-#include <rmf_utils/optional.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
 
@@ -46,7 +45,7 @@ public:
   ///   single winner from all submissions. nullopt if non
   using BiddingResultCallback =
     std::function<void( const TaskID& task_id,
-      const rmf_utils::optional<Submission> winner)>;
+      const std::optional<Submission> winner)>;
 
   /// Create an instance of the Auctioneer. This instance will handle all
   /// the task dispatching bidding mechanism. A default evaluator is used.

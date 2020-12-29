@@ -65,7 +65,7 @@ public:
 
   bool determine_winner(const BiddingTask& bidding_task);
 
-  rmf_utils::optional<Submission> evaluate(const Submissions& submissions);
+  std::optional<Submission> evaluate(const Submissions& submissions);
 
   static const Implementation& get(const Auctioneer& auctioneer)
   {
