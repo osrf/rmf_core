@@ -203,29 +203,23 @@ public:
     if (it == active_dispatch_tasks.end())
       return false;
 
-    TaskProfile profile;
+    // Cancel bidding. This will remove the bidding process
+    const auto& cancel_task_status = it->second;
+    if (cancel_task_status->state == TaskStatus::State::Pending)
     {
-      // make sure status will expired, todo: cleaner way
-      const auto& cancel_task_status = it->second;
-      profile = cancel_task_status->task_profile;
+      cancel_task_status->state = TaskStatus::State::Canceled;
+      terminate_task(cancel_task_status);
 
-      // Cancel bidding. This will remove the bidding process
-      if (cancel_task_status->state == TaskStatus::State::Pending)
-      {
-        cancel_task_status->state = TaskStatus::State::Canceled;
-        terminate_task(cancel_task_status);
+      if (on_change_fn)
+        on_change_fn(cancel_task_status);
 
-        if (on_change_fn)
-          on_change_fn(cancel_task_status);
-
-        return true;
-      }
+      return true;
     }
 
     // Cancel action task, this will only send a cancel to FA. up to
     // the FA whether to cancel the task. On change is implemented
     // internally in action client
-    return action_client->cancel_task(profile);
+    return action_client->cancel_task(cancel_task_status->task_profile);
   }
 
   const std::optional<TaskStatus::State> get_task_state(

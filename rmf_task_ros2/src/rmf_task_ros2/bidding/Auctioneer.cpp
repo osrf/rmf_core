@@ -30,7 +30,7 @@ Auctioneer::Implementation::Implementation(
   bidding_result_callback{std::move(result_callback)}
 {
   // default evaluator
-  evaluator = std::make_shared<LeastFleetDiffCostEvaluator>();
+  evaluator = std::make_shared<QuickestFinishEvaluator>();
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   bid_notice_pub = node->create_publisher<BidNotice>(

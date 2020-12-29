@@ -40,7 +40,7 @@ target_include_directories(rmf_task_ros2
     ${rclcpp_INCLUDE_DIRS}
 )
 
-ament_export_interfaces(rmf_task_ros2 HAS_LIBRARY_TARGET)
+ament_export_targets(rmf_task_ros2 HAS_LIBRARY_TARGET)
 ament_export_dependencies(rmf_traffic rmf_task_msgs rclcpp)
 
 #===============================================================================

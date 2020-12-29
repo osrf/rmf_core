@@ -75,6 +75,11 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
+    
+    // cancel task
+    REQUIRE(dispatcher->cancel_task(*id));
+    REQUIRE(dispatcher->active_tasks().size() == 0);
+    REQUIRE(dispatcher->terminated_tasks().size() == 1);
 
     // check random id
     REQUIRE(!(dispatcher->get_task_state("non_existence_id")));
@@ -152,7 +157,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
           TaskStatus status;
           status.task_profile = profile;
           status.robot_name = "dumbot";
-          std::this_thread::sleep_for(std::chrono::seconds(1));
+          std::this_thread::sleep_for(std::chrono::seconds(2));
 
           if (task_canceled_flag)
           {
@@ -186,7 +191,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   {
     const auto id = dispatcher->submit_task(task_desc1);
     CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3500));
 
     // now should queue the task
     CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Queued);
@@ -220,9 +225,11 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     // cancel the task after QUEUED State
-    dispatcher->cancel_task(*id);
+    REQUIRE(dispatcher->cancel_task(*id));
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
+    REQUIRE(dispatcher->active_tasks().size() == 0);
+    REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().begin()->first == *id);
     auto status = dispatcher->terminated_tasks().begin()->second;
     CHECK(status->state == TaskStatus::State::Canceled);

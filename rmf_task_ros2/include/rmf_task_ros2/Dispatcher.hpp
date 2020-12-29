@@ -117,7 +117,7 @@ public:
   void on_change(StatusCallback on_change_fn);
 
   /// Change the default evaluator to a custom evaluator, which is used by
-  /// bidding auctioneer.
+  /// bidding auctioneer. Default evaluator is: `QuickestFinishEvaluator`
   ///
   /// \param [in] evaluator
   ///   evaluator used to select the best bid from fleets
