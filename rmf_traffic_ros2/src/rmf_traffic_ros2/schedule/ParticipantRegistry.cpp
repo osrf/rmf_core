@@ -20,9 +20,7 @@
 
 namespace rmf_traffic_ros2 {
 
-using Database = rmf_traffic::schedule::Database;
-using ParticipantId = rmf_traffic::schedule::ParticipantId;
-using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
+
 
 //=============================================================================
 struct UniqueId
@@ -349,10 +347,9 @@ public:
     UniqueId key = {description->second.name(), 
       description->second.owner()};
 
+    write_to_file({AtomicOperation::OpType::Remove, description->second});
     _descriptions.erase(id);
     _id_from_name.erase(key);
-    
-    write_to_file({AtomicOperation::OpType::Remove, description->second});
   }
   
   
@@ -389,37 +386,14 @@ private:
       throw std::runtime_error("Participant with id " 
       + std::to_string(id->second) + " does not exist");
     }
+    _database->unregister_participant(id->second);
     _descriptions.erase(id->second);
     _id_from_name.erase(key);
-
-    _database->unregister_participant(id->second);
   }
 
   //===========================================================================
   void init()
   {
-    /*
-    if(!node.IsSequence()) {
-      throw std::runtime_error(
-        "Malformatted YAML file. Expected a map"  
-      );
-    }
-
-    _currently_restoring = true;
-    for(std::size_t i=0; i<node.size();i++)
-    {
-      auto operation = atomic_operation(node[i]);
-      execute(operation);
-    }
-    _currently_restoring = false;*/
-
-    //This is why we should use C++17, this could be done with an optional
-    //instead
-    /*for(auto record = _logger->read_next_record(); record.second; 
-      record = _logger->read_next_record)
-    {
-
-    }*/
     _currently_restoring = true;
     while(auto record = _logger->read_next_record())
     {

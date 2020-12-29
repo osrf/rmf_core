@@ -35,7 +35,7 @@ SCENARIO("Test idempotency of ParticipantDescription.")
   
 }
 
-
+#include <iostream>
 class TestOperationLogger: public AbstractParticipantLogger
 {
   std::vector<AtomicOperation> _journal;
@@ -66,9 +66,7 @@ SCENARIO("Participant registry restores participants from logger")
 {
   using Database = rmf_traffic::schedule::Database;
   using ParticipantId = rmf_traffic::schedule::ParticipantId;
-
-  
-  
+ 
   TestOperationLogger* logger = new TestOperationLogger;
 
   //Lets create a bunch of participants
@@ -95,6 +93,7 @@ SCENARIO("Participant registry restores participants from logger")
   
   ParticipantId participant_id1, participant_id2, participant_id3;
   
+  //Creating a new DB
   {
     auto db1 = std::make_shared<Database>();
     ParticipantRegistry registry1(logger, db1);
@@ -104,12 +103,16 @@ SCENARIO("Participant registry restores participants from logger")
     participant_id3 = registry1.add_participant(p3);
   }
 
-  
+  //Restoring DB
   {
     auto db2 = std::make_shared<Database>();
     ParticipantRegistry registry2(logger, db2);
-    REQUIRE(db2->participant_ids().size() == 2);
+    auto restored_participants = db2->participant_ids();
+    REQUIRE(restored_participants.count(participant_id1) > 0);
+    REQUIRE(restored_participants.count(participant_id2) == 0);
+    REQUIRE(restored_participants.count(participant_id3) > 0);
+    REQUIRE(restored_participants.size() == 2);
   }
+  
   delete logger;
-
 }
