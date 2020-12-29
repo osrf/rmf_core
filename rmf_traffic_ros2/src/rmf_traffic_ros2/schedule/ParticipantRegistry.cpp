@@ -46,17 +46,6 @@ struct UniqueIdHasher
 };
 
 //=============================================================================
-struct AtomicOperation
-{
-  enum class OpType : uint8_t
-  {
-    Add = 0,
-    Remove
-  };
-  OpType operation;
-  ParticipantDescription description;
-};
-//=============================================================================
 ParticipantDescription::Rx responsiveness(std::string response)
 {
   if(response == "Invalid")
@@ -188,6 +177,36 @@ ParticipantDescription participant_description(YAML::Node node)
 }
 
 //=============================================================================
+AtomicOperation atomic_operation(YAML::Node node)
+{
+  
+  AtomicOperation::OpType op_type;
+
+  if(!node["operation"])
+    throw std::runtime_error("Expected an operation field.");
+
+  if(node["operation"].as<std::string>() == "Add")
+  {
+    op_type = AtomicOperation::OpType::Add;
+  }
+  else if(node["operation"].as<std::string>() == "Remove")
+  {
+    op_type = AtomicOperation::OpType::Remove;
+  }
+  else
+  {
+    throw std::runtime_error("Invalid operation.");
+  }
+
+  if(!node["participant_description"])
+    throw std::runtime_error("Expected a participant_description field");\
+
+  auto description = participant_description(node);
+  
+  return {op_type, description};
+}
+
+//=============================================================================
 YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
 {
   //For now since only circles are supported, so I'm just going to store their
@@ -259,183 +278,201 @@ YAML::Node serialize(ParticipantDescription participant)
 }
 
 //=============================================================================
+YAML::Node serialize(AtomicOperation atomOp)
+{
+  YAML::Node node;
+
+  if(atomOp.operation == AtomicOperation::OpType::Add)
+  {
+    node["operation"] = "Add";
+  }
+  else if(atomOp.operation == AtomicOperation::OpType::Remove)
+  {
+    node["operation"] = "Remove";
+  }
+  else
+  {
+    throw std::runtime_error("Found an invalid operation");
+  }
+  node["participant_description"] = serialize(atomOp.description);
+  
+  return node;
+}
+
+//=============================================================================
 class ParticipantRegistry::Implementation
 {
 public:
   //===========================================================================
-  Implementation(std::string file_name, bool writeable)
+  Implementation(
+    AbstractParticipantLogger* logger, 
+    std::shared_ptr<Database> db):
+    _database(db)
   {
-    _writeable = writeable;
-    auto node = YAML::LoadFile(file_name);
-    init(node);
+    _logger = logger; 
+    init();
   }
 
   //===========================================================================
-  Implementation(YAML::Node node)
+  ParticipantId add_participant(ParticipantDescription description)
   {
-    _writeable = false;
-    init(node);
-  }
+    UniqueId key = {description.name(), description.owner()};
 
-  //===========================================================================
-  Implementation()
-  {
-    _next_id = 0;
-    _writeable = false;
-  }
-
-  //===========================================================================
-  void restore_database(Database& db)
-  {
-
-  }
-  
-  //===========================================================================
-  YAML::Node to_yaml()
-  {
-    YAML::Node node;
-    
-    std::lock_guard<std::mutex> lock(mutex);
-    for(auto participant: _descriptions)
+    if(_id_from_name.count(key))
     {
-      auto _id = participant.first;
-      node[_id] = serialize(participant.second);
+      throw std::runtime_error("Participant with name: "+description.name()
+        + "and owner: "+description.owner() + "already exists" );
     }
-    return node;
-  }
 
-  //===========================================================================
-  void write_to_file()
-  {
-    if(!_writeable) return;
-  }
+    ParticipantId id = _database->register_participant(description);
 
-  //===========================================================================
-  void add_participant(ParticipantDescription description)
-  {
-    ParticipantId curr_id;
-    {
-      std::lock_guard<std::mutex> lock(mutex);
-      UniqueId key = {description.name(), description.owner()};
+    _descriptions.insert({id, description});
+    _id_from_name[key] = id;
 
-      if(_id_from_name.count(key))
-      {
-        throw std::runtime_error("Participant with name: "+description.name()
-          + "and owner: "+description.owner() + "already exists" );
-      }
-
-      _descriptions.insert({_next_id, description});
-      _id_from_name[key] = _next_id;
-      curr_id = _next_id;
-      _next_id++;
-    }
+    write_to_file({AtomicOperation::OpType::Add, description});
+    return id;
   }
 
   //===========================================================================
   void remove_participant(ParticipantId id)
   {
+   
+    auto description = _descriptions.find(id);
+    if(description == _descriptions.end())
     {
-      std::lock_guard<std::mutex> lock(mutex);
-      auto description = _descriptions.find(id);
-      if(description == _descriptions.end())
-      {
-        throw std::runtime_error("Participant with id " + std::to_string(id)
-          + " does not exist");
-      }
-      
-      UniqueId key = {description->second.name(), 
-        description->second.owner()};
-
-      _descriptions.erase(id);
-      _id_from_name.erase(key);
+      throw std::runtime_error("Participant with id " + std::to_string(id)
+        + " does not exist");
     }
-    write_to_file();
+    
+    _database->unregister_participant(id);
+
+    UniqueId key = {description->second.name(), 
+      description->second.owner()};
+
+    _descriptions.erase(id);
+    _id_from_name.erase(key);
+    
+    write_to_file({AtomicOperation::OpType::Remove, description->second});
   }
+  
+  
 private:
+  //===========================================================================
+  void write_to_file(AtomicOperation op)
+  {
+    //if restoring in progress don't update the log
+    if(_currently_restoring) return;
+    
+    //We will use YAML's block sequence format as this friendly for appending
+    //We only need to write the latest changes to the file.
+    /*YAML::Emitter emitter;
+    emitter << YAML::BeginSeq;
+    emitter << serialize(op);
+    emitter << YAML::EndSeq;
+    
+    assert(emmiter.good());*/
+    _logger->write_operation(op);
+
+  }
 
   //===========================================================================
-  void init(YAML::Node node)
+  void remove_participant(ParticipantDescription description)
   {
-    _next_id = 0;
+    // This method is private because it is only used by execute()
+    // Additionally, we don't need to write the executing to the log file.
+    // as it is only called during initialization.
+    UniqueId key = {description.name(), description.owner()};
 
-    if(!node.IsMap()) {
+    auto id = _id_from_name.find(key);
+    if(id == _id_from_name.end())
+    {
+      throw std::runtime_error("Participant with id " 
+      + std::to_string(id->second) + " does not exist");
+    }
+    _descriptions.erase(id->second);
+    _id_from_name.erase(key);
+
+    _database->unregister_participant(id->second);
+  }
+
+  //===========================================================================
+  void init()
+  {
+    /*
+    if(!node.IsSequence()) {
       throw std::runtime_error(
         "Malformatted YAML file. Expected a map"  
       );
     }
 
-    for(YAML::const_iterator it=node.begin(); it!=node.end(); ++it)
+    _currently_restoring = true;
+    for(std::size_t i=0; i<node.size();i++)
     {
-      ParticipantId id = it->first.as<uint64_t>();
-
-      auto final_desc = participant_description(it->second);    
-  
-      UniqueId key = {final_desc.name(), final_desc.owner()}; 
-      _descriptions.insert({id, final_desc});
-      _id_from_name.insert({key, id});
-
-      if(id >= _next_id)
-      {
-        _next_id += 1;
-      }
+      auto operation = atomic_operation(node[i]);
+      execute(operation);
     }
-   
+    _currently_restoring = false;*/
+
+    //This is why we should use C++17, this could be done with an optional
+    //instead
+    /*for(auto record = _logger->read_next_record(); record.second; 
+      record = _logger->read_next_record)
+    {
+
+    }*/
+    _currently_restoring = true;
+    while(auto record = _logger->read_next_record())
+    {
+      execute(*record);
+    }
+    _currently_restoring= false;
   }
 
   //==========================================================================
-  bool _writeable;
-  ParticipantId _next_id; ///Holds the next id
+  void execute(AtomicOperation operation)
+  {
+    if(operation.operation == AtomicOperation::OpType::Add)
+    {
+      add_participant(operation.description);
+    }
+
+    if(operation.operation == AtomicOperation::OpType::Remove)
+    {
+      remove_participant(operation.description);
+    }
+  }
+
+  //==========================================================================
+  bool _currently_restoring;
   std::unordered_map<ParticipantId, ParticipantDescription> _descriptions;
   std::unordered_map<UniqueId, 
     ParticipantId, UniqueIdHasher> _id_from_name;
-  std::vector<AtomicOperation> _journal;
-  std::mutex mutex, file_mutex;
+  std::shared_ptr<Database> _database; 
+  AbstractParticipantLogger* _logger;
 };
 
 //=============================================================================
-ParticipantRegistry::ParticipantRegistry(std::string file_name, bool writeable)
-:_pimpl(rmf_utils::make_unique_impl<Implementation>(file_name, writeable))
+ParticipantRegistry::ParticipantRegistry(
+  AbstractParticipantLogger* logger,
+  std::shared_ptr<Database> database)
+:_pimpl(rmf_utils::make_unique_impl<Implementation>(
+  logger,
+  database))
 {
   
 }
 
 //=============================================================================
-ParticipantRegistry::ParticipantRegistry(YAML::Node node)
-:_pimpl(rmf_utils::make_unique_impl<Implementation>(node))
-{
-
-}
-
-//=============================================================================
-ParticipantRegistry::ParticipantRegistry()
-:_pimpl(rmf_utils::make_unique_impl<Implementation>())
-{
-
-}
-
-//=============================================================================
-void ParticipantRegistry::restore_database(Database& db)
-{
-  _pimpl->restore_database(db);
-}
-
-//=============================================================================
-void ParticipantRegistry::add_participant(
-  ParticipantId id,
+ParticipantId ParticipantRegistry::add_participant(
   ParticipantDescription description)
 {
-  _pimpl->add_participant(description);
+  return _pimpl->add_participant(description);
 }
 
 //=============================================================================
 void ParticipantRegistry::remove_participant(ParticipantId id)
 {
-  return _pimpl->remove_participant(id);
+  _pimpl->remove_participant(id);
 }
 
-//=============================================================================
-YAML::Node ParticipantRegistry::to_yaml()
-{
-  return _pimpl->to_yaml();
-}
 }//end namespace rmf_traffic_ros2

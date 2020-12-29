@@ -32,6 +32,29 @@ namespace rmf_traffic_ros2 {
 using Database = rmf_traffic::schedule::Database; 
 using ParticipantId = rmf_traffic::schedule::ParticipantId;
 using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;  
+
+//=============================================================================
+struct AtomicOperation
+{
+  enum class OpType : uint8_t
+  {
+    Add = 0,
+    Remove
+  };
+  OpType operation;
+  ParticipantDescription description;
+};
+
+//=============================================================================
+class AbstractParticipantLogger
+{
+public:
+  virtual ~AbstractParticipantLogger() {};
+  virtual void write_operation(AtomicOperation operation) = 0;
+  //TODO: Use an iterator
+  virtual std::optional<AtomicOperation> read_next_record() = 0;
+};
+
 //=============================================================================
 /// Adds a persistance layer to the participant ids. This allows the scheduler 
 /// to restart without the need to restart fleet adapters. 
@@ -41,14 +64,9 @@ using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;
 class ParticipantRegistry
 {
 public:
-  ParticipantRegistry(std::string file_name, bool writeable=false);
-  ParticipantRegistry(YAML::Node node);
-  ParticipantRegistry();
-
-  /// Restores participants from a log file to a database.
-  /// \param[in] database - The database which the participants will be
-  ///    restored to.  
-  void restore_database(Database& database);
+  ParticipantRegistry(
+    AbstractParticipantLogger* file_name,
+    std::shared_ptr<Database> database);
 
   /// Adds a participant
   /// \param[in] description - The description of the participant that one
@@ -56,14 +74,12 @@ public:
   /// 
   /// \throws std::runtime_error if a participant with the same name and owner
   ///   are already in the registry.
-  void add_participant(ParticipantId id, ParticipantDescription description);
+  ParticipantId add_participant(ParticipantDescription description);
   
   /// Removes a participant from the registry.
   /// \param[in] id - participant to remove
   void remove_participant(ParticipantId id);
   
-  /// Get the YAML output that is written to a file.
-  YAML::Node to_yaml();
   class Implementation;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
