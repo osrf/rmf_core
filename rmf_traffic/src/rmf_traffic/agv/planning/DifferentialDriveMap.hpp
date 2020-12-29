@@ -29,8 +29,11 @@ namespace rmf_traffic {
 namespace agv {
 namespace planning {
 
+// TODO(MXG): Move the inline function definitions in this header into their own
+// .cpp file.
+
 //==============================================================================
-enum Orientation
+enum class Orientation
 {
   Forward = 0,
   Backward,
@@ -38,29 +41,73 @@ enum Orientation
 };
 
 //==============================================================================
+inline std::ostream& operator<<(std::ostream& os, const Orientation orientation)
+{
+  if (orientation == Orientation::Forward)
+    os << "Forward";
+  else if(orientation == Orientation::Backward)
+    os << "Backward";
+  else if (orientation == Orientation::Any)
+    os << "Any";
+  else
+    os << "Orientation::UNKNOWN";
+
+  return os;
+}
+
+//==============================================================================
+enum class Side
+{
+  Start = 0,
+  Finish
+};
+
+//==============================================================================
+inline std::ostream& operator<<(std::ostream& os, const Side side)
+{
+  if (side == Side::Start)
+    os << "Start";
+  else if (side == Side::Finish)
+    os << "Finish";
+  else
+    os << "Side::UNKNOWN";
+
+  return os;
+}
+
+//==============================================================================
 struct DifferentialDriveMapTypes
 {
-  // TODO(MXG): Consider refactoring Key into two Entry fields
+  // TODO(MXG): Consider refactoring Key to use Entry
   struct Key
   {
     std::size_t start_lane;
     Orientation start_orientation;
+    Side start_side; ///< Which side of the start lane is the vehicle on
     std::size_t goal_lane;
     Orientation goal_orientation;
 
+    inline Key(
+      const std::size_t start_lane_,
+      const Orientation start_orientation_,
+      const Side start_side_,
+      const std::size_t goal_lane_,
+      const Orientation goal_orientation_)
+    : start_lane(start_lane_),
+      start_orientation(start_orientation_),
+      start_side(start_side_),
+      goal_lane(goal_lane_),
+      goal_orientation(goal_orientation_)
+    {
+      // Do nothing
+    }
+
     inline bool operator==(const Key& other) const
     {
-      if (goal_orientation == Orientation::Any)
-      {
-        return
-            start_lane == other.start_lane &&
-            start_orientation == other.start_orientation &&
-            goal_orientation == other.goal_orientation;
-      }
-
       return
           start_lane == other.start_lane &&
           start_orientation == other.start_orientation &&
+          start_side == other.start_side &&
           goal_lane == other.goal_lane &&
           goal_orientation == other.goal_orientation;
     }
@@ -70,12 +117,30 @@ struct DifferentialDriveMapTypes
   {
     std::size_t lane;
     Orientation orientation;
+    Side side;
+
+    inline Entry(
+      const std::size_t lane_,
+      const Orientation orientation_,
+      const Side side_)
+    : lane(lane_),
+      orientation(orientation_),
+      side(side_)
+    {
+      // Do nothing
+    }
 
     inline bool operator==(const Entry& other) const
     {
       return
           lane == other.lane &&
-          orientation == other.orientation;
+          orientation == other.orientation &&
+          side == other.side;
+    }
+
+    inline bool operator!=(const Entry& other) const
+    {
+      return !(*this == other);
     }
   };
 
@@ -91,7 +156,7 @@ struct DifferentialDriveMapTypes
 
     std::size_t waypoint;
     Eigen::Vector2d position;
-    double yaw;
+    std::optional<double> yaw;
 
     double remaining_cost_estimate;
     double cost_from_parent;
@@ -117,42 +182,52 @@ struct DifferentialDriveMapTypes
   {
     KeyHash(std::size_t N_lanes)
     {
-      _lane_shift = std::ceil(std::log2(N_lanes));
+      const std::size_t lane_shift = std::ceil(std::log2(N_lanes));
+      _start_orientation_shift = lane_shift;
+      _start_side_shift = _start_orientation_shift + 2;
+      _goal_lane_shift = _start_side_shift + 1;
+      _goal_orientation_shift = _goal_lane_shift + lane_shift;
     }
 
     std::size_t operator()(const Key& key) const
     {
-      if (key.goal_orientation == Orientation::Any)
-      {
-        return key.start_lane
-            + (key.start_orientation << _lane_shift)
-            + (key.goal_orientation << 2*(_lane_shift + 2));
-      }
-
-      return key.start_lane
-          + (key.start_orientation << _lane_shift)
-          + (key.goal_lane << (_lane_shift + 2))
-          + (key.goal_orientation << 2*(_lane_shift + 2));
+      return
+          key.start_lane
+          + (static_cast<std::size_t>(key.start_orientation)
+             << _start_orientation_shift)
+          + (static_cast<std::size_t>(key.start_side)
+             << _start_side_shift)
+          + (key.goal_lane
+             << _goal_lane_shift)
+          + (static_cast<std::size_t>(key.goal_orientation)
+             << _goal_orientation_shift);
     }
 
   private:
-    std::size_t _lane_shift;
+    std::size_t _start_orientation_shift;
+    std::size_t _start_side_shift;
+    std::size_t _goal_lane_shift;
+    std::size_t _goal_orientation_shift;
   };
 
   struct EntryHash
   {
     EntryHash(std::size_t N_lanes)
     {
-      _lane_shift = std::ceil(std::log2(N_lanes));
+      _orientation_shift = std::ceil(std::log2(N_lanes));
+      _side_shift = _orientation_shift + 2;
     }
 
     std::size_t operator()(const Entry& entry) const
     {
-      return entry.lane + (entry.orientation << _lane_shift);
+      return entry.lane
+          + (static_cast<std::size_t>(entry.orientation) << _orientation_shift)
+          + (static_cast<std::size_t>(entry.side) << _side_shift);
     }
 
   private:
-    std::size_t _lane_shift;
+    std::size_t _orientation_shift;
+    std::size_t _side_shift;
   };
 };
 

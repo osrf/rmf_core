@@ -216,7 +216,7 @@ private:
     std::optional<DifferentialDriveConstraint> _constraint;
   };
   using EntriesCache = Cache<EntriesGenerator>;
-  std::shared_ptr<const CacheManager<EntriesCache>> _entries_cache;
+  std::shared_ptr<const CacheManager<EntriesCache>> _entries_into_waypoint_cache;
 
   using LaneYawMap =
     std::unordered_map<Entry, std::optional<double>, EntryHash>;

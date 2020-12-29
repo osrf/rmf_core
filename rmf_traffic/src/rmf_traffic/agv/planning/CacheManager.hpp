@@ -128,14 +128,21 @@ public:
   using Storage = typename CacheArg::Storage;
   using Generator = typename CacheArg::Generator;
   using Upstream = Upstream<Generator>;
+  using Self = CacheManager<CacheArg>;
 
-  CacheManager(
-    std::shared_ptr<const Generator> generator,
-    std::function<Storage()> storage_initializer = [](){ return Storage(); });
+  template <typename... Args>
+  static std::shared_ptr<const Self> make(Args&&... args)
+  {
+    return std::shared_ptr<Self>(new Self(std::forward<Args>(args)...));
+  }
 
   CacheArg get() const;
 
 private:
+
+  CacheManager(
+    std::shared_ptr<const Generator> generator,
+    std::function<Storage()> storage_initializer = [](){ return Storage(); });
 
   void update(Storage new_items) const;
 
@@ -275,7 +282,7 @@ auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
   auto& manager = it.first->second;
   if (manager == nullptr)
   {
-    manager = std::make_shared<CacheManager>(
+    manager = CacheManager::make(
           _generator_factory->make(goal_index),
           _storage_initializer);
   }

@@ -33,9 +33,7 @@ class DifferentialDriveHeuristic : public Generator<DifferentialDriveMap>
 {
 public:
 
-  DifferentialDriveHeuristic(
-    std::shared_ptr<const Supergraph> graph,
-    CacheManagerPtr<TranslationHeuristic> heuristic);
+  DifferentialDriveHeuristic(std::shared_ptr<const Supergraph> graph);
 
   using SolutionNode = DifferentialDriveMapTypes::SolutionNode;
   using SolutionNodePtr = DifferentialDriveMapTypes::SolutionNodePtr;
@@ -48,33 +46,12 @@ public:
 
 private:
   std::shared_ptr<const Supergraph> _graph;
-  CacheManagerPtr<TranslationHeuristic> _heuristic;
+  CacheManagerMap<TranslationHeuristicFactory> _heuristic_map;
 };
 
 //==============================================================================
 using ConstDifferentialDriveHeuristicPtr =
   std::shared_ptr<const DifferentialDriveHeuristic>;
-
-//==============================================================================
-class DifferentialDriveHeuristicFactory
-    : public Factory<DifferentialDriveHeuristic>
-{
-public:
-
-  using Generator = DifferentialDriveHeuristic;
-
-  DifferentialDriveHeuristicFactory(std::shared_ptr<const Supergraph> graph);
-
-  ConstDifferentialDriveHeuristicPtr make(const std::size_t goal) const final;
-
-private:
-  std::shared_ptr<const Supergraph> _graph;
-  TranslationHeuristicCacheMap _heuristic_cache;
-};
-
-//==============================================================================
-using DifferentialDriveHeuristicCacheMap =
-  CacheManagerMap<DifferentialDriveHeuristicFactory>;
 
 } // namespace planning
 } // namespace agv

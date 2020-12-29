@@ -94,6 +94,13 @@ target_include_directories(rmf_traffic
     ${EIGEN3_INCLUDE_DIRS}
 )
 
+add_executable(dummy_test dummy_test.cpp)
+target_link_libraries(dummy_test rmf_traffic)
+target_include_directories(dummy_test
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>
+)
+
 # Create cmake config files
 include(CMakePackageConfigHelpers)
 

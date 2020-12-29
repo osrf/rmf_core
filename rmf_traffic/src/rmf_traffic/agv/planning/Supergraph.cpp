@@ -148,12 +148,17 @@ void node_to_traversals(
   if (node.standstill)
   {
     // If the node is a standstill, just add this empty Alternative
-    traversal.alternatives[Any] = Traversal::Alternative{};
+    traversal.alternatives[static_cast<std::size_t>(Orientation::Any)]
+        = Traversal::Alternative{};
 
     // If the node is a standstill, it should't have any orientation
     // requirements
-    assert(!node.orientations[Forward].has_value()
-           && !node.orientations[Backward].has_value());
+    assert(
+      !node.orientations[static_cast<std::size_t>(Orientation::Forward)]
+      .has_value() &&
+      !node.orientations[static_cast<std::size_t>(Orientation::Backward)]
+      .has_value()
+    );
   }
 
   std::optional<double> best_trajectory_time;
@@ -399,10 +404,14 @@ DifferentialDriveConstraint::get_orientations(
     std::atan2(course_vector[1], course_vector[0]));
   const Eigen::Rotation2Dd R_h = R_c * R_f_inv;
 
-  orientations[Forward] = rmf_utils::wrap_to_pi(R_h.angle());
+  orientations[static_cast<std::size_t>(Orientation::Forward)]
+      = rmf_utils::wrap_to_pi(R_h.angle());
 
   if (reversible)
-    orientations[Backward] = rmf_utils::wrap_to_pi((R_pi * R_h).angle());
+  {
+    orientations[static_cast<std::size_t>(Orientation::Backward)]
+        = rmf_utils::wrap_to_pi((R_pi * R_h).angle());
+  }
 
   return orientations;
 }
@@ -494,16 +503,16 @@ std::shared_ptr<const Supergraph> Supergraph::make(
         new Supergraph(std::move(original), std::move(traits), interpolate));
 
   supergraph->_traversals =
-      std::make_shared<CacheManager<TraversalCache>>(
+      CacheManager<TraversalCache>::make(
         std::make_shared<TraversalGenerator>(supergraph));
 
-  supergraph->_entries_cache =
-      std::make_shared<CacheManager<EntriesCache>>(
+  supergraph->_entries_into_waypoint_cache =
+      CacheManager<EntriesCache>::make(
         std::make_shared<EntriesGenerator>(supergraph));
 
   const std::size_t N_lanes = supergraph->original().lanes.size();
   supergraph->_lane_yaw_cache =
-      std::make_shared<CacheManager<LaneYawCache>>(
+      CacheManager<LaneYawCache>::make(
         std::make_shared<LaneYawGenerator>(supergraph),
         [N_lanes](){ return LaneYawMap(251, EntryHash(N_lanes)); });
 
@@ -606,7 +615,7 @@ Supergraph::Entries::Entries(
 Supergraph::ConstEntriesPtr Supergraph::entries_into(
   const std::size_t waypoint_index) const
 {
-  return _entries_cache->get().get(waypoint_index);
+  return _entries_into_waypoint_cache->get().get(waypoint_index);
 }
 
 //==============================================================================
@@ -649,7 +658,7 @@ DifferentialDriveKeySet Supergraph::keys_for(
       {
         keys.insert(
           {
-            lane_index, Orientation(orientation),
+            lane_index, Orientation(orientation), Side::Start,
             entry.lane, entry.orientation
           });
       }
@@ -715,7 +724,7 @@ auto Supergraph::EntriesGenerator::generate(
     const double dist = (p1 - p0).norm();
     if (!_constraint.has_value() || dist < interpolate.translation_thresh)
     {
-      agnostic_entry = Entry{lane_index, Orientation::Any};
+      agnostic_entry = Entry{lane_index, Orientation::Any, Side::Finish};
     }
     else
     {
@@ -729,7 +738,8 @@ auto Supergraph::EntriesGenerator::generate(
         if (!orientation.has_value())
           continue;
 
-        angled_entries[*orientation] = Entry{lane_index, Orientation(i)};
+        angled_entries.insert(
+          {*orientation, Entry{lane_index, Orientation(i), Side::Finish}});
       }
     }
   }
@@ -763,15 +773,17 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
   if (key.orientation == Orientation::Any)
   {
     std::cout << " >> key.orientation == Any" << std::endl;
-    new_items.insert({{key.lane, Orientation::Any}, std::nullopt});
+    for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+      new_items.insert({{key.lane, Orientation::Any, Side(j)}, std::nullopt});
     return std::nullopt;
   }
 
   if (!_constraint.has_value())
   {
     std::cout << " >> NO CONSTRAINT!" << std::endl;
-    for (std::size_t i=0; i <= Orientation::Any; ++i)
-      new_items.insert({{key.lane, Orientation(i)}, std::nullopt});
+    for (std::size_t i=0; i <= static_cast<std::size_t>(Orientation::Any); ++i)
+      for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+        new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});
 
     return std::nullopt;
   }
@@ -808,8 +820,9 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
   {
     std::cout << " >> Within dist threshold: " << dist << " <= " << supergraph->options().translation_thresh
               << std::endl;
-    for (std::size_t i=0; i <= Orientation::Any; ++i)
-      new_items.insert({{key.lane, Orientation(i)}, std::nullopt});
+    for (std::size_t i=0; i <= static_cast<std::size_t>(Orientation::Any); ++i)
+      for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+        new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});
 
     return std::nullopt;
   }
@@ -822,11 +835,12 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
     assert(yaw.has_value());
 
     std::cout << " >> inserting " << i << ": " << yaw.value()*180.0/M_PI << std::endl;
-    new_items.insert({{key.lane, Orientation(i)}, yaw});
+    for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
+      new_items.insert({{key.lane, Orientation(i), Side(j)}, yaw});
   }
 
-  std::cout << " >> returning " << orientations[key.orientation].value()*180.0/M_PI << std::endl;
-  return orientations[key.orientation];
+  std::cout << " >> returning " << orientations[static_cast<std::size_t>(key.orientation)].value()*180.0/M_PI << std::endl;
+  return orientations[static_cast<std::size_t>(key.orientation)];
 }
 
 //==============================================================================
