@@ -35,7 +35,6 @@ SCENARIO("Test idempotency of ParticipantDescription.")
   
 }
 
-#include <iostream>
 class TestOperationLogger: public AbstractParticipantLogger
 {
   std::vector<AtomicOperation> _journal;
@@ -113,6 +112,6 @@ SCENARIO("Participant registry restores participants from logger")
     REQUIRE(restored_participants.count(participant_id3) > 0);
     REQUIRE(restored_participants.size() == 2);
   }
-  
+
   delete logger;
 }
