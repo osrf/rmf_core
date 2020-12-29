@@ -63,13 +63,16 @@ struct Traversal
   std::size_t finish_waypoint_index;
   Graph::Lane::EventPtr entry_event;
   Graph::Lane::EventPtr exit_event;
+  std::vector<std::string> maps;
   double best_time;
 
   struct Alternative
   {
     double time = 0.0;
     std::optional<double> yaw;
-    std::vector<Route> routes;
+
+    using RouteFactoryFactory = DifferentialDriveMapTypes::RouteFactoryFactory;
+    RouteFactoryFactory routes;
   };
 
   std::array<std::optional<Alternative>, 3> alternatives;
@@ -97,8 +100,7 @@ public:
       const VehicleTraits& traits,
       const Interpolate::Options::Implementation& interpolate);
 
-    double v_nom;
-    double a_nom;
+    KinematicLimits limits;
     std::optional<DifferentialDriveConstraint> constraint;
     Interpolate::Options::Implementation interpolate;
   };

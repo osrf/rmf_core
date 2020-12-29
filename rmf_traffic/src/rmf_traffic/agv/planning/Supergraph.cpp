@@ -124,12 +124,15 @@ void node_to_traversals(
   const TraversalGenerator::Kinematics& kin,
   std::vector<Traversal>& output)
 {
+
   assert(valid_traversal(node));
   Traversal traversal;
   traversal.initial_lane_index = node.initial_lane_index;
   traversal.finish_lane_index = node.finish_lane_index;
   traversal.finish_waypoint_index = node.finish_waypoint_index;
   traversal.best_time = 0.0;
+  traversal.maps = std::vector<std::string>(
+        node.map_names.begin(), node.map_names.end());
 
   if (node.entry_event)
   {
@@ -147,6 +150,9 @@ void node_to_traversals(
 
   if (node.standstill)
   {
+    std::cout << "Making a standstill traversal from [Lane "
+              << node.initial_lane_index << "] to (Waypoint "
+              << node.finish_waypoint_index << ")" << std::endl;
     // If the node is a standstill, just add this empty Alternative
     traversal.alternatives[static_cast<std::size_t>(Orientation::Any)]
         = Traversal::Alternative{};
@@ -181,27 +187,17 @@ void node_to_traversals(
       *yaw
     };
 
-    const auto start_time = rmf_traffic::Time(std::chrono::seconds(0));
-    Trajectory trajectory;
-    trajectory.insert(start_time, start, Eigen::Vector3d::Zero());
-
-    internal::interpolate_translation(
-          trajectory,
-          kin.v_nom,
-          kin.a_nom,
-          start_time,
-          start,
-          finish,
-          kin.interpolate.translation_thresh);
-
     Traversal::Alternative alternative;
     alternative.yaw = *yaw;
-    for (const auto& map : node.map_names)
-      alternative.routes.push_back({map, trajectory});
+    auto factory_info = make_differential_drive_translate_factory(
+          start, finish, kin.limits,
+          kin.interpolate.translation_thresh,
+          kin.interpolate.rotation_thresh,
+          traversal.maps);
 
-    const double time = rmf_traffic::time::to_seconds(
-          *trajectory.finish_time() - *trajectory.start_time());
+    const auto time = factory_info.minimum_cost;
     alternative.time = time;
+    alternative.routes = std::move(factory_info.factory);
 
     if (!best_trajectory_time.has_value() || time < *best_trajectory_time)
       best_trajectory_time = time;
@@ -420,12 +416,9 @@ DifferentialDriveConstraint::get_orientations(
 TraversalGenerator::Kinematics::Kinematics(
   const VehicleTraits& traits,
   const Interpolate::Options::Implementation& interpolate_)
-: interpolate(interpolate_)
+: limits(VehicleTraits::Implementation::get_limits(traits)),
+  interpolate(interpolate_)
 {
-  const auto& linear = traits.linear();
-  v_nom = linear.get_nominal_velocity();
-  a_nom = linear.get_nominal_acceleration();
-
   if (const auto* diff_drive = traits.get_differential())
   {
     constraint = DifferentialDriveConstraint(

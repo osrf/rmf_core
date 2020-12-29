@@ -7,6 +7,65 @@
 #include <iostream>
 
 
+//==============================================================================
+inline rmf_traffic::Time print_start(const rmf_traffic::Route& route)
+{
+  assert(route.trajectory().size() > 0);
+  auto p = route.trajectory().front().position();
+  p[2] *= 180.0/M_PI;
+  std::cout << "(start) --> ";
+  std::cout << "(" << 0.0 << "; "
+            << p.transpose()
+            << ") --> ";
+
+  return *route.trajectory().start_time();
+}
+
+//==============================================================================
+inline void print_route(
+    const rmf_traffic::Route& route,
+    const rmf_traffic::Time start_time)
+{
+  assert(route.trajectory().size() > 0);
+  std::cout << "[" << route.map() << "] ";
+//  for (auto it = ++route.trajectory().begin(); it
+  for (auto it = route.trajectory().begin(); it
+       != route.trajectory().end(); ++it)
+  {
+    const auto& wp = *it;
+    if (wp.velocity().norm() > 1e-3)
+      continue;
+
+    const auto rel_time = wp.time() - start_time;
+    auto p = wp.position();
+    p[2] *= 180.0/M_PI;
+    std::cout << "(" << rmf_traffic::time::to_seconds(rel_time) << "; "
+              << p.transpose() << ") --> ";
+  }
+}
+
+//==============================================================================
+inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
+{
+  if (itinerary.empty())
+  {
+    std::cout << "No plan needed!" << std::endl;
+  }
+  else
+  {
+//    auto start_time = print_start(itinerary.front());
+    const auto start_time = *itinerary.front().trajectory().start_time();
+    for (const auto& r : itinerary)
+    {
+      print_route(r, start_time);
+      std::cout  << " | ";
+    }
+
+    std::cout << "(end)" << std::endl;
+  }
+}
+
+
 int main()
 {
   rmf_traffic::agv::Graph graph;
@@ -22,9 +81,9 @@ int main()
   const auto bogus_event = rmf_traffic::agv::Graph::Lane::Event::make(
         rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(1)));
 
-  graph.add_lane({0, bogus_event}, 1);
-  graph.add_lane({1, bogus_event}, 2);
-  graph.add_lane(2, 3);
+  graph.add_lane({0, bogus_event}, 1); // 0
+  graph.add_lane({1, bogus_event}, 2); // 1
+  graph.add_lane(2, 3); // 2
 
   const std::size_t goal_index = 3;
 
@@ -70,16 +129,39 @@ int main()
     }
 
     double cost = 0.0;
+    std::vector<rmf_traffic::Route> routes;
+    rmf_traffic::Time time(rmf_traffic::Duration(0));
+    double yaw = 0.0;
     while (solution)
     {
       cost += solution->info.cost_from_parent;
       std::cout << " (" << cost << "; "
-                << solution->info.waypoint << ", "
+                << solution->info.waypoint << "; "
+                << solution->info.position.transpose() << ", "
                 << 180.0*solution->info.yaw.value_or(std::nan(""))/M_PI
                 << ") -->";
+
+      if (solution->route_factory)
+      {
+        auto new_route_info = solution->route_factory(time, yaw);
+        routes.insert(
+              routes.end(),
+              new_route_info.routes.begin(),
+              new_route_info.routes.end());
+        time = new_route_info.finish_time;
+        yaw = new_route_info.finish_yaw;
+      }
+      else
+      {
+        std::cout << "[No Route Factory]" << std::endl;
+      }
+
       solution = solution->child;
     }
     std::cout << " (finished)" << std::endl;
+
+    std::cout << "Itinerary:" << std::endl;
+    print_itinerary(routes);
 
     const auto& lane = supergraph->original().lanes[key.goal_lane];
     std::cout << "Lane " << key.goal_lane << ": " << lane.entry().waypoint_index()

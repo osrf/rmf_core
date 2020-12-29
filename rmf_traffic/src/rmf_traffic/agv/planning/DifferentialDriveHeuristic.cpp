@@ -28,23 +28,6 @@ namespace rmf_traffic {
 namespace agv {
 namespace planning {
 
-namespace {
-//==============================================================================
-Trajectory make_holding_trajectory(
-    const Trajectory::Waypoint& waypoint,
-    const rmf_traffic::Duration duration)
-{
-  Trajectory holding_trajectory;
-  holding_trajectory.insert(waypoint);
-  holding_trajectory.insert(
-        waypoint.time() + duration,
-        waypoint.position(),
-        Eigen::Vector3d::Zero());
-  return holding_trajectory;
-}
-
-} // anonymous namespace
-
 //==============================================================================
 template<typename NodePtrT>
 struct DifferentialDriveCompare
@@ -91,10 +74,14 @@ public:
   using SearchNodePtr = std::shared_ptr<const SearchNode>;
   using NodePtr = SearchNodePtr;
 
+  using RouteFactory = DifferentialDriveMapTypes::RouteFactory;
+  using RouteFactoryFactory = DifferentialDriveMapTypes::RouteFactoryFactory;
+
   struct SearchNode
   {
     NodeInfo info;
     double current_cost;
+    RouteFactoryFactory route_factory;
     SearchNodePtr parent;
   };
 
@@ -186,7 +173,6 @@ public:
       const auto& next_waypoint =
           _graph->original().waypoints[next_waypoint_index];
       const Eigen::Vector2d next_position = next_waypoint.get_location();
-      const std::string& next_map_name = next_waypoint.get_map_name();
 
       const double exit_event_duration = traversal.exit_event ?
             rmf_traffic::time::to_seconds(traversal.exit_event->duration())
@@ -218,13 +204,13 @@ public:
         const SearchNodePtr oriented_top = prepare_traversal(
               top, traversal.initial_lane_index, orientation, alt->yaw,
               alt->time + *remaining_cost_estimate + exit_event_duration,
-              traversal.entry_event);
+              traversal.entry_event, traversal.maps);
 
         Entry finishing_entry{next_lane_index, orientation, Side::Finish};
         if (_visited.count(finishing_entry))
         {
           std::cout << "skipping pre-visited alt [" << next_lane_index
-                    << ", " << i << "] | ";
+                    << ", " << orientation << ", " << Side::Finish << "] | ";
           // If we have already expanded from this waypoint, then there is no
           // point in re-expanding to it.
           continue;
@@ -245,8 +231,7 @@ public:
         std::optional<Entry> finishing_entry_opt = traversal.exit_event?
               std::nullopt : std::make_optional(finishing_entry);
 
-        const double target_yaw = alt->yaw.value_or(
-              oriented_top->info.yaw.value());
+        const std::optional<double> target_yaw = alt->yaw;
 
         auto new_node = std::make_shared<SearchNode>(
               SearchNode{
@@ -257,10 +242,10 @@ public:
                   target_yaw,
                   *remaining_cost_estimate + exit_event_duration,
                   alt->time,
-                  traversal.exit_event,
-                  alt->routes
+                  traversal.exit_event
                 },
                 oriented_top->current_cost + alt->time,
+                alt->routes,
                 oriented_top
               });
         std::cout << " " << __LINE__ << " making[" << new_node << "] ";
@@ -269,9 +254,13 @@ public:
         {
           // The last node will trigger the exit event. This node will take over
           // when the exit event is finished.
-          auto holding_trajectory = make_holding_trajectory(
-                oriented_top->info.route_from_parent.back().trajectory().back(),
-                traversal.exit_event->duration());
+          auto routes = make_hold_factory(
+                next_position,
+                target_yaw,
+                traversal.exit_event->duration(),
+                _limits,
+                _interpolate.rotation_thresh,
+                traversal.maps);
 
           new_node = std::make_shared<SearchNode>(
                 SearchNode{
@@ -282,10 +271,10 @@ public:
                     target_yaw,
                     *remaining_cost_estimate,
                     exit_event_duration,
-                    nullptr,
-                    {Route{next_map_name, std::move(holding_trajectory)}}
+                    nullptr
                   },
                   new_node->current_cost + exit_event_duration,
+                  std::move(routes),
                   new_node
                 });
           std::cout << " " << __LINE__ << " making[" << new_node << "] ";
@@ -311,22 +300,13 @@ public:
     const Eigen::Vector3d start_position =
       {p.x(), p.y(), top->info.yaw.value()};
 
-    const Eigen::Vector3d finish_position = {p.x(), p.y(), target_yaw};
-    Trajectory trajectory_from_parent;
-    trajectory_from_parent.insert(
-          top->info.route_from_parent.back().trajectory().back().time(),
-          start_position, Eigen::Vector3d::Zero());
+    // We assume we will get back a valid factory, because if no rotation is
+    // needed, then the planner should have accepted this node earlier.
+    auto factory_info = make_rotate_factory(
+          p, top->info.yaw, target_yaw, _limits,
+          _interpolate.rotation_thresh, map_name).value();
 
-    internal::interpolate_rotation(
-          trajectory_from_parent,
-          _w_nom, _alpha_nom,
-          trajectory_from_parent.back().time(),
-          start_position,
-          finish_position,
-          _interpolate.rotation_thresh);
-
-    const double rotation_cost = rmf_traffic::time::to_seconds(
-          trajectory_from_parent.duration());
+    const double rotation_cost = factory_info.minimum_cost;
 
     auto new_node = std::make_shared<SearchNode>(
           SearchNode{
@@ -337,10 +317,10 @@ public:
               target_yaw,
               0.0,
               rotation_cost,
-              nullptr,
-              {Route{map_name, std::move(trajectory_from_parent)}}
+              nullptr
             },
             top->current_cost + rotation_cost,
+            std::move(factory_info.factory),
             top
           });
     std::cout << " " << __LINE__ << " making[" << new_node << "] ";
@@ -363,6 +343,7 @@ public:
     std::cout << " > looking up ["
               << key.start_lane << ", "
               << key.start_orientation << ", "
+              << key.start_side << ", "
               << key.goal_lane << ", "
               << key.goal_orientation << "] < ";
 
@@ -378,6 +359,7 @@ public:
             SearchNode{
               solution->info,
               node->current_cost + solution->info.cost_from_parent,
+              make_recycling_factory(solution->route_factory),
               node
             });
       std::cout << " " << __LINE__ << " making[" << node << "] ";
@@ -397,63 +379,39 @@ public:
       SearchNodePtr top,
       const std::size_t target_lane_index,
       Orientation orientation,
-      std::optional<double> yaw,
+      std::optional<double> finish_yaw,
       const double remaining_cost_estimate,
-      Graph::Lane::EventPtr entry_event)
+      Graph::Lane::EventPtr entry_event,
+      const std::vector<std::string>& maps)
   {
     const auto& original = _graph->original();
     const auto& lane = original.lanes[target_lane_index];
     const std::size_t target_waypoint_index = lane.entry().waypoint_index();
     const auto& target_waypoint = original.waypoints[target_waypoint_index];
-    const std::string& map_name = target_waypoint.get_map_name();
-
-    assert(!top->info.route_from_parent.empty());
-    assert(!top->info.route_from_parent.back().trajectory().empty());
+    const std::string& initial_map_name = target_waypoint.get_map_name();
+    const Eigen::Vector2d p = top->info.position;
 
     double event_duration = 0.0;
     if (entry_event && entry_event->duration() > std::chrono::nanoseconds(0))
       event_duration = rmf_traffic::time::to_seconds(entry_event->duration());
 
-    SearchNodePtr oriented_node = top;
-    if (top->info.yaw.has_value())
+    auto rotation_factory = make_rotate_factory(
+          p, top->info.yaw, finish_yaw, _limits,
+          _interpolate.rotation_thresh, initial_map_name);
+
+    const bool needs_rotation = rotation_factory.has_value();
+    if (!needs_rotation && !entry_event)
     {
-      const Eigen::Vector2d p = top->info.position;
-      double target_yaw = *top->info.yaw;
-      const Eigen::Vector3d start_position = {p.x(), p.y(), target_yaw};
-      Eigen::Vector3d finish_position = {p.x(), p.y(), *yaw};
-      Trajectory trajectory_from_parent;
-      trajectory_from_parent.insert(
-            top->info.route_from_parent.back().trajectory().back().time(),
-            start_position, Eigen::Vector3d::Zero());
+      // If no rotation nor entry event is needed to begin the traversal, then
+      // we can just return the top as-is, because it is already suitable to
+      // begin the traversal.
+      return top;
+    }
 
-      const double base_cost = top->current_cost;
-      double rotation_cost = 0.0;
-      bool needs_rotation = false;
-      if (yaw.has_value())
-      {
-        finish_position[2] = *yaw;
-        needs_rotation = internal::interpolate_rotation(
-              trajectory_from_parent,
-              _w_nom, _alpha_nom,
-              trajectory_from_parent.back().time(),
-              start_position,
-              finish_position,
-              _interpolate.rotation_thresh);
-
-        target_yaw = *yaw;
-
-        rotation_cost = rmf_traffic::time::to_seconds(
-              trajectory_from_parent.duration());
-      }
-
-      if (!needs_rotation && !entry_event)
-      {
-        // If there is no rotation or entry event needed to begin the traversal,
-        // then we can just return the top as-is, because it is already suitable
-        // to begin the traversal.
-        return top;
-      }
-
+    SearchNodePtr oriented_node = top;
+    if (needs_rotation)
+    {
+      const double rotation_cost = rotation_factory->minimum_cost;
       oriented_node =
         std::make_shared<SearchNode>(
           SearchNode{
@@ -465,13 +423,13 @@ public:
               },
               target_waypoint_index,
               p,
-              target_yaw,
+              finish_yaw,
               remaining_cost_estimate + event_duration,
               rotation_cost,
-              entry_event,
-              {Route{map_name, std::move(trajectory_from_parent)}}
+              entry_event
             },
-            base_cost + rotation_cost,
+            top->current_cost + rotation_cost,
+            std::move(rotation_factory->factory),
             top
           });
     }
@@ -483,9 +441,10 @@ public:
       return oriented_node;
     }
 
-    auto holding_trajectory = make_holding_trajectory(
-          oriented_node->info.route_from_parent.back().trajectory().back(),
-          entry_event->duration());
+    auto hold_factory =
+        make_hold_factory(
+          p, finish_yaw, entry_event->duration(),
+          _limits, _interpolate.rotation_thresh, maps);
 
     return std::make_shared<SearchNode>(
           SearchNode{
@@ -496,10 +455,10 @@ public:
               oriented_node->info.yaw,
               remaining_cost_estimate,
               event_duration,
-              nullptr,
-              {Route{map_name, holding_trajectory}}
+              nullptr
             },
             oriented_node->current_cost + event_duration,
+            std::move(hold_factory),
             oriented_node
           });
   }
@@ -513,6 +472,7 @@ public:
     _old_items(old_items),
     _heuristic(std::move(heuristic)),
     _graph(std::move(graph)),
+    _limits(VehicleTraits::Implementation::get_limits(_graph->traits())),
     _interpolate(_graph->options()),
 
     // We choose to start with 4093 buckets because it's the largest prime
@@ -523,10 +483,6 @@ public:
     // performance
     _visited(4093, EntryHash(_graph->original().lanes.size()))
   {
-    const auto& rotational = _graph->traits().rotational();
-    _w_nom = rotational.get_nominal_velocity();
-    _alpha_nom = rotational.get_nominal_acceleration();
-
     const auto& original = _graph->original();
     const auto& goal_lane = original.lanes[_goal_entry.lane];
     _goal_waypoint = goal_lane.exit().waypoint_index();
@@ -547,8 +503,7 @@ private:
   const DifferentialDriveHeuristic::Storage& _old_items;
   Cache<TranslationHeuristic> _heuristic;
   std::shared_ptr<const Supergraph> _graph;
-  double _w_nom;
-  double _alpha_nom;
+  KinematicLimits _limits;
   Interpolate::Options::Implementation _interpolate;
   DifferentialDriveEntrySet _visited;
   std::size_t _expansion_count = 0;
@@ -569,6 +524,12 @@ auto DifferentialDriveHeuristic::generate(
   const Storage& old_items,
   Storage& new_items) const -> SolutionNodePtr
 {
+  using SearchQueue = DifferentialDriveExpander::SearchQueue;
+  using SearchNode = DifferentialDriveExpander::SearchNode;
+  using NodeInfo = DifferentialDriveExpander::NodeInfo;
+  using Entry = DifferentialDriveExpander::Entry;
+  using RouteFactory = DifferentialDriveExpander::RouteFactory;
+
   const auto& original = _graph->original();
   const std::size_t start_lane_index = key.start_lane;
   const auto& start_lane = original.lanes[key.start_lane];
@@ -590,102 +551,32 @@ auto DifferentialDriveHeuristic::generate(
 
   const auto& start_wp = original.waypoints[start_waypoint_index];
   const Eigen::Vector2d start_p = start_wp.get_location();
-  const std::string& start_map = start_wp.get_map_name();
 
-  DifferentialDriveExpander::SearchQueue queue;
+  SearchQueue queue;
 
   std::optional<double> yaw = _graph->yaw_of(
     {key.start_lane, key.start_orientation, key.start_side});
 
-  auto make_start_node = [&](const double yaw)
-      -> DifferentialDriveExpander::SearchNodePtr
-  {
-    Trajectory trivial_trajectory;
-    trivial_trajectory.insert(
-          rmf_traffic::Time(rmf_traffic::Duration(0)),
-          {start_p.x(), start_p.y(), yaw},
-          Eigen::Vector3d::Zero());
-
-    return std::make_shared<DifferentialDriveExpander::SearchNode>(
-          DifferentialDriveExpander::SearchNode{
-            DifferentialDriveExpander::NodeInfo{
-              DifferentialDriveExpander::Entry{
-                key.start_lane,
-                key.start_orientation,
-                key.start_side
-              },
-              start_waypoint_index,
-              start_p,
-              yaw,
-              *start_heuristic,
-              0.0,
-              nullptr,
-              {Route{start_map, std::move(trivial_trajectory)}}
-            },
-            0.0,
-            nullptr
-          });
-  };
-
-  if (yaw.has_value())
-  {
-    // If we can identify the starting yaw, we can just create one initial node.
-    queue.push(make_start_node(*yaw));
-  }
-  else
-  {
-    const auto hash =
-        DifferentialDriveMapTypes::EntryHash(_graph->original().lanes.size());
-    DifferentialDriveEntrySet initialized(31, hash);
-
-    // We cannot immediately identify the starting yaw, so let's look at every
-    // traversal that comes out of the initial lane.
-    const auto traversals = _graph->traversals_from(start_waypoint_index);
-    assert(traversals);
-    for (const auto& traversal : *traversals)
-    {
-      if (traversal.initial_lane_index == start_lane_index)
-      {
-        const auto& alt = traversal.alternatives[
-            static_cast<std::size_t>(key.start_orientation)];
-
-        if (!alt.has_value())
-          continue;
-
-        const auto yaw = alt->yaw;
-        if (!yaw.has_value())
-          continue;
-
-        const Entry entry = {
-          traversal.initial_lane_index,
-          key.start_orientation,
-          Side::Start
-        };
-
-        if (!initialized.insert(entry).second)
-          continue;
-
-        queue.push(make_start_node(*yaw));
-      }
-    }
-
-    if (queue.empty())
-    {
-      // We still have not found a suitable value for the yaw. This is a weird
-      // edge case, but it is technically possible to construct. For now we'll
-      // just use a yaw of 0.0.
-      //
-      // FIXME(MXG): Come up with a more robust (and guaranteed optimal) way of
-      // handling this edge case.
-      std::cerr << "[rmf_traffic::agv::planning::DifferentialDriveHeuristic] "
-                   "You have encountered an edge case that is not guaranteed "
-                   "to be handled optimally by the rmf_traffic planner. If you "
-                   "see this warning for an important use case, please report "
-                   "it to the rmf_traffic developers, along with the graph "
-                   "and planner conditions that caused it." << std::endl;
-      queue.push(make_start_node(0.0));
-    }
-  }
+  queue.push(
+    std::make_shared<SearchNode>(
+      SearchNode{
+        NodeInfo{
+          Entry{
+            key.start_lane,
+            key.start_orientation,
+            key.start_side
+          },
+          start_waypoint_index,
+          start_p,
+          yaw,
+          *start_heuristic,
+          0.0,
+          nullptr
+        },
+        0.0,
+        nullptr,
+        nullptr
+      }));
 
   DifferentialDriveExpander expander{
     DifferentialDriveExpander::Entry{
@@ -735,16 +626,19 @@ auto DifferentialDriveHeuristic::generate(
       info.remaining_cost_estimate = remaining_cost;
       remaining_cost += info.cost_from_parent;
 
-      if (!info.yaw.has_value() && previous_node->info.yaw.has_value())
+      RouteFactory routes;
+      if (node->route_factory)
       {
-        info.yaw = previous_node->info.yaw;
-        assert(info.route_from_parent.empty());
-
+        if (solution)
+          routes = node->route_factory(solution->info.yaw);
+        else
+          routes = node->route_factory(node->info.yaw);
       }
 
       solution = std::make_shared<SolutionNode>(
             SolutionNode{
               std::move(info),
+              std::move(routes),
               solution
             });
 
@@ -759,6 +653,7 @@ auto DifferentialDriveHeuristic::generate(
         std::cout << " << stashing " << node << " -> " << goal_node << " ["
                   << new_key.start_lane << ", "
                   << new_key.start_orientation << ", "
+                  << new_key.start_side << ", "
                   << new_key.goal_lane << ", "
                   << new_key.goal_orientation << "]: ("
                   << solution->info.waypoint << ", "

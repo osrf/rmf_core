@@ -57,18 +57,12 @@ bool has_only_map(
   bool at_least_one = false;
   for (const auto& traversal : traversals)
   {
-    for (const auto& alt : traversal.alternatives)
+    for (const auto& map : traversal.maps)
     {
-      if (!alt.has_value())
-        continue;
+      if (map != reference_map)
+        return false;
 
-      for (const auto& route : alt->routes)
-      {
-        if (route.map() != reference_map)
-          return false;
-
-        at_least_one = true;
-      }
+      at_least_one = true;
     }
   }
 

@@ -21,6 +21,8 @@
 #include <rmf_traffic/Route.hpp>
 #include <rmf_traffic/agv/Graph.hpp>
 
+#include "../internal_VehicleTraits.hpp"
+
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -28,6 +30,8 @@
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
+
+// TODO(MXG): Consider renaming this header file
 
 // TODO(MXG): Move the inline function definitions in this header into their own
 // .cpp file.
@@ -164,17 +168,43 @@ struct DifferentialDriveMapTypes
     // An event that should occur when this node is reached,
     // i.e. after route_from_parent has been traversed
     Graph::Lane::EventPtr event;
-
-    // The route to get to this node from the parent node
-    std::vector<Route> route_from_parent;
-    // TODO(MXG): Create a RelativeTrajectory class to store the trajectory
-    // information for these nodes. The use of absolute trajectories may lead to
-    // bugs if we forget to adjust the times for each case.
   };
+
+  struct RouteInfo
+  {
+    rmf_traffic::Time finish_time;
+    double finish_yaw;
+    std::vector<Route> routes;
+
+    RouteInfo(
+        rmf_traffic::Time finish_time_,
+        double finish_yaw_,
+        std::vector<Route> routes_);
+  };
+
+  /// This type is a factory that produces routes. The SolutionNode will provide
+  /// these to us so we can get the correct routes for our specific use cases.
+  using RouteFactory =
+    std::function<RouteInfo(
+      rmf_traffic::Time start_time,
+      double initial_yaw)>;
+
+  /// This type is a factory that produces factories. The
+  /// DifferentialDriveHeuristic::SearchNode will use these to generate
+  /// RouteFactory instances for their final SolutionNodes.
+  ///
+  /// \param[in] child_yaw
+  ///   Specify what the yaw of the node's child will be (if available). This
+  ///   allows the factory to produce a trajectory with the least amount of
+  ///   rotating necessary.
+  // TODO(MXG): Come up with a better name for this type
+  using RouteFactoryFactory =
+    std::function<RouteFactory(std::optional<double> child_yaw)>;
 
   struct SolutionNode
   {
     NodeInfo info;
+    RouteFactory route_factory;
     SolutionNodePtr child;
   };
 
@@ -252,6 +282,48 @@ using DifferentialDriveEntrySet =
     DifferentialDriveMapTypes::Entry,
     DifferentialDriveMapTypes::EntryHash
   >;
+
+//==============================================================================
+struct FactoryInfo
+{
+  double minimum_cost;
+  DifferentialDriveMapTypes::RouteFactoryFactory factory;
+};
+
+//==============================================================================
+FactoryInfo make_differential_drive_translate_factory(
+    Eigen::Vector3d start,
+    Eigen::Vector3d finish,
+    KinematicLimits limits,
+    double translation_thresh,
+    double rotation_thresh,
+    std::vector<std::string> maps);
+
+//==============================================================================
+/// This returns a nullopt if it can guarantee that no rotation is needed
+std::optional<FactoryInfo> make_rotate_factory(
+    Eigen::Vector2d position,
+    std::optional<double> start_yaw,
+    std::optional<double> finish_yaw,
+    KinematicLimits limits,
+    double rotation_thresh,
+    std::string map);
+
+//==============================================================================
+// NOTE: The minimum cost in this case is obvious: the value of duration
+DifferentialDriveMapTypes::RouteFactoryFactory
+make_hold_factory(
+    Eigen::Vector2d position,
+    std::optional<double> yaw,
+    rmf_traffic::Duration duration,
+    KinematicLimits limits,
+    double rotation_thresh,
+    std::vector<std::string> maps);
+
+//==============================================================================
+DifferentialDriveMapTypes::RouteFactoryFactory
+make_recycling_factory(
+    DifferentialDriveMapTypes::RouteFactory old_factory);
 
 } // namespace planning
 } // namespace agv
