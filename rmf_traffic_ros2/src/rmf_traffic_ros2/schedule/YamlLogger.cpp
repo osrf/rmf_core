@@ -39,7 +39,7 @@ public:
             "Malformatted file - Couldn't parse as YAML!");
       }
     }
-    catch(const YAML::BadFile e)
+    catch(const YAML::BadFile& e)
     {
       //File could not be opened. For now it's OK we can ignore.
       //Probably we should check:
@@ -47,7 +47,7 @@ public:
       // * the file path does not exist
       //    * check if we can create a file in the desired location
     }
-    catch(const YAML::ParserException e)
+    catch(const YAML::ParserException& e)
     {
       //Malformatted YAML. Failing so that we don't corrupt data
       throw std::runtime_error(
@@ -74,7 +74,7 @@ public:
       //TODO: Figure out a way to log this error.
       return;
     }
-    outfile << emmiter.c_str();
+    outfile << emmiter.c_str() << std::endl;
     outfile.close();
   }
 
@@ -90,7 +90,7 @@ public:
 
 private:
   YAML::Node _buffer; ///used when loading the file
-  int _counter;
+  std::size_t _counter;
   std::string _file_path;
   std::mutex _mutex;
 };

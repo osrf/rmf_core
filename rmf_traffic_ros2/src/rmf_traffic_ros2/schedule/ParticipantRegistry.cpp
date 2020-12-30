@@ -139,7 +139,7 @@ rmf_traffic::Profile profile(YAML::Node node)
 ParticipantDescription participant_description(YAML::Node node)
 {
 
-  if(node.IsMap())
+  if(!node.IsMap())
   {
     throw std::runtime_error("Malformatted YAML file. Expected a map");
   }
@@ -177,7 +177,9 @@ ParticipantDescription participant_description(YAML::Node node)
 //=============================================================================
 AtomicOperation atomic_operation(YAML::Node node)
 {
-  
+  if(!node.IsMap())
+    throw std::runtime_error("Malformatted atomic operation Expected a map");
+
   AtomicOperation::OpType op_type;
 
   if(!node["operation"])
@@ -199,7 +201,7 @@ AtomicOperation atomic_operation(YAML::Node node)
   if(!node["participant_description"])
     throw std::runtime_error("Expected a participant_description field");\
 
-  auto description = participant_description(node);
+  auto description = participant_description(node["participant_description"]);
   
   return {op_type, description};
 }

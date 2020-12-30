@@ -1,7 +1,8 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
-
 #include <rmf_utils/catch.hpp>
+#include <fstream>
+#include <cstdio>
 
 using namespace rmf_traffic_ros2;
 SCENARIO("Test idempotency of shape type")
@@ -43,6 +44,14 @@ bool operator==(
     && desc1.owner() == desc2.owner()
     && desc1.responsiveness() ==  desc2.responsiveness()
     && desc1.profile() == desc2.profile();
+}
+
+bool operator==(
+  const AtomicOperation op1, 
+  const AtomicOperation op2)  
+{
+  return op1.operation == op2.operation
+    && op1.description == op2.description;
 }
 
 SCENARIO("Test idempotency of ParticipantDescription.")
@@ -92,8 +101,6 @@ SCENARIO("Participant registry restores participants from logger")
   using Database = rmf_traffic::schedule::Database;
   using ParticipantId = rmf_traffic::schedule::ParticipantId;
  
-  
-
   //Lets create a bunch of participants
   const auto shape = rmf_traffic::geometry::make_final_convex<
     rmf_traffic::geometry::Circle>(1.0);
@@ -179,7 +186,65 @@ SCENARIO("Participant registry restores participants from logger")
   }
 }
 
+bool file_exists(const char *fileName)
+{
+    std::ifstream infile(fileName);
+    return infile.good();
+}
 SCENARIO("Test file logger")
 {
+  if(file_exists("test_yamllogger.yaml"))
+  {
+    std::remove("test_yamllogger.yaml");
+  }
+  
+  const auto shape = rmf_traffic::geometry::make_final_convex<
+    rmf_traffic::geometry::Circle>(1.0);
 
+  rmf_traffic::schedule::ParticipantDescription p1(
+    "participant 1",
+    "test_Participant",
+    rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+    rmf_traffic::Profile{shape});
+
+  rmf_traffic::schedule::ParticipantDescription p2(
+    "participant 2",
+    "test_Participant",
+    rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+    rmf_traffic::Profile{shape});
+  
+  rmf_traffic::schedule::ParticipantDescription p3(
+    "participant 3",
+    "test_Participant",
+    rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+    rmf_traffic::Profile{shape});
+  
+  GIVEN("non-existant file")
+  {
+    WHEN("Storing three records")
+    {
+      YamlLogger logger1("test_yamllogger.yaml");
+      logger1.write_operation({AtomicOperation::OpType::Add, p1});
+      logger1.write_operation({AtomicOperation::OpType::Add, p2});
+      logger1.write_operation({AtomicOperation::OpType::Remove, p1});  
+      THEN("Able to retrieve 3 records")
+      {
+        YamlLogger logger2("test_yamllogger.yaml");
+        std::vector<AtomicOperation> expected = {
+          {AtomicOperation::OpType::Add, p1},
+          {AtomicOperation::OpType::Add, p2},
+          {AtomicOperation::OpType::Remove, p1}
+        };
+
+        std::size_t i = 0;
+        while(auto record = logger2.read_next_record())
+        {
+          REQUIRE(i < expected.size());
+          REQUIRE(expected[i] == *record);
+          i++;
+        }
+        REQUIRE(i == expected.size());
+      }
+    }
+  }
 }
