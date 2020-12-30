@@ -92,7 +92,7 @@ SCENARIO("Participant registry restores participants from logger")
   using Database = rmf_traffic::schedule::Database;
   using ParticipantId = rmf_traffic::schedule::ParticipantId;
  
-  TestOperationLogger* logger = new TestOperationLogger;
+  
 
   //Lets create a bunch of participants
   const auto shape = rmf_traffic::geometry::make_final_convex<
@@ -118,61 +118,68 @@ SCENARIO("Participant registry restores participants from logger")
   
   ParticipantId participant_id1, participant_id2, participant_id3;
   
-  WHEN("Creating a new DB without errors")
+  GIVEN("A stubbed out logger")
   {
-    auto db1 = std::make_shared<Database>();
-    ParticipantRegistry registry1(logger, db1);
-    participant_id1 = registry1.add_participant(p1);
-    participant_id2 = registry1.add_participant(p2);
-    registry1.remove_participant(participant_id2);
-    participant_id3 = registry1.add_participant(p3);
-
-    THEN("Restoring DB")
+    TestOperationLogger* logger = new TestOperationLogger;
+    WHEN("Creating a new DB without errors")
     {
-      auto db2 = std::make_shared<Database>();
-      ParticipantRegistry registry2(logger, db2);
-      auto restored_participants = db2->participant_ids();
-      REQUIRE(restored_participants.count(participant_id1) > 0);
-      REQUIRE(restored_participants.count(participant_id2) == 0);
-      REQUIRE(restored_participants.count(participant_id3) > 0);
-      REQUIRE(restored_participants.size() == 2);
-
-      auto _p1 = db2->get_participant(participant_id1);
-      auto _p3 = db2->get_participant(participant_id3);
-
-      REQUIRE(*_p1 == p1);
-      REQUIRE(*_p3 == p3);
-    }
-  }
-
-  WHEN("Creating a new DB with erroneous remove request")
-  {
-    auto db1 = std::make_shared<Database>();
-    ParticipantRegistry registry1(logger, db1);
-    participant_id1 = registry1.add_participant(p1);
-    REQUIRE_THROWS(registry1.remove_participant(1000));
-    participant_id2 = registry1.add_participant(p2);
-    registry1.remove_participant(participant_id2);
-    participant_id3 = registry1.add_participant(p3);
-
-    THEN("Restoring DB")
-    {
-      auto db2 = std::make_shared<Database>();
-      ParticipantRegistry registry2(logger, db2);
-      auto restored_participants = db2->participant_ids();
-      REQUIRE(restored_participants.count(participant_id1) > 0);
-      REQUIRE(restored_participants.count(participant_id2) == 0);
-      REQUIRE(restored_participants.count(participant_id3) > 0);
-      REQUIRE(restored_participants.size() == 2);
-
-      auto _p1 = db2->get_participant(participant_id1);
-      auto _p3 = db2->get_participant(participant_id3);
-
-      REQUIRE(*_p1 == p1);
-      REQUIRE(*_p3 == p3);
-    }
-  }
+      auto db1 = std::make_shared<Database>();
+      ParticipantRegistry registry1(logger, db1);
+      participant_id1 = registry1.add_participant(p1);
+      participant_id2 = registry1.add_participant(p2);
+      registry1.remove_participant(participant_id2);
+      participant_id3 = registry1.add_participant(p3);
   
+      THEN("Restoring DB")
+      {
+        auto db2 = std::make_shared<Database>();
+        ParticipantRegistry registry2(logger, db2);
+        auto restored_participants = db2->participant_ids();
+        REQUIRE(restored_participants.count(participant_id1) > 0);
+        REQUIRE(restored_participants.count(participant_id2) == 0);
+        REQUIRE(restored_participants.count(participant_id3) > 0);
+        REQUIRE(restored_participants.size() == 2);
+  
+        auto _p1 = db2->get_participant(participant_id1);
+        auto _p3 = db2->get_participant(participant_id3);
+  
+        REQUIRE(*_p1 == p1);
+        REQUIRE(*_p3 == p3);
+      }
+    }
+  
+    WHEN("Creating a new DB with erroneous remove request")
+    {
+      auto db1 = std::make_shared<Database>();
+      ParticipantRegistry registry1(logger, db1);
+      participant_id1 = registry1.add_participant(p1);
+      REQUIRE_THROWS(registry1.remove_participant(1000));
+      participant_id2 = registry1.add_participant(p2);
+      registry1.remove_participant(participant_id2);
+      participant_id3 = registry1.add_participant(p3);
+  
+      THEN("Restoring DB")
+      {
+        auto db2 = std::make_shared<Database>();
+        ParticipantRegistry registry2(logger, db2);
+        auto restored_participants = db2->participant_ids();
+        REQUIRE(restored_participants.count(participant_id1) > 0);
+        REQUIRE(restored_participants.count(participant_id2) == 0);
+        REQUIRE(restored_participants.count(participant_id3) > 0);
+        REQUIRE(restored_participants.size() == 2);
+  
+        auto _p1 = db2->get_participant(participant_id1);
+        auto _p3 = db2->get_participant(participant_id3);
+  
+        REQUIRE(*_p1 == p1);
+        REQUIRE(*_p3 == p3);
+      }
+    }
+    delete logger;
+  }
+}
 
-  delete logger;
+SCENARIO("Test file logger")
+{
+
 }

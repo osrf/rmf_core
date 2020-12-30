@@ -360,14 +360,6 @@ private:
     //if restoring in progress don't update the log
     if(_currently_restoring) return;
     
-    //We will use YAML's block sequence format as this friendly for appending
-    //We only need to write the latest changes to the file.
-    /*YAML::Emitter emitter;
-    emitter << YAML::BeginSeq;
-    emitter << serialize(op);
-    emitter << YAML::EndSeq;
-    
-    assert(emmiter.good());*/
     _logger->write_operation(op);
 
   }

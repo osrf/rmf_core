@@ -34,6 +34,7 @@ using ParticipantId = rmf_traffic::schedule::ParticipantId;
 using ParticipantDescription = rmf_traffic::schedule::ParticipantDescription;  
 
 //=============================================================================
+/// This records a single operation on the database class
 struct AtomicOperation
 {
   enum class OpType : uint8_t
@@ -46,13 +47,40 @@ struct AtomicOperation
 };
 
 //=============================================================================
+/// This is the base class for the persistence logger.
 class AbstractParticipantLogger
 {
 public:
   virtual ~AbstractParticipantLogger() {};
+  
+  /// Called when we wish to commit an operation to disk
+  /// \param[in] operation
   virtual void write_operation(AtomicOperation operation) = 0;
-  //TODO: Use an iterator
+  
+  /// Called when we wish to read the next record up during initiallization.
+  /// \returns a std::nullopt when we have exhausted all records.
   virtual std::optional<AtomicOperation> read_next_record() = 0;
+};
+
+//=============================================================================
+/// YAML logger class. Logs everything to YAML buffers on disk
+class YamlLogger : public AbstractParticipantLogger
+{
+public:
+  /// Constructor
+  /// Loads and logs to the specified file.
+  YamlLogger(std::string filename);
+
+  /// See AbstractParticipantLogger 
+  void write_operation(AtomicOperation operation) override;
+  
+  /// See AbstractParticipantLogger
+  /// \throws std::runtime_error if there was an error in the logfile.
+  std::optional<AtomicOperation> read_next_record() override;
+
+  class Implementation;
+private:
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 //=============================================================================
@@ -104,6 +132,9 @@ rmf_traffic::Profile profile(YAML::Node node);
 ParticipantDescription participant_description(YAML::Node node);
 
 //=============================================================================
+AtomicOperation atomic_operation(YAML::Node node);
+
+//=============================================================================
 YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context);
 
 //=============================================================================
@@ -123,6 +154,9 @@ std::string serialize_responsiveness(ParticipantDescription::Rx resp);
 
 //=============================================================================
 YAML::Node serialize(ParticipantDescription participant);
+
+//=============================================================================
+YAML::Node serialize(AtomicOperation atomOp);
 
 } // end namespace rmf_traffic_ros2
 
