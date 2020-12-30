@@ -29,41 +29,6 @@ namespace agv {
 namespace planning {
 
 //==============================================================================
-template<typename NodePtrT>
-struct DifferentialDriveCompare
-{
-
-  // Returning False implies that a is preferable to b
-  // Returning True implies that b is preferable to a
-  bool operator()(const NodePtrT& a, const NodePtrT& b)
-  {
-    // TODO(MXG): Micro-optimization: consider saving the sum of these values
-    // in the Node instead of needing to re-add them for every comparison.
-    const double a_value = a->info.remaining_cost_estimate + a->current_cost;
-    const double b_value = b->info.remaining_cost_estimate + b->current_cost;
-
-    // Note(MXG): The priority queue puts the greater value first, so we
-    // reverse the arguments in this comparison.
-    if (std::abs(a_value - b_value) > _threshold)
-      return b_value < a_value;
-
-    if (b->info.entry.value().orientation == Orientation::Forward
-        && a->info.entry.value().orientation != Orientation::Forward)
-      return true;
-    else if (a->info.entry.value().orientation == Orientation::Forward)
-      return false;
-
-    // If the cost estimates are within the threshold and there is no
-    // orientation preference, then we'll prefer the one that seems to be closer
-    // to the goal.
-    return b->info.remaining_cost_estimate < a->info.remaining_cost_estimate;
-  }
-
-private:
-  double _threshold;
-};
-
-//==============================================================================
 class DifferentialDriveExpander
 {
 public:
@@ -531,7 +496,6 @@ auto DifferentialDriveHeuristic::generate(
   using RouteFactory = DifferentialDriveExpander::RouteFactory;
 
   const auto& original = _graph->original();
-  const std::size_t start_lane_index = key.start_lane;
   const auto& start_lane = original.lanes[key.start_lane];
   const std::size_t start_waypoint_index = start_lane.entry().waypoint_index();
   const std::size_t goal_lane_index = key.goal_lane;
@@ -661,6 +625,11 @@ auto DifferentialDriveHeuristic::generate(
 //                  << goal_node->info.waypoint << ", "
 //                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
 //                  << solution->info.remaining_cost_estimate << std::endl;
+
+        // TODO(MXG): Add a bool field to SearchNode to indicate whether it is
+        // newly generated or pulled from a previous solution. Then we can skip
+        // inserting the old nodes here. The cost should be minor enough that
+        // it won't matter.
         new_items.insert({new_key, solution});
       }
 
@@ -675,6 +644,95 @@ auto DifferentialDriveHeuristic::generate(
   }
 
   return output;
+}
+
+//==============================================================================
+CacheManagerPtr<DifferentialDriveHeuristic>
+DifferentialDriveHeuristic::make_manager(
+  std::shared_ptr<const Supergraph> supergraph)
+{
+  const std::size_t N = supergraph->original().lanes.size();
+  return CacheManager<Cache<DifferentialDriveHeuristic>>::make(
+    std::make_shared<DifferentialDriveHeuristic>(std::move(supergraph)),
+    [N](){ return Storage(4093, DifferentialDriveMapTypes::KeyHash{N}); });
+}
+
+//==============================================================================
+DifferentialDriveHeuristicAdapter::DifferentialDriveHeuristicAdapter(
+  Cache<DifferentialDriveHeuristic> cache,
+  std::shared_ptr<const Supergraph> graph,
+  std::size_t goal_waypoint,
+  std::optional<double> goal_yaw)
+: _cache(std::move(cache)),
+  _graph(std::move(graph)),
+  _goal_waypoint(goal_waypoint),
+  _goal_yaw(goal_yaw),
+  _w_nom(_graph->traits().rotational().get_nominal_velocity()),
+  _alpha_nom(_graph->traits().rotational().get_nominal_acceleration()),
+  _rotation_threshold(_graph->options().rotation_thresh)
+{
+  // Do nothing
+}
+
+//==============================================================================
+std::optional<double> DifferentialDriveHeuristicAdapter::compute(
+  std::size_t start_waypoint,
+  double yaw) const
+{
+  const auto keys = _graph->keys_for(start_waypoint, _goal_waypoint, _goal_yaw);
+
+  std::optional<double> best_cost;
+  for (const auto& key : keys)
+  {
+    const auto solution = _cache.get(key);
+    if (!solution)
+      continue;
+
+    const auto target_yaw = _graph->yaw_of(
+      {key.start_lane, key.start_orientation, key.start_side});
+
+    double cost = solution->info.remaining_cost_estimate;
+    if (target_yaw.has_value())
+    {
+      cost += time::to_seconds(internal::estimate_rotation_time(
+            _w_nom, _alpha_nom, yaw, *target_yaw, _rotation_threshold));
+    }
+
+    if (!best_cost.has_value() || cost < *best_cost)
+      best_cost = cost;
+  }
+
+  return best_cost;
+}
+
+//==============================================================================
+auto DifferentialDriveHeuristicAdapter::compute(Entry start) const
+-> SolutionNodePtr
+{
+  const auto goal_entries = _graph->entries_into(_goal_waypoint)
+      ->relevant_entries(_goal_yaw);
+
+  SolutionNodePtr best_solution;
+  for (const auto& goal_entry : goal_entries)
+  {
+    const Key key{
+      start.lane,
+      start.orientation,
+      start.side,
+      goal_entry.lane,
+      goal_entry.orientation
+    };
+
+    const auto solution = _cache.get(key);
+    if (!solution)
+      continue;
+
+    const double cost = solution->info.remaining_cost_estimate;
+    if (!best_solution || cost < best_solution->info.remaining_cost_estimate)
+      best_solution = solution;
+  }
+
+  return best_solution;
 }
 
 } // namespace planning

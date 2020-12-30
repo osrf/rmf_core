@@ -601,11 +601,17 @@ public:
   /// This is the value of the lowest f(n)=g(n)+h(n) in the planner's queue.
   /// If the node queue of this planner result is empty, this will return a
   /// nullopt.
-  rmf_utils::optional<double> cost_estimate() const;
+  std::optional<double> cost_estimate() const;
 
   /// Get the cost estimate that was initially computed for this plan. If no
   /// valid starts were provided, then this will return infinity.
+  [[deprecated("Use ideal_cost() instead")]]
   double initial_cost_estimate() const;
+
+  /// Get the cost that this plan would have if there is no traffic. If the plan
+  /// is impossible (e.g. the starts are disconnected from the goal) this will
+  /// return a nullopt.
+  std::optional<double> ideal_cost() const;
 
   /// Get the start conditions that were given for this planning task.
   const std::vector<Start>& get_starts() const;

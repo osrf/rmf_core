@@ -166,7 +166,7 @@ struct DifferentialDriveMapTypes
     double cost_from_parent;
 
     // An event that should occur when this node is reached,
-    // i.e. after route_from_parent has been traversed
+    // i.e. after the node's route has been traversed
     Graph::Lane::EventPtr event;
   };
 

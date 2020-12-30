@@ -234,19 +234,9 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
         rmf_traffic::agv::Graph::Implementation::get(graph),
         traits, rmf_traffic::agv::Interpolate::Options());
 
-  // TODO(MXG): Make a cleaner way to instantiate these caches
-  using DifferentialDriveCache =
-    rmf_traffic::agv::planning::CacheManager<
-      rmf_traffic::agv::planning::Cache<
-        rmf_traffic::agv::planning::DifferentialDriveHeuristic>>;
-  auto diff_drive_cache = DifferentialDriveCache::make(
-    std::make_shared<
-      rmf_traffic::agv::planning::DifferentialDriveHeuristic>(
-          supergraph), [N = supergraph->original().lanes.size()]()
-  {
-    return rmf_traffic::agv::planning::DifferentialDriveHeuristic::Storage(
-      4093, rmf_traffic::agv::planning::DifferentialDriveMapTypes::KeyHash{N});
-  });
+  auto diff_drive_cache =
+      rmf_traffic::agv::planning
+      ::DifferentialDriveHeuristic::make_manager(supergraph);
 
   using Ori = rmf_traffic::agv::planning::Orientation;
   using Side = rmf_traffic::agv::planning::Side;

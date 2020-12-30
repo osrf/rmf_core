@@ -51,7 +51,6 @@ public:
 
     return wp;
   }
-
 };
 
 //==============================================================================
@@ -59,18 +58,18 @@ class Planner::Result::Implementation
 {
 public:
 
-  rmf_traffic::internal::planning::CacheManager cache_mgr;
-  rmf_traffic::internal::planning::State state;
+  planning::InterfacePtr interface;
+  rmf_traffic::agv::planning::State state;
   rmf_utils::optional<Plan> plan;
 
   static Result generate(
-    rmf_traffic::internal::planning::CacheManager cache_mgr,
+    planning::InterfacePtr interface,
     const std::vector<Planner::Start>& starts,
     Planner::Goal goal,
     Planner::Options options);
 
   static Result setup(
-    rmf_traffic::internal::planning::CacheManager cache_mgr,
+    planning::InterfacePtr interface,
     const std::vector<Planner::Start>& starts,
     Planner::Goal goal,
     Planner::Options options);

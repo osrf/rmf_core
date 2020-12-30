@@ -93,26 +93,6 @@ bool valid_traversal(const TraversalNode& node)
 }
 
 //==============================================================================
-bool satisfied(
-    const Eigen::Vector2d p,
-    const double orientation,
-    const Eigen::Vector2d course_vector,
-    const rmf_traffic::agv::Graph::OrientationConstraint* constraint,
-    const TraversalGenerator::Kinematics& kin)
-{
-  if (!constraint)
-    return true;
-
-  Eigen::Vector3d position{p.x(), p.y(), orientation};
-  constraint->apply(position, course_vector);
-  const double diff = rmf_utils::wrap_to_pi(position[2] - orientation);
-  if (std::abs(diff) > kin.interpolate.rotation_thresh)
-    return false;
-
-  return true;
-}
-
-//==============================================================================
 void node_to_traversals(
   const TraversalNode& node,
   const TraversalGenerator::Kinematics& kin,
@@ -293,6 +273,8 @@ void perform_traversal(
     const auto orientations =
         kin.constraint->get_orientations(course_vector);
 
+    const double thresh = kin.interpolate.rotation_thresh;
+
     for (std::size_t i = 0; i < orientations.size(); ++i)
     {
       const auto orientation = orientations[i];
@@ -300,11 +282,13 @@ void perform_traversal(
         continue;
 
       const auto* entry_constraint = entry.orientation_constraint();
-      if (!satisfied(p0, *orientation, course_vector, entry_constraint, kin))
+      if (!orientation_constraint_satisfied(
+            p0, *orientation, course_vector, entry_constraint, thresh))
         continue;
 
       const auto* exit_constraint = exit.orientation_constraint();
-      if (!satisfied(p1, *orientation, course_vector, exit_constraint, kin))
+      if (!orientation_constraint_satisfied(
+            p1, *orientation, course_vector, exit_constraint, thresh))
         continue;
 
       if (parent && !parent->standstill)
@@ -374,6 +358,26 @@ void initiate_traversal(
 }
 
 } // anonymous namespace
+
+//==============================================================================
+bool orientation_constraint_satisfied(
+    const Eigen::Vector2d p,
+    const double orientation,
+    const Eigen::Vector2d course_vector,
+    const rmf_traffic::agv::Graph::OrientationConstraint* constraint,
+    const double rotation_thresh)
+{
+  if (!constraint)
+    return true;
+
+  Eigen::Vector3d position{p.x(), p.y(), orientation};
+  constraint->apply(position, course_vector);
+  const double diff = rmf_utils::wrap_to_pi(position[2] - orientation);
+  if (std::abs(diff) > rotation_thresh)
+    return false;
+
+  return true;
+}
 
 //==============================================================================
 const Eigen::Rotation2Dd DifferentialDriveConstraint::R_pi =

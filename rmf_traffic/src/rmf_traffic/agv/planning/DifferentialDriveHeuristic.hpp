@@ -38,11 +38,15 @@ public:
   using SolutionNode = DifferentialDriveMapTypes::SolutionNode;
   using SolutionNodePtr = DifferentialDriveMapTypes::SolutionNodePtr;
   using Entry = DifferentialDriveMapTypes::Entry;
+  using Key = DifferentialDriveMapTypes::Key;
 
   SolutionNodePtr generate(
     const Key& key,
     const Storage& old_items,
     Storage& new_items) const final;
+
+  static CacheManagerPtr<DifferentialDriveHeuristic> make_manager(
+      std::shared_ptr<const Supergraph> graph);
 
 private:
   std::shared_ptr<const Supergraph> _graph;
@@ -52,6 +56,72 @@ private:
 //==============================================================================
 using ConstDifferentialDriveHeuristicPtr =
   std::shared_ptr<const DifferentialDriveHeuristic>;
+
+//==============================================================================
+class DifferentialDriveHeuristicAdapter
+{
+public:
+
+  DifferentialDriveHeuristicAdapter(
+      Cache<DifferentialDriveHeuristic> cache,
+      std::shared_ptr<const Supergraph> graph,
+      std::size_t goal_waypoint,
+      std::optional<double> goal_yaw);
+
+  std::optional<double> compute(
+      std::size_t start_waypoint,
+      double yaw) const;
+
+  using SolutionNodePtr = DifferentialDriveHeuristic::SolutionNodePtr;
+  using Entry = DifferentialDriveHeuristic::Entry;
+  using Key = DifferentialDriveHeuristic::Key;
+
+  SolutionNodePtr compute(Entry start) const;
+
+private:
+  Cache<DifferentialDriveHeuristic> _cache;
+  std::shared_ptr<const Supergraph> _graph;
+  std::size_t _goal_waypoint;
+  std::optional<double> _goal_yaw;
+  double _w_nom;
+  double _alpha_nom;
+  double _rotation_threshold;
+};
+
+//==============================================================================
+template<typename NodePtrT>
+struct DifferentialDriveCompare
+{
+
+  // Returning False implies that a is preferable to b
+  // Returning True implies that b is preferable to a
+  bool operator()(const NodePtrT& a, const NodePtrT& b)
+  {
+    // TODO(MXG): Micro-optimization: consider saving the sum of these values
+    // in the Node instead of needing to re-add them for every comparison.
+    const double a_value = a->info.remaining_cost_estimate + a->current_cost;
+    const double b_value = b->info.remaining_cost_estimate + b->current_cost;
+
+    // Note(MXG): The priority queue puts the greater value first, so we
+    // reverse the arguments in this comparison.
+    if (std::abs(a_value - b_value) > _threshold)
+      return b_value < a_value;
+
+    if (b->info.entry.value().orientation == Orientation::Forward
+        && a->info.entry.value().orientation != Orientation::Forward)
+      return true;
+    else if (a->info.entry.value().orientation == Orientation::Forward)
+      return false;
+
+    // If the cost estimates are within the threshold and there is no
+    // orientation preference, then we'll prefer the one that seems to be closer
+    // to the goal.
+    return b->info.remaining_cost_estimate < a->info.remaining_cost_estimate;
+  }
+
+private:
+  double _threshold;
+};
 
 } // namespace planning
 } // namespace agv

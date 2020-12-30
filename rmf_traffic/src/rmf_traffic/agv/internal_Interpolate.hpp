@@ -79,6 +79,14 @@ void interpolate_translation(
   const double threshold);
 
 //==============================================================================
+Duration estimate_rotation_time(
+    const double w_nom,
+    const double alpha_nom,
+    const double start_yaw,
+    const double finish_yaw,
+    const double threshold);
+
+//==============================================================================
 bool interpolate_rotation(
   Trajectory& trajectory,
   const double w_nom,

@@ -125,6 +125,28 @@ void interpolate_translation(
 }
 
 //==============================================================================
+Duration estimate_rotation_time(
+  const double w_nom,
+  const double alpha_nom,
+  const double start_heading,
+  const double finish_heading,
+  const double threshold)
+{
+  const double diff_heading =
+    rmf_utils::wrap_to_pi(finish_heading - start_heading);
+
+  const double diff_heading_abs = std::abs(diff_heading);
+  if (diff_heading_abs < threshold)
+    return Duration(0);
+
+  const auto start_time = Time(Duration(0));
+  States states = compute_traversal(
+        start_time, diff_heading_abs, w_nom, alpha_nom);
+
+  return states.back().t - start_time;
+}
+
+//==============================================================================
 bool interpolate_rotation(
   Trajectory& trajectory,
   const double w_nom,

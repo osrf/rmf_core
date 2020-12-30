@@ -242,6 +242,14 @@ private:
   std::shared_ptr<const CacheManager<LaneYawCache>> _lane_yaw_cache;
 };
 
+//==============================================================================
+bool orientation_constraint_satisfied(
+    const Eigen::Vector2d p,
+    const double orientation,
+    const Eigen::Vector2d course_vector,
+    const rmf_traffic::agv::Graph::OrientationConstraint* constraint,
+    const double rotation_thresh);
+
 } // namespace planning
 } // namespace agv
 } // namespace rmf_traffic

@@ -107,7 +107,7 @@ public:
   using Key = typename Storage::key_type;
   using Value = typename Storage::mapped_type;
 
-  Value get(const Key& key);
+  Value get(const Key& key) const;
 
   ~Cache();
 
@@ -115,8 +115,8 @@ private:
   std::shared_ptr<const Upstream> _upstream;
   std::shared_ptr<const CacheManager<Self>> _manager;
   std::function<Storage()> _storage_initializer;
-  Storage _all_items;
-  Storage _new_items;
+  mutable Storage _all_items;
+  mutable Storage _new_items;
 };
 
 //==============================================================================
@@ -203,7 +203,7 @@ Cache<GeneratorArg>::Cache(
 
 //==============================================================================
 template <typename GeneratorArg>
-auto Cache<GeneratorArg>::get(const Key& key) -> Value
+auto Cache<GeneratorArg>::get(const Key& key) const -> Value
 {
   const auto it = _all_items.find(key);
   if (it != _all_items.end())
