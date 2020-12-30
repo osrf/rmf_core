@@ -65,27 +65,68 @@ inline void print_itinerary(const std::vector<rmf_traffic::Route>& itinerary)
   }
 }
 
-
+//==============================================================================
 int main()
 {
   rmf_traffic::agv::Graph graph;
-  const std::string test_map_0 = "test_map_0";
-  const std::string test_map_1 = "test_map_1";
-  const std::string test_map_2 = "test_map_2";
+  const std::string test_map = "test_map";
 
-  graph.add_waypoint(test_map_0, {0, 0}); // 0
-  graph.add_waypoint(test_map_1, {0, 0}); // 1
-  graph.add_waypoint(test_map_2, {0, 0}); // 2
-  graph.add_waypoint(test_map_2, {0, 1}); // 3
-
+  // This event does not actually take up any time, but it will force a pause
+  // at every lane that contains it. As a result, the shorter path will
+  // (intentionally) be forced to waste time accelerating and decelerating. That
+  // slowdown will allow a longer path to require less time to reach the goal.
   const auto bogus_event = rmf_traffic::agv::Graph::Lane::Event::make(
         rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(1)));
 
-  graph.add_lane({0, bogus_event}, 1); // 0
-  graph.add_lane({1, bogus_event}, 2); // 1
-  graph.add_lane(2, 3); // 2
+  const std::size_t N = 30;
+  const std::size_t start_index = 0;
+  const std::size_t goal_index = N;
 
-  const std::size_t goal_index = 3;
+  for (std::size_t i=0; i <= N; ++i)
+  {
+    graph.add_waypoint(test_map, {i, 0});
+    if (i > 0)
+    {
+      graph.add_lane(i, {i-1, bogus_event});
+      graph.add_lane({i-1, bogus_event}, i);
+    }
+  }
+
+  const double peak = 3.0;
+  for (std::size_t i=1; i < N; ++i)
+  {
+    double offset;
+    if (i < N/2)
+      offset = 2.0*static_cast<double>(i)/static_cast<double>(N) * peak;
+    else
+      offset = 2.0*static_cast<double>(N-i)/static_cast<double>(N) * peak;
+
+    graph.add_waypoint(test_map, {i, offset});
+    if (i > 1)
+    {
+      graph.add_lane(i+N, i+N-1);
+      graph.add_lane(i+N-1, i+N);
+    }
+  }
+
+  const double forward_incline_up = std::atan2(peak, N/2);
+  const double forward_incline_down = -forward_incline_up;
+  const double backward_incline_up = forward_incline_up - 180._deg;
+  const double backward_incline_down = 180._deg - forward_incline_up;
+
+#define SHOW(X) std::cout << #X << ": " << X * 180.0/M_PI << std::endl
+  SHOW(forward_incline_up);
+  SHOW(forward_incline_down);
+  SHOW(backward_incline_up);
+  SHOW(backward_incline_down);
+
+  // Connect the peak path to the start
+  graph.add_lane(start_index, N+1);
+  graph.add_lane(N+1, start_index);
+
+  // Connect the peak path to the goal
+  graph.add_lane(goal_index, 2*N-1);
+  graph.add_lane(2*N-1, goal_index);
 
   const double v_nom = 2.0;
   const double a_nom = 0.3;
@@ -112,35 +153,25 @@ int main()
   });
 
   const auto keys = supergraph->keys_for(0, goal_index, std::nullopt);
+
   std::cout << "Number of keys: " << keys.size() << std::endl;
   for (const auto& key : keys)
   {
-    std::cout << " ==================== " << std::endl;
+//    std::cout << " ==================== " << std::endl;
     auto solution = diff_drive_cache->get().get(key);
-    std::cout << " --------------------\n"
+//    std::cout << " --------------------\n"
+    std::cout
               << "Solution for [" << key.start_lane << ", "
               << key.start_orientation << ", "
+              << key.start_side << ", "
               << key.goal_lane << ", "
-              << key.goal_orientation << "]:";
+              << key.goal_orientation << "]:\n";
 
-    if (!solution)
-    {
-      std::cout << " No solution found!" << std::endl;
-    }
-
-    double cost = 0.0;
-    std::vector<rmf_traffic::Route> routes;
-    rmf_traffic::Time time(rmf_traffic::Duration(0));
+    rmf_traffic::Time time{rmf_traffic::Duration(0)};
     double yaw = 0.0;
+    std::vector<rmf_traffic::Route> routes;
     while (solution)
     {
-      cost += solution->info.cost_from_parent;
-      std::cout << " (" << cost << "; "
-                << solution->info.waypoint << "; "
-                << solution->info.position.transpose() << ", "
-                << 180.0*solution->info.yaw.value_or(std::nan(""))/M_PI
-                << ") -->";
-
       if (solution->route_factory)
       {
         auto new_route_info = solution->route_factory(time, yaw);
@@ -151,20 +182,41 @@ int main()
         time = new_route_info.finish_time;
         yaw = new_route_info.finish_yaw;
       }
-      else
-      {
-        std::cout << "[No Route Factory]" << std::endl;
-      }
 
       solution = solution->child;
     }
-    std::cout << " (finished)" << std::endl;
 
-    std::cout << "Itinerary:" << std::endl;
     print_itinerary(routes);
-
-    const auto& lane = supergraph->original().lanes[key.goal_lane];
-    std::cout << "Lane " << key.goal_lane << ": " << lane.entry().waypoint_index()
-              << " -> " << lane.exit().waypoint_index() << std::endl;
+    std::cout << "\n" << std::endl;
   }
+
+//  const std::size_t second_goal_index = 45;
+//  const auto second_keys = supergraph->keys_for(0, second_goal_index, std::nullopt);
+//  std::cout << "Number of keys: " << second_keys.size() << std::endl;
+//  for (const auto& key : second_keys)
+//  {
+//    std::cout << " ==================== " << std::endl;
+//    auto solution = diff_drive_cache->get().get(key);
+//    std::cout << " --------------------\n"
+//              << "Solution for [" << key.start_lane << ", "
+//              << key.start_orientation << ", "
+//              << key.goal_lane << ", "
+//              << key.goal_orientation << "]:";
+
+//    double cost = 0.0;
+//    while (solution)
+//    {
+//      cost += solution->info.cost_from_parent;
+//      std::cout << " (" << cost << "; "
+//                << solution->info.waypoint << ", "
+//                << 180.0*solution->info.yaw.value_or(std::nan(""))/M_PI
+//                << ") -->";
+//      solution = solution->child;
+//    }
+//    std::cout << " (finished)" << std::endl;
+
+//    const auto& lane = supergraph->original().lanes[key.goal_lane];
+//    std::cout << "Lane " << key.goal_lane << ": " << lane.entry().waypoint_index()
+//              << " -> " << lane.exit().waypoint_index() << std::endl;
+//  }
 }

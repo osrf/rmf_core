@@ -108,18 +108,18 @@ public:
     {
       if (!_goal_yaw.has_value() || !top->info.yaw.has_value())
       {
-        std::cout << " -- Found solution at (" << _goal_waypoint
-                  << ", nullopt)" << std::endl;
-        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
+//        std::cout << " -- Found solution at (" << _goal_waypoint
+//                  << ", nullopt)" << std::endl;
+//        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
         return true;
       }
 
       const double angle_diff = rmf_utils::wrap_to_pi(*info.yaw - *_goal_yaw);
       if (std::abs(angle_diff) <= _interpolate.rotation_thresh)
       {
-        std::cout << " -- Found solution at (" << _goal_waypoint
-                  << ", " << info.yaw.value()*180.0/M_PI << ")" << std::endl;
-        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
+//        std::cout << " -- Found solution at (" << _goal_waypoint
+//                  << ", " << info.yaw.value()*180.0/M_PI << ")" << std::endl;
+//        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
         return true;
       }
     }
@@ -129,18 +129,18 @@ public:
 
   void expand(const SearchNodePtr& top, SearchQueue& queue)
   {
-    std::cout << "Expanding from " << top->info.waypoint << ": ["
-              << top->info.entry->lane << ", "
-              << top->info.entry->orientation << ", "
-              << top->info.entry->side
-              << "]" << std::endl;
+//    std::cout << "Expanding from " << top->info.waypoint << ": ["
+//              << top->info.entry->lane << ", "
+//              << top->info.entry->orientation << ", "
+//              << top->info.entry->side
+//              << "]" << std::endl;
 
     const auto& info = top->info;
     const auto current_entry = info.entry;
     assert(current_entry.has_value());
     if (!_visited.insert(current_entry.value()).second)
     {
-      std::cout << " -- already visited" << std::endl;
+//      std::cout << " -- already visited" << std::endl;
       // This means we have already expanded from this entry before.
       // Expanding from here again is pointless because expanding from a more
       // costly parent cannot be better than expanding from a less costly one.
@@ -156,9 +156,9 @@ public:
       assert(_goal_yaw.has_value());
 
       auto node = rotate_to_goal(top);
-      std::cout << __LINE__ << " pushing rotation to goal: ("
-                << node->info.waypoint << ", " << node->info.yaw.value_or(std::nan("")) << ")"
-                << std::endl;
+//      std::cout << __LINE__ << " pushing rotation to goal: ("
+//                << node->info.waypoint << ", " << node->info.yaw.value_or(std::nan("")) << ")"
+//                << std::endl;
 
       queue.push(std::move(node));
       return;
@@ -166,7 +166,7 @@ public:
 
     const auto traversals = _graph->traversals_from(current_wp_index);
     assert(traversals);
-    std::cout << " -- " << traversals->size() << " traversals" << std::endl;
+//    std::cout << " -- " << traversals->size() << " traversals" << std::endl;
     for (const auto& traversal : *traversals)
     {
       const auto next_waypoint_index = traversal.finish_waypoint_index;
@@ -178,13 +178,13 @@ public:
             rmf_traffic::time::to_seconds(traversal.exit_event->duration())
           : 0.0;
 
-      std::cout << "    " << next_waypoint_index << ": ";
+//      std::cout << "    " << next_waypoint_index << ": ";
 
       const auto next_lane_index = traversal.finish_lane_index;
       const auto remaining_cost_estimate = _heuristic.get(next_waypoint_index);
       if (!remaining_cost_estimate.has_value())
       {
-        std::cout << "nullopt remaining_cost_estimate" << std::endl;
+//        std::cout << "nullopt remaining_cost_estimate" << std::endl;
         // If the heuristic for this waypoint is a nullopt, then there is no way
         // to reach the goal from this node. We should just skip this expansion.
         continue;
@@ -195,7 +195,7 @@ public:
         const auto& alt = traversal.alternatives[i];
         if (!alt.has_value())
         {
-          std::cout << "skipping nullopt alt " << i << " | ";
+//          std::cout << "skipping nullopt alt " << i << " | ";
           continue;
         }
 
@@ -209,8 +209,8 @@ public:
         Entry finishing_entry{next_lane_index, orientation, Side::Finish};
         if (_visited.count(finishing_entry))
         {
-          std::cout << "skipping pre-visited alt [" << next_lane_index
-                    << ", " << orientation << ", " << Side::Finish << "] | ";
+//          std::cout << "skipping pre-visited alt [" << next_lane_index
+//                    << ", " << orientation << ", " << Side::Finish << "] | ";
           // If we have already expanded from this waypoint, then there is no
           // point in re-expanding to it.
           continue;
@@ -221,7 +221,7 @@ public:
         // point to the solution.
         if (check_old_items(oriented_top, finishing_entry, queue))
         {
-          std::cout << "skipping old alt " << i << " | ";
+//          std::cout << "skipping old alt " << i << " | ";
           continue;
         }
 
@@ -248,7 +248,7 @@ public:
                 alt->routes,
                 oriented_top
               });
-        std::cout << " " << __LINE__ << " making[" << new_node << "] ";
+//        std::cout << " " << __LINE__ << " making[" << new_node << "] ";
 
         if (traversal.exit_event)
         {
@@ -277,15 +277,15 @@ public:
                   std::move(routes),
                   new_node
                 });
-          std::cout << " " << __LINE__ << " making[" << new_node << "] ";
+//          std::cout << " " << __LINE__ << " making[" << new_node << "] ";
         }
 
-        std::cout << __LINE__ << " pushing traversal: ("
-                  << new_node->info.waypoint << ", " << new_node->info.yaw.value_or(std::nan("")) << ") | ";
+//        std::cout << __LINE__ << " pushing traversal: ("
+//                  << new_node->info.waypoint << ", " << new_node->info.yaw.value_or(std::nan("")) << ") | ";
         queue.push(std::move(new_node));
       }
 
-      std::cout << std::endl;
+//      std::cout << std::endl;
     }
   }
 
@@ -323,7 +323,7 @@ public:
             std::move(factory_info.factory),
             top
           });
-    std::cout << " " << __LINE__ << " making[" << new_node << "] ";
+//    std::cout << " " << __LINE__ << " making[" << new_node << "] ";
     return new_node;
   }
 
@@ -340,12 +340,12 @@ public:
       _goal_entry.orientation
     };
 
-    std::cout << " > looking up ["
-              << key.start_lane << ", "
-              << key.start_orientation << ", "
-              << key.start_side << ", "
-              << key.goal_lane << ", "
-              << key.goal_orientation << "] < ";
+//    std::cout << " > looking up ["
+//              << key.start_lane << ", "
+//              << key.start_orientation << ", "
+//              << key.start_side << ", "
+//              << key.goal_lane << ", "
+//              << key.goal_orientation << "] < ";
 
     const auto old_it = _old_items.find(key);
     if (old_it == _old_items.end())
@@ -362,14 +362,14 @@ public:
               make_recycling_factory(solution->route_factory),
               node
             });
-      std::cout << " " << __LINE__ << " making[" << node << "] ";
+//      std::cout << " " << __LINE__ << " making[" << node << "] ";
 
       solution = solution->child;
     }
 
-    std::cout << __LINE__ << " pushing from old archives: ("
-              << node->info.waypoint << ", " << node->info.yaw.value_or(std::nan("")) << ")"
-              << std::endl;
+//    std::cout << __LINE__ << " pushing from old archives: ("
+//              << node->info.waypoint << ", " << node->info.yaw.value_or(std::nan("")) << ")"
+//              << std::endl;
     queue.push(node);
 
     return true;
@@ -487,13 +487,13 @@ public:
     const auto& goal_lane = original.lanes[_goal_entry.lane];
     _goal_waypoint = goal_lane.exit().waypoint_index();
 
-    std::cout << " ----- Getting goal yaw:" << std::endl;
+//    std::cout << " ----- Getting goal yaw:" << std::endl;
     _goal_yaw = _graph->yaw_of(_goal_entry);
-    std::cout << " ----- Done: ";
-    if (_goal_yaw.has_value())
-      std::cout << _goal_yaw.value() << std::endl;
-    else
-      std::cout << "nullopt" << std::endl;
+//    std::cout << " ----- Done: ";
+//    if (_goal_yaw.has_value())
+//      std::cout << _goal_yaw.value() << std::endl;
+//    else
+//      std::cout << "nullopt" << std::endl;
   }
 
 private:
@@ -589,7 +589,7 @@ auto DifferentialDriveHeuristic::generate(
     _graph
   };
 
-  std::cout << "Initial queue size: " << queue.size() << std::endl;
+//  std::cout << "Initial queue size: " << queue.size() << std::endl;
   const auto search = a_star_search(expander, queue);
   if (!search)
   {
@@ -650,17 +650,17 @@ auto DifferentialDriveHeuristic::generate(
           goal_entry.lane, goal_entry.orientation
         };
 
-        std::cout << " << stashing " << node << " -> " << goal_node << " ["
-                  << new_key.start_lane << ", "
-                  << new_key.start_orientation << ", "
-                  << new_key.start_side << ", "
-                  << new_key.goal_lane << ", "
-                  << new_key.goal_orientation << "]: ("
-                  << solution->info.waypoint << ", "
-                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
-                  << goal_node->info.waypoint << ", "
-                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
-                  << solution->info.remaining_cost_estimate << std::endl;
+//        std::cout << " << stashing " << node << " -> " << goal_node << " ["
+//                  << new_key.start_lane << ", "
+//                  << new_key.start_orientation << ", "
+//                  << new_key.start_side << ", "
+//                  << new_key.goal_lane << ", "
+//                  << new_key.goal_orientation << "]: ("
+//                  << solution->info.waypoint << ", "
+//                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
+//                  << goal_node->info.waypoint << ", "
+//                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
+//                  << solution->info.remaining_cost_estimate << std::endl;
         new_items.insert({new_key, solution});
       }
 

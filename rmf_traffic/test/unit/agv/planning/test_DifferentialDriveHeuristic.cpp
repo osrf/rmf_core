@@ -21,10 +21,149 @@
 
 #include <rmf_utils/catch.hpp>
 
+#include <variant>
 
-#include <iostream>
+//==============================================================================
+// This is cruft needed for C++17. It should be removed when we migrate to C++20
+template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
+//==============================================================================
+struct Move
+{
+  std::vector<Eigen::Vector3d> positions;
+  std::vector<std::string> maps;
+};
 
+//==============================================================================
+struct Wait
+{
+  rmf_traffic::Duration duration;
+  std::vector<std::string> maps;
+};
+
+//==============================================================================
+using Action = std::variant<Move, Wait>;
+
+//==============================================================================
+using SolutionNodePtr =
+  rmf_traffic::agv::planning::DifferentialDriveMapTypes::SolutionNodePtr;
+
+//==============================================================================
+bool compare_routes(
+  const rmf_traffic::Route& a,
+  const rmf_traffic::Route& b)
+{
+  CHECK(a.map() == b.map());
+  REQUIRE(a.trajectory().size() == b.trajectory().size());
+
+  bool all_correct = a.map() == b.map();
+  for (std::size_t i=0; i < a.trajectory().size(); ++i)
+  {
+    const auto& wp_a = a.trajectory().at(i);
+    const auto& wp_b = b.trajectory().at(i);
+
+    const double time_diff =
+        rmf_traffic::time::to_seconds(wp_a.time() - wp_b.time());
+    const bool time_matches = time_diff == Approx(0.0).margin(1e-8);
+    CHECK(time_matches);
+
+    const Eigen::Vector3d p_a = wp_a.position();
+    const Eigen::Vector3d p_b = wp_b.position();
+    const bool positions_match = (p_a - p_b).norm() == Approx(0.0).margin(1e-8);
+    CHECK(positions_match);
+
+    const Eigen::Vector3d v_a = wp_a.velocity();
+    const Eigen::Vector3d v_b = wp_b.velocity();
+    const bool velocities_match =
+        (v_a - v_b).norm() == Approx(0.0).margin(1e-8);
+
+    CHECK(velocities_match);
+
+    all_correct &= time_matches && positions_match && velocities_match;
+  }
+
+  return all_correct;
+}
+
+//==============================================================================
+bool compare_plan(
+    const rmf_traffic::agv::VehicleTraits& traits,
+    const Eigen::Vector3d initial_position,
+    const std::vector<Action>& actions,
+    SolutionNodePtr solution)
+{
+  REQUIRE(solution);
+
+  const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+  rmf_traffic::Time time = start_time;
+  double yaw = initial_position[2];
+  std::vector<rmf_traffic::Route> routes;
+  while (solution)
+  {
+    if (solution->route_factory)
+    {
+      auto new_route_info = solution->route_factory(time, yaw);
+      routes.insert(
+            routes.end(),
+            new_route_info.routes.begin(),
+            new_route_info.routes.end());
+      time = new_route_info.finish_time;
+      yaw = new_route_info.finish_yaw;
+    }
+
+    solution = solution->child;
+  }
+
+  Eigen::Vector3d position = initial_position;
+  time = start_time;
+  std::size_t counter = 0;
+  bool all_correct = true;
+  for (const auto& action : actions)
+  {
+    std::visit(
+      overloaded {
+        [&](const Move& move)
+        {
+          auto positions = move.positions;
+          positions.insert(positions.begin(), position);
+          const auto trajectory = rmf_traffic::agv::Interpolate::positions(
+              traits, time, positions);
+
+          for (const auto& map : move.maps)
+          {
+            const bool routes_equal =
+                compare_routes({map, trajectory}, routes.at(counter++));
+            CHECK(routes_equal);
+            all_correct &= routes_equal;
+          }
+
+          time = trajectory.back().time();
+          position = trajectory.back().position();
+        },
+        [&](const Wait& wait)
+        {
+          rmf_traffic::Trajectory trajectory;
+          trajectory.insert(time, position, Eigen::Vector3d::Zero());
+          trajectory.insert(
+              time + wait.duration, position, Eigen::Vector3d::Zero());
+
+          for (const auto& map : wait.maps)
+          {
+            const bool routes_equal =
+                compare_routes({map, trajectory}, routes.at(counter++));
+            CHECK(routes_equal);
+            all_correct &= routes_equal;
+          }
+
+          time = trajectory.back().time();
+          position = trajectory.back().position();
+        }
+      }, action);
+  }
+
+  return all_correct;
+}
 
 //==============================================================================
 SCENARIO("Differential Drive Heuristic -- Peak and Valley")
@@ -70,9 +209,10 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
     }
   }
 
-  const double incline = std::atan2(peak, N/2)*180.0/M_PI;
-  std::cout << "Incline Angle: " << incline << std::endl;
-  std::cout << "a - 180: " << incline - 180.0 << std::endl;
+  const double forward_incline_up = std::atan2(peak, N/2);
+  const double forward_incline_down = -forward_incline_up;
+  const double backward_incline_up = forward_incline_up - 180._deg;
+  const double backward_incline_down = 180._deg - forward_incline_up;
 
   REQUIRE(graph.num_waypoints() == 2*N);
 
@@ -108,68 +248,129 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
       4093, rmf_traffic::agv::planning::DifferentialDriveMapTypes::KeyHash{N});
   });
 
+  using Ori = rmf_traffic::agv::planning::Orientation;
+  using Side = rmf_traffic::agv::planning::Side;
+  using Key = rmf_traffic::agv::planning::DifferentialDriveMapTypes::Key;
+
   const auto keys = supergraph->keys_for(0, goal_index, std::nullopt);
-  std::cout << "Number of keys: " << keys.size() << std::endl;
-  for (const auto& key : keys)
+  CHECK(keys.size() == 16);
+
+  CHECK(keys.count({116, Ori::Backward, Side::Start, 59, Ori::Backward}));
+  CHECK(keys.count({116, Ori::Backward, Side::Start, 59, Ori::Forward}));
+  CHECK(keys.count({116, Ori::Backward, Side::Start, 119, Ori::Backward}));
+  CHECK(keys.count({116, Ori::Forward, Side::Start, 59, Ori::Backward}));
+  CHECK(keys.count({116, Ori::Forward, Side::Start, 119, Ori::Backward}));
+  CHECK(keys.count({116, Ori::Backward, Side::Start, 119, Ori::Forward}));
+  CHECK(keys.count({116, Ori::Forward, Side::Start, 59, Ori::Forward}));
+  CHECK(keys.count({116, Ori::Forward, Side::Start, 119, Ori::Forward}));
+  CHECK(keys.count({1, Ori::Backward, Side::Start, 59, Ori::Backward}));
+  CHECK(keys.count({1, Ori::Backward, Side::Start, 59, Ori::Forward}));
+  CHECK(keys.count({1, Ori::Backward, Side::Start, 119, Ori::Backward}));
+  CHECK(keys.count({1, Ori::Forward, Side::Start, 59, Ori::Backward}));
+  CHECK(keys.count({1, Ori::Forward, Side::Start, 119, Ori::Backward}));
+  CHECK(keys.count({1, Ori::Backward, Side::Start, 119, Ori::Forward}));
+  CHECK(keys.count({1, Ori::Forward, Side::Start, 59, Ori::Forward}));
+  CHECK(keys.count({1, Ori::Forward, Side::Start, 119, Ori::Forward}));
+
+
+  const double initial_yaw = 0._deg;
+
   {
-    std::cout << " ==================== " << std::endl;
-    auto solution = diff_drive_cache->get().get(key);
-    std::cout << " --------------------\n"
-              << "Solution for [" << key.start_lane << ", "
-              << key.start_orientation << ", "
-              << key.goal_lane << ", "
-              << key.goal_orientation << "]:";
+    const Key key{116, Ori::Backward, Side::Start, 59, Ori::Backward};
+    const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
+    std::vector<Action> actions;
 
-    double cost = 0.0;
-    while (solution)
-    {
-      cost += solution->info.cost_from_parent;
-      std::cout << " (" << cost << "; "
-                << solution->info.waypoint << ", "
-                << 180.0*solution->info.yaw.value_or(std::nan(""))/M_PI
-                << ") -->";
-      solution = solution->child;
-    }
-    std::cout << " (finished)" << std::endl;
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, backward_incline_up}, {15.0, 3.0, backward_incline_up}},
+        {test_map}
+      });
 
-    const auto& lane = supergraph->original().lanes[key.goal_lane];
-    std::cout << "Lane " << key.goal_lane << ": " << lane.entry().waypoint_index()
-              << " -> " << lane.exit().waypoint_index() << std::endl;
+    actions.push_back(
+      Move{
+        {{15.0, 3.0, backward_incline_down}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{30.0, 0.0, backward_incline_down}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{30.0, 0.0, 180._deg}},
+        {test_map}
+      });
+
+    const auto solution = diff_drive_cache->get().get(key);
+    CHECK(compare_plan(traits, initial_position, actions, solution));
   }
 
-  const std::size_t second_goal_index = 45;
-  const auto second_keys = supergraph->keys_for(0, second_goal_index, std::nullopt);
-  std::cout << "Number of keys: " << second_keys.size() << std::endl;
-  for (const auto& key : second_keys)
   {
-    std::cout << " ==================== " << std::endl;
-    auto solution = diff_drive_cache->get().get(key);
-    std::cout << " --------------------\n"
-              << "Solution for [" << key.start_lane << ", "
-              << key.start_orientation << ", "
-              << key.goal_lane << ", "
-              << key.goal_orientation << "]:";
+    const Key key{116, Ori::Forward, Side::Start, 119, Ori::Backward};
+    const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
+    std::vector<Action> actions;
 
-    double cost = 0.0;
-    while (solution)
-    {
-      cost += solution->info.cost_from_parent;
-      std::cout << " (" << cost << "; "
-                << solution->info.waypoint << ", "
-                << 180.0*solution->info.yaw.value_or(std::nan(""))/M_PI
-                << ") -->";
-      solution = solution->child;
-    }
-    std::cout << " (finished)" << std::endl;
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, forward_incline_up}, {15.0, 3.0, forward_incline_up}},
+        {test_map}
+      });
 
-    const auto& lane = supergraph->original().lanes[key.goal_lane];
-    std::cout << "Lane " << key.goal_lane << ": " << lane.entry().waypoint_index()
-              << " -> " << lane.exit().waypoint_index() << std::endl;
+    actions.push_back(
+      Move{
+        {{15.0, 3.0, backward_incline_down}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{30.0, 0.0, backward_incline_down}},
+        {test_map}
+      });
+
+    const auto solution = diff_drive_cache->get().get(key);
+    CHECK(compare_plan(traits, initial_position, actions, solution));
+  }
+
+  {
+    const Key key{1, Ori::Backward, Side::Start, 119, Ori::Forward};
+    const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
+    std::vector<Action> actions;
+
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, backward_incline_up}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{15.0, 3.0, backward_incline_up}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{15.0, 3.0, forward_incline_down}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{30.0, 0.0, forward_incline_down}},
+        {test_map}
+      });
+
+    const auto solution = diff_drive_cache->get().get(key);
+    CHECK(compare_plan(traits, initial_position, actions, solution));
   }
 }
 
 //==============================================================================
-SCENARIO("Differential Drive Heuristic -- Any-Yaw Edge Case")
+SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
 {
   rmf_traffic::agv::Graph graph;
   const std::string test_map_0 = "test_map_0";
@@ -181,19 +382,18 @@ SCENARIO("Differential Drive Heuristic -- Any-Yaw Edge Case")
   graph.add_waypoint(test_map_2, {0, 0}); // 2
   graph.add_waypoint(test_map_2, {0, 1}); // 3
 
+  const auto bogus_event_duration = std::chrono::seconds(1);
   const auto bogus_event = rmf_traffic::agv::Graph::Lane::Event::make(
-        rmf_traffic::agv::Graph::Lane::Wait(std::chrono::seconds(1)));
+        rmf_traffic::agv::Graph::Lane::Wait(bogus_event_duration));
 
-  graph.add_lane({0, bogus_event}, 1);
-  graph.add_lane({1, bogus_event}, 2);
-  graph.add_lane(2, 3);
+  graph.add_lane({0, bogus_event}, 1); // 0
+  graph.add_lane({1, bogus_event}, 2); // 1
+  graph.add_lane(2, 3); // 2
 
   const std::size_t goal_index = 3;
 
-  const double v_nom = 2.0;
-  const double a_nom = 0.3;
   rmf_traffic::agv::VehicleTraits traits(
-    {v_nom, a_nom}, {1.0, 0.45}, create_test_profile(UnitCircle));
+    {2.0, 0.3}, {1.0, 0.45}, create_test_profile(UnitCircle));
   traits.get_differential()->set_reversible(true);
 
   const auto supergraph = rmf_traffic::agv::planning::Supergraph::make(
@@ -214,37 +414,68 @@ SCENARIO("Differential Drive Heuristic -- Any-Yaw Edge Case")
       4093, rmf_traffic::agv::planning::DifferentialDriveMapTypes::KeyHash{N});
   });
 
+  using Ori = rmf_traffic::agv::planning::Orientation;
+  using Side = rmf_traffic::agv::planning::Side;
+  using Key = rmf_traffic::agv::planning::DifferentialDriveMapTypes::Key;
+
   const auto keys = supergraph->keys_for(0, goal_index, std::nullopt);
-  std::cout << "Number of keys: " << keys.size() << std::endl;
-  for (const auto& key : keys)
+  CHECK(keys.size() == 2);
+  CHECK(keys.count({0, Ori::Any, Side::Start, 2, Ori::Forward}));
+  CHECK(keys.count({0, Ori::Any, Side::Start, 2, Ori::Backward}));
+
+  const double initial_yaw = 10._deg;
+
   {
-    std::cout << " ==================== " << std::endl;
-    auto solution = diff_drive_cache->get().get(key);
-    std::cout << " --------------------\n"
-              << "Solution for [" << key.start_lane << ", "
-              << key.start_orientation << ", "
-              << key.goal_lane << ", "
-              << key.goal_orientation << "]:";
+    const Key key{0, Ori::Any, Side::Start, 2, Ori::Forward};
+    const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
+    std::vector<Action> actions;
 
-    if (!solution)
-    {
-      std::cout << " No solution found!" << std::endl;
-    }
+    actions.push_back(
+      Wait{
+        bogus_event_duration,
+        {test_map_0, test_map_1}
+      });
 
-    double cost = 0.0;
-    while (solution)
-    {
-      cost += solution->info.cost_from_parent;
-      std::cout << " (" << cost << "; "
-                << solution->info.waypoint << ", "
-                << 180.0*solution->info.yaw.value_or(std::nan(""))/M_PI
-                << ") -->";
-      solution = solution->child;
-    }
-    std::cout << " (finished)" << std::endl;
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, 90._deg}},
+        {test_map_1}
+      });
 
-    const auto& lane = supergraph->original().lanes[key.goal_lane];
-    std::cout << "Lane " << key.goal_lane << ": " << lane.entry().waypoint_index()
-              << " -> " << lane.exit().waypoint_index() << std::endl;
+    actions.push_back(
+      Move{
+        {{0.0, 1.0, 90._deg}},
+        {test_map_1, test_map_2}
+      });
+
+    const auto solution = diff_drive_cache->get().get(key);
+    CHECK(compare_plan(traits, initial_position, actions, solution));
+  }
+
+  {
+    const Key key{0, Ori::Any, Side::Start, 2, Ori::Backward};
+    const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
+    std::vector<Action> actions;
+
+    actions.push_back(
+      Wait{
+        bogus_event_duration,
+        {test_map_0, test_map_1}
+      });
+
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, -90._deg}},
+        {test_map_1}
+      });
+
+    actions.push_back(
+      Move{
+        {{0.0, 1.0, -90._deg}},
+        {test_map_1, test_map_2}
+      });
+
+    const auto solution = diff_drive_cache->get().get(key);
+    CHECK(compare_plan(traits, initial_position, actions, solution));
   }
 }

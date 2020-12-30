@@ -25,8 +25,7 @@
 //==============================================================================
 double duration(const rmf_traffic::Trajectory& trajectory)
 {
-  return rmf_traffic::time::to_seconds(
-        *trajectory.finish_time() - *trajectory.start_time());
+  return rmf_traffic::time::to_seconds(trajectory.duration());
 }
 
 //==============================================================================
@@ -134,4 +133,8 @@ SCENARIO("Translation Heuristic")
   const double expected_time = duration(trajectory);
 
   CHECK(*fastest_route_result == Approx(expected_time).margin(1e-12));
+
+  const auto other_trajectory =
+      rmf_traffic::agv::Interpolate::positions(
+        traits, std::chrono::steady_clock::now(), {p_start, p_goal});
 }

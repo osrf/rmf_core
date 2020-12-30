@@ -21,12 +21,6 @@
 
 #include <unordered_set>
 
-
-
-#include <iostream>
-
-
-
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -77,7 +71,7 @@ struct TraversalNode
   Graph::Lane::EventPtr exit_event;
 
   // TODO(MXG): Can std::string_view be used to make this more memory efficient?
-  std::unordered_set<std::string> map_names;
+  std::vector<std::string> map_names;
 
   std::array<std::optional<double>, 2> orientations;
   bool standstill = false;
@@ -150,9 +144,6 @@ void node_to_traversals(
 
   if (node.standstill)
   {
-    std::cout << "Making a standstill traversal from [Lane "
-              << node.initial_lane_index << "] to (Waypoint "
-              << node.finish_waypoint_index << ")" << std::endl;
     // If the node is a standstill, just add this empty Alternative
     traversal.alternatives[static_cast<std::size_t>(Orientation::Any)]
         = Traversal::Alternative{};
@@ -212,6 +203,15 @@ void node_to_traversals(
 }
 
 //==============================================================================
+void add_if_missing(
+    std::vector<std::string>& all_maps,
+    const std::string& map)
+{
+  if (std::find(all_maps.begin(), all_maps.end(), map) == all_maps.end())
+    all_maps.push_back(map);
+}
+
+//==============================================================================
 void perform_traversal(
   const TraversalNode* parent,
   const std::size_t lane_index,
@@ -267,8 +267,8 @@ void perform_traversal(
 
   node.finish_p = p1;
 
-  node.map_names.insert(wp0.get_map_name());
-  node.map_names.insert(wp1.get_map_name());
+  add_if_missing(node.map_names, wp0.get_map_name());
+  add_if_missing(node.map_names, wp1.get_map_name());
 
   const double dist = (p1 - p0).norm();
   if (!kin.constraint.has_value() || dist < kin.interpolate.translation_thresh)
@@ -615,10 +615,7 @@ Supergraph::ConstEntriesPtr Supergraph::entries_into(
 std::optional<double> Supergraph::yaw_of(const Entry& entry) const
 {
   if (entry.orientation == Orientation::Any)
-  {
-    std::cout << " >> entry.orientation == Any" << std::endl;
     return std::nullopt;
-  }
 
   return _lane_yaw_cache->get().get(entry);
 }
@@ -765,7 +762,6 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 {
   if (key.orientation == Orientation::Any)
   {
-    std::cout << " >> key.orientation == Any" << std::endl;
     for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
       new_items.insert({{key.lane, Orientation::Any, Side(j)}, std::nullopt});
     return std::nullopt;
@@ -773,10 +769,11 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
 
   if (!_constraint.has_value())
   {
-    std::cout << " >> NO CONSTRAINT!" << std::endl;
     for (std::size_t i=0; i <= static_cast<std::size_t>(Orientation::Any); ++i)
+    {
       for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
         new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});
+    }
 
     return std::nullopt;
   }
@@ -811,11 +808,11 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
   const double dist = (p1 - p0).norm();
   if (dist <= supergraph->options().translation_thresh)
   {
-    std::cout << " >> Within dist threshold: " << dist << " <= " << supergraph->options().translation_thresh
-              << std::endl;
     for (std::size_t i=0; i <= static_cast<std::size_t>(Orientation::Any); ++i)
+    {
       for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
         new_items.insert({{key.lane, Orientation(i), Side(j)}, std::nullopt});
+    }
 
     return std::nullopt;
   }
@@ -827,12 +824,10 @@ std::optional<double> Supergraph::LaneYawGenerator::generate(
     const auto yaw = orientations[i];
     assert(yaw.has_value());
 
-    std::cout << " >> inserting " << i << ": " << yaw.value()*180.0/M_PI << std::endl;
     for (std::size_t j=0; j <= static_cast<std::size_t>(Side::Finish); ++j)
       new_items.insert({{key.lane, Orientation(i), Side(j)}, yaw});
   }
 
-  std::cout << " >> returning " << orientations[static_cast<std::size_t>(key.orientation)].value()*180.0/M_PI << std::endl;
   return orientations[static_cast<std::size_t>(key.orientation)];
 }
 
