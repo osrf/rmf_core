@@ -36,7 +36,7 @@ namespace rmf_task_ros2 {
 class Dispatcher : public std::enable_shared_from_this<Dispatcher>
 {
 public:
-  using DispatchTasks = std::map<TaskID, TaskStatusPtr>;
+  using DispatchTasks = std::unordered_map<TaskID, TaskStatusPtr>;
 
   /// Initialize an rclcpp context and make an dispatcher instance. This will
   /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will
@@ -117,7 +117,7 @@ public:
   void on_change(StatusCallback on_change_fn);
 
   /// Change the default evaluator to a custom evaluator, which is used by
-  /// bidding auctioneer. Default evaluator is: `QuickestFinishEvaluator`
+  /// bidding auctioneer. Default evaluator is: `LeastFleetDiffCostEvaluator`
   ///
   /// \param [in] evaluator
   ///   evaluator used to select the best bid from fleets

@@ -75,7 +75,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
-    
+
     // cancel task
     REQUIRE(dispatcher->cancel_task(*id));
     REQUIRE(dispatcher->active_tasks().size() == 0);
@@ -208,11 +208,11 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     TaskStatus status;
     status.task_profile.task_id = "ChargeBattery10";
     status.state = TaskStatus::State::Queued;
-    status.task_profile.description.task_type.type = 
+    status.task_profile.description.task_type.type =
       rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY;
     action_server->update_status(status);
     std::this_thread::sleep_for(std::chrono::seconds(1));
-    
+
     CHECK(change_times == 5); // new stray charge task
     REQUIRE(dispatcher->active_tasks().size() == 1);
   }

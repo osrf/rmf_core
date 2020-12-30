@@ -82,6 +82,8 @@ public:
         const std::shared_ptr<SubmitTaskSrv::Request> request,
         std::shared_ptr<SubmitTaskSrv::Response> response)
       {
+        RCLCPP_WARN(this->node->get_logger(),
+        " SELECTED EVAL: %d", request->evaluator);
         switch (request->evaluator)
         {
           using namespace rmf_task_ros2::bidding;
@@ -99,7 +101,7 @@ public:
             break;
           default:
             RCLCPP_WARN(this->node->get_logger(),
-            "Selected Evaluator is invalid, switch back t0 previous");
+            "Selected Evaluator is invalid, switch back to previous");
             break;
         }
 
@@ -303,7 +305,16 @@ public:
     if (terminal_dispatch_tasks.size() >= terminated_tasks_max_size)
     {
       RCLCPP_WARN(node->get_logger(),
-        "Terminated tasks reached max size, remove first element");
+        "Terminated tasks reached max size, remove earliest submited task");
+
+      auto rm_task = terminal_dispatch_tasks.begin();
+      for (auto it = rm_task++; it != terminal_dispatch_tasks.end(); it++)
+      {
+        const auto t1 = it->second->task_profile.submission_time;
+        const auto t2 = rm_task->second->task_profile.submission_time;
+        if (rmf_traffic_ros2::convert(t1) < rmf_traffic_ros2::convert(t2))
+          rm_task = it;
+      }
       terminal_dispatch_tasks.erase(terminal_dispatch_tasks.begin() );
     }
 
@@ -326,7 +337,7 @@ public:
     if (it == active_dispatch_tasks.end())
     {
       active_dispatch_tasks[id] = status;
-      RCLCPP_WARN( node->get_logger(), 
+      RCLCPP_WARN(node->get_logger(),
         "Add previously unheard task: %s", id.c_str());
     }
 
