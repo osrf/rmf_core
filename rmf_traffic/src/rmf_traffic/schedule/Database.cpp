@@ -701,40 +701,6 @@ void Database::unregister_participant(
 }
 
 //==============================================================================
-void Database::initiallize_with_static_participants(
-  const std::vector<std::pair<ParticipantId, ParticipantDescription>>& participants)
-{
-  for(const auto participant: participants)
-  {
-    const auto description_ptr =
-    std::make_shared<ParticipantDescription>(std::move(participant.second));
-    const auto participant_id = participant.first;  
-
-    _pimpl->participant_ids.insert(participant_id);
-
-    auto tracker = Inconsistencies::Implementation::register_participant(
-      _pimpl->inconsistencies, participant_id);
-
-    const Version version = ++_pimpl->schedule_version;
-    _pimpl->states.insert(
-      std::make_pair(
-      participant_id,
-      Implementation::ParticipantState{
-        {},
-        std::move(tracker),
-        {},
-        description_ptr,
-        version
-      }));
-
-    
-    _pimpl->descriptions.insert({participant_id, description_ptr});
-
-    _pimpl->add_participant_version[version] = participant_id;
-  }
-}
-
-//==============================================================================
 namespace {
 
 //==============================================================================

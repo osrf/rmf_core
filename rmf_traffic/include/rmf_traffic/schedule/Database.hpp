@@ -91,6 +91,7 @@ public:
   void unregister_participant(
     ParticipantId participant) final;
 
+
   //============================================================================
   // Viewer API
   //============================================================================
@@ -202,14 +203,6 @@ public:
   //
   // TODO(MXG): This function needs unit testing
   ItineraryVersion itinerary_version(ParticipantId participant) const;
-
-  /// Load participants from a static list. If the participant ID is already
-  /// registered, overwrite it with a new descriptor.
-  /// \param[in] participants
-  ///   A vector with a pair containing the paticipantID
-  ///   and the participant  
-  void initiallize_with_static_participants(
-    const std::vector<std::pair<ParticipantId, ParticipantDescription>>& participants);
 
   class Implementation;
   class Debug;
