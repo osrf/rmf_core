@@ -22,7 +22,7 @@
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/TaskStatus.hpp>
-#include <rmf_traffic/Time.hpp>
+#include <rmf_task_msgs/msg/dispatch_request.hpp>
 
 namespace rmf_task_ros2 {
 namespace action {
@@ -91,6 +91,8 @@ public:
 
 private:
   Client(std::shared_ptr<rclcpp::Node> node);
+
+  using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
 
   std::shared_ptr<rclcpp::Node> _node;
   StatusCallback _on_change_callback;

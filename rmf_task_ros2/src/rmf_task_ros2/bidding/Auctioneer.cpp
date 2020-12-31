@@ -15,12 +15,22 @@
  *
 */
 
-#include <rmf_task_ros2/bidding/Submission.hpp>
-#include <rmf_task_ros2/bidding/Auctioneer.hpp>
 #include "internal_Auctioneer.hpp"
 
 namespace rmf_task_ros2 {
 namespace bidding {
+
+//==============================================================================
+Submission convert(const BidProposal& from)
+{
+  Submission submission;
+  submission.fleet_name = from.fleet_name;
+  submission.robot_name = from.robot_name;
+  submission.prev_cost = from.prev_cost;
+  submission.new_cost = from.new_cost;
+  submission.finish_time = rmf_traffic_ros2::convert(from.finish_time);
+  return submission;
+}
 
 //==============================================================================
 Auctioneer::Implementation::Implementation(

@@ -18,6 +18,7 @@
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rmf_traffic_ros2/Time.hpp>
 
 #include <chrono>
 #include <thread>
@@ -43,12 +44,12 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
   bidding_task1.task_profile.task_id = "bid1";
   bidding_task1.time_window = timeout;
   bidding_task1.task_profile.description.task_type.type =
-    TaskTypeMsg::TYPE_STATION;
+    rmf_task_msgs::msg::TaskType::TYPE_STATION;
 
   bidding_task2.task_profile.task_id = "bid2";
   bidding_task2.time_window = timeout;
   bidding_task2.task_profile.description.task_type.type =
-    TaskTypeMsg::TYPE_DELIVERY;
+    rmf_task_msgs::msg::TaskType::TYPE_DELIVERY;
 
   //============================================================================
   // test received msg
@@ -65,7 +66,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     node,
     /// Bidding Result Callback Function
     [&r_result_id, &r_result_winner](
-      const TaskID& task_id, const std::optional<Submission> winner)
+      const std::string& task_id, const std::optional<Submission> winner)
     {
       if (!winner)
         return;

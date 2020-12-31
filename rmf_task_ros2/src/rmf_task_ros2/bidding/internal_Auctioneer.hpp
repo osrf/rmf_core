@@ -21,9 +21,15 @@
 
 #include <rmf_task_ros2/bidding/Submission.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
+#include <rmf_task_msgs/msg/bid_proposal.hpp>
+
+#include <rmf_traffic_ros2/Time.hpp>
+#include <rmf_task_ros2/StandardNames.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
+
+using BidProposal = rmf_task_msgs::msg::BidProposal;
 
 //==============================================================================
 class Auctioneer::Implementation

@@ -21,9 +21,7 @@
 #include <queue>
 #include <rclcpp/node.hpp>
 #include <rmf_utils/impl_ptr.hpp>
-#include <rmf_traffic_ros2/Time.hpp>
 
-#include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Submission.hpp>
 
 namespace rmf_task_ros2 {
@@ -44,7 +42,7 @@ public:
   /// \param[in] winner
   ///   single winner from all submissions. nullopt if non
   using BiddingResultCallback =
-    std::function<void( const TaskID& task_id,
+    std::function<void( const std::string& task_id,
       const std::optional<Submission> winner)>;
 
   /// Create an instance of the Auctioneer. This instance will handle all

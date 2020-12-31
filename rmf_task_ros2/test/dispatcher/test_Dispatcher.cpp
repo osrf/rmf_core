@@ -35,8 +35,8 @@ namespace rmf_task_ros2 {
 //==============================================================================
 SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 {
-  TaskDescription task_desc1;
-  TaskDescription task_desc2;
+  Dispatcher::TaskDescription task_desc1;
+  Dispatcher::TaskDescription task_desc2;
   task_desc1.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_STATION;
   task_desc2.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_CLEAN;
 

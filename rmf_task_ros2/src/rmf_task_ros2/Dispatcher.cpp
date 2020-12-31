@@ -25,6 +25,8 @@
 #include <rmf_task_msgs/srv/cancel_task.hpp>
 #include <rmf_task_msgs/srv/get_task_list.hpp>
 
+#include <rmf_traffic_ros2/Time.hpp>
+
 namespace rmf_task_ros2 {
 
 //==============================================================================
@@ -82,8 +84,6 @@ public:
         const std::shared_ptr<SubmitTaskSrv::Request> request,
         std::shared_ptr<SubmitTaskSrv::Response> response)
       {
-        RCLCPP_WARN(this->node->get_logger(),
-        " SELECTED EVAL: %d", request->evaluator);
         switch (request->evaluator)
         {
           using namespace rmf_task_ros2::bidding;

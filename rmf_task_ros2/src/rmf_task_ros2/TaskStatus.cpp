@@ -16,6 +16,7 @@
 */
 
 #include <rmf_task_ros2/TaskStatus.hpp>
+#include <rmf_traffic_ros2/Time.hpp>
 
 namespace rmf_task_ros2 {
 

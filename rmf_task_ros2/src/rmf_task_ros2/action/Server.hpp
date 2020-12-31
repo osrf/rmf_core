@@ -22,6 +22,7 @@
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/TaskStatus.hpp>
+#include <rmf_task_msgs/msg/dispatch_request.hpp>
 #include <rmf_traffic/Time.hpp>
 
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;
@@ -73,6 +74,8 @@ private:
   Server(
     std::shared_ptr<rclcpp::Node> node,
     const std::string& fleet_name);
+
+  using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
 
   std::shared_ptr<rclcpp::Node> _node;
   std::string _fleet_name;

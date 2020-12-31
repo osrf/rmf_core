@@ -18,8 +18,26 @@
 #include <rmf_task_ros2/bidding/Submission.hpp>
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 
+#include <rmf_traffic_ros2/Time.hpp>
+#include <rmf_task_msgs/msg/bid_proposal.hpp>
+#include <rmf_task_ros2/StandardNames.hpp>
+
 namespace rmf_task_ros2 {
 namespace bidding {
+
+using BidProposal = rmf_task_msgs::msg::BidProposal;
+
+//==============================================================================
+BidProposal convert(const Submission& from)
+{
+  BidProposal proposal_msg;
+  proposal_msg.fleet_name = from.fleet_name;
+  proposal_msg.robot_name = from.robot_name;
+  proposal_msg.prev_cost = from.prev_cost;
+  proposal_msg.new_cost = from.new_cost;
+  proposal_msg.finish_time = rmf_traffic_ros2::convert(from.finish_time);
+  return proposal_msg;
+}
 
 //==============================================================================
 class MinimalBidder::Implementation
@@ -110,5 +128,5 @@ MinimalBidder::MinimalBidder()
   // do nothing
 }
 
-} // namespace bidder
+} // namespace bidding
 } // namespace rmf_task_ros2

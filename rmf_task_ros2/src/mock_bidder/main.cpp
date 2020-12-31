@@ -19,7 +19,9 @@
 
 #include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 #include "../rmf_task_ros2/action/Server.hpp"
+
 #include <rclcpp/rclcpp.hpp>
+#include <rmf_traffic_ros2/Time.hpp>
 
 using namespace rmf_task_ros2;
 using TaskType = bidding::MinimalBidder::TaskType;

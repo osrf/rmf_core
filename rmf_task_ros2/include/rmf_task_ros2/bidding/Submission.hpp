@@ -19,20 +19,10 @@
 #define RMF_TASK_ROS2__BIDDING__SUBMISSION_HPP
 
 #include <rmf_traffic/Time.hpp>
-#include <rmf_traffic_ros2/Time.hpp>
-
 #include <rmf_task_msgs/msg/bid_notice.hpp>
-#include <rmf_task_msgs/msg/bid_proposal.hpp>
 
 namespace rmf_task_ros2 {
-
 namespace bidding {
-
-//==============================================================================
-using BidNotice = rmf_task_msgs::msg::BidNotice;
-using BidProposal = rmf_task_msgs::msg::BidProposal;
-using TaskTypeMsg = rmf_task_msgs::msg::TaskType;
-using TaskID = std::string;
 
 //==============================================================================
 struct Submission
@@ -44,16 +34,11 @@ struct Submission
   rmf_traffic::Time finish_time;
 };
 
+//==============================================================================
 using Submissions = std::vector<Submission>;
+using BidNotice = rmf_task_msgs::msg::BidNotice;
 
 } // namespace bidding
-
-//==============================================================================
-bidding::BidProposal convert(const bidding::Submission& from);
-
-//==============================================================================
-bidding::Submission convert(const bidding::BidProposal& from);
-
 } // namespace rmf_task_ros2
 
 #endif // RMF_TASK_ROS2__BIDDING__SUBMISSION_HPP

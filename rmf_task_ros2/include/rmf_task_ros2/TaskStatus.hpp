@@ -20,21 +20,15 @@
 
 #include <unordered_map>
 #include <rmf_traffic/Time.hpp>
-#include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_task_msgs/msg/task_profile.hpp>
-#include <rmf_task_msgs/msg/dispatch_request.hpp>
 #include <rmf_task_msgs/msg/task_summary.hpp>
 
 namespace rmf_task_ros2 {
 
 //==============================================================================
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;
-using TaskDescription = rmf_task_msgs::msg::TaskDescription;
-using TaskID = std::string;
-
-//==============================================================================
 using StatusMsg = rmf_task_msgs::msg::TaskSummary;
-using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
+using TaskID = std::string;
 
 //==============================================================================
 /// \note TaskStatus struct is based on TaskSummary.msg

@@ -23,7 +23,6 @@
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_utils/optional.hpp>
 
-#include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 #include <rmf_task_ros2/TaskStatus.hpp>
 
@@ -37,6 +36,7 @@ class Dispatcher : public std::enable_shared_from_this<Dispatcher>
 {
 public:
   using DispatchTasks = std::unordered_map<TaskID, TaskStatusPtr>;
+  using TaskDescription = rmf_task_msgs::msg::TaskDescription;
 
   /// Initialize an rclcpp context and make an dispatcher instance. This will
   /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will
@@ -84,8 +84,8 @@ public:
   /// Cancel an active task which was previously submitted to Dispatcher. This
   /// will terminate the task with a State of: `Canceled`. If a task is
   /// `Queued` or `Executing`, this function will send a cancel req to
-  /// the respective fleet adapter. The fleet adapter will need ensure the proper
-  /// cancelation of the task, and update the task status as `Canceled`.
+  /// the respective fleet adapter. It is the responsibility of the fleet adapter
+  /// to make sure it cancels the task internally.
   ///
   /// \param [in] task_id
   ///   Task to cancel

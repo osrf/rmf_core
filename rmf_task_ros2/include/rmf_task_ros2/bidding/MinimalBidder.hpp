@@ -23,7 +23,6 @@
 #include <rclcpp/node.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
-#include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/bidding/Submission.hpp>
 
 namespace rmf_task_ros2 {
@@ -33,6 +32,18 @@ namespace bidding {
 class MinimalBidder
 {
 public:
+  /// Type of Task in RMF
+  using TaskTypeMsg = rmf_task_msgs::msg::TaskType;
+  enum class TaskType
+  {
+    Station       = TaskTypeMsg::TYPE_STATION,
+    Loop          = TaskTypeMsg::TYPE_LOOP,
+    Delivery      = TaskTypeMsg::TYPE_DELIVERY,
+    ChargeBattery = TaskTypeMsg::TYPE_CHARGE_BATTERY,
+    Clean         = TaskTypeMsg::TYPE_CLEAN,
+    Patrol        = TaskTypeMsg::TYPE_PATROL
+  };
+
   /// Callback function when a bid notice is received from the autioneer
   ///
   /// \param[in] notice
@@ -43,15 +54,6 @@ public:
   using ParseSubmissionCallback =
     std::function<Submission(const BidNotice& notice)>;
 
-  enum class TaskType
-  {
-    Station       = TaskTypeMsg::TYPE_STATION,
-    Loop          = TaskTypeMsg::TYPE_LOOP,
-    Delivery      = TaskTypeMsg::TYPE_DELIVERY,
-    ChargeBattery = TaskTypeMsg::TYPE_CHARGE_BATTERY,
-    Clean         = TaskTypeMsg::TYPE_CLEAN,
-    Patrol        = TaskTypeMsg::TYPE_PATROL
-  };
 
   /// Create a bidder to bid for incoming task requests from Task Dispatcher
   ///
