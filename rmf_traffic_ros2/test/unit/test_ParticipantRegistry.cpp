@@ -67,7 +67,8 @@ SCENARIO("Test idempotency of ParticipantDescription.")
     rmf_traffic::Profile{shape});
 
   auto serialized = serialize(p1);
-  
+  auto result = participant_description(serialized);
+  REQUIRE(p1 == result);
 }
 
 class TestOperationLogger: public AbstractParticipantLogger
@@ -127,7 +128,7 @@ SCENARIO("Participant registry restores participants from logger")
   
   GIVEN("A stubbed out logger")
   {
-    TestOperationLogger* logger = new TestOperationLogger;
+    auto logger = std::make_shared<TestOperationLogger>();
     WHEN("Creating a new DB without errors")
     {
       auto db1 = std::make_shared<Database>();
@@ -182,7 +183,6 @@ SCENARIO("Participant registry restores participants from logger")
         REQUIRE(*_p3 == p3);
       }
     }
-    delete logger;
   }
 }
 
@@ -246,5 +246,9 @@ SCENARIO("Test file logger")
         REQUIRE(i == expected.size());
       }
     }
+  }
+
+  GIVEN("corrupt file that is in no way YAML")
+  {
   }
 }
