@@ -316,6 +316,7 @@ public:
   //===========================================================================
   ParticipantId add_participant(ParticipantDescription description)
   {
+    std::lock_guard<std::mutex> lock(_mutex);
     UniqueId key = {description.name(), description.owner()};
 
     if(_id_from_name.count(key))
@@ -350,7 +351,7 @@ public:
   //===========================================================================
   void remove_participant(ParticipantId id)
   {
-   
+    std::lock_guard<std::mutex> lock(_mutex);
     auto description = _descriptions.find(id);
     if(description == _descriptions.end())
     {
@@ -431,6 +432,7 @@ private:
     ParticipantId, UniqueIdHasher> _id_from_name;
   std::shared_ptr<Database> _database; 
   std::shared_ptr<AbstractParticipantLogger> _logger;
+  std::mutex _mutex;
 };
 
 //=============================================================================
