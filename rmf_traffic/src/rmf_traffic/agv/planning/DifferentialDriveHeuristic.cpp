@@ -48,6 +48,24 @@ public:
     double current_cost;
     RouteFactoryFactory route_factory;
     SearchNodePtr parent;
+
+    double get_total_cost_estimate() const
+    {
+      return current_cost + info.remaining_cost_estimate;
+    }
+
+    double get_remaining_cost_estimate() const
+    {
+      return info.remaining_cost_estimate;
+    }
+
+    std::optional<Orientation> get_orientation() const
+    {
+      if (info.entry.has_value())
+        return info.entry->orientation;
+
+      return std::nullopt;
+    }
   };
 
   using Key = DifferentialDriveMapTypes::Key;
@@ -140,8 +158,7 @@ public:
       const Eigen::Vector2d next_position = next_waypoint.get_location();
 
       const double exit_event_duration = traversal.exit_event ?
-            rmf_traffic::time::to_seconds(traversal.exit_event->duration())
-          : 0.0;
+        rmf_traffic::time::to_seconds(traversal.exit_event->duration()) : 0.0;
 
 //      std::cout << "    " << next_waypoint_index << ": ";
 
@@ -733,6 +750,13 @@ auto DifferentialDriveHeuristicAdapter::compute(Entry start) const
   }
 
   return best_solution;
+}
+
+//==============================================================================
+const Cache<DifferentialDriveHeuristic>&
+DifferentialDriveHeuristicAdapter::cache() const
+{
+  return _cache;
 }
 
 } // namespace planning
