@@ -53,6 +53,8 @@
 
 #include <rmf_traffic_msgs/msg/negotiation_notice.hpp>
 
+#include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
+
 #include <rmf_utils/Modular.hpp>
 
 #include <set>
@@ -391,10 +393,13 @@ public:
     std::unordered_map<ParticipantId, Wait> _waiting;
     std::shared_ptr<const rmf_traffic::schedule::Snappable> _viewer;
     Version _next_negotiation_version = 0;
+    
   };
 
   ConflictRecord active_conflicts;
   std::mutex active_conflicts_mutex;
+  std::shared_ptr<ParticipantRegistry> participant_registry;
+  std::shared_ptr<YamlLogger> participant_logger;
 };
 
 } // namespace schedule

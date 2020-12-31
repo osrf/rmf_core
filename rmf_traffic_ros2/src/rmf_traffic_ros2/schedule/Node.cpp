@@ -86,9 +86,29 @@ ScheduleNode::ScheduleNode(const rclcpp::NodeOptions& options)
   database(std::make_shared<rmf_traffic::schedule::Database>()),
   active_conflicts(database)
 {
+  //Attempt to load/create participant registry.
+  std::string log_file_name;
+  get_parameter_or<std::string>(
+    "log_file_location", 
+    log_file_name, 
+    ".rmf_schedule_node.yml");
+  
+  try
+  {
+    participant_logger = std::make_shared<YamlLogger>(log_file_name);
+    participant_registry = 
+      std::make_shared<ParticipantRegistry>(participant_logger, database);
+  }
+  catch(std::runtime_error& e)
+  {
+    RCLCPP_FATAL(get_logger(), 
+      "Failed to correctly load participant registry: %s\n",
+      e.what());
+    throw e;
+  }
+
   // TODO(MXG): As soon as possible, all of these services should be made
   // multi-threaded so they can be parallel processed.
-
   register_query_service =
     create_service<RegisterQuery>(
     rmf_traffic_ros2::RegisterQueryServiceName,
@@ -378,9 +398,18 @@ void ScheduleNode::register_participant(
   // TODO(MXG): Use try on every database operation
   try
   {
-    response->participant_id = database->register_participant(
-      rmf_traffic_ros2::convert(request->description));
-
+    auto desc = rmf_traffic_ros2::convert(request->description);
+    auto participant_id = participant_registry->participant_exists(desc.name(), 
+      desc.owner());
+    if(participant_id)
+    {
+      //TODO(arjo): Compare participant descriptors and update?
+      response->participant_id = *participant_id;
+    }
+    else
+    {
+      response->participant_id = participant_registry->add_participant(desc);
+    }
     RCLCPP_INFO(
       get_logger(),
       "Registered participant [" + std::to_string(response->participant_id)
@@ -425,7 +454,7 @@ void ScheduleNode::unregister_participant(
     const std::string name = p->name();
     const std::string owner = p->owner();
 
-    database->unregister_participant(request->participant_id);
+    participant_registry->remove_participant(request->participant_id);
     response->confirmation = true;
 
     RCLCPP_INFO(

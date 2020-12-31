@@ -305,11 +305,11 @@ class ParticipantRegistry::Implementation
 public:
   //===========================================================================
   Implementation(
-    AbstractParticipantLogger* logger, 
+    std::shared_ptr<AbstractParticipantLogger>  logger, 
     std::shared_ptr<Database> db):
-    _database(db)
-  {
-    _logger = logger; 
+    _database(db),
+    _logger(logger)
+  { 
     init();
   }
 
@@ -332,6 +332,20 @@ public:
     write_to_file({AtomicOperation::OpType::Add, description});
     return id;
   }
+  
+  //===========================================================================
+  std::optional<ParticipantId> participant_exists(
+    std::string name,
+    std::string owner)
+  {
+    UniqueId key = {name, owner};
+    auto id = _id_from_name.find(key);
+    if(id == _id_from_name.end())
+    {
+      return std::nullopt;
+    }
+    return {id->second};
+  }
 
   //===========================================================================
   void remove_participant(ParticipantId id)
@@ -353,7 +367,6 @@ public:
     _descriptions.erase(id);
     _id_from_name.erase(key);
   }
-  
   
 private:
   //===========================================================================
@@ -385,6 +398,7 @@ private:
     _id_from_name.erase(key);
   }
 
+ 
   //===========================================================================
   void init()
   {
@@ -416,12 +430,12 @@ private:
   std::unordered_map<UniqueId, 
     ParticipantId, UniqueIdHasher> _id_from_name;
   std::shared_ptr<Database> _database; 
-  AbstractParticipantLogger* _logger;
+  std::shared_ptr<AbstractParticipantLogger> _logger;
 };
 
 //=============================================================================
 ParticipantRegistry::ParticipantRegistry(
-  AbstractParticipantLogger* logger,
+  std::shared_ptr<AbstractParticipantLogger> logger,
   std::shared_ptr<Database> database)
 :_pimpl(rmf_utils::make_unique_impl<Implementation>(
   logger,
@@ -435,6 +449,14 @@ ParticipantId ParticipantRegistry::add_participant(
   ParticipantDescription description)
 {
   return _pimpl->add_participant(description);
+}
+
+//============================================================================
+std::optional<ParticipantId>  ParticipantRegistry::participant_exists(
+    std::string name,
+    std::string owner)
+{
+  return _pimpl->participant_exists(name, owner);
 }
 
 //=============================================================================

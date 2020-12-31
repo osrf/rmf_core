@@ -93,7 +93,7 @@ class ParticipantRegistry
 {
 public:
   ParticipantRegistry(
-    AbstractParticipantLogger* file_name,
+    std::shared_ptr<AbstractParticipantLogger> file_name,
     std::shared_ptr<Database> database);
 
   /// Adds a participant
@@ -102,7 +102,17 @@ public:
   /// 
   /// \throws std::runtime_error if a participant with the same name and owner
   ///   are already in the registry.
+  /// \returns ParticipantId of the participant, if a new participant is
+  ///      successfully created.
   ParticipantId add_participant(ParticipantDescription description);
+
+  /// Checks if a participant with the name and owner already exist.
+  /// \param[in] name - name of the robot
+  /// \param[in] owner - the robot owner
+  /// \returns std::nullopt if participant exists. Otherwise returns the ID.
+  std::optional<ParticipantId> participant_exists(
+    std::string name,
+    std::string owner);
   
   /// Removes a participant from the registry.
   /// \param[in] id - participant to remove

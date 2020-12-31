@@ -31,12 +31,13 @@ public:
     _counter = 0;
     try 
     {
+      std::lock_guard<std::mutex> file_lock(_mutex);
       _buffer = YAML::LoadFile(file_path);
       if(!_buffer.IsSequence())
       {
         //Malformatted YAML. Failing so that we don't corrupt data
         throw std::runtime_error(
-            "Malformatted file - Couldn't parse as YAML!");
+          "Malformatted file - Couldn't parse as YAML!");
       }
     }
     catch(const YAML::BadFile& e)
@@ -66,6 +67,7 @@ public:
     emmiter << YAML::EndSeq;
     assert(emmiter.good());
 
+    std::lock_guard<std::mutex> file_lock(_mutex);
     std::ofstream outfile;
     outfile.open(_file_path, std::ofstream::out | std::ofstream::app);
     if(!outfile.is_open())
