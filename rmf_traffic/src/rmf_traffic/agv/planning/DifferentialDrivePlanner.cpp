@@ -175,7 +175,7 @@ struct OrientationTimeMap
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(
     const NodePtr& finish_node,
-    const agv::RouteValidator* validator)
+    const agv::RouteValidator* /*validator*/)
 {
 //  auto node_sequence = reconstruct_nodes(finish_node);
 
@@ -318,6 +318,13 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
       index.itinerary_index = routes.size() - 1;
       assert(!routes.back().trajectory().empty());
       index.trajectory_index = routes.back().trajectory().size() - 1;
+
+      if (routes.back().trajectory().back().time() != node->time)
+      {
+        std::cout << "TRAJECTORY INDEX ISSUE: "
+                  << time::to_seconds(routes.back().trajectory().back().time() - initial_time)
+                  << " vs " << time::to_seconds(node->time - initial_time) << std::endl;
+      }
     }
   }
 
@@ -445,6 +452,11 @@ public:
       return orientation;
     }
 
+
+    const std::size_t __line__;
+    const std::size_t __count__;
+
+
     SearchNode(
       std::optional<std::size_t> waypoint_,
       Eigen::Vector2d position_,
@@ -456,7 +468,8 @@ public:
       Graph::Lane::EventPtr event_,
       double current_cost_,
       std::optional<Planner::Start> start_,
-      SearchNodePtr parent_)
+      SearchNodePtr parent_,
+      std::size_t line)
     : waypoint(waypoint_),
       position(position_),
       yaw(yaw_),
@@ -467,15 +480,24 @@ public:
       event(event_),
       current_cost(current_cost_),
       start(std::move(start_)),
-      parent(std::move(parent_))
+      parent(std::move(parent_)),
+      __line__(line),
+      __count__(counter++)
     {
-      assert(!route_from_parent.empty());
-      assert(route_from_parent.back().trajectory().size() >= 2
-             || start.has_value());
+      std::cout << " >> Making node " << __count__ << ": " << get_total_cost_estimate() << std::endl;
 
+      assert(!route_from_parent.empty());
+//      assert(route_from_parent.back().trajectory().size() >= 2
+//             || start.has_value());
+
+      if (parent && (parent->get_total_cost_estimate() > get_total_cost_estimate()))
+      {
+        std::cout << "Inadmissible expansion! " << parent->get_total_cost_estimate()
+                  << " --> " << get_total_cost_estimate() << std::endl;
+      }
       assert(
         !parent
-         || (parent->get_total_cost_estimate() <= get_total_cost_estimate()));
+         || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1e-6));
 
       if (start.has_value())
       {
@@ -501,14 +523,9 @@ public:
 
         std::cout << "; " << start->orientation() << ">" << std::endl;
       }
-
-      if (route_from_parent.back().trajectory().size() < 2
-          && !start.has_value())
-      {
-        std::cout << "WHY DID IT NOT CATCH THIS??" << std::endl;
-        throw std::runtime_error("ARRGGGG");
-      }
     }
+
+    static std::size_t counter;
   };
 
   using SearchQueue =
@@ -605,6 +622,7 @@ public:
     std::vector<std::string> map_names;
     Graph::Lane::EventPtr exit_event;
     double exit_event_cost = 0.0;
+    Duration exit_event_duration = Duration(0);
     if (const auto lane_index = start.lane())
     {
       const auto& lane = _supergraph->original().lanes[*lane_index];
@@ -623,7 +641,8 @@ public:
       if (lane.exit().event())
       {
         exit_event = lane.exit().event()->clone();
-        exit_event_cost = time::to_seconds(exit_event->duration());
+        exit_event_duration = exit_event->duration();
+        exit_event_cost = time::to_seconds(exit_event_duration);
       }
     }
     else
@@ -631,34 +650,31 @@ public:
       map_names.push_back(wp.get_map_name());
     }
 
-    for (const auto& approach : approach_trajectories)
+    for (const auto& approach_trajectory : approach_trajectories)
     {
       std::vector<Route> approach_routes;
-      if (approach.size() >= 2)
+      bool all_valid = true;
+
+      for (const auto& map : map_names)
       {
-        bool all_valid = true;
-
-        for (const auto& map : map_names)
+        Route route{map, approach_trajectory};
+        if (!is_valid(top, route))
         {
-          Route route{map, approach};
-          if (!is_valid(top, route))
-          {
-            all_valid = false;
-            break;
-          }
-
-          approach_routes.emplace_back(std::move(route));
+          all_valid = false;
+          break;
         }
 
-        if (!all_valid)
-          continue;
+        approach_routes.emplace_back(std::move(route));
       }
+
+      if (!all_valid)
+        continue;
 
       std::vector<Route> exit_event_routes;
       if (exit_event)
       {
         Trajectory hold;
-        const auto& approached = approach.back();
+        const auto& approached = approach_trajectory.back();
         hold.insert(approached);
         hold.insert(approached.time(), approached.position(), {0, 0, 0});
 
@@ -679,9 +695,9 @@ public:
           continue;
       }
 
-      const double approach_cost = time::to_seconds(approach.duration());
-      const double approach_yaw = approach.back().position()[2];
-      const auto approach_time = *approach.finish_time();
+      const double approach_cost = time::to_seconds(approach_trajectory.duration());
+      const double approach_yaw = approach_trajectory.back().position()[2];
+      const auto approach_time = *approach_trajectory.finish_time();
 
       // TODO(MXG): We can actually specify the orientation for this. We just
       // need to be smarter with make_start_approach_trajectories(). We should
@@ -698,7 +714,8 @@ public:
           exit_event,
           top->current_cost + approach_cost,
           std::nullopt,
-          top
+          top,
+          __LINE__
         });
 
       if (exit_event)
@@ -708,14 +725,15 @@ public:
             target_waypoint_index,
             wp_location,
             approach_yaw,
-            approach_time,
+            approach_time + exit_event_duration,
             std::nullopt,
             node->remaining_cost_estimate - exit_event_cost,
             std::move(exit_event_routes),
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node
+            node,
+            __LINE__
           });
       }
 
@@ -756,13 +774,17 @@ public:
               nullptr,
               top->current_cost + hold_cost,
               start,
-              top
+              top,
+              __LINE__
             }));
   }
 
   void expand_hold(const SearchNodePtr& top, SearchQueue& queue) const
   {
     const std::size_t wp_index = top->waypoint.value();
+    if (_supergraph->original().waypoints[wp_index].is_passthrough_point())
+      return;
+
     const std::string& map_name =
         _supergraph->original().waypoints[wp_index].get_map_name();
 
@@ -795,7 +817,8 @@ public:
          nullptr,
          top->current_cost + cost,
          std::nullopt,
-         top
+         top,
+         __LINE__
        }));
   }
 
@@ -839,13 +862,13 @@ public:
         nullptr,
         top->current_cost + cost,
         std::nullopt,
-        top
+        top,
+        __LINE__
       });
   }
 
   bool is_valid(const SearchNodePtr& parent, const Route& route) const
   {
-//    assert(route.trajectory().size() >= 2);
     if (route.trajectory().size() >= 2)
     {
       auto conflict = _validator->find_conflict(route);
@@ -871,6 +894,7 @@ public:
   void expand_traversal(
       const SearchNodePtr& top,
       const Traversal& traversal,
+      const ConstTraversalsPtr& traversals,
       SearchQueue& queue) const
   {
     const auto initial_waypoint_index = top->waypoint.value();
@@ -904,12 +928,15 @@ public:
 
       // TODO(MXG): We could push the logic for creating this trajectory
       // upstream into the traversal alternative.
+      double approach_cost = 0.0;
       if (traversal_yaw.has_value())
       {
         const Eigen::Vector3d finish{p0.x(), p0.y(), *traversal_yaw};
         internal::interpolate_rotation(
               approach_trajectory, _w_nom, _alpha_nom, start_time,
               start, finish, _rotation_threshold);
+
+        approach_cost = time::to_seconds(approach_trajectory.duration());
       }
 
       auto approach_route =
@@ -963,8 +990,16 @@ public:
       if (!all_valid)
         continue;
 
+      std::cout << " --------" << std::endl;
       const auto remaining_cost_estimate = _heuristic.compute(
             next_waypoint_index, traversal_result.finish_yaw);
+
+      std::cout << "Traversal (" << initial_waypoint_index << ", " << initial_yaw*180.0/M_PI << ") --> ("
+                << next_waypoint_index << ", " << traversal_result.finish_yaw*180.0/M_PI << ") "
+                << orientation << " (" << i << ":" << &alt << ":" << &traversal
+                << ":" << traversals << ")" << std::endl;
+      std::cout << "Traversal yaw: " << traversal_yaw.value_or(std::nan(""))*180./M_PI
+                << " | Result yaw: " << traversal_result.finish_yaw*180.0/M_PI  << std::endl;
 
       if (!remaining_cost_estimate.has_value())
         continue;
@@ -975,16 +1010,22 @@ public:
       Trajectory exit_event_trajectory;
       exit_event_trajectory.insert(arrival_wp);
       double exit_event_cost = 0.0;
+      Duration exit_event_duration = Duration(0);
       if (traversal.exit_event
           && traversal.exit_event->duration() > Duration(0))
       {
-        const auto duration = traversal.exit_event->duration();
-        exit_event_cost = time::to_seconds(duration);
+        exit_event_duration = traversal.exit_event->duration();
+        exit_event_cost = time::to_seconds(exit_event_duration);
 
         exit_event_trajectory.insert(
-              arrival_wp.time() + duration,
+              arrival_wp.time() + exit_event_duration,
               arrival_wp.position(), Eigen::Vector3d::Zero());
       }
+
+      std::cout << "Cost " << approach_cost + entry_event_cost + alt->time + exit_event_cost << " = "
+                << "Approach: " << approach_cost << " | Entry: " << entry_event_cost
+                << " | Alt: " << alt->time << " | Exit: " << exit_event_cost
+                << std::endl;
 
       auto exit_event_route =
         Route{
@@ -996,7 +1037,7 @@ public:
         continue;
 
       auto node = top;
-      if (approach_route.trajectory().size() >= 2)
+      if (approach_route.trajectory().size() >= 2 || traversal.entry_event)
       {
         const double cost =
             time::to_seconds(approach_route.trajectory().duration());
@@ -1011,12 +1052,13 @@ public:
             time,
             orientation,
             *remaining_cost_estimate
-              + alt->time + entry_event_cost + exit_event_cost,
+              + entry_event_cost + alt->time + exit_event_cost,
             {std::move(approach_route)},
             traversal.entry_event,
             node->current_cost + cost,
             std::nullopt,
-            node
+            node,
+            __LINE__
           });
       }
 
@@ -1034,7 +1076,8 @@ public:
             nullptr,
             node->current_cost + entry_event_cost,
             std::nullopt,
-            node
+            node,
+            __LINE__
           });
       }
 
@@ -1050,7 +1093,8 @@ public:
           traversal.exit_event,
           node->current_cost + alt->time,
           std::nullopt,
-          node
+          node,
+          __LINE__
         });
 
       if (traversal.exit_event && exit_event_route.trajectory().size() >= 2)
@@ -1060,17 +1104,19 @@ public:
             next_waypoint_index,
             next_position,
             traversal_result.finish_yaw,
-            traversal_result.finish_time,
+            traversal_result.finish_time + exit_event_duration,
             orientation,
             *remaining_cost_estimate,
             {std::move(exit_event_route)},
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node
+            node,
+                __LINE__
           });
       }
 
+      std::cout << " ^^^^^^^^^^^^^^ " << std::endl;
       queue.push(node);
     }
   }
@@ -1090,11 +1136,60 @@ public:
       if (!solution_root)
         continue;
 
-      auto solution_node = solution_root;
       auto search_node = top;
+
+      auto approach_info = solution_root->route_factory(top->time, top->yaw);
+      if (approach_info.routes.back().trajectory().size() >= 2
+          || solution_root->info.event)
+      {
+        // TODO(MXG): Refactor this logic into a conversion function
+        const auto cost =
+            time::to_seconds(approach_info.finish_time - top->time);
+
+        const auto entry = solution_root->info.entry;
+        const auto orientation = entry.has_value()?
+              std::make_optional(entry->orientation) : std::nullopt;
+
+        search_node = std::make_shared<SearchNode>(
+          SearchNode{
+            solution_root->info.waypoint,
+            solution_root->info.position,
+            approach_info.finish_yaw,
+            approach_info.finish_time,
+            orientation,
+            solution_root->info.remaining_cost_estimate,
+            std::move(approach_info.routes),
+            solution_root->info.event,
+            search_node->current_cost + cost,
+            std::nullopt,
+            search_node,
+            __LINE__
+          });
+      }
+
+      auto solution_node = solution_root->child;
+      std::cout << "Free solution: ";
+
       while (solution_node)
       {
-        auto route_from_parent = solution_node->route_factory(
+        assert(solution_node->route_factory);
+
+        std::cout << "(" << search_node->current_cost << "; ";
+        if (search_node->waypoint.has_value())
+          std::cout << top->waypoint.value();
+        else
+          std::cout << "null";
+
+        std::cout << ", " << search_node->yaw << ") ";
+        if (solution_node->info.entry.has_value())
+          std::cout << *solution_node->info.entry;
+        else
+          std::cout << "[null]";
+
+        std::cout << " <" << solution_node->info.cost_from_parent
+                  << " : " << solution_node->info.remaining_cost_estimate << "> --> ";
+
+        auto route_info = solution_node->route_factory(
               search_node->time, search_node->yaw);
 
         const auto entry = solution_node->info.entry;
@@ -1105,19 +1200,21 @@ public:
           SearchNode{
             solution_node->info.waypoint,
             solution_node->info.position,
-            route_from_parent.finish_yaw,
-            route_from_parent.finish_time,
+            route_info.finish_yaw,
+            route_info.finish_time,
             orientation,
             solution_node->info.remaining_cost_estimate,
-            std::move(route_from_parent.routes),
+            std::move(route_info.routes),
             solution_node->info.event,
             search_node->current_cost + solution_node->info.cost_from_parent,
             std::nullopt,
-            search_node
+            search_node,
+            __LINE__
           });
 
         solution_node = solution_node->child;
       }
+      std::cout << std::endl;
 
       queue.push(search_node);
     }
@@ -1160,7 +1257,7 @@ public:
 
     const auto traversals = _supergraph->traversals_from(current_wp_index);
     for (const auto& traversal : *traversals)
-      expand_traversal(top, traversal, queue);
+      expand_traversal(top, traversal, traversals, queue);
   }
 
   std::vector<Trajectory> make_start_approach_trajectories(
@@ -1350,7 +1447,8 @@ public:
             nullptr,
             0.0,
             start,
-            nullptr
+            nullptr,
+            __LINE__
           });
   }
 
@@ -1726,6 +1824,10 @@ private:
   double _alpha_nom;
   double _rotation_threshold;
 };
+
+
+std::size_t ScheduledDifferentialDriveExpander::SearchNode::counter = 0;
+
 
 //==============================================================================
 DifferentialDrivePlanner::DifferentialDrivePlanner(

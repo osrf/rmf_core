@@ -62,6 +62,11 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND AND rmf_cmake_uncrustify_FOUND)
     target_compile_definitions(test_rmf_traffic PRIVATE RMF_TRAFFIC__USING_FCL_0_6)
   endif()
 
+  target_compile_definitions(test_rmf_traffic
+    PRIVATE
+      CATCH_CONFIG_DISABLE_EXCEPTIONS
+  )
+
   target_include_directories(test_rmf_traffic
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/>

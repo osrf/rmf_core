@@ -21,6 +21,11 @@
 
 #include <unordered_set>
 
+
+
+
+#include <iostream>
+
 namespace rmf_traffic {
 namespace agv {
 namespace planning {
@@ -124,9 +129,14 @@ void node_to_traversals(
 
   if (node.standstill)
   {
+    Traversal::Alternative alt;
+    alt.routes = make_start_factory(
+      node.initial_p, std::nullopt, kin.limits,
+      kin.interpolate.rotation_thresh, traversal.maps);
+
     // If the node is a standstill, just add this empty Alternative
     traversal.alternatives[static_cast<std::size_t>(Orientation::Any)]
-        = Traversal::Alternative{};
+        = std::move(alt);
 
     // If the node is a standstill, it should't have any orientation
     // requirements
@@ -169,6 +179,9 @@ void node_to_traversals(
     const auto time = factory_info.minimum_cost;
     alternative.time = time;
     alternative.routes = std::move(factory_info.factory);
+
+    std::cout << "SUPERGRAPH " << DifferentialDriveMapTypes::Entry{traversal.initial_lane_index, Orientation(i), Side::Start}
+              << " (" << traversal.finish_waypoint_index << "): " << time << std::endl;
 
     if (!best_trajectory_time.has_value() || time < *best_trajectory_time)
       best_trajectory_time = time;
@@ -471,6 +484,7 @@ ConstTraversalsPtr TraversalGenerator::generate(
   std::unordered_set<std::size_t> visited;
   visited.insert(waypoint_index);
 
+  std::cout << " -- Generating for " << waypoint_index << std::endl;
   for (const auto l : initial_lanes)
     initiate_traversal(l, graph, _kinematics, queue, output, visited);
 

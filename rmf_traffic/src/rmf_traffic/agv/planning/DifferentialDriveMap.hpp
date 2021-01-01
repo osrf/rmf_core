@@ -262,6 +262,25 @@ struct DifferentialDriveMapTypes
 };
 
 //==============================================================================
+inline std::ostream& operator<<(std::ostream& os, const DifferentialDriveMapTypes::Key key)
+{
+  os << "[" << key.start_lane << ", " << key.start_orientation << ", "
+     << key.start_side << ", " << key.goal_lane << ", " << key.goal_orientation
+     << "]";
+
+  return os;
+}
+
+//==============================================================================
+inline std::ostream& operator<<(std::ostream& os, const DifferentialDriveMapTypes::Entry entry)
+{
+  os << "[" << entry.lane << ", " << entry.orientation << ", " << entry.side << "]";
+
+  return os;
+}
+
+
+//==============================================================================
 using DifferentialDriveMap =
   std::unordered_map<
     DifferentialDriveMapTypes::Key,
@@ -315,7 +334,16 @@ DifferentialDriveMapTypes::RouteFactoryFactory
 make_hold_factory(
     Eigen::Vector2d position,
     std::optional<double> yaw,
-    rmf_traffic::Duration duration,
+    Duration duration,
+    KinematicLimits limits,
+    double rotation_thresh,
+    std::vector<std::string> maps);
+
+//==============================================================================
+DifferentialDriveMapTypes::RouteFactoryFactory
+make_start_factory(
+    Eigen::Vector2d position,
+    std::optional<double> yaw,
     KinematicLimits limits,
     double rotation_thresh,
     std::vector<std::string> maps);

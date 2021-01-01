@@ -79,9 +79,6 @@ FactoryInfo make_differential_drive_translate_factory(
           trajectory, limits.linear.velocity, limits.linear.acceleration,
           trajectory.back().time(), start, finish, translation_thresh);
 
-    if (trajectory.size() < 2)
-      return {start_time, initial_yaw, {}};
-
     std::vector<Route> routes;
     routes.reserve(maps.size());
     for (const auto& map : maps)
@@ -170,15 +167,6 @@ std::optional<FactoryInfo> make_rotate_factory(
             trajectory, limits.velocity, limits.acceleration, start_time,
             start_p, finish_p, rotation_thresh);
     }
-    else
-    {
-      // If neither finish_yaw nor child_yaw has a value, then no rotation is
-      // actually needed.
-      return {start_time, initial_yaw, {}};
-    }
-
-    if (trajectory.size() < 2)
-      return {start_time, initial_yaw, {}};
 
     const auto finish_time = *trajectory.finish_time();
     const auto finish_yaw = trajectory.back().position()[2];
@@ -256,9 +244,6 @@ make_hold_factory(
         Eigen::Vector3d::Zero());
     }
 
-    if (trajectory.size() < 2)
-      return {start_time, initial_yaw, {}};
-
     std::vector<Route> routes;
     routes.reserve(maps.size());
     for (const auto& map : maps)
@@ -275,6 +260,68 @@ make_hold_factory(
     return [factory, child_yaw](
         rmf_traffic::Time start_time,
         double initial_yaw) -> DifferentialDriveMapTypes::RouteInfo
+    {
+      return factory(start_time, initial_yaw, child_yaw);
+    };
+  };
+}
+
+//==============================================================================
+DifferentialDriveMapTypes::RouteFactoryFactory
+make_start_factory(
+  Eigen::Vector2d position,
+  std::optional<double> target_yaw,
+  KinematicLimits limits,
+  double rotation_thresh,
+  std::vector<std::string> maps)
+{
+  auto factory =
+      [p = position,
+       target_yaw,
+       maps = std::move(maps),
+       limits = limits.angular,
+       rotation_thresh](
+      Time start_time,
+      double initial_yaw,
+      std::optional<double> child_yaw)
+      -> DifferentialDriveMapTypes::RouteInfo
+  {
+    Trajectory trajectory;
+    const Eigen::Vector3d start_p = {p.x(), p.y(), initial_yaw};
+    trajectory.insert(start_time, start_p, Eigen::Vector3d::Zero());
+
+    if (target_yaw.has_value())
+    {
+      const Eigen::Vector3d finish_p = {p.x(), p.y(), *target_yaw};
+      internal::interpolate_rotation(
+        trajectory, limits.velocity, limits.acceleration,
+        start_time, start_p, finish_p, rotation_thresh);
+    }
+    else if (child_yaw.has_value())
+    {
+      const Eigen::Vector3d finish_p = {p.x(), p.y(), *child_yaw};
+      internal::interpolate_rotation(
+        trajectory, limits.velocity, limits.acceleration,
+        start_time, start_p, finish_p, rotation_thresh);
+    }
+
+    std::vector<Route> routes;
+    routes.reserve(maps.size());
+    for (const auto& map : maps)
+      routes.push_back({map, trajectory});
+
+    const auto finish_time = *trajectory.finish_time();
+    const auto finish_yaw = trajectory.back().position()[2];
+    return {finish_time, finish_yaw, std::move(routes)};
+  };
+
+  return [factory = std::move(factory)](
+      std::optional<double> child_yaw)
+      -> DifferentialDriveMapTypes::RouteFactory
+  {
+    return [factory, child_yaw](
+        const rmf_traffic::Time start_time,
+        const double initial_yaw) -> DifferentialDriveMapTypes::RouteInfo
     {
       return factory(start_time, initial_yaw, child_yaw);
     };
