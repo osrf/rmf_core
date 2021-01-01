@@ -38,7 +38,7 @@ public:
     agv::Planner::Goal goal,
     agv::Planner::Options options) const final;
 
-  std::optional<Plan> plan(State& state) const final;
+  std::optional<PlanData> plan(State& state) const final;
 
   std::vector<schedule::Itinerary> rollout(
     const Duration span,
@@ -54,7 +54,7 @@ public:
       Planner::Goal goal,
       Planner::Options options) const final;
 
-  std::optional<Plan> debug_step(Debugger& debugger) const final;
+  std::optional<PlanData> debug_step(Debugger& debugger) const final;
 
   std::optional<double> compute_heuristic(const Planner::Start& start) const;
 

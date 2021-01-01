@@ -448,9 +448,9 @@ class Plan::Implementation
 {
 public:
 
-  planning::Plan plan;
+  planning::PlanData plan;
 
-  static std::optional<Plan> make(std::optional<planning::Plan> result)
+  static std::optional<Plan> make(std::optional<planning::PlanData> result)
   {
     if (!result)
       return std::nullopt;

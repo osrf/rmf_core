@@ -39,7 +39,7 @@ struct Conditions
 //==============================================================================
 struct Issues
 {
-  using BlockedNodes = std::unordered_map<std::shared_ptr<void>, Time>;
+  using BlockedNodes = std::unordered_map<std::shared_ptr<const void>, Time>;
   using BlockerMap = std::unordered_map<schedule::ParticipantId, BlockedNodes>;
 
   BlockerMap blocked_nodes;
@@ -70,7 +70,7 @@ struct State
 };
 
 //==============================================================================
-struct Plan
+struct PlanData
 {
   std::vector<Route> routes;
   std::vector<agv::Plan::Waypoint> waypoints;
@@ -88,7 +88,7 @@ public:
     agv::Planner::Goal goal,
     agv::Planner::Options options) const = 0;
 
-  virtual std::optional<Plan> plan(State& state) const = 0;
+  virtual std::optional<PlanData> plan(State& state) const = 0;
 
   virtual std::vector<schedule::Itinerary> rollout(
     const Duration span,
@@ -119,7 +119,7 @@ public:
     Planner::Goal goal,
     Planner::Options options) const = 0;
 
-  virtual std::optional<Plan> debug_step(Debugger& debugger) const = 0;
+  virtual std::optional<PlanData> debug_step(Debugger& debugger) const = 0;
 
   virtual ~Interface() = default;
 };
