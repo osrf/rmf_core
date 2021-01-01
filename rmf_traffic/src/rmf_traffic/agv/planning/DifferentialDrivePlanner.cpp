@@ -473,6 +473,10 @@ public:
       assert(route_from_parent.back().trajectory().size() >= 2
              || start.has_value());
 
+      assert(
+        !parent
+         || (parent->get_total_cost_estimate() <= get_total_cost_estimate()));
+
       if (start.has_value())
       {
         std::cout << "making start node (" << route_from_parent.size()
@@ -789,7 +793,7 @@ public:
          top->remaining_cost_estimate,
          {std::move(route)},
          nullptr,
-         cost,
+         top->current_cost + cost,
          std::nullopt,
          top
        }));
