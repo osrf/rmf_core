@@ -96,10 +96,10 @@ public:
   using Generator = GeneratorArg;
   using Storage = typename Generator::Storage;
   using Self = Cache<Generator>;
-  using Upstream = Upstream<Generator>;
+  using Upstream_type = Upstream<Generator>;
 
   Cache(
-    std::shared_ptr<const Upstream> upstream,
+    std::shared_ptr<const Upstream_type> upstream,
     std::shared_ptr<const CacheManager<Self>> manager,
     std::function<Storage()> storage_initializer);
 
@@ -112,7 +112,7 @@ public:
   ~Cache();
 
 private:
-  std::shared_ptr<const Upstream> _upstream;
+  std::shared_ptr<const Upstream_type> _upstream;
   std::shared_ptr<const CacheManager<Self>> _manager;
   std::function<Storage()> _storage_initializer;
   mutable Storage _all_items;
@@ -127,7 +127,7 @@ public:
 
   using Storage = typename CacheArg::Storage;
   using Generator = typename CacheArg::Generator;
-  using Upstream = Upstream<Generator>;
+  using Upstream_type = Upstream<Generator>;
   using Self = CacheManager<CacheArg>;
 
   template <typename... Args>
@@ -147,7 +147,7 @@ private:
   void update(Storage new_items) const;
 
   template <typename G> friend class Cache;
-  std::shared_ptr<Upstream> _upstream;
+  std::shared_ptr<Upstream_type> _upstream;
   const std::function<Storage()> _storage_initializer;
   mutable std::mutex _update_mutex;
 };
@@ -164,10 +164,10 @@ public:
 
   using GeneratorFactory = GeneratorFactoryArg;
   using Generator = typename GeneratorFactory::Generator;
-  using Cache = Cache<Generator>;
-  using CacheManager = CacheManager<Cache>;
-  using CacheManagerPtr = std::shared_ptr<const CacheManager>;
-  using Storage = typename Cache::Storage;
+  using Cache_type = Cache<Generator>;
+  using CacheManager_type = CacheManager<Cache_type>;
+  using CacheManagerPtr = std::shared_ptr<const CacheManager_type>;
+  using Storage = typename Cache_type::Storage;
 
   CacheManagerMap(
     std::shared_ptr<const GeneratorFactory> factory,
@@ -188,8 +188,7 @@ private:
 
 //==============================================================================
 template <typename GeneratorArg>
-Cache<GeneratorArg>::Cache(
-  std::shared_ptr<const Upstream> upstream,
+Cache<GeneratorArg>::Cache(std::shared_ptr<const Upstream_type> upstream,
   std::shared_ptr<const CacheManager<Self>> manager,
   std::function<Storage()> storage_initializer)
 : _upstream(std::move(upstream)),
@@ -235,7 +234,7 @@ CacheManager<CacheArg>::CacheManager(
   std::shared_ptr<const Generator> generator,
   std::function<Storage()> storage_initializer)
 : _upstream(
-    std::make_shared<Upstream>(storage_initializer, std::move(generator))),
+    std::make_shared<Upstream_type>(storage_initializer, std::move(generator))),
   _storage_initializer(std::move(storage_initializer))
 {
   // Do nothing
@@ -282,7 +281,7 @@ auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
   auto& manager = it.first->second;
   if (manager == nullptr)
   {
-    manager = CacheManager::make(
+    manager = CacheManager_type::make(
           _generator_factory->make(goal_index),
           _storage_initializer);
   }
