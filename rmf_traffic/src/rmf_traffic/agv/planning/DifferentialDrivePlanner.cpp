@@ -265,7 +265,7 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
 
   // We exclude the first node in the sequence, because it contains an empty
   // route which is not helpful.
-  std::cout << " ================= " << std::endl;
+//  std::cout << " ================= " << std::endl;
   const auto initial_time = *node_sequence.back()->route_from_parent.front().trajectory().start_time();
   const std::size_t N =  node_sequence.size();
   const std::size_t stop = node_sequence.size()-1;
@@ -274,43 +274,43 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
     const std::size_t n = N-2-i;
     const auto& node = node_sequence.at(n);
     auto& index = indexing.at(n);
-    std::cout << "Checking node " << n
-              << ": " << node->route_from_parent.size()
-              << " (has start: " << node->start.has_value() << ")";
+//    std::cout << "Checking node " << n
+//              << ": " << node->route_from_parent.size()
+//              << " (has start: " << node->start.has_value() << ")";
 
-    if (node->start.has_value())
-      std::cout << " location: " << node->start->location()->transpose();
+//    if (node->start.has_value())
+//      std::cout << " location: " << node->start->location()->transpose();
 
-    if (node->waypoint.has_value())
-      std::cout << " waypoint: " << node->waypoint.value();
-    else
-      std::cout << " waypoint: nullopt";
+//    if (node->waypoint.has_value())
+//      std::cout << " waypoint: " << node->waypoint.value();
+//    else
+//      std::cout << " waypoint: nullopt";
 
 
-    std::cout << std::endl;
+//    std::cout << std::endl;
 
     for (const Route& next_route : node->route_from_parent)
     {
 //      assert(next_route.trajectory().size() >= 2);
       Route& last_route = routes.back();
-      std::cout << " > Checking route: " << next_route.trajectory().size() << std::endl;
+//      std::cout << " > Checking route: " << next_route.trajectory().size() << std::endl;
       if (next_route.map() == last_route.map())
       {
         for (const auto& waypoint : next_route.trajectory())
         {
-          const auto t = time::to_seconds(waypoint.time() - initial_time);
-          std::cout << "Inserting waypoint (" << t << ") " << waypoint.position().transpose() << std::endl;
+//          const auto t = time::to_seconds(waypoint.time() - initial_time);
+//          std::cout << "Inserting waypoint (" << t << ") " << waypoint.position().transpose() << std::endl;
           last_route.trajectory().insert(waypoint);
         }
       }
       else
       {
-        std::cout << "Inserting route:" << std::endl;
-        for (const auto& wp : next_route.trajectory())
-        {
-          const auto t = time::to_seconds(wp.time() - initial_time);
-          std::cout << " -- (" << t << ") " << wp.position().transpose() << std::endl;
-        }
+//        std::cout << "Inserting route:" << std::endl;
+//        for (const auto& wp : next_route.trajectory())
+//        {
+//          const auto t = time::to_seconds(wp.time() - initial_time);
+//          std::cout << " -- (" << t << ") " << wp.position().transpose() << std::endl;
+//        }
         routes.push_back(next_route);
       }
 
@@ -318,31 +318,32 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
       index.itinerary_index = routes.size() - 1;
       assert(!routes.back().trajectory().empty());
       index.trajectory_index = routes.back().trajectory().size() - 1;
+      assert(routes.back().trajectory().back().time() == node->time);
 
-      if (routes.back().trajectory().back().time() != node->time)
-      {
-        std::cout << "TRAJECTORY INDEX ISSUE: "
-                  << time::to_seconds(routes.back().trajectory().back().time() - initial_time)
-                  << " vs " << time::to_seconds(node->time - initial_time) << std::endl;
-      }
+//      if (routes.back().trajectory().back().time() != node->time)
+//      {
+//        std::cout << "TRAJECTORY INDEX ISSUE: "
+//                  << time::to_seconds(routes.back().trajectory().back().time() - initial_time)
+//                  << " vs " << time::to_seconds(node->time - initial_time) << std::endl;
+//      }
     }
   }
 
-  for (const auto& r : routes)
-  {
-    for (const auto& n : node_sequence)
-    {
-      std::cout << "{" << n->event << "} ";
-      if (n->waypoint.has_value())
-        std::cout << "[" << *n->waypoint << "] ";
-      else
-        std::cout << "[nullopt] ";
+//  for (const auto& r : routes)
+//  {
+//    for (const auto& n : node_sequence)
+//    {
+//      std::cout << "{" << n->event << "} ";
+//      if (n->waypoint.has_value())
+//        std::cout << "[" << *n->waypoint << "] ";
+//      else
+//        std::cout << "[nullopt] ";
 
-      std::cout << "<" << n->position.transpose() << ", " << n->yaw << "> <-- ";
-    }
-    std::cout << std::endl;
-    assert(r.trajectory().size() >= 2);
-  }
+//      std::cout << "<" << n->position.transpose() << ", " << n->yaw << "> <-- ";
+//    }
+//    std::cout << std::endl;
+//    assert(r.trajectory().size() >= 2);
+//  }
 
   return {routes, indexing};
 }
@@ -452,11 +453,6 @@ public:
       return orientation;
     }
 
-
-    const std::size_t __line__;
-    const std::size_t __count__;
-
-
     SearchNode(
       std::optional<std::size_t> waypoint_,
       Eigen::Vector2d position_,
@@ -468,8 +464,7 @@ public:
       Graph::Lane::EventPtr event_,
       double current_cost_,
       std::optional<Planner::Start> start_,
-      SearchNodePtr parent_,
-      std::size_t line)
+      SearchNodePtr parent_)
     : waypoint(waypoint_),
       position(position_),
       yaw(yaw_),
@@ -480,50 +475,63 @@ public:
       event(event_),
       current_cost(current_cost_),
       start(std::move(start_)),
-      parent(std::move(parent_)),
-      __line__(line),
-      __count__(counter++)
+      parent(std::move(parent_))
     {
-//      std::cout << " >> Making node " << __count__ << ": " << get_total_cost_estimate() << std::endl;
+//      std::cout << " >> Making node " << __count__ << ": " << get_total_cost_estimate()
+//                << " = " << current_cost << " + " << remaining_cost_estimate << std::endl;
 
       assert(!route_from_parent.empty());
 //      assert(route_from_parent.back().trajectory().size() >= 2
 //             || start.has_value());
 
-      if (parent && (parent->get_total_cost_estimate() > get_total_cost_estimate() + 1e-6))
-      {
-        std::cout << "Inadmissible expansion! " << parent->get_total_cost_estimate()
-                  << " --> " << get_total_cost_estimate() << std::endl;
-      }
-      assert(
-        !parent
+//      if (parent && (parent->get_total_cost_estimate() > get_total_cost_estimate() + 1e-3))
+//      {
+//        std::cout << "Inadmissible expansion! "
+//                  << parent->current_cost << " + "
+//                  << parent->remaining_cost_estimate << " = "
+//                  << parent->get_total_cost_estimate()
+//                  << " --> "
+//                  << current_cost << " + "
+//                  << remaining_cost_estimate << " = "
+//                  << get_total_cost_estimate()
+//                  << " | Diff: "
+//                  << parent->get_total_cost_estimate() - get_total_cost_estimate()
+//                  << std::endl;
+
+//        std::cout << "Yaw: " << parent->yaw*180.0/M_PI << " --> "
+//                  << yaw*180.0/M_PI << " | Trans: (" << parent->position.transpose()
+//                  << ") --> (" << position.transpose() << ") <"
+//                  << (parent->position - position).norm() << ">" << std::endl;
+//      }
+//      assert(
+//        !parent
 //         || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1e-6));
-          || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1.0));
+//          || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1.0));
 
-      if (start.has_value())
-      {
-        std::cout << "making start node (" << route_from_parent.size()
-                  << "):";
-        for (const auto& r : route_from_parent)
-          std::cout << " " << r.trajectory().size();
-        std::cout << std::endl;
+//      if (start.has_value())
+//      {
+//        std::cout << "making start node (" << route_from_parent.size()
+//                  << "):";
+//        for (const auto& r : route_from_parent)
+//          std::cout << " " << r.trajectory().size();
+//        std::cout << std::endl;
 
-        std::cout << " -- [";
-        if (waypoint)
-          std::cout << waypoint.value();
-        else
-          std::cout << "nullopt";
+//        std::cout << " -- [";
+//        if (waypoint)
+//          std::cout << waypoint.value();
+//        else
+//          std::cout << "nullopt";
 
-        std::cout << ":" << start->waypoint() << "] -- <"
-                  << position.transpose() << "; " << yaw << "> vs <";
+//        std::cout << ":" << start->waypoint() << "] -- <"
+//                  << position.transpose() << "; " << yaw << "> vs <";
 
-        if (start->location().has_value())
-          std::cout << start->location()->transpose();
-        else
-          std::cout << "nullopt";
+//        if (start->location().has_value())
+//          std::cout << start->location()->transpose();
+//        else
+//          std::cout << "nullopt";
 
-        std::cout << "; " << start->orientation() << ">" << std::endl;
-      }
+//        std::cout << "; " << start->orientation() << ">" << std::endl;
+//      }
     }
 
     static std::size_t counter;
@@ -715,8 +723,7 @@ public:
           exit_event,
           top->current_cost + approach_cost,
           std::nullopt,
-          top,
-          __LINE__
+          top
         });
 
       if (exit_event)
@@ -733,8 +740,7 @@ public:
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node,
-            __LINE__
+            node
           });
       }
 
@@ -775,8 +781,7 @@ public:
               nullptr,
               top->current_cost + hold_cost,
               start,
-              top,
-              __LINE__
+              top
             }));
   }
 
@@ -818,8 +823,7 @@ public:
          nullptr,
          top->current_cost + cost,
          std::nullopt,
-         top,
-         __LINE__
+         top
        }));
   }
 
@@ -863,8 +867,7 @@ public:
         nullptr,
         top->current_cost + cost,
         std::nullopt,
-        top,
-        __LINE__
+        top
       });
   }
 
@@ -895,7 +898,6 @@ public:
   void expand_traversal(
       const SearchNodePtr& top,
       const Traversal& traversal,
-      const ConstTraversalsPtr& traversals,
       SearchQueue& queue) const
   {
     const auto initial_waypoint_index = top->waypoint.value();
@@ -1045,6 +1047,10 @@ public:
 //                << "Approach: " << approach_cost << " | Entry: " << entry_event_cost
 //                << " | Alt: " << alt->time << " | Exit: " << exit_event_cost
 //                << std::endl;
+//      std::cout << "Previous cost " << top->current_cost << " + Cost "
+//                << approach_cost + entry_event_cost + alt->time + exit_event_cost
+//                << " = " << top->current_cost + approach_cost + entry_event_cost + alt->time + exit_event_cost
+//                << std::endl;
 
       auto exit_event_route =
         Route{
@@ -1080,8 +1086,7 @@ public:
             traversal.entry_event,
             node->current_cost + cost,
             std::nullopt,
-            node,
-            __LINE__
+            node
           });
       }
 
@@ -1099,8 +1104,7 @@ public:
             nullptr,
             node->current_cost + entry_event_cost,
             std::nullopt,
-            node,
-            __LINE__
+            node
           });
       }
 
@@ -1116,8 +1120,7 @@ public:
           traversal.exit_event,
           node->current_cost + alt->time,
           std::nullopt,
-          node,
-          __LINE__
+          node
         });
 
       if (traversal.exit_event && exit_event_route.trajectory().size() >= 2)
@@ -1134,8 +1137,7 @@ public:
             nullptr,
             node->current_cost + exit_event_cost,
             std::nullopt,
-            node,
-                __LINE__
+            node
           });
       }
 
@@ -1185,32 +1187,31 @@ public:
             solution_root->info.event,
             search_node->current_cost + cost,
             std::nullopt,
-            search_node,
-            __LINE__
+            search_node
           });
       }
 
       auto solution_node = solution_root->child;
-      std::cout << "Free solution: ";
+//      std::cout << "Free solution: ";
 
       while (solution_node)
       {
         assert(solution_node->route_factory);
 
-        std::cout << "(" << search_node->current_cost << "; ";
-        if (search_node->waypoint.has_value())
-          std::cout << top->waypoint.value();
-        else
-          std::cout << "null";
+//        std::cout << "(" << search_node->current_cost << "; ";
+//        if (search_node->waypoint.has_value())
+//          std::cout << top->waypoint.value();
+//        else
+//          std::cout << "null";
 
-        std::cout << ", " << search_node->yaw << ") ";
-        if (solution_node->info.entry.has_value())
-          std::cout << *solution_node->info.entry;
-        else
-          std::cout << "[null]";
+//        std::cout << ", " << search_node->yaw << ") ";
+//        if (solution_node->info.entry.has_value())
+//          std::cout << *solution_node->info.entry;
+//        else
+//          std::cout << "[null]";
 
-        std::cout << " <" << solution_node->info.cost_from_parent
-                  << " : " << solution_node->info.remaining_cost_estimate << "> --> ";
+//        std::cout << " <" << solution_node->info.cost_from_parent
+//                  << " : " << solution_node->info.remaining_cost_estimate << "> --> ";
 
         auto route_info = solution_node->route_factory(
               search_node->time, search_node->yaw);
@@ -1231,13 +1232,12 @@ public:
             solution_node->info.event,
             search_node->current_cost + solution_node->info.cost_from_parent,
             std::nullopt,
-            search_node,
-            __LINE__
+            search_node
           });
 
         solution_node = solution_node->child;
       }
-      std::cout << std::endl;
+//      std::cout << std::endl;
 
       queue.push(search_node);
     }
@@ -1280,7 +1280,7 @@ public:
 
     const auto traversals = _supergraph->traversals_from(current_wp_index);
     for (const auto& traversal : *traversals)
-      expand_traversal(top, traversal, traversals, queue);
+      expand_traversal(top, traversal, queue);
   }
 
   struct ApproachInfo
@@ -1425,7 +1425,7 @@ public:
 
       if (!lowest_cost_estimate.has_value())
       {
-        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
+//        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
         // If this happens, the heuristic found that there is simply no path
         // from this start to the goal, so we return a nullptr.
         return nullptr;
@@ -1455,7 +1455,7 @@ public:
 
       if (!heuristic_cost_estimate.has_value())
       {
-        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
+//        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
         // If this happens, the heuristic found that there is simply no path
         // from this start to the goal, so we return a nullptr.
         return nullptr;
@@ -1485,8 +1485,7 @@ public:
             nullptr,
             0.0,
             start,
-            nullptr,
-            __LINE__
+            nullptr
           });
   }
 

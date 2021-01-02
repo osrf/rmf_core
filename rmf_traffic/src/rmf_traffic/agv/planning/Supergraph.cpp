@@ -113,9 +113,9 @@ void node_to_traversals(
   traversal.maps = std::vector<std::string>(
         node.map_names.begin(), node.map_names.end());
 
-  std::cout << "Traversal [" << traversal.initial_lane_index << "] -> ("
-            << traversal.finish_lane_index << "): entry event {"
-            << traversal.entry_event << "}" << std::endl;
+//  std::cout << "Traversal [" << traversal.initial_lane_index << "] -> ("
+//            << traversal.finish_lane_index << "): entry event {"
+//            << traversal.entry_event << "}" << std::endl;
   if (node.entry_event)
   {
     traversal.entry_event = node.entry_event->clone();
@@ -183,8 +183,8 @@ void node_to_traversals(
     alternative.time = time;
     alternative.routes = std::move(factory_info.factory);
 
-    std::cout << "SUPERGRAPH " << DifferentialDriveMapTypes::Entry{traversal.initial_lane_index, Orientation(i), Side::Start}
-              << " (" << traversal.finish_waypoint_index << "): " << time << std::endl;
+//    std::cout << "SUPERGRAPH " << DifferentialDriveMapTypes::Entry{traversal.initial_lane_index, Orientation(i), Side::Start}
+//              << " (" << traversal.finish_waypoint_index << "): " << time << std::endl;
 
     if (!best_trajectory_time.has_value() || time < *best_trajectory_time)
       best_trajectory_time = time;
@@ -262,8 +262,8 @@ void perform_traversal(
 
     if (const auto* entry_event = entry.event())
     {
-      std::cout << "Cloning entry event for [" << lane_index << "]: {"
-                << entry_event << "}" << std::endl;
+//      std::cout << "Cloning entry event for [" << lane_index << "]: {"
+//                << entry_event << "}" << std::endl;
       node.entry_event = entry_event->clone();
     }
   }
@@ -347,13 +347,13 @@ void perform_traversal(
 
   if (exit_event)
   {
-    std::cout <<  "Stopping due to exit event" << std::endl;
+//    std::cout <<  "Stopping due to exit event" << std::endl;
     // If this lane has an exit event, then we need to stop the traversal here,
     // so it does not get added to the queue.
     return;
   }
 
-  std::cout << "Pushing for further expansion" << std::endl;
+//  std::cout << "Pushing for further expansion" << std::endl;
   queue.push_back(std::move(node));
 }
 
@@ -496,7 +496,7 @@ ConstTraversalsPtr TraversalGenerator::generate(
   std::unordered_set<std::size_t> visited;
   visited.insert(waypoint_index);
 
-  std::cout << " -- Generating for " << waypoint_index << std::endl;
+//  std::cout << " -- Generating for " << waypoint_index << std::endl;
   for (const auto l : initial_lanes)
     initiate_traversal(l, graph, _kinematics, queue, output, visited);
 

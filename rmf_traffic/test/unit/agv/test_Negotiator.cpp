@@ -2635,7 +2635,7 @@ SCENARIO("fan-in-fan-out bottleneck")
       // We don't run this test in debug mode because it takes a long time
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions, 2.3).print().solve();
+        auto proposal = NegotiationRoom(database, intentions, 2.3)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =

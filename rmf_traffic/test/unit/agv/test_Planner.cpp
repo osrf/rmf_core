@@ -247,32 +247,6 @@ void test_ignore_obstacle(
   REQUIRE(new_plan->get_itinerary().size() == 1);
   CHECK(new_plan->get_itinerary().front().trajectory().duration()
     == original_result->get_itinerary().front().trajectory().duration());
-
-  const auto& wps_0 = original_result->get_waypoints();
-  const auto& wps_1 = new_plan->get_waypoints();
-  const auto initial_time = wps_0.front().time();
-  for (std::size_t i=0; i < std::max(wps_0.size(), wps_1.size()); ++i)
-  {
-    for (const auto& wps : {wps_0, wps_1})
-    {
-      if (wps.size() <= i)
-        continue;
-
-      std::cout << "(";
-      std::cout << rmf_traffic::time::to_seconds(wps[i].time() - initial_time) << "; ";
-      if (wps[i].graph_index().has_value())
-        std::cout << *wps[i].graph_index();
-      else
-        std::cout << "null";
-      std::cout  << ", " << wps[i].position()[2];
-      std::cout << ") ";
-    }
-
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-
-
   REQUIRE(new_plan->get_waypoints().size()
     == original_result->get_waypoints().size());
 
@@ -2179,19 +2153,6 @@ SCENARIO("Graph with door", "[door]")
     rmf_traffic::agv::Planner::Start(start_time, 1, 0.0),
     rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_with_door_open);
-
-  for (const auto& wp : plan_with_door_open->get_waypoints())
-  {
-    std::cout << "(";
-    std::cout << rmf_traffic::time::to_seconds(wp.time() - start_time) << "; ";
-    if (wp.graph_index().has_value())
-      std::cout << *wp.graph_index();
-    else
-      std::cout << "null";
-    std::cout  << ", " << wp.position()[2];
-    std::cout << ") | event: " << wp.event() << std::endl;
-  }
-
   REQUIRE(plan_with_door_open->get_itinerary().size() == 1);
   CHECK(count_events(*plan_with_door_open) == 1);
   CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open));
@@ -2769,17 +2730,6 @@ SCENARIO("Multilevel Planning")
     const auto goal = rmf_traffic::agv::Planner::Goal(2);
     const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
-
-    std::cout << "=============Plan:\n";
-    for (const auto& wp : plan->get_waypoints())
-    {
-      if (wp.graph_index().has_value())
-        std::cout << " -- " << *wp.graph_index();
-      else
-        std::cout << " -- null";
-      std::cout << " <" << wp.position().transpose() << ">: "
-                << wp.event() << std::endl;
-    }
     CHECK_PLAN(plan, {-5, 0}, 0.0, {0, -5}, {0, 1, 2});
   }
 
@@ -2810,17 +2760,6 @@ SCENARIO("Multilevel Planning")
     const auto goal = rmf_traffic::agv::Planner::Goal(3);
     const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
-
-    std::cout << "=============Plan:\n";
-    for (const auto& wp : plan->get_waypoints())
-    {
-      if (wp.graph_index().has_value())
-        std::cout << " -- " << *wp.graph_index();
-      else
-        std::cout << " -- null";
-      std::cout << " <" << wp.position().transpose() << ">: "
-                << wp.event() << std::endl;
-    }
     CHECK_PLAN(plan, {-5, 0}, 0.0, {5, -5}, {0, 1, 2, 3});
   }
 
@@ -2858,17 +2797,6 @@ SCENARIO("Multilevel Planning")
     const auto goal = rmf_traffic::agv::Planner::Goal(5);
     const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
-
-    std::cout << "=============Plan:\n";
-    for (const auto& wp : plan->get_waypoints())
-    {
-      if (wp.graph_index().has_value())
-        std::cout << " -- " << *wp.graph_index();
-      else
-        std::cout << " -- null";
-      std::cout << " <" << wp.position().transpose() << ">: "
-                << wp.event() << std::endl;
-    }
     CHECK_PLAN(plan, {-5, 0}, 0.0, {10, -10}, {0, 1, 2, 3, 4, 5});
   }
 
@@ -2949,17 +2877,6 @@ SCENARIO("Multilevel Planning")
     const auto goal = rmf_traffic::agv::Planner::Goal(5);
     const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
-
-    std::cout << "=============Plan:\n";
-    for (const auto& wp : plan->get_waypoints())
-    {
-      if (wp.graph_index().has_value())
-        std::cout << " -- " << *wp.graph_index();
-      else
-        std::cout << " -- null";
-      std::cout << " <" << wp.position().transpose() << ">: "
-                << wp.event() << std::endl;
-    }
     CHECK_PLAN(plan, {-5, 0}, 0.0, {5, 5}, {0, 1, 2, 4, 5});
     CHECK(count_events(*plan) == 5);
     CHECK(has_event(ExpectEvent::LiftSessionBegin, *plan));
@@ -3007,19 +2924,6 @@ SCENARIO("Multilevel Planning")
     const auto goal = rmf_traffic::agv::Planner::Goal(4);
     const auto plan = planner.plan(start, goal);
     REQUIRE(plan.success());
-
-    std::cout << "=============Plan:\n";
-    for (const auto& wp : plan->get_waypoints())
-    {
-      std::cout << " -- (" << rmf_traffic::time::to_seconds(wp.time() - time)
-                << ") ";
-      if (wp.graph_index().has_value())
-        std::cout << *wp.graph_index();
-      else
-        std::cout << "null";
-      std::cout << " <" << wp.position().transpose() << ">: "
-                << wp.event() << std::endl;
-    }
     CHECK_PLAN(plan, {-5, 0}, 0.0, {-10, 0}, {0, 1, 2, 3, 4});
     CHECK(count_events(*plan) == 6);
     CHECK(has_event(ExpectEvent::LiftSessionBegin, *plan));

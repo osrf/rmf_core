@@ -251,11 +251,11 @@ public:
         double entry_cost = 0.0;
         if (oriented_top != top)
           entry_cost = oriented_top->info.cost_from_parent;
-        std::cout << "HEURISTIC " << finish_entry
-                  << " (" << top->info.waypoint << " -> " << traversal.finish_waypoint_index
-                  << "): " << entry_cost << ", " << alt->time << ", "
-                  << exit_event_duration << " (" << i << ":" << &alt << ":" << &traversal
-                  << ":" << traversals << ")" << std::endl;
+//        std::cout << "HEURISTIC " << finish_entry
+//                  << " (" << top->info.waypoint << " -> " << traversal.finish_waypoint_index
+//                  << "): " << entry_cost << ", " << alt->time << ", "
+//                  << exit_event_duration << " (" << i << ":" << &alt << ":" << &traversal
+//                  << ":" << traversals << ")" << std::endl;
 
 //        std::cout << __LINE__ << " pushing traversal: ("
 //                  << new_node->info.waypoint << ", " << new_node->info.yaw.value_or(std::nan("")) << ") | ";
@@ -591,7 +591,7 @@ auto DifferentialDriveHeuristic::generate(
   const auto search = a_star_search(expander, queue);
   if (!search)
   {
-    std::cout << "NO SOLUTION FOR " << key << std::endl;
+//    std::cout << "NO SOLUTION FOR " << key << std::endl;
     new_items.insert({key, nullptr});
     return nullptr;
   }
@@ -602,23 +602,23 @@ auto DifferentialDriveHeuristic::generate(
   SolutionNodePtr solution = nullptr;
 
 
-  std::cout << "Stashing solutions for " << key << std::endl;
+//  std::cout << "Stashing solutions for " << key << std::endl;
   while (goal_node)
   {
-    std::cout << "Looking at ";
-    if (goal_node->info.entry.has_value())
-      std::cout  << *goal_node->info.entry;
-    else
-      std::cout << "nullopt";
-    std::cout << std::endl;
+//    std::cout << "Looking at ";
+//    if (goal_node->info.entry.has_value())
+//      std::cout  << *goal_node->info.entry;
+//    else
+//      std::cout << "nullopt";
+//    std::cout << std::endl;
     while (goal_node &&
            (!goal_node->info.entry.has_value()
             || goal_node->info.entry->side == Side::Start))
     {
-      if (goal_node->info.entry.has_value())
-        std::cout << "Skipping " << *goal_node->info.entry << std::endl;
-      else
-        std::cout << "Skipping nullopt" << std::endl;
+//      if (goal_node->info.entry.has_value())
+//        std::cout << "Skipping " << *goal_node->info.entry << std::endl;
+//      else
+//        std::cout << "Skipping nullopt" << std::endl;
       // Keep moving goal_node forward until it has entry info on the finish
       // side of a lane.
       goal_node = goal_node->parent;
@@ -660,17 +660,17 @@ auto DifferentialDriveHeuristic::generate(
           goal_entry.lane, goal_entry.orientation
         };
 
-        std::cout << " << stashing " << node << " -> " << goal_node << " ["
-                  << new_key.start_lane << ", "
-                  << new_key.start_orientation << ", "
-                  << new_key.start_side << ", "
-                  << new_key.goal_lane << ", "
-                  << new_key.goal_orientation << "]: ("
-                  << solution->info.waypoint << ", "
-                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
-                  << goal_node->info.waypoint << ", "
-                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
-                  << solution->info.remaining_cost_estimate << std::endl;
+//        std::cout << " << stashing " << node << " -> " << goal_node << " ["
+//                  << new_key.start_lane << ", "
+//                  << new_key.start_orientation << ", "
+//                  << new_key.start_side << ", "
+//                  << new_key.goal_lane << ", "
+//                  << new_key.goal_orientation << "]: ("
+//                  << solution->info.waypoint << ", "
+//                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
+//                  << goal_node->info.waypoint << ", "
+//                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
+//                  << solution->info.remaining_cost_estimate << std::endl;
 
         // TODO(MXG): Add a bool field to SearchNode to indicate whether it is
         // newly generated or pulled from a previous solution. Then we can skip
@@ -688,7 +688,7 @@ auto DifferentialDriveHeuristic::generate(
 
     goal_node = goal_node->parent;
   }
-  std::cout << "Done stashing" << std::endl;
+//  std::cout << "Done stashing" << std::endl;
 
   return output;
 }
@@ -761,6 +761,7 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
 //      cost += time::to_seconds(internal::estimate_rotation_time(
 //            _w_nom, _alpha_nom, yaw, *target_yaw, _rotation_threshold));
 
+//      std::cout << "{" << target_yaw.value()*180.0/M_PI << "} ";
       yaw_cost = time::to_seconds(internal::estimate_rotation_time(
             _w_nom, _alpha_nom, yaw, *target_yaw, _rotation_threshold));
       cost += yaw_cost;
@@ -785,6 +786,7 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
 
 //  if (best_solution)
 //  {
+//    std::cout << "Best heuristic estimate: " << *best_cost << std::endl;
 //    std::cout << "Ideal solution (" << best_solution->info.remaining_cost_estimate
 //              << "): ";
 //  }
@@ -800,6 +802,11 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
 //    }
 //    else
 //      std::cout << "[nullopt]";
+
+//    if (best_solution->info.yaw.has_value())
+//      std::cout << " {" << best_solution->info.yaw.value()*180.0/M_PI << "}";
+//    else
+//      std::cout << " {null}";
 
 //    std::cout << " " << best_solution->info.remaining_cost_estimate
 //              << " --> ";
@@ -828,11 +835,11 @@ auto DifferentialDriveHeuristicAdapter::compute(Entry start) const
       goal_entry.orientation
     };
 
-    std::cout << "Checking solution for " << key << std::endl;
+//    std::cout << "Checking solution for " << key << std::endl;
     const auto solution = _cache.get(key);
     if (!solution)
     {
-      std::cout << " == No solution for " << key << std::endl;
+//      std::cout << " == No solution for " << key << std::endl;
       continue;
     }
 

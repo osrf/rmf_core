@@ -57,34 +57,7 @@ bool compare_routes(
   const rmf_traffic::Route& a,
   const rmf_traffic::Route& b)
 {
-  const auto initial_time =
-      std::min(*a.trajectory().start_time(), *b.trajectory().start_time());
-
-  std::cout << "[" << a.map() << "] | [" << b.map() << "]" << std::endl;
-
-//  if (a.trajectory().size() != b.trajectory().size())
-  {
-    for (std::size_t i=0; i < std::max(a.trajectory().size(), b.trajectory().size()); ++i)
-    {
-      std::vector<const rmf_traffic::Trajectory::Waypoint*> wps;
-      if (i < a.trajectory().size())
-        wps.push_back(&a.trajectory()[i]);
-      if (i < b.trajectory().size())
-        wps.push_back(&b.trajectory()[i]);
-
-      for (const auto& wp : wps)
-      {
-        std::cout << "(" << rmf_traffic::time::to_seconds(wp->time() - initial_time)
-                  << "; " << wp->position().transpose() << "; "
-                  << wp->velocity().transpose() << ")  |  ";
-      }
-
-      std::cout << std::endl;
-    }
-    std::cout << " -- " << std::endl;
-  }
-
-  REQUIRE(a.map() == b.map());
+  CHECK(a.map() == b.map());
   REQUIRE(a.trajectory().size() == b.trajectory().size());
 
   bool all_correct = a.map() == b.map();
@@ -366,7 +339,6 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
     CHECK(compare_plan(traits, initial_position, actions, solution));
   }
 
-  std::cout << " vvvvvvvvvvvvvv BEGIN vvvvvvvvvvvvvvvvvvv" << std::endl;
   {
     const Key key{1, Ori::Backward, Side::Start, 119, Ori::Forward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
