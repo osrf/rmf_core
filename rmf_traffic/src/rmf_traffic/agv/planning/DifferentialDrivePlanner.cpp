@@ -332,13 +332,13 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
   {
     for (const auto& n : node_sequence)
     {
+      std::cout << "{" << n->event << "} ";
       if (n->waypoint.has_value())
         std::cout << "[" << *n->waypoint << "] ";
       else
         std::cout << "[nullopt] ";
 
-      std::cout << n->position.transpose() << ", " << n->yaw
-                << " <-- ";
+      std::cout << "<" << n->position.transpose() << ", " << n->yaw << "> <-- ";
     }
     std::cout << std::endl;
     assert(r.trajectory().size() >= 2);
@@ -484,20 +484,21 @@ public:
       __line__(line),
       __count__(counter++)
     {
-      std::cout << " >> Making node " << __count__ << ": " << get_total_cost_estimate() << std::endl;
+//      std::cout << " >> Making node " << __count__ << ": " << get_total_cost_estimate() << std::endl;
 
       assert(!route_from_parent.empty());
 //      assert(route_from_parent.back().trajectory().size() >= 2
 //             || start.has_value());
 
-      if (parent && (parent->get_total_cost_estimate() > get_total_cost_estimate()))
+      if (parent && (parent->get_total_cost_estimate() > get_total_cost_estimate() + 1e-6))
       {
         std::cout << "Inadmissible expansion! " << parent->get_total_cost_estimate()
                   << " --> " << get_total_cost_estimate() << std::endl;
       }
       assert(
         !parent
-         || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1e-6));
+//         || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1e-6));
+          || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1.0));
 
       if (start.has_value())
       {
@@ -609,10 +610,10 @@ public:
     // If this start node did not have a waypoint, then it must have a location
     assert(start.location().has_value());
 
-    const auto approach_trajectories = make_start_approach_trajectories(
+    const auto approach_info = make_start_approach_trajectories(
           top->start.value(), top->current_cost);
 
-    if (approach_trajectories.empty())
+    if (approach_info.trajectories.empty())
     {
       // This means there are no valid ways to approach the start. We should
       // just give up on expanding from this node.
@@ -650,7 +651,7 @@ public:
       map_names.push_back(wp.get_map_name());
     }
 
-    for (const auto& approach_trajectory : approach_trajectories)
+    for (const auto& approach_trajectory : approach_info.trajectories)
     {
       std::vector<Route> approach_routes;
       bool all_valid = true;
@@ -913,8 +914,14 @@ public:
     for (std::size_t i = 0; i < traversal.alternatives.size(); ++i)
     {
       const auto& alt = traversal.alternatives[i];
+//      std::cout << "Expanding from " << top->waypoint.value()
+//                << " -> " << traversal.finish_waypoint_index << " | "
+//                << Orientation(i) << " {" << traversal.entry_event << "}" << std::endl;
       if (!alt.has_value())
+      {
+//        std::cout << " ==== nullopt alternative" << std::endl;
         continue;
+      }
 
       const Orientation orientation = Orientation(i);
 
@@ -946,7 +953,10 @@ public:
         };
 
       if (!is_valid(top, approach_route))
+      {
+//        std::cout << " ==== Invalid approach route" << std::endl;
         continue;
+      }
 
       Trajectory entry_event_trajectory;
       const auto& approach_wp = approach_route.trajectory().back();
@@ -970,7 +980,10 @@ public:
         };
 
       if (!is_valid(top, entry_event_route))
+      {
+//        std::cout << " ==== Invalid entry event route" << std::endl;
         continue;
+      }
 
       const auto& ready_wp = entry_event_route.trajectory().back();
       const auto ready_time = ready_wp.time();
@@ -988,21 +1001,27 @@ public:
       }
 
       if (!all_valid)
+      {
+//        std::cout << " ==== Invalid traversal" << std::endl;
         continue;
+      }
 
-      std::cout << " --------" << std::endl;
+//      std::cout << " --------" << std::endl;
       const auto remaining_cost_estimate = _heuristic.compute(
             next_waypoint_index, traversal_result.finish_yaw);
 
-      std::cout << "Traversal (" << initial_waypoint_index << ", " << initial_yaw*180.0/M_PI << ") --> ("
-                << next_waypoint_index << ", " << traversal_result.finish_yaw*180.0/M_PI << ") "
-                << orientation << " (" << i << ":" << &alt << ":" << &traversal
-                << ":" << traversals << ")" << std::endl;
-      std::cout << "Traversal yaw: " << traversal_yaw.value_or(std::nan(""))*180./M_PI
-                << " | Result yaw: " << traversal_result.finish_yaw*180.0/M_PI  << std::endl;
+//      std::cout << "Traversal (" << initial_waypoint_index << ", " << initial_yaw*180.0/M_PI << ") --> ("
+//                << next_waypoint_index << ", " << traversal_result.finish_yaw*180.0/M_PI << ") "
+//                << orientation << " (" << i << ":" << &alt << ":" << &traversal
+//                << ":" << traversals << ")" << std::endl;
+//      std::cout << "Traversal yaw: " << traversal_yaw.value_or(std::nan(""))*180./M_PI
+//                << " | Result yaw: " << traversal_result.finish_yaw*180.0/M_PI  << std::endl;
 
       if (!remaining_cost_estimate.has_value())
+      {
+//        std::cout << " ==== nullopt heuristic" << std::endl;
         continue;
+      }
 
       const auto& arrival_wp =
           traversal_result.routes.back().trajectory().back();
@@ -1022,10 +1041,10 @@ public:
               arrival_wp.position(), Eigen::Vector3d::Zero());
       }
 
-      std::cout << "Cost " << approach_cost + entry_event_cost + alt->time + exit_event_cost << " = "
-                << "Approach: " << approach_cost << " | Entry: " << entry_event_cost
-                << " | Alt: " << alt->time << " | Exit: " << exit_event_cost
-                << std::endl;
+//      std::cout << "Cost " << approach_cost + entry_event_cost + alt->time + exit_event_cost << " = "
+//                << "Approach: " << approach_cost << " | Entry: " << entry_event_cost
+//                << " | Alt: " << alt->time << " | Exit: " << exit_event_cost
+//                << std::endl;
 
       auto exit_event_route =
         Route{
@@ -1034,11 +1053,15 @@ public:
         };
 
       if (!is_valid(top, exit_event_route))
+      {
+//        std::cout << " ==== invalid exit event" << std::endl;
         continue;
+      }
 
       auto node = top;
       if (approach_route.trajectory().size() >= 2 || traversal.entry_event)
       {
+//        std::cout << " -- Adding approach {" << traversal.entry_event << std::endl;
         const double cost =
             time::to_seconds(approach_route.trajectory().duration());
         const double yaw = approach_wp.position()[2];
@@ -1116,7 +1139,7 @@ public:
           });
       }
 
-      std::cout << " ^^^^^^^^^^^^^^ " << std::endl;
+//      std::cout << " ^^^^^^^^^^^^^^ Pushing" << std::endl;
       queue.push(node);
     }
   }
@@ -1260,13 +1283,22 @@ public:
       expand_traversal(top, traversal, traversals, queue);
   }
 
-  std::vector<Trajectory> make_start_approach_trajectories(
+  struct ApproachInfo
+  {
+    bool need_approach;
+    std::vector<Trajectory> trajectories;
+  };
+
+  ApproachInfo make_start_approach_trajectories(
     const Planner::Start& start,
     const double hold_time) const
   {
+    // TODO(MXG): We could stash ApproachInfo into the start node to avoid
+    // needing to regenerate these trajectories repeatedly.
+
     const auto location_opt = start.location();
     if (!location_opt.has_value())
-      return {};
+      return {false, {}};
 
     // This will return all the different trajectories that can be used to
     // approach the start. If it returns empty, that means either you forgot to
@@ -1289,7 +1321,10 @@ public:
 
     const double dist = (p1 - p0).norm();
     if (dist < translation_thresh)
-      return {};
+    {
+      // No trajectory is really needed.
+      return {false, {}};
+    }
 
     const Eigen::Vector2d course_vector =
         (p1 - p0)/dist;
@@ -1348,7 +1383,7 @@ public:
       trajectories.emplace_back(std::move(trajectory));
     }
 
-    return trajectories;
+    return {true, std::move(trajectories)};
   }
 
   SearchNodePtr make_start_node(const Planner::Start& start) const
@@ -1368,11 +1403,12 @@ public:
 
     Trajectory start_point_trajectory;
     const auto start_location = start.location();
-    if (start_location.has_value())
+
+    auto approach_info = make_start_approach_trajectories(start, 0.0);
+    if (approach_info.need_approach)
     {
-      const auto approaches = make_start_approach_trajectories(start, 0.0);
       std::optional<double> lowest_cost_estimate;
-      for (const auto& approach : approaches)
+      for (const auto& approach : approach_info.trajectories)
       {
         const double yaw = approach.back().position()[2];
         double cost = time::to_seconds(approach.duration());
@@ -1389,6 +1425,7 @@ public:
 
       if (!lowest_cost_estimate.has_value())
       {
+        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
         // If this happens, the heuristic found that there is simply no path
         // from this start to the goal, so we return a nullptr.
         return nullptr;
@@ -1418,6 +1455,7 @@ public:
 
       if (!heuristic_cost_estimate.has_value())
       {
+        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
         // If this happens, the heuristic found that there is simply no path
         // from this start to the goal, so we return a nullptr.
         return nullptr;
@@ -1756,7 +1794,10 @@ public:
           std::move(options));
 
     for (const auto& start : starts)
-      debugger->queue_.push(debugger->convert(make_start_node(start)));
+    {
+      if (auto start_node = make_start_node(start))
+        debugger->queue_.push(debugger->convert(std::move(start_node)));
+    }
 
     return debugger;
   }

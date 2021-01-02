@@ -264,6 +264,7 @@ void test_ignore_obstacle(
         std::cout << *wps[i].graph_index();
       else
         std::cout << "null";
+      std::cout  << ", " << wps[i].position()[2];
       std::cout << ") ";
     }
 
@@ -293,7 +294,17 @@ void test_ignore_obstacle(
     const Eigen::Vector3d old_p = old_wp.position();
     CHECK( (new_p.block<2, 1>(0, 0) - old_p.block<2, 1>(0, 0)).norm()
       == Approx(0.0) );
-    CHECK(rmf_utils::wrap_to_pi(new_p[2] - old_p[2]) == Approx(0.0) );
+    const double yaw_diff =
+        std::abs(rmf_utils::wrap_to_pi(new_p[2] - old_p[2]));
+
+    // In many cases, there are multiple equally optimal solutions which differ
+    // only by whether the robot is oriented forward or backward. We should
+    // accept either one in this comparison.
+    const bool consistent_yaw =
+        yaw_diff == Approx(0.0).margin(1e-8)
+        || yaw_diff == Approx(M_PI).margin(1e-8);
+
+    CHECK(consistent_yaw);
   }
 }
 
@@ -729,7 +740,7 @@ SCENARIO("Test Goal")
   CHECK((*goal.orientation() - 0.0) == Approx(0.0));
 }
 
-SCENARIO("Test planning"/*, "[debug]"*/)
+SCENARIO("Test planning")
 {
   using namespace std::chrono_literals;
 
@@ -783,228 +794,228 @@ SCENARIO("Test planning"/*, "[debug]"*/)
 
   //TODO abort planning that is impossible as lane does not exit in the graph
 
-  // WHEN("goal waypoint does not have a lane in the graph")
-  // {
-  //   const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
-  //   auto plan = planner.plan(
-  //       rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
-  //       rmf_traffic::agv::Planner::Goal(9));
-  // }
+   WHEN("goal waypoint does not have a lane in the graph")
+   {
+     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+     auto plan = planner.plan(
+         rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
+         rmf_traffic::agv::Planner::Goal(9));
+   }
 
-//  WHEN("initial conditions satisfy the goals")
-//  {
-//    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+  WHEN("initial conditions satisfy the goals")
+  {
+    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
-//    auto plan = planner.plan(
-//      rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
-//      rmf_traffic::agv::Planner::Goal(3, 0.0));
+    auto plan = planner.plan(
+      rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
+      rmf_traffic::agv::Planner::Goal(3, 0.0));
 
-//    REQUIRE(plan);
-//    CHECK(plan->get_itinerary().size() == 0);
-//    CHECK(plan->get_waypoints().size() == 0);
-//  }
+    REQUIRE(plan);
+    CHECK(plan->get_itinerary().size() == 0);
+    CHECK(plan->get_waypoints().size() == 0);
+  }
 
-//  WHEN("initial and goal waypoints are same but goal_orientation is different")
-//  {
-//    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
-//    const double goal_orientation = M_PI/2.0;
-//    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+  WHEN("initial and goal waypoints are same but goal_orientation is different")
+  {
+    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+    const double goal_orientation = M_PI/2.0;
+    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
-//    for (std::size_t i = 0; i < N; ++i)
-//    {
-//      result = planner.plan(
-//        rmf_traffic::agv::Planner::Start{start_time, 3, 0.0},
-//        rmf_traffic::agv::Planner::Goal{3, goal_orientation});
+    for (std::size_t i = 0; i < N; ++i)
+    {
+      result = planner.plan(
+        rmf_traffic::agv::Planner::Start{start_time, 3, 0.0},
+        rmf_traffic::agv::Planner::Goal{3, goal_orientation});
 
-//      REQUIRE(*result);
-//    }
+      REQUIRE(*result);
+    }
 
-//    auto plan = *result;
+    auto plan = *result;
 
-//    const auto end_time = std::chrono::steady_clock::now();
-//    if (test_performance)
-//    {
-//      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-//      std::cout << "\nUnconstrained" << std::endl;
-//      std::cout << "Total: " << sec << std::endl;
-//      std::cout << "Per run: " << sec/N << std::endl;
-//    }
+    const auto end_time = std::chrono::steady_clock::now();
+    if (test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "\nUnconstrained" << std::endl;
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
 
-//    CHECK(plan->get_itinerary().size() == 1);
-//    REQUIRE(plan->get_itinerary().front().trajectory().size() > 0);
-//    const auto t = plan->get_itinerary().front().trajectory();
-//    const auto final_p = t.front().position().block<2, 1>(0, 0);
-//    const auto err = (final_p - Eigen::Vector2d(10, -5)).norm();
-//    CHECK(err == Approx(0.0) );
-//    CHECK(t.back().position()[2] - goal_orientation == Approx(0));
-//    CHECK(t.back().time() > start_time);
-//  }
+    CHECK(plan->get_itinerary().size() == 1);
+    REQUIRE(plan->get_itinerary().front().trajectory().size() > 0);
+    const auto t = plan->get_itinerary().front().trajectory();
+    const auto final_p = t.front().position().block<2, 1>(0, 0);
+    const auto err = (final_p - Eigen::Vector2d(10, -5)).norm();
+    CHECK(err == Approx(0.0) );
+    CHECK(t.back().position()[2] - goal_orientation == Approx(0));
+    CHECK(t.back().time() > start_time);
+  }
 
-//  WHEN("goal waypoint is an adjacent node")
-//  {
-//    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
-//    const double goal_orientation = M_PI;
-//    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+  WHEN("goal waypoint is an adjacent node")
+  {
+    rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+    const double goal_orientation = M_PI;
+    const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
 
-//    for (std::size_t i = 0; i < N; ++i)
-//    {
-//      result = planner.plan(
-//        rmf_traffic::agv::Planner::Start{start_time, 3, M_PI},
-//        rmf_traffic::agv::Planner::Goal{2, goal_orientation});
-//      REQUIRE(*result);
-//    }
+    for (std::size_t i = 0; i < N; ++i)
+    {
+      result = planner.plan(
+        rmf_traffic::agv::Planner::Start{start_time, 3, M_PI},
+        rmf_traffic::agv::Planner::Goal{2, goal_orientation});
+      REQUIRE(*result);
+    }
 
-//    auto plan = *result;
+    auto plan = *result;
 
-//    const auto end_time = std::chrono::steady_clock::now();
-//    if (test_performance)
-//    {
-//      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-//      std::cout << "\nUnconstrained" << std::endl;
-//      std::cout << "Total: " << sec << std::endl;
-//      std::cout << "Per run: " << sec/N << std::endl;
-//    }
+    const auto end_time = std::chrono::steady_clock::now();
+    if (test_performance)
+    {
+      const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+      std::cout << "\nUnconstrained" << std::endl;
+      std::cout << "Total: " << sec << std::endl;
+      std::cout << "Per run: " << sec/N << std::endl;
+    }
 
-//    const auto expected_t = rmf_traffic::agv::Interpolate::positions(
-//      traits, start_time, {{10.0, -5.0, M_PI}, {5.0, -5.0, M_PI}});
+    const auto expected_t = rmf_traffic::agv::Interpolate::positions(
+      traits, start_time, {{10.0, -5.0, M_PI}, {5.0, -5.0, M_PI}});
 
-//    REQUIRE(plan->get_itinerary().size() == 1);
-//    const rmf_traffic::Trajectory t =
-//      plan->get_itinerary().front().trajectory();
-//    REQUIRE(t.size() == expected_t.size());
+    REQUIRE(plan->get_itinerary().size() == 1);
+    const rmf_traffic::Trajectory t =
+      plan->get_itinerary().front().trajectory();
+    REQUIRE(t.size() == expected_t.size());
 
-//    const Eigen::Vector2d initial_p = t.front().position().block<2, 1>(0, 0);
-//    CHECK((initial_p - Eigen::Vector2d(10, -5)).norm() == Approx(0.0) );
+    const Eigen::Vector2d initial_p = t.front().position().block<2, 1>(0, 0);
+    CHECK((initial_p - Eigen::Vector2d(10, -5)).norm() == Approx(0.0) );
 
-//    const Eigen::Vector2d final_p = t.back().position().block<2, 1>(0, 0);
-//    CHECK((final_p - Eigen::Vector2d(5, -5)).norm() == Approx(0.0));
+    const Eigen::Vector2d final_p = t.back().position().block<2, 1>(0, 0);
+    CHECK((final_p - Eigen::Vector2d(5, -5)).norm() == Approx(0.0));
 
-//    CHECK(t.back().position()[2] - goal_orientation == Approx(0));
-//    CHECK(t.back().time() > start_time);
-//  }
+    CHECK(t.back().position()[2] - goal_orientation == Approx(0));
+    CHECK(t.back().time() > start_time);
+  }
 
-//  GIVEN("Goal from 12->5 and obstacle from 5->12")
-//  {
-//    const rmf_traffic::Time time = std::chrono::steady_clock::now();
-//    const auto start = rmf_traffic::agv::Planner::Start{time, 12, 0.0};
-//    const auto goal = rmf_traffic::agv::Planner::Goal{5};
+  GIVEN("Goal from 12->5 and obstacle from 5->12")
+  {
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    const auto start = rmf_traffic::agv::Planner::Start{time, 12, 0.0};
+    const auto goal = rmf_traffic::agv::Planner::Goal{5};
 
-//    std::vector<rmf_traffic::Trajectory> obstacles;
+    std::vector<rmf_traffic::Trajectory> obstacles;
 
-//    rmf_traffic::Trajectory obstacle;
-//    obstacle.insert(
-//      time + 19s,
-//      {0.0, 8.0, 0.0},
-//      {0.0, 0.0, 0.0});
-//    obstacle.insert(
-//      time + 40s,
-//      {5.0, 8.0, 0.0},
-//      {0.0, 0.0, 0.0});
-//    obstacle.insert(
-//      time + 50s,
-//      {10.0, 12.0, 0.0},
-//      {0.0, 0.0, 0.0});
-//    REQUIRE(obstacle.size() == 3);
-//    obstacles.push_back(obstacle);
+    rmf_traffic::Trajectory obstacle;
+    obstacle.insert(
+      time + 19s,
+      {0.0, 8.0, 0.0},
+      {0.0, 0.0, 0.0});
+    obstacle.insert(
+      time + 40s,
+      {5.0, 8.0, 0.0},
+      {0.0, 0.0, 0.0});
+    obstacle.insert(
+      time + 50s,
+      {10.0, 12.0, 0.0},
+      {0.0, 0.0, 0.0});
+    REQUIRE(obstacle.size() == 3);
+    obstacles.push_back(obstacle);
 
-//    WHEN("Docking is not constrained")
-//    {
-//      add_bidir_lane(5, 9);
-//      add_bidir_lane(11, 12);
+    WHEN("Docking is not constrained")
+    {
+      add_bidir_lane(5, 9);
+      add_bidir_lane(11, 12);
 
-//      planner = rmf_traffic::agv::Planner{
-//        rmf_traffic::agv::Planner::Configuration{graph, traits},
-//        default_options
-//      };
+      planner = rmf_traffic::agv::Planner{
+        rmf_traffic::agv::Planner::Configuration{graph, traits},
+        default_options
+      };
 
-//      const auto start_time = std::chrono::steady_clock::now();
-//      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      const auto start_time = std::chrono::steady_clock::now();
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
 
-//      for (std::size_t i = 0; i < N; ++i)
-//      {
-//        result = planner.plan(start, goal);
-//        REQUIRE(*result);
-//      }
+      for (std::size_t i = 0; i < N; ++i)
+      {
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
+      }
 
-//      auto plan = *result;
+      auto plan = *result;
 
-//      const auto end_time = std::chrono::steady_clock::now();
-//      if (test_performance)
-//      {
-//        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-//        std::cout << "\nUnconstrained 12->5" << std::endl;
-//        std::cout << "Total: " << sec << std::endl;
-//        std::cout << "Per run: " << sec/N << std::endl;
-//      }
+      const auto end_time = std::chrono::steady_clock::now();
+      if (test_performance)
+      {
+        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+        std::cout << "\nUnconstrained 12->5" << std::endl;
+        std::cout << "Total: " << sec << std::endl;
+        std::cout << "Per run: " << sec/N << std::endl;
+      }
 
-//      REQUIRE(plan->get_itinerary().size() == 1);
-//      const auto t = plan->get_itinerary().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto t = plan->get_itinerary().front().trajectory();
 
-//      const Eigen::Vector2d initial_p = t.front().position().block<2, 1>(0, 0);
-//      CHECK( (initial_p - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+      const Eigen::Vector2d initial_p = t.front().position().block<2, 1>(0, 0);
+      CHECK( (initial_p - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
-//      const Eigen::Vector2d final_p = t.back().position().block<2, 1>(0, 0);
-//      CHECK( (final_p - Eigen::Vector2d(0, 0)).norm() == Approx(0.0) );
+      const Eigen::Vector2d final_p = t.back().position().block<2, 1>(0, 0);
+      CHECK( (final_p - Eigen::Vector2d(0, 0)).norm() == Approx(0.0) );
 
-//      WHEN("An obstacle is introduced")
-//      {
-//        test_with_obstacle(
-//          "Unconstrained 12->5", plan, database, obstacles, 6, time);
+      WHEN("An obstacle is introduced")
+      {
+        test_with_obstacle(
+          "Unconstrained 12->5", plan, database, obstacles, 6, time);
 
-//        test_ignore_obstacle(plan, database.latest_version());
-//      }
-//    }
+        test_ignore_obstacle(plan, database.latest_version());
+      }
+    }
 
-//    WHEN("Docking must be at 90-degrees")
-//    {
-//      using namespace rmf_traffic::agv;
-//      add_bidir_lane(11, 12);
-//      graph.add_lane(9, {5, Graph::OrientationConstraint::make({M_PI_2})});
-//      graph.add_lane({5, Graph::OrientationConstraint::make({M_PI_2})}, 9);
+    WHEN("Docking must be at 90-degrees")
+    {
+      using namespace rmf_traffic::agv;
+      add_bidir_lane(11, 12);
+      graph.add_lane(9, {5, Graph::OrientationConstraint::make({M_PI_2})});
+      graph.add_lane({5, Graph::OrientationConstraint::make({M_PI_2})}, 9);
 
-//      planner = rmf_traffic::agv::Planner{
-//        rmf_traffic::agv::Planner::Configuration{graph, traits},
-//        default_options
-//      };
+      planner = rmf_traffic::agv::Planner{
+        rmf_traffic::agv::Planner::Configuration{graph, traits},
+        default_options
+      };
 
-//      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
-//      const auto start_time = std::chrono::steady_clock::now();
-//      for (std::size_t i = 0; i < N; ++i)
-//      {
-//        result = planner.plan(start, goal);
-//        REQUIRE(*result);
-//      }
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      const auto start_time = std::chrono::steady_clock::now();
+      for (std::size_t i = 0; i < N; ++i)
+      {
+        result = planner.plan(start, goal);
+        REQUIRE(*result);
+      }
 
-//      auto plan = *result;
+      auto plan = *result;
 
-//      const auto end_time = std::chrono::steady_clock::now();
-//      if (test_performance)
-//      {
-//        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
-//        std::cout << "\nConstrained to 0.0  12->5" << std::endl;
-//        std::cout << "Total: " << sec << std::endl;
-//        std::cout << "Per run: " << sec/N << std::endl;
-//      }
+      const auto end_time = std::chrono::steady_clock::now();
+      if (test_performance)
+      {
+        const double sec = rmf_traffic::time::to_seconds(end_time - start_time);
+        std::cout << "\nConstrained to 0.0  12->5" << std::endl;
+        std::cout << "Total: " << sec << std::endl;
+        std::cout << "Per run: " << sec/N << std::endl;
+      }
 
-//      REQUIRE(plan->get_itinerary().size() == 1);
-//      const auto& t = plan->get_itinerary().front().trajectory();
+      REQUIRE(plan->get_itinerary().size() == 1);
+      const auto& t = plan->get_itinerary().front().trajectory();
 
-//      const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
-//      CHECK( (p_initial - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
+      const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
+      CHECK( (p_initial - Eigen::Vector2d(12, 12)).norm() == Approx(0.0) );
 
-//      const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
-//      CHECK( (p_final - Eigen::Vector2d(0, 0)).norm() == Approx(0.0) );
-//      CHECK(t.back().position()[2] == Approx(M_PI/2.0) );
+      const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
+      CHECK( (p_final - Eigen::Vector2d(0, 0)).norm() == Approx(0.0) );
+      CHECK(t.back().position()[2] == Approx(M_PI/2.0) );
 
-//      WHEN("An obstacle is introduced")
-//      {
-//        test_with_obstacle(
-//          "Constrained to 0.0  12->5", plan, database, obstacles, 6, time);
+      WHEN("An obstacle is introduced")
+      {
+        test_with_obstacle(
+          "Constrained to 0.0  12->5", plan, database, obstacles, 6, time);
 
-//        test_ignore_obstacle(plan, database.latest_version());
-//      }
-//    }
-//  }
+        test_ignore_obstacle(plan, database.latest_version());
+      }
+    }
+  }
 
   GIVEN("Goal from 2->12 and obstacle from 9->1")
   {
@@ -1319,7 +1330,7 @@ SCENARIO("Test planning"/*, "[debug]"*/)
   }
 }
 
-SCENARIO("DP1 Graph", "[debug]")
+SCENARIO("DP1 Graph")
 {
   using namespace std::chrono_literals;
 
@@ -1342,7 +1353,7 @@ SCENARIO("DP1 Graph", "[debug]")
   graph.add_waypoint(test_map_name, {-15, 0}).set_passthrough_point(true); // 13
   graph.add_waypoint(test_map_name, {-10, 0}).set_passthrough_point(true); // 14
   graph.add_waypoint(test_map_name, { 0, 0}).set_passthrough_point(true); // 15 DOOR (not implemented)
-  graph.add_waypoint(test_map_name, { 3, 0}).set_passthrough_point(true); // 16
+  graph.add_waypoint(test_map_name, { 3, 0.1}).set_passthrough_point(true); // 16
   graph.add_waypoint(test_map_name, {6, 0}).set_passthrough_point(true); // 17
   graph.add_waypoint(test_map_name, {9, 0}).set_passthrough_point(true); // 18
   graph.add_waypoint(test_map_name, {15, 0}).set_holding_point(true);   // 19
@@ -1399,7 +1410,10 @@ SCENARIO("DP1 Graph", "[debug]")
   add_bidir_lane(14, 28);
   add_bidir_lane(16, 22);
   add_bidir_lane(17, 23);
-  add_bidir_lane(18, 24);
+  // We remove this lane because it creates multiple equally optimal solutions
+  // for some test cases, and that makes it tricky to create valid test
+  // expectations.
+//  add_bidir_lane(18, 24);
   add_bidir_lane(19, 25);
   add_bidir_lane(20, 26);
   add_bidir_lane(22, 29);
@@ -1417,6 +1431,7 @@ SCENARIO("DP1 Graph", "[debug]")
     {1.0, 0.5},
     profile
   };
+
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
   const auto interrupt_flag = std::make_shared<bool>(false);
   const rmf_traffic::agv::Planner::Options default_options{
@@ -1433,435 +1448,439 @@ SCENARIO("DP1 Graph", "[debug]")
 
   using rmf_traffic::DetectConflict;
 
-//  WHEN("Robot moves from 1->30 given multiple non-conflicting "
-//    "obstacles that partially overlap in time")
-//  {
-//    const std::size_t start_index = 1;
-//    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
-//    const std::size_t goal_index = 30;
-//    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
-
-//    const auto start_time = std::chrono::steady_clock::now();
-//    const auto plan = planner.plan(start, goal);
-//    REQUIRE(plan);
-//    print_timing(start_time);
-
-//    CHECK(plan->get_itinerary().size() == 1);
-//    const auto t = plan->get_itinerary().front().trajectory();
-
-//    const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
-//    const Eigen::Vector2d p_initial_g =
-//      graph.get_waypoint(start_index).get_location();
-//    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0));
-
-//    const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
-//    const Eigen::Vector2d p_final_g =
-//      graph.get_waypoint(goal_index).get_location();
-//    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
-
-//    WHEN("Obstacle 28->3 that partially overlaps in time")
-//    {
-//      rmf_traffic::Trajectory obstacle_1;
-//      obstacle_1.insert(
-//        time,
-//        Eigen::Vector3d{-10, 8, -M_PI_2},
-//        Eigen::Vector3d{0, 0, 0});
-//      obstacle_1.insert(
-//        time + 20s,
-//        Eigen::Vector3d{-10, -8, -M_PI_2},
-//        Eigen::Vector3d{0, 0, 0});
-//      obstacle_1.insert(
-//        time + 25s,
-//        Eigen::Vector3d{-10, -8, 0},
-//        Eigen::Vector3d{0, 0, 0});
-//      obstacle_1.insert(
-//        time + 35s,
-//        Eigen::Vector3d{-2, -8, 0},
-//        Eigen::Vector3d{0, 0, 0});
-
-//      REQUIRE_FALSE(rmf_traffic::DetectConflict::between(
-//          profile, obstacle_1, profile, t));
-//      obstacles.push_back(obstacle_1);
-
-//      test_with_obstacle(
-//        "Partial 28->3", plan, database, obstacles, 0, time, false);
-
-//      test_ignore_obstacle(plan, database.latest_version());
-
-//      WHEN("Obstacle 28->3, 16-29 added")
-//      {
-//        rmf_traffic::Trajectory obstacle_2;
-//        obstacle_2.insert(
-//          time+20s,
-//          Eigen::Vector3d{3, 0, M_PI_2},
-//          Eigen::Vector3d{0, 0, 0});
-//        obstacle_2.insert(
-//          time+30s,
-//          Eigen::Vector3d{3, 8, M_PI_2},
-//          Eigen::Vector3d{0, 0, 0});
-
-//        const auto view = database.query(rmf_traffic::schedule::query_all());
-//        for (const auto& _t : view)
-//        {
-//          REQUIRE_FALSE(DetectConflict::between(
-//              profile, obstacle_2, profile, _t.route.trajectory()));
-//        }
-
-//        REQUIRE_FALSE(DetectConflict::between(profile, obstacle_2, profile, t));
-//        obstacles.push_back(obstacle_2);
-//        test_with_obstacle(
-//          "Partial 28->3, 16-29",
-//          plan, database, obstacles, 0, time, false);
-
-//        test_ignore_obstacle(plan, database.latest_version());
-
-//        WHEN("Obstacle 28->3, 16-29, 24->26 added")
-//        {
-//          rmf_traffic::Trajectory obstacle_3;
-//          obstacle_3.insert(
-//            time+40s,
-//            Eigen::Vector3d{9, 4, 0},
-//            Eigen::Vector3d{0, 0, 0});
-//          obstacle_3.insert(
-//            time+60s,
-//            Eigen::Vector3d{18, 4, 0},
-//            Eigen::Vector3d{0, 0, 0});
-
-//          const auto view =
-//            database.query(rmf_traffic::schedule::query_all());
-//          for (const auto& _t : view)
-//          {
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_3, profile, _t.route.trajectory()));
-//          }
-
-//          REQUIRE_FALSE(DetectConflict::between(
-//              profile, obstacle_3, profile, t));
-//          obstacles.push_back(obstacle_3);
-
-//          test_with_obstacle(
-//            "Partial 28->3, 16-29, 24->26", plan, database,
-//            obstacles, 0, time, false);
-
-//          test_ignore_obstacle(plan, database.latest_version());
-
-//          WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
-//          {
-//            rmf_traffic::Trajectory obstacle_4;
-//            obstacle_4.insert(
-//              time + 10s,
-//              Eigen::Vector3d{-2, -4, 0},
-//              Eigen::Vector3d{0, 0, 0});
-//            obstacle_4.insert(
-//              time + 20s,
-//              Eigen::Vector3d{3, 4, 0},
-//              Eigen::Vector3d{0, 0, 0});
-
-//            const auto view =
-//              database.query(rmf_traffic::schedule::query_all());
-//            for (const auto& _t : view)
-//              REQUIRE_FALSE(DetectConflict::between(
-//                  profile, obstacle_4, profile, _t.route.trajectory()));
-
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_4, profile, t));
-//            obstacles.push_back(obstacle_4);
-
-//            rmf_traffic::Trajectory obstacle_5;
-//            obstacle_5.insert(
-//              time + 15s,
-//              Eigen::Vector3d{-15, 0, 0},
-//              Eigen::Vector3d{0, 0, 0});
-
-//            obstacle_5.insert(
-//              time + 45s,
-//              Eigen::Vector3d{-10, 0, 0},
-//              Eigen::Vector3d{0, 0, 0});
-
-//            for (const auto& _t : view)
-//            {
-//              REQUIRE_FALSE(DetectConflict::between(
-//                  profile, obstacle_5, profile, _t.route.trajectory()));
-//            }
-
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_5, profile, t));
-//            obstacles.push_back(obstacle_5);
-
-//            rmf_traffic::Trajectory obstacle_6;
-//            obstacle_6.insert(
-//              time + 60s,
-//              Eigen::Vector3d{-12, -8, 0},
-//              Eigen::Vector3d{0, 0, 0});
-//            obstacle_6.insert(
-//              time + 75s,
-//              Eigen::Vector3d{-18, -8, 0},
-//              Eigen::Vector3d{0, 0, 0});
-
-//            for (const auto& _t : view)
-//            {
-//              REQUIRE_FALSE(DetectConflict::between(
-//                  profile, obstacle_6, profile, _t.route.trajectory()));
-//            }
-
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_6, profile, t));
-//            obstacles.push_back(obstacle_6);
-
-//            test_with_obstacle(
-//              "Partial 28->3, 16-29, 24->26, 21->22, 13->14, 5->6",
-//              plan, database, obstacles, 0, time, false);
-
-//            test_ignore_obstacle(plan, database.latest_version());
-//          }
-//        }
-//      }
-//    }
-//  }
-
-//  WHEN(
-//    "Robot moves from 1->30 given multiple non-conflicting obstacles that fully overlap in time")
-//  {
-//    const auto time = std::chrono::steady_clock::now();
-//    const std::size_t start_index = 1;
-//    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
-
-//    const std::size_t goal_index = 30;
-//    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
-
-//    const auto start_time = std::chrono::steady_clock::now();
-//    const auto plan = planner.plan(start, goal);
-//    REQUIRE(plan);
-//    print_timing(start_time);
-
-//    CHECK(plan->get_itinerary().size() == 1);
-//    auto t = plan->get_itinerary().front().trajectory();
-
-//    const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
-//    const Eigen::Vector2d p_initial_g =
-//      graph.get_waypoint(start_index).get_location();
-//    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
-
-//    const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
-//    const Eigen::Vector2d p_final_g =
-//      graph.get_waypoint(goal_index).get_location();
-//    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
-
-//    WHEN("Obstacle 28->3 that partially overlaps in time")
-//    {
-//      rmf_traffic::Trajectory obstacle_1;
-//      obstacle_1.insert(
-//        time,
-//        Eigen::Vector3d{-10, 8, -M_PI_2},
-//        Eigen::Vector3d{0, 0, 0});
-//      obstacle_1.insert(
-//        time + 30s,
-//        Eigen::Vector3d{-10, -8, -M_PI_2},
-//        Eigen::Vector3d{0, 0, 0});
-//      obstacle_1.insert(
-//        time + 50s,
-//        Eigen::Vector3d{-10, -8, 0},
-//        Eigen::Vector3d{0, 0, 0});
-//      obstacle_1.insert(
-//        time + 76s,
-//        Eigen::Vector3d{-2, -8, 0},
-//        Eigen::Vector3d{0, 0, 0});
-
-//      REQUIRE_FALSE(DetectConflict::between(profile, obstacle_1, profile, t));
-//      obstacles.push_back(obstacle_1);
-//      test_with_obstacle(
-//        "Full 28->3", plan, database, obstacles, 0, time, false);
-
-//      test_ignore_obstacle(plan, database.latest_version());
-
-//      WHEN("Obstacle 28->3, 16-29 added")
-//      {
-//        rmf_traffic::Trajectory obstacle_2;
-//        obstacle_2.insert(
-//          time,
-//          Eigen::Vector3d{3, 0, M_PI_2},
-//          Eigen::Vector3d{0, 0, 0});
-//        obstacle_2.insert(
-//          time+76s,
-//          Eigen::Vector3d{3, 8, M_PI_2},
-//          Eigen::Vector3d{0, 0, 0});
-
-//        const auto view = database.query(rmf_traffic::schedule::query_all());
-//        for (const auto& _t : view)
-//        {
-//          REQUIRE_FALSE(DetectConflict::between(
-//              profile, obstacle_2, profile, _t.route.trajectory()));
-//        }
-
-//        REQUIRE_FALSE(DetectConflict::between(profile, obstacle_2, profile, t));
-//        obstacles.push_back(obstacle_2);
-//        test_with_obstacle(
-//          "Full 28->3, 16-29", plan, database, obstacles, 0, time, false);
-
-//        test_ignore_obstacle(plan, database.latest_version());
-
-//        WHEN("Obstacle 28->3, 16-29, 24->26 added")
-//        {
-//          rmf_traffic::Trajectory obstacle_3;
-//          obstacle_3.insert(
-//            time,
-//            Eigen::Vector3d{9, 4, 0},
-//            Eigen::Vector3d{0, 0, 0});
-//          obstacle_3.insert(
-//            time + 76s,
-//            Eigen::Vector3d{18, 4, 0},
-//            Eigen::Vector3d{0, 0, 0});
-
-//          const auto view = database.query(rmf_traffic::schedule::query_all());
-//          for (const auto& _t : view)
-//          {
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_3, profile, _t.route.trajectory()));
-//          }
-
-//          REQUIRE_FALSE(DetectConflict::between(
-//              profile, obstacle_3, profile, t));
-//          obstacles.push_back(obstacle_3);
-
-//          test_with_obstacle(
-//            "Full 28->3, 16-29, 24->26",
-//            plan, database, obstacles, 0, time, false);
-
-//          test_ignore_obstacle(plan, database.latest_version());
-
-//          WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
-//          {
-//            rmf_traffic::Trajectory obstacle_4;
-//            obstacle_4.insert(
-//              time,
-//              Eigen::Vector3d{-2, 4, 0},
-//              Eigen::Vector3d{0, 0, 0});
-//            obstacle_4.insert(
-//              time + 76s,
-//              Eigen::Vector3d{3, 4, 0},
-//              Eigen::Vector3d{0, 0, 0});
-
-//            const auto view =
-//              database.query(rmf_traffic::schedule::query_all());
-//            for (const auto& _t : view)
-//            {
-//              REQUIRE_FALSE(DetectConflict::between(
-//                  profile, obstacle_4, profile, _t.route.trajectory()));
-//            }
-
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_4, profile, t));
-//            obstacles.push_back(obstacle_4);
-
-//            rmf_traffic::Trajectory obstacle_5;
-//            obstacle_5.insert(
-//              time,
-//              Eigen::Vector3d{-15, 0, 0},
-//              Eigen::Vector3d{0, 0, 0});
-//            obstacle_5.insert(
-//              time + 76s,
-//              Eigen::Vector3d{-10, 0, 0},
-//              Eigen::Vector3d{0, 0, 0});
-
-//            for (const auto& _t : view)
-//            {
-//              REQUIRE_FALSE(DetectConflict::between(
-//                  profile, obstacle_5, profile, _t.route.trajectory()));
-//            }
-
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_5, profile, t));
-//            obstacles.push_back(obstacle_5);
-
-//            rmf_traffic::Trajectory obstacle_6;
-//            obstacle_6.insert(
-//              time,
-//              Eigen::Vector3d{-12, -8, 0},
-//              Eigen::Vector3d{0, 0, 0});
-//            obstacle_6.insert(
-//              time + 76s,
-//              Eigen::Vector3d{-18, -8, 0},
-//              Eigen::Vector3d{0, 0, 0});
-
-//            for (const auto& _t : view)
-//            {
-//              REQUIRE_FALSE(DetectConflict::between(
-//                  profile, obstacle_6, profile, _t.route.trajectory()));
-//            }
-
-//            REQUIRE_FALSE(DetectConflict::between(
-//                profile, obstacle_6, profile, t));
-//            obstacles.push_back(obstacle_6);
-
-//            test_with_obstacle(
-//              "Full 28->3, 16-29, 24->26, 2->3, 13->14, 5->6",
-//              plan, database, obstacles, 0, time, false);
-
-//            test_ignore_obstacle(plan, database.latest_version());
-//          }
-//        }
-//      }
-//    }
-//  }
-
-
-//  WHEN("Robot moves from 20->23 and obstacle moves from 23->20")
-//  {
-//    const auto time = std::chrono::steady_clock::now();
-//    const std::size_t start_index = 20;
-//    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, M_PI/2};
-
-//    const std::size_t goal_index = 23;
-//    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
-
-//    const auto start_time = std::chrono::steady_clock::now();
-//    const auto plan = planner.plan(start, goal);
-//    REQUIRE(plan);
-//    print_timing(start_time);
-
-//    CHECK(plan->get_itinerary().size() == 1);
-//    const auto t = plan->get_itinerary().front().trajectory();
-
-//    const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
-//    const Eigen::Vector2d p_initial_g =
-//      graph.get_waypoint(start_index).get_location();
-//    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
-
-//    const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
-//    const Eigen::Vector2d p_final_g =
-//      graph.get_waypoint(goal_index).get_location();
-//    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
-
-//    rmf_traffic::Trajectory obstacle;
-//    obstacle.insert(
-//      time + 6s,
-//      Eigen::Vector3d{6, 4, 0},
-//      Eigen::Vector3d{0, 0, 0});
-//    obstacle.insert(
-//      time + 16s,
-//      Eigen::Vector3d{18, 4, 0},
-//      Eigen::Vector3d{0, 0, 0});
-//    obstacle.insert(
-//      time + 26s,
-//      Eigen::Vector3d{18, 0, 0},
-//      Eigen::Vector3d{0, 0, 0});
-
-//    WHEN("First obstacle is introduced")
-//    {
-//      REQUIRE_FALSE(!rmf_traffic::DetectConflict::between(
-//          profile, obstacle, profile, t));
-//      obstacles.push_back(obstacle);
-//      test_with_obstacle("Unconstrained", plan, database, obstacles, 32, time);
-
-//      test_ignore_obstacle(plan, database.latest_version());
-//    }
-//  }
+  WHEN("Robot moves from 1->30 given multiple non-conflicting "
+    "obstacles that partially overlap in time")
+  {
+    const std::size_t start_index = 1;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+    const std::size_t goal_index = 30;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan);
+    print_timing(start_time);
+
+    CHECK(plan->get_itinerary().size() == 1);
+    const auto t = plan->get_itinerary().front().trajectory();
+
+    const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
+    const Eigen::Vector2d p_initial_g =
+      graph.get_waypoint(start_index).get_location();
+    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0));
+
+    const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
+    const Eigen::Vector2d p_final_g =
+      graph.get_waypoint(goal_index).get_location();
+    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
+
+    WHEN("Obstacle 28->3 that partially overlaps in time")
+    {
+      rmf_traffic::Trajectory obstacle_1;
+      obstacle_1.insert(
+        time,
+        Eigen::Vector3d{-10, 8, -M_PI_2},
+        Eigen::Vector3d{0, 0, 0});
+      obstacle_1.insert(
+        time + 20s,
+        Eigen::Vector3d{-10, -8, -M_PI_2},
+        Eigen::Vector3d{0, 0, 0});
+      obstacle_1.insert(
+        time + 25s,
+        Eigen::Vector3d{-10, -8, 0},
+        Eigen::Vector3d{0, 0, 0});
+      obstacle_1.insert(
+        time + 35s,
+        Eigen::Vector3d{-2, -8, 0},
+        Eigen::Vector3d{0, 0, 0});
+
+      REQUIRE_FALSE(rmf_traffic::DetectConflict::between(
+          profile, obstacle_1, profile, t));
+      obstacles.push_back(obstacle_1);
+
+      test_with_obstacle(
+        "Partial 28->3", plan, database, obstacles, 0, time, false);
+
+      test_ignore_obstacle(plan, database.latest_version());
+
+      WHEN("Obstacle 28->3, 16-29 added")
+      {
+        rmf_traffic::Trajectory obstacle_2;
+        obstacle_2.insert(
+          time+20s,
+          Eigen::Vector3d{3, 0, M_PI_2},
+          Eigen::Vector3d{0, 0, 0});
+        obstacle_2.insert(
+          time+30s,
+          Eigen::Vector3d{3, 8, M_PI_2},
+          Eigen::Vector3d{0, 0, 0});
+
+        const auto view = database.query(rmf_traffic::schedule::query_all());
+        for (const auto& _t : view)
+        {
+          REQUIRE_FALSE(DetectConflict::between(
+              profile, obstacle_2, profile, _t.route.trajectory()));
+        }
+
+        REQUIRE_FALSE(DetectConflict::between(profile, obstacle_2, profile, t));
+        obstacles.push_back(obstacle_2);
+        test_with_obstacle(
+          "Partial 28->3, 16-29",
+          plan, database, obstacles, 0, time, false);
+
+        test_ignore_obstacle(plan, database.latest_version());
+
+        WHEN("Obstacle 28->3, 16-29, 24->26 added")
+        {
+          rmf_traffic::Trajectory obstacle_3;
+          obstacle_3.insert(
+            time+40s,
+            Eigen::Vector3d{9, 4, 0},
+            Eigen::Vector3d{0, 0, 0});
+          obstacle_3.insert(
+            time+60s,
+            Eigen::Vector3d{18, 4, 0},
+            Eigen::Vector3d{0, 0, 0});
+
+          const auto view =
+            database.query(rmf_traffic::schedule::query_all());
+          for (const auto& _t : view)
+          {
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_3, profile, _t.route.trajectory()));
+          }
+
+          REQUIRE_FALSE(DetectConflict::between(
+              profile, obstacle_3, profile, t));
+          obstacles.push_back(obstacle_3);
+
+          test_with_obstacle(
+            "Partial 28->3, 16-29, 24->26", plan, database,
+            obstacles, 0, time, false);
+
+          test_ignore_obstacle(plan, database.latest_version());
+
+          WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
+          {
+            rmf_traffic::Trajectory obstacle_4;
+            obstacle_4.insert(
+              time + 10s,
+              Eigen::Vector3d{-2, -4, 0},
+              Eigen::Vector3d{0, 0, 0});
+            obstacle_4.insert(
+              time + 20s,
+              Eigen::Vector3d{3, 4, 0},
+              Eigen::Vector3d{0, 0, 0});
+
+            const auto view =
+              database.query(rmf_traffic::schedule::query_all());
+            for (const auto& _t : view)
+              REQUIRE_FALSE(DetectConflict::between(
+                  profile, obstacle_4, profile, _t.route.trajectory()));
+
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_4, profile, t));
+            obstacles.push_back(obstacle_4);
+
+            rmf_traffic::Trajectory obstacle_5;
+            obstacle_5.insert(
+              time + 15s,
+              Eigen::Vector3d{-15, 0, 0},
+              Eigen::Vector3d{0, 0, 0});
+
+            obstacle_5.insert(
+              time + 45s,
+              Eigen::Vector3d{-10, 0, 0},
+              Eigen::Vector3d{0, 0, 0});
+
+            for (const auto& _t : view)
+            {
+              REQUIRE_FALSE(DetectConflict::between(
+                  profile, obstacle_5, profile, _t.route.trajectory()));
+            }
+
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_5, profile, t));
+            obstacles.push_back(obstacle_5);
+
+            rmf_traffic::Trajectory obstacle_6;
+            obstacle_6.insert(
+              time + 60s,
+              Eigen::Vector3d{-12, -8, 0},
+              Eigen::Vector3d{0, 0, 0});
+            obstacle_6.insert(
+              time + 75s,
+              Eigen::Vector3d{-18, -8, 0},
+              Eigen::Vector3d{0, 0, 0});
+
+            for (const auto& _t : view)
+            {
+              REQUIRE_FALSE(DetectConflict::between(
+                  profile, obstacle_6, profile, _t.route.trajectory()));
+            }
+
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_6, profile, t));
+            obstacles.push_back(obstacle_6);
+
+            test_with_obstacle(
+              "Partial 28->3, 16-29, 24->26, 21->22, 13->14, 5->6",
+              plan, database, obstacles, 0, time, false);
+
+            test_ignore_obstacle(plan, database.latest_version());
+          }
+        }
+      }
+    }
+  }
+
+  WHEN(
+    "Robot moves from 1->30 given multiple non-conflicting obstacles that fully overlap in time")
+  {
+    const auto time = std::chrono::steady_clock::now();
+    const std::size_t start_index = 1;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+
+    const std::size_t goal_index = 30;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan);
+    print_timing(start_time);
+
+    CHECK(plan->get_itinerary().size() == 1);
+    auto t = plan->get_itinerary().front().trajectory();
+
+    const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
+    const Eigen::Vector2d p_initial_g =
+      graph.get_waypoint(start_index).get_location();
+    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
+
+    const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
+    const Eigen::Vector2d p_final_g =
+      graph.get_waypoint(goal_index).get_location();
+    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
+
+    WHEN("Obstacle 28->3 that partially overlaps in time")
+    {
+      rmf_traffic::Trajectory obstacle_1;
+      obstacle_1.insert(
+        time,
+        Eigen::Vector3d{-10, 8, -M_PI_2},
+        Eigen::Vector3d{0, 0, 0});
+      obstacle_1.insert(
+        time + 30s,
+        Eigen::Vector3d{-10, -8, -M_PI_2},
+        Eigen::Vector3d{0, 0, 0});
+      obstacle_1.insert(
+        time + 50s,
+        Eigen::Vector3d{-10, -8, 0},
+        Eigen::Vector3d{0, 0, 0});
+      obstacle_1.insert(
+        time + 76s,
+        Eigen::Vector3d{-2, -8, 0},
+        Eigen::Vector3d{0, 0, 0});
+
+      REQUIRE_FALSE(DetectConflict::between(profile, obstacle_1, profile, t));
+      obstacles.push_back(obstacle_1);
+      test_with_obstacle(
+        "Full 28->3", plan, database, obstacles, 0, time, false);
+
+      test_ignore_obstacle(plan, database.latest_version());
+
+      WHEN("Obstacle 28->3, 16-29 added")
+      {
+        rmf_traffic::Trajectory obstacle_2;
+        obstacle_2.insert(
+          time,
+          Eigen::Vector3d{3, 0, M_PI_2},
+          Eigen::Vector3d{0, 0, 0});
+        obstacle_2.insert(
+          time+76s,
+          Eigen::Vector3d{3, 8, M_PI_2},
+          Eigen::Vector3d{0, 0, 0});
+
+        const auto view = database.query(rmf_traffic::schedule::query_all());
+        for (const auto& _t : view)
+        {
+          REQUIRE_FALSE(DetectConflict::between(
+              profile, obstacle_2, profile, _t.route.trajectory()));
+        }
+
+        REQUIRE_FALSE(DetectConflict::between(profile, obstacle_2, profile, t));
+        obstacles.push_back(obstacle_2);
+        test_with_obstacle(
+          "Full 28->3, 16-29", plan, database, obstacles, 0, time, false);
+
+        test_ignore_obstacle(plan, database.latest_version());
+
+        WHEN("Obstacle 28->3, 16-29, 24->26 added")
+        {
+          rmf_traffic::Trajectory obstacle_3;
+          obstacle_3.insert(
+            time,
+            Eigen::Vector3d{9, 4, 0},
+            Eigen::Vector3d{0, 0, 0});
+          obstacle_3.insert(
+            time + 76s,
+            Eigen::Vector3d{18, 4, 0},
+            Eigen::Vector3d{0, 0, 0});
+
+          const auto view = database.query(rmf_traffic::schedule::query_all());
+          for (const auto& _t : view)
+          {
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_3, profile, _t.route.trajectory()));
+          }
+
+          REQUIRE_FALSE(DetectConflict::between(
+              profile, obstacle_3, profile, t));
+          obstacles.push_back(obstacle_3);
+
+          test_with_obstacle(
+            "Full 28->3, 16-29, 24->26",
+            plan, database, obstacles, 0, time, false);
+
+          test_ignore_obstacle(plan, database.latest_version());
+
+          WHEN("Obstacle 28->3, 16-29, 24->26, 21->22, 13->14, 5->6 added")
+          {
+            rmf_traffic::Trajectory obstacle_4;
+            obstacle_4.insert(
+              time,
+              Eigen::Vector3d{-2, 4, 0},
+              Eigen::Vector3d{0, 0, 0});
+            obstacle_4.insert(
+              time + 76s,
+              Eigen::Vector3d{3, 4, 0},
+              Eigen::Vector3d{0, 0, 0});
+
+            const auto view =
+              database.query(rmf_traffic::schedule::query_all());
+            for (const auto& _t : view)
+            {
+              REQUIRE_FALSE(DetectConflict::between(
+                  profile, obstacle_4, profile, _t.route.trajectory()));
+            }
+
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_4, profile, t));
+            obstacles.push_back(obstacle_4);
+
+            rmf_traffic::Trajectory obstacle_5;
+            obstacle_5.insert(
+              time,
+              Eigen::Vector3d{-15, 0, 0},
+              Eigen::Vector3d{0, 0, 0});
+            obstacle_5.insert(
+              time + 76s,
+              Eigen::Vector3d{-10, 0, 0},
+              Eigen::Vector3d{0, 0, 0});
+
+            for (const auto& _t : view)
+            {
+              REQUIRE_FALSE(DetectConflict::between(
+                  profile, obstacle_5, profile, _t.route.trajectory()));
+            }
+
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_5, profile, t));
+            obstacles.push_back(obstacle_5);
+
+            rmf_traffic::Trajectory obstacle_6;
+            obstacle_6.insert(
+              time,
+              Eigen::Vector3d{-12, -8, 0},
+              Eigen::Vector3d{0, 0, 0});
+            obstacle_6.insert(
+              time + 76s,
+              Eigen::Vector3d{-18, -8, 0},
+              Eigen::Vector3d{0, 0, 0});
+
+            for (const auto& _t : view)
+            {
+              REQUIRE_FALSE(DetectConflict::between(
+                  profile, obstacle_6, profile, _t.route.trajectory()));
+            }
+
+            REQUIRE_FALSE(DetectConflict::between(
+                profile, obstacle_6, profile, t));
+            obstacles.push_back(obstacle_6);
+
+            test_with_obstacle(
+              "Full 28->3, 16-29, 24->26, 2->3, 13->14, 5->6",
+              plan, database, obstacles, 0, time, false);
+
+            test_ignore_obstacle(plan, database.latest_version());
+          }
+        }
+      }
+    }
+  }
+
+
+  WHEN("Robot moves from 20->23 and obstacle moves from 23->20")
+  {
+    const auto time = std::chrono::steady_clock::now();
+    const std::size_t start_index = 20;
+    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, M_PI/2};
+
+    const std::size_t goal_index = 23;
+    const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+
+    const auto start_time = std::chrono::steady_clock::now();
+    const auto plan = planner.plan(start, goal);
+    REQUIRE(plan);
+    print_timing(start_time);
+
+    CHECK(plan->get_itinerary().size() == 1);
+    const auto t = plan->get_itinerary().front().trajectory();
+
+    const Eigen::Vector2d p_initial = t.front().position().block<2, 1>(0, 0);
+    const Eigen::Vector2d p_initial_g =
+      graph.get_waypoint(start_index).get_location();
+    CHECK( (p_initial - p_initial_g).norm() == Approx(0.0) );
+
+    const Eigen::Vector2d p_final = t.back().position().block<2, 1>(0, 0);
+    const Eigen::Vector2d p_final_g =
+      graph.get_waypoint(goal_index).get_location();
+    CHECK( (p_final - p_final_g).norm() == Approx(0.0) );
+
+    rmf_traffic::Trajectory obstacle;
+    obstacle.insert(
+      time + 6s,
+      Eigen::Vector3d{6, 4, 0},
+      Eigen::Vector3d{0, 0, 0});
+    obstacle.insert(
+      time + 16s,
+      Eigen::Vector3d{18, 4, 0},
+      Eigen::Vector3d{0, 0, 0});
+    obstacle.insert(
+      time + 26s,
+      Eigen::Vector3d{18, 0, 0},
+      Eigen::Vector3d{0, 0, 0});
+
+    WHEN("First obstacle is introduced")
+    {
+      REQUIRE_FALSE(!rmf_traffic::DetectConflict::between(
+          profile, obstacle, profile, t));
+      obstacles.push_back(obstacle);
+      test_with_obstacle("Unconstrained", plan, database, obstacles, 32, time);
+
+      test_ignore_obstacle(plan, database.latest_version());
+    }
+  }
 
   WHEN("Robot moves from 27->32 with multiple obstacles along the way")
   {
     const auto time = std::chrono::steady_clock::now();
     const std::size_t start_index = 27;
-    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+
+    // We give a slight angle to make the optimal solutions for the plans
+    // unique. That helps to set correct test expectations.
+    const auto start = rmf_traffic::agv::Plan::Start{
+        time, start_index, 5.0*M_PI/180.0};
 
     const std::size_t goal_index = 32;
     const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
@@ -1901,32 +1920,32 @@ SCENARIO("DP1 Graph", "[debug]")
     REQUIRE(obstacle_1.size() == 3);
     REQUIRE(DetectConflict::between(profile, t, profile, obstacle_1));
 
-//    WHEN("Planning is interrupted")
-//    {
-//      const std::size_t start_index = 27;
-//      const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+    WHEN("Planning is interrupted")
+    {
+      const std::size_t start_index = 27;
+      const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
 
-//      const std::size_t goal_index = 32;
-//      const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
+      const std::size_t goal_index = 32;
+      const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
 
-//      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
-//      auto plan_thread = std::thread(
-//        [&]()
-//        {
-//          result = planner.plan(start, goal);
-//        });
-//      *interrupt_flag = true;
-//      plan_thread.join();
-//      CHECK_FALSE(*result);
-//      CHECK(result->interrupted());
+      rmf_utils::optional<rmf_traffic::agv::Plan::Result> result;
+      auto plan_thread = std::thread(
+        [&]()
+        {
+          result = planner.plan(start, goal);
+        });
+      *interrupt_flag = true;
+      plan_thread.join();
+      CHECK_FALSE(*result);
+      CHECK(result->interrupted());
 
-//      THEN("Plan can resume and find a solution")
-//      {
-//        const auto new_interrupt_flag = std::make_shared<bool>(false);
-//        result->resume(new_interrupt_flag);
-//        CHECK(*result);
-//      }
-//    }
+      THEN("Plan can resume and find a solution")
+      {
+        const auto new_interrupt_flag = std::make_shared<bool>(false);
+        result->resume(new_interrupt_flag);
+        CHECK(*result);
+      }
+    }
 
     WHEN("Obstacle 28->2")
     {
@@ -2130,8 +2149,17 @@ SCENARIO("Graph with door", "[door]")
 
   rmf_traffic::schedule::Database database;
 
-  const auto default_options = rmf_traffic::agv::Planner::Options{
-    make_test_schedule_validator(database, traits.profile())};
+  rmf_traffic::agv::Planner::Options default_options{nullptr};
+  WHEN("No schedule validator")
+  {
+    // Leave default_options as-is
+  }
+
+  WHEN("With a schedule validator")
+  {
+    default_options.validator(
+      make_test_schedule_validator(database, traits.profile()));
+  }
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -2151,6 +2179,19 @@ SCENARIO("Graph with door", "[door]")
     rmf_traffic::agv::Planner::Start(start_time, 1, 0.0),
     rmf_traffic::agv::Planner::Goal(4));
   REQUIRE(plan_with_door_open);
+
+  for (const auto& wp : plan_with_door_open->get_waypoints())
+  {
+    std::cout << "(";
+    std::cout << rmf_traffic::time::to_seconds(wp.time() - start_time) << "; ";
+    if (wp.graph_index().has_value())
+      std::cout << *wp.graph_index();
+    else
+      std::cout << "null";
+    std::cout  << ", " << wp.position()[2];
+    std::cout << ") | event: " << wp.event() << std::endl;
+  }
+
   REQUIRE(plan_with_door_open->get_itinerary().size() == 1);
   CHECK(count_events(*plan_with_door_open) == 1);
   CHECK(has_event(ExpectEvent::DoorOpen, *plan_with_door_open));
@@ -2672,7 +2713,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   }
 }
 
-SCENARIO("Multilevel Planning"/*, "[debug]"*/)
+SCENARIO("Multilevel Planning")
 {
   using namespace std::chrono_literals;
   using rmf_traffic::agv::Graph;

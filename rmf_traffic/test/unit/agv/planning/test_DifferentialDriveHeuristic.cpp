@@ -23,6 +23,9 @@
 
 #include <variant>
 
+
+#include <iostream>
+
 //==============================================================================
 // This is cruft needed for C++17. It should be removed when we migrate to C++20
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
@@ -54,7 +57,34 @@ bool compare_routes(
   const rmf_traffic::Route& a,
   const rmf_traffic::Route& b)
 {
-  CHECK(a.map() == b.map());
+  const auto initial_time =
+      std::min(*a.trajectory().start_time(), *b.trajectory().start_time());
+
+  std::cout << "[" << a.map() << "] | [" << b.map() << "]" << std::endl;
+
+//  if (a.trajectory().size() != b.trajectory().size())
+  {
+    for (std::size_t i=0; i < std::max(a.trajectory().size(), b.trajectory().size()); ++i)
+    {
+      std::vector<const rmf_traffic::Trajectory::Waypoint*> wps;
+      if (i < a.trajectory().size())
+        wps.push_back(&a.trajectory()[i]);
+      if (i < b.trajectory().size())
+        wps.push_back(&b.trajectory()[i]);
+
+      for (const auto& wp : wps)
+      {
+        std::cout << "(" << rmf_traffic::time::to_seconds(wp->time() - initial_time)
+                  << "; " << wp->position().transpose() << "; "
+                  << wp->velocity().transpose() << ")  |  ";
+      }
+
+      std::cout << std::endl;
+    }
+    std::cout << " -- " << std::endl;
+  }
+
+  REQUIRE(a.map() == b.map());
   REQUIRE(a.trajectory().size() == b.trajectory().size());
 
   bool all_correct = a.map() == b.map();
@@ -101,16 +131,15 @@ bool compare_plan(
   std::vector<rmf_traffic::Route> routes;
   while (solution)
   {
-    if (solution->route_factory)
-    {
-      auto new_route_info = solution->route_factory(time, yaw);
-      routes.insert(
-            routes.end(),
-            new_route_info.routes.begin(),
-            new_route_info.routes.end());
-      time = new_route_info.finish_time;
-      yaw = new_route_info.finish_yaw;
-    }
+    REQUIRE(solution->route_factory);
+
+    auto new_route_info = solution->route_factory(time, yaw);
+    routes.insert(
+          routes.end(),
+          new_route_info.routes.begin(),
+          new_route_info.routes.end());
+    time = new_route_info.finish_time;
+    yaw = new_route_info.finish_yaw;
 
     solution = solution->child;
   }
@@ -272,7 +301,13 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
 
     actions.push_back(
       Move{
-        {{0.0, 0.0, backward_incline_up}, {15.0, 3.0, backward_incline_up}},
+        {{0.0, 0.0, backward_incline_up}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{15.0, 3.0, backward_incline_up}},
         {test_map}
       });
 
@@ -305,7 +340,13 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
 
     actions.push_back(
       Move{
-        {{0.0, 0.0, forward_incline_up}, {15.0, 3.0, forward_incline_up}},
+        {{0.0, 0.0, forward_incline_up}},
+        {test_map}
+      });
+
+    actions.push_back(
+      Move{
+        {{15.0, 3.0, forward_incline_up}},
         {test_map}
       });
 
@@ -325,10 +366,17 @@ SCENARIO("Differential Drive Heuristic -- Peak and Valley")
     CHECK(compare_plan(traits, initial_position, actions, solution));
   }
 
+  std::cout << " vvvvvvvvvvvvvv BEGIN vvvvvvvvvvvvvvvvvvv" << std::endl;
   {
     const Key key{1, Ori::Backward, Side::Start, 119, Ori::Forward};
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
     std::vector<Action> actions;
+
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, M_PI}},
+        {test_map}
+      });
 
     actions.push_back(
       Move{
@@ -420,6 +468,16 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
     std::vector<Action> actions;
 
+    // TODO(MXG): Figure out why there's a duplicate single-element route added
+    // by the solution (represented below by having test_map_0 twice). If this
+    // aspect of the test fails in the future due to any code changes, we can
+    // remove this test expectation.
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, initial_yaw}},
+        {test_map_0, test_map_0}
+      });
+
     actions.push_back(
       Wait{
         bogus_event_duration,
@@ -429,7 +487,21 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
     actions.push_back(
       Move{
         {{0.0, 0.0, 90._deg}},
+        {test_map_0, test_map_1}
+      });
+
+    // I think this single-element route gets added by the node that triggers
+    // the bogus_event to begin.
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, 90._deg}},
         {test_map_1}
+      });
+
+    actions.push_back(
+      Wait{
+        bogus_event_duration,
+        {test_map_1, test_map_2}
       });
 
     actions.push_back(
@@ -447,6 +519,14 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
     const Eigen::Vector3d initial_position = {0.0, 0.0, initial_yaw};
     std::vector<Action> actions;
 
+    // TODO(MXG): Figure out why there's a duplicate single-element route added
+    // by the solution.
+    actions.push_back(
+      Move{
+        {initial_position},
+        {test_map_0, test_map_0}
+      });
+
     actions.push_back(
       Wait{
         bogus_event_duration,
@@ -456,7 +536,21 @@ SCENARIO("Differential Drive Heuristic -- Indeterminate Yaw Edge Case")
     actions.push_back(
       Move{
         {{0.0, 0.0, -90._deg}},
+        {test_map_0, test_map_1}
+      });
+
+    // I think this single-element route gets added by the node that triggers
+    // the bogus_event to begin.
+    actions.push_back(
+      Move{
+        {{0.0, 0.0, -90._deg}},
         {test_map_1}
+      });
+
+    actions.push_back(
+      Wait{
+        bogus_event_duration,
+        {test_map_1, test_map_2}
       });
 
     actions.push_back(

@@ -591,6 +591,7 @@ auto DifferentialDriveHeuristic::generate(
   const auto search = a_star_search(expander, queue);
   if (!search)
   {
+    std::cout << "NO SOLUTION FOR " << key << std::endl;
     new_items.insert({key, nullptr});
     return nullptr;
   }
@@ -601,12 +602,23 @@ auto DifferentialDriveHeuristic::generate(
   SolutionNodePtr solution = nullptr;
 
 
+  std::cout << "Stashing solutions for " << key << std::endl;
   while (goal_node)
   {
+    std::cout << "Looking at ";
+    if (goal_node->info.entry.has_value())
+      std::cout  << *goal_node->info.entry;
+    else
+      std::cout << "nullopt";
+    std::cout << std::endl;
     while (goal_node &&
            (!goal_node->info.entry.has_value()
             || goal_node->info.entry->side == Side::Start))
     {
+      if (goal_node->info.entry.has_value())
+        std::cout << "Skipping " << *goal_node->info.entry << std::endl;
+      else
+        std::cout << "Skipping nullopt" << std::endl;
       // Keep moving goal_node forward until it has entry info on the finish
       // side of a lane.
       goal_node = goal_node->parent;
@@ -615,10 +627,6 @@ auto DifferentialDriveHeuristic::generate(
     if (!goal_node)
       break;
 
-    // TODO(MXG): We're stashing some unnecessary solutions here, like
-    // [x y F x y]. We could add in some more logic here to prevent that
-    // unnecessary stashing but we're leaving it as-is right now to minimize
-    // code complexity.
     auto node = goal_node;
     auto previous_node = node;
 
@@ -652,17 +660,17 @@ auto DifferentialDriveHeuristic::generate(
           goal_entry.lane, goal_entry.orientation
         };
 
-//        std::cout << " << stashing " << node << " -> " << goal_node << " ["
-//                  << new_key.start_lane << ", "
-//                  << new_key.start_orientation << ", "
-//                  << new_key.start_side << ", "
-//                  << new_key.goal_lane << ", "
-//                  << new_key.goal_orientation << "]: ("
-//                  << solution->info.waypoint << ", "
-//                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
-//                  << goal_node->info.waypoint << ", "
-//                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
-//                  << solution->info.remaining_cost_estimate << std::endl;
+        std::cout << " << stashing " << node << " -> " << goal_node << " ["
+                  << new_key.start_lane << ", "
+                  << new_key.start_orientation << ", "
+                  << new_key.start_side << ", "
+                  << new_key.goal_lane << ", "
+                  << new_key.goal_orientation << "]: ("
+                  << solution->info.waypoint << ", "
+                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
+                  << goal_node->info.waypoint << ", "
+                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
+                  << solution->info.remaining_cost_estimate << std::endl;
 
         // TODO(MXG): Add a bool field to SearchNode to indicate whether it is
         // newly generated or pulled from a previous solution. Then we can skip
@@ -680,6 +688,7 @@ auto DifferentialDriveHeuristic::generate(
 
     goal_node = goal_node->parent;
   }
+  std::cout << "Done stashing" << std::endl;
 
   return output;
 }
@@ -714,18 +723,33 @@ DifferentialDriveHeuristicAdapter::DifferentialDriveHeuristicAdapter(
 
 //==============================================================================
 std::optional<double> DifferentialDriveHeuristicAdapter::compute(
-  std::size_t start_waypoint,
-  double yaw) const
+  const std::size_t start_waypoint,
+  const double yaw) const
 {
+  if (start_waypoint == _goal_waypoint)
+  {
+    if (!_goal_yaw.has_value())
+      return 0.0;
+
+    return time::to_seconds(internal::estimate_rotation_time(
+          _w_nom, _alpha_nom, yaw, *_goal_yaw, _rotation_threshold));
+  }
+
   const auto keys = _graph->keys_for(start_waypoint, _goal_waypoint, _goal_yaw);
+//  std::cout << "Num keys for (" << start_waypoint << ", " << yaw*180.0/M_PI
+//            << "): " << keys.size()  << std::endl;
 
   std::optional<double> best_cost;
   SolutionNodePtr best_solution;
   for (const auto& key : keys)
   {
+//    std::cout << "Checking solution for " << key << std::endl;
     const auto solution = _cache.get(key);
     if (!solution)
+    {
+//      std::cout << " == No solution for " << key << std::endl;
       continue;
+    }
 
     const auto target_yaw = _graph->yaw_of(
       {key.start_lane, key.start_orientation, key.start_side});
@@ -742,15 +766,15 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
       cost += yaw_cost;
     }
 
-    std::cout << key << " From (" << start_waypoint << ", " << yaw*180.0/M_PI << ") to ("
-              << _goal_waypoint << ", ";
-    if (_goal_yaw.has_value())
-      std::cout << *_goal_yaw*180.0/M_PI;
-    else
-      std::cout << "null";
+//    std::cout << key << " From (" << start_waypoint << ", " << yaw*180.0/M_PI << ") to ("
+//              << _goal_waypoint << ", ";
+//    if (_goal_yaw.has_value())
+//      std::cout << *_goal_yaw*180.0/M_PI;
+//    else
+//      std::cout << "null";
 
-    std::cout << "): Yaw cost " << yaw_cost << " + Key cost " << cost - yaw_cost
-              << " = " << cost << std::endl;
+//    std::cout << "): Yaw cost " << yaw_cost << " + Key cost " << cost - yaw_cost
+//              << " = " << cost << std::endl;
 
     if (!best_cost.has_value() || cost < *best_cost)
     {
@@ -759,25 +783,29 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
     }
   }
 
-  std::cout << "Ideal solution (" << best_solution->info.remaining_cost_estimate
-            << "): ";
-  while (best_solution)
-  {
-    std::cout << " <" << best_solution->info.cost_from_parent << "> ";
-    if (const auto entry = best_solution->info.entry)
-    {
-      const auto& lane = _graph->original().lanes[entry->lane];
-      std::cout << "(" << lane.entry().waypoint_index() << ", " << lane.exit().waypoint_index() << ") ";
-      std::cout << *entry;
-    }
-    else
-      std::cout << "[nullopt]";
+//  if (best_solution)
+//  {
+//    std::cout << "Ideal solution (" << best_solution->info.remaining_cost_estimate
+//              << "): ";
+//  }
 
-    std::cout << " " << best_solution->info.remaining_cost_estimate
-              << " --> ";
-    best_solution = best_solution->child;
-  }
-  std::cout << std::endl;
+//  while (best_solution)
+//  {
+//    std::cout << " <" << best_solution->info.cost_from_parent << "> ";
+//    if (const auto entry = best_solution->info.entry)
+//    {
+//      const auto& lane = _graph->original().lanes[entry->lane];
+//      std::cout << "(" << lane.entry().waypoint_index() << ", " << lane.exit().waypoint_index() << ") ";
+//      std::cout << *entry;
+//    }
+//    else
+//      std::cout << "[nullopt]";
+
+//    std::cout << " " << best_solution->info.remaining_cost_estimate
+//              << " --> ";
+//    best_solution = best_solution->child;
+//  }
+//  std::cout << std::endl;
 
   return best_cost;
 }
@@ -800,9 +828,13 @@ auto DifferentialDriveHeuristicAdapter::compute(Entry start) const
       goal_entry.orientation
     };
 
+    std::cout << "Checking solution for " << key << std::endl;
     const auto solution = _cache.get(key);
     if (!solution)
+    {
+      std::cout << " == No solution for " << key << std::endl;
       continue;
+    }
 
     const double cost = solution->info.remaining_cost_estimate;
     if (!best_solution || cost < best_solution->info.remaining_cost_estimate)

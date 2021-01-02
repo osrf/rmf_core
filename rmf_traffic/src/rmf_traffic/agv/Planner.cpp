@@ -485,6 +485,8 @@ Planner::Result Planner::Result::Implementation::generate(
   Planner::Goal goal,
   Planner::Options options)
 {
+  // TODO(MXG): Throw an exception if any of the starts or the goal has an
+  // invalid waypoint index.
   auto state = interface->initiate(
         starts, std::move(goal), std::move(options));
 

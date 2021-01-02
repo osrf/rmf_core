@@ -113,6 +113,9 @@ void node_to_traversals(
   traversal.maps = std::vector<std::string>(
         node.map_names.begin(), node.map_names.end());
 
+  std::cout << "Traversal [" << traversal.initial_lane_index << "] -> ("
+            << traversal.finish_lane_index << "): entry event {"
+            << traversal.entry_event << "}" << std::endl;
   if (node.entry_event)
   {
     traversal.entry_event = node.entry_event->clone();
@@ -248,6 +251,9 @@ void perform_traversal(
     node.initial_lane_index = parent->initial_lane_index;
     node.initial_p = parent->initial_p;
     node.map_names = parent->map_names;
+
+    if (parent->entry_event)
+      node.entry_event = parent->entry_event->clone();
   }
   else
   {
@@ -255,7 +261,11 @@ void perform_traversal(
     node.initial_p = p0;
 
     if (const auto* entry_event = entry.event())
+    {
+      std::cout << "Cloning entry event for [" << lane_index << "]: {"
+                << entry_event << "}" << std::endl;
       node.entry_event = entry_event->clone();
+    }
   }
 
   node.finish_p = p1;
@@ -337,11 +347,13 @@ void perform_traversal(
 
   if (exit_event)
   {
+    std::cout <<  "Stopping due to exit event" << std::endl;
     // If this lane has an exit event, then we need to stop the traversal here,
     // so it does not get added to the queue.
     return;
   }
 
+  std::cout << "Pushing for further expansion" << std::endl;
   queue.push_back(std::move(node));
 }
 
