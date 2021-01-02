@@ -125,9 +125,11 @@ public:
     Intentions intentions,
     double max_cost_leeway =
       rmf_traffic::agv::SimpleNegotiator::Options::DefaultMaxCostLeeway,
+    std::optional<double> min_cost_threshold = 60.0,
     std::size_t max_alts = 1,
     const bool print = false)
-  : negotiators(make_negotiators(intentions, max_cost_leeway, max_alts)),
+  : negotiators(make_negotiators(
+                  intentions, max_cost_leeway, min_cost_threshold, max_alts)),
     negotiation(Negotiation::make_shared(
         std::move(viewer), get_participants(intentions))),
     _print(print)
@@ -273,6 +275,7 @@ public:
   static std::unordered_map<ParticipantId, Negotiator> make_negotiators(
     const std::unordered_map<ParticipantId, Intention>& intentions,
     double maximum_cost_leeway,
+    std::optional<double> min_cost_thresh,
     std::size_t maximum_alts)
   {
     std::unordered_map<ParticipantId, Negotiator> negotiators;
@@ -286,7 +289,8 @@ public:
           rmf_traffic::agv::SimpleNegotiator(
             intention.start, intention.goal, intention.configuration,
             rmf_traffic::agv::SimpleNegotiator::Options(
-                  nullptr, nullptr, maximum_cost_leeway, maximum_alts))));
+                  nullptr, nullptr, maximum_cost_leeway, maximum_alts)
+                .minimum_cost_threshold(min_cost_thresh))));
     }
 
     return negotiators;

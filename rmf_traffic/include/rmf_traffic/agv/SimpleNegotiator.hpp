@@ -37,7 +37,8 @@ public:
   {
   public:
 
-    static constexpr double DefaultMaxCostLeeway = 3.0;
+    static constexpr double DefaultMaxCostLeeway = 1.5;
+    static constexpr double DefaultMinCostThreshold = 60.0;
 
     using ApprovalCallback =
       std::function<Responder::UpdateVersion(rmf_traffic::agv::Plan)>;
@@ -62,8 +63,8 @@ public:
     Options(
       ApprovalCallback approval_cb = nullptr,
       std::shared_ptr<const bool> interrupt_flag = nullptr,
-      rmf_utils::optional<double> maximum_cost_leeway = DefaultMaxCostLeeway,
-      rmf_utils::optional<std::size_t> maximum_alts = rmf_utils::nullopt,
+      std::optional<double> maximum_cost_leeway = DefaultMaxCostLeeway,
+      std::optional<std::size_t> maximum_alts = std::nullopt,
       Duration min_hold_time = Planner::Options::DefaultMinHoldingTime);
 
     /// Set the approval callback
@@ -77,14 +78,35 @@ public:
     const std::shared_ptr<const bool>& interrupt_flag() const;
 
     /// Set the maximum cost leeway
-    Options& maximum_cost_leeway(rmf_utils::optional<double> leeway);
+    Options& maximum_cost_leeway(std::optional<double> leeway);
 
     /// Get the maximum cost leeway
-    rmf_utils::optional<double> maximum_cost_leeway() const;
+    std::optional<double> maximum_cost_leeway() const;
+
+    /// Set the minimum cost threshold. When this and maximum_cost_leeway are
+    /// both set, the maximum cost estimate will be chosen by
+    /// std::max(
+    ///   minimum_cost_threshold,
+    ///   initial_cost_estimate * maximum_cost_leeway
+    /// )
+    ///
+    /// By default, this is DefaultMinCostThreshold.
+    Options& minimum_cost_threshold(std::optional<double> cost);
+
+    /// Get the minimum cost threshold.
+    std::optional<double> minimum_cost_threshold() const;
+
+    /// Set the maximum cost threshold. When this is set, the cost will not be
+    /// allowed to exceed it, even if the maximum cost leeway would allow it.
+    /// By default, this is nullopt.
+    Options& maximum_cost_threshold(std::optional<double> cost);
+
+    /// Get the maximum cost threshold.
+    std::optional<double> maximum_cost_threshold() const;
 
     Options& maximum_alternatives(rmf_utils::optional<std::size_t> num);
 
-    rmf_utils::optional<std::size_t> maximum_alternatives() const;
+    std::optional<std::size_t> maximum_alternatives() const;
 
     /// Set the minimum amount of time to spend waiting at holding points
     Options& minimum_holding_time(Duration holding_time);
