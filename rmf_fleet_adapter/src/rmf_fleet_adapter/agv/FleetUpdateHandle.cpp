@@ -163,11 +163,17 @@ auto FleetUpdateHandle::Implementation::estimate_loop(
   const auto& graph = planner->get_configuration().graph();
   const auto loop_start_wp = graph.find_waypoint(request.start_name);
   if (!loop_start_wp)
+  {
+    std::cout << name << ": COULD NOT FIND START WAYPOINT [" << request.start_name << "]" << std::endl;
     return rmf_utils::nullopt;
+  }
 
   const auto loop_end_wp = graph.find_waypoint(request.finish_name);
   if (!loop_end_wp)
+  {
+    std::cout << name << ": COULD NOT FIND END WAYPOINT [" << request.finish_name << "]" << std::endl;
     return rmf_utils::nullopt;
+  }
 
   const auto loop_start_goal =
       rmf_traffic::agv::Plan::Goal(loop_start_wp->index());
@@ -185,7 +191,10 @@ auto FleetUpdateHandle::Implementation::estimate_loop(
     auto start = mgr.expected_finish_location();
     const auto loop_init_plan = planner->plan(start, loop_start_goal);
     if (!loop_init_plan)
+    {
+      std::cout << name << ": COULD NOT FIND LOOP_INIT_PLAN FOR " << element.first->name() << std::endl;
       continue;
+    }
 
     rmf_traffic::Duration init_duration = std::chrono::seconds(0);
     if (loop_init_plan->get_waypoints().size() > 1)
@@ -216,14 +225,28 @@ auto FleetUpdateHandle::Implementation::estimate_loop(
     const auto loop_forward_plan =
         planner->plan(loop_forward_start, loop_end_goal);
     if (!loop_forward_plan)
+    {
+      std::cout << name << ": COULD NOT FIND LOOP_FORWARD_PLAN FOR " << element.first->name() << std::endl;
+      if (loop_forward_plan.disconnected())
+        std::cout << " -- DISCONNECTED" << std::endl;
+
+      if (loop_forward_plan.ideal_cost().has_value())
+        std::cout << " -- Ideal cost: " << loop_forward_plan.ideal_cost().value() << std::endl;
+      else
+        std::cout << " -- No ideal cost" << std::endl;
+
       continue;
+    }
 
     // If the forward plan is empty then that means the start and end of the
     // loop are the same, making it a useless request.
     // TODO(MXG): We should probably make noise here instead of just ignoring
     // the request.
     if (loop_forward_plan->get_waypoints().empty())
+    {
+      std::cout << name << ": NO WAYPOINTS FOR " << element.first->name() << std::endl;
       return rmf_utils::nullopt;
+    }
 
     estimate.loop_start = loop_forward_start.front();
 
@@ -530,7 +553,14 @@ void request_loop(
     auto& fimpl = FleetUpdateHandle::Implementation::get(*fleet);
     const auto estimate = fimpl.estimate_loop(request);
     if (!estimate)
+    {
+      RCLCPP_INFO(
+        fimpl.node->get_logger(),
+        "No estimate could be found for loop task request [%s] by fleet [%s]",
+        request.task_id.c_str(),
+        fimpl.name.c_str());
       continue;
+    }
 
     if (estimate->time < best.time)
     {
@@ -540,8 +570,26 @@ void request_loop(
   }
 
   if (!chosen_fleet)
+  {
+    if (fleets.empty())
+    {
+      std::cout << "NO FLEETS!!" << std::endl;
+    }
+    else
+    {
+      RCLCPP_INFO(
+        FleetUpdateHandle::Implementation::get(*fleets.front())
+            .node->get_logger(),
+        "No fleet was chosen for loop task request [%s]",
+        request.task_id.c_str());
+    }
     return;
+  }
 
+
+  RCLCPP_INFO(
+        chosen_fleet->node->get_logger(),
+        "Fleet [%s] chosen for [%s]", chosen_fleet->name.c_str(), request.task_id.c_str());
   chosen_fleet->perform_loop(request, best);
 }
 

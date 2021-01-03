@@ -655,6 +655,12 @@ bool Planner::Result::success() const
 }
 
 //==============================================================================
+bool Planner::Result::disconnected() const
+{
+  return _pimpl->state.issues.disconnected;
+}
+
+//==============================================================================
 Planner::Result::operator bool() const
 {
   return _pimpl->plan.has_value();
@@ -821,6 +827,12 @@ double Planner::Result::initial_cost_estimate() const
 {
   return _pimpl->state.ideal_cost.value_or(
         std::numeric_limits<double>::infinity());
+}
+
+//==============================================================================
+std::optional<double> Planner::Result::ideal_cost() const
+{
+  return _pimpl->state.ideal_cost;
 }
 
 //==============================================================================

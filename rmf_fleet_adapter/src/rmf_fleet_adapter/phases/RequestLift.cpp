@@ -123,6 +123,7 @@ void RequestLift::ActivePhase::_init_obs()
           const auto delay = me->_context->now() - current_expected_finish;
           if (delay > std::chrono::seconds(0))
           {
+            std::cout << me->_context->name() << " scheduling a lift-wait delay" << std::endl;
             me->_context->worker().schedule(
                   [context = me->_context, delay](const auto&)
             {
@@ -188,14 +189,28 @@ Task::StatusMsg RequestLift::ActivePhase::_get_status(
   using rmf_lift_msgs::msg::LiftRequest;
   Task::StatusMsg status{};
   status.state = Task::StatusMsg::STATE_ACTIVE;
-  if (lift_state->current_floor == _destination &&
+  if (lift_state->lift_name == _lift_name &&
+      lift_state->current_floor == _destination &&
       lift_state->door_state == LiftState::DOOR_OPEN &&
       lift_state->session_id == _context->requester_id())
   {
+    std::cout << _context->name() << " done waiting for lift " << _lift_name << std::endl;
     status.state = Task::StatusMsg::STATE_COMPLETED;
     status.status = "success";
     _timer.reset();
   }
+  else
+  {
+    std::cout << _context->name() << " still waiting for lift " << _lift_name << std::endl;
+    if (lift_state->lift_name == _lift_name)
+    {
+      std::cout << " -- current state: " << lift_state->current_floor << " vs " << _destination
+                << " | " << lift_state->door_state <<  " vs " << LiftState::DOOR_OPEN
+                << " | " << lift_state->session_id << " vs " << _context->requester_id()
+                << std::endl;
+    }
+  }
+
   return status;
 }
 

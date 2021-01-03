@@ -128,6 +128,9 @@ public:
 
       task_times.insert(
           task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
+      RCLCPP_INFO(
+          node->get_logger(),
+          "Received loop task request [%s]", msg->task_id.c_str());
 
       rmf_fleet_adapter::agv::request_loop(*msg, fleets);
     });

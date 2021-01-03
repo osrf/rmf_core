@@ -726,18 +726,29 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
   const std::size_t start_waypoint,
   const double yaw) const
 {
+//  std::cout << "Computing heuristic ..." << std::endl;
   if (start_waypoint == _goal_waypoint)
   {
     if (!_goal_yaw.has_value())
+    {
+//      std::cout << " -- At the goal!" << std::endl;
       return 0.0;
+    }
 
-    return time::to_seconds(internal::estimate_rotation_time(
-          _w_nom, _alpha_nom, yaw, *_goal_yaw, _rotation_threshold));
+    const auto cost = time::to_seconds(internal::estimate_rotation_time(
+                                         _w_nom, _alpha_nom, yaw, *_goal_yaw, _rotation_threshold));
+//    std::cout << " -- Rotating to goal: " << cost << std::endl;
+    return cost;
   }
 
   const auto keys = _graph->keys_for(start_waypoint, _goal_waypoint, _goal_yaw);
 //  std::cout << "Num keys for (" << start_waypoint << ", " << yaw*180.0/M_PI
-//            << "): " << keys.size()  << std::endl;
+//            << "; " << _goal_waypoint << ", ";
+//  if (_goal_yaw.has_value())
+//    std::cout << _goal_yaw.value() * 180.0/M_PI;
+//  else
+//    std::cout << "null";
+//  std::cout << "): " << keys.size()  << std::endl;
 
   std::optional<double> best_cost;
   SolutionNodePtr best_solution;

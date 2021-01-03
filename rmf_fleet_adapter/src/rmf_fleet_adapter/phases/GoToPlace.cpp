@@ -108,6 +108,7 @@ void GoToPlace::Active::respond(
     const auto& s = table_viewer->sequence();
     assert(s.size() >= 2);
     evaluator.compliant_leeway_base *= s[s.size()-2].version + 1;
+    evaluator.max_cost_threshold = 90.0 + 30.0*s[s.size()-2].version;
   }
 
   std::shared_ptr<services::Negotiate> negotiate;
@@ -333,6 +334,7 @@ public:
 
   void execute(const Dock& dock) final
   {
+    std::cout << " Docking " << dock.dock_name() << std::endl;
     assert(!_moving_lift);
     _phases.push_back(
           std::make_unique<phases::DockRobot::PendingPhase>(
@@ -342,6 +344,7 @@ public:
 
   void execute(const DoorOpen& open) final
   {
+    std::cout  << " Door Open " << open.name() << std::endl;
     assert(!_moving_lift);
     const auto node = _context->node();
     _phases.push_back(
@@ -355,6 +358,7 @@ public:
 
   void execute(const DoorClose& close) final
   {
+    std::cout << " Door close " << close.name() << std::endl;
     assert(!_moving_lift);
 
     // TODO(MXG): Account for event duration in this phase
@@ -369,6 +373,7 @@ public:
 
   void execute(const LiftSessionBegin& open) final
   {
+    std::cout << " Lift Begin " << open.lift_name() << " : " << open.floor_name() << std::endl;
     assert(!_moving_lift);
     const auto node = _context->node();
     _phases.push_back(
@@ -384,6 +389,7 @@ public:
 
   void execute(const LiftMove& move) final
   {
+    std::cout << " Lift Move " << move.lift_name() << " : " << move.floor_name() << std::endl;
     // TODO(MXG): We should probably keep track of what lift is being moved to
     // make sure we weren't given a broken nav graph
     _lifting_duration += move.duration();
@@ -394,6 +400,7 @@ public:
 
   void execute(const LiftDoorOpen& open) final
   {
+    std::cout << " Lift Open " << open.lift_name() << " : " << open.floor_name() << std::endl;
     const auto node = _context->node();
 
     // TODO(MXG): The time calculation here should be considered more carefully.
@@ -411,6 +418,7 @@ public:
 
   void execute(const LiftSessionEnd& close) final
   {
+    std::cout << " Lift End " << close.lift_name() << " : " << close.floor_name() << std::endl;
     assert(!_moving_lift);
     const auto node = _context->node();
     _phases.push_back(
@@ -424,6 +432,7 @@ public:
 
   void execute(const Wait&) final
   {
+    std::cout << " Wait" << std::endl;
     // Do nothing
   }
 
@@ -452,6 +461,35 @@ void GoToPlace::Active::execute_plan(rmf_traffic::agv::Plan new_plan)
       _plan->get_waypoints();
   std::vector<rmf_traffic::agv::Plan::Waypoint> move_through;
 
+  std::stringstream ss;
+  ss << "FOUND PLAN FOR [" << _context->name() << "]:\n";
+  for (const auto& wp : waypoints)
+  {
+    ss << "(" << rmf_traffic::time::to_seconds(wp.time().time_since_epoch())
+       << "; ";
+    if (wp.graph_index().has_value())
+    {
+      const auto& g_wp = _context->planner()->get_configuration().graph().get_waypoint(*wp.graph_index());
+      if (g_wp.name())
+        ss << *g_wp.name();
+      else
+        ss << *wp.graph_index();
+    }
+    else
+    {
+      ss << wp.position().block<2,1>(0,0).transpose();
+    }
+
+    ss << "): ";
+    if (const auto* event = wp.event())
+      ss << event;
+    else
+      ss << "null";
+    ss << "\n";
+  }
+
+  std::cout << ss.str() << std::endl;
+
   Task::PendingPhases sub_phases;
   while (!waypoints.empty())
   {
@@ -472,6 +510,7 @@ void GoToPlace::Active::execute_plan(rmf_traffic::agv::Plan new_plan)
 
         move_through.clear();
 
+        std::cout << it->event() << ": ";
         bool continuous = true;
         EventPhaseFactory factory(_context, sub_phases, it->time(), continuous);
         it->event()->execute(factory);

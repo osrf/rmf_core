@@ -124,6 +124,7 @@ void DoorOpen::ActivePhase::_init_obs()
         const auto delay = me->_context->now() - current_expected_finish;
         if (delay > std::chrono::seconds(0))
         {
+          std::cout << me->_context->name() << " scheduling a door-wait delay" << std::endl;
           me->_context->worker().schedule(
                 [context = me->_context, delay](const auto&)
           {
@@ -197,8 +198,13 @@ void DoorOpen::ActivePhase::_update_status(
     door_state->current_mode.value == DoorMode::MODE_OPEN
     && supervisor_has_session(*heartbeat, _request_id, _door_name))
   {
+    std::cout << _context->name() << " done waiting for door" << std::endl;
     _status.status = "success";
     _status.state = Task::StatusMsg::STATE_COMPLETED;
+  }
+  else
+  {
+    std::cout << _context->name() << " still waiting on door" << std::endl;
   }
 }
 

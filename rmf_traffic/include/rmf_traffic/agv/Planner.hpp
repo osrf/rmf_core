@@ -496,6 +496,10 @@ public:
   /// plan.
   bool success() const;
 
+  /// True if there is no feasible path that connects the start to the goal.
+  /// In this case, a plan will never be found.
+  bool disconnected() const;
+
   /// Implicitly cast the result to a boolean. It will return true if a plan
   /// was found, otherwise it will return false.
   operator bool() const;

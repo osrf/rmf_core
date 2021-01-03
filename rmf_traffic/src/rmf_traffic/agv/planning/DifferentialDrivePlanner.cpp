@@ -56,6 +56,8 @@ void reparent_node_for_holding(
   const NodePtr& high_node,
   Route route)
 {
+  // TODO(MXG): Rework this implementation so that the pointed-to types can
+  // be const-qualified.
   high_node->parent = low_node;
   high_node->route_from_parent = {std::move(route)};
 }
@@ -175,7 +177,7 @@ struct OrientationTimeMap
 template<typename NodePtr>
 std::vector<NodePtr> reconstruct_nodes(
     const NodePtr& finish_node,
-    const agv::RouteValidator* /*validator*/)
+    const agv::RouteValidator* validator)
 {
 //  auto node_sequence = reconstruct_nodes(finish_node);
 
@@ -266,7 +268,7 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
   // We exclude the first node in the sequence, because it contains an empty
   // route which is not helpful.
 //  std::cout << " ================= " << std::endl;
-  const auto initial_time = *node_sequence.back()->route_from_parent.front().trajectory().start_time();
+//  const auto initial_time = *node_sequence.back()->route_from_parent.front().trajectory().start_time();
   const std::size_t N =  node_sequence.size();
   const std::size_t stop = node_sequence.size()-1;
   for (std::size_t i=0; i < stop; ++i)
@@ -328,6 +330,12 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
 //      }
     }
   }
+
+  // Throw away any routes that have less than two waypoints.
+  const auto r_it = std::remove_if(
+        routes.begin(), routes.end(),
+        [](const auto& r){ return r.trajectory().size() < 2; });
+  routes.erase(r_it, routes.end());
 
 //  for (const auto& r : routes)
 //  {
@@ -412,7 +420,7 @@ public:
   using Entry = DifferentialDriveMapTypes::Entry;
 
   struct SearchNode;
-  using SearchNodePtr = std::shared_ptr<const SearchNode>;
+  using SearchNodePtr = std::shared_ptr<SearchNode>;
   using ConstSearchNodePtr = std::shared_ptr<const SearchNode>;
   using NodePtr = SearchNodePtr;
 
@@ -667,7 +675,7 @@ public:
       for (const auto& map : map_names)
       {
         Route route{map, approach_trajectory};
-        if (!is_valid(top, route))
+        if (_validator && !is_valid(top, route))
         {
           all_valid = false;
           break;
@@ -691,7 +699,7 @@ public:
         for (const auto& map : map_names)
         {
           Route route{map, hold};
-          if (!is_valid(top, route))
+          if (_validator && !is_valid(top, route))
           {
             all_valid = false;
             break;
@@ -762,7 +770,7 @@ public:
     for (const auto& map : map_names)
     {
       Route route{map, hold};
-      if (!is_valid(top, route))
+      if (_validator && !is_valid(top, route))
         return;
 
       hold_routes.emplace_back(std::move(route));
@@ -852,7 +860,7 @@ public:
     const auto finish_time = *trajectory.finish_time();
     const double cost = time::to_seconds(trajectory.duration());
     Route route{map_name, std::move(trajectory)};
-    if (!is_valid(top, route))
+    if (_validator && !is_valid(top, route))
       return nullptr;
 
     return std::make_shared<SearchNode>(
@@ -873,6 +881,7 @@ public:
 
   bool is_valid(const SearchNodePtr& parent, const Route& route) const
   {
+    assert(_validator);
     if (route.trajectory().size() >= 2)
     {
       auto conflict = _validator->find_conflict(route);
@@ -1092,20 +1101,23 @@ public:
 
       if (entry_event_route.trajectory().size() >= 2)
       {
-        node = std::make_shared<SearchNode>(
-          SearchNode{
-            initial_waypoint_index,
-            p0,
-            ready_yaw,
-            ready_time,
-            orientation,
-            *remaining_cost_estimate + alt->time + exit_event_cost,
-            {std::move(entry_event_route)},
-            nullptr,
-            node->current_cost + entry_event_cost,
-            std::nullopt,
-            node
-          });
+//        node = std::make_shared<SearchNode>(
+//          SearchNode{
+//            initial_waypoint_index,
+//            p0,
+//            ready_yaw,
+//            ready_time,
+//            orientation,
+//            *remaining_cost_estimate + alt->time + exit_event_cost,
+//            {std::move(entry_event_route)},
+//            nullptr,
+//            node->current_cost + entry_event_cost,
+//            std::nullopt,
+//            node
+//          });
+        traversal_result.routes.insert(
+              traversal_result.routes.begin(),
+              entry_event_route);
       }
 
       node = std::make_shared<SearchNode>(
@@ -1118,7 +1130,7 @@ public:
           *remaining_cost_estimate + exit_event_cost,
           std::move(traversal_result.routes),
           traversal.exit_event,
-          node->current_cost + alt->time,
+          node->current_cost + entry_event_cost + alt->time,
           std::nullopt,
           node
         });
@@ -1401,6 +1413,10 @@ public:
     const Eigen::Vector2d waypoint_location =
       _supergraph->original().waypoints[initial_waypoint_index].get_location();
 
+//    std::cout << " >> Making start node " << start.waypoint() << ", " << start.orientation() << std::endl;
+//    if (start.location().has_value())
+//      std::cout << "   > location: " << start.location().value().transpose() << std::endl;
+
     Trajectory start_point_trajectory;
     const auto start_location = start.location();
 
@@ -1525,7 +1541,7 @@ public:
     {
       bool skip = false;
       const auto original_node =
-          std::static_pointer_cast<const SearchNode>(void_node.first);
+          std::static_pointer_cast<SearchNode>(void_node.first);
 
       const auto original_t = void_node.second;
 

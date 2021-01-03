@@ -200,6 +200,7 @@ private:
   Interpolate::Options::Implementation _interpolate;
   FloorChangeMap _floor_changes;
   std::shared_ptr<const CacheManager<TraversalCache>> _traversals;
+  std::optional<DifferentialDriveConstraint> _constraint;
 
   class EntriesGenerator
       : public Generator<std::unordered_map<std::size_t, ConstEntriesPtr>>

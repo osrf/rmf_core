@@ -644,10 +644,33 @@ Supergraph::ConstEntriesPtr Supergraph::entries_into(
 //==============================================================================
 std::optional<double> Supergraph::yaw_of(const Entry& entry) const
 {
+//  if (entry.orientation == Orientation::Any)
+//    return std::nullopt;
+
+//  return _lane_yaw_cache->get().get(entry);
+
+
   if (entry.orientation == Orientation::Any)
     return std::nullopt;
 
-  return _lane_yaw_cache->get().get(entry);
+  if (!_constraint.has_value())
+    return std::nullopt;
+
+  const auto& lane = _original.lanes[entry.lane];
+  const std::size_t waypoint_index_0 = lane.entry().waypoint_index();
+  const std::size_t waypoint_index_1 = lane.exit().waypoint_index();
+  const auto& wp0 = _original.waypoints[waypoint_index_0];
+  const auto& wp1 = _original.waypoints[waypoint_index_1];
+
+  const Eigen::Vector2d p0 = wp0.get_location();
+  const Eigen::Vector2d p1 = wp1.get_location();
+  const double dist = (p1 - p0).norm();
+  if (dist <= _interpolate.translation_thresh)
+    return std::nullopt;
+
+  const Eigen::Vector2d course_vector = (p1 - p0)/dist;
+  const auto orientations = _constraint->get_orientations(course_vector);
+  return orientations[static_cast<std::size_t>(entry.orientation)];
 }
 
 //==============================================================================
@@ -662,8 +685,13 @@ DifferentialDriveKeySet Supergraph::keys_for(
   const auto relevant_entries = entries_into(goal_waypoint_index)
       ->relevant_entries(goal_orientation);
 
+//  std::cout << " -- Relevant entries into " << goal_waypoint_index << ": "
+//            << relevant_entries.size() << std::endl;
+
   const auto relevant_traversals = traversals_from(start_waypoint_index);
   assert(relevant_traversals);
+//  std::cout << " -- Relevant traversals from " << start_waypoint_index
+//            << ": " << relevant_traversals->size() << std::endl;
 
   for (const auto& traversal : *relevant_traversals)
   {
@@ -672,7 +700,11 @@ DifferentialDriveKeySet Supergraph::keys_for(
     {
       const auto& alt = traversal.alternatives[orientation];
       if (!alt.has_value())
+      {
+//          std::cout << " -- Skipping (" << traversal.initial_lane_index << " -> "
+//                    << traversal.finish_waypoint_index << ") " << Orientation(orientation) << std::endl;
         continue;
+      }
 
       for (const auto& entry : relevant_entries)
       {
@@ -871,7 +903,11 @@ Supergraph::Supergraph(
   _interpolate(interpolate),
   _floor_changes(find_floor_changes(_original))
 {
-  // Do nothing
+  if (const auto* diff = _traits.get_differential())
+  {
+    _constraint = DifferentialDriveConstraint(
+          diff->get_forward(), diff->is_reversible());
+  }
 }
 
 } // namespace planning
