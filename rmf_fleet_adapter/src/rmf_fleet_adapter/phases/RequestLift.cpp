@@ -205,7 +205,7 @@ Task::StatusMsg RequestLift::ActivePhase::_get_status(
     if (lift_state->lift_name == _lift_name)
     {
       std::cout << " -- current state: " << lift_state->current_floor << " vs " << _destination
-                << " | " << lift_state->door_state <<  " vs " << LiftState::DOOR_OPEN
+                << " | " << (int)lift_state->door_state <<  " vs " << (int)LiftState::DOOR_OPEN
                 << " | " << lift_state->session_id << " vs " << _context->requester_id()
                 << std::endl;
     }
