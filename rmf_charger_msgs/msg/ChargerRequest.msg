@@ -1,5 +1,11 @@
-string charger_name # name of the charger that we intend to use.
-string robot_fleet # identifies the robot fleet that the robot belongs to
-string robot_name  # identifies the robot that wishes to charge
-builtin_interfaces/Duration timeout # the robot will be dropped if the robot
-                                    # does not come in timeout time
+# The name of the charger that should process this message
+string charger_name
+
+# The robot that wishes to charge
+string fleet_name
+string robot_name
+
+# The maximum amount of time to wait for the charging to start.
+# If the robot takes longer than this to arrive and start charging,
+# the charge request will be canceled.
+builtin_interfaces/Duration start_timeout
