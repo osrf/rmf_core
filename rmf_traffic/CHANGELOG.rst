@@ -4,6 +4,7 @@ Changelog for package rmf_traffic
 
 1.2.0 (2021-01-XX)
 ------------------
+* Improve planner performance scaling for large graphs: [#243](https://github.com/osrf/rmf_core/pull/243)
 * Add the blockade system for traffic light management: [#226](https://github.com/osrf/rmf_core/pull/226)
 * Access trajectory waypoints by element index: [#226](https://github.com/osrf/rmf_core/pull/226)
 * Get trajectory index of each plan waypoint: [#226](https://github.com/osrf/rmf_core/pull/226)
