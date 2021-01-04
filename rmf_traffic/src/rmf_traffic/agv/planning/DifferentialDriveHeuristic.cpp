@@ -49,6 +49,19 @@ public:
     RouteFactoryFactory route_factory;
     SearchNodePtr parent;
 
+    SearchNode(
+      NodeInfo info_,
+      double current_cost_,
+      RouteFactoryFactory route_factory_,
+      SearchNodePtr parent_)
+    : info(std::move(info_)),
+      current_cost(current_cost_),
+      route_factory(std::move(route_factory_)),
+      parent(std::move(parent_))
+    {
+      // Do nothing
+    }
+
     double get_total_cost_estimate() const
     {
       return current_cost + info.remaining_cost_estimate;

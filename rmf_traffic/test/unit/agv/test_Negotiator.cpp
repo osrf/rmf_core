@@ -1713,7 +1713,7 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions, 1.5, 60).solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -1758,7 +1758,7 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions).solve();
+        auto proposal = NegotiationRoom(database, intentions, 1.5, 40).solve();
         REQUIRE(proposal);
 
         auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();

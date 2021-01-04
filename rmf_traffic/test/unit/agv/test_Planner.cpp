@@ -2934,7 +2934,7 @@ SCENARIO("Multilevel Planning")
   }
 }
 
-SCENARIO("Adjacent entry and exit events")
+SCENARIO("Adjacent entry and exit events", "[debug]")
 {
   using namespace std::chrono_literals;
   using rmf_traffic::agv::Graph;
@@ -2958,7 +2958,9 @@ SCENARIO("Adjacent entry and exit events")
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, traits.profile()),
     hold_time,
-    interrupt_flag};
+    interrupt_flag,
+    std::nullopt,
+    200};
 
   GIVEN("non-colinear waypoints")
   {
