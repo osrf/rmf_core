@@ -53,7 +53,7 @@ Auctioneer::Implementation::Implementation(
       this->receive_proposal(*msg);
     });
 
-  timer = node->create_wall_timer(std::chrono::milliseconds(1000), [&]()
+  timer = node->create_wall_timer(std::chrono::milliseconds(500), [&]()
       {
         this->check_bidding_process();
       });
@@ -109,7 +109,7 @@ void Auctioneer::Implementation::check_bidding_process()
   {
     RCLCPP_DEBUG(node->get_logger(), " - Start new bidding task: %s",
       front_task.bid_notice.task_profile.task_id.c_str());
-    front_task.start_time = node->now();
+    queue_bidding_tasks.front().start_time = node->now();
     bid_notice_pub->publish(front_task.bid_notice);
     bidding_in_proccess = true;
   }
@@ -136,8 +136,9 @@ bool Auctioneer::Implementation::determine_winner(
     else
     {
       winner = evaluate(bidding_task.submissions);
-      RCLCPP_INFO(node->get_logger(), "Found winning Fleet Adapter: %s",
-        winner->fleet_name.c_str());
+      RCLCPP_INFO(node->get_logger(),
+        "Found winning Fleet Adapter: %s, from %d submissions",
+        winner->fleet_name.c_str(), bidding_task.submissions.size());
     }
 
     // Call the user defined callback function
