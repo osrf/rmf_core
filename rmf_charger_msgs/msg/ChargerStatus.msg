@@ -12,5 +12,5 @@ string error_msg
 string charger_vendor # The vendor of the charger
 string charger_model # The exact model of a charger
 
-string robot_fleet # robot fleet that has been assigned to charger
-string robot_name # robot name that has been assigned to charger
+string robot_fleet # robot fleet that has been assigned to charger, if any
+string robot_name # robot name that has been assigned to charger, if any
