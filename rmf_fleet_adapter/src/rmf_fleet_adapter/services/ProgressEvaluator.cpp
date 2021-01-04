@@ -88,7 +88,7 @@ bool ProgressEvaluator::evaluate(Result& progress)
 
   const double dropdead_cost =
     std::min(
-      max_cost_threshold,
+      progress.ideal_cost().value() + max_cost_threshold,
       compliant_leeway_multiplier*progress.ideal_cost().value()
       + compliant_leeway_base);
 

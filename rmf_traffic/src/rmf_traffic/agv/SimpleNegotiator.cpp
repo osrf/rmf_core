@@ -429,20 +429,33 @@ void SimpleNegotiator::respond(
     options.validator(validator);
     auto plan = _pimpl->planner.setup(_pimpl->starts, _pimpl->goal, options);
     const double initial_cost_estimate = *plan.cost_estimate();
+    if (_pimpl->debug_print)
+    {
+      std::cout << "Initial cost estimate: " << initial_cost_estimate << std::endl;
+    }
+
     std::optional<double> cost_limit;
     if (maximum_cost_leeway.has_value())
     {
       cost_limit = maximum_cost_leeway.value() * initial_cost_estimate;
       if (minimum_cost_threshold.has_value())
-        cost_limit = std::max(*minimum_cost_threshold, *cost_limit);
+      {
+        cost_limit = std::max(
+          *minimum_cost_threshold + initial_cost_estimate, *cost_limit);
+      }
     }
 
     if (maximum_cost_threshold.has_value())
     {
       if (cost_limit.has_value())
-        cost_limit = std::min(*cost_limit, *maximum_cost_threshold);
+      {
+        cost_limit = std::min(
+          *cost_limit, *maximum_cost_threshold + initial_cost_estimate);
+      }
       else
-        cost_limit = *maximum_cost_threshold;
+      {
+        cost_limit = *maximum_cost_threshold + initial_cost_estimate;
+      }
     }
 
     plan.options().maximum_cost_estimate(cost_limit);

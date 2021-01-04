@@ -125,7 +125,8 @@ public:
     Intentions intentions,
     double max_cost_leeway =
       rmf_traffic::agv::SimpleNegotiator::Options::DefaultMaxCostLeeway,
-    std::optional<double> min_cost_threshold = 60.0,
+    std::optional<double> min_cost_threshold =
+      rmf_traffic::agv::SimpleNegotiator::Options::DefaultMinCostThreshold,
     std::size_t max_alts = 1,
     const bool print = false)
   : negotiators(make_negotiators(

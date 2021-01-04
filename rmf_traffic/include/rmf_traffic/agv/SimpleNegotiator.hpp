@@ -38,7 +38,7 @@ public:
   public:
 
     static constexpr double DefaultMaxCostLeeway = 1.5;
-    static constexpr double DefaultMinCostThreshold = 60.0;
+    static constexpr double DefaultMinCostThreshold = 30.0;
 
     using ApprovalCallback =
       std::function<Responder::UpdateVersion(rmf_traffic::agv::Plan)>;
