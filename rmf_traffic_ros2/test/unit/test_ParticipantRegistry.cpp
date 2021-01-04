@@ -250,5 +250,89 @@ SCENARIO("Test file logger")
 
   GIVEN("corrupt file that is in no way YAML")
   {
+    std::ofstream invalid_yaml;
+    invalid_yaml.open("test_yamllogger.yaml", std::ofstream::out);
+    invalid_yaml << "\"rubbish yaml^";
+    invalid_yaml.close();
+    WHEN("Parsing")
+    {
+      THEN("throws exception")
+      {
+        REQUIRE_THROWS(new YamlLogger("test_yamllogger.yaml"));
+      }
+    }
+  }
+
+  GIVEN("a yaml file that does not fit ")
+  {
+    
+    WHEN("the file is not a sequence")
+    {
+      YAML::Node node;
+      node["some_yaml"] = "invalid data";
+      std::ofstream invalid_yaml;
+      invalid_yaml.open("test_yamllogger.yaml", std::ofstream::out);
+      YAML::Emitter emitter;
+      emitter << node;
+      invalid_yaml << emitter.c_str();
+      invalid_yaml.close();
+      THEN("throw an error upon coinstruction")
+      {
+        REQUIRE_THROWS(std::make_shared<YamlLogger>("test_yamllogger.yaml"));
+      }
+    }
+
+    WHEN("the file is not a sequence")
+    {
+      YAML::Node node;
+      node["some_yaml"] = "invalid data";
+      std::ofstream invalid_yaml;
+      invalid_yaml.open("test_yamllogger.yaml", std::ofstream::out);
+      YAML::Emitter emitter;
+      emitter << node;
+      invalid_yaml << emitter.c_str();
+      invalid_yaml.close();
+      THEN("throw an error upon construction")
+      {
+        REQUIRE_THROWS(std::make_shared<YamlLogger>("test_yamllogger.yaml"));
+      }
+    }
+
+
+    WHEN("the file is not a sequence")
+    {
+      YAML::Node node;
+      node["some_yaml"] = "invalid data";
+      std::ofstream invalid_yaml;
+      invalid_yaml.open("test_yamllogger.yaml", std::ofstream::out);
+      YAML::Emitter emitter;
+      emitter << node;
+      invalid_yaml << emitter.c_str();
+      invalid_yaml.close();
+      THEN("throw an error upon construction")
+      {
+        REQUIRE_THROWS(std::make_shared<YamlLogger>("test_yamllogger.yaml"));
+      }
+    }
+
+    WHEN("the file is a YAML sequence but filled with rubbish")
+    {
+      YAML::Node node;
+      std::ofstream invalid_yaml;
+      node["some_yaml"] = "invalid data";
+      YAML::Emitter emmiter;
+      emmiter << YAML::BeginSeq;
+      emmiter << node;
+      emmiter << YAML::EndSeq;
+      invalid_yaml.open("test_yamllogger.yaml", std::ofstream::out);
+      invalid_yaml << emmiter.c_str();
+      invalid_yaml.close();
+      THEN("throw an error upon connecting to database")
+      {
+        auto logger = std::make_shared<YamlLogger>("test_yamllogger.yaml");
+        auto db = std::make_shared<Database>();
+        REQUIRE_THROWS(new ParticipantRegistry(logger, db));
+      }
+    }
   }
 }
