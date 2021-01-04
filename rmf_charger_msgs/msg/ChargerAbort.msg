@@ -1,2 +1,1 @@
-string robot_fleet # identifies the robot id.
-string robot_name  # identifies the robot that whishes to charge
+string charger_name # the name of the charger which we whish to cancel request to.
