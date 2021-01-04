@@ -1713,7 +1713,7 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions, 4.0).solve();
+        auto proposal = NegotiationRoom(database, intentions, 1.5, 60).solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -1758,7 +1758,7 @@ SCENARIO("A single lane with a alternate one way path")
 
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions, 4.0).solve();
+        auto proposal = NegotiationRoom(database, intentions, 1.5, 40).solve();
         REQUIRE(proposal);
 
         auto p0_itinerary = get_participant_itinerary(*proposal, p0.id()).value();
@@ -2635,7 +2635,7 @@ SCENARIO("fan-in-fan-out bottleneck")
       // We don't run this test in debug mode because it takes a long time
       THEN("Valid Proposal is found")
       {
-        auto proposal = NegotiationRoom(database, intentions, 2.3)/*.print()*/.solve();
+        auto proposal = NegotiationRoom(database, intentions)/*.print()*/.solve();
         REQUIRE(proposal);
 
         auto p0_itinerary =
@@ -2775,7 +2775,8 @@ SCENARIO("Fully connected graph of 10 vertices")
         // The AGV planner assumes that waypoints are connected with simple
         // straight lines. Since all waypoints are colinear, it is impossible
         // for two vehicles to cross over each other.
-        auto proposal = NegotiationRoom(database, intentions, 1.1).solve();
+        auto proposal = NegotiationRoom(
+              database, intentions, 1.1, std::nullopt).solve();
         CHECK_FALSE(proposal);
       }
     }
