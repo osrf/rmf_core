@@ -22,8 +22,8 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ChargerStatus.msg"
-  "srv/ChargingRequest.srv"
-  "srv/ChargingAbort.srv"
+  "srv/ChargerRequest.srv"
+  "srv/ChargerAbort.srv"
   DEPENDENCIES builtin_interfaces
  )
 
