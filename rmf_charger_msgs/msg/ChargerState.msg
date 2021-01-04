@@ -18,3 +18,7 @@ string charger_model
 # the robot that is currently assigned to this charger (if any)
 string robot_fleet
 string robot_name
+
+# This contains the duration till the robot becomes fully
+# charged.
+builtin_interfaces/Duration time_to_fully_charged
