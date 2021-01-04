@@ -15,7 +15,7 @@
  *
 */
 
-#include "GraphInternal.hpp"
+#include "internal_Graph.hpp"
 
 #include <rmf_traffic/agv/Graph.hpp>
 
@@ -724,6 +724,7 @@ auto Graph::add_waypoint(
       std::move(map_name), std::move(location)));
 
   _pimpl->lanes_from.push_back({});
+  _pimpl->lanes_into.push_back({});
   _pimpl->lane_between.push_back({});
 
   return _pimpl->waypoints.back();
@@ -826,6 +827,7 @@ auto Graph::add_lane(
 
   const std::size_t lane_id = _pimpl->lanes.size();
   _pimpl->lanes_from.at(entry.waypoint_index()).push_back(lane_id);
+  _pimpl->lanes_into.at(exit.waypoint_index()).push_back(lane_id);
   _pimpl->lane_between
       .at(entry.waypoint_index())[exit.waypoint_index()] = lane_id;
 

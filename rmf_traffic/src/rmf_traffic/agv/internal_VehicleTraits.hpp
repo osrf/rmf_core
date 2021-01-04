@@ -15,53 +15,55 @@
  *
 */
 
-#include "internal_Route.hpp"
+#ifndef SRC__RMF_TRAFFIC__AGV__INTERNAL_VEHICLETRAITS_HPP
+#define SRC__RMF_TRAFFIC__AGV__INTERNAL_VEHICLETRAITS_HPP
+
+#include <rmf_traffic/agv/VehicleTraits.hpp>
 
 namespace rmf_traffic {
+namespace agv {
 
 //==============================================================================
-Route::Route(
-  std::string map,
-  Trajectory trajectory)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        std::move(map),
-        std::move(trajectory)
-      }))
+class VehicleTraits::Limits::Implementation
 {
-  // Do nothing
-}
+public:
+
+  double velocity;
+  double acceleration;
+
+  static const Implementation& get(const Limits& limits);
+};
 
 //==============================================================================
-Route& Route::map(std::string value)
+struct KinematicLimits
 {
-  _pimpl->map = std::move(value);
-  return *this;
-}
+  VehicleTraits::Limits::Implementation linear;
+  VehicleTraits::Limits::Implementation angular;
+};
 
 //==============================================================================
-const std::string& Route::map() const
+class VehicleTraits::Implementation
 {
-  return _pimpl->map;
-}
+public:
 
-//==============================================================================
-Route& Route::trajectory(Trajectory value)
-{
-  _pimpl->trajectory = std::move(value);
-  return *this;
-}
+  Limits _linear;
+  Limits _rotation;
+  Profile _profile;
 
-//==============================================================================
-Trajectory& Route::trajectory()
-{
-  return _pimpl->trajectory;
-}
+  Steering _steering_mode;
+  Differential _differential;
+  Holonomic _holonomic;
 
-//==============================================================================
-const Trajectory& Route::trajectory() const
-{
-  return _pimpl->trajectory;
-}
+  Implementation(
+    Limits linear,
+    Limits rotation,
+    Profile profile,
+    Differential differential);
 
+  static KinematicLimits get_limits(const VehicleTraits& traits);
+};
+
+} // namespace agv
 } // namespace rmf_traffic
+
+#endif // SRC__RMF_TRAFFIC__AGV__INTERNAL_VEHICLETRAITS_HPP

@@ -45,7 +45,7 @@ public:
     ConstNodePtr parent;
 
     /// The route that goes from the parent Node to this Node.
-    Route route_from_parent;
+    std::vector<Route> route_from_parent;
 
     /// An estimate of the remaining cost, based on the heuristic.
     double remaining_cost_estimate;

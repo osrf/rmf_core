@@ -25,9 +25,9 @@
 
 #include "../utils_Trajectory.hpp"
 
-#include <iostream>
 #include <iomanip>
 #include <thread>
+#include <iostream>
 
 // TODO(MXG): Move performance testing content into a performance test folder
 const bool test_performance = false;
@@ -247,7 +247,6 @@ void test_ignore_obstacle(
   REQUIRE(new_plan->get_itinerary().size() == 1);
   CHECK(new_plan->get_itinerary().front().trajectory().duration()
     == original_result->get_itinerary().front().trajectory().duration());
-
   REQUIRE(new_plan->get_waypoints().size()
     == original_result->get_waypoints().size());
 
@@ -269,7 +268,17 @@ void test_ignore_obstacle(
     const Eigen::Vector3d old_p = old_wp.position();
     CHECK( (new_p.block<2, 1>(0, 0) - old_p.block<2, 1>(0, 0)).norm()
       == Approx(0.0) );
-    CHECK(rmf_utils::wrap_to_pi(new_p[2] - old_p[2]) == Approx(0.0) );
+    const double yaw_diff =
+        std::abs(rmf_utils::wrap_to_pi(new_p[2] - old_p[2]));
+
+    // In many cases, there are multiple equally optimal solutions which differ
+    // only by whether the robot is oriented forward or backward. We should
+    // accept either one in this comparison.
+    const bool consistent_yaw =
+        yaw_diff == Approx(0.0).margin(1e-8)
+        || yaw_diff == Approx(M_PI).margin(1e-8);
+
+    CHECK(consistent_yaw);
   }
 }
 
@@ -358,7 +367,13 @@ inline void CHECK_PLAN(
     const auto R_diff = wp_R - traj_wp_R;
     CHECK(rmf_utils::wrap_to_pi(R_diff) == Approx(0.0).margin(1e-6));
 
+    const auto t = plan->get_waypoints().front().time();
     CHECK(wp.time() == traj_wp.time());
+    if (wp.time() != traj_wp.time())
+      std::cout << "ERROR: "
+                << rmf_traffic::time::to_seconds(wp.time() - t)
+                << " vs " << rmf_traffic::time::to_seconds(traj_wp.time() - t)
+                << std::endl;
   }
 
   auto ip = std::unique(plan_indices.begin(), plan_indices.end());
@@ -753,13 +768,13 @@ SCENARIO("Test planning")
 
   //TODO abort planning that is impossible as lane does not exit in the graph
 
-  // WHEN("goal waypoint does not have a lane in the graph")
-  // {
-  //   const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
-  //   auto plan = planner.plan(
-  //       rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
-  //       rmf_traffic::agv::Planner::Goal(9));
-  // }
+   WHEN("goal waypoint does not have a lane in the graph")
+   {
+     const rmf_traffic::Time start_time = std::chrono::steady_clock::now();
+     auto plan = planner.plan(
+         rmf_traffic::agv::Planner::Start(start_time, 3, 0.0),
+         rmf_traffic::agv::Planner::Goal(9));
+   }
 
   WHEN("initial conditions satisfy the goals")
   {
@@ -1312,7 +1327,7 @@ SCENARIO("DP1 Graph")
   graph.add_waypoint(test_map_name, {-15, 0}).set_passthrough_point(true); // 13
   graph.add_waypoint(test_map_name, {-10, 0}).set_passthrough_point(true); // 14
   graph.add_waypoint(test_map_name, { 0, 0}).set_passthrough_point(true); // 15 DOOR (not implemented)
-  graph.add_waypoint(test_map_name, { 3, 0}).set_passthrough_point(true); // 16
+  graph.add_waypoint(test_map_name, { 3, 0.1}).set_passthrough_point(true); // 16
   graph.add_waypoint(test_map_name, {6, 0}).set_passthrough_point(true); // 17
   graph.add_waypoint(test_map_name, {9, 0}).set_passthrough_point(true); // 18
   graph.add_waypoint(test_map_name, {15, 0}).set_holding_point(true);   // 19
@@ -1369,7 +1384,10 @@ SCENARIO("DP1 Graph")
   add_bidir_lane(14, 28);
   add_bidir_lane(16, 22);
   add_bidir_lane(17, 23);
-  add_bidir_lane(18, 24);
+  // We remove this lane because it creates multiple equally optimal solutions
+  // for some test cases, and that makes it tricky to create valid test
+  // expectations.
+//  add_bidir_lane(18, 24);
   add_bidir_lane(19, 25);
   add_bidir_lane(20, 26);
   add_bidir_lane(22, 29);
@@ -1387,6 +1405,7 @@ SCENARIO("DP1 Graph")
     {1.0, 0.5},
     profile
   };
+
   const rmf_traffic::Time time = std::chrono::steady_clock::now();
   const auto interrupt_flag = std::make_shared<bool>(false);
   const rmf_traffic::agv::Planner::Options default_options{
@@ -1831,7 +1850,11 @@ SCENARIO("DP1 Graph")
   {
     const auto time = std::chrono::steady_clock::now();
     const std::size_t start_index = 27;
-    const auto start = rmf_traffic::agv::Plan::Start{time, start_index, 0.0};
+
+    // We give a slight angle to make the optimal solutions for the plans
+    // unique. That helps to set correct test expectations.
+    const auto start = rmf_traffic::agv::Plan::Start{
+        time, start_index, 5.0*M_PI/180.0};
 
     const std::size_t goal_index = 32;
     const auto goal = rmf_traffic::agv::Plan::Goal{goal_index};
@@ -2100,8 +2123,17 @@ SCENARIO("Graph with door", "[door]")
 
   rmf_traffic::schedule::Database database;
 
-  const auto default_options = rmf_traffic::agv::Planner::Options{
-    make_test_schedule_validator(database, traits.profile())};
+  rmf_traffic::agv::Planner::Options default_options{nullptr};
+  WHEN("No schedule validator")
+  {
+    // Leave default_options as-is
+  }
+
+  WHEN("With a schedule validator")
+  {
+    default_options.validator(
+      make_test_schedule_validator(database, traits.profile()));
+  }
 
   rmf_traffic::agv::Planner planner{
     rmf_traffic::agv::Planner::Configuration{graph, traits},
@@ -2642,7 +2674,7 @@ SCENARIO("Test starts using graph with non-colinear waypoints")
   }
 }
 
-SCENARIO("Multilevel Planning", "[debug]")
+SCENARIO("Multilevel Planning")
 {
   using namespace std::chrono_literals;
   using rmf_traffic::agv::Graph;
@@ -2902,7 +2934,7 @@ SCENARIO("Multilevel Planning", "[debug]")
   }
 }
 
-SCENARIO("Adjacent entry and exit events")
+SCENARIO("Adjacent entry and exit events", "[debug]")
 {
   using namespace std::chrono_literals;
   using rmf_traffic::agv::Graph;
@@ -2926,7 +2958,9 @@ SCENARIO("Adjacent entry and exit events")
   const rmf_traffic::agv::Planner::Options default_options{
     make_test_schedule_validator(database, traits.profile()),
     hold_time,
-    interrupt_flag};
+    interrupt_flag,
+    std::nullopt,
+    200};
 
   GIVEN("non-colinear waypoints")
   {
