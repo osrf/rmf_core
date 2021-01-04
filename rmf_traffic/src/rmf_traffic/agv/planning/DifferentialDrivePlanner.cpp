@@ -23,11 +23,9 @@
 
 #include <rmf_utils/math.hpp>
 
-
-
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 #include <iostream>
-
-
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
 namespace rmf_traffic {
 namespace agv {
@@ -179,29 +177,29 @@ std::vector<NodePtr> reconstruct_nodes(
     const NodePtr& finish_node,
     const agv::RouteValidator* validator)
 {
-//  auto node_sequence = reconstruct_nodes(finish_node);
+  auto node_sequence = reconstruct_nodes(finish_node);
 
-//  // Remove "cruft" from plans. This means making sure vehicles don't do any
-//  // unnecessary motions.
-//  std::unordered_map<
-//    std::size_t,
-//    OrientationTimeMap<NodePtr>
-//  > cruft_map;
+  // Remove "cruft" from plans. This means making sure vehicles don't do any
+  // unnecessary motions.
+  std::unordered_map<
+    std::size_t,
+    OrientationTimeMap<NodePtr>
+  > cruft_map;
 
-//  for (const auto& node : node_sequence)
-//  {
-//    if (!node->waypoint)
-//      continue;
+  for (const auto& node : node_sequence)
+  {
+    if (!node->waypoint)
+      continue;
 
-//    const auto wp = *node->waypoint;
-//    cruft_map[wp].insert(node);
-//  }
+    const auto wp = *node->waypoint;
+    cruft_map[wp].insert(node);
+  }
 
-//  for (auto& cruft : cruft_map)
-//  {
-//    for (auto& duplicate : cruft.second.elements)
-//      duplicate.squash(validator);
-//  }
+  for (auto& cruft : cruft_map)
+  {
+    for (auto& duplicate : cruft.second.elements)
+      duplicate.squash(validator);
+  }
 
   return reconstruct_nodes(finish_node);
 }
@@ -248,9 +246,6 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
       output = std::move(simple_route);
     }
 
-    for (const auto& r : output)
-      assert(r.trajectory().size() >= 2);
-
     // When there is only one node, we should return an empty itinerary to
     // indicate that the AGV does not need to go anywhere.
     return {output, {}};
@@ -267,8 +262,6 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
 
   // We exclude the first node in the sequence, because it contains an empty
   // route which is not helpful.
-//  std::cout << " ================= " << std::endl;
-//  const auto initial_time = *node_sequence.back()->route_from_parent.front().trajectory().start_time();
   const std::size_t N =  node_sequence.size();
   const std::size_t stop = node_sequence.size()-1;
   for (std::size_t i=0; i < stop; ++i)
@@ -276,43 +269,19 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
     const std::size_t n = N-2-i;
     const auto& node = node_sequence.at(n);
     auto& index = indexing.at(n);
-//    std::cout << "Checking node " << n
-//              << ": " << node->route_from_parent.size()
-//              << " (has start: " << node->start.has_value() << ")";
-
-//    if (node->start.has_value())
-//      std::cout << " location: " << node->start->location()->transpose();
-
-//    if (node->waypoint.has_value())
-//      std::cout << " waypoint: " << node->waypoint.value();
-//    else
-//      std::cout << " waypoint: nullopt";
-
-
-//    std::cout << std::endl;
 
     for (const Route& next_route : node->route_from_parent)
     {
-//      assert(next_route.trajectory().size() >= 2);
       Route& last_route = routes.back();
-//      std::cout << " > Checking route: " << next_route.trajectory().size() << std::endl;
       if (next_route.map() == last_route.map())
       {
         for (const auto& waypoint : next_route.trajectory())
         {
-//          const auto t = time::to_seconds(waypoint.time() - initial_time);
-//          std::cout << "Inserting waypoint (" << t << ") " << waypoint.position().transpose() << std::endl;
           last_route.trajectory().insert(waypoint);
         }
       }
       else
       {
-//        std::cout << "Inserting route:" << std::endl;
-//        for (const auto& wp : next_route.trajectory())
-//        {
-//          const auto t = time::to_seconds(wp.time() - initial_time);
-//          std::cout << " -- (" << t << ") " << wp.position().transpose() << std::endl;
-//        }
         routes.push_back(next_route);
       }
 
@@ -321,13 +290,6 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
       assert(!routes.back().trajectory().empty());
       index.trajectory_index = routes.back().trajectory().size() - 1;
       assert(routes.back().trajectory().back().time() == node->time);
-
-//      if (routes.back().trajectory().back().time() != node->time)
-//      {
-//        std::cout << "TRAJECTORY INDEX ISSUE: "
-//                  << time::to_seconds(routes.back().trajectory().back().time() - initial_time)
-//                  << " vs " << time::to_seconds(node->time - initial_time) << std::endl;
-//      }
     }
   }
 
@@ -336,22 +298,6 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
         routes.begin(), routes.end(),
         [](const auto& r){ return r.trajectory().size() < 2; });
   routes.erase(r_it, routes.end());
-
-//  for (const auto& r : routes)
-//  {
-//    for (const auto& n : node_sequence)
-//    {
-//      std::cout << "{" << n->event << "} ";
-//      if (n->waypoint.has_value())
-//        std::cout << "[" << *n->waypoint << "] ";
-//      else
-//        std::cout << "[nullopt] ";
-
-//      std::cout << "<" << n->position.transpose() << ", " << n->yaw << "> <-- ";
-//    }
-//    std::cout << std::endl;
-//    assert(r.trajectory().size() >= 2);
-//  }
 
   return {routes, indexing};
 }
@@ -485,64 +431,58 @@ public:
       start(std::move(start_)),
       parent(std::move(parent_))
     {
-//      std::cout << " >> Making node " << __count__ << ": " << get_total_cost_estimate()
-//                << " = " << current_cost << " + " << remaining_cost_estimate << std::endl;
-
       assert(!route_from_parent.empty());
-//      assert(route_from_parent.back().trajectory().size() >= 2
-//             || start.has_value());
 
-//      if (parent && (parent->get_total_cost_estimate() > get_total_cost_estimate() + 1e-3))
-//      {
-//        std::cout << "Inadmissible expansion! "
-//                  << parent->current_cost << " + "
-//                  << parent->remaining_cost_estimate << " = "
-//                  << parent->get_total_cost_estimate()
-//                  << " --> "
-//                  << current_cost << " + "
-//                  << remaining_cost_estimate << " = "
-//                  << get_total_cost_estimate()
-//                  << " | Diff: "
-//                  << parent->get_total_cost_estimate() - get_total_cost_estimate()
-//                  << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+      if (parent &&
+        (parent->get_total_cost_estimate() > get_total_cost_estimate() + 1e-3))
+      {
+        std::cout << "Inadmissible expansion! "
+              << parent->current_cost << " + "
+              << parent->remaining_cost_estimate << " = "
+              << parent->get_total_cost_estimate()
+              << " --> "
+              << current_cost << " + "
+              << remaining_cost_estimate << " = "
+              << get_total_cost_estimate()
+              << " | Diff: "
+              << parent->get_total_cost_estimate() - get_total_cost_estimate()
+              << std::endl;
 
-//        std::cout << "Yaw: " << parent->yaw*180.0/M_PI << " --> "
-//                  << yaw*180.0/M_PI << " | Trans: (" << parent->position.transpose()
-//                  << ") --> (" << position.transpose() << ") <"
-//                  << (parent->position - position).norm() << ">" << std::endl;
-//      }
-//      assert(
-//        !parent
-//         || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1e-6));
-//          || (parent->get_total_cost_estimate() <= get_total_cost_estimate() + 1.0));
+        std::cout << "Yaw: " << parent->yaw*180.0/M_PI << " --> "
+              << yaw*180.0/M_PI << " | Trans: (" << parent->position.transpose()
+              << ") --> (" << position.transpose() << ") <"
+              << (parent->position - position).norm() << ">" << std::endl;
+      }
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
-//      if (start.has_value())
-//      {
-//        std::cout << "making start node (" << route_from_parent.size()
-//                  << "):";
-//        for (const auto& r : route_from_parent)
-//          std::cout << " " << r.trajectory().size();
-//        std::cout << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+      if (start.has_value())
+      {
+        std::cout << "making start node (" << route_from_parent.size()
+                  << "):";
+        for (const auto& r : route_from_parent)
+          std::cout << " " << r.trajectory().size();
+        std::cout << std::endl;
 
-//        std::cout << " -- [";
-//        if (waypoint)
-//          std::cout << waypoint.value();
-//        else
-//          std::cout << "nullopt";
+        std::cout << " -- [";
+        if (waypoint)
+          std::cout << waypoint.value();
+        else
+          std::cout << "nullopt";
 
-//        std::cout << ":" << start->waypoint() << "] -- <"
-//                  << position.transpose() << "; " << yaw << "> vs <";
+        std::cout << ":" << start->waypoint() << "] -- <"
+                  << position.transpose() << "; " << yaw << "> vs <";
 
-//        if (start->location().has_value())
-//          std::cout << start->location()->transpose();
-//        else
-//          std::cout << "nullopt";
+        if (start->location().has_value())
+          std::cout << start->location()->transpose();
+        else
+          std::cout << "nullopt";
 
-//        std::cout << "; " << start->orientation() << ">" << std::endl;
-//      }
+        std::cout << "; " << start->orientation() << ">" << std::endl;
+      }
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
     }
-
-    static std::size_t counter;
   };
 
   using SearchQueue =
@@ -925,12 +865,19 @@ public:
     for (std::size_t i = 0; i < traversal.alternatives.size(); ++i)
     {
       const auto& alt = traversal.alternatives[i];
-//      std::cout << "Expanding from " << top->waypoint.value()
-//                << " -> " << traversal.finish_waypoint_index << " | "
-//                << Orientation(i) << " {" << traversal.entry_event << "}" << std::endl;
+
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+      std::cout << "Expanding from " << top->waypoint.value()
+                << " -> " << traversal.finish_waypoint_index << " | "
+                << Orientation(i) << " {" << traversal.entry_event << "}" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
       if (!alt.has_value())
       {
-//        std::cout << " ==== nullopt alternative" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " ==== nullopt alternative" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         continue;
       }
 
@@ -965,7 +912,10 @@ public:
 
       if (!is_valid(top, approach_route))
       {
-//        std::cout << " ==== Invalid approach route" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " ==== Invalid approach route" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         continue;
       }
 
@@ -992,7 +942,10 @@ public:
 
       if (!is_valid(top, entry_event_route))
       {
-//        std::cout << " ==== Invalid entry event route" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " ==== Invalid entry event route" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         continue;
       }
 
@@ -1013,24 +966,26 @@ public:
 
       if (!all_valid)
       {
-//        std::cout << " ==== Invalid traversal" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " ==== Invalid traversal" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         continue;
       }
 
-//      std::cout << " --------" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+      std::cout << " --------" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
       const auto remaining_cost_estimate = _heuristic.compute(
             next_waypoint_index, traversal_result.finish_yaw);
 
-//      std::cout << "Traversal (" << initial_waypoint_index << ", " << initial_yaw*180.0/M_PI << ") --> ("
-//                << next_waypoint_index << ", " << traversal_result.finish_yaw*180.0/M_PI << ") "
-//                << orientation << " (" << i << ":" << &alt << ":" << &traversal
-//                << ":" << traversals << ")" << std::endl;
-//      std::cout << "Traversal yaw: " << traversal_yaw.value_or(std::nan(""))*180./M_PI
-//                << " | Result yaw: " << traversal_result.finish_yaw*180.0/M_PI  << std::endl;
-
       if (!remaining_cost_estimate.has_value())
       {
-//        std::cout << " ==== nullopt heuristic" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " ==== nullopt heuristic" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         continue;
       }
 
@@ -1052,14 +1007,17 @@ public:
               arrival_wp.position(), Eigen::Vector3d::Zero());
       }
 
-//      std::cout << "Cost " << approach_cost + entry_event_cost + alt->time + exit_event_cost << " = "
-//                << "Approach: " << approach_cost << " | Entry: " << entry_event_cost
-//                << " | Alt: " << alt->time << " | Exit: " << exit_event_cost
-//                << std::endl;
-//      std::cout << "Previous cost " << top->current_cost << " + Cost "
-//                << approach_cost + entry_event_cost + alt->time + exit_event_cost
-//                << " = " << top->current_cost + approach_cost + entry_event_cost + alt->time + exit_event_cost
-//                << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+      std::cout << "Cost " << approach_cost + entry_event_cost + alt->time
+                   + exit_event_cost << " = " << "Approach: " << approach_cost
+                << " | Entry: " << entry_event_cost << " | Alt: " << alt->time
+                << " | Exit: " << exit_event_cost << std::endl;
+      std::cout << "Previous cost " << top->current_cost << " + Cost "
+                << approach_cost + entry_event_cost + alt->time
+                   + exit_event_cost << " = " << top->current_cost
+                   + approach_cost + entry_event_cost + alt->time
+                   + exit_event_cost << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       auto exit_event_route =
         Route{
@@ -1069,14 +1027,16 @@ public:
 
       if (!is_valid(top, exit_event_route))
       {
-//        std::cout << " ==== invalid exit event" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " ==== invalid exit event" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         continue;
       }
 
       auto node = top;
       if (approach_route.trajectory().size() >= 2 || traversal.entry_event)
       {
-//        std::cout << " -- Adding approach {" << traversal.entry_event << std::endl;
         const double cost =
             time::to_seconds(approach_route.trajectory().duration());
         const double yaw = approach_wp.position()[2];
@@ -1101,20 +1061,6 @@ public:
 
       if (entry_event_route.trajectory().size() >= 2)
       {
-//        node = std::make_shared<SearchNode>(
-//          SearchNode{
-//            initial_waypoint_index,
-//            p0,
-//            ready_yaw,
-//            ready_time,
-//            orientation,
-//            *remaining_cost_estimate + alt->time + exit_event_cost,
-//            {std::move(entry_event_route)},
-//            nullptr,
-//            node->current_cost + entry_event_cost,
-//            std::nullopt,
-//            node
-//          });
         traversal_result.routes.insert(
               traversal_result.routes.begin(),
               entry_event_route);
@@ -1153,7 +1099,9 @@ public:
           });
       }
 
-//      std::cout << " ^^^^^^^^^^^^^^ Pushing" << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+      std::cout << " ^^^^^^^^^^^^^^ Pushing" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       queue.push(node);
     }
   }
@@ -1204,26 +1152,32 @@ public:
       }
 
       auto solution_node = solution_root->child;
+
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 //      std::cout << "Free solution: ";
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       while (solution_node)
       {
         assert(solution_node->route_factory);
 
-//        std::cout << "(" << search_node->current_cost << "; ";
-//        if (search_node->waypoint.has_value())
-//          std::cout << top->waypoint.value();
-//        else
-//          std::cout << "null";
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << "(" << search_node->current_cost << "; ";
+        if (search_node->waypoint.has_value())
+          std::cout << top->waypoint.value();
+        else
+          std::cout << "null";
 
-//        std::cout << ", " << search_node->yaw << ") ";
-//        if (solution_node->info.entry.has_value())
-//          std::cout << *solution_node->info.entry;
-//        else
-//          std::cout << "[null]";
+        std::cout << ", " << search_node->yaw << ") ";
+        if (solution_node->info.entry.has_value())
+          std::cout << *solution_node->info.entry;
+        else
+          std::cout << "[null]";
 
-//        std::cout << " <" << solution_node->info.cost_from_parent
-//                  << " : " << solution_node->info.remaining_cost_estimate << "> --> ";
+        std::cout << " <" << solution_node->info.cost_from_parent
+                  << " : " << solution_node->info.remaining_cost_estimate
+                  << "> --> ";
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
         auto route_info = solution_node->route_factory(
               search_node->time, search_node->yaw);
@@ -1249,7 +1203,10 @@ public:
 
         solution_node = solution_node->child;
       }
-//      std::cout << std::endl;
+
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+      std::cout << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
       queue.push(search_node);
     }
@@ -1413,9 +1370,15 @@ public:
     const Eigen::Vector2d waypoint_location =
       _supergraph->original().waypoints[initial_waypoint_index].get_location();
 
-//    std::cout << " >> Making start node " << start.waypoint() << ", " << start.orientation() << std::endl;
-//    if (start.location().has_value())
-//      std::cout << "   > location: " << start.location().value().transpose() << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+    std::cout << " >> Making start node " << start.waypoint() << ", "
+              << start.orientation() << std::endl;
+    if (start.location().has_value())
+    {
+      std::cout << "   > location: " << start.location().value().transpose()
+                << std::endl;
+    }
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
 
     Trajectory start_point_trajectory;
     const auto start_location = start.location();
@@ -1441,7 +1404,10 @@ public:
 
       if (!lowest_cost_estimate.has_value())
       {
-//        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " === nullopt heuristic " << __LINE__ << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         // If this happens, the heuristic found that there is simply no path
         // from this start to the goal, so we return a nullptr.
         return nullptr;
@@ -1471,7 +1437,10 @@ public:
 
       if (!heuristic_cost_estimate.has_value())
       {
-//        std::cout << " === NULLOPT HEURISTIC " << __LINE__ << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+        std::cout << " === nullopt heuristic " << __LINE__ << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
+
         // If this happens, the heuristic found that there is simply no path
         // from this start to the goal, so we return a nullptr.
         return nullptr;
@@ -1880,10 +1849,6 @@ private:
   double _alpha_nom;
   double _rotation_threshold;
 };
-
-
-std::size_t ScheduledDifferentialDriveExpander::SearchNode::counter = 0;
-
 
 //==============================================================================
 DifferentialDrivePlanner::DifferentialDrivePlanner(

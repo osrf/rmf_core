@@ -21,10 +21,9 @@
 
 #include <unordered_set>
 
-
-
-
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
 #include <iostream>
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
 
 namespace rmf_traffic {
 namespace agv {
@@ -183,8 +182,11 @@ void node_to_traversals(
     alternative.time = time;
     alternative.routes = std::move(factory_info.factory);
 
-//    std::cout << "SUPERGRAPH " << DifferentialDriveMapTypes::Entry{traversal.initial_lane_index, Orientation(i), Side::Start}
-//              << " (" << traversal.finish_waypoint_index << "): " << time << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
+    std::cout << "SUPERGRAPH [" << traversal.initial_lane_index
+              << Orientation(i) << Side::Start << "] ("
+              << traversal.finish_waypoint_index << "): " << time << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__SUPERGRAPH
 
     if (!best_trajectory_time.has_value() || time < *best_trajectory_time)
       best_trajectory_time = time;
@@ -261,11 +263,7 @@ void perform_traversal(
     node.initial_p = p0;
 
     if (const auto* entry_event = entry.event())
-    {
-//      std::cout << "Cloning entry event for [" << lane_index << "]: {"
-//                << entry_event << "}" << std::endl;
       node.entry_event = entry_event->clone();
-    }
   }
 
   node.finish_p = p1;
@@ -347,7 +345,6 @@ void perform_traversal(
 
   if (exit_event)
   {
-//    std::cout <<  "Stopping due to exit event" << std::endl;
     // If this lane has an exit event, then we need to stop the traversal here,
     // so it does not get added to the queue.
     return;
@@ -496,7 +493,6 @@ ConstTraversalsPtr TraversalGenerator::generate(
   std::unordered_set<std::size_t> visited;
   visited.insert(waypoint_index);
 
-//  std::cout << " -- Generating for " << waypoint_index << std::endl;
   for (const auto l : initial_lanes)
     initiate_traversal(l, graph, _kinematics, queue, output, visited);
 
@@ -644,6 +640,7 @@ Supergraph::ConstEntriesPtr Supergraph::entries_into(
 //==============================================================================
 std::optional<double> Supergraph::yaw_of(const Entry& entry) const
 {
+  // TODO(MXG): Try going back to the caching system when time permits.
 //  if (entry.orientation == Orientation::Any)
 //    return std::nullopt;
 
@@ -685,13 +682,8 @@ DifferentialDriveKeySet Supergraph::keys_for(
   const auto relevant_entries = entries_into(goal_waypoint_index)
       ->relevant_entries(goal_orientation);
 
-//  std::cout << " -- Relevant entries into " << goal_waypoint_index << ": "
-//            << relevant_entries.size() << std::endl;
-
   const auto relevant_traversals = traversals_from(start_waypoint_index);
   assert(relevant_traversals);
-//  std::cout << " -- Relevant traversals from " << start_waypoint_index
-//            << ": " << relevant_traversals->size() << std::endl;
 
   for (const auto& traversal : *relevant_traversals)
   {
@@ -700,11 +692,7 @@ DifferentialDriveKeySet Supergraph::keys_for(
     {
       const auto& alt = traversal.alternatives[orientation];
       if (!alt.has_value())
-      {
-//          std::cout << " -- Skipping (" << traversal.initial_lane_index << " -> "
-//                    << traversal.finish_waypoint_index << ") " << Orientation(orientation) << std::endl;
         continue;
-      }
 
       for (const auto& entry : relevant_entries)
       {

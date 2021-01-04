@@ -59,8 +59,8 @@ class Planner::Result::Implementation
 public:
 
   planning::InterfacePtr interface;
-  rmf_traffic::agv::planning::State state;
-  rmf_utils::optional<Plan> plan;
+  planning::State state;
+  std::optional<Plan> plan;
 
   static Result generate(
     planning::InterfacePtr interface,

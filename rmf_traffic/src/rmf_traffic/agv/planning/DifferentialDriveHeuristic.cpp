@@ -22,7 +22,11 @@
 
 #include <queue>
 
+// TODO(MXG): Remove the debug blocks from this after this code has matured
+// enough.
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 #include <iostream>
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
 namespace rmf_traffic {
 namespace agv {
@@ -103,21 +107,11 @@ public:
     if (info.waypoint == _goal_waypoint)
     {
       if (!_goal_yaw.has_value() || !top->info.yaw.has_value())
-      {
-//        std::cout << " -- Found solution at (" << _goal_waypoint
-//                  << ", nullopt)" << std::endl;
-//        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
         return true;
-      }
 
       const double angle_diff = rmf_utils::wrap_to_pi(*info.yaw - *_goal_yaw);
       if (std::abs(angle_diff) <= _interpolate.rotation_thresh)
-      {
-//        std::cout << " -- Found solution at (" << _goal_waypoint
-//                  << ", " << info.yaw.value()*180.0/M_PI << ")" << std::endl;
-//        std::cout << " !! Total Expansions: " << _expansion_count << std::endl;
         return true;
-      }
     }
 
     return false;
@@ -258,24 +252,14 @@ public:
                   std::move(routes),
                   new_node
                 });
-//          std::cout << " " << __LINE__ << " making[" << new_node << "] ";
         }
 
         double entry_cost = 0.0;
         if (oriented_top != top)
           entry_cost = oriented_top->info.cost_from_parent;
-//        std::cout << "HEURISTIC " << finish_entry
-//                  << " (" << top->info.waypoint << " -> " << traversal.finish_waypoint_index
-//                  << "): " << entry_cost << ", " << alt->time << ", "
-//                  << exit_event_duration << " (" << i << ":" << &alt << ":" << &traversal
-//                  << ":" << traversals << ")" << std::endl;
 
-//        std::cout << __LINE__ << " pushing traversal: ("
-//                  << new_node->info.waypoint << ", " << new_node->info.yaw.value_or(std::nan("")) << ") | ";
         queue.push(std::move(new_node));
       }
-
-//      std::cout << std::endl;
     }
   }
 
@@ -298,23 +282,21 @@ public:
 
     const double rotation_cost = factory_info.minimum_cost;
 
-    auto new_node = std::make_shared<SearchNode>(
-          SearchNode{
-            NodeInfo{
-              _goal_entry,
-              top->info.waypoint,
-              p,
-              target_yaw,
-              0.0,
-              rotation_cost,
-              nullptr
-            },
-            top->current_cost + rotation_cost,
-            std::move(factory_info.factory),
-            top
-          });
-//    std::cout << " " << __LINE__ << " making[" << new_node << "] ";
-    return new_node;
+    return std::make_shared<SearchNode>(
+      SearchNode{
+        NodeInfo{
+          _goal_entry,
+          top->info.waypoint,
+          p,
+          target_yaw,
+          0.0,
+          rotation_cost,
+          nullptr
+        },
+        top->current_cost + rotation_cost,
+        std::move(factory_info.factory),
+        top
+      });
   }
 
   bool check_old_items(
@@ -330,19 +312,11 @@ public:
       _goal_entry.orientation
     };
 
-//    std::cout << " > looking up ["
-//              << key.start_lane << ", "
-//              << key.start_orientation << ", "
-//              << key.start_side << ", "
-//              << key.goal_lane << ", "
-//              << key.goal_orientation << "] < ";
-
     const auto old_it = _old_items.find(key);
     if (old_it == _old_items.end())
       return false;
 
     auto solution = old_it->second->child;
-//    auto solution = old_it->second;
     auto node = top;
     while (solution)
     {
@@ -353,16 +327,11 @@ public:
               make_recycling_factory(solution->route_factory),
               node
             });
-//      std::cout << " " << __LINE__ << " making[" << node << "] ";
 
       solution = solution->child;
     }
 
-//    std::cout << __LINE__ << " pushing from old archives: ("
-//              << node->info.waypoint << ", " << node->info.yaw.value_or(std::nan("")) << ")"
-//              << std::endl;
     queue.push(node);
-
     return true;
   }
 
@@ -493,14 +462,7 @@ public:
     const auto& original = _graph->original();
     const auto& goal_lane = original.lanes[_goal_entry.lane];
     _goal_waypoint = goal_lane.exit().waypoint_index();
-
-//    std::cout << " ----- Getting goal yaw:" << std::endl;
     _goal_yaw = _graph->yaw_of(_goal_entry);
-//    std::cout << " ----- Done: ";
-//    if (_goal_yaw.has_value())
-//      std::cout << _goal_yaw.value() << std::endl;
-//    else
-//      std::cout << "nullopt" << std::endl;
   }
 
 private:
@@ -600,11 +562,12 @@ auto DifferentialDriveHeuristic::generate(
     _graph
   };
 
-//  std::cout << "Initial queue size: " << queue.size() << std::endl;
   const auto search = a_star_search(expander, queue);
   if (!search)
   {
-//    std::cout << "NO SOLUTION FOR " << key << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+    std::cout << "NO SOLUTION FOR " << key << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
     new_items.insert({key, nullptr});
     return nullptr;
   }
@@ -615,23 +578,23 @@ auto DifferentialDriveHeuristic::generate(
   SolutionNodePtr solution = nullptr;
 
 
-//  std::cout << "Stashing solutions for " << key << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+  std::cout << "Stashing solutions for " << key << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
   while (goal_node)
   {
-//    std::cout << "Looking at ";
-//    if (goal_node->info.entry.has_value())
-//      std::cout  << *goal_node->info.entry;
-//    else
-//      std::cout << "nullopt";
-//    std::cout << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+    std::cout << "Looking at ";
+    if (goal_node->info.entry.has_value())
+      std::cout  << *goal_node->info.entry;
+    else
+      std::cout << "nullopt";
+    std::cout << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
     while (goal_node &&
            (!goal_node->info.entry.has_value()
             || goal_node->info.entry->side == Side::Start))
     {
-//      if (goal_node->info.entry.has_value())
-//        std::cout << "Skipping " << *goal_node->info.entry << std::endl;
-//      else
-//        std::cout << "Skipping nullopt" << std::endl;
       // Keep moving goal_node forward until it has entry info on the finish
       // side of a lane.
       goal_node = goal_node->parent;
@@ -673,17 +636,19 @@ auto DifferentialDriveHeuristic::generate(
           goal_entry.lane, goal_entry.orientation
         };
 
-//        std::cout << " << stashing " << node << " -> " << goal_node << " ["
-//                  << new_key.start_lane << ", "
-//                  << new_key.start_orientation << ", "
-//                  << new_key.start_side << ", "
-//                  << new_key.goal_lane << ", "
-//                  << new_key.goal_orientation << "]: ("
-//                  << solution->info.waypoint << ", "
-//                  << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
-//                  << goal_node->info.waypoint << ", "
-//                  << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
-//                  << solution->info.remaining_cost_estimate << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+        std::cout << " << stashing " << node << " -> " << goal_node << " ["
+            << new_key.start_lane << ", "
+            << new_key.start_orientation << ", "
+            << new_key.start_side << ", "
+            << new_key.goal_lane << ", "
+            << new_key.goal_orientation << "]: ("
+            << solution->info.waypoint << ", "
+            << solution->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") -> ("
+            << goal_node->info.waypoint << ", "
+            << goal_node->info.yaw.value_or(std::nan(""))*180.0/M_PI << ") => "
+            << solution->info.remaining_cost_estimate << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
         // TODO(MXG): Add a bool field to SearchNode to indicate whether it is
         // newly generated or pulled from a previous solution. Then we can skip
@@ -701,7 +666,6 @@ auto DifferentialDriveHeuristic::generate(
 
     goal_node = goal_node->parent;
   }
-//  std::cout << "Done stashing" << std::endl;
 
   return output;
 }
@@ -739,39 +703,62 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
   const std::size_t start_waypoint,
   const double yaw) const
 {
-//  std::cout << "Computing heuristic ..." << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+  std::cout << "Computing heuristic for (" << start_waypoint
+            << yaw*180.0/M_PI << ") -> (" << _goal_waypoint << ", ";
+  if (_goal_yaw.has_value())
+    std::cout << _goal_yaw.value()*180.0/M_PI;
+  else
+    std::cout << "null";
+  std::cout << ")" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+
   if (start_waypoint == _goal_waypoint)
   {
     if (!_goal_yaw.has_value())
     {
-//      std::cout << " -- At the goal!" << std::endl;
+
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+      std::cout << " -- At the goal!" << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+
       return 0.0;
     }
 
-    const auto cost = time::to_seconds(internal::estimate_rotation_time(
-                                         _w_nom, _alpha_nom, yaw, *_goal_yaw, _rotation_threshold));
-//    std::cout << " -- Rotating to goal: " << cost << std::endl;
+    const auto cost = time::to_seconds(
+          internal::estimate_rotation_time(
+            _w_nom, _alpha_nom, yaw, *_goal_yaw, _rotation_threshold));
+
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+    std::cout << " -- Rotating to goal: " << cost << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+
     return cost;
   }
 
   const auto keys = _graph->keys_for(start_waypoint, _goal_waypoint, _goal_yaw);
-//  std::cout << "Num keys for (" << start_waypoint << ", " << yaw*180.0/M_PI
-//            << "; " << _goal_waypoint << ", ";
-//  if (_goal_yaw.has_value())
-//    std::cout << _goal_yaw.value() * 180.0/M_PI;
-//  else
-//    std::cout << "null";
-//  std::cout << "): " << keys.size()  << std::endl;
+
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+  std::cout << "Num keys for (" << start_waypoint << ", " << yaw*180.0/M_PI
+            << "; " << _goal_waypoint << ", ";
+  if (_goal_yaw.has_value())
+    std::cout << _goal_yaw.value() * 180.0/M_PI;
+  else
+    std::cout << "null";
+  std::cout << "): " << keys.size()  << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
   std::optional<double> best_cost;
   SolutionNodePtr best_solution;
   for (const auto& key : keys)
   {
-//    std::cout << "Checking solution for " << key << std::endl;
     const auto solution = _cache.get(key);
     if (!solution)
     {
-//      std::cout << " == No solution for " << key << std::endl;
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+      std::cout << " == No solution for " << key << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+
       continue;
     }
 
@@ -782,24 +769,27 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
     double yaw_cost = 0.0;
     if (target_yaw.has_value())
     {
-//      cost += time::to_seconds(internal::estimate_rotation_time(
-//            _w_nom, _alpha_nom, yaw, *target_yaw, _rotation_threshold));
-
-//      std::cout << "{" << target_yaw.value()*180.0/M_PI << "} ";
       yaw_cost = time::to_seconds(internal::estimate_rotation_time(
             _w_nom, _alpha_nom, yaw, *target_yaw, _rotation_threshold));
+
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+      std::cout << "{" << target_yaw.value()*180.0/M_PI << "} ";
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+
       cost += yaw_cost;
     }
 
-//    std::cout << key << " From (" << start_waypoint << ", " << yaw*180.0/M_PI << ") to ("
-//              << _goal_waypoint << ", ";
-//    if (_goal_yaw.has_value())
-//      std::cout << *_goal_yaw*180.0/M_PI;
-//    else
-//      std::cout << "null";
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+    std::cout << key << " From (" << start_waypoint << ", " << yaw*180.0/M_PI << ") to ("
+              << _goal_waypoint << ", ";
+    if (_goal_yaw.has_value())
+      std::cout << *_goal_yaw*180.0/M_PI;
+    else
+      std::cout << "null";
 
-//    std::cout << "): Yaw cost " << yaw_cost << " + Key cost " << cost - yaw_cost
-//              << " = " << cost << std::endl;
+    std::cout << "): Yaw cost " << yaw_cost << " + Key cost " << cost - yaw_cost
+              << " = " << cost << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
     if (!best_cost.has_value() || cost < *best_cost)
     {
@@ -808,35 +798,37 @@ std::optional<double> DifferentialDriveHeuristicAdapter::compute(
     }
   }
 
-//  if (best_solution)
-//  {
-//    std::cout << "Best heuristic estimate: " << *best_cost << std::endl;
-//    std::cout << "Ideal solution (" << best_solution->info.remaining_cost_estimate
-//              << "): ";
-//  }
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
+  if (best_solution)
+  {
+    std::cout << "Best heuristic estimate: " << *best_cost << std::endl;
+    std::cout << "Ideal solution (" << best_solution->info.remaining_cost_estimate
+              << "): ";
+  }
 
-//  while (best_solution)
-//  {
-//    std::cout << " <" << best_solution->info.cost_from_parent << "> ";
-//    if (const auto entry = best_solution->info.entry)
-//    {
-//      const auto& lane = _graph->original().lanes[entry->lane];
-//      std::cout << "(" << lane.entry().waypoint_index() << ", " << lane.exit().waypoint_index() << ") ";
-//      std::cout << *entry;
-//    }
-//    else
-//      std::cout << "[nullopt]";
+  while (best_solution)
+  {
+    std::cout << " <" << best_solution->info.cost_from_parent << "> ";
+    if (const auto entry = best_solution->info.entry)
+    {
+      const auto& lane = _graph->original().lanes[entry->lane];
+      std::cout << "(" << lane.entry().waypoint_index() << ", " << lane.exit().waypoint_index() << ") ";
+      std::cout << *entry;
+    }
+    else
+      std::cout << "[nullopt]";
 
-//    if (best_solution->info.yaw.has_value())
-//      std::cout << " {" << best_solution->info.yaw.value()*180.0/M_PI << "}";
-//    else
-//      std::cout << " {null}";
+    if (best_solution->info.yaw.has_value())
+      std::cout << " {" << best_solution->info.yaw.value()*180.0/M_PI << "}";
+    else
+      std::cout << " {null}";
 
-//    std::cout << " " << best_solution->info.remaining_cost_estimate
-//              << " --> ";
-//    best_solution = best_solution->child;
-//  }
-//  std::cout << std::endl;
+    std::cout << " " << best_solution->info.remaining_cost_estimate
+              << " --> ";
+    best_solution = best_solution->child;
+  }
+  std::cout << std::endl;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__HEURISTIC
 
   return best_cost;
 }
@@ -859,13 +851,9 @@ auto DifferentialDriveHeuristicAdapter::compute(Entry start) const
       goal_entry.orientation
     };
 
-//    std::cout << "Checking solution for " << key << std::endl;
     const auto solution = _cache.get(key);
     if (!solution)
-    {
-//      std::cout << " == No solution for " << key << std::endl;
       continue;
-    }
 
     const double cost = solution->info.remaining_cost_estimate;
     if (!best_solution || cost < best_solution->info.remaining_cost_estimate)

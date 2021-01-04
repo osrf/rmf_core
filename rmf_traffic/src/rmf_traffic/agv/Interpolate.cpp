@@ -72,10 +72,6 @@ States compute_traversal(
   // Time to begin decelerating
   const double t_d = s_f/v - s_a/v - 0.5*v/a_nom + t_a;
 
-  // Only bother adding this waypoint if the constant velocity time period is
-  // more than 1/100th of a second. Otherwise we'll just start decelerating
-  // towards the goal right away.
-//  if (t_d - t_a > 1e-2)
   if (t_d - t_a > 0)
   {
     const double s_d = v*(t_d - t_a) + s_a;
