@@ -21,9 +21,9 @@ find_package(builtin_interfaces REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/ChargerStatus.msg"
+  "msg/ChargerState.msg"
   "msg/ChargerRequest.msg"
-  "msg/ChargerAbort.msg"
+  "msg/ChargerCancel.msg"
   DEPENDENCIES builtin_interfaces
  )
 
