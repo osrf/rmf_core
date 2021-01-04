@@ -530,14 +530,7 @@ void request_loop(
     auto& fimpl = FleetUpdateHandle::Implementation::get(*fleet);
     const auto estimate = fimpl.estimate_loop(request);
     if (!estimate)
-    {
-      RCLCPP_DEBUG(
-        fimpl.node->get_logger(),
-        "No estimate could be found for loop task request [%s] by fleet [%s]",
-        request.task_id.c_str(),
-        fimpl.name.c_str());
       continue;
-    }
 
     if (estimate->time < best.time)
     {
@@ -549,9 +542,6 @@ void request_loop(
   if (!chosen_fleet)
     return;
 
-  RCLCPP_DEBUG(
-        chosen_fleet->node->get_logger(),
-        "Fleet [%s] chosen for [%s]", chosen_fleet->name.c_str(), request.task_id.c_str());
   chosen_fleet->perform_loop(request, best);
 }
 
