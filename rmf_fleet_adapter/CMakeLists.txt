@@ -320,6 +320,7 @@ install(
   RUNTIME DESTINATION lib/rmf_fleet_adapter
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
+  INCLUDES DESTINATION include
 )
 
 # -----------------------------------------------------------------------------
@@ -333,5 +334,8 @@ install(
   DIRECTORY include/
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+ament_export_include_directories(include)
+ament_export_libraries(rmf_fleet_adapter)
 
 ament_package()
