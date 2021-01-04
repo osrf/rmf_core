@@ -1,1 +1,2 @@
-string robot_id # the accept_id will be dropped if the robot does not come in timeout_sec seconds
+string robot_fleet # identifies the robot id.
+string robot_name  # identifies the robot that whishes to charge
