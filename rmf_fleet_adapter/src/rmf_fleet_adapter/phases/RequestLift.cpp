@@ -123,7 +123,6 @@ void RequestLift::ActivePhase::_init_obs()
           const auto delay = me->_context->now() - current_expected_finish;
           if (delay > std::chrono::seconds(0))
           {
-            std::cout << me->_context->name() << " scheduling a lift-wait delay" << std::endl;
             me->_context->worker().schedule(
                   [context = me->_context, delay](const auto&)
             {
@@ -194,21 +193,19 @@ Task::StatusMsg RequestLift::ActivePhase::_get_status(
       lift_state->door_state == LiftState::DOOR_OPEN &&
       lift_state->session_id == _context->requester_id())
   {
-    std::cout << _context->name() << " done waiting for lift " << _lift_name << std::endl;
     status.state = Task::StatusMsg::STATE_COMPLETED;
     status.status = "success";
     _timer.reset();
   }
-  else
+  else if (lift_state->lift_name == _lift_name)
   {
-    std::cout << _context->name() << " still waiting for lift " << _lift_name << std::endl;
-    if (lift_state->lift_name == _lift_name)
-    {
-      std::cout << " -- current state: " << lift_state->current_floor << " vs " << _destination
-                << " | " << (int)lift_state->door_state <<  " vs " << (int)LiftState::DOOR_OPEN
-                << " | " << lift_state->session_id << " vs " << _context->requester_id()
-                << std::endl;
-    }
+    // TODO(MXG): Make this a more human-friendly message
+    status.status = "[" + _context->name() + "] still waiting for lift ["
+        + _lift_name + "]  current state: "
+        + lift_state->current_floor + " vs " + _destination + " | "
+        + std::to_string(static_cast<int>(lift_state->door_state))
+        + " vs " + std::to_string(static_cast<int>(LiftState::DOOR_OPEN))
+        + " | " + lift_state->session_id + " vs " + _context->requester_id();
   }
 
   return status;
