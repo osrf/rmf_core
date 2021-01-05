@@ -22,6 +22,7 @@ set(msg_files
   "msg/Behavior.msg"
   "msg/BehaviorParameter.msg"
   "msg/Station.msg"
+  "msg/TaskDescription.msg"
   "msg/TaskSummary.msg"
   "msg/Tasks.msg"
   "msg/Loop.msg"

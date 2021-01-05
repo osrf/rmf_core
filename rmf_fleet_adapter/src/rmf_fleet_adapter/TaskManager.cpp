@@ -244,7 +244,7 @@ void TaskManager::set_queue(
     msg.state = msg.STATE_QUEUED;
     msg.robot_name = _context->name();
     msg.fleet_name = _context->description().owner();
-    msg.task_profile.task_type = task_type_msg;
+    msg.task_profile.description.task_type = task_type_msg;
     msg.start_time = rmf_traffic_ros2::convert(
       _queue.back()->deployment_time());
     msg.start_time = rmf_traffic_ros2::convert(

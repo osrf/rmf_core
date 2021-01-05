@@ -614,7 +614,7 @@ std::shared_ptr<Connections> make_fleet(
   connections->fleet->accept_task_requests(
     [task_types](const rmf_task_msgs::msg::TaskProfile& msg)
     {
-      if (task_types.find(msg.task_type.type) != task_types.end())
+      if (task_types.find(msg.description.task_type.type) != task_types.end())
         return true;
       
       return false;
