@@ -119,8 +119,7 @@ auto FleetUpdateHandle::Implementation::estimate_delivery(
         return pickup_plan->get_start();
       }
     };
-    //start[0] is gauranteed to exist otherwise planner->plan would have
-    // returned a null.
+    
     auto dropoff_start = safely_get_last_endpoint(pickup_plan); 
     const auto dropoff_plan = planner->plan(dropoff_start, dropoff_goal);
 
