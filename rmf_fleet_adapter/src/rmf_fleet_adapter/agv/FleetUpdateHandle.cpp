@@ -94,31 +94,46 @@ auto FleetUpdateHandle::Implementation::estimate_delivery(
     const auto pickup_plan = planner->plan(start, pickup_goal);
     if (!pickup_plan)
       continue;
-
-    const auto& pickup_plan_end = pickup_plan->get_waypoints().back();
-    assert(pickup_plan_end.graph_index());
-    const auto dropoff_start = rmf_traffic::agv::Plan::Start(
-          pickup_plan_end.time(),
-          *pickup_plan_end.graph_index(),
-          pickup_plan_end.position()[2]);
-
+    
+    //<HACKJOB>
+    //In the event that the robot start are end at the same location,
+    //the planner will not return any waypoints. It becomes nessecary to
+    //return a valid start point for the  
+    auto safely_get_last_endpoint = [](
+      const rmf_traffic::agv::Planner::Result& pickup_plan,
+      const rmf_fleet_adapter::TaskManager::Start& start 
+      ) -> rmf_traffic::agv::Plan::Start {
+      if(pickup_plan->get_waypoints().size() > 0)
+      {
+        const auto& pickup_plan_end = pickup_plan->get_waypoints().back();
+        assert(pickup_plan_end.graph_index());
+        return rmf_traffic::agv::Plan::Start(
+              pickup_plan_end.time(),
+              *pickup_plan_end.graph_index(),
+              pickup_plan_end.position()[2]);
+      }
+      else
+      {
+        //This happens when the start and the current robot position 
+        //are the same. In any case if start vector is empty then the
+        //pickup_plan should be set to null.
+        return start;
+      }
+    };
+    //start[0] is gauranteed to exist otherwise planner->plan would have
+    // returned a null.
+    auto dropoff_start = safely_get_last_endpoint(pickup_plan, start[0]); 
     const auto dropoff_plan = planner->plan(dropoff_start, dropoff_goal);
+
     if (!dropoff_plan)
       continue;
 
-    const auto& final_wp = dropoff_plan->get_waypoints().back();
+    auto finish = safely_get_last_endpoint(dropoff_plan, dropoff_start);
 
-    const auto estimate = final_wp.time();
-    rmf_traffic::agv::Plan::Start finish{
-      estimate,
-      *final_wp.graph_index(),
-      final_wp.position()[2]
-    };
-
-    if (estimate < best.time)
+    if (finish.time() < best.time)
     {
       best = DeliveryEstimate{
-        estimate,
+        finish.time(),
         element.first,
         std::move(start.front()),
         std::move(dropoff_start),
