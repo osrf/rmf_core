@@ -2,7 +2,7 @@
 Changelog for package rmf_traffic_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1.2.0 (2021-01-XX)
+1.2.0 (2021-01-05)
 ------------------
 * Adding blockade management messages: [#226](https://github.com/osrf/rmf_core/pull/226)
 
