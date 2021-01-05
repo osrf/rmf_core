@@ -100,8 +100,7 @@ auto FleetUpdateHandle::Implementation::estimate_delivery(
     //the planner will not return any waypoints. It becomes nessecary to
     //return a valid start point for the  
     auto safely_get_last_endpoint = [](
-      const rmf_traffic::agv::Planner::Result& pickup_plan,
-      const rmf_fleet_adapter::TaskManager::Start& start 
+      const rmf_traffic::agv::Planner::Result& pickup_plan
       ) -> rmf_traffic::agv::Plan::Start {
       if(pickup_plan->get_waypoints().size() > 0)
       {
@@ -117,18 +116,18 @@ auto FleetUpdateHandle::Implementation::estimate_delivery(
         //This happens when the start and the current robot position 
         //are the same. In any case if start vector is empty then the
         //pickup_plan should be set to null.
-        return start;
+        return pickup_plan->get_start();
       }
     };
     //start[0] is gauranteed to exist otherwise planner->plan would have
     // returned a null.
-    auto dropoff_start = safely_get_last_endpoint(pickup_plan, start[0]); 
+    auto dropoff_start = safely_get_last_endpoint(pickup_plan); 
     const auto dropoff_plan = planner->plan(dropoff_start, dropoff_goal);
 
     if (!dropoff_plan)
       continue;
 
-    auto finish = safely_get_last_endpoint(dropoff_plan, dropoff_start);
+    auto finish = safely_get_last_endpoint(dropoff_plan);
 
     if (finish.time() < best.time)
     {
