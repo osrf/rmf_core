@@ -144,7 +144,9 @@ private:
     std::shared_ptr<const Generator> generator,
     std::function<Storage()> storage_initializer = [](){ return Storage(); });
 
-  void update(Storage new_items) const;
+  void _update(Storage new_items) const;
+
+  std::unique_lock<std::mutex> _lock() const;
 
   template <typename G> friend class Cache;
   std::shared_ptr<Upstream_type> _upstream;
@@ -225,7 +227,7 @@ template <typename GeneratorArg>
 Cache<GeneratorArg>::~Cache()
 {
   if (!_new_items.empty())
-    _manager->update(std::move(_new_items));
+    _manager->_update(std::move(_new_items));
 }
 
 //==============================================================================
@@ -244,20 +246,34 @@ CacheManager<CacheArg>::CacheManager(
 template <typename CacheArg>
 CacheArg CacheManager<CacheArg>::get() const
 {
-  std::lock_guard<std::mutex> lock(_update_mutex);
+  auto lock = _lock();
   return CacheArg{_upstream, this->shared_from_this(), _storage_initializer};
 }
 
 //==============================================================================
 template <typename CacheArg>
-void CacheManager<CacheArg>::update(Storage new_items) const
+void CacheManager<CacheArg>::_update(Storage new_items) const
 {
-  std::lock_guard<std::mutex> lock(_update_mutex);
+  auto lock = _lock();
   auto new_storage = std::make_shared<Storage>(*_upstream->storage);
   for (auto&& item : new_items)
     (*new_storage)[item.first] = std::move(item.second);
 
   _upstream->storage = std::move(new_storage);
+}
+
+//==============================================================================
+template <typename CacheArg>
+std::unique_lock<std::mutex> CacheManager<CacheArg>::_lock() const
+{
+  std::unique_lock<std::mutex> lock(_update_mutex, std::defer_lock);
+  while (!lock.try_lock())
+  {
+    // Intentionally busy-wait to get the lock as soon as possible. Other lock
+    // holders should only be holding the lock very briefly.
+  }
+
+  return lock;
 }
 
 //==============================================================================
@@ -276,7 +292,13 @@ template <typename CacheArg>
 auto CacheManagerMap<CacheArg>::get(std::size_t goal_index) const
 -> CacheManagerPtr
 {
-  std::lock_guard<std::mutex> lock(_map_mutex);
+  std::unique_lock<std::mutex> lock(_map_mutex, std::defer_lock);
+  while (!lock.try_lock())
+  {
+    // Intentionally busy-wait to get the lock as soon as possible. Other lock
+    // holders should only be holding the lock very briefly.
+  }
+
   const auto it = _managers.insert({goal_index, nullptr});
   auto& manager = it.first->second;
   if (manager == nullptr)
