@@ -35,8 +35,8 @@ public:
 
 //==============================================================================
 SimpleMotionPowerSink::SimpleMotionPowerSink(
-  BatterySystem& battery_system,
-  MechanicalSystem& mechanical_system)
+  const BatterySystem& battery_system,
+  const MechanicalSystem& mechanical_system)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{battery_system, mechanical_system}))
 {
@@ -80,7 +80,8 @@ double SimpleMotionPowerSink::compute_change_in_charge(
   const double capacity = _pimpl->battery_system.capacity();
   const double nominal_voltage = _pimpl->battery_system.nominal_voltage();
   const double mass = _pimpl->mechanical_system.mass();
-  const double inertia = _pimpl->mechanical_system.inertia();
+  const double moment_of_inertia = 
+    _pimpl->mechanical_system.moment_of_inertia();
   const double friction = _pimpl->mechanical_system.friction_coefficient();
 
   auto begin_it = trajectory.begin();
@@ -109,16 +110,19 @@ double SimpleMotionPowerSink::compute_change_in_charge(
     const double alpha = std::abs(acceleration[2]);
 
     // Loss through acceleration
-    const double EA = ((mass * a * v) + (inertia * alpha * w)) * sim_step;
+    const double EA = ((mass * a * v) +
+      (moment_of_inertia * alpha * w)) * sim_step;
     // Loss through friction
     const double EF = compute_friction_energy(friction, mass, v, sim_step);
 
     dE += EA + EF;
   }
 
-  // The charge consumed
+  // Compute the charge consumed
   const double dQ = dE / nominal_voltage;
-  // The depleted state of charge
+  // Compute the change in state of charge
+  // We multiply the capacity by 3600 to convert from units of Ampere-hours to
+  // Ampere-seconds
   const double dSOC = dQ / (capacity * 3600.0);
   return dSOC;
 }

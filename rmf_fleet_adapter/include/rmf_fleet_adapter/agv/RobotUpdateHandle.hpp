@@ -88,6 +88,11 @@ public:
       const double max_merge_lane_distance = 1.0,
       const double min_lane_length = 1e-8);
 
+  /// Set the waypoint where the charger for this robot is located.
+  /// If not specified, the nearest waypoint in the graph with the is_charger()
+  /// property will be assumed as the charger for this robot.
+  RobotUpdateHandle& set_charger_waypoint(const std::size_t charger_wp);
+
   /// Update the current battery level of the robot by specifying its state of
   /// charge as a fraction of its total charge capacity
   void update_battery_soc(const double battery_soc);

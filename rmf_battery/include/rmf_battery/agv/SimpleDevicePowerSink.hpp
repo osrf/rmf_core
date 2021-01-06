@@ -40,8 +40,8 @@ public:
   /// \param[in] power_system
   ///   The PowerSystem for this device  
   SimpleDevicePowerSink(
-    BatterySystem& battery_system,
-    PowerSystem& power_system);
+    const BatterySystem& battery_system,
+    const PowerSystem& power_system);
 
   /// Get a constant reference to the battery system
   const BatterySystem& battery_system() const;

@@ -28,7 +28,7 @@ SCENARIO("Test MechanicalSystem")
     auto mechanical_system = MechanicalSystem::make(10.0, 20.0, 0.3);
     REQUIRE(mechanical_system);
     CHECK(mechanical_system->mass() == 10.0);
-    CHECK(mechanical_system->inertia() == 20.0);
+    CHECK(mechanical_system->moment_of_inertia() == 20.0);
     CHECK(mechanical_system->friction_coefficient() == 0.3);
   }
 

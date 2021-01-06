@@ -145,6 +145,12 @@ const agv::RobotContextPtr& TaskManager::context()
 }
 
 //==============================================================================
+const Task* TaskManager::current_task() const
+{
+  return _active_task.get();
+}
+
+//==============================================================================
 agv::ConstRobotContextPtr TaskManager::context() const
 {
   return _context;
@@ -238,7 +244,7 @@ void TaskManager::set_queue(
     msg.state = msg.STATE_QUEUED;
     msg.robot_name = _context->name();
     msg.fleet_name = _context->description().owner();
-    msg.task_profile.task_type = task_type_msg;
+    msg.task_profile.description.task_type = task_type_msg;
     msg.start_time = rmf_traffic_ros2::convert(
       _queue.back()->deployment_time());
     msg.start_time = rmf_traffic_ros2::convert(
@@ -376,7 +382,8 @@ void TaskManager::retreat_to_charger()
   if (current_state.waypoint() == current_state.charging_waypoint())
     return;
 
-  const double threshold_soc = _context->state_config().threshold_soc();
+  const double threshold_soc =
+    _context->task_planning_constraints().threshold_soc();
   const double retreat_threshold = 1.2 * threshold_soc;
   const double current_battery_soc = _context->current_battery_soc();
 
@@ -442,7 +449,7 @@ void TaskManager::retreat_to_charger()
 
     const auto finish = charging_request->estimate_finish(
       current_state,
-      _context->state_config(),
+      _context->task_planning_constraints(),
       estimate_cache);
     
     if (!finish)

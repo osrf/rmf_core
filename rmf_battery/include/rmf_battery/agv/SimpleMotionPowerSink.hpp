@@ -40,8 +40,8 @@ public:
   /// \param[in] mechanical_system
   ///   The MechanicalSystem of the robot
   SimpleMotionPowerSink(
-    BatterySystem& battery_system,
-    MechanicalSystem& mechanical_system);
+    const BatterySystem& battery_system,
+    const MechanicalSystem& mechanical_system);
 
   /// Get a constant reference to the battery system
   const BatterySystem& battery_system() const;

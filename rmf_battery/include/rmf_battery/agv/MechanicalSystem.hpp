@@ -35,23 +35,26 @@ public:
   /// \param[in] mass
   ///   The mass of the robot in Kilograms(kg)
   ///
-  /// \param[in] inertia
+  /// \param[in] moment_of_inertia
   ///   The moment of inertia of the robot along its yaw axis in kg.m^2
   ///
   /// \param[in] friction_coefficient
-  ///   The coefficient of kinetic friction measured at the wheels of the robot. 
-  ///   This value is used to compute the energy loss due to rotation of the
-  ///   vehicle's wheels during locomotion.
+  ///   The coefficient of kinetic friction or rolling resistance coefficient
+  ///   measured at the wheels of the robot. This value is used to compute the 
+  ///   energy loss due to rotation of the vehicle's wheels during locomotion.
+  ///   This value is the dimensionless constant Crr as described in the
+  ///   reference below.
+  ///   Ref: https://en.wikipedia.org/wiki/Rolling_resistance#Rolling_resistance_coefficient
   static std::optional<MechanicalSystem> make(
     double mass,
-    double inertia,
+    double moment_of_inertia,
     double friction_coefficient);
 
   /// Get the mass of this mechanical system
   double mass() const;
 
   /// Get the moment of inertia of this mechanical system
-  double inertia() const;
+  double moment_of_inertia() const;
 
   /// Get the friction coefficient of this mechanical system
   double friction_coefficient() const;

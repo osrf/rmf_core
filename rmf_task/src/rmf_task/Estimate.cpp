@@ -71,24 +71,39 @@ Estimate& Estimate::wait_until(rmf_traffic::Time new_wait_until)
 //==============================================================================
 class EstimateCache::Implementation
 {
-  public:
-    struct PairHash
-    {
-      size_t operator()(const std::pair<size_t,size_t>& p) const
-      {
-        return std::hash<size_t>()(p.first) ^ std::hash<size_t>()(p.second);
-      }
-    };
+public:
 
-    using Cache = std::unordered_map<std::pair<size_t,size_t>,
-      CacheElement, PairHash>;
-    Cache _cache;
-    std::shared_ptr<std::mutex> _mutex = std::make_shared<std::mutex>();
+  Implementation(std::size_t N)
+  : _cache(N, PairHash(N))
+  {
+
+  }
+
+  struct PairHash
+  {
+    PairHash(std::size_t N)
+    {
+      _shift = std::ceil(std::log2(N));
+    }
+
+    size_t operator()(const std::pair<size_t,size_t>& p) const
+    {
+      return p.first + (p.second << _shift);
+    }
+
+    std::size_t _shift;
+  };
+
+  using Cache = std::unordered_map<std::pair<size_t,size_t>,
+    CacheElement, PairHash>;
+
+  Cache _cache;
+  std::shared_ptr<std::mutex> _mutex = std::make_shared<std::mutex>();
 };
 
 //==============================================================================
-EstimateCache::EstimateCache()
-  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
+EstimateCache::EstimateCache(std::size_t N)
+  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation(N)))
 {}
 
 //==============================================================================

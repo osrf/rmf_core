@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#ifndef RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#define RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
 
 #include <string>
 
@@ -52,13 +52,14 @@ public:
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
-    const agv::StateConfig& state_config,
+    const agv::Constraints& task_planning_constraints,
     const std::shared_ptr<EstimateCache> estimate_cache) const final;
 
   rmf_traffic::Duration invariant_duration() const final;
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  /// Get the battery system in this request
   const rmf_battery::agv::BatterySystem& battery_system() const;
 
   /// Retrieve the charge soc which the battery will be charged upto
@@ -76,4 +77,4 @@ using ConstChargeBatteryRequestPtr = std::shared_ptr<const ChargeBattery>;
 } // namespace requests
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__CHARGEBATTERY_HPP
+#endif // RMF_TASK__REQUESTS__CHARGEBATTERY_HPP

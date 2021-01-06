@@ -247,7 +247,8 @@ SCENARIO("Test loop requests")
     [](const rmf_task_msgs::msg::TaskProfile& task)
     {
       // Accept all loop task requests
-      CHECK(task.task_type.TYPE_LOOP == task.task_type.type);
+      CHECK(task.description.task_type.type ==
+      rmf_task_msgs::msg::TaskType::TYPE_LOOP);
       return true;
     });
 
@@ -283,21 +284,23 @@ SCENARIO("Test loop requests")
   // Note: wait for task_manager to start, else TM will be suspicously "empty"
   std::this_thread::sleep_for(1s);
 
-  // Dsipatch Loop 0 Task
   rmf_task_msgs::msg::TaskProfile task_profile;
+  task_profile.description.start_time = adapter.node()->now();
+  task_profile.description.task_type.type =
+    rmf_task_msgs::msg::TaskType::TYPE_LOOP;
+
+  // Dsipatch Loop 0 Task
   task_profile.task_id = loop_0;
-  task_profile.task_type.type = task_profile.task_type.TYPE_LOOP;
-  task_profile.start_time = adapter.node()->now();
-  task_profile.loop.num_loops = n_loops;
-  task_profile.loop.robot_type = fleet_type;
-  task_profile.loop.start_name = south;
-  task_profile.loop.finish_name = east;
+  task_profile.description.loop.num_loops = n_loops;
+  task_profile.description.loop.robot_type = fleet_type;
+  task_profile.description.loop.start_name = south;
+  task_profile.description.loop.finish_name = east;
   adapter.dispatch_task(task_profile);
 
   // Dispatch Loop 1 Task
   task_profile.task_id = loop_1;
-  task_profile.loop.start_name = north;
-  task_profile.loop.finish_name = east;
+  task_profile.description.loop.start_name = north;
+  task_profile.description.loop.finish_name = east;
   adapter.dispatch_task(task_profile);
 
   const auto task_0_completed_status = task_0_completed_future.wait_for(20s);

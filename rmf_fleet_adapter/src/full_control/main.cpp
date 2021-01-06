@@ -495,9 +495,12 @@ std::shared_ptr<Connections> make_fleet(
   for (const auto& key : connections->graph->keys())
     std::cout << " -- " << key.first << std::endl;
 
-
   connections->fleet = adapter->add_fleet(
         fleet_name, *connections->traits, *connections->graph);
+
+  // We disable fleet state publishing for this fleet adapter because we expect
+  // the fleet drivers to publish these messages.
+  connections->fleet->fleet_state_publish_period(std::nullopt);
 
   // Parameters required for task planner
   // Battery system
@@ -611,7 +614,7 @@ std::shared_ptr<Connections> make_fleet(
   connections->fleet->accept_task_requests(
     [task_types](const rmf_task_msgs::msg::TaskProfile& msg)
     {
-      if (task_types.find(msg.task_type.type) != task_types.end())
+      if (task_types.find(msg.description.task_type.type) != task_types.end())
         return true;
       
       return false;

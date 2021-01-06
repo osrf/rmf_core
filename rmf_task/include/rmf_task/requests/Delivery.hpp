@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
-#define INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
+#ifndef RMF_TASK__REQUESTS__DELIVERY_HPP
+#define RMF_TASK__REQUESTS__DELIVERY_HPP
 
 #include <chrono>
 #include <string>
@@ -62,23 +62,30 @@ public:
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
-    const agv::StateConfig& state_config,
+    const agv::Constraints& task_planning_constraints,
     const std::shared_ptr<EstimateCache> estimate_cache) const final;
 
   rmf_traffic::Duration invariant_duration() const final;
 
   rmf_traffic::Time earliest_start_time() const final;
 
+  /// Get the pickup waypoint in this request
   std::size_t pickup_waypoint() const;
 
+  /// Get the name of the dispenser at the pickup waypoint
   const std::string& pickup_dispenser() const;
 
+  /// Get the dropoff waypoint in this request
   std::size_t dropoff_waypoint() const;
 
+  /// Get the name of the ingestor at the dropoff waypoint
   const std::string& dropoff_ingestor() const;
 
+  /// Get the list of dispenser request items in this request
   const std::vector<DispenserRequestItem>&  items() const;
 
+  /// Get the Start when the robot reaches the pickup_waypoint from an initial
+  /// start
   Start dropoff_start(const Start& start) const;  
 
   class Implementation;
@@ -93,4 +100,4 @@ using ConstDeliveryRequestPtr = std::shared_ptr<const Delivery>;
 } // namespace requests
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__REQUESTS__DELIVERY_HPP
+#endif // RMF_TASK__REQUESTS__DELIVERY_HPP

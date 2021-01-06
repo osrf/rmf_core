@@ -161,6 +161,8 @@ void MockAdapter::dispatch_task(const rmf_task_msgs::msg::TaskProfile& profile)
     fimpl.dispatch_request_cb(
       std::make_shared<rmf_task_msgs::msg::DispatchRequest>(req));
   }
+  // TODO fix this function which is used in the test script test_Delivery
+  // rmf_fleet_adapter::agv::request_delivery(request, _pimpl->fleets);
 }
 
 } // namespace test

@@ -1,21 +1,13 @@
 # Submit Task | POST service call
 
-# Whom that call this srv
+# Identifier for who is requesting the service
 string requester
 
 # Desired start time of a task
 builtin_interfaces/Time start_time
 
-# Task type
-TaskType task_type
-
-# Task definitions
-Station station
-Loop loop
-Delivery delivery
-# Charge charge
-Clean clean
-# Patrol patrol
+# desciption of task
+TaskDescription description
 
 # fleet selection evaluator
 uint8 evaluator

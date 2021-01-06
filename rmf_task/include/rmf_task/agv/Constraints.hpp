@@ -15,15 +15,15 @@
  *
 */
 
-#ifndef INCLUDE__RMF_TASK__AGV__STATECONFIG_HPP
-#define INCLUDE__RMF_TASK__AGV__STATECONFIG_HPP
+#ifndef RMF_TASK__AGV__CONSTRAINTS_HPP
+#define RMF_TASK__AGV__CONSTRAINTS_HPP
 
 #include <rmf_utils/impl_ptr.hpp>
 
 namespace rmf_task {
 namespace agv {
 
-class StateConfig
+class Constraints
 {
 public:
 
@@ -32,14 +32,14 @@ public:
   /// \param[in] threshold_soc
   ///   Minimum charge level the battery is allowed to deplete to. This
   ///   value needs to be between 0.0 and 1.0.
-  StateConfig(double threshold_soc);
+  Constraints(double threshold_soc);
 
   /// Gets the battery state of charge threshold value.
   double threshold_soc() const;
 
   /// Sets a new battery state of charge threshold value. This value needs to be
   /// between 0.0 and 1.0.
-  StateConfig& threshold_soc(double threshold_soc);
+  Constraints& threshold_soc(double threshold_soc);
 
   class Implementation;
 private:
@@ -49,4 +49,4 @@ private:
 } // namespace agv
 } // namespace rmf_task
 
-#endif // INCLUDE__RMF_TASK__AGV__STATE_HPP
+#endif // RMF_TASK__AGV__CONSTRAINTS_HPP

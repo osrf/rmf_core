@@ -110,7 +110,7 @@ std::string Clean::id() const
 //==============================================================================
 rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
   const agv::State& initial_state,
-  const agv::StateConfig& state_config,
+  const agv::Constraints& task_planning_constraints,
   const std::shared_ptr<EstimateCache> estimate_cache) const
 {
   rmf_traffic::agv::Plan::Start final_plan_start{
@@ -176,7 +176,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
         variant_battery_drain);
     }
 
-    if (battery_soc <= state_config.threshold_soc())
+    if (battery_soc <= task_planning_constraints.threshold_soc())
       return rmf_utils::nullopt;
   }
 
@@ -202,7 +202,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
       rmf_traffic::time::to_seconds(wait_duration));
     battery_soc = battery_soc - dSOC_ambient;
 
-    if (battery_soc <= state_config.threshold_soc())
+    if (battery_soc <= task_planning_constraints.threshold_soc())
     {
       return rmf_utils::nullopt;
     }
@@ -215,7 +215,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
   if (_pimpl->drain_battery)
   {
     battery_soc -= _pimpl->invariant_battery_drain;
-    if (battery_soc <= state_config.threshold_soc())
+    if (battery_soc <= task_planning_constraints.threshold_soc())
       return rmf_utils::nullopt;
 
     // Check if the robot has enough charge to head back to nearest charger
@@ -262,7 +262,7 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
       }
     }
 
-    if (battery_soc - retreat_battery_drain <= state_config.threshold_soc())
+    if (battery_soc - retreat_battery_drain <= task_planning_constraints.threshold_soc())
       return rmf_utils::nullopt;
     
     state.battery_soc(battery_soc);

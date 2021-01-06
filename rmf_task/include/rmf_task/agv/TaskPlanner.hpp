@@ -20,7 +20,7 @@
 
 #include <rmf_task/Request.hpp>
 #include <rmf_task/agv/State.hpp>
-#include <rmf_task/agv/StateConfig.hpp>
+#include <rmf_task/agv/Constraints.hpp>
 
 #include <rmf_battery/agv/BatterySystem.hpp>
 #include <rmf_battery/MotionPowerSink.hpp>
@@ -38,21 +38,11 @@
 namespace rmf_task {
 namespace agv {
 
-
-
 //==============================================================================
 class TaskPlanner
 {
 public:
-
-  // The type of filter used for solving the task assignment problem
-  enum class FilterType
-  {
-    Passthrough,
-    Trie,
-    Hash
-  };
-  
+ 
   /// The Configuration class contains planning parameters that are immutable
   /// for each TaskPlanner instance and should not change in between plans.
   class Configuration
@@ -78,29 +68,34 @@ public:
       rmf_battery::agv::BatterySystem battery_system,
       std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
       std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-      std::shared_ptr<rmf_traffic::agv::Planner> planner,
-      FilterType filter_type= FilterType::Hash);
+      std::shared_ptr<rmf_traffic::agv::Planner> planner);
 
     /// Get the battery system
     rmf_battery::agv::BatterySystem& battery_system();
 
     /// Set the battery_system
-    Configuration& battery_system(rmf_battery::agv::BatterySystem battery_system);
+    Configuration& battery_system(
+      rmf_battery::agv::BatterySystem battery_system);
 
     /// Get the motion sink
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink() const;
 
+    /// Set the motion_sink
+    Configuration& motion_sink(
+      std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink);
+
     /// Get the ambient device sink
     std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink() const;
 
+    /// Set the ambient device sink
+    Configuration& ambient_sink(
+      std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink);
+
     /// Get the planner
-    std::shared_ptr<rmf_traffic::agv::Planner> planner() const;    
+    std::shared_ptr<rmf_traffic::agv::Planner> planner() const;
 
-    /// Get the filter type
-    FilterType filter_type() const;
-
-    /// Set the filter type
-    Configuration& filter_type(FilterType filter_type);
+    /// Set the planner
+    Configuration& planner(std::shared_ptr<rmf_traffic::agv::Planner>);
 
     class Implementation;
 
@@ -130,7 +125,7 @@ public:
     // Get the request of this task
     rmf_task::ConstRequestPtr request() const;
 
-    // Get a const reference to the state
+    // Get a const reference to the predicted state at the end of the assignment
     const State& state() const;
 
     // Get the time when the robot begins executing
@@ -175,7 +170,7 @@ public:
   Result greedy_plan(
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
-    std::vector<StateConfig> state_configs,
+    std::vector<Constraints> constraints_set,
     std::vector<ConstRequestPtr> requests);
 
   /// Get the optimal planner based assignments for a set of initial states and 
@@ -187,7 +182,7 @@ public:
   Result optimal_plan(
     rmf_traffic::Time time_now,
     std::vector<State> initial_states,
-    std::vector<StateConfig> state_configs,
+    std::vector<Constraints> constraints_set,
     std::vector<ConstRequestPtr> requests,
     std::function<bool()> interrupter);
 

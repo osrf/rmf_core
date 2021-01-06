@@ -362,7 +362,8 @@ SCENARIO("Test Delivery")
     [&delivery_id](const rmf_task_msgs::msg::TaskProfile& task)
     {
       // Accept all delivery task requests
-      CHECK(task.task_type.TYPE_DELIVERY == task.task_type.type);
+      CHECK(task.description.task_type.type ==
+      rmf_task_msgs::msg::TaskType::TYPE_DELIVERY);
       CHECK(task.task_id == delivery_id);
       return true;
     });
@@ -399,12 +400,17 @@ SCENARIO("Test Delivery")
   // Dispatch Delivery Task
   rmf_task_msgs::msg::TaskProfile task_profile;
   task_profile.task_id = delivery_id;
-  task_profile.task_type.type = task_profile.task_type.TYPE_DELIVERY;
-  task_profile.delivery.pickup_place_name = pickup_name;
-  task_profile.delivery.pickup_dispenser = quiet_dispenser_name;
-  task_profile.delivery.dropoff_place_name = dropoff_name;
-  task_profile.delivery.dropoff_ingestor = flaky_ingestor_name;
-  task_profile.start_time = adapter.node()->now();
+  task_profile.description.start_time = adapter.node()->now();
+  task_profile.description.task_type.type =
+    rmf_task_msgs::msg::TaskType::TYPE_DELIVERY;
+
+  rmf_task_msgs::msg::Delivery delivery;
+  delivery.pickup_place_name = pickup_name;
+  delivery.pickup_dispenser = quiet_dispenser_name;
+  delivery.dropoff_place_name = dropoff_name;
+  delivery.dropoff_ingestor = flaky_ingestor_name;
+
+  task_profile.description.delivery = delivery;
   adapter.dispatch_task(task_profile);
 
   const auto quiet_status = quiet_future.wait_for(15s);

@@ -114,18 +114,18 @@ std::optional<rmf_battery::agv::BatterySystem> get_battery_system(
 std::optional<rmf_battery::agv::MechanicalSystem> get_mechanical_system(
   rclcpp::Node& node,
   const double default_mass,
-  const double default_inertia,
+  const double default_moment,
   const double default_friction)
 {
     const double mass =
     get_parameter_or_default(node, "mass", default_mass);
-  const double inertia =
-    get_parameter_or_default(node, "inertia", default_inertia);
+  const double moment_of_inertia =
+    get_parameter_or_default(node, "inertia", default_moment);
   const double friction =
     get_parameter_or_default(node, "friction_coefficient", default_friction);
 
   auto mechanical_system = rmf_battery::agv::MechanicalSystem::make(
-    mass, inertia, friction);
+    mass, moment_of_inertia, friction);
   
   return mechanical_system;
 }
