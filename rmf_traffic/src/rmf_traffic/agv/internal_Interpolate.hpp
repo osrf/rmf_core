@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__INTERPOLATEINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__AGV__INTERPOLATEINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__AGV__INTERNAL_INTERPOLATE_HPP
+#define SRC__RMF_TRAFFIC__AGV__INTERNAL_INTERPOLATE_HPP
 
 #include <rmf_traffic/agv/Interpolate.hpp>
 
@@ -79,7 +79,15 @@ void interpolate_translation(
   const double threshold);
 
 //==============================================================================
-void interpolate_rotation(
+Duration estimate_rotation_time(
+    const double w_nom,
+    const double alpha_nom,
+    const double start_yaw,
+    const double finish_yaw,
+    const double threshold);
+
+//==============================================================================
+bool interpolate_rotation(
   Trajectory& trajectory,
   const double w_nom,
   const double alpha_nom,
@@ -93,4 +101,4 @@ void interpolate_rotation(
 } // namespace rmf_traffic
 
 
-#endif // SRC__RMF_TRAFFIC__AGV__INTERPOLATEINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__AGV__INTERNAL_INTERPOLATE_HPP

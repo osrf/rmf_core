@@ -435,7 +435,7 @@ class Planner::Implementation
 {
 public:
 
-  internal::planning::CacheManager cache_mgr;
+  planning::InterfacePtr interface;
 
   Options default_options;
 
@@ -448,13 +448,12 @@ class Plan::Implementation
 {
 public:
 
-  internal::planning::Plan plan;
+  planning::PlanData plan;
 
-  static rmf_utils::optional<Plan> make(
-    rmf_utils::optional<internal::planning::Plan> result)
+  static std::optional<Plan> make(std::optional<planning::PlanData> result)
   {
     if (!result)
-      return rmf_utils::nullopt;
+      return std::nullopt;
 
     Plan plan;
     plan._pimpl = rmf_utils::make_impl<Implementation>(
@@ -471,7 +470,7 @@ Planner::Planner(
   Options default_options)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
-        internal::planning::make_cache(config),
+        planning::make_planner_interface(config),
         std::move(default_options),
         config
       }))
@@ -481,21 +480,22 @@ Planner::Planner(
 
 //==============================================================================
 Planner::Result Planner::Result::Implementation::generate(
-  internal::planning::CacheManager cache_mgr,
+  planning::InterfacePtr interface,
   const std::vector<Planner::Start>& starts,
   Planner::Goal goal,
   Planner::Options options)
 {
-  auto cache_handle = cache_mgr.get();
-  auto state = cache_handle->initiate(
+  // TODO(MXG): Throw an exception if any of the starts or the goal has an
+  // invalid waypoint index.
+  auto state = interface->initiate(
         starts, std::move(goal), std::move(options));
 
-  auto plan = Plan::Implementation::make(cache_handle->plan(state));
+  auto plan = Plan::Implementation::make(interface->plan(state));
 
   Planner::Result result;
   result._pimpl = rmf_utils::make_impl<Implementation>(
     Implementation{
-      std::move(cache_mgr),
+      std::move(interface),
       std::move(state),
       std::move(plan)
     });
@@ -505,19 +505,18 @@ Planner::Result Planner::Result::Implementation::generate(
 
 //==============================================================================
 Planner::Result Planner::Result::Implementation::setup(
-    rmf_traffic::internal::planning::CacheManager cache_mgr,
+    planning::InterfacePtr interface,
     const std::vector<Planner::Start>& starts,
     Planner::Goal goal,
     Planner::Options options)
 {
-  auto cache_handle = cache_mgr.get();
-  auto state = cache_handle->initiate(
+  auto state = interface->initiate(
         starts, std::move(goal), std::move(options));
 
   Planner::Result result;
   result._pimpl = rmf_utils::make_impl<Implementation>(
     Implementation{
-      std::move(cache_mgr),
+      std::move(interface),
       std::move(state),
       rmf_utils::nullopt
     });
@@ -561,7 +560,7 @@ auto Planner::get_default_options() const -> const Options&
 Planner::Result Planner::plan(const Start& start, Goal goal) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {start},
     std::move(goal),
     _pimpl->default_options);
@@ -574,7 +573,7 @@ Planner::Result Planner::plan(
   Options options) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {start},
     std::move(goal),
     std::move(options));
@@ -584,7 +583,7 @@ Planner::Result Planner::plan(
 Planner::Result Planner::plan(const StartSet& starts, Goal goal) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     starts,
     std::move(goal),
     _pimpl->default_options);
@@ -597,7 +596,7 @@ Planner::Result Planner::plan(
   Options options) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     starts,
     std::move(goal),
     std::move(options));
@@ -607,7 +606,7 @@ Planner::Result Planner::plan(
 Planner::Result Planner::setup(const Start& start, Goal goal) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {start},
     std::move(goal),
     _pimpl->default_options);
@@ -620,7 +619,7 @@ Planner::Result Planner::setup(
   Options options) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {start},
     std::move(goal),
     std::move(options));
@@ -630,7 +629,7 @@ Planner::Result Planner::setup(
 Planner::Result Planner::setup(const StartSet& start, Goal goal) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     start,
     std::move(goal),
     _pimpl->default_options);
@@ -643,7 +642,7 @@ Planner::Result Planner::setup(
     Options options) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     start,
     std::move(goal),
     std::move(options));
@@ -653,6 +652,12 @@ Planner::Result Planner::setup(
 bool Planner::Result::success() const
 {
   return _pimpl->plan.has_value();
+}
+
+//==============================================================================
+bool Planner::Result::disconnected() const
+{
+  return _pimpl->state.issues.disconnected;
 }
 
 //==============================================================================
@@ -689,7 +694,7 @@ const Plan&& Planner::Result::operator*() const&&
 Planner::Result Planner::Result::replan(const Start& new_start) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {new_start},
     _pimpl->state.conditions.goal,
     _pimpl->state.conditions.options);
@@ -701,7 +706,7 @@ Planner::Result Planner::Result::replan(
   Planner::Options new_options) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {new_start},
     _pimpl->state.conditions.goal,
     std::move(new_options));
@@ -711,7 +716,7 @@ Planner::Result Planner::Result::replan(
 Planner::Result Planner::Result::replan(const StartSet& new_starts) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     new_starts,
     _pimpl->state.conditions.goal,
     _pimpl->state.conditions.options);
@@ -723,7 +728,7 @@ Planner::Result Planner::Result::replan(
   Options new_options) const
 {
   return Result::Implementation::generate(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     new_starts,
     _pimpl->state.conditions.goal,
     std::move(new_options));
@@ -733,7 +738,7 @@ Planner::Result Planner::Result::replan(
 Planner::Result Planner::Result::setup(const Start& new_start) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {new_start},
     _pimpl->state.conditions.goal,
     _pimpl->state.conditions.options);
@@ -745,7 +750,7 @@ Planner::Result Planner::Result::setup(
   Options new_options) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     {new_start},
     _pimpl->state.conditions.goal,
     std::move(new_options));
@@ -755,7 +760,7 @@ Planner::Result Planner::Result::setup(
 Planner::Result Planner::Result::setup(const StartSet& new_starts) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     new_starts,
     _pimpl->state.conditions.goal,
     _pimpl->state.conditions.options);
@@ -767,7 +772,7 @@ Planner::Result Planner::Result::setup(
   Options new_options) const
 {
   return Result::Implementation::setup(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     new_starts,
     _pimpl->state.conditions.goal,
     std::move(new_options));
@@ -780,7 +785,7 @@ bool Planner::Result::resume()
     return true;
 
   _pimpl->plan = Plan::Implementation::make(
-    _pimpl->cache_mgr.get()->plan(_pimpl->state));
+    _pimpl->interface->plan(_pimpl->state));
 
   return _pimpl->plan.has_value();
 }
@@ -820,7 +825,14 @@ rmf_utils::optional<double> Planner::Result::cost_estimate() const
 //==============================================================================
 double Planner::Result::initial_cost_estimate() const
 {
-  return _pimpl->state.initial_cost_estimate;
+  return _pimpl->state.ideal_cost.value_or(
+        std::numeric_limits<double>::infinity());
+}
+
+//==============================================================================
+std::optional<double> Planner::Result::ideal_cost() const
+{
+  return _pimpl->state.ideal_cost;
 }
 
 //==============================================================================
@@ -838,7 +850,7 @@ const Planner::Goal& Planner::Result::get_goal() const
 //==============================================================================
 const Planner::Configuration& Planner::Result::get_configuration() const
 {
-  return _pimpl->cache_mgr.get_configuration();
+  return _pimpl->interface->get_configuration();
 }
 
 //==============================================================================
@@ -1065,7 +1077,7 @@ class Planner::Debug::Implementation
 {
 public:
 
-  internal::planning::CacheManager cache_mgr;
+  planning::InterfacePtr interface;
 
 };
 
@@ -1073,32 +1085,30 @@ public:
 class Planner::Debug::Progress::Implementation
 {
 public:
-  internal::planning::CacheManager cache_mgr;
-  internal::planning::CacheHandle cache_handle;
-  std::unique_ptr<internal::planning::Cache::Debugger> debugger;
+  planning::InterfacePtr interface;
+  std::unique_ptr<planning::Interface::Debugger> debugger;
 
   Implementation(
-    internal::planning::CacheManager cache_mgr_,
+    planning::InterfacePtr interface_,
     const std::vector<Start>& starts,
     Goal goal,
     Options options)
-  : cache_mgr(std::move(cache_mgr_)),
-    cache_handle(cache_mgr.get()),
-    debugger(cache_handle->debug_begin(
+  : interface(std::move(interface_)),
+    debugger(interface->debug_begin(
         starts, std::move(goal), std::move(options)))
   {
     // Do nothing
   }
 
   static Progress make(
-    internal::planning::CacheManager mgr,
+    planning::InterfacePtr interface,
     const std::vector<Start>& starts,
     Goal goal,
     Options options)
   {
     Progress progress;
     progress._pimpl = rmf_utils::make_unique_impl<Implementation>(
-      Implementation{mgr, starts, std::move(goal), std::move(options)});
+      Implementation{interface, starts, std::move(goal), std::move(options)});
 
     return progress;
   }
@@ -1107,7 +1117,7 @@ public:
 //==============================================================================
 rmf_utils::optional<Plan> Planner::Debug::Progress::step()
 {
-  auto result = _pimpl->cache_mgr.get()->debug_step(*_pimpl->debugger);
+  auto result = _pimpl->interface->debug_step(*_pimpl->debugger);
 
   if (!result)
     return rmf_utils::nullopt;
@@ -1142,7 +1152,7 @@ Planner::Debug::Progress::Progress()
 //==============================================================================
 Planner::Debug::Debug(const Planner& planner)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{planner._pimpl->cache_mgr}))
+      Implementation{planner._pimpl->interface}))
 {
   // Do nothing
 }
@@ -1154,7 +1164,7 @@ auto Planner::Debug::begin(
   Options options) const -> Progress
 {
   return Progress::Implementation::make(
-    _pimpl->cache_mgr,
+    _pimpl->interface,
     starts,
     std::move(goal),
     std::move(options));

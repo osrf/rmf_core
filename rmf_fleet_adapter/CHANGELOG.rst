@@ -9,7 +9,7 @@ Changelog for package rmf_fleet_adapter
     * Support for executing tasks at specified timepoints
     * Support for `Loop`, `Delivery`, `Clean` and `ChargeBattery` tasks
 
-1.2.0 (2021-01-XX)
+1.2.0 (2021-01-05)
 ------------------
 * Automatically publish fleet states from the fleet adapter API: [#232](https://github.com/osrf/rmf_core/pull/232)
 * Easy Traffic Light API: [#226](https://github.com/osrf/rmf_core/pull/226)

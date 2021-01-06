@@ -17,7 +17,7 @@
 
 #include <rmf_traffic/agv/Interpolate.hpp>
 
-#include "InterpolateInternal.hpp"
+#include "internal_Interpolate.hpp"
 
 #include <rmf_utils/math.hpp>
 
@@ -72,10 +72,7 @@ States compute_traversal(
   // Time to begin decelerating
   const double t_d = s_f/v - s_a/v - 0.5*v/a_nom + t_a;
 
-  // Only bother adding this waypoint if the constant velocity time period is
-  // more than 1/100th of a second. Otherwise we'll just start decelerating
-  // towards the goal right away.
-  if (t_d - t_a > 1e-2)
+  if (t_d - t_a > 0)
   {
     const double s_d = v*(t_d - t_a) + s_a;
     states.emplace_back(s_d, v, t_d, start_time);
@@ -91,7 +88,8 @@ States compute_traversal(
 
 namespace internal {
 //==============================================================================
-void interpolate_translation(Trajectory& trajectory,
+void interpolate_translation(
+  Trajectory& trajectory,
   const double v_nom,
   const double a_nom,
   const Time start_time,
@@ -109,6 +107,8 @@ void interpolate_translation(Trajectory& trajectory,
 
   const Eigen::Vector2d dir = diff_p/dist;
 
+  // This function assumes that the initial position is already inside of the
+  // trajectory.
   States states = compute_traversal(start_time, dist, v_nom, a_nom);
   for (const State& state : states)
   {
@@ -122,7 +122,29 @@ void interpolate_translation(Trajectory& trajectory,
 }
 
 //==============================================================================
-void interpolate_rotation(
+Duration estimate_rotation_time(
+  const double w_nom,
+  const double alpha_nom,
+  const double start_heading,
+  const double finish_heading,
+  const double threshold)
+{
+  const double diff_heading =
+    rmf_utils::wrap_to_pi(finish_heading - start_heading);
+
+  const double diff_heading_abs = std::abs(diff_heading);
+  if (diff_heading_abs < threshold)
+    return Duration(0);
+
+  const auto start_time = Time(Duration(0));
+  States states = compute_traversal(
+        start_time, diff_heading_abs, w_nom, alpha_nom);
+
+  return states.back().t - start_time;
+}
+
+//==============================================================================
+bool interpolate_rotation(
   Trajectory& trajectory,
   const double w_nom,
   const double alpha_nom,
@@ -138,7 +160,7 @@ void interpolate_rotation(
 
   const double diff_heading_abs = std::abs(diff_heading);
   if (diff_heading_abs < threshold)
-    return;
+    return false;
 
   const double dir = diff_heading < 0.0 ? -1.0 : 1.0;
 
@@ -154,6 +176,8 @@ void interpolate_rotation(
     const Eigen::Vector3d v{0.0, 0.0, w};
     trajectory.insert(state.t, p, v);
   }
+
+  return true;
 }
 } // namespace internal
 

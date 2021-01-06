@@ -37,9 +37,11 @@ public:
 
   ApprovalCallback approval_cb;
   std::shared_ptr<const bool> interrupt_flag;
-  rmf_utils::optional<double> maximum_cost_leeway;
-  rmf_utils::optional<std::size_t> maximum_alts;
+  std::optional<double> maximum_cost_leeway;
+  std::optional<std::size_t> maximum_alts;
   Duration minimum_holding_time;
+  std::optional<double> minimum_cost_threshold = DefaultMinCostThreshold;
+  std::optional<double> maximum_cost_threshold = std::nullopt;
 
   static ApprovalCallback& get_approval_cb(Options& options)
   {
@@ -102,6 +104,34 @@ rmf_utils::optional<double>
 SimpleNegotiator::Options::maximum_cost_leeway() const
 {
   return _pimpl->maximum_cost_leeway;
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::minimum_cost_threshold(
+    const std::optional<double> cost) -> Options&
+{
+  _pimpl->minimum_cost_threshold = cost;
+  return *this;
+}
+
+//==============================================================================
+std::optional<double> SimpleNegotiator::Options::minimum_cost_threshold() const
+{
+  return _pimpl->minimum_cost_threshold;
+}
+
+//==============================================================================
+auto SimpleNegotiator::Options::maximum_cost_threshold(
+    const std::optional<double> cost) -> Options&
+{
+  _pimpl->maximum_cost_threshold = cost;
+  return *this;
+}
+
+//==============================================================================
+std::optional<double> SimpleNegotiator::Options::maximum_cost_threshold() const
+{
+  return _pimpl->maximum_cost_threshold;
 }
 
 //==============================================================================
@@ -342,6 +372,12 @@ void SimpleNegotiator::respond(
       _pimpl->negotiator_options.maximum_cost_leeway();
   const auto max_alts = _pimpl->negotiator_options.maximum_alternatives();
 
+  const auto minimum_cost_threshold =
+      _pimpl->negotiator_options.minimum_cost_threshold();
+
+  const auto maximum_cost_threshold =
+      _pimpl->negotiator_options.maximum_cost_threshold();
+
   std::deque<rmf_utils::clone_ptr<NegotiatingRouteValidator>> validators;
   validators.push_back(
         rmf_utils::make_clone<NegotiatingRouteValidator>(rv_generator.begin()));
@@ -393,15 +429,36 @@ void SimpleNegotiator::respond(
     options.validator(validator);
     auto plan = _pimpl->planner.setup(_pimpl->starts, _pimpl->goal, options);
     const double initial_cost_estimate = *plan.cost_estimate();
-    if (maximum_cost_leeway)
+    if (_pimpl->debug_print)
     {
-      plan.options().maximum_cost_estimate(
-            maximum_cost_leeway.value() * initial_cost_estimate);
+      std::cout << "Initial cost estimate: " << initial_cost_estimate << std::endl;
     }
-    else
+
+    std::optional<double> cost_limit;
+    if (maximum_cost_leeway.has_value())
     {
-      plan.options().maximum_cost_estimate(rmf_utils::nullopt);
+      cost_limit = maximum_cost_leeway.value() * initial_cost_estimate;
+      if (minimum_cost_threshold.has_value())
+      {
+        cost_limit = std::max(
+          *minimum_cost_threshold + initial_cost_estimate, *cost_limit);
+      }
     }
+
+    if (maximum_cost_threshold.has_value())
+    {
+      if (cost_limit.has_value())
+      {
+        cost_limit = std::min(
+          *cost_limit, *maximum_cost_threshold + initial_cost_estimate);
+      }
+      else
+      {
+        cost_limit = *maximum_cost_threshold + initial_cost_estimate;
+      }
+    }
+
+    plan.options().maximum_cost_estimate(cost_limit);
 
     plan.resume();
 

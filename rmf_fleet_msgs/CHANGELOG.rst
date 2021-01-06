@@ -6,7 +6,7 @@ Changelog for package rmf_fleet_msgs
 ------------------
 * Added Docking related messages: [#217](https://github.com/osrf/rmf_core/pull/217)
 
-1.2.0 (2021-01-XX)
+1.2.0 (2021-01-05)
 ------------------
 * Adding pause command: [#226](https://github.com/osrf/rmf_core/pull/226)
 

@@ -69,10 +69,24 @@ public:
   std::vector<std::shared_ptr<FleetUpdateHandle>> fleets = {};
 
   // TODO(MXG): This mutex probably isn't needed
-  std::mutex mutex;
+  std::mutex _mutex;
+  std::unique_lock<std::mutex> lock_mutex()
+  {
+    std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
+    while (!lock.try_lock())
+    {
+      // Intentionally busy wait
+    }
+
+    return lock;
+  }
+
+  std::unordered_set<std::string> received_tasks;
+  std::map<rmf_traffic::Time, std::string> task_times;
+  rclcpp::TimerBase::SharedPtr task_purge_timer;
 
   // This mutex protects the initialization of traffic lights
-  std::mutex traffic_light_init_mutex;
+  std::mutex _traffic_light_init_mutex;
 
   Implementation(
       rxcpp::schedulers::worker worker_,
@@ -240,7 +254,7 @@ void Adapter::add_traffic_light(
 
   _pimpl->schedule_writer->async_make_participant(
       std::move(description),
-      [mutex = &_pimpl->traffic_light_init_mutex,
+      [mutex = &_pimpl->_traffic_light_init_mutex,
        command = std::move(command),
        traits = std::move(traits),
        blockade_writer = _pimpl->blockade_writer,
@@ -251,7 +265,12 @@ void Adapter::add_traffic_light(
        node = _pimpl->node](
         rmf_traffic::schedule::Participant participant)
   {
-    std::lock_guard<std::mutex> lock(*mutex);
+    std::unique_lock<std::mutex> lock(*mutex, std::defer_lock);
+    while (!lock.try_lock())
+    {
+      // Intententionally busy wait
+    }
+
     RCLCPP_INFO(
       node->get_logger(),
       "Added a traffic light controller for [%s] with participant ID [%d]",

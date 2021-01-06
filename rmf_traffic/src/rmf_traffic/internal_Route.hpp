@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__INTERNAL_ROUTE_HPP
+#define SRC__RMF_TRAFFIC__INTERNAL_ROUTE_HPP
 
 #include <rmf_traffic/Route.hpp>
 
@@ -45,4 +45,4 @@ using RouteData = Route::Implementation;
 
 } // namespace rmf_traffic
 
-#endif // SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__INTERNAL_ROUTE_HPP

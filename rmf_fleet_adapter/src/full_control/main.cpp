@@ -99,7 +99,7 @@ public:
       ArrivalEstimator next_arrival_estimator,
       RequestCompleted path_finished_callback) final
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     _clear_last_command();
 
     _travel_info.waypoints = waypoints;
@@ -173,7 +173,7 @@ public:
       const std::string& dock_name,
       RequestCompleted docking_finished_callback) final
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     _clear_last_command();
 
     _dock_finished_callback = std::move(docking_finished_callback);
@@ -218,7 +218,7 @@ public:
 
   void update_state(const rmf_fleet_msgs::msg::RobotState& state)
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     if (_travel_info.path_finished_callback)
     {
       // If we have a path_finished_callback, then the robot should be
@@ -375,6 +375,17 @@ private:
 
   std::mutex _mutex;
 
+  std::unique_lock<std::mutex> _lock()
+  {
+    std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
+    while (!lock.try_lock())
+    {
+      // Intentionally busy wait
+    }
+
+    return lock;
+  }
+
   void _clear_last_command()
   {
     _travel_info.next_arrival_estimator = nullptr;
@@ -418,8 +429,6 @@ struct Connections : public std::enable_shared_from_this<Connections>
   std::unordered_map<std::string, FleetDriverRobotCommandHandlePtr>
   robots;
 
-  std::mutex mutex;
-
   void add_robot(
       const std::string& fleet_name,
       const rmf_fleet_msgs::msg::RobotState& state)
@@ -442,11 +451,22 @@ struct Connections : public std::enable_shared_from_this<Connections>
       if (!connections)
         return;
 
-      std::lock_guard<std::mutex> lock(connections->mutex);
-
+      auto lock = connections->lock();
       command->set_updater(updater);
       connections->robots[robot_name] = command;
     });
+  }
+
+  std::mutex _mutex;
+  std::unique_lock<std::mutex> lock()
+  {
+    std::unique_lock<std::mutex> l(_mutex, std::defer_lock);
+    while (!l.try_lock())
+    {
+      // Intentionally busy wait
+    }
+
+    return l;
   }
 };
 
