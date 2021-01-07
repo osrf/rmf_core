@@ -101,7 +101,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 {
   if (task_managers.empty())
     return;
-  
+
   if (msg->task_profile.task_id.empty())
     return;
 
