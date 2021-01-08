@@ -27,6 +27,63 @@
 
 namespace rmf_rxcpp {
 
+class RxCppExecutor: 
+  public rclcpp::Executor
+{
+public:
+  RxCppExecutor(
+    rxcpp::schedulers::worker worker,
+    const rclcpp::ExecutorOptions& options = rclcpp::ExecutorOptions())
+    : 
+    rclcpp::Executor{options}, 
+    _worker{std::move(worker)},
+    _stopping{false}
+  {
+
+  }
+  virtual ~RxCppExecutor() {};
+
+  void stop()
+  {
+    _stopping = true;
+  }
+  void spin() override
+  {
+    _schedule_spin();
+  }
+private:
+  rxcpp::schedulers::worker _worker;
+  bool _stopping;
+
+  void _do_spin()
+  {
+    spin_some();
+
+    //This is will stop blocking till there is a pending message
+    wait_for_work();
+    
+    if(rclcpp::ok(this->context_) && !_stopping)
+      _schedule_spin();
+  }
+
+  void _schedule_spin()
+  {
+    _worker.schedule(
+          [w = this](const auto&)
+    {
+      if (w->weak_nodes_.size() == 0)
+      {
+        w->_do_spin();
+        return;
+      }
+      //Assume at most 1 node. OK for our use case. 
+      else if (const auto lock = w->weak_nodes_.back().lock())
+        w->_do_spin();
+    });
+  }
+
+};
+
 // TODO(MXG): We define all the member functions of this class inline so that we
 // don't need to export/install rmf_rxcpp as its own shared library (linking to
 // it as a static library results in linking errors related to symbols not being
@@ -39,12 +96,9 @@ public:
   explicit Transport(
       rxcpp::schedulers::worker worker,
       const std::string& node_name,
-      const rclcpp::NodeOptions& options = rclcpp::NodeOptions(),
-      const std::optional<std::chrono::nanoseconds>& wait_time = std::nullopt)
+      const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
     : rclcpp::Node{node_name, options},
-      _worker{std::move(worker)},
-      _executor(_make_exec_args(options)),
-      _wait_time(wait_time)
+      _executor(worker, _make_exec_args(options))
   {
     // Do nothing
   }
@@ -60,34 +114,14 @@ public:
     if (!_node_added)
       _executor.add_node(shared_from_this());
 
-    const auto sleep_param = "transport_sleep";
-    declare_parameter<double>(sleep_param, 0.0);
-    if (has_parameter(sleep_param))
-    {
-      auto param = get_parameter(sleep_param);
-      if (param.get_type() != rclcpp::ParameterType::PARAMETER_DOUBLE)
-      {
-        RCLCPP_WARN(get_logger(), "Expected parameter %s to be double", sleep_param);
-      }
-      else
-      {
-        auto sleep_time = param.as_double();
-        if(sleep_time > 0)
-        {
-          _wait_time = {std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::duration<double, std::ratio<1,1000>>(sleep_time))};
-        }
-        RCLCPP_WARN(get_logger(), "Sleeping for %f", sleep_time);
-      }
-    }
-    
     _stopping = false;
-    _schedule_spin();
+    _executor.spin();
   }
 
   void stop()
   {
     _stopping = true;
+    _executor.stop();
   }
 
   std::condition_variable& spin_cv()
@@ -121,14 +155,10 @@ public:
   }
 
 private:
-
-  std::thread _spin_thread;
   bool _stopping = true;
-  rxcpp::schedulers::worker _worker;
-  rclcpp::executors::SingleThreadedExecutor _executor;
+  RxCppExecutor _executor;
   bool _node_added = false;
   std::condition_variable _spin_cv;
-  std::optional<std::chrono::nanoseconds> _wait_time;
 
   static rclcpp::ExecutorOptions _make_exec_args(
       const rclcpp::NodeOptions& options)
@@ -136,27 +166,6 @@ private:
     rclcpp::ExecutorOptions exec_args;
     exec_args.context = options.context();
     return exec_args;
-  }
-
-  void _do_spin()
-  {
-    _executor.spin_some();
-    if (_wait_time)
-    {
-      rclcpp::sleep_for(*_wait_time);
-    }
-    if (still_spinning())
-      _schedule_spin();
-  }
-
-  void _schedule_spin()
-  {
-    _worker.schedule(
-          [w = weak_from_this()](const auto&)
-    {
-      if (const auto node = std::static_pointer_cast<Transport>(w.lock()))
-        node->_do_spin();
-    });
   }
 };
 
