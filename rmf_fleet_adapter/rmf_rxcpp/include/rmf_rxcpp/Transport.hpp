@@ -58,8 +58,6 @@ private:
   void _do_spin()
   {
     spin_some();
-
-    //This is will stop blocking till there is a pending message
     wait_for_work();
     
     if(rclcpp::ok(this->context_) && !_stopping)
