@@ -23,7 +23,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rxcpp/rx.hpp>
 #include <utility>
-#include <optional>
 
 namespace rmf_rxcpp {
 
