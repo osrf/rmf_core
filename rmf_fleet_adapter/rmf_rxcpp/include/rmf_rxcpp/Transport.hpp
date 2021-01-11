@@ -23,6 +23,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rxcpp/rx.hpp>
 #include <utility>
+#include <optional>
 
 namespace rmf_rxcpp {
 
@@ -117,7 +118,8 @@ public:
   explicit Transport(
       rxcpp::schedulers::worker worker,
       const std::string& node_name,
-      const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
+      const rclcpp::NodeOptions& options = rclcpp::NodeOptions(),
+      const std::optional<std::chrono::nanoseconds>& wait_time = std::nullopt)
     : rclcpp::Node{node_name, options},
       _executor{std::make_shared<RxCppExecutor>(
                   worker, _make_exec_args(options))}
@@ -222,6 +224,7 @@ private:
   bool _node_added = false;
   std::condition_variable _stopped_cv;
   std::thread _spin_thread;
+
 
   static rclcpp::ExecutorOptions _make_exec_args(
       const rclcpp::NodeOptions& options)
