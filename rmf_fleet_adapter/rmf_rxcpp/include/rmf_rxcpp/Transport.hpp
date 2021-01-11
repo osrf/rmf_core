@@ -48,37 +48,25 @@ public:
   }
   void spin() override
   {
-    _schedule_spin();
+    while (rclcpp::ok(this->context_) && !_stopping)
+    {
+      wait_for_work();
+      std::unique_lock<std::mutex> lock(_mtx);
+      _worker.schedule(
+        [w = this](const auto&)
+      { 
+        std::lock_guard<std::mutex> lock(w->_mtx);     
+        w->spin_some();
+        w->_scheduled.notify_all();
+      });    
+      _scheduled.wait(lock);
+    }
   }
 private:
   rxcpp::schedulers::worker _worker;
   bool _stopping;
-
-  void _do_spin()
-  {
-    spin_some();
-    wait_for_work();
-    
-    if(rclcpp::ok(this->context_) && !_stopping)
-      _schedule_spin();
-  }
-
-  void _schedule_spin()
-  {
-    _worker.schedule(
-          [w = this](const auto&)
-    {
-      if (w->weak_nodes_.size() == 0)
-      {
-        w->_do_spin();
-        return;
-      }
-      //Assume at most 1 node. OK for our use case. 
-      else if (const auto lock = w->weak_nodes_.back().lock())
-        w->_do_spin();
-    });
-  }
-
+  std::mutex _mtx;
+  std::condition_variable _scheduled;
 };
 
 // TODO(MXG): We define all the member functions of this class inline so that we
