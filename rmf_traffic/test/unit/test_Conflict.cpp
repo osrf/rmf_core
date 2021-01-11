@@ -51,7 +51,6 @@ SCENARIO("DetectConflict unit tests")
     rmf_traffic::Profile profile_circle_with_circle_offset { circle_shape };
     profile_circle_with_circle_offset.addFootPrintShape(
       circle_shape_ex, Eigen::Vector3d(0, -1.0, 0));
-    //profile.addVicinityShape(circle_shape, offset);
 
     const rmf_traffic::Time time = std::chrono::steady_clock::now();
     Eigen::Vector3d pos = Eigen::Vector3d(0, 0, 0);
@@ -77,8 +76,17 @@ SCENARIO("DetectConflict unit tests")
         t2.insert(time, Eigen::Vector3d(-x, 2, 0), Eigen::Vector3d(0, 0, 0));
         t2.insert(time + 1s, Eigen::Vector3d(x, 2, 0), Eigen::Vector3d(0, 0, 0));
 
+        const auto start_time = std::chrono::high_resolution_clock::now();
+
         CHECK(rmf_traffic::DetectConflict::between(
           profile_circle, t1, profile_circle_with_circle_offset, t2));
+
+        const auto end_time = std::chrono::high_resolution_clock::now();
+
+        std::chrono::duration<double, std::milli> dur = end_time - start_time;
+        double ms = dur.count();
+        CHECK(ms <= 5.0);
+        //printf("Time taken (ms): %.10g\n", ms);
       }
 
       for (double y = -50.0; y <= 50.0; y += 0.125)
@@ -92,9 +100,17 @@ SCENARIO("DetectConflict unit tests")
         t2.insert(time, Eigen::Vector3d(-1, y, 0), Eigen::Vector3d(0, 0, 0));
         t2.insert(time + 1s, Eigen::Vector3d(-1, -y, 0), Eigen::Vector3d(0, 0, 0));
 
-        auto res = rmf_traffic::DetectConflict::between(
-          profile_circle, t1, profile_circle_with_circle_offset, t2);
-        CHECK(res);
+        const auto start_time = std::chrono::high_resolution_clock::now();
+
+        CHECK(rmf_traffic::DetectConflict::between(
+          profile_circle, t1, profile_circle_with_circle_offset, t2));
+
+        const auto end_time = std::chrono::high_resolution_clock::now();
+
+        std::chrono::duration<double, std::milli> dur = end_time - start_time;
+        double ms = dur.count();
+        CHECK(ms <= 5.0);
+        //printf("Time taken (ms): %.10g\n", ms);
       }
     }
 
