@@ -539,11 +539,11 @@ bool check_overlap(
     {
       auto& extra_shape = profile_footprint.extra_footprint_shapes[i];
       auto shape_position = tx * extra_shape.offset;
+      auto shape_rot = tx.rotation();
 
       FclCollisionObject obj_extra(
         geometry::FinalConvexShape::Implementation::get_collision(*extra_shape.shape),
-        rotation_footprint,
-        Eigen::Vector3d(shape_position[0], shape_position[1], 0.0));
+        shape_rot, shape_position);
 
       if (fcl::collide(&obj_extra, &obj_vicinity, request, result) > 0)
         return true;
@@ -616,10 +616,11 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
   // This flag lets us know that we need to test both a's footprint in b's
   // vicinity and b's footprint in a's vicinity.
-  /*const bool test_complement =
+  bool test_complement =
     (profile_a.vicinity != profile_a.footprint)
-    || (profile_b.vicinity != profile_b.footprint);*/
-  bool test_complement = true;
+    || (profile_b.vicinity != profile_b.footprint);
+  if (profile_a.extra_footprint_count != 0 || profile_b.extra_footprint_count != 0)
+    test_complement = true;
 
   if (output_conflicts)
     output_conflicts->clear();
