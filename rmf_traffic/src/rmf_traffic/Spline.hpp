@@ -125,6 +125,24 @@ private:
 
 };
 
+//==============================================================================
+struct ModelSpaceShape
+{
+  ModelSpaceShape(const fcl::Transform3d& tx, double r)
+    :_transform(tx), _radius(r)
+  { }
+  fcl::Transform3d _transform;
+  double _radius;
+};
+
+extern bool collide_seperable_circles(
+  FclSplineMotion& motion_a,
+  FclSplineMotion& motion_b,
+  const std::vector<ModelSpaceShape>& a_shapes,
+  const std::vector<ModelSpaceShape>& b_shapes,
+  double& impact_time, uint& dist_checks,
+  uint safety_maximum_checks, double tolerance);
+
 } // namespace rmf_traffic
 
 #endif // SRC__RMF_TRAFFIC__SPLINE_HPP
