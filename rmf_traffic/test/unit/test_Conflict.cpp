@@ -581,7 +581,7 @@ SCENARIO("DetectConflict unit tests")
 
         std::chrono::duration<double, std::milli> dur = end_time - start_time;
         double ms = dur.count();
-        CHECK(ms <= 5.0);
+        CHECK(ms <= 8.0);
         //printf("Time taken (ms): %.10g\n", ms);
       }
 
@@ -605,7 +605,7 @@ SCENARIO("DetectConflict unit tests")
 
         std::chrono::duration<double, std::milli> dur = end_time - start_time;
         double ms = dur.count();
-        CHECK(ms <= 5.0);
+        CHECK(ms <= 8.0);
         //printf("Time taken (ms): %.10g\n", ms);
       }
     }
@@ -628,6 +628,33 @@ SCENARIO("DetectConflict unit tests")
         CHECK(rmf_traffic::DetectConflict::between(profile_circle, t1, profile_circle_with_circle_offset, t2));
       }
     }
+  }
+
+  GIVEN(
+    "Stationary Robot with Sidecar Rotation hitting a Stationary Robot")
+  {
+    const auto box_shape = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Box>(1.0, 1.f);
+    const auto circle_shape = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.5);
+    const auto circle_shape_ex = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.6);
+
+    rmf_traffic::Profile profile_a { circle_shape };
+
+    rmf_traffic::Profile profile_b { circle_shape };
+    profile_b.addFootPrintShape(circle_shape_ex, Eigen::Vector3d(0, -1, 0));
+    
+    const rmf_traffic::Time time = std::chrono::steady_clock::now();
+    rmf_traffic::Trajectory t1;
+    t1.insert(time, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0));
+    t1.insert(time + 1s, Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0));
+
+    rmf_traffic::Trajectory t2;
+    t2.insert(time, Eigen::Vector3d(-2, 0, 0), Eigen::Vector3d(0, 0, 0));
+    t2.insert(time + 1s, Eigen::Vector3d(-2, 0, EIGEN_PI), Eigen::Vector3d(0, 0, 0));
+
+    CHECK(rmf_traffic::DetectConflict::between(profile_a, t1, profile_b, t2));
   }
 
   GIVEN(
