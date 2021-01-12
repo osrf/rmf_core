@@ -19,7 +19,7 @@
 #define SRC__RMF_TRAFFIC__AGV__INTERNAL_PLANNING_HPP
 
 #include <rmf_traffic/agv/Planner.hpp>
-#include <rmf_traffic/agv/debug/Planner.hpp>
+#include <rmf_traffic/agv/debug/debug_Planner.hpp>
 
 #include <memory>
 #include <mutex>
@@ -61,6 +61,8 @@ struct State
     virtual std::optional<double> cost_estimate() const = 0;
 
     virtual std::size_t queue_size() const = 0;
+
+    virtual std::size_t expansion_count() const = 0;
 
     virtual ~Internal() = default;
   };

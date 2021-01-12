@@ -510,6 +510,11 @@ public:
       return queue.size();
     }
 
+    std::size_t expansion_count() const final
+    {
+      return popped_count;
+    }
+
     SearchQueue queue;
     std::size_t popped_count = 0;
   };
