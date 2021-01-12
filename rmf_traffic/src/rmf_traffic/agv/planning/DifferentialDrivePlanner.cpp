@@ -289,8 +289,9 @@ std::pair<std::vector<Route>, std::vector<Indexing>> reconstruct_routes(
       index.itinerary_index = routes.size() - 1;
       assert(!routes.back().trajectory().empty());
       index.trajectory_index = routes.back().trajectory().size() - 1;
-      assert(routes.back().trajectory().back().time() == node->time);
     }
+
+    assert(routes.back().trajectory().back().time() == node->time);
   }
 
   // Throw away any routes that have less than two waypoints.
@@ -1066,9 +1067,18 @@ public:
 
       if (entry_event_route.trajectory().size() >= 2)
       {
-        traversal_result.routes.insert(
-              traversal_result.routes.begin(),
-              entry_event_route);
+        auto& front = traversal_result.routes.front();
+        if (entry_event_route.map() == front.map())
+        {
+          for (const auto& wp : entry_event_route.trajectory())
+            front.trajectory().insert(wp);
+        }
+        else
+        {
+          traversal_result.routes.insert(
+                traversal_result.routes.begin(),
+                entry_event_route);
+        }
       }
 
       node = std::make_shared<SearchNode>(
