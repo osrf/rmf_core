@@ -300,7 +300,7 @@ BoundingProfile get_bounding_profile(
     footprint->get_characteristic_length() : 0.0;
   for (uint i=0; i<profile.extra_footprint_count; ++i)
   {
-    auto& extra_shape = profile.extra_footprint_shapes[i];
+    auto& extra_shape = profile.extra_footprints[i];
 
     double dist = extra_shape.offset.norm() + extra_shape.shape->get_characteristic_length();
     if (max_footprint_length < dist)
@@ -434,18 +434,23 @@ rmf_utils::optional<double> check_collision(
     std::vector<ModelSpaceShape> a_shapes;
     std::vector<ModelSpaceShape> b_shapes;
 
-    fcl::Transform3d identity;
+    FclTransform3 identity;
     identity.setIdentity();
 
     a_shapes.emplace_back(identity, profile_footprint_a.footprint->get_characteristic_length());
 
     for (uint i=0; i<profile_footprint_a.extra_footprint_count; ++i)  
     {
-      auto& extra_shape = profile_footprint_a.extra_footprint_shapes[i];
+      auto& extra_shape = profile_footprint_a.extra_footprints[i];
 
-      fcl::Transform3d tx;
+      FclTransform3 tx;
       tx.setIdentity();
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
       tx.pretranslate(extra_shape.offset);
+#else
+      fcl::Vec3f p(extra_shape.offset.x(), extra_shape.offset.y(), extra_shape.offset.z());
+      tx.setTranslation(p);
+#endif
       a_shapes.emplace_back(tx, extra_shape.shape->get_characteristic_length());
     }
     // printf("shape_b r: %f\n", shape_b.get_characteristic_length());
@@ -514,6 +519,7 @@ bool check_overlap(
   const Spline& spline_b,
   const Time time)
 {
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
   auto check_footprint_vicinity_collision = [](
     const Profile::Implementation& profile_footprint,
     Eigen::Vector3d pos_footprint,
@@ -537,8 +543,9 @@ bool check_overlap(
     // go through the extra footprint shapes and do collision checks
     for (uint i=0; i<profile_footprint.extra_footprint_count; ++i)
     {
-      auto& extra_shape = profile_footprint.extra_footprint_shapes[i];
+      auto& extra_shape = profile_footprint.extra_footprints[i];
       auto shape_position = tx * extra_shape.offset;
+      
       auto shape_rot = tx.rotation();
 
       FclCollisionObject obj_extra(
@@ -573,6 +580,77 @@ bool check_overlap(
   if (collide)
     return true;
   return false;
+#else
+  auto convert = [](Eigen::Vector3d p) -> fcl::Transform3f
+  {
+    fcl::Matrix3f R;
+    R.setEulerZYX(0.0, 0.0, p[2]);
+    return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
+  };
+  auto check_footprint_vicinity_collision = [](
+    const Profile::Implementation& profile_footprint,
+    fcl::Transform3f tx_footprint,
+    const FclCollisionObject& obj_vicinity) -> bool
+  { 
+    FclCollisionRequest request;
+    FclCollisionResult result;
+
+    // test with main footprint
+    FclCollisionObject obj_footprint(
+      geometry::FinalConvexShape::Implementation::get_collision(*profile_footprint.footprint),
+      tx_footprint);
+      
+    if (fcl::collide(&obj_footprint, &obj_vicinity, request, result) > 0)
+      return true;
+
+    auto tx = obj_footprint.getTransform();
+
+    // go through the extra footprint shapes and do collision checks
+    for (uint i=0; i<profile_footprint.extra_footprint_count; ++i)
+    {
+      auto& extra_shape = profile_footprint.extra_footprints[i];
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+      auto tx_shape = tx * extra_shape.offset;
+#else
+      fcl::Vec3f p(extra_shape.offset.x(), extra_shape.offset.y(), extra_shape.offset.z());
+      FclTransform3 t;
+      t.setTranslation(p);
+      auto tx_shape = tx * t;
+#endif
+      
+      auto shape_rot = tx.getRotation();
+
+      FclCollisionObject obj_extra(
+        geometry::FinalConvexShape::Implementation::get_collision(*extra_shape.shape),
+        tx_shape);
+
+      if (fcl::collide(&obj_extra, &obj_vicinity, request, result) > 0)
+        return true;
+    }
+    return false;
+  };
+
+  auto tx_a = convert(spline_a.compute_position(time));
+  FclCollisionObject obj_a_vicinity(
+    geometry::FinalConvexShape::Implementation::get_collision(*profile_a.vicinity),
+    tx_a);
+
+  auto tx_b = convert(spline_b.compute_position(time));
+  FclCollisionObject obj_b_vicinity(
+    geometry::FinalConvexShape::Implementation::get_collision(*profile_b.vicinity),
+    tx_b);
+
+  bool collide = check_footprint_vicinity_collision(
+    profile_a, tx_a, obj_b_vicinity);
+  if (collide)
+    return true;
+
+  collide = check_footprint_vicinity_collision(
+    profile_b, tx_b, obj_a_vicinity);
+  if (collide)
+    return true;
+  return false;
+#endif
 }
 
 //==============================================================================

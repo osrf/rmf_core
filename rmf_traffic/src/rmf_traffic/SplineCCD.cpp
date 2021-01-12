@@ -1,8 +1,16 @@
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
 #include <fcl/narrowphase/continuous_collision.h>
 #include <fcl/geometry/collision_geometry.h>
 #include <fcl/math/motion/spline_motion.h>
+#else
+#include <fcl/continuous_collision.h>
+#include <fcl/collision_object.h>
+#include <fcl/ccd/motion.h>
+#endif
+
 #include "Spline.hpp"
+#include <float.h>
 
 namespace rmf_traffic {
 
@@ -14,7 +22,8 @@ static double max_splinemotion_advancement(double current_t,
   FclSplineMotion& motion_b,
   const std::vector<ModelSpaceShape>& a_shapes,
   const std::vector<ModelSpaceShape>& b_shapes,
-  const Eigen::Vector3d& d_normalized, double max_dist,
+  const FclVec3& d_normalized,
+  double max_dist,
   uint& dist_checks, double tolerance)
 {
   assert(tolerance >= 0.0);
@@ -52,7 +61,7 @@ static double max_splinemotion_advancement(double current_t,
     motion_a.integrate(sample_t);
     motion_b.integrate(sample_t);
 
-    fcl::Transform3d a_tx, b_tx;
+    FclTransform3 a_tx, b_tx;
     motion_a.getCurrentTransform(a_tx);
     motion_b.getCurrentTransform(b_tx);
 
@@ -64,7 +73,11 @@ static double max_splinemotion_advancement(double current_t,
       for (const auto& b_shape : b_shapes)
       {
         auto b_shape_tx = b_tx * b_shape._transform;
-        Eigen::Vector3d b_to_a = a_shape_tx.translation() - b_shape_tx.translation();
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+        auto b_to_a = a_shape_tx.translation() - b_shape_tx.translation();
+#else
+        auto b_to_a = a_shape_tx.getTranslation() - b_shape_tx.getTranslation();
+#endif
         
         double b_to_a_dist = b_to_a.norm();
         double dist_between_shapes_along_d = 0.0;
@@ -132,11 +145,11 @@ bool collide_seperable_circles(
     return false;
 
   auto calc_min_dist = [](
-    const fcl::Transform3d& a_tx,
-    const fcl::Transform3d& b_tx,
+    const FclTransform3& a_tx,
+    const FclTransform3& b_tx,
     const std::vector<ModelSpaceShape>& a_shapes,
     const std::vector<ModelSpaceShape>& b_shapes,
-    Eigen::Vector3d& d, double& min_dist)
+    FclVec3& d, double& min_dist)
   {
     min_dist = DBL_MAX;
     for (const auto& a_shape : a_shapes)
@@ -146,7 +159,11 @@ bool collide_seperable_circles(
       for (const auto& b_shape : b_shapes)
       {
         auto b_shape_tx = b_tx * b_shape._transform;
-        Eigen::Vector3d b_to_a = a_shape_tx.translation() - b_shape_tx.translation();
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+        auto b_to_a = a_shape_tx.translation() - b_shape_tx.translation();
+#else
+        auto b_to_a = a_shape_tx.getTranslation() - b_shape_tx.getTranslation();
+#endif
         double dist = b_to_a.norm() - (a_shape._radius + b_shape._radius);
         if (dist < min_dist)
         {
@@ -157,8 +174,8 @@ bool collide_seperable_circles(
     }
   };
 
-  fcl::Transform3d a_start_tf, b_start_tf;
-  fcl::Transform3d a_tf, b_tf;
+  FclTransform3 a_start_tf, b_start_tf;
+  FclTransform3 a_tf, b_tf;
 
   motion_a.integrate(0.0);
   motion_b.integrate(0.0);
@@ -166,7 +183,7 @@ bool collide_seperable_circles(
   motion_b.getCurrentTransform(b_start_tf);
 
   double dist_along_d_to_cover = 0.0;
-  Eigen::Vector3d d(0,0,0);
+  FclVec3 d(0,0,0);
   calc_min_dist(a_start_tf, b_start_tf, a_shapes, b_shapes,
     d, dist_along_d_to_cover);
   
@@ -174,7 +191,11 @@ bool collide_seperable_circles(
   uint iter = 0;
   while (dist_along_d_to_cover > tolerance && t < 1.0)
   {
-    Eigen::Vector3d d_normalized = d.normalized();
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
+    FclVec3 d_normalized = d.normalized();
+#else
+    FclVec3 d_normalized = d.normalize();
+#endif
 #ifdef DO_LOGGING
     printf("======= iter:%d\n", iter);
     std::cout << "d_norm: \n" << d_normalized << std::endl;

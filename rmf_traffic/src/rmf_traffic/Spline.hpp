@@ -34,8 +34,12 @@ namespace rmf_traffic {
 
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
   using FclSplineMotion = fcl::SplineMotion<double>;
+  using FclTransform3 = fcl::Transform3d;
+  using FclVec3 = fcl::Vector3d;
 #else
   using FclSplineMotion = fcl::SplineMotion;
+  using FclTransform3 = fcl::Transform3f;
+  using FclVec3 = fcl::Vec3f;
 #endif
 
 //==============================================================================
@@ -128,10 +132,10 @@ private:
 //==============================================================================
 struct ModelSpaceShape
 {
-  ModelSpaceShape(const fcl::Transform3d& tx, double r)
+  ModelSpaceShape(const FclTransform3& tx, double r)
     :_transform(tx), _radius(r)
   { }
-  fcl::Transform3d _transform;
+  FclTransform3 _transform;
   double _radius;
 };
 
