@@ -1,4 +1,4 @@
-# time when this state message was created
+# Time when this state message was created
 builtin_interfaces/Time charger_time
 
 uint32 CHARGER_IDLE = 1      # Charger is not occupied
@@ -8,14 +8,19 @@ uint32 CHARGER_ERROR = 200   # Error state, see error_message for info
 
 uint32 state         # One of the previously enumerated states
 
-# the charger name should be unique in the RMF system and
+# The charger name should be unique in the RMF system and
 # should match a charger name appearing in the traffic map
 string charger_name
 
 # the error_message field should be blank unless state is CHARGER_ERROR
 string error_message
 
-# the robot that is currently assigned to this charger (if any)
+# In the event that the error is created by a certain request,
+# this string will be set to the error. Otherwise, it will be left
+# empty.
+string request_id
+
+# The robot that is currently assigned to this charger (if any)
 string robot_fleet
 string robot_name
 
