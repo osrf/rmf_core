@@ -125,9 +125,9 @@ public:
 
           RCLCPP_DEBUG(
             node.get_logger(),
-            "Updating mirror ["
+            std::string("Updating mirror ["
             + std::to_string(response->patch.latest_version)
-            + "]: " + std::to_string(patch.size()) + " changes");
+            + "]: " + std::to_string(patch.size()) + " changes").c_str());
 
           std::mutex* update_mutex = options.update_mutex();
           if (update_mutex)
@@ -148,8 +148,8 @@ public:
         {
           RCLCPP_ERROR(
             node.get_logger(),
-            "[rmf_traffic_ros2::MirrorManager] Failed to deserialize Patch "
-            "message: " + std::string(e.what()));
+            std::string("[rmf_traffic_ros2::MirrorManager] Failed to "
+            "deserialize Patch essage: " + std::string(e.what())).c_str());
         }
       });
 
@@ -339,8 +339,9 @@ public:
           {
             RCLCPP_ERROR(
               node.get_logger(),
-              "[rmf_traffic_ros2::MirrorManagerFuture] Exception while "
-              "registering a query: " + std::string(e.what()));
+              std::string("[rmf_traffic_ros2::MirrorManagerFuture] "
+              "Exception while registering a query: "
+              + std::string(e.what())).c_str());
           }
         });
       registration_sent = true;
@@ -400,9 +401,9 @@ public:
         {
           RCLCPP_WARN(
             node.get_logger(),
-            "[rmf_traffic_ros2::~MirrorManagerFuture] Error received "
-            "while trying to register the query a MirrorManager: "
-            + registration_response.error);
+            std::string("[rmf_traffic_ros2::~MirrorManagerFuture] Error "
+            "received while trying to register the query a MirrorManager: "
+            + registration_response.error).c_str());
         }
         else
         {
@@ -417,9 +418,10 @@ public:
               {
                 RCLCPP_WARN(
                   node.get_logger(),
-                  "[rmf_traffic_ros2::~MirrorManagerFuture] Error received "
-                  "while trying to unregister the query of an uninstantiated "
-                  "MirrorManager: " + response->error);
+                  std::string("[rmf_traffic_ros2::~MirrorManagerFuture] "
+                  "Error received while trying to unregister the query of "
+                  "an uninstantiated MirrorManager: "
+                  + response->error).c_str());
               }
             });
         }
