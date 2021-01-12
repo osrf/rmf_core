@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TRAFFIC__AGV__DEBUG__PLANNER_HPP
-#define RMF_TRAFFIC__AGV__DEBUG__PLANNER_HPP
+#ifndef RMF_TRAFFIC__AGV__DEBUG__DEBUG_PLANNER_HPP
+#define RMF_TRAFFIC__AGV__DEBUG__DEBUG_PLANNER_HPP
 
 #include <rmf_traffic/agv/Planner.hpp>
 
@@ -130,6 +130,17 @@ public:
     Goal goal,
     Options options) const;
 
+  /// Get the current size of the frontier queue of a Planner Result
+  static std::size_t queue_size(const Planner::Result& result);
+
+  /// Get the number of search nodes that have been expanded for a Planner
+  /// Result
+  static std::size_t expansion_count(const Planner::Result& result);
+
+  /// Get the current number of nodes that have been created for this Planner
+  /// Result. This is equal to queue_size(r) + expansion_count(r).
+  static std::size_t node_count(const Planner::Result& result);
+
   class Implementation;
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
@@ -139,4 +150,4 @@ private:
 } // namespace agv
 } // namespace rmf_traffic
 
-#endif // RMF_TRAFFIC__AGV__DEBUG__PLANNER_HPP
+#endif // RMF_TRAFFIC__AGV__DEBUG__DEBUG_PLANNER_HPP

@@ -22,7 +22,7 @@
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
-#include <rmf_traffic/agv/debug/Planner.hpp>
+#include <rmf_traffic/agv/debug/debug_Planner.hpp>
 
 //==============================================================================
 Eigen::Vector3d get_location(
