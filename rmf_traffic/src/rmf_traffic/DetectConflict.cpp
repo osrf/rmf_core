@@ -310,7 +310,7 @@ BoundingProfile get_bounding_profile(
     adjust_bounding_box(base_box, max_footprint_length) :
     void_box();
 
-  // printf("footprint_box\n");
+  // std::cout << "footprint_box\n";
   // std::cout << f_box.min << std::endl;
   // std::cout << f_box.max << std::endl;
 
@@ -325,7 +325,7 @@ BoundingProfile get_bounding_profile(
     v_box.min = f_box.min;
     v_box.max = f_box.max;
   }
-  // printf("vicinity_box\n");
+  // std::cout << "vicinity_box\n";
   // std::cout << v_box.min << std::endl;
   // std::cout << v_box.max << std::endl;
   
@@ -453,7 +453,6 @@ rmf_utils::optional<double> check_collision(
 #endif
       a_shapes.emplace_back(tx, extra_shape.shape->get_characteristic_length());
     }
-    // printf("shape_b r: %f\n", shape_b.get_characteristic_length());
     b_shapes.emplace_back(identity, shape_b.get_characteristic_length());
 
     double impact_time = 0.0;
