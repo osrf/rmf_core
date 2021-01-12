@@ -45,7 +45,8 @@ public:
     geometry::ConstFinalConvexShapePtr footprint,
     geometry::ConstFinalConvexShapePtr vicinity = nullptr);
 
-  /// Add shape to the footprint of the participant
+  /// Add an extra shape to the footprint of the participant.
+  /// The onus is on the user to update the vicinity of the robot
   ///
   /// \param[in] shape
   ///   An estimate of the space that this extra shape occupies.
@@ -53,7 +54,13 @@ public:
   /// \param[in] offset
   ///   Offset to the additional shape, in the robot's coordinate frame
   ///
-  void addFootPrintShape(geometry::ConstFinalConvexShapePtr shape, Eigen::Vector3d offset);
+  void add_extra_footprint(geometry::ConstFinalConvexShapePtr shape, Eigen::Vector3d offset);
+
+  /// Get the number of extra footprint shapes
+  uint extra_footprint_count() const;
+
+  /// Removes all extra footprint shapes
+  void clear_extra_footprints();
 
   /// Set the footprint of the participant.
   Profile& footprint(geometry::ConstFinalConvexShapePtr shape);
