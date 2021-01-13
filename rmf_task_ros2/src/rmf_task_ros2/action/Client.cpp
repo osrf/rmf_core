@@ -47,7 +47,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
 
         if (!weak_status)
         {
-          RCLCPP_INFO(_node->get_logger(), "status has expired");
+          RCLCPP_INFO(_node->get_logger(), "Task was previously terminated");
           _active_task_status.erase(task_id);
           return;
         }
@@ -65,7 +65,8 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
         if (weak_status->is_terminated())
         {
           RCLCPP_INFO(_node->get_logger(),
-          "[action] Done Terminated Task: %s", task_id.c_str());
+          "Receive status from fleet [%s], task [%s] is now terminated",
+          msg->fleet_name.c_str(), task_id.c_str());
           _active_task_status.erase(task_id);
 
           if (_on_terminate_callback)
@@ -75,8 +76,8 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
       else
       {
         // will still provide onchange even if the task_id is unknown.
-        RCLCPP_WARN(_node->get_logger(),
-        "[action] Unknown task: %s", task_id.c_str());
+        RCLCPP_DEBUG(_node->get_logger(),
+        "[action] Unknown task: [%s]", task_id.c_str());
         auto task_status = std::make_shared<TaskStatus>(convert_status(*msg));
 
         if (_on_change_callback)
@@ -105,8 +106,8 @@ void Client::add_task(
   status_ptr->fleet_name = fleet_name;
   status_ptr->task_profile = task_profile;
   _active_task_status[task_profile.task_id] = status_ptr;
-  RCLCPP_INFO(_node->get_logger(), "Add Action Task: %s",
-    task_profile.task_id.c_str());
+  RCLCPP_DEBUG(_node->get_logger(), "Assign task: [%s] to fleet [%s]",
+    task_profile.task_id.c_str(), fleet_name.c_str());
   return;
 }
 
@@ -115,13 +116,14 @@ bool Client::cancel_task(
   const TaskProfile& task_profile)
 {
   const auto task_id = task_profile.task_id;
-  RCLCPP_INFO(_node->get_logger(), "Cancel Active Task: %s", task_id.c_str());
+  RCLCPP_DEBUG(_node->get_logger(),
+    "[action] Cancel Task: [%s]", task_id.c_str());
 
   // check if task is previously added
   if (!_active_task_status.count(task_id))
   {
     RCLCPP_WARN(_node->get_logger(),
-      "[action] Not found Task: %s", task_id.c_str());
+      "Canceling an unknown task [%s]", task_id.c_str());
     return false;
   }
 
@@ -129,7 +131,7 @@ bool Client::cancel_task(
 
   if (!weak_status)
   {
-    std::cerr << "weak status has expired, cancel failed \n";
+    RCLCPP_WARN(_node->get_logger(), "Task was previously terminated");
     _active_task_status.erase(task_id);
     return false;
   }

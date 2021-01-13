@@ -63,7 +63,7 @@ Auctioneer::Implementation::Implementation(
 void Auctioneer::Implementation::start_bidding(
   const BidNotice& bid_notice)
 {
-  RCLCPP_INFO(node->get_logger(), "[Auctioneer] Add Bidding task %s to queue",
+  RCLCPP_INFO(node->get_logger(), "Add Task [%s] to a bidding queue",
     bid_notice.task_profile.task_id.c_str());
 
   BiddingTask bidding_task;
@@ -124,20 +124,20 @@ bool Auctioneer::Implementation::determine_winner(
   if (duration > bidding_task.bid_notice.time_window)
   {
     auto id = bidding_task.bid_notice.task_profile.task_id;
-    RCLCPP_INFO(node->get_logger(), "Bidding Deadline reached: %s",
+    RCLCPP_DEBUG(node->get_logger(), "Bidding Deadline reached: %s",
       id.c_str());
     std::optional<Submission> winner = std::nullopt;
 
     if (bidding_task.submissions.size() == 0)
     {
-      RCLCPP_WARN(node->get_logger(),
+      RCLCPP_DEBUG(node->get_logger(),
         "Bidding task has not received any bids");
     }
     else
     {
       winner = evaluate(bidding_task.submissions);
       RCLCPP_INFO(node->get_logger(),
-        "Found winning Fleet Adapter: %s, from %d submissions",
+        "Determined winning Fleet Adapter: [%s], from %d submissions",
         winner->fleet_name.c_str(), bidding_task.submissions.size());
     }
 
@@ -159,7 +159,7 @@ std::optional<Submission> Auctioneer::Implementation::evaluate(
 
   if (!evaluator)
   {
-    RCLCPP_WARN(node->get_logger(), "Evaluator is not set");
+    RCLCPP_WARN(node->get_logger(), "Bidding Evaluator is not set");
     return std::nullopt;
   }
 

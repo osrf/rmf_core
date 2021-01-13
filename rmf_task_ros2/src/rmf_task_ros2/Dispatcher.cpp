@@ -205,6 +205,8 @@ public:
     if (it == active_dispatch_tasks.end())
       return false;
 
+    RCLCPP_WARN(node->get_logger(), "Cancel task: [%s]", task_id.c_str());
+
     // Cancel bidding. This will remove the bidding process
     const auto& cancel_task_status = it->second;
     if (cancel_task_status->state == TaskStatus::State::Pending)
@@ -251,8 +253,8 @@ public:
 
     if (!winner)
     {
-      RCLCPP_WARN(node->get_logger(), "[Dispatch::Bidding Result] task "
-        "%s has no submissions during bidding :(", task_id.c_str());
+      RCLCPP_WARN(node->get_logger(), "Dispatcher Bidding Result: task [%s]"
+        " has no submissions during bidding, Task Failed", task_id.c_str());
       pending_task_status->state = TaskStatus::State::Failed;
       terminate_task(pending_task_status);
 
@@ -265,8 +267,8 @@ public:
     // now we know which fleet will execute the task
     pending_task_status->fleet_name = winner->fleet_name;
 
-    RCLCPP_INFO(node->get_logger(), "[Dispatch::Bidding Result] task "
-      "%s is accepted by Fleet adapter %s",
+    RCLCPP_INFO(node->get_logger(), "Dispatcher Bidding Result: task [%s]"
+      " is accepted by fleet adapter [%s]",
       task_id.c_str(), winner->fleet_name.c_str());
 
     // Remove previous self-generated charging task from "active_dispatch_tasks"
@@ -319,7 +321,6 @@ public:
     }
 
     const auto id = terminate_status->task_profile.task_id;
-    RCLCPP_WARN(node->get_logger(), "Terminate Task ID: %s", id.c_str());
 
     // destroy prev status ptr and recreate one
     auto status = std::make_shared<TaskStatus>(*terminate_status);
@@ -338,7 +339,7 @@ public:
     {
       active_dispatch_tasks[id] = status;
       RCLCPP_WARN(node->get_logger(),
-        "Add previously unheard task: %s", id.c_str());
+        "Add previously unheard task: [%s]", id.c_str());
     }
 
     if (on_change_fn)

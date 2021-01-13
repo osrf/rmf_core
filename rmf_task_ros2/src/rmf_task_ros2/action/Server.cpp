@@ -60,7 +60,8 @@ Server::Server(
       if (msg->fleet_name != _fleet_name)
         return;// not me
 
-      RCLCPP_INFO(_node->get_logger(), "[action] Receive a task request!");
+      RCLCPP_INFO(_node->get_logger(),
+      "[Action server] Received task request!");
       StatusMsg status_msg;
       status_msg.fleet_name = _fleet_name;
       status_msg.state = StatusMsg::STATE_FAILED;
