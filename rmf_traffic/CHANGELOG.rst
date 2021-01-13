@@ -12,6 +12,7 @@ Changelog for package rmf_traffic
 * Add the blockade system for traffic light management: [#226](https://github.com/osrf/rmf_core/pull/226)
 * Access trajectory waypoints by element index: [#226](https://github.com/osrf/rmf_core/pull/226)
 * Get trajectory index of each plan waypoint: [#226](https://github.com/osrf/rmf_core/pull/226)
+* Support for robot multi geometry: [#258] (https://github.com/osrf/rmf_core/pull/258)
 
 1.1.0 (2020-09-24)
 ------------------
