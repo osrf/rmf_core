@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rmf_task</name>
+  <version>1.0.0</version>
+  <description>Package for managing tasks in the Robotics Middleware Framework</description>
+  <maintainer email="aaron@openrobotics.org">Aaron</maintainer>
+  <license>Apache License 2.0</license>
+  <author>Aaron</author>
+
+  <depend>rmf_battery</depend>
+  <depend>rmf_utils</depend>
+  <depend>rmf_dispenser_msgs</depend>
+
+  <depend>eigen</depend>
+
+  <test_depend>ament_cmake_catch2</test_depend>
+  <test_depend>rmf_cmake_uncrustify</test_depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>

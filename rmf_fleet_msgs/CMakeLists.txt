@@ -26,6 +26,9 @@ set(msg_files
   "msg/PathRequest.msg"
   "msg/PauseRequest.msg"
   "msg/ModeParameter.msg"
+  "msg/DockParameter.msg"
+  "msg/Dock.msg"
+  "msg/DockSummary.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
