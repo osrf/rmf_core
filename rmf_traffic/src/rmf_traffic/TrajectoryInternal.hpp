@@ -159,6 +159,26 @@ public:
           new_hint, Element::make(key, std::forward<Args>(args)...));
   }
 
+  /// Rotate the elements of the vector so that the mover is located right in
+  /// front of the target.
+  void rotate(iterator mover, iterator target)
+  {
+    // These conditions should be checked by change_time before the rotate()
+    // function gets used.
+    assert(mover != target);
+    assert(mover + 1 != target);
+
+    if (mover < target)
+    {
+      std::rotate(mover, mover+1, target);
+    }
+    else
+    {
+      assert(target < mover);
+      std::rotate(target, mover, mover+1);
+    }
+  }
+
   iterator erase(const Key& key)
   {
     const auto it = lower_bound(key);
