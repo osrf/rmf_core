@@ -325,7 +325,8 @@ void ScheduleNode::register_query(
       response->error = "No more space for additional queries to be registered";
       RCLCPP_ERROR(
         get_logger(),
-        "[ScheduleNode::register_query] " + response->error);
+        std::string("[ScheduleNode::register_query] "
+        + response->error).c_str());
       return;
     }
   } while (registered_queries.find(query_id) != registered_queries.end());
@@ -337,7 +338,7 @@ void ScheduleNode::register_query(
   response->query_id = query_id;
   RCLCPP_INFO(
     get_logger(),
-    "[" + std::to_string(query_id) + "] Registered query");
+    std::string("[" + std::to_string(query_id) + "] Registered query").c_str());
 }
 
 //==============================================================================
@@ -355,7 +356,8 @@ void ScheduleNode::unregister_query(
 
     RCLCPP_WARN(
       get_logger(),
-      "[ScheduleNode::unregister_query] " + response->error);
+      std::string("[ScheduleNode::unregister_query] "
+      + response->error).c_str());
     return;
   }
 
@@ -364,7 +366,8 @@ void ScheduleNode::unregister_query(
 
   RCLCPP_INFO(
     get_logger(),
-    "[" + std::to_string(request->query_id) + "] Unregistered query");
+    std::string("[" + std::to_string(request->query_id)
+    + "] Unregistered query").c_str());
 }
 
 //==============================================================================
@@ -383,16 +386,19 @@ void ScheduleNode::register_participant(
 
     RCLCPP_INFO(
       get_logger(),
-      "Registered participant [" + std::to_string(response->participant_id)
+      std::string("Registered participant ["
+      + std::to_string(response->participant_id)
       + "] named [" + request->description.name + "] owned by ["
-      + request->description.owner + "]");
+      + request->description.owner + "]").c_str());
   }
   catch (const std::exception& e)
   {
     RCLCPP_ERROR(
       get_logger(),
-      "Failed to register participant [" + request->description.name
-      + "] owned by [" + request->description.owner + "]:" + e.what());
+      std::string("Failed to register participant ["
+      + request->description.name
+      + "] owned by [" + request->description.owner + "]:"
+      + e.what()).c_str());
     response->error = e.what();
   }
 }
@@ -414,7 +420,7 @@ void ScheduleNode::unregister_participant(
       "participant has that ID";
     response->confirmation = false;
 
-    RCLCPP_ERROR(get_logger(), response->error);
+    RCLCPP_ERROR(get_logger(), (response->error).c_str());
     return;
   }
 
@@ -430,15 +436,16 @@ void ScheduleNode::unregister_participant(
 
     RCLCPP_INFO(
       get_logger(),
-      "Unregistered participant [" + std::to_string(request->participant_id)
-      +"] named [" + name + "] owned by [" + owner + "]");
+      std::string("Unregistered participant ["
+      + std::to_string(request->participant_id)
+      +"] named [" + name + "] owned by [" + owner + "]").c_str());
   }
   catch (const std::exception& e)
   {
     RCLCPP_ERROR(
       get_logger(),
-      "Failed to unregister participant ["
-      + std::to_string(request->participant_id) + "]:" + e.what());
+      std::string("Failed to unregister participant ["
+      + std::to_string(request->participant_id) + "]:" + e.what()).c_str());
     response->error = e.what();
     response->confirmation = false;
   }
@@ -457,7 +464,7 @@ void ScheduleNode::mirror_update(
       + std::to_string(request->query_id);
     RCLCPP_WARN(
       get_logger(),
-      "[ScheduleNode::mirror_update] " + response->error);
+      std::string("[ScheduleNode::mirror_update] " + response->error).c_str());
     return;
   }
 
@@ -651,7 +658,7 @@ void ScheduleNode::receive_refusal(const ConflictRefusal& msg)
 
   std::string output = "Refused negotiation ["
     + std::to_string(msg.conflict_version) + "]";
-  RCLCPP_INFO(get_logger(), output);
+  RCLCPP_INFO(get_logger(), output.c_str());
 
   active_conflicts.refuse(msg.conflict_version);
 
@@ -690,7 +697,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
         p.version) + " ";
     error += "]";
 
-    RCLCPP_WARN(get_logger(), error);
+    RCLCPP_WARN(get_logger(), error.c_str());
     negotiation_room->cached_proposals.push_back(msg);
     return;
   }
@@ -723,7 +730,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
     for (const auto p : conclusion.table)
       output += " " + std::to_string(p.participant) + ":" + std::to_string(
         p.version);
-    RCLCPP_INFO(get_logger(), output);
+    RCLCPP_INFO(get_logger(), output.c_str());
 
     conflict_conclusion_pub->publish(std::move(conclusion));
 //    print_conclusion(active_conflicts._waiting);
@@ -732,7 +739,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   {
     std::string output = "Forfeited negotiation ["
       + std::to_string(msg.conflict_version) + "]";
-    RCLCPP_INFO(get_logger(), output);
+    RCLCPP_INFO(get_logger(), output.c_str());
 
     active_conflicts.conclude(msg.conflict_version);
 
@@ -771,7 +778,7 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
         p.version) + " ";
     error += "]";
 
-    RCLCPP_WARN(get_logger(), error);
+    RCLCPP_WARN(get_logger(), error.c_str());
     negotiation_room->cached_rejections.push_back(msg);
     return;
   }
@@ -814,7 +821,7 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
         p.version) + " ";
     error += "]";
 
-    RCLCPP_WARN(get_logger(), error);
+    RCLCPP_WARN(get_logger(), error.c_str());
     negotiation_room->cached_forfeits.push_back(msg);
     return;
   }
@@ -830,7 +837,7 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
   {
     std::string output = "Forfeited negotiation ["
       + std::to_string(msg.conflict_version) + "]";
-    RCLCPP_INFO(get_logger(), output);
+    RCLCPP_INFO(get_logger(), output.c_str());
 
     active_conflicts.conclude(msg.conflict_version);
 

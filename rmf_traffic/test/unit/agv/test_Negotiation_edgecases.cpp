@@ -22,7 +22,7 @@
 #include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_traffic/DetectConflict.hpp>
 
-#include <rmf_traffic/agv/debug/Planner.hpp>
+#include <rmf_traffic/agv/debug/debug_Planner.hpp>
 
 //==============================================================================
 Eigen::Vector3d get_location(
@@ -281,7 +281,7 @@ SCENARIO("Test difficult 3-way scenarios")
       b2.id(),
       NegotiationRoom::Intention{std::move(b2_starts), b2_goal, config_b}});
 
-    auto room = NegotiationRoom(database, intentions, 5.5, 200);
+    auto room = NegotiationRoom(database, intentions, 5.5, std::nullopt, 200);
     auto proposal = room.solve();
     REQUIRE(proposal);
   }

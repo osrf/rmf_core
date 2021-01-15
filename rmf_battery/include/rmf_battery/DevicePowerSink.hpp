@@ -15,34 +15,31 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#ifndef RMF_BATTERY__DEVICEPOWERSINK_HPP
+#define RMF_BATTERY__DEVICEPOWERSINK_HPP
 
-#include <rmf_traffic/Route.hpp>
+namespace rmf_battery {
 
-namespace rmf_traffic {
 
 //==============================================================================
-class Route::Implementation
+class DevicePowerSink
 {
 public:
 
-  std::string map;
-  Trajectory trajectory;
+  /// Compute change in state-of-charge of the battery due to an onboard
+  /// device over a time period.
+  ///
+  /// \param[in] run_time
+  ///   The duration in seconds over which the power system drains charge from
+  ///   the battery
+  ///
+  /// \return The charge depleted as a fraction of the total battery capacity
+  virtual double compute_change_in_charge(
+    const double run_time) const = 0;
 
-  static Route make(Implementation data)
-  {
-    return Route(std::move(data.map), std::move(data.trajectory));
-  }
-
-  static const Route::Implementation& get(const Route& route)
-  {
-    return *route._pimpl;
-  }
+  virtual ~DevicePowerSink() = default;
 };
 
-using RouteData = Route::Implementation;
+} // namespace rmf_battery
 
-} // namespace rmf_traffic
-
-#endif // SRC__RMF_TRAFFIC__ROUTEINTERNAL_HPP
+#endif // RMF_BATTERY__DEVICEPOWERSINK_HPP

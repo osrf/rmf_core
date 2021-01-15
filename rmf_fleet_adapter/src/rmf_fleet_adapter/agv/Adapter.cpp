@@ -26,9 +26,6 @@
 #include <rmf_traffic_ros2/schedule/Writer.hpp>
 #include <rmf_traffic_ros2/blockade/Writer.hpp>
 
-#include <rmf_task_msgs/msg/delivery.hpp>
-#include <rmf_task_msgs/msg/loop.hpp>
-
 #include "internal_TrafficLight.hpp"
 #include "internal_EasyTrafficLight.hpp"
 
@@ -69,26 +66,27 @@ public:
   std::shared_ptr<rmf_traffic_ros2::blockade::Writer> blockade_writer;
   rmf_traffic_ros2::schedule::MirrorManager mirror_manager;
 
-  using Delivery = rmf_task_msgs::msg::Delivery;
-  using DeliverySub = rclcpp::Subscription<Delivery>::SharedPtr;
-  DeliverySub delivery_sub;
-
-  using Loop = rmf_task_msgs::msg::Loop;
-  using LoopSub = rclcpp::Subscription<Loop>::SharedPtr;
-  LoopSub loop_sub;
-
   std::vector<std::shared_ptr<FleetUpdateHandle>> fleets = {};
 
   // TODO(MXG): This mutex probably isn't needed
-  std::mutex mutex;
+  std::mutex _mutex;
+  std::unique_lock<std::mutex> lock_mutex()
+  {
+    std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
+    while (!lock.try_lock())
+    {
+      // Intentionally busy wait
+    }
+
+    return lock;
+  }
 
   std::unordered_set<std::string> received_tasks;
   std::map<rmf_traffic::Time, std::string> task_times;
   rclcpp::TimerBase::SharedPtr task_purge_timer;
 
   // This mutex protects the initialization of traffic lights
-  std::mutex traffic_light_init_mutex;
-
+  std::mutex _traffic_light_init_mutex;
 
   Implementation(
       rxcpp::schedulers::worker worker_,
@@ -103,50 +101,7 @@ public:
       blockade_writer{rmf_traffic_ros2::blockade::Writer::make(*node)},
       mirror_manager{std::move(mirror_manager_)}
   {
-    const auto default_qos = rclcpp::SystemDefaultsQoS();
-    delivery_sub = node->create_subscription<Delivery>(
-          DeliveryTopicName, default_qos,
-          [this](Delivery::SharedPtr msg)
-    {
-      std::lock_guard<std::mutex> lock(mutex);
-      if (!received_tasks.insert(msg->task_id).second)
-        return;
-
-      task_times.insert(
-          task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
-
-      rmf_fleet_adapter::agv::request_delivery(*msg, fleets);
-    });
-
-    loop_sub = node->create_subscription<Loop>(
-          LoopRequestTopicName, default_qos,
-          [this](Loop::SharedPtr msg)
-    {
-      std::lock_guard<std::mutex> lock(mutex);
-      if (!received_tasks.insert(msg->task_id).second)
-        return;
-
-      task_times.insert(
-          task_times.end(), {std::chrono::steady_clock::now(), msg->task_id});
-
-      rmf_fleet_adapter::agv::request_loop(*msg, fleets);
-    });
-
-    task_purge_timer = node->create_wall_timer(
-          std::chrono::minutes(60), [this]()
-    {
-      // This purge of task ids is to prevent the log of tasks from growing
-      // infinitely.
-      const auto purge_end =
-          std::chrono::steady_clock::now() - std::chrono::minutes(60);
-
-      auto it = task_times.begin();
-      for (; it != task_times.end() && it->first < purge_end; ++it)
-        received_tasks.erase(it->second);
-
-      if (it != task_times.begin())
-        task_times.erase(task_times.begin(), it);
-    });
+    // Do nothing
   }
 
   static rmf_utils::unique_impl_ptr<Implementation> make(
@@ -299,7 +254,7 @@ void Adapter::add_traffic_light(
 
   _pimpl->schedule_writer->async_make_participant(
       std::move(description),
-      [mutex = &_pimpl->traffic_light_init_mutex,
+      [mutex = &_pimpl->_traffic_light_init_mutex,
        command = std::move(command),
        traits = std::move(traits),
        blockade_writer = _pimpl->blockade_writer,
@@ -310,7 +265,12 @@ void Adapter::add_traffic_light(
        node = _pimpl->node](
         rmf_traffic::schedule::Participant participant)
   {
-    std::lock_guard<std::mutex> lock(*mutex);
+    std::unique_lock<std::mutex> lock(*mutex, std::defer_lock);
+    while (!lock.try_lock())
+    {
+      // Intententionally busy wait
+    }
+
     RCLCPP_INFO(
       node->get_logger(),
       "Added a traffic light controller for [%s] with participant ID [%d]",
