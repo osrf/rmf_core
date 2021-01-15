@@ -58,7 +58,7 @@ std::vector<schedule::Itinerary> Rollout::expand(
   if (block_it->second.empty())
     return {};
 
-  return result.cache_mgr.get()->rollout(
+  return result.interface->rollout(
         span,
         block_it->second,
         result.state.conditions.goal,

@@ -123,6 +123,9 @@ Writer::Input Participant::Implementation::make_input(
 
   for (std::size_t i = 0; i < itinerary.size(); ++i)
   {
+    if (itinerary[i].trajectory().size() < 2)
+      continue;
+
     input.emplace_back(
       Writer::Item{
         ++_last_route_id,
@@ -142,6 +145,12 @@ ItineraryVersion Participant::Implementation::get_next_version()
 //==============================================================================
 RouteId Participant::set(std::vector<Route> itinerary)
 {
+  // TODO(MXG): Consider issuing an exception or warning when a single-point
+  // trajectory is submitted.
+  const auto r_it = std::remove_if(itinerary.begin(), itinerary.end(),
+                 [](const auto& r){ return r.trajectory().size() < 2; });
+  itinerary.erase(r_it, itinerary.end());
+
   const RouteId initial_route_id = _pimpl->_last_route_id;
   if (itinerary.empty())
   {

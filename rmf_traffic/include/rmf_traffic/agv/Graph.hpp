@@ -78,6 +78,15 @@ public:
     /// Set this Waypoint to be a parking spot.
     Waypoint& set_parking_spot(bool _is_parking_spot);
 
+
+    /// Returns true if this Waypoint is a charger spot. Robots are routed to
+    /// these spots when their batteries charge levels drop below the threshold
+    /// value.
+    bool is_charger() const;
+
+    /// Set this Waypoint to be a parking spot.
+    Waypoint& set_charger(bool _is_charger);
+
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
     std::size_t index() const;
@@ -363,11 +372,12 @@ public:
       /// \param orientation
       ///   Any orientation constraints for moving to/from this Node (depending
       ///   on whether it's an entry Node or an exit Node).
-      Node(std::size_t waypoint_index,
+      Node(
+        std::size_t waypoint_index,
         rmf_utils::clone_ptr<Event> event = nullptr,
         rmf_utils::clone_ptr<OrientationConstraint> orientation = nullptr);
 
-      /// Constructor, event and velocity_constraint parameters will be nullptr
+      /// Constructor. The event parameter will be nullptr.
       ///
       /// \param waypoint_index
       ///   The index of the waypoint for this Node
@@ -375,7 +385,8 @@ public:
       /// \param orientation
       ///   Any orientation constraints for moving to/from this Node (depending
       ///   on whether it's an entry Node or an exit Node).
-      Node(std::size_t waypoint_index,
+      Node(
+        std::size_t waypoint_index,
         rmf_utils::clone_ptr<OrientationConstraint> orientation);
 
       /// Get the index of the waypoint that this Node is wrapped around.

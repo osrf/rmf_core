@@ -301,7 +301,7 @@ public:
   {
   public:
 
-    // TODO(MXG): Consider uing optional for the goal orientation
+    // TODO(MXG): Consider using optional for the goal orientation
 
     // TODO(MXG): Consider supporting goals that have multiple acceptable goal
     // orientations.
@@ -496,6 +496,10 @@ public:
   /// plan.
   bool success() const;
 
+  /// True if there is no feasible path that connects the start to the goal.
+  /// In this case, a plan will never be found.
+  bool disconnected() const;
+
   /// Implicitly cast the result to a boolean. It will return true if a plan
   /// was found, otherwise it will return false.
   operator bool() const;
@@ -601,11 +605,17 @@ public:
   /// This is the value of the lowest f(n)=g(n)+h(n) in the planner's queue.
   /// If the node queue of this planner result is empty, this will return a
   /// nullopt.
-  rmf_utils::optional<double> cost_estimate() const;
+  std::optional<double> cost_estimate() const;
 
   /// Get the cost estimate that was initially computed for this plan. If no
   /// valid starts were provided, then this will return infinity.
+  [[deprecated("Use ideal_cost() instead")]]
   double initial_cost_estimate() const;
+
+  /// Get the cost that this plan would have if there is no traffic. If the plan
+  /// is impossible (e.g. the starts are disconnected from the goal) this will
+  /// return a nullopt.
+  std::optional<double> ideal_cost() const;
 
   /// Get the start conditions that were given for this planning task.
   const std::vector<Start>& get_starts() const;

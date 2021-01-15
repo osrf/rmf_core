@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef SRC__RMF_TRAFFIC__AGV__GRAPHINTERNAL_HPP
-#define SRC__RMF_TRAFFIC__AGV__GRAPHINTERNAL_HPP
+#ifndef SRC__RMF_TRAFFIC__AGV__INTERNAL_GRAPH_HPP
+#define SRC__RMF_TRAFFIC__AGV__INTERNAL_GRAPH_HPP
 
 #include <rmf_traffic/agv/Graph.hpp>
 
@@ -34,6 +34,11 @@ public:
 
   // A map from a waypoint index to the set of lanes that can exit from it
   std::vector<std::vector<std::size_t>> lanes_from;
+
+  // A map from a waypoint index to the set of lanes that can enter into it
+  // TODO(MXG): Consider giving the public Graph API a way to access this
+  std::vector<std::vector<std::size_t>> lanes_into;
+
   std::vector<std::unordered_map<std::size_t, std::size_t>> lane_between;
 
   static Graph::Implementation& get(Graph& graph)
@@ -50,4 +55,4 @@ public:
 
 } // namespace agv
 } // namespace rmf_traffic
-#endif // SRC__RMF_TRAFFIC__AGV__GRAPHINTERNAL_HPP
+#endif // SRC__RMF_TRAFFIC__AGV__INTERNAL_GRAPH_HPP

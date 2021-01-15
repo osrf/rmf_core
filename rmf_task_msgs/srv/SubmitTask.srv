@@ -1,0 +1,24 @@
+# Submit Task | POST service call
+
+# Identifier for who is requesting the service
+string requester
+
+# Desired start time of a task
+builtin_interfaces/Time start_time
+
+# desciption of task
+TaskDescription description
+
+# fleet selection evaluator
+uint8 evaluator
+uint8 LOWEST_DIFF_COST_EVAL=0
+uint8 LOWEST_COST_EVAL=1
+uint8 QUICKEST_FINISH_EVAL=2
+
+---
+
+# Confirmation that this service call is processed
+bool success
+
+# generated task ID by dispatcher node
+string task_id

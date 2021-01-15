@@ -299,32 +299,23 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
 
   internal::OrderMap& ordering = _pimpl->parent->ordering;
   internal::WaypointList& segments = _pimpl->parent->segments;
-  const internal::OrderMap::const_iterator current_order_it =
+  const internal::OrderMap::iterator current_order_it =
     ordering.find(current_time);
   assert(current_order_it != ordering.end());
 
-  const internal::OrderMap::iterator hint =
-    ordering.lower_bound(new_time);
+  const internal::OrderMap::iterator hint = ordering.lower_bound(new_time);
 
+  current_order_it->key = new_time;
   if (current_order_it == hint)
   {
     // The Waypoint is already in the correct location within the list, so it
     // does not need to be moved. We can just update its entry in the OrderMap.
-
-    // We need to create a new_hint iterator which points to the iterator after
-    // hint because the hint iterator will be invalidated when we erase
-    // current_order_it (because they are iterators to the same element).
-    const internal::OrderMap::iterator new_hint =
-      ++internal::OrderMap::iterator(hint);
-    ordering.erase(current_order_it);
-    ordering.emplace_hint(new_hint, new_time, std::move(data_it));
   }
   else if (hint == ordering.end())
   {
     // This Waypoint must be moved to the end of the list.
     segments.splice(segments.end(), segments, data_it);
-    ordering.erase(current_order_it);
-    ordering.emplace_hint(hint, new_time, std::move(data_it));
+    ordering.rotate(current_order_it, hint);
   }
   else
   {
@@ -343,9 +334,18 @@ Trajectory::Waypoint& Trajectory::Waypoint::change_time(const Time new_time)
       // *INDENT-ON*
     }
 
-    segments.splice(destination, segments, data_it);
-    ordering.erase(current_order_it);
-    ordering.emplace_hint(hint, new_time, std::move(data_it));
+    if (current_order_it + 1 == hint)
+    {
+      // The waypoint is already in the correct location within the list, so it
+      // does not need to be moved. We separate this from the
+      // current_order_it == hint branch because we still need to make sure that
+      // destination->data.time != new_time, and throw an exception if it is.
+    }
+    else
+    {
+      segments.splice(destination, segments, data_it);
+      ordering.rotate(current_order_it, hint);
+    }
   }
 
   // Update the time value in the data field.
@@ -387,32 +387,19 @@ void Trajectory::Waypoint::adjust_times(Duration delta_t)
     }
   }
 
-  // Adjust the times for the segments and collect their iterators
-  std::vector<internal::WaypointList::iterator> list_iterators;
-  list_iterators.reserve(segments.size());
-  for (internal::WaypointList::iterator it = begin_it; it != segments.end();
-    ++it)
-  {
+  // Adjust the times for the segments
+  for (auto it = begin_it; it != segments.end(); ++it)
     it->data.time += delta_t;
-    list_iterators.push_back(it);
-  }
 
+  // Adjust the keys in the ordering map. The ordering is preserved by this
+  // operation, so we don't need to worry about rotating any entries.
   internal::OrderMap& ordering = _pimpl->parent->ordering;
-  const internal::OrderMap::iterator order_it =
+  const internal::OrderMap::iterator order_begin_it =
     ordering.find(original_begin_time);
-  assert(order_it != ordering.end());
+  assert(order_begin_it != ordering.end());
 
-  // Erase the existing ordering entries for all the modified Trajectory
-  // Waypoints.
-  ordering.erase(order_it, ordering.end());
-
-  // Add new entries one at a time, supplying the emplacement operator with the
-  // hint that it can always append the entry to the end of the map.
-  for (internal::WaypointList::iterator& it : list_iterators)
-  {
-    const Time new_time = it->data.time;
-    ordering.emplace_hint(ordering.end(), new_time, std::move(it));
-  }
+  for (auto it = order_begin_it; it != ordering.end(); ++it)
+    it->key += delta_t;
 }
 
 //==============================================================================
