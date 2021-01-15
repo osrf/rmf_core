@@ -38,6 +38,8 @@ target_include_directories(rmf_task_ros2
     ${rmf_traffic_ros2_INCLUDE_DIRS}
     ${rmf_task_msgs_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
+  PRIVATE
+    Threads::Threads
 )
 
 ament_export_targets(rmf_task_ros2 HAS_LIBRARY_TARGET)
@@ -53,9 +55,12 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND)
     test_rmf_task_ros2 test/main.cpp ${unit_test_srcs}
     TIMEOUT 300)
   target_link_libraries(test_rmf_task_ros2
+    PUBLIC
       rmf_task_ros2
       rmf_traffic::rmf_traffic
       rmf_traffic_ros2::rmf_traffic_ros2
+    PRIVATE
+      Threads::Threads
   )
 
   target_include_directories(test_rmf_task_ros2
@@ -69,7 +74,7 @@ endif()
 add_executable(rmf_bidder_node 
   src/mock_bidder/main.cpp
 )
-target_link_libraries(rmf_bidder_node PUBLIC rmf_task_ros2)
+target_link_libraries(rmf_bidder_node PUBLIC rmf_task_ros2 PRIVATE Threads::Threads)
 
 #===============================================================================
 

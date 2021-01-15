@@ -110,8 +110,8 @@ public:
       "level1");
 
     RCLCPP_INFO(this->get_logger(),
-      "start_time: " + std::to_string(
-        _start_time.time_since_epoch().count()));
+      std::string("start_time: " + std::to_string(
+        _start_time.time_since_epoch().count())).c_str());
 
     robot.path.push_back(
       get_location(

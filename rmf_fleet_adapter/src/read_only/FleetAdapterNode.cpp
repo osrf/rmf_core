@@ -370,11 +370,12 @@ bool FleetAdapterNode::handle_delay(
 
       RCLCPP_ERROR(
         get_logger(),
-        "BUG: Robot [" + state.name + "] has a delay which starts from ["
+        std::string("BUG: Robot [" + state.name
+        + "] has a delay which starts from ["
         + std::to_string(from_time.time_since_epoch().count()) + "], but "
         "we cannot identify where its schedule should be pushed back ["
         + std::to_string(t_start) + " --> " + std::to_string(t_finish)
-        + "]. This should not happen; please report this.");
+        + "]. This should not happen; please report this.").c_str());
 
       // We'll return false so that the old trajectory can be replaced with the
       // new one, and hopefully everything keeps working okay.

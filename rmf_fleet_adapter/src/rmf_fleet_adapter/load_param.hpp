@@ -44,7 +44,8 @@ T get_parameter_or_default(
   const T value = node.declare_parameter(param_name, default_value);
   RCLCPP_INFO(
     node.get_logger(),
-    "Parameter [" + param_name + "] set to: " + std::to_string(value));
+    std::string("Parameter [" + param_name + "] set to: "
+    + std::to_string(value)).c_str());
   return value;
 }
 

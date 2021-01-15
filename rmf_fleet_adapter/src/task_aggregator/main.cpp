@@ -65,7 +65,8 @@ public:
       sub_map_opt);
 
     RCLCPP_INFO(get_logger(),
-      "Listening for Task Summaries on topic /" + input_topic);
+      std::string("Listening for Task Summaries on topic /"
+      + input_topic).c_str());
   }
 
 private:
