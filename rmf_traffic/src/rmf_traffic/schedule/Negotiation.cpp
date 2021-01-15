@@ -598,7 +598,7 @@ public:
       auto top = queue.back();
       queue.pop_back();
 
-      for (const auto entry : top->descendants)
+      for (const auto& entry : top->descendants)
       {
         const auto& table = entry.second;
         if (table->_pimpl->forfeited && negotiation_data)
@@ -867,7 +867,7 @@ public:
       auto top = queue.back();
       queue.pop_back();
 
-      for (const auto entry : top->descendants)
+      for (const auto& entry : top->descendants)
       {
         auto& table = Table::Implementation::get(*entry.second);
         table.defunct.terminate();

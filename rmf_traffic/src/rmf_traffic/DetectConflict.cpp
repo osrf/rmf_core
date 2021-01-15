@@ -486,7 +486,7 @@ bool check_overlap(
     return fcl::Transform3f(R, fcl::Vec3f(p[0], p[1], 0.0));
   };
 
-  for (const auto pair : pairs)
+  for (const auto& pair : pairs)
   {
     fcl::CollisionObject obj_a(
       geometry::FinalConvexShape::Implementation::get_collision(*pair[0]),
