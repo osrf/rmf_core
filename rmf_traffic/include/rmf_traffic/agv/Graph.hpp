@@ -78,6 +78,15 @@ public:
     /// Set this Waypoint to be a parking spot.
     Waypoint& set_parking_spot(bool _is_parking_spot);
 
+
+    /// Returns true if this Waypoint is a charger spot. Robots are routed to
+    /// these spots when their batteries charge levels drop below the threshold
+    /// value.
+    bool is_charger() const;
+
+    /// Set this Waypoint to be a parking spot.
+    Waypoint& set_charger(bool _is_charger);
+
     /// The index of this waypoint within the Graph. This cannot be changed
     /// after the waypoint is created.
     std::size_t index() const;

@@ -445,6 +445,7 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
     CHECK(output_iterators.size()==1);
     }*/
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
     WHEN("Trajectory profile is 1x1, space is 10x2, space box rotated by 74deg")
     {
       // Creating trajectory
@@ -510,6 +511,7 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
           double_box, t1, region, &conflicts));
       CHECK(conflicts.size() == 1);
     }
+#endif // RMF_TRAFFIC__USING_FCL_0_6
 
 //    WHEN("Trajectory profile is 2x2, space is 10x2, space box rotated by 90deg ") //this fails
 //    {
@@ -793,6 +795,7 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
       CHECK(conflicts.size() == 1);
     }
 
+#ifdef RMF_TRAFFIC__USING_FCL_0_6
     WHEN("Trajectory profile is 1x1, space is 1x1, space box rotated by 90")
     {
       // Creating trajectory
@@ -826,6 +829,7 @@ SCENARIO("Testing intersction of various spacetimes and trajectories")
           unit_box, t1, region, &conflicts));
       CHECK(conflicts.size() == 1);
     }
+#endif // RMF_TRAFFIC__USING_FCL_0_6
 
     WHEN("Trajectory profile is 1x1, space is 2x1, space box not rotated")
     {

@@ -16,7 +16,7 @@
 */
 
 #include <rmf_traffic/agv/Planner.hpp>
-#include <rmf_traffic/agv/debug/Planner.hpp>
+#include <rmf_traffic/agv/debug/debug_Planner.hpp>
 
 #include "internal_Planner.hpp"
 #include "internal_planning.hpp"
@@ -1168,6 +1168,26 @@ auto Planner::Debug::begin(
     starts,
     std::move(goal),
     std::move(options));
+}
+
+//==============================================================================
+std::size_t Planner::Debug::queue_size(const Planner::Result& result)
+{
+  return Planner::Result::Implementation::get(result)
+      .state.internal->queue_size();
+}
+
+//==============================================================================
+std::size_t Planner::Debug::expansion_count(const Planner::Result& result)
+{
+  return Planner::Result::Implementation::get(result)
+      .state.internal->expansion_count();
+}
+
+//==============================================================================
+std::size_t Planner::Debug::node_count(const Planner::Result& result)
+{
+  return queue_size(result) + expansion_count(result);
 }
 
 } // namespace agv
