@@ -716,7 +716,6 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
     const Time finish_time =
       std::min(spline_a->finish_time(), spline_b->finish_time());
 
-    printf("----\n");
     *motion_a = spline_a->to_fcl(start_time, finish_time);
     *motion_b = spline_b->to_fcl(start_time, finish_time);
 
@@ -725,12 +724,10 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
     if (overlap(bound_a.footprint, bound_b.vicinity))
     {
-      printf("boxes overlap #1 %d %d\n", profile_a.extra_footprint_count, profile_b.extra_footprint_count);
       if (const auto collision = check_collision(
           profile_a, motion_a,
           *profile_b.vicinity, motion_b, request))
       {
-        printf("sweep overlap #1\n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
@@ -742,12 +739,10 @@ rmf_utils::optional<rmf_traffic::Time> detect_invasion(
 
     if (test_complement && overlap(bound_a.vicinity, bound_b.footprint))
     {
-      printf("boxes overlap #2 \n");
       if (const auto collision = check_collision(
           profile_b, motion_b,
           *profile_a.vicinity, motion_a, request))
       {
-        printf("sweep overlap #2 \n");
         const auto time = compute_time(*collision, start_time, finish_time);
         if (!output_conflicts)
           return time;
