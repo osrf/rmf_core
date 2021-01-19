@@ -560,8 +560,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   bid_proposal_pub->publish(bid_proposal);
   RCLCPP_INFO(
     node->get_logger(),
-    "Submitted BidProposal to accommodate task [%s] with new cost [%f]",
-    id.c_str(), cost);
+    "Submitted BidProposal to accommodate task [%s] by robot [%s] with new cost [%f]",
+    id.c_str(), bid_proposal.robot_name.c_str(), cost);
 
   // Store assignments in internal map
   bid_notice_assignments.insert({id, assignments});
