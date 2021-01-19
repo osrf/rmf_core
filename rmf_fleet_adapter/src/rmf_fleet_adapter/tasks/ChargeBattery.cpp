@@ -16,7 +16,7 @@
 */
 
 #include "../phases/GoToPlace.hpp"
-
+#include "../phases/ReadyToCharge.hpp"
 #include "../phases/WaitForCharge.hpp"
 
 #include "ChargeBattery.hpp"

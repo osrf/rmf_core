@@ -56,6 +56,9 @@ const std::string DispatchRequestTopicName = "rmf_task/dispatch_request";
 
 const std::string DockSummaryTopicName = "dock_summary";
 
+const std::string ChargerCancelTopicName = "rmf_charger/cancel";
+const std::string ChargerRequestTopicName = "rmf_charger/requests";
+const std::string ChargerStateTopicName = "rmf_charger/state";
 } // namespace rmf_fleet_adapter
 
 #endif // RMF_FLEET_ADAPTER__STANDARDNAMES_HPP
