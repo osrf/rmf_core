@@ -57,13 +57,88 @@ ReadyToCharge::Active::Active(
 : _context(std::move(context)),
 {
   using rmf_charger_msgs::msg::ChargerState;
+  using rmf_charger_msgs::msg::ChargerRequest;
   _description = "Charger Negotiation";
 
-  _status_obs = _context->node()->charger_state()
-    .lift<ChargerState::SharedPtr>(on_subscribe([]()
-    {
+  //Place holder value for testing
+  std::string desired_charger_name = "charger1";
 
-    }));
+  //INIT
+  _current_state == State::AWAITING_STATUS;
+
+  //TODO: Add request logic
+  auto request_id = "1234";  
+  _status_obs = _context->node()->charger_state()
+    .filter([desired_charger_name](const auto& status_msg)
+    {
+      return status_msgs.charger_name == desired_charger_name;
+    })
+    .map([weak = weak_from_this(), desired_charger_name, request_id](const auto& status_msg)
+    {
+      auto me = weak.lock();
+      if (!me)
+        return Task::StatusMsg();
+
+      if (me->_current_state == State::AWAITING_STATUS)
+      {
+        if(status_msgs.state != ChargerState::CHARGER_IDLE)
+        {
+          Task::StatusMsg status;
+          status.state = Task::StatusMsg::STATE_FAILED;
+          status.status = status_msg.error_message;
+          return status;
+        }
+
+        ChargerRequest request {
+          desired_charger_name,
+          _me->_context->profile()->owner(),
+          _me->_context->profile()->name(),
+          rclcpp::Duration {10,0},
+          request_id
+        }; 
+        
+        _me->_current_state = State::AWAITING_RESPONSE;
+        _me->_timer = _me->_context->node()->create_wall_timer(
+          std::chrono::milliseconds(1000),
+          [weak, request]()
+          {
+            auto me = weak.lock();
+            if (!me)
+              return;
+
+            _me->_context->node()->charger_request().publish(request);
+          }
+        );
+      }
+      else if (_me->_current_state == State::AWAITING_RESPONSE)
+      {
+        if((status_msg.state == ChargerState::CHARGER_ASSIGNED
+          || status_msg.state == ChargerState::CHARGER_CHARGING)
+          && status_msg.robot_name == _me->_context->profile()->name()
+          && status_msg.robot_fleet == _me->_context->profile()->owner()
+          && status_msg.request == request_id)
+        {
+          _me->_timer->stop();
+          Task::StatusMsg status;
+          status.state = Task::StatusMsg::STATE_COMPLETED;
+          status.status = "Negotiation Success";
+          return status;
+        }
+        else if(status_msg.state == ChargerState::CHARGER_ERROR
+        && status_msg.request == request_id)
+        {
+          _me->_timer->stop();
+          Task::StatusMsg status;
+          status.state = Task::StatusMsg::STATE_FAILED;
+          status.status = status_msg.error_message;
+          return status;
+        }
+      }
+      Task::StatusMsg status;
+      status.state = Task::StatusMsg::STATE_ACTIVE;
+      status.status = "Negotiation In progress";
+      return status;
+    });
 }
 
 //==============================================================================

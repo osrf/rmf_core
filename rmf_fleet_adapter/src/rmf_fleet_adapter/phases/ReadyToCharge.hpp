@@ -54,10 +54,19 @@ class ReadyToCharge
     const std::string & description() const final;
   
   private:
+    enum State
+    {
+      AWAITING_STATUS = 0,
+      AWAITING_RESPONSE,
+      REQUEST_SUCCESS
+    };
+    
     friend class Pending;
     rxcpp::observable<StatusMsg> _status_obs;
     rxcpp::subjects::subject<StatusMsg> _status_publisher;
     agv::RobotContextPtr _context;
+    State _current_state;
+    rclcpp::TimerBase::SharedPtr _timer;
   };
 
   class Pending : public Task::PendingPhase
