@@ -738,6 +738,12 @@ void FleetUpdateHandle::Implementation::publish_fleet_state() const
   fleet_state_pub->publish(std::move(fleet_state));
 }
 
+std::optional<Assignments> FleetUpdateHandle::Implementation:: allocate_tasks(
+  rmf_task::ConstRequestPtr request) const
+{
+  return std::nulllopt;
+}
+
 //==============================================================================
 void FleetUpdateHandle::add_robot(
     std::shared_ptr<RobotCommandHandle> command,

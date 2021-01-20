@@ -237,6 +237,13 @@ void TaskManager::set_queue(
 
       else
       {
+        RCLCPP_WARN(
+          _context->node()->get_logger(),
+          "[TaskManager] Un-supported request type in assignment list. "
+          "Please update the implementation of TaskManager::set_queue() to "
+          "support request with task_id:[%s]",
+          a.request()->id().c_str());
+
         continue;
       }
 
@@ -368,6 +375,7 @@ void TaskManager::_begin_next_task()
     });
 
     _active_task->begin();
+    _register_executed_task(_active_task->id());
   }
 }
 
@@ -484,5 +492,21 @@ void TaskManager::retreat_to_charger()
       _context->name().c_str());
   }
 }
+
+//==============================================================================
+const std::vector<std::string>& TaskManager::get_executed_tasks() const
+{
+  return _executed_task_registry;
+}
+
+//==============================================================================
+void TaskManager::_register_executed_task(const std::string& id)
+{
+  if (_executed_task_registry.size() == 100)
+    _executed_task_registry.erase(_executed_task_registry.begin());
+  
+  _executed_task_registry.push_back(id);
+}
+
 
 } // namespace rmf_fleet_adapter

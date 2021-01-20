@@ -47,6 +47,7 @@
 
 #include <iostream>
 #include <unordered_set>
+#include <optional>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -264,6 +265,9 @@ public:
   std::size_t get_nearest_charger(
     const rmf_traffic::agv::Planner::Start& start,
     const std::unordered_set<std::size_t>& charging_waypoints);
+
+  std::optional<Assignments> allocate_tasks(
+    rmf_task::ConstRequestPtr request = nullptr) const;
 
   static Implementation& get(FleetUpdateHandle& fleet)
   {
