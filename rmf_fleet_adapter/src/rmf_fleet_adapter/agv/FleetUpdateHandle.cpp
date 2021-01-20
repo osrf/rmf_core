@@ -38,6 +38,7 @@
 
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace rmf_fleet_adapter {
 namespace agv {
@@ -425,13 +426,14 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   
   if (!new_request)
     return;
+  generated_requests.insert({id, new_request});
 
   const auto allocation_result = allocate_tasks(new_request);
 
   if (!allocation_result)
     return;
   
-  const auto assignments = allocation_result.value();
+  const auto& assignments = allocation_result.value();
 
   const double cost = task_planner->compute_cost(assignments);
 
@@ -502,6 +504,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
 }
 
+//==============================================================================
 void FleetUpdateHandle::Implementation::dispatch_request_cb(
   const DispatchRequest::SharedPtr msg)
 {
@@ -509,45 +512,103 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     return;
 
   const std::string id = msg->task_profile.task_id;
-  const auto task_it = bid_notice_assignments.find(id);
 
-  if (task_it == bid_notice_assignments.end())
-    return;
-
-  RCLCPP_INFO(
-    node->get_logger(),
-    "Bid for task_id:[%s] awarded to fleet [%s]",
-    id.c_str(), name.c_str());
-
-  // We currently only support adding tasks
-  if (msg->method != DispatchRequest::ADD)
-    return;
-  
-  const auto& assignments = task_it->second;
-  
-  if (assignments.size() != task_managers.size())
+  if (msg->method == DispatchRequest::ADD)
   {
-    RCLCPP_ERROR(
+    const auto task_it = bid_notice_assignments.find(id);
+    if (task_it == bid_notice_assignments.end())
+      return;
+
+    RCLCPP_INFO(
       node->get_logger(),
-      "The number of available robots do not match that in the assignments "
-      "for task_id:[%s]. This request will be ignored", id.c_str());
+      "Bid for task_id:[%s] awarded to fleet [%s]",
+      id.c_str(), name.c_str());
 
+    auto& assignments = task_it->second;
+    
+    if (assignments.size() != task_managers.size())
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "The number of available robots does not match that in the assignments "
+        "for task_id:[%s]. This request will be ignored.", id.c_str());
+
+      return;
+    }
+
+    // Here we make sure none of the tasks in the assignments has already begun
+    // execution. If so, we replan assignments until a valid set is obtained 
+    // and only then update the task manager queues
+    bool valid_assignments = false;
+    while (!valid_assignments)
+    {
+      valid_assignments = is_valid_assignments(assignments);
+      if (!valid_assignments)
+      {
+        const auto request_it = generated_requests.find(id);
+        if (request_it == generated_requests.end())
+          return;
+        const auto replan_results = allocate_tasks(request_it->second);
+        if (!replan_results)
+        {
+          RCLCPP_WARN(
+            node->get_logger(),
+            "Unable to replan assignments for task_id:[%s]", id.c_str());
+        }
+        assignments = replan_results.value();
+        // We re-check the assignments as a task could have started while replanning
+        valid_assignments = is_valid_assignments(assignments);
+      }
+    }
+
+    std::size_t index = 0;
+    for (auto& t : task_managers)
+    {
+      t.second->set_queue(assignments[index]);
+      ++index;
+    }
+
+    current_assignment_cost = task_planner->compute_cost(assignments);
+
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Assignments updated for robots in fleet [%s] to accommodate task_id:[%s]",
+      name.c_str(), id.c_str());
+  }
+
+  else if (msg->method == DispatchRequest::CANCEL)
+  {
+    // TODO(YV)
+  }
+
+  else
+  {
     return;
   }
 
-  std::size_t index = 0;
-  for (auto& t : task_managers)
+}
+
+//==============================================================================
+auto FleetUpdateHandle::Implementation::is_valid_assignments(
+  Assignments& assignments) const -> bool
+{
+  std::unordered_set<std::string> executed_tasks;
+  for (const auto& [context, mgr] : task_managers)
   {
-    t.second->set_queue(assignments[index]);
-    ++index;
+    const auto& tasks = mgr->get_executed_tasks();
+    executed_tasks.insert(tasks.begin(), tasks.end());
   }
 
-  current_assignment_cost = task_planner->compute_cost(assignments);
+  for (const auto& agent : assignments)
+  {
+    for (const auto& a : agent)
+    {
+      if (executed_tasks.find(a.request()->id()) != executed_tasks.end())
+        return false;
+    }
+  }
 
-  RCLCPP_INFO(
-    node->get_logger(),
-    "Assignments updated for robots in fleet [%s]",
-    name.c_str());
+  return true;
 }
 
 //==============================================================================

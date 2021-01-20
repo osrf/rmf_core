@@ -174,6 +174,7 @@ public:
   // Map to store task id with assignments for BidNotice
   std::unordered_map<std::string, Assignments> bid_notice_assignments = {};
 
+  std::unordered_map<std::string, rmf_task::ConstRequestPtr> generated_requests;
   AcceptTaskRequest accept_task = nullptr;
 
   using BidNotice = rmf_task_msgs::msg::BidNotice;
@@ -268,6 +269,8 @@ public:
 
   std::optional<Assignments> allocate_tasks(
     rmf_task::ConstRequestPtr request = nullptr) const;
+
+  bool is_valid_assignments(Assignments& assignments) const;
 
   static Implementation& get(FleetUpdateHandle& fleet)
   {
