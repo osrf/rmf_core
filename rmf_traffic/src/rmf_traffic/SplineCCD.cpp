@@ -42,7 +42,7 @@ static double max_splinemotion_advancement(double current_t,
 #endif
     
     // alternate between bisection and false position methods
-    if (bilateral_adv_iter & 1/* && ((s1 < 0.0 && s2 > 0.0) || (s1 > 0.0 && s2 < 0.0))*/)
+    if (bilateral_adv_iter & 1)
     {
       // use false position method
       // solve for t where (t, tolerance) for a line with 
