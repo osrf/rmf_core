@@ -426,89 +426,12 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   if (!new_request)
     return;
 
-  // Collate robot states and combine new requestptr with requestptr of
-  // non-charging tasks in task manager queues
-  std::vector<rmf_task::agv::State> states;
-  std::vector<rmf_task::agv::Constraints> constraints_set;
-  std::vector<rmf_task::ConstRequestPtr> pending_requests;
-  pending_requests.push_back(new_request);
-  // Map robot index to name for BidProposal
-  std::unordered_map<std::size_t, std::string> robot_name_map;
-  std::size_t index = 0;
-  for (const auto& t : task_managers)
-  {
-    states.push_back(t.second->expected_finish_state());
-    constraints_set.push_back(t.first->task_planning_constraints());
-    const auto requests = t.second->requests();
-    pending_requests.insert(pending_requests.end(), requests.begin(), requests.end());
+  const auto allocation_result = allocate_tasks(new_request);
 
-    robot_name_map.insert({index, t.first->name()});
-    ++index;
-  }
-
-  RCLCPP_INFO(
-    node->get_logger(), 
-    "Planning for [%d] robot and [%d] request(s)", 
-    states.size(), pending_requests.size());
-
-  // Generate new task assignments while accommodating for the new
-  // request
-  const auto result = task_planner->optimal_plan(
-    rmf_traffic_ros2::convert(node->now()),
-    states,
-    constraints_set,
-    pending_requests,
-    nullptr);
-
-  auto assignments_ptr = std::get_if<
-    rmf_task::agv::TaskPlanner::Assignments>(&result);
-
-  if (!assignments_ptr)
-  {
-    auto error = std::get_if<
-      rmf_task::agv::TaskPlanner::TaskPlannerError>(&result);
-
-    if (*error == rmf_task::agv::TaskPlanner::TaskPlannerError::low_battery)
-    {
-      RCLCPP_ERROR(
-        node->get_logger(),
-        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
-        " insufficient initial battery charge for all robots in this fleet.",
-        id.c_str());
-    }
-
-    else if (*error ==
-      rmf_task::agv::TaskPlanner::TaskPlannerError::limited_capacity)
-    {
-      RCLCPP_ERROR(
-        node->get_logger(),
-        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
-        " insufficient battery capacity to accommodate one or more requests by"
-        " any of the robots in this fleet.", id.c_str());
-    }
-
-    else
-    {
-      RCLCPP_ERROR(
-        node->get_logger(),
-        "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
-        id.c_str());
-    }
-
+  if (!allocation_result)
     return;
-  }
-
-  const auto assignments = *assignments_ptr;
-
-  if (assignments.empty())
-  {
-    RCLCPP_ERROR(
-      node->get_logger(),
-      "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
-      id.c_str());
-
-    return;
-  }
+  
+  const auto assignments = allocation_result.value();
 
   const double cost = task_planner->compute_cost(assignments);
 
@@ -541,6 +464,16 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   bid_proposal.task_profile = task_profile;
   bid_proposal.prev_cost = current_assignment_cost;
   bid_proposal.new_cost = cost;
+  
+  // Map robot index to name to populate robot_name in BidProposal
+  std::unordered_map<std::size_t, std::string> robot_name_map;
+  std::size_t index = 0;
+  for (const auto& t : task_managers)
+  {
+    robot_name_map.insert({index, t.first->name()});
+    ++index;
+  }
+
   index = 0;
   for (const auto& agent : assignments)
   {
@@ -557,6 +490,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     }
     ++index;
   }
+
   bid_proposal_pub->publish(bid_proposal);
   RCLCPP_INFO(
     node->get_logger(),
@@ -738,10 +672,99 @@ void FleetUpdateHandle::Implementation::publish_fleet_state() const
   fleet_state_pub->publish(std::move(fleet_state));
 }
 
-std::optional<Assignments> FleetUpdateHandle::Implementation:: allocate_tasks(
-  rmf_task::ConstRequestPtr request) const
+//==============================================================================
+auto FleetUpdateHandle::Implementation:: allocate_tasks(
+  rmf_task::ConstRequestPtr request) const -> std::optional<Assignments>
 {
-  return std::nulllopt;
+  // Collate robot states, constraints and combine new requestptr with 
+  // requestptr of non-charging tasks in task manager queues
+  std::vector<rmf_task::agv::State> states;
+  std::vector<rmf_task::agv::Constraints> constraints_set;
+  std::vector<rmf_task::ConstRequestPtr> pending_requests;
+  std::string id = "";
+
+  if (request)
+  {
+    pending_requests.push_back(request);
+    id = request->id();
+  }
+
+  for (const auto& t : task_managers)
+  {
+    states.push_back(t.second->expected_finish_state());
+    constraints_set.push_back(t.first->task_planning_constraints());
+    const auto requests = t.second->requests();
+    pending_requests.insert(
+      pending_requests.end(), requests.begin(), requests.end());
+  }
+
+  if (pending_requests.empty())
+    return std::nullopt;
+
+  RCLCPP_INFO(
+    node->get_logger(), 
+    "Planning for [%d] robot(s) and [%d] request(s)", 
+    states.size(), pending_requests.size());
+
+  // Generate new task assignments
+  const auto result = task_planner->optimal_plan(
+    rmf_traffic_ros2::convert(node->now()),
+    states,
+    constraints_set,
+    pending_requests,
+    nullptr);
+
+  auto assignments_ptr = std::get_if<
+    rmf_task::agv::TaskPlanner::Assignments>(&result);
+
+  if (!assignments_ptr)
+  {
+    auto error = std::get_if<
+      rmf_task::agv::TaskPlanner::TaskPlannerError>(&result);
+
+    if (*error == rmf_task::agv::TaskPlanner::TaskPlannerError::low_battery)
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
+        " insufficient initial battery charge for all robots in this fleet.",
+        id.c_str());
+    }
+
+    else if (*error ==
+      rmf_task::agv::TaskPlanner::TaskPlannerError::limited_capacity)
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s] due to"
+        " insufficient battery capacity to accommodate one or more requests by"
+        " any of the robots in this fleet.", id.c_str());
+    }
+
+    else
+    {
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
+        id.c_str());
+    }
+
+    return std::nullopt;
+  }
+
+  const auto assignments = *assignments_ptr;
+
+  if (assignments.empty())
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "[TaskPlanner] Failed to compute assignments for task_id:[%s]",
+      id.c_str());
+
+    return std::nullopt;
+  }
+
+  return assignments;
 }
 
 //==============================================================================
