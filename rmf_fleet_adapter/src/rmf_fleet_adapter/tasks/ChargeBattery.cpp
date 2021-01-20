@@ -38,6 +38,8 @@ std::shared_ptr<Task> make_charge_battery(
   phases.push_back(
     phases::GoToPlace::make(context, std::move(start), goal));
   phases.push_back(
+    phases::ReadyToCharge::make(context, request->id()));
+  phases.push_back(
     phases::WaitForCharge::make(context, request->battery_system(), 0.99));
 
   return Task::make(

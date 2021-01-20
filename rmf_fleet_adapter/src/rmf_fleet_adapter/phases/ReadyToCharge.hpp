@@ -28,7 +28,7 @@ namespace phases {
 //==============================================================================
 class ReadyToCharge
 {
-
+public:
   using StatusMsg = Task::StatusMsg;
   class Pending;
 
@@ -37,6 +37,7 @@ class ReadyToCharge
       public std::enable_shared_from_this<Active>
   {
   public:
+    Active(agv::RobotContextPtr context, std::string request_id);
 
     // Documentation inherited from ActivePhase
     const rxcpp::observable<StatusMsg>& observe() const final;
@@ -67,6 +68,8 @@ class ReadyToCharge
     agv::RobotContextPtr _context;
     State _current_state;
     rclcpp::TimerBase::SharedPtr _timer;
+    std::string _id;
+    std::string _description;
   };
 
   class Pending : public Task::PendingPhase
@@ -85,14 +88,16 @@ class ReadyToCharge
     friend class ReadyToCharge;
     Pending(
       agv::RobotContextPtr context,
-      double time_estimate);
+      std::string id);
 
     agv::RobotContextPtr _context;
     std::string _description;
+    std::string _id;
   };
 
   static std::unique_ptr<Pending> make(
-    agv::RobotContextPtr context);
+    agv::RobotContextPtr context,
+    std::string id);
 };
 }
 }
