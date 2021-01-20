@@ -554,6 +554,7 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
           RCLCPP_WARN(
             node->get_logger(),
             "Unable to replan assignments for task_id:[%s]", id.c_str());
+          return;
         }
         assignments = replan_results.value();
         // We re-check the assignments as a task could have started while replanning
