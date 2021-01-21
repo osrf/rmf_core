@@ -62,6 +62,17 @@ public:
     ///   Submit a new path that the robot intends to follow.
     std::size_t follow_new_path(const std::vector<Waypoint>& new_path);
 
+    /// Update the location of the robot while it is idle.
+    ///
+    /// \param[in] map_name
+    ///   The name of the reference map where the robot is located.
+    ///
+    /// \param[in] position
+    ///   The (x, y, yaw) coordinates of the robot.
+    UpdateHandle& update_idle_location(
+      std::string map_name,
+      Eigen::Vector3d position);
+
     /// Update the current battery level of the robot by specifying its state of
     /// charge as a fraction of its total charge capacity.
     UpdateHandle& update_battery_soc(double battery_soc);

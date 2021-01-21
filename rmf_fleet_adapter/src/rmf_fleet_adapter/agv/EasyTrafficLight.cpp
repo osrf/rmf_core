@@ -553,6 +553,15 @@ std::size_t EasyTrafficLight::last_reached() const
 }
 
 //==============================================================================
+EasyTrafficLight& EasyTrafficLight::update_idle_location(
+  std::string map_name,
+  Eigen::Vector3d position)
+{
+  _pimpl->update_handle->update_idle_location(std::move(map_name), position);
+  return *this;
+}
+
+//==============================================================================
 EasyTrafficLight& EasyTrafficLight::update_battery_soc(double battery_soc)
 {
   _pimpl->update_handle->update_battery_soc(battery_soc);

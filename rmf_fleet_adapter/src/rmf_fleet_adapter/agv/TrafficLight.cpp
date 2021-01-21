@@ -78,9 +78,15 @@ public:
   std::vector<rmf_traffic::Route> plan_itinerary;
   std::vector<rmf_traffic::agv::Plan::Waypoint> pending_waypoints;
 
+  struct Location
+  {
+    std::string map;
+    Eigen::Vector3d position;
+  };
+
   // Remember which checkpoint we need to depart from next
   std::optional<std::size_t> last_departed_waypoint;
-  std::optional<Eigen::Vector3d> latest_location;
+  std::optional<Location> last_known_location;
   bool awaiting_confirmation = false;
   bool rejected = false;
   bool approved = false;
@@ -244,7 +250,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
   ready_check_timer = nullptr;
   waiting_timer = nullptr;
   last_departed_waypoint.reset();
-  latest_location.reset();
 
   if (new_path.empty())
   {
@@ -330,7 +335,11 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
         rmf_traffic::agv::Plan::Configuration(graph, traits),
         rmf_traffic::agv::Plan::Options(nullptr));
 
-  latest_location = new_path.front().position();
+  last_known_location = Location{
+    planner->get_configuration().graph().get_waypoint(0).get_map_name(),
+    new_path.front().position()
+  };
+
   rmf_traffic::agv::Plan::Start start{now, 0, new_path.front().position()[2]};
 
   auto approval_cb =
@@ -757,15 +766,15 @@ rmf_traffic::schedule::Negotiation::Alternatives make_reservation_alts(
 
   alts.emplace_back(std::move(preferred_itinerary));
 
-  if (data->latest_location.has_value())
+  if (data->last_known_location.has_value())
   {
     // TODO(MXG): Should we do something about the situation where we don't know
     // the latest location? Maybe just add a stop_and_sit on the first waypoint?
     rmf_traffic::Trajectory stop_and_sit;
     stop_and_sit.insert(
-          now, data->latest_location.value(), Eigen::Vector3d::Zero());
+      now, data->last_known_location->position, Eigen::Vector3d::Zero());
     stop_and_sit.insert(
-          now + 10s, data->latest_location.value(), Eigen::Vector3d::Zero());
+      now + 10s, data->last_known_location->position, Eigen::Vector3d::Zero());
 
     const auto& graph = data->planner->get_configuration().graph();
     const auto& wp = graph.get_waypoint(data->blockade.last_reached());
@@ -1124,7 +1133,11 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
       data->last_departed_waypoint = checkpoint_index;
     }
 
-    data->latest_location = location;
+    data->last_known_location = Location{
+        data->planner->get_configuration().graph()
+          .get_waypoint(checkpoint_index).get_map_name(),
+        location
+    };
     data->blockade.reached(checkpoint_index);
 
     if (plan_version != data->current_plan_version)
@@ -1651,7 +1664,11 @@ void TrafficLight::UpdateHandle::Implementation::Data::reject(
     // Even if the plan version is wrong, it may still be useful to update this
     // information.
     data->last_departed_waypoint = actual_last_departed;
-    data->latest_location = stopped_location;
+    data->last_known_location = Location{
+        data->planner->get_configuration().graph()
+          .get_waypoint(actual_last_departed).get_map_name(),
+        stopped_location
+    };
 
     if (plan_version != data->current_plan_version)
       return;
@@ -1674,13 +1691,13 @@ TrafficLight::UpdateHandle::Implementation::Data::current_location() const
 {
   const auto now = rmf_traffic_ros2::convert(node->now());
 
-  if (last_departed_waypoint.has_value() && latest_location.has_value())
+  if (last_departed_waypoint.has_value() && last_known_location.has_value())
   {
     const auto* lane = planner->get_configuration().graph().lane_from(
           *last_departed_waypoint, *last_departed_waypoint+1);
     assert(lane);
 
-    const Eigen::Vector3d p = *latest_location;
+    const Eigen::Vector3d p = last_known_location->position;
 
     return rmf_traffic::agv::Plan::Start(
           now,
@@ -1700,6 +1717,9 @@ TrafficLight::UpdateHandle::Implementation::Data::current_location() const
 void TrafficLight::UpdateHandle::Implementation::Data
 ::publish_fleet_state() const
 {
+  if (!last_known_location.has_value())
+    return;
+
   auto robot_mode = [&]()
   {
     if (current_range.begin == current_range.end)
@@ -1718,23 +1738,15 @@ void TrafficLight::UpdateHandle::Implementation::Data
         .mode_request_id(0);
   }();
 
-  auto location = [&]() -> rmf_fleet_msgs::msg::Location
-  {
-    const auto& graph = planner->get_configuration().graph();
-    const auto& l = current_location();
-    const auto& wp = graph.get_waypoint(l.waypoint());
-    const Eigen::Vector2d p = l.location().value_or(wp.get_location());
-
-    return rmf_fleet_msgs::build<rmf_fleet_msgs::msg::Location>()
-      .t(rmf_traffic_ros2::convert(l.time()))
+  const auto& map = last_known_location->map;
+  const auto p = last_known_location->position;
+  auto location = rmf_fleet_msgs::build<rmf_fleet_msgs::msg::Location>()
+      .t(node->now())
       .x(p.x())
       .y(p.y())
-      .yaw(l.orientation())
-      .level_name(wp.get_map_name())
-      // NOTE(MXG): This field is only used by the fleet drivers. For now, we
-      // will just fill it with a zero.
+      .yaw(p[2])
+      .level_name(map)
       .index(0);
-  }();
 
   const auto& fleet_name = itinerary.description().owner();
   auto robot_state = rmf_fleet_msgs::build<rmf_fleet_msgs::msg::RobotState>()
@@ -2013,6 +2025,24 @@ std::size_t TrafficLight::UpdateHandle::follow_new_path(
   });
 
   return version;
+}
+
+//==============================================================================
+auto TrafficLight::UpdateHandle::update_idle_location(
+  std::string map,
+  Eigen::Vector3d position) -> UpdateHandle&
+{
+  _pimpl->data->worker.schedule(
+        [map = std::move(map), position, data = _pimpl->data](const auto&)
+  {
+    data->last_known_location =
+      Implementation::Data::Location{
+        map,
+        position
+      };
+  });
+
+  return *this;
 }
 
 //==============================================================================
