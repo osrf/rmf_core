@@ -92,12 +92,12 @@ ReadyToCharge::Active::Active(
     {
       return status_msg->charger_name == desired_charger_name;
     })
-    .map([me = weak_from_this()](const auto& status_msg)
+    .map([me =this](const auto& status_msg)
     {
       /*auto me = weak.lock();
       if (!me)
         return Task::StatusMsg();*/
-
+      std::cout << "status received" <<std::endl;
       if (me->_current_state == State::AWAITING_RESPONSE)
       {
         if((status_msg->state == ChargerState::CHARGER_ASSIGNED
