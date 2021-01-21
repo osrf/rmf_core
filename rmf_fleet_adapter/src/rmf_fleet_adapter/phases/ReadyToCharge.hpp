@@ -57,8 +57,7 @@ public:
   private:
     enum State
     {
-      AWAITING_STATUS = 0,
-      AWAITING_RESPONSE,
+      AWAITING_RESPONSE = 0,
       REQUEST_SUCCESS
     };
     

@@ -105,6 +105,7 @@ if (BUILD_TESTING)
       test/phases/DoorOpenTest.cpp
       test/phases/DoorCloseTest.cpp
       test/phases/RequestLiftTest.cpp
+      test/phases/ReadyToChargeTest.cpp
       test/phases/DispenseItemTest.cpp
       test/phases/IngestItemTest.cpp
       test/phases/test_GoToPlace.cpp

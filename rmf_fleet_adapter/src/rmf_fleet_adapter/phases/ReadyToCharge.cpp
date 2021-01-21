@@ -65,50 +65,40 @@ ReadyToCharge::Active::Active(
   std::string desired_charger_name = "charger1";
 
   //INIT
-  _current_state = State::AWAITING_STATUS;
+  _current_state = State::AWAITING_RESPONSE;
+
+  _timer = _context->node()->create_wall_timer(
+    std::chrono::milliseconds(1000),
+    [me = this, desired_charger_name]()
+    {
+      /*auto me = weak.lock();
+      if (!me)
+      {
+        std::cout << "no lock" <<std::endl;
+        return;
+      }*/
+      ChargerRequest request;
+      request.charger_name = desired_charger_name;
+      request.fleet_name = me->_context->description().owner();
+      request.robot_name = me->_context->description().name();
+      request.start_timeout = rclcpp::Duration {10,0};
+      request.request_id = me->_id; 
+      me->_context->node()->charger_request()->publish(request);
+    }
+  );
 
   _status_obs = _context->node()->charger_state()
     .filter([desired_charger_name](const auto& status_msg)
     {
       return status_msg->charger_name == desired_charger_name;
     })
-    .map([weak = weak_from_this(), desired_charger_name](const auto& status_msg)
+    .map([me = weak_from_this()](const auto& status_msg)
     {
-      auto me = weak.lock();
+      /*auto me = weak.lock();
       if (!me)
-        return Task::StatusMsg();
+        return Task::StatusMsg();*/
 
-      if (me->_current_state == State::AWAITING_STATUS)
-      {
-        if(status_msg->state != ChargerState::CHARGER_IDLE)
-        {
-          Task::StatusMsg status;
-          status.state = Task::StatusMsg::STATE_FAILED;
-          status.status = status_msg->error_message;
-          return status;
-        }
-
-        ChargerRequest request;
-        request.charger_name = desired_charger_name;
-        request.fleet_name = me->_context->description().owner();
-        request.robot_name = me->_context->description().name();
-        request.start_timeout = rclcpp::Duration {10,0};
-        request.request_id = me->_id; 
-        
-        me->_current_state = State::AWAITING_RESPONSE;
-        me->_timer = me->_context->node()->create_wall_timer(
-          std::chrono::milliseconds(1000),
-          [weak, request]()
-          {
-            auto me = weak.lock();
-            if (!me)
-              return;
-
-            me->_context->node()->charger_request()->publish(request);
-          }
-        );
-      }
-      else if (me->_current_state == State::AWAITING_RESPONSE)
+      if (me->_current_state == State::AWAITING_RESPONSE)
       {
         if((status_msg->state == ChargerState::CHARGER_ASSIGNED
           || status_msg->state == ChargerState::CHARGER_CHARGING)
