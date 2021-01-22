@@ -4,6 +4,8 @@
 #include <fstream>
 #include <cstdio>
 
+#include "../../src/rmf_traffic_ros2/schedule/internal_YamlSerialization.hpp"
+
 using namespace rmf_traffic_ros2;
 SCENARIO("Test idempotency of shape type")
 {
@@ -73,27 +75,28 @@ SCENARIO("Test idempotency of ParticipantDescription.")
 
 class TestOperationLogger: public AbstractParticipantLogger
 {
-  std::vector<AtomicOperation> _journal;
+  std::vector<AtomicOperation>* _journal;
   std::size_t _counter;
 public:
   
-  TestOperationLogger()
+  TestOperationLogger(std::vector<AtomicOperation>* journal)
   {
     _counter = 0;
+    _journal = journal;
   }
 
   void write_operation(AtomicOperation operation) override
   {
-    _journal.push_back(operation);
+    _journal->push_back(operation);
   }
 
   std::optional<AtomicOperation> read_next_record() override
   {
-    if(_counter >= _journal.size())
+    if(_counter >= _journal->size())
     {
       return std::nullopt;
     }
-    return {_journal[_counter++]};    
+    return {(*_journal)[_counter++]};    
   }
 };
 
@@ -128,58 +131,33 @@ SCENARIO("Participant registry restores participants from logger")
   
   GIVEN("A stubbed out logger")
   {
-    auto logger = std::make_shared<TestOperationLogger>();
+    std::vector<AtomicOperation>* journal;
+    auto logger = std::make_unique<TestOperationLogger>(journal);
     WHEN("Creating a new DB without errors")
     {
       auto db1 = std::make_shared<Database>();
-      ParticipantRegistry registry1(logger, db1);
+      ParticipantRegistry registry1(std::move(logger), db1);
       participant_id1 = registry1.add_participant(p1);
       participant_id2 = registry1.add_participant(p2);
-      registry1.remove_participant(participant_id2);
       participant_id3 = registry1.add_participant(p3);
   
       THEN("Restoring DB")
       {
         auto db2 = std::make_shared<Database>();
-        ParticipantRegistry registry2(logger, db2);
+         auto logger2 = std::make_unique<TestOperationLogger>(journal);
+        ParticipantRegistry registry2(std::move(logger2), db2);
         auto restored_participants = db2->participant_ids();
         REQUIRE(restored_participants.count(participant_id1) > 0);
-        REQUIRE(restored_participants.count(participant_id2) == 0);
+        REQUIRE(restored_participants.count(participant_id2) > 0);
         REQUIRE(restored_participants.count(participant_id3) > 0);
-        REQUIRE(restored_participants.size() == 2);
+        REQUIRE(restored_participants.size() == 3);
   
         auto _p1 = db2->get_participant(participant_id1);
+        auto _p2 = db2->get_participant(participant_id2);
         auto _p3 = db2->get_participant(participant_id3);
   
         REQUIRE(*_p1 == p1);
-        REQUIRE(*_p3 == p3);
-      }
-    }
-  
-    WHEN("Creating a new DB with erroneous remove request")
-    {
-      auto db1 = std::make_shared<Database>();
-      ParticipantRegistry registry1(logger, db1);
-      participant_id1 = registry1.add_participant(p1);
-      REQUIRE_THROWS(registry1.remove_participant(1000));
-      participant_id2 = registry1.add_participant(p2);
-      registry1.remove_participant(participant_id2);
-      participant_id3 = registry1.add_participant(p3);
-  
-      THEN("Restoring DB")
-      {
-        auto db2 = std::make_shared<Database>();
-        ParticipantRegistry registry2(logger, db2);
-        auto restored_participants = db2->participant_ids();
-        REQUIRE(restored_participants.count(participant_id1) > 0);
-        REQUIRE(restored_participants.count(participant_id2) == 0);
-        REQUIRE(restored_participants.count(participant_id3) > 0);
-        REQUIRE(restored_participants.size() == 2);
-  
-        auto _p1 = db2->get_participant(participant_id1);
-        auto _p3 = db2->get_participant(participant_id3);
-  
-        REQUIRE(*_p1 == p1);
+        REQUIRE(*_p2 == p2);
         REQUIRE(*_p3 == p3);
       }
     }
@@ -226,14 +204,12 @@ SCENARIO("Test file logger")
       YamlLogger logger1("test_yamllogger.yaml");
       logger1.write_operation({AtomicOperation::OpType::Add, p1});
       logger1.write_operation({AtomicOperation::OpType::Add, p2});
-      logger1.write_operation({AtomicOperation::OpType::Remove, p1});  
       THEN("Able to retrieve 3 records")
       {
         YamlLogger logger2("test_yamllogger.yaml");
         std::vector<AtomicOperation> expected = {
           {AtomicOperation::OpType::Add, p1},
           {AtomicOperation::OpType::Add, p2},
-          {AtomicOperation::OpType::Remove, p1}
         };
 
         std::size_t i = 0;
@@ -282,39 +258,6 @@ SCENARIO("Test file logger")
       }
     }
 
-    WHEN("the file is not a sequence")
-    {
-      YAML::Node node;
-      node["some_yaml"] = "invalid data";
-      std::ofstream invalid_yaml;
-      invalid_yaml.open("test_yamllogger.yaml", std::ofstream::out);
-      YAML::Emitter emitter;
-      emitter << node;
-      invalid_yaml << emitter.c_str();
-      invalid_yaml.close();
-      THEN("throw an error upon construction")
-      {
-        REQUIRE_THROWS(std::make_shared<YamlLogger>("test_yamllogger.yaml"));
-      }
-    }
-
-
-    WHEN("the file is not a sequence")
-    {
-      YAML::Node node;
-      node["some_yaml"] = "invalid data";
-      std::ofstream invalid_yaml;
-      invalid_yaml.open("test_yamllogger.yaml", std::ofstream::out);
-      YAML::Emitter emitter;
-      emitter << node;
-      invalid_yaml << emitter.c_str();
-      invalid_yaml.close();
-      THEN("throw an error upon construction")
-      {
-        REQUIRE_THROWS(std::make_shared<YamlLogger>("test_yamllogger.yaml"));
-      }
-    }
-
     WHEN("the file is a YAML sequence but filled with rubbish")
     {
       YAML::Node node;
@@ -329,9 +272,9 @@ SCENARIO("Test file logger")
       invalid_yaml.close();
       THEN("throw an error upon connecting to database")
       {
-        auto logger = std::make_shared<YamlLogger>("test_yamllogger.yaml");
+        auto logger = std::make_unique<YamlLogger>("test_yamllogger.yaml");
         auto db = std::make_shared<Database>();
-        REQUIRE_THROWS(new ParticipantRegistry(logger, db));
+        REQUIRE_THROWS(new ParticipantRegistry(std::move(logger), db));
       }
     }
   }

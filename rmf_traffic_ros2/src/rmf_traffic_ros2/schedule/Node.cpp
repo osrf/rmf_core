@@ -87,17 +87,25 @@ ScheduleNode::ScheduleNode(const rclcpp::NodeOptions& options)
   active_conflicts(database)
 {
   //Attempt to load/create participant registry.
+  declare_parameter<std::string>("log_file_location", ".rmf_schedule_node.yaml");
   std::string log_file_name;
   get_parameter_or<std::string>(
     "log_file_location", 
     log_file_name, 
-    ".rmf_schedule_node.yml");
+    ".rmf_schedule_node.yaml");
   
   try
   {
-    participant_logger = std::make_shared<YamlLogger>(log_file_name);
+    auto participant_logger = std::make_unique<YamlLogger>(log_file_name);
+    
     participant_registry = 
-      std::make_shared<ParticipantRegistry>(participant_logger, database);
+      std::make_shared<ParticipantRegistry>(
+        std::move(participant_logger),
+        database);
+    
+    RCLCPP_INFO(get_logger(), 
+      "Successfully loaded logfile %s ",
+      log_file_name.c_str());
   }
   catch(std::runtime_error& e)
   {
@@ -401,7 +409,7 @@ void ScheduleNode::register_participant(
     auto desc = rmf_traffic_ros2::convert(request->description);
     auto participant_id = participant_registry->participant_exists(desc.name(), 
       desc.owner());
-    if(participant_id)
+    if(participant_id.has_value())
     {
       //TODO(arjo): Compare participant descriptors and update?
       response->participant_id = *participant_id;
@@ -453,8 +461,9 @@ void ScheduleNode::unregister_participant(
     // unregistering it will invalidate the pointer p.
     const std::string name = p->name();
     const std::string owner = p->owner();
-
-    participant_registry->remove_participant(request->participant_id);
+    
+    auto version = database->itinerary_version(request->participant_id);
+    database->erase(request->participant_id, version);
     response->confirmation = true;
 
     RCLCPP_INFO(

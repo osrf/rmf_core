@@ -399,7 +399,6 @@ public:
   ConflictRecord active_conflicts;
   std::mutex active_conflicts_mutex;
   std::shared_ptr<ParticipantRegistry> participant_registry;
-  std::shared_ptr<YamlLogger> participant_logger;
 };
 
 } // namespace schedule

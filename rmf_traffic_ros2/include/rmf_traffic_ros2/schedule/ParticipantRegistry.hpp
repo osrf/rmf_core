@@ -39,8 +39,7 @@ struct AtomicOperation
 {
   enum class OpType : uint8_t
   {
-    Add = 0,
-    Remove
+    Add = 0
   };
   OpType operation;
   ParticipantDescription description;
@@ -92,13 +91,14 @@ private:
 class ParticipantRegistry
 {
 public:
+  /// Constructor
   ParticipantRegistry(
-    std::shared_ptr<AbstractParticipantLogger> file_name,
+    std::unique_ptr<AbstractParticipantLogger> logger,
     std::shared_ptr<Database> database);
 
   /// Adds a participant
-  /// \param[in] description - The description of the participant that one
-  ///   wishes to register.
+  /// \param[in] description 
+  ///   The description of the participant that one wishes to register.
   /// 
   /// \throws std::runtime_error if a participant with the same name and owner
   ///   are already in the registry.
@@ -107,66 +107,19 @@ public:
   ParticipantId add_participant(ParticipantDescription description);
 
   /// Checks if a participant with the name and owner already exist.
-  /// \param[in] name - name of the robot
-  /// \param[in] owner - the robot owner
+  /// \param[in] name 
+  ///   name of the robot
+  /// \param[in] owner
+  ///   the robot owner
   /// \returns std::nullopt if participant exists. Otherwise returns the ID.
   std::optional<ParticipantId> participant_exists(
     std::string name,
     std::string owner);
   
-  /// Removes a participant from the registry.
-  /// \param[in] id - participant to remove
-  void remove_participant(ParticipantId id);
-  
   class Implementation;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
-
-//=============================================================================
-ParticipantDescription::Rx responsiveness(std::string response);
-
-//=============================================================================
-uint8_t shapetype(YAML::Node node);
-
-//=============================================================================
-rmf_traffic_msgs::msg::ConvexShape convexshape(YAML::Node node);
-
-//=============================================================================
-rmf_traffic_msgs::msg::ConvexShapeContext shapecontext(YAML::Node node);
-
-//=============================================================================
-rmf_traffic::Profile profile(YAML::Node node);
-
-//=============================================================================
-ParticipantDescription participant_description(YAML::Node node);
-
-//=============================================================================
-AtomicOperation atomic_operation(YAML::Node node);
-
-//=============================================================================
-YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context);
-
-//=============================================================================
-std::string serialize_shape_type(uint8_t shape_type);
-
-//=============================================================================
-YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShape shape);
-
-//=============================================================================
-YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext shape);
-
-//=============================================================================
-YAML::Node serialize(rmf_traffic::Profile profile);
-
-//=============================================================================
-std::string serialize_responsiveness(ParticipantDescription::Rx resp);
-
-//=============================================================================
-YAML::Node serialize(ParticipantDescription participant);
-
-//=============================================================================
-YAML::Node serialize(AtomicOperation atomOp);
 
 } // end namespace rmf_traffic_ros2
 

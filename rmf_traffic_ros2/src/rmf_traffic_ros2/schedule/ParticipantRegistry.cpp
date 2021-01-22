@@ -17,10 +17,9 @@
 
 #include <mutex>
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
+#include "internal_YamlSerialization.hpp"
 
 namespace rmf_traffic_ros2 {
-
-
 
 //=============================================================================
 struct UniqueId
@@ -52,7 +51,7 @@ ParticipantDescription::Rx responsiveness(std::string response)
     return ParticipantDescription::Rx::Unresponsive;
   if(response == "Responsive")
     return ParticipantDescription::Rx::Responsive;
-  throw std::runtime_error("Responsiveness field contains invalid identifier");
+  throw std::runtime_error("Responsiveness field contains unknown identifier");
 }
 
 //=============================================================================
@@ -189,10 +188,6 @@ AtomicOperation atomic_operation(YAML::Node node)
   {
     op_type = AtomicOperation::OpType::Add;
   }
-  else if(node["operation"].as<std::string>() == "Remove")
-  {
-    op_type = AtomicOperation::OpType::Remove;
-  }
   else
   {
     throw std::runtime_error("Invalid operation.");
@@ -286,10 +281,6 @@ YAML::Node serialize(AtomicOperation atomOp)
   {
     node["operation"] = "Add";
   }
-  else if(atomOp.operation == AtomicOperation::OpType::Remove)
-  {
-    node["operation"] = "Remove";
-  }
   else
   {
     throw std::runtime_error("Found an invalid operation");
@@ -305,10 +296,10 @@ class ParticipantRegistry::Implementation
 public:
   //===========================================================================
   Implementation(
-    std::shared_ptr<AbstractParticipantLogger>  logger, 
+    std::unique_ptr<AbstractParticipantLogger>  logger, 
     std::shared_ptr<Database> db):
     _database(db),
-    _logger(logger)
+    _logger(std::move(logger))
   { 
     init();
   }
@@ -321,8 +312,8 @@ public:
 
     if(_id_from_name.count(key))
     {
-      throw std::runtime_error("Participant with name: "+description.name()
-        + "and owner: "+description.owner() + "already exists" );
+      throw std::runtime_error("Participant with name: " + description.name()
+        + "and owner: " + description.owner() + "already exists" );
     }
 
     ParticipantId id = _database->register_participant(description);
@@ -347,27 +338,6 @@ public:
     }
     return {id->second};
   }
-
-  //===========================================================================
-  void remove_participant(ParticipantId id)
-  {
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto description = _descriptions.find(id);
-    if(description == _descriptions.end())
-    {
-      throw std::runtime_error("Participant with id " + std::to_string(id)
-        + " does not exist");
-    }
-    
-    _database->unregister_participant(id);
-
-    UniqueId key = {description->second.name(), 
-      description->second.owner()};
-
-    write_to_file({AtomicOperation::OpType::Remove, description->second});
-    _descriptions.erase(id);
-    _id_from_name.erase(key);
-  }
   
 private:
   //===========================================================================
@@ -379,26 +349,6 @@ private:
     _logger->write_operation(op);
 
   }
-
-  //===========================================================================
-  void remove_participant(ParticipantDescription description)
-  {
-    // This method is private because it is only used by execute()
-    // Additionally, we don't need to write the executing to the log file.
-    // as it is only called during initialization.
-    UniqueId key = {description.name(), description.owner()};
-
-    auto id = _id_from_name.find(key);
-    if(id == _id_from_name.end())
-    {
-      throw std::runtime_error("Participant with id " 
-      + std::to_string(id->second) + " does not exist");
-    }
-    _database->unregister_participant(id->second);
-    _descriptions.erase(id->second);
-    _id_from_name.erase(key);
-  }
-
  
   //===========================================================================
   void init()
@@ -419,10 +369,6 @@ private:
       add_participant(operation.description);
     }
 
-    if(operation.operation == AtomicOperation::OpType::Remove)
-    {
-      remove_participant(operation.description);
-    }
   }
 
   //==========================================================================
@@ -431,17 +377,16 @@ private:
   std::unordered_map<UniqueId, 
     ParticipantId, UniqueIdHasher> _id_from_name;
   std::shared_ptr<Database> _database; 
-  std::shared_ptr<AbstractParticipantLogger> _logger;
+  std::unique_ptr<AbstractParticipantLogger> _logger;
   std::mutex _mutex;
 };
 
 //=============================================================================
 ParticipantRegistry::ParticipantRegistry(
-  std::shared_ptr<AbstractParticipantLogger> logger,
+  std::unique_ptr<AbstractParticipantLogger> logger,
   std::shared_ptr<Database> database)
 :_pimpl(rmf_utils::make_unique_impl<Implementation>(
-  logger,
-  database))
+  std::move(logger), database))
 {
   
 }
@@ -459,12 +404,6 @@ std::optional<ParticipantId>  ParticipantRegistry::participant_exists(
     std::string owner)
 {
   return _pimpl->participant_exists(name, owner);
-}
-
-//=============================================================================
-void ParticipantRegistry::remove_participant(ParticipantId id)
-{
-  _pimpl->remove_participant(id);
 }
 
 }//end namespace rmf_traffic_ros2

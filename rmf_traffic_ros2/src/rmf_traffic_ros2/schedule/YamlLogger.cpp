@@ -18,6 +18,7 @@
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
 #include <fstream>
 #include <mutex>
+#include "internal_YamlSerialization.hpp"
 
 namespace rmf_traffic_ros2 {
 
@@ -59,6 +60,8 @@ public:
 
   void write_operation(AtomicOperation operation)
   {
+    std::lock_guard<std::mutex> file_lock(_mutex);
+
     //We will use YAML's block sequence format as this friendly for appending
     //We only need to write the latest changes to the file.
     YAML::Emitter emmiter;
@@ -67,7 +70,6 @@ public:
     emmiter << YAML::EndSeq;
     assert(emmiter.good());
 
-    std::lock_guard<std::mutex> file_lock(_mutex);
     std::ofstream outfile;
     outfile.open(_file_path, std::ofstream::out | std::ofstream::app);
     if(!outfile.is_open())
