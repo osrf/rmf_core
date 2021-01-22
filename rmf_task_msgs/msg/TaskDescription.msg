@@ -4,10 +4,8 @@ builtin_interfaces/Time start_time
 # Task type
 TaskType task_type
 
-# Task definitions
+# The corresponding field for the above TaskType should be populated
 Station station
 Loop loop
 Delivery delivery
-# Charge charge
 Clean clean
-# Patrol patrol
