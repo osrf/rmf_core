@@ -512,6 +512,8 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     return;
 
   const std::string id = msg->task_profile.task_id;
+  DispatchAck dispatch_ack;
+  dispatch_ack.dispatch_request = *msg;
 
   if (msg->method == DispatchRequest::ADD)
   {
@@ -533,6 +535,8 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
         "The number of available robots does not match that in the assignments "
         "for task_id:[%s]. This request will be ignored.", id.c_str());
 
+      dispatch_ack.success = false;
+      dispatch_ack_pub->publish(dispatch_ack);
       return;
     }
 
@@ -571,6 +575,9 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 
     current_assignment_cost = task_planner->compute_cost(assignments);
 
+    dispatch_ack.success = true;
+    dispatch_ack_pub->publish(dispatch_ack);
+  
     RCLCPP_INFO(
       node->get_logger(),
       "Assignments updated for robots in fleet [%s] to accommodate task_id:[%s]",
@@ -735,8 +742,9 @@ void FleetUpdateHandle::Implementation::publish_fleet_state() const
 }
 
 //==============================================================================
-auto FleetUpdateHandle::Implementation:: allocate_tasks(
-  rmf_task::ConstRequestPtr request) const -> std::optional<Assignments>
+auto FleetUpdateHandle::Implementation::allocate_tasks(
+  rmf_task::ConstRequestPtr new_request,
+  rmf_task::ConstRequestPtr ignore_request) const -> std::optional<Assignments>
 {
   // Collate robot states, constraints and combine new requestptr with 
   // requestptr of non-charging tasks in task manager queues
@@ -745,9 +753,9 @@ auto FleetUpdateHandle::Implementation:: allocate_tasks(
   std::vector<rmf_task::ConstRequestPtr> pending_requests;
   std::string id = "";
 
-  if (request)
+  if (new_request)
   {
-    pending_requests.push_back(request);
+    pending_requests.push_back(new_request);
     id = request->id();
   }
 
