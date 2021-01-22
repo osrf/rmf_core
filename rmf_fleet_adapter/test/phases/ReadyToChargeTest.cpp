@@ -45,7 +45,8 @@ SCENARIO_METHOD(MockAdapterFixture, "Charger Request Phase", "[phases]")
   auto request_guid = "test/charger";
   auto pending_phase = ReadyToCharge::make(
     context,
-    request_guid
+    request_guid,
+    "charger1"
   );
  
 #if 0

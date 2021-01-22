@@ -30,7 +30,7 @@ auto ReadyToCharge::Active::observe() const -> const rxcpp::observable<StatusMsg
 rmf_traffic::Duration ReadyToCharge::Active::estimate_remaining_time() const
 {
   // TODO 
-  return rmf_traffic::time::from_seconds(1);
+  return rmf_traffic::time::from_seconds(5);
 }
 
 //==============================================================================
@@ -54,7 +54,8 @@ const std::string& ReadyToCharge::Active::description() const
 //==============================================================================
 ReadyToCharge::Active::Active(
   agv::RobotContextPtr context,
-  std::string request_id)
+  const std::string request_id,
+  const std::string location)
 : _context(std::move(context)), _id(request_id)
 {
   using rmf_charger_msgs::msg::ChargerState;
@@ -62,7 +63,7 @@ ReadyToCharge::Active::Active(
   _description = "Charger Negotiation";
 
   //Place holder value for testing
-  std::string desired_charger_name = "charger1";
+  std::string desired_charger_name = location;
 
   //INIT
   _current_state = State::AWAITING_RESPONSE;
@@ -133,7 +134,7 @@ ReadyToCharge::Active::Active(
 std::shared_ptr<Task::ActivePhase> ReadyToCharge::Pending::begin()
 {
   auto active =
-      std::shared_ptr<Active>(new Active(_context, _id));
+      std::shared_ptr<Active>(new Active(_context, _id, _location));
   return active;
 }
 
@@ -152,20 +153,22 @@ const std::string& ReadyToCharge::Pending::description() const
 //==============================================================================
 ReadyToCharge::Pending::Pending(
   agv::RobotContextPtr context,
-  std::string id)
-: _context(std::move(context)), _id(id)
+  const std::string id,
+  const std::string location)
+: _context(std::move(context)), _id(id), _location(location)
 {
   _description =
-    "PErform9iong Charger Negotiation";
+    "Performing Charger Negotiation";
 }
 
 //==============================================================================
 auto ReadyToCharge::make(
     agv::RobotContextPtr context,
-    std::string id) -> std::unique_ptr<Pending>
+    const std::string id,
+    const std::string location) -> std::unique_ptr<Pending>
 {  
   return std::unique_ptr<Pending>(
-        new Pending(context, id));
+        new Pending(context, id, location));
 }
 
 }

@@ -37,7 +37,9 @@ public:
       public std::enable_shared_from_this<Active>
   {
   public:
-    Active(agv::RobotContextPtr context, std::string request_id);
+    Active(agv::RobotContextPtr context,
+      std::string request_id,
+      std::string location);
 
     // Documentation inherited from ActivePhase
     const rxcpp::observable<StatusMsg>& observe() const final;
@@ -87,17 +89,20 @@ public:
     friend class ReadyToCharge;
     Pending(
       agv::RobotContextPtr context,
-      std::string id);
+      std::string id,
+      std::string location);
 
     agv::RobotContextPtr _context;
     std::string _description;
     std::string _id;
+    std::string _location;
   };
 
   static std::unique_ptr<Pending> make(
     agv::RobotContextPtr context,
-    std::string id);
-};
+    const std::string id,
+    const std::string location);
+  };
 }
 }
 #endif

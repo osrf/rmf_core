@@ -33,12 +33,15 @@ std::shared_ptr<Task> make_charge_battery(
     const rmf_task::agv::State finish_state)
 {
   rmf_traffic::agv::Planner::Goal goal{finish_state.charging_waypoint()};
+  const auto location_waypoint = 
+    context->navigation_graph().get_waypoint(finish_state.charging_waypoint());
+  auto location = location_waypoint.name();
 
   Task::PendingPhases phases;
   phases.push_back(
     phases::GoToPlace::make(context, std::move(start), goal));
   phases.push_back(
-    phases::ReadyToCharge::make(context, request->id()));
+    phases::ReadyToCharge::make(context, request->id(), *location));
   phases.push_back(
     phases::WaitForCharge::make(context, request->battery_system(), 0.99));
 
