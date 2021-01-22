@@ -2,15 +2,6 @@
 name: Bug report
 about: Create a report to help us improve
 title: ''
-labels: bug
-assignees: ''
-
----
-
----
-name: Bug report
-about: Create a report to help us improve
-title: ''
 labels: ''
 assignees: ''
 
@@ -37,7 +28,6 @@ A clear and concise description of what the bug is.
    - `traffic_editor` branch or commit hash: 
 
 **Steps to Reproduce**
-
 1. 
 2. 
 3. ```
