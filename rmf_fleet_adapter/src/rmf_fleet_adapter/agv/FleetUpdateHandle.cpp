@@ -519,7 +519,12 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
   {
     const auto task_it = bid_notice_assignments.find(id);
     if (task_it == bid_notice_assignments.end())
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Received DispatchRequest for task_id:[%s] before receiving BidNotice");
       return;
+    }
 
     RCLCPP_INFO(
       node->get_logger(),
@@ -558,6 +563,8 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
           RCLCPP_WARN(
             node->get_logger(),
             "Unable to replan assignments for task_id:[%s]", id.c_str());
+          dispatch_ack.success = false;
+          dispatch_ack_pub->publish(dispatch_ack);
           return;
         }
         assignments = replan_results.value();
@@ -586,11 +593,92 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 
   else if (msg->method == DispatchRequest::CANCEL)
   {
-    // TODO(YV)
+    // We currently only support cancellation of a task that is in the queued
+    // state.
+    // TODO: Support cancellation of an active task.
+
+    // When a queued task is to be cancelled, we simply re-plan and re-allocate
+    // task assignments for all the queued tasks while ignoring the task to be
+    // cancelled.
+
+    auto request_to_cancel_it = generated_requests.find(id);
+    if (request_to_cancel_it == generated_requests.end())
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Unable to cancel task with task_id:[%s] as it is not assigned to "
+        " fleet:[%s]",
+        id.c_str(), name.c_str());
+
+      dispatch_ack.success = false;
+      dispatch_ack_pub->publish(dispatch_ack);
+      return;
+    }
+
+    std::unordered_set<std::string> executed_tasks;
+    for (const auto& [context, mgr] : task_managers)
+    {
+      const auto& tasks = mgr->get_executed_tasks();
+      executed_tasks.insert(tasks.begin(), tasks.end());
+    }
+
+    // Check if received request is to cancel an active task
+    if (executed_tasks.find(id) != executed_tasks.end())
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Unable to cancel active task with task_id:[%s]. Only queued tasks may "
+        "be cancelled.",
+        id.c_str());
+
+      dispatch_ack.success = false;
+      dispatch_ack_pub->publish(dispatch_ack);
+      return;
+    }  
+
+    // Re-plan assignments while ignoring request for task to be cancelled
+    const auto replan_results = allocate_tasks(
+      nullptr, request_to_cancel_it->second);
+    
+    if (!replan_results.has_value())
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Unable to re-plan assignments when cancelling task with task_id:[%s]",
+        id.c_str());
+
+      dispatch_ack.success = false;
+      dispatch_ack_pub->publish(dispatch_ack);  
+      return;
+    }
+
+    const auto& assignments = replan_results.value();
+    std::size_t index = 0;
+    for (auto& t : task_managers)
+    {
+      t.second->set_queue(assignments[index]);
+      ++index;
+    }
+
+    current_assignment_cost = task_planner->compute_cost(assignments);
+
+    dispatch_ack.success = true;
+    dispatch_ack_pub->publish(dispatch_ack);
+  
+    RCLCPP_INFO(
+      node->get_logger(),
+      "Task with task_id:[%s] has successfully been cancelled. Assignments "
+      "updated for robots in fleet [%s].",
+      id.c_str(), name.c_str());
   }
 
   else
   {
+    RCLCPP_WARN(
+      node->get_logger(),
+      "Received DispatchRequest for task_id:[%s] with invalid [method]. The "
+      "request will be ignored.",
+      id.c_str());
     return;
   }
 
@@ -756,7 +844,7 @@ auto FleetUpdateHandle::Implementation::allocate_tasks(
   if (new_request)
   {
     pending_requests.push_back(new_request);
-    id = request->id();
+    id = new_request->id();
   }
 
   for (const auto& t : task_managers)
@@ -770,6 +858,32 @@ auto FleetUpdateHandle::Implementation::allocate_tasks(
 
   if (pending_requests.empty())
     return std::nullopt;
+
+  // Remove the request to be ignored if present
+  if (ignore_request)
+  {
+    auto ignore_request_it = pending_requests.end();
+    for (auto it = pending_requests.begin(); it != pending_requests.end(); ++it)
+    {
+      if (it->id() == ignore_request->id())
+        ignore_request_it = it;
+    }
+    if (ignore_request_it != pending_requests.end())
+    {
+      pending_requests.erase(ignore_request_it);
+      RCLCPP_INFO(
+        node->get_logger(),
+        "Request with task_id:[%s] will be ignored during task allocation.",
+        ignore_request->id().c_str());
+    }
+    else
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Request with task_id:[%s] is not present in any of the task queues.",
+        ignore_request->id().c_str());
+    }
+  }
 
   RCLCPP_INFO(
     node->get_logger(), 

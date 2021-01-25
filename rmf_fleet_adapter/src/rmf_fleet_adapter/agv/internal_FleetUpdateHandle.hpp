@@ -277,13 +277,15 @@ public:
     const rmf_traffic::agv::Planner::Start& start,
     const std::unordered_set<std::size_t>& charging_waypoints);
 
-  /// Generate task assignments for a collection of tasks comprising of
+  /// Generate task assignments for a collection of task requests comprising of
   /// task requests currently in TaskManager queues while optionally including a  
-  /// new request and while optionally ignoring a specified request.
+  /// new request and while optionally ignoring a specific request.
   std::optional<Assignments> allocate_tasks(
     rmf_task::ConstRequestPtr new_request = nullptr,
     rmf_task::ConstRequestPtr ignore_request = nullptr) const;
 
+  /// Helper function to check if assignments are valid. An assignment set is
+  /// invalid if one of the assignments has already begun execution.
   bool is_valid_assignments(Assignments& assignments) const;
 
   static Implementation& get(FleetUpdateHandle& fleet)
