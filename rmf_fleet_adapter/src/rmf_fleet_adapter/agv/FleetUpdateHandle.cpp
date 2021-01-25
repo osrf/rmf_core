@@ -430,7 +430,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   const auto allocation_result = allocate_tasks(new_request);
 
-  if (!allocation_result)
+  if (!allocation_result.has_value())
     return;
   
   const auto& assignments = allocation_result.value();
@@ -548,6 +548,9 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
         const auto request_it = generated_requests.find(id);
         if (request_it == generated_requests.end())
           return;
+        // TODO: This replanning is blocking the main thread. Instead, the
+        // replanning should run on a separate worker and then deliver the
+        // result back to the main worker.
         const auto replan_results = allocate_tasks(request_it->second);
         if (!replan_results)
         {
@@ -557,8 +560,9 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
           return;
         }
         assignments = replan_results.value();
-        // We re-check the assignments as a task could have started while replanning
-        valid_assignments = is_valid_assignments(assignments);
+        // We do not need to re-check if assignments are valid as this function
+        // is being called by the ROS2 executor and is running on the main
+        // rxcpp worker. Hence, no new tasks would have started during this replanning.
       }
     }
 
@@ -579,11 +583,20 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 
   else if (msg->method == DispatchRequest::CANCEL)
   {
-    // TODO(YV)
+    RCLCPP_WARN(
+      node->get_logger(),
+      "Cancellation of a task has not been implemented yet. Ignoring "
+      "DispatchRequest for task_id:[%s].",
+      id.c_str());
   }
 
   else
   {
+    RCLCPP_WARN(
+      node->get_logger(),
+      "Received DispatchRequest for task_id:[%s] with invalid method. Only "
+      "ADD and CANCEL methods are supported. The request will be ignored.",
+      id.c_str());
     return;
   }
 
