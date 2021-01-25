@@ -1,5 +1,6 @@
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
+#include <filesystem>
 #include <rmf_utils/catch.hpp>
 #include <fstream>
 #include <cstdio>
@@ -164,14 +165,9 @@ SCENARIO("Participant registry restores participants from logger")
   }
 }
 
-bool file_exists(const char *fileName)
-{
-    std::ifstream infile(fileName);
-    return infile.good();
-}
 SCENARIO("Test file logger")
 {
-  if(file_exists("test_yamllogger.yaml"))
+  if(std::filesystem::exists("test_yamllogger.yaml"))
   {
     std::remove("test_yamllogger.yaml");
   }
