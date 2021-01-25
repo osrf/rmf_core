@@ -93,7 +93,7 @@ private:
 YamlLogger::YamlLogger(std::string file_path): 
   _pimpl(rmf_utils::make_unique_impl<Implementation>(file_path))
 {
-
+  // Do nothing
 }
 
 void YamlLogger::write_operation(AtomicOperation operation)

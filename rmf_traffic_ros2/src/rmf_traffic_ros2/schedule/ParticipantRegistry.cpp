@@ -402,7 +402,7 @@ ParticipantRegistry::ParticipantRegistry(
 :_pimpl(rmf_utils::make_unique_impl<Implementation>(
   std::move(logger), database))
 {
-  
+  //Do nothing
 }
 
 //=============================================================================
