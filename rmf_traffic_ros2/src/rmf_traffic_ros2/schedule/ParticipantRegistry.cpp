@@ -58,15 +58,13 @@ ParticipantDescription::Rx responsiveness(YAML::Node node)
 uint8_t shapetype(YAML::Node node)
 {
   auto type = node.as<std::string>();
-  if(type == "None")
-    return rmf_traffic_msgs::msg::ConvexShape::NONE;
   if(type == "Box")
     return rmf_traffic_msgs::msg::ConvexShape::BOX;
   if(type == "Circle")
     return rmf_traffic_msgs::msg::ConvexShape::CIRCLE;
 
   throw YAML::ParserException(node.Mark(), 
-    "Shape type must be one of None, Box, Circle");
+    "Shape type must be one of Box, Circle");
 }
 
 //=============================================================================
@@ -196,7 +194,7 @@ AtomicOperation atomic_operation(YAML::Node node)
   AtomicOperation::OpType op_type;
 
   if(!node["operation"])
-    throw std::runtime_error("Expected an operation field.");
+    throw YAML::ParserException(node.Mark(), "Expected an operation field.");
 
   if(node["operation"].as<std::string>() == "Add")
   {
@@ -204,11 +202,12 @@ AtomicOperation atomic_operation(YAML::Node node)
   }
   else
   {
-    throw std::runtime_error("Invalid operation.");
+    throw YAML::ParserException(node.Mark(), "Invalid operation.");
   }
 
   if(!node["participant_description"])
-    throw std::runtime_error("Expected a participant_description field");\
+    throw YAML::ParserException(node.Mark(),
+      "Expected a participant_description field");
 
   auto description = participant_description(node["participant_description"]);
   
@@ -231,14 +230,12 @@ YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
 //=============================================================================
 std::string serialize_shape_type(uint8_t shape_type)
 {
-  if(shape_type == rmf_traffic_msgs::msg::ConvexShape::NONE)
-    return "None";
   if(shape_type == rmf_traffic_msgs::msg::ConvexShape::BOX)
     return "Box";
   if(shape_type == rmf_traffic_msgs::msg::ConvexShape::CIRCLE)
     return "Circle";
 
-  throw std::runtime_error("Shape type must be one of None, Box, Circle");
+  throw std::runtime_error("Shape type must be one of Box, Circle");
 }
 
 //=============================================================================
@@ -264,8 +261,6 @@ YAML::Node serialize(rmf_traffic::Profile profile)
 //=============================================================================
 std::string serialize_responsiveness(ParticipantDescription::Rx resp)
 {
-  if(resp == ParticipantDescription::Rx::Invalid)
-    return "Invalid";
   if(resp == ParticipantDescription::Rx::Unresponsive)
     return "Unresponsive";
   if(resp == ParticipantDescription::Rx::Responsive)
