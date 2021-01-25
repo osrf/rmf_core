@@ -68,6 +68,11 @@ class YamlLogger : public AbstractParticipantLogger
 public:
   /// Constructor
   /// Loads and logs to the specified file.
+  /// \throws YAML::ParserException if there is an error in the syntax of log
+  ///   file.
+  /// \throws YAML::BadFile if there are problems with reading the file.
+  /// \throws std::filesystem_error if there is no permission to create the
+  /// directory. 
   YamlLogger(std::string filename);
 
   /// See AbstractParticipantLogger 

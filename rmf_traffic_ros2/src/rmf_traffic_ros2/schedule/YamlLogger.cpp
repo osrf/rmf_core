@@ -16,6 +16,7 @@
 */
 
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include "internal_YamlSerialization.hpp"
@@ -30,32 +31,22 @@ public:
   _file_path(file_path)
   {
     _counter = 0;
-    try 
+    if (!std::filesystem::exists(file_path))
     {
-      std::lock_guard<std::mutex> file_lock(_mutex);
-      _buffer = YAML::LoadFile(file_path);
-      if(!_buffer.IsSequence())
-      {
-        //Malformatted YAML. Failing so that we don't corrupt data
-        throw std::runtime_error(
-          "Malformatted file - Couldn't parse as YAML!");
-      }
+      std::filesystem::create_directories(
+            std::filesystem::absolute(file_path).parent_path());
+      return;
     }
-    catch(const YAML::BadFile& e)
-    {
-      //File could not be opened. For now it's OK we can ignore.
-      //Probably we should check:
-      // * if there is a permission issue fail
-      // * the file path does not exist
-      //    * check if we can create a file in the desired location
-    }
-    catch(const YAML::ParserException& e)
+
+    std::lock_guard<std::mutex> file_lock(_mutex);
+    _buffer = YAML::LoadFile(file_path);
+    if(!_buffer.IsSequence())
     {
       //Malformatted YAML. Failing so that we don't corrupt data
-      throw std::runtime_error(
-          "Malformatted file- Expected a sequence");
+      throw YAML::ParserException(_buffer.Mark(),
+        "Malformatted file - Expected the root format of the"\
+        " document to be a yaml sequence");
     }
-    
   }
 
   void write_operation(AtomicOperation operation)

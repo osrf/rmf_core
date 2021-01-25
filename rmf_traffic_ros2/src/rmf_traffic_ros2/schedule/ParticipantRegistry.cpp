@@ -43,15 +43,15 @@ struct UniqueIdHasher
 };
 
 //=============================================================================
-ParticipantDescription::Rx responsiveness(std::string response)
+ParticipantDescription::Rx responsiveness(YAML::Node node)
 {
-  if(response == "Invalid")
-    return ParticipantDescription::Rx::Invalid;
+  auto response = node.as<std::string>();
   if(response == "Unresponsive")
     return ParticipantDescription::Rx::Unresponsive;
   if(response == "Responsive")
     return ParticipantDescription::Rx::Responsive;
-  throw std::runtime_error("Responsiveness field contains unknown identifier");
+  throw YAML::ParserException(node.Mark(), 
+    "Responsiveness field contains unknown identifier");
 }
 
 //=============================================================================
@@ -65,20 +65,24 @@ uint8_t shapetype(YAML::Node node)
   if(type == "Circle")
     return rmf_traffic_msgs::msg::ConvexShape::CIRCLE;
 
-  throw std::runtime_error("Shape type must be one of None, Box, Circle");
+  throw YAML::ParserException(node.Mark(), 
+    "Shape type must be one of None, Box, Circle");
 }
 
 //=============================================================================
 rmf_traffic_msgs::msg::ConvexShape convexshape(YAML::Node node)
 {
   if(!node.IsMap())
-    throw std::runtime_error("Profile information malformatted");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information should be a map");
 
   if(!node["type"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information missing footprint");
 
   if(!node["index"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information missing footprint");
 
   rmf_traffic_msgs::msg::ConvexShape shape;
   shape.type = shapetype(node["type"]);
@@ -93,7 +97,8 @@ rmf_traffic_msgs::msg::ConvexShapeContext shapecontext(YAML::Node node)
   //Radii. In future this should change.
   rmf_traffic_msgs::msg::ConvexShapeContext shape_context;
   if(!node.IsSequence())
-    throw std::runtime_error("Expected a list");
+    throw YAML::ParserException(node.Mark(), 
+      "Shape context should be a list");
 
   for(auto item: node)
   {
@@ -110,16 +115,20 @@ rmf_traffic_msgs::msg::ConvexShapeContext shapecontext(YAML::Node node)
 rmf_traffic::Profile profile(YAML::Node node)
 {
   if(!node.IsMap())
-    throw std::runtime_error("Profile information malformatted");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information should be a map");
 
   if(!node["footprint"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(), 
+      "Profile information missing footprint");
 
   if(!node["vicinity"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information missing vicinity");
 
   if(!node["shapecontext"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(), 
+      "Profile information missing shape context");
   
   rmf_traffic_msgs::msg::Profile profile_msg;
   auto footprint = convexshape(node["footprint"]);
@@ -140,25 +149,29 @@ ParticipantDescription participant_description(YAML::Node node)
 
   if(!node.IsMap())
   {
-    throw std::runtime_error("Malformatted YAML file. Expected a map");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description should be a map field.");
   }
   
   if(!node["name"]) {
-    throw std::runtime_error("Malformatted YAML file. Expected a name.");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing name field.");
   }
   
   if(!node["owner"]) {
-    throw std::runtime_error("Malformatted YAML file. Expected a owner.");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing owner field.");
   }
   
   if(!node["responsiveness"]) {
-    throw std::runtime_error(
-      "Malformatted YAML file. Expected a responsiveness field"
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing responsiveness field"
     );
   }
   
   if(!node["profile"]) {
-    throw std::runtime_error("Malformatted YAML file. Expected a profile");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing a profile field");
   }
   
   std::string name = node["name"].as<std::string>();
@@ -166,7 +179,7 @@ ParticipantDescription participant_description(YAML::Node node)
   ParticipantDescription final_desc(
     name,
     owner,
-    responsiveness(node["responsiveness"].as<std::string>()),
+    responsiveness(node["responsiveness"]),
     profile(node["profile"])
   );
 
@@ -177,7 +190,8 @@ ParticipantDescription participant_description(YAML::Node node)
 AtomicOperation atomic_operation(YAML::Node node)
 {
   if(!node.IsMap())
-    throw std::runtime_error("Malformatted atomic operation Expected a map");
+    throw YAML::ParserException(node.Mark(), 
+      "Malformatted atomic operation Expected a map");
 
   AtomicOperation::OpType op_type;
 
