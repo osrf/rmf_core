@@ -601,6 +601,18 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     // task assignments for all the queued tasks while ignoring the task to be
     // cancelled.
 
+    if (cancelled_task_ids.find(id) != cancelled_task_ids.end())
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "Request with task_id:[%s] has already been cancelled.",
+        id.c_str());
+
+      dispatch_ack.success = true;
+      dispatch_ack_pub->publish(dispatch_ack);
+      return;
+    }
+
     auto request_to_cancel_it = generated_requests.find(id);
     if (request_to_cancel_it == generated_requests.end())
     {
@@ -664,6 +676,7 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 
     dispatch_ack.success = true;
     dispatch_ack_pub->publish(dispatch_ack);
+    cancelled_task_ids.insert(id);
   
     RCLCPP_INFO(
       node->get_logger(),
@@ -865,7 +878,8 @@ auto FleetUpdateHandle::Implementation::allocate_tasks(
     auto ignore_request_it = pending_requests.end();
     for (auto it = pending_requests.begin(); it != pending_requests.end(); ++it)
     {
-      if (it->id() == ignore_request->id())
+      auto pending_request = *it;
+      if (pending_request->id() == ignore_request->id())
         ignore_request_it = it;
     }
     if (ignore_request_it != pending_requests.end())
