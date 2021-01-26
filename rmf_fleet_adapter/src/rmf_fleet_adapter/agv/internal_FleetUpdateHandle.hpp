@@ -176,7 +176,9 @@ public:
   std::unordered_map<std::string, Assignments> bid_notice_assignments = {};
 
   std::unordered_map<
-  std::string, rmf_task::ConstRequestPtr> generated_requests = {};
+    std::string, rmf_task::ConstRequestPtr> generated_requests = {};
+  std::unordered_map<
+    std::string, rmf_task::ConstRequestPtr> assigned_requests = {};
   std::unordered_set<std::string> cancelled_task_ids = {};
 
   AcceptTaskRequest accept_task = nullptr;

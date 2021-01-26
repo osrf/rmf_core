@@ -514,6 +514,7 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
   const std::string id = msg->task_profile.task_id;
   DispatchAck dispatch_ack;
   dispatch_ack.dispatch_request = *msg;
+  dispatch_ack.success = false;
 
   if (msg->method == DispatchRequest::ADD)
   {
@@ -522,13 +523,15 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     {
       RCLCPP_WARN(
         node->get_logger(),
-        "Received DispatchRequest for task_id:[%s] before receiving BidNotice");
+        "Received DispatchRequest for task_id:[%s] before receiving BidNotice. "
+        " This request will be ignored.");
+      dispatch_ack_pub->publish(dispatch_ack);
       return;
     }
 
     RCLCPP_INFO(
       node->get_logger(),
-      "Bid for task_id:[%s] awarded to fleet [%s]",
+      "Bid for task_id:[%s] awarded to fleet [%s]. Processing request...",
       id.c_str(), name.c_str());
 
     auto& assignments = task_it->second;
@@ -539,8 +542,6 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
         node->get_logger(),
         "The number of available robots does not match that in the assignments "
         "for task_id:[%s]. This request will be ignored.", id.c_str());
-
-      dispatch_ack.success = false;
       dispatch_ack_pub->publish(dispatch_ack);
       return;
     }
@@ -548,33 +549,39 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     // Here we make sure none of the tasks in the assignments has already begun
     // execution. If so, we replan assignments until a valid set is obtained 
     // and only then update the task manager queues
-    bool valid_assignments = false;
-    while (!valid_assignments)
+    const auto request_it = generated_requests.find(id);
+    if (request_it == generated_requests.end())
     {
-      valid_assignments = is_valid_assignments(assignments);
-      if (!valid_assignments)
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "Unable to find generated request for task_id:[%s]. This request will "
+        "be ignored.",
+        id.c_str());
+      dispatch_ack_pub->publish(dispatch_ack); 
+      return;
+    }
+
+    bool valid_assignments = is_valid_assignments(assignments);
+    if (!valid_assignments)
+    {
+      // TODO: This replanning is blocking the main thread. Instead, the
+      // replanning should run on a separate worker and then deliver the
+      // result back to the main worker.
+      const auto replan_results = allocate_tasks(request_it->second);
+      if (!replan_results)
       {
-        const auto request_it = generated_requests.find(id);
-        if (request_it == generated_requests.end())
-          return;
-        // TODO: This replanning is blocking the main thread. Instead, the
-        // replanning should run on a separate worker and then deliver the
-        // result back to the main worker.
-        const auto replan_results = allocate_tasks(request_it->second);
-        if (!replan_results)
-        {
-          RCLCPP_WARN(
-            node->get_logger(),
-            "Unable to replan assignments for task_id:[%s]", id.c_str());
-          dispatch_ack.success = false;
-          dispatch_ack_pub->publish(dispatch_ack);
-          return;
-        }
-        assignments = replan_results.value();
-        // We do not need to re-check if assignments are valid as this function
-        // is being called by the ROS2 executor and is running on the main
-        // rxcpp worker. Hence, no new tasks would have started during this replanning.
+        RCLCPP_WARN(
+          node->get_logger(),
+          "Unable to replan assignments when accommodating task_id:[%s]. This "
+          "request will be ignored.",
+          id.c_str());
+        dispatch_ack_pub->publish(dispatch_ack);
+        return;
       }
+      assignments = replan_results.value();
+      // We do not need to re-check if assignments are valid as this function
+      // is being called by the ROS2 executor and is running on the main
+      // rxcpp worker. Hence, no new tasks would have started during this replanning.
     }
 
     std::size_t index = 0;
@@ -585,7 +592,7 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     }
 
     current_assignment_cost = task_planner->compute_cost(assignments);
-
+    assigned_requests.insert({id, request_it->second});
     dispatch_ack.success = true;
     dispatch_ack_pub->publish(dispatch_ack);
   
@@ -597,14 +604,12 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 
   else if (msg->method == DispatchRequest::CANCEL)
   {
-    // We currently only support cancellation of a task that is in the queued
-    // state.
+    // We currently only support cancellation of a queued task.
     // TODO: Support cancellation of an active task.
 
     // When a queued task is to be cancelled, we simply re-plan and re-allocate
-    // task assignments for all the queued tasks while ignoring the task to be
-    // cancelled.
-
+    // task assignments for the request set containing all the queued tasks
+    // excluding the task to be cancelled.
     if (cancelled_task_ids.find(id) != cancelled_task_ids.end())
     {
       RCLCPP_WARN(
@@ -617,16 +622,15 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
       return;
     }
 
-    auto request_to_cancel_it = generated_requests.find(id);
-    if (request_to_cancel_it == generated_requests.end())
+    auto request_to_cancel_it = assigned_requests.find(id);
+    if (request_to_cancel_it == assigned_requests.end())
     {
       RCLCPP_WARN(
         node->get_logger(),
         "Unable to cancel task with task_id:[%s] as it is not assigned to "
-        " fleet:[%s]",
+        "fleet:[%s].",
         id.c_str(), name.c_str());
 
-      dispatch_ack.success = false;
       dispatch_ack_pub->publish(dispatch_ack);
       return;
     }
@@ -647,7 +651,6 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
         "be cancelled.",
         id.c_str());
 
-      dispatch_ack.success = false;
       dispatch_ack_pub->publish(dispatch_ack);
       return;
     }  
@@ -663,7 +666,6 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
         "Unable to re-plan assignments when cancelling task with task_id:[%s]",
         id.c_str());
 
-      dispatch_ack.success = false;
       dispatch_ack_pub->publish(dispatch_ack);  
       return;
     }
@@ -694,7 +696,7 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     RCLCPP_WARN(
       node->get_logger(),
       "Received DispatchRequest for task_id:[%s] with invalid method. Only "
-      "ADD and CANCEL methods are supported. The request will be ignored.",
+      "ADD and CANCEL methods are supported. This request will be ignored.",
       id.c_str());
     return;
   }
