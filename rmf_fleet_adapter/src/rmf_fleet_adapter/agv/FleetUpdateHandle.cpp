@@ -539,31 +539,37 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     // Here we make sure none of the tasks in the assignments has already begun
     // execution. If so, we replan assignments until a valid set is obtained 
     // and only then update the task manager queues
-    bool valid_assignments = false;
-    while (!valid_assignments)
+    const auto request_it = generated_requests.find(id);
+    if (request_it == generated_requests.end())
     {
-      valid_assignments = is_valid_assignments(assignments);
-      if (!valid_assignments)
+      RCLCPP_ERROR(
+        node->get_logger(),
+        "Unable to find generated request for task_id:[%s]. This request will "
+        "be ignored.",
+        id.c_str());
+      return;
+    }
+
+    bool valid_assignments = is_valid_assignments(assignments);
+    if (!valid_assignments)
+    {
+      // TODO: This replanning is blocking the main thread. Instead, the
+      // replanning should run on a separate worker and then deliver the
+      // result back to the main worker.
+      const auto replan_results = allocate_tasks(request_it->second);
+      if (!replan_results)
       {
-        const auto request_it = generated_requests.find(id);
-        if (request_it == generated_requests.end())
-          return;
-        // TODO: This replanning is blocking the main thread. Instead, the
-        // replanning should run on a separate worker and then deliver the
-        // result back to the main worker.
-        const auto replan_results = allocate_tasks(request_it->second);
-        if (!replan_results)
-        {
-          RCLCPP_WARN(
-            node->get_logger(),
-            "Unable to replan assignments for task_id:[%s]", id.c_str());
-          return;
-        }
-        assignments = replan_results.value();
-        // We do not need to re-check if assignments are valid as this function
-        // is being called by the ROS2 executor and is running on the main
-        // rxcpp worker. Hence, no new tasks would have started during this replanning.
+        RCLCPP_WARN(
+          node->get_logger(),
+          "Unable to replan assignments when accommodating task_id:[%s]. This "
+          "request will be ignored.",
+          id.c_str());
+        return;
       }
+      assignments = replan_results.value();
+      // We do not need to re-check if assignments are valid as this function
+      // is being called by the ROS2 executor and is running on the main
+      // rxcpp worker. Hence, no new tasks would have started during this replanning.
     }
 
     std::size_t index = 0;
