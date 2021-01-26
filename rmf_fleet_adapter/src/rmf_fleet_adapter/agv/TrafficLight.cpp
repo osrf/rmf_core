@@ -98,7 +98,7 @@ public:
   float current_battery_soc = -1.0;
 
   // TODO(MXG): Make this configurable
-  rmf_traffic::Duration ready_timing_threshold = std::chrono::seconds(1);
+  rmf_traffic::Duration ready_timing_threshold = std::chrono::seconds(20);
 
   std::shared_ptr<services::FindPath> find_path_service;
   rxcpp::subscription find_path_subscription;
@@ -1160,6 +1160,10 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
       if (time_shift < -threshold || threshold < time_shift)
         data->itinerary.delay(time_shift);
 
+      // Check whether the next waypoint is ready based on the current timing
+      // predictions.
+      data->check_if_ready(path_version, checkpoint_index+1);
+
       return;
     }
 
@@ -1534,28 +1538,47 @@ bool TrafficLight::UpdateHandle::Implementation::Data::check_if_ready(
     std::size_t version,
     std::size_t checkpoint_id)
 {
+  std::cout << " -- CHECKING IF READY AT " << checkpoint_id << std::endl;
+
   // Counter-intuitively, we return true for these sanity check cases because we
   // want the caller to quit right away.
   if (version != current_path_version)
+  {
+    std::cout << " >> bad version [" << version << "] vs [" << current_path_version
+              << "]" << std::endl;
     return true;
+  }
 
   if (pending_waypoints.empty())
+  {
+    std::cout << " >> no pending waypoints" << std::endl;
     return true;
+  }
 
   const auto depart_it = departure_timing.find(checkpoint_id);
   if (depart_it == departure_timing.end())
+  {
+    std::cout << " >> no departure timing" << std::endl;
     return true;
+  }
 
   // If we are waiting for an approval or a rejection, then we should not
   // ready-up any more waypoints.
   if (awaiting_confirmation)
+  {
+    std::cout << " >> awaiting confirmation" << std::endl;
     return false;
+  }
 
   const auto ready_time = depart_it->second;
-  const auto now = node->now();
+  const auto now = node->now() - itinerary.delay();
 
   if (now + ready_timing_threshold <= ready_time)
+  {
+    std::cout << " >> not ready [" << (ready_time - (now + ready_timing_threshold)).seconds()
+              << "] | delay: [" << rmf_traffic::time::to_seconds(itinerary.delay()) << "]" << std::endl;
     return false;
+  }
 
   for (auto it = depart_it; it != departure_timing.end(); ++it)
   {
@@ -1564,6 +1587,7 @@ bool TrafficLight::UpdateHandle::Implementation::Data::check_if_ready(
       blockade.ready(it->first);
   }
 
+  std::cout << " >> ready up to [" << blockade.last_ready().value() << "]" << std::endl;
   return true;
 }
 
