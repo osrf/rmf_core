@@ -30,6 +30,9 @@ class EasyTrafficLight : public std::enable_shared_from_this<EasyTrafficLight>
 public:
 
   /// Update the traffic light with a new path for your robot.
+  ///
+  /// \warning This function will throw an exception if there are less than 2
+  /// waypoints in the path.
   void follow_new_path(const std::vector<Waypoint>& new_path);
 
   /// This instruction is given for moving updates. It

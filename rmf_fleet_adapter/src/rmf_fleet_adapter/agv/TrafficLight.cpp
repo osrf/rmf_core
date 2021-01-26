@@ -336,7 +336,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
         rmf_traffic::agv::Plan::Options(nullptr));
 
   last_known_location = Location{
-    planner->get_configuration().graph().get_waypoint(0).get_map_name(),
+    new_planner->get_configuration().graph().get_waypoint(0).get_map_name(),
     new_path.front().position()
   };
 
@@ -2017,6 +2017,13 @@ TrafficLight::UpdateHandle::Implementation::make(
 std::size_t TrafficLight::UpdateHandle::follow_new_path(
     const std::vector<Waypoint>& new_path)
 {
+  if (new_path.size() < 2)
+  {
+    throw std::runtime_error(
+      "[TrafficLight::follow_new_path] Invalid number of waypoints given ["
+      + std::to_string(new_path.size()) + "]. Must be at least 2.");
+  }
+
   const std::size_t version = ++_pimpl->received_version;
   _pimpl->data->worker.schedule(
         [version, new_path, data = _pimpl->data](const auto&)

@@ -58,6 +58,9 @@ public:
     /// This function should be called any time the robot changes the path that
     /// it intends to follow.
     ///
+    /// \warning This function will throw an exception if there are less than 2
+    /// waypoints in the path.
+    ///
     /// \param[in] new_path
     ///   Submit a new path that the robot intends to follow.
     std::size_t follow_new_path(const std::vector<Waypoint>& new_path);

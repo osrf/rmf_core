@@ -515,6 +515,13 @@ auto EasyTrafficLight::Implementation::waiting_after(
 //==============================================================================
 void EasyTrafficLight::follow_new_path(const std::vector<Waypoint>& new_path)
 {
+  if (new_path.size() < 2)
+  {
+    throw std::runtime_error(
+      "[EasyTrafficLight::follow_new_path] Invalid number of waypoints given ["
+      + std::to_string(new_path.size()) + "]. Must be at least 2.");
+  }
+
   auto lock = _pimpl->lock();
   _pimpl->follow_new_path(new_path);
 }
