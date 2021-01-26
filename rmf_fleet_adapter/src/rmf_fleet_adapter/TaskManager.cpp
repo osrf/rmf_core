@@ -502,7 +502,10 @@ const std::vector<std::string>& TaskManager::get_executed_tasks() const
 //==============================================================================
 void TaskManager::_register_executed_task(const std::string& id)
 {
-  if (_executed_task_registry.size() == 100)
+  // Currently the choice of storing 100 executed tasks is arbitrary.
+  // TODO: Save a time stamp for when tasks are completed and cull entries after
+  // a certain time window instead.
+  if (_executed_task_registry.size() >= 100)
     _executed_task_registry.erase(_executed_task_registry.begin());
   
   _executed_task_registry.push_back(id);
