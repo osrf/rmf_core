@@ -257,13 +257,14 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_path(
     RCLCPP_INFO(
       node->get_logger(),
       "Traffic light controlled robot [%s] owned by [%s] is being taken off "
-      "the schedule after being given a null path.",
+      "the schedule because it is idle.",
       itinerary.description().name().c_str(),
       itinerary.description().owner().c_str());
 
     planner = nullptr;
     path.clear();
     departure_timing.clear();
+    blockade.cancel();
     return;
   }
   else if (new_path.size() == 1)
@@ -2039,14 +2040,21 @@ auto TrafficLight::UpdateHandle::update_idle_location(
   std::string map,
   Eigen::Vector3d position) -> UpdateHandle&
 {
+  const std::size_t version = ++_pimpl->received_version;
   _pimpl->data->worker.schedule(
-        [map = std::move(map), position, data = _pimpl->data](const auto&)
+    [version, map = std::move(map), position, data = _pimpl->data](const auto&)
   {
+    if (rmf_utils::modular(version).less_than(data->processing_version))
+      return;
+
     data->last_known_location =
       Implementation::Data::Location{
         map,
         position
       };
+
+    if (!data->path.empty())
+      data->update_path(version, {});
   });
 
   return *this;

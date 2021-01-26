@@ -65,7 +65,8 @@ public:
     ///   Submit a new path that the robot intends to follow.
     std::size_t follow_new_path(const std::vector<Waypoint>& new_path);
 
-    /// Update the location of the robot while it is idle.
+    /// Update the location of the robot while it is idle. Calling this function
+    /// will clear the last path that was given to follow_new_path.
     ///
     /// \param[in] map_name
     ///   The name of the reference map where the robot is located.
