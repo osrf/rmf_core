@@ -230,7 +230,17 @@ void EasyTrafficLight::Implementation::deadlock(std::vector<Blocker> blockers)
 void EasyTrafficLight::Implementation::follow_new_path(
     const std::vector<Waypoint>& new_path)
 {
+  clear();
   current_path = new_path;
+  current_checkpoints.resize(new_path.size()-1);
+
+  current_version = update_handle->follow_new_path(new_path);
+}
+
+//==============================================================================
+void EasyTrafficLight::Implementation::clear()
+{
+  current_path.clear();
   last_received_checkpoints.reset();
   last_received_stop_info.reset();
   wait_until->reset();
@@ -239,11 +249,7 @@ void EasyTrafficLight::Implementation::follow_new_path(
   on_standby = nullptr;
   last_departed_checkpoint.reset();
   last_reached = 0;
-
   current_checkpoints.clear();
-  current_checkpoints.resize(new_path.size()-1);
-
-  current_version = update_handle->follow_new_path(new_path);
 }
 
 //==============================================================================
@@ -564,6 +570,10 @@ EasyTrafficLight& EasyTrafficLight::update_idle_location(
   std::string map_name,
   Eigen::Vector3d position)
 {
+  auto lock = _pimpl->lock();
+  if (!_pimpl->current_path.empty())
+    _pimpl->clear();
+
   _pimpl->update_handle->update_idle_location(std::move(map_name), position);
   return *this;
 }
