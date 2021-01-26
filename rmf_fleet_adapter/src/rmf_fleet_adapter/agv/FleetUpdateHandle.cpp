@@ -873,9 +873,6 @@ auto FleetUpdateHandle::Implementation::allocate_tasks(
       pending_requests.end(), requests.begin(), requests.end());
   }
 
-  if (pending_requests.empty())
-    return std::nullopt;
-
   // Remove the request to be ignored if present
   if (ignore_request)
   {
