@@ -746,6 +746,7 @@ public:
 
   std::shared_ptr<Configuration> config;
   std::shared_ptr<EstimateCache> estimate_cache;
+  const double priority_penalty = 1000;
 
   ConstRequestPtr make_charging_request(rmf_traffic::Time start_time)
   {
@@ -930,9 +931,20 @@ public:
     return queue.compute_cost();
   }
 
+  bool valid_assignment_priority(const Node& n)
+  {
+    return true;
+  }
+
   double compute_f(const Node& n, const rmf_traffic::Time time_now)
   {
-    return compute_g(n) + compute_h(n, time_now);
+    const double g = compute_g(n);
+    const double h = compute_h(n, time_now);
+
+    if (!valid_assignment_priority(n))
+      return priority_penalty * (g + h);
+    
+    return g + h;
   }
 
   ConstNodePtr make_initial_node(
