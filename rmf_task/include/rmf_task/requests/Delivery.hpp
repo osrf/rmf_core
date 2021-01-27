@@ -56,9 +56,12 @@ public:
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     rmf_traffic::Time start_time,
-    bool drain_battery = true);
+    bool drain_battery = true,
+    bool priority = false);
 
   std::string id() const final;
+
+  bool priority() const final;
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,

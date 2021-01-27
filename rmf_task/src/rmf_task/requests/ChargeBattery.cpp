@@ -57,6 +57,7 @@ public:
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
   rmf_traffic::Time start_time;
   bool drain_battery;
+  bool priority;
 
   // soc to always charge the battery up to
   double charge_soc = 1.0;
@@ -70,7 +71,8 @@ rmf_task::ConstRequestPtr ChargeBattery::make(
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
-  bool drain_battery)
+  bool drain_battery,
+  bool priority)
 {
   std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery());
   charge_battery->_pimpl->id += generate_uuid();
@@ -81,6 +83,7 @@ rmf_task::ConstRequestPtr ChargeBattery::make(
   charge_battery->_pimpl->planner = std::move(planner);
   charge_battery->_pimpl->start_time = start_time;
   charge_battery->_pimpl->drain_battery = drain_battery;
+  charge_battery->_pimpl->priority = priority;
   charge_battery->_pimpl->invariant_duration =
     rmf_traffic::time::from_seconds(0.0);
   return charge_battery;
@@ -95,6 +98,12 @@ ChargeBattery::ChargeBattery()
 std::string ChargeBattery::id() const
 {
   return _pimpl->id;
+}
+
+//==============================================================================
+bool ChargeBattery::priority() const
+{
+  return _pimpl->priority;
 }
 
 //==============================================================================

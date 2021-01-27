@@ -39,6 +39,9 @@ public:
   /// Get the id of the task
   virtual std::string id() const = 0;
 
+  /// Get the priority of the task. High priority tasks should return true.
+  virtual bool priority() const = 0;
+
   /// Estimate the state of the robot when the task is finished along with the
   /// time the robot has to wait before commencing the task
   virtual rmf_utils::optional<Estimate> estimate_finish(

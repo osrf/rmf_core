@@ -39,8 +39,9 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  bool drain_battery;
   rmf_traffic::Time start_time;
+  bool drain_battery;
+  bool priority;
 
   rmf_traffic::Duration invariant_duration;
   double invariant_battery_drain;
@@ -58,7 +59,8 @@ rmf_task::ConstRequestPtr Delivery::make(
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
-  bool drain_battery)
+  bool drain_battery,
+  bool priority)
 {
   std::shared_ptr<Delivery> delivery(new Delivery());
   delivery->_pimpl->id = id;
@@ -70,8 +72,9 @@ rmf_task::ConstRequestPtr Delivery::make(
   delivery->_pimpl->motion_sink = std::move(motion_sink);
   delivery->_pimpl->device_sink = std::move(device_sink);
   delivery->_pimpl->planner = std::move(planner);
-  delivery->_pimpl->drain_battery = drain_battery;
   delivery->_pimpl->start_time = start_time;
+  delivery->_pimpl->drain_battery = drain_battery;
+  delivery->_pimpl->priority = priority;
 
   // Calculate duration of invariant component of task
   delivery->_pimpl->invariant_duration = rmf_traffic::Duration{0};
@@ -122,6 +125,12 @@ Delivery::Delivery()
 std::string Delivery::id() const
 {
   return _pimpl->id;
+}
+
+//==============================================================================
+bool Delivery::priority() const
+{
+  return _pimpl->priority;
 }
 
 //==============================================================================

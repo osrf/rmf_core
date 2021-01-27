@@ -35,8 +35,9 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  bool drain_battery;
   rmf_traffic::Time start_time;
+  bool drain_battery;
+  bool priority;
 
   rmf_traffic::Duration invariant_duration;
   double invariant_battery_drain;
@@ -52,7 +53,8 @@ ConstRequestPtr Loop::make(
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
-  bool drain_battery)
+  bool drain_battery,
+  bool priority)
 {
   std::shared_ptr<Loop> loop(new Loop());
   loop->_pimpl->id = id;
@@ -62,8 +64,9 @@ ConstRequestPtr Loop::make(
   loop->_pimpl->motion_sink = std::move(motion_sink);
   loop->_pimpl->ambient_sink = std::move(ambient_sink);
   loop->_pimpl->planner = std::move(planner);
-  loop->_pimpl->drain_battery = drain_battery;
   loop->_pimpl->start_time = start_time;
+  loop->_pimpl->drain_battery = drain_battery;
+  loop->_pimpl->priority = priority;
 
   // Calculate the invariant duration and battery drain for this task
   loop->_pimpl->invariant_duration = rmf_traffic::Duration{0};
@@ -124,6 +127,12 @@ Loop::Loop()
 std::string Loop::id() const
 {
   return _pimpl->id;
+}
+
+//==============================================================================
+bool Loop::priority() const
+{
+  return _pimpl->priority;
 }
 
 //==============================================================================

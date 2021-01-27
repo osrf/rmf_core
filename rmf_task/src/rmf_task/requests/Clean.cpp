@@ -38,8 +38,9 @@ public:
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  bool drain_battery;
   rmf_traffic::Time start_time;
+  bool drain_battery;
+  bool priority;
 
   rmf_traffic::Duration invariant_duration;
   double invariant_battery_drain;
@@ -56,7 +57,8 @@ rmf_task::ConstRequestPtr Clean::make(
   std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
-  bool drain_battery)
+  bool drain_battery,
+  bool priority)
 {
   std::shared_ptr<Clean> clean(new Clean());
   clean->_pimpl->id = id;
@@ -67,8 +69,9 @@ rmf_task::ConstRequestPtr Clean::make(
   clean->_pimpl->ambient_sink = std::move(ambient_sink);
   clean->_pimpl->cleaning_sink = std::move(cleaning_sink);
   clean->_pimpl->planner = std::move(planner);
-  clean->_pimpl->drain_battery = drain_battery;
   clean->_pimpl->start_time = start_time;
+  clean->_pimpl->drain_battery = drain_battery;
+  clean->_pimpl->priority = priority;
 
   // Calculate duration of invariant component of task
   const auto& cleaning_start_time = cleaning_path.begin()->time();
@@ -105,6 +108,12 @@ Clean::Clean()
 std::string Clean::id() const
 {
   return _pimpl->id;
+}
+
+//==============================================================================
+bool Clean::priority() const
+{
+  return _pimpl->priority;
 }
 
 //==============================================================================
