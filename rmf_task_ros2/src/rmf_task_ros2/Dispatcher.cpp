@@ -203,7 +203,11 @@ public:
     // check if key exists
     const auto it = active_dispatch_tasks.find(task_id);
     if (it == active_dispatch_tasks.end())
+    {
+      RCLCPP_ERROR(node->get_logger(),
+        "Task [%s] is not found in active_tasks", task_id.c_str());
       return false;
+    }
 
     RCLCPP_WARN(node->get_logger(), "Cancel task: [%s]", task_id.c_str());
 
@@ -218,6 +222,42 @@ public:
         on_change_fn(cancel_task_status);
 
       return true;
+    }
+
+    // Charging task doesnt support cancel task
+    if (cancel_task_status->task_profile.description.task_type.type ==
+      rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY)
+    {
+      RCLCPP_ERROR(node->get_logger(), "Charging task is not cancelled-able");
+      return false;
+    }
+
+    // Curently cancel can only work on Queued Task in Fleet Adapter
+    if (cancel_task_status->state != TaskStatus::State::Queued)
+    {
+      RCLCPP_ERROR(node->get_logger(),
+        "Unable to cancel task [%s] as it is not a Queued Task",
+        task_id.c_str());
+      return false;
+    }
+
+    // Remove previous self-generated charging task from "active_dispatch_tasks"
+    // this is to prevent duplicated charging task (as certain queued charging
+    // tasks are not terminated when task is reassigned).
+    // TODO: a better way to impl this
+    for (auto it = active_dispatch_tasks.begin();
+      it != active_dispatch_tasks.end(); )
+    {
+      const auto type = it->second->task_profile.description.task_type.type;
+      const bool is_fleet_name =
+        (cancel_task_status->fleet_name == it->second->fleet_name);
+      const bool is_charging_task =
+        (type == rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY);
+
+      if (is_charging_task && is_fleet_name)
+        it = active_dispatch_tasks.erase(it);
+      else
+        ++it;
     }
 
     // Cancel action task, this will only send a cancel to FA. up to
@@ -294,9 +334,6 @@ public:
       winner->fleet_name,
       pending_task_status->task_profile,
       pending_task_status);
-
-    // Note: this might be untrue since task might be ignored by server
-    pending_task_status->state = TaskStatus::State::Queued;
   }
 
   void terminate_task(const TaskStatusPtr terminate_status)
