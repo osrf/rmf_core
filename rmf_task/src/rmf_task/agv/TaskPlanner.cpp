@@ -388,15 +388,13 @@ public:
 
   rmf_task::ConstRequestPtr request;
   Candidates candidates;
-  rmf_traffic::Time earliest_start_time;
 
 private:
   PendingTask(
       rmf_task::ConstRequestPtr request_,
       Candidates candidates_)
     : request(std::move(request_)),
-      candidates(candidates_),
-      earliest_start_time(request->earliest_start_time())
+      candidates(candidates_)
   {
     // Do nothing
   }
@@ -460,7 +458,7 @@ struct Node
     for (const auto& u : unassigned_tasks)
     {
       double earliest_start_time = rmf_traffic::time::to_seconds(
-        u.second.earliest_start_time.time_since_epoch());
+        u.second.request->earliest_start_time().time_since_epoch());
       double earliest_finish_time = earliest_start_time
         + rmf_traffic::time::to_seconds(u.second.request->invariant_duration());
 
