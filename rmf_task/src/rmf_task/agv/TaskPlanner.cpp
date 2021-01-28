@@ -358,9 +358,7 @@ std::shared_ptr<Candidates> Candidates::make(
         else
           error = TaskPlanner::TaskPlannerError::low_battery;
       }
-      
     }
-    
   }
 
   if (initial_map.empty())
@@ -931,6 +929,28 @@ public:
 
   bool valid_assignment_priority(const Node& n)
   {
+    const auto& assignments = n.assigned_tasks;
+    for (const auto& agent : assignments)
+    {
+      if (agent.empty())
+        continue;
+      
+      auto it = agent.begin();
+      bool prev_priority = it->assignment.request()->priority();
+      ++it;
+      for (; it != agent.end(); ++it)
+      {
+        if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+          it->assignment.request()))
+          continue;
+        bool curr_priority = it->assignment.request()->priority();
+        if ((curr_priority != prev_priority) && (curr_priority == true))
+          return false;
+
+        prev_priority = curr_priority;
+      }
+    }
+
     return true;
   }
 

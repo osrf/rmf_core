@@ -922,4 +922,126 @@ SCENARIO("Grid World")
     CHECK(*error == TaskPlanner::TaskPlannerError::low_battery);
   }
 
+  WHEN("Planning with mixed priority")
+  {
+
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 13, 1.0},
+    };
+
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+    {
+      rmf_task::agv::Constraints{0.2},
+    };
+
+    std::vector<rmf_task::ConstRequestPtr> requests =
+    {
+      rmf_task::requests::Delivery::make(
+        "1",
+        0,
+        "dispenser",
+        3,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        "2",
+        15,
+        "dispenser",
+        2,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        "3",
+        7,
+        "dispenser",
+        9,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery)
+    };
+
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    TaskPlanner task_planner(task_config);
+
+    auto start_time = std::chrono::steady_clock::now();
+    const auto optimal_result = task_planner.optimal_plan(
+      now, initial_states, task_planning_constraints, requests, nullptr);
+    const auto optimal_assignments_ptr = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    REQUIRE(optimal_assignments_ptr);
+    const auto& optimal_assignments = *optimal_assignments_ptr;
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+    std::cout << "Optimal solution found in: "
+             << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Optimal", optimal_assignments, optimal_cost);
+
+    // We expect request with task_id:3 to be at the back of the assignment queue
+    CHECK(optimal_assignments.front().back().request()->id() == "3");
+
+    THEN("When replanning with high priority for request with task_id:3")
+    {
+      requests[2] = rmf_task::requests::Delivery::make(
+        "3",
+        7,
+        "dispenser",
+        9,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery,
+        true);
+    }
+
+    // Reset the planner cache
+    task_planner = TaskPlanner(task_config);
+    start_time = std::chrono::steady_clock::now();
+    const auto new_optimal_result = task_planner.optimal_plan(
+      now, initial_states, task_planning_constraints, requests, nullptr);
+    const auto new_optimal_assignments_ptr = std::get_if<
+      TaskPlanner::Assignments>(&new_optimal_result);
+    REQUIRE(new_optimal_assignments_ptr);
+    const auto& new_optimal_assignments = *new_optimal_assignments_ptr;
+    const double new_optimal_cost = task_planner.compute_cost(
+      new_optimal_assignments);
+    finish_time = std::chrono::steady_clock::now();
+    std::cout << "Optimal solution found in: "
+             << (finish_time - start_time).count() / 1e9 << std::endl;
+    display_solution("Optimal", new_optimal_assignments, new_optimal_cost);
+
+    // We expect request with task_id:3 to be at the front of the assignment queue
+    CHECK(new_optimal_assignments.front().front().request()->id() == "3");
+  }
+
 }
