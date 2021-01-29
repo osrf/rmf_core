@@ -47,6 +47,7 @@ public:
 
   StatusCallback on_change_fn;
 
+  std::queue<bidding::BidNotice> queue_bidding_tasks;
   DispatchTasks active_dispatch_tasks;
   DispatchTasks terminal_dispatch_tasks;
   std::size_t task_counter = 0; // index for generating task_id
@@ -180,6 +181,9 @@ public:
     submitted_task.task_id =
       task_type_name[task_type] + std::to_string(task_counter++);
 
+    RCLCPP_INFO(node->get_logger(),
+      "Received Task Submission [%s]", submitted_task.task_id);
+
     // add task to internal cache
     TaskStatus status;
     status.task_profile = submitted_task;
@@ -193,7 +197,10 @@ public:
     bid_notice.task_profile = submitted_task;
     bid_notice.time_window = rmf_traffic_ros2::convert(
       rmf_traffic::time::from_seconds(bidding_time_window));
-    auctioneer->start_bidding(bid_notice);
+    queue_bidding_tasks.push(bid_notice);
+
+    if (queue_bidding_tasks.size() == 1)
+      auctioneer->start_bidding(queue_bidding_tasks.front());
 
     return submitted_task.task_id;
   }
@@ -301,6 +308,9 @@ public:
       if (on_change_fn)
         on_change_fn(pending_task_status);
 
+      queue_bidding_tasks.pop();
+      if (!queue_bidding_tasks.empty())
+        auctioneer->start_bidding(queue_bidding_tasks.front());
       return;
     }
 
@@ -377,6 +387,16 @@ public:
       active_dispatch_tasks[id] = status;
       RCLCPP_WARN(node->get_logger(),
         "Add previously unheard task: [%s]", id.c_str());
+    }
+
+    // check if there's a change in state for the previous completed bidding task
+    // TODO, better way to impl this
+    if (!queue_bidding_tasks.empty()
+      && id == queue_bidding_tasks.front().task_profile.task_id)
+    {
+      queue_bidding_tasks.pop();
+      if (!queue_bidding_tasks.empty())
+        auctioneer->start_bidding(queue_bidding_tasks.front());
     }
 
     if (on_change_fn)
