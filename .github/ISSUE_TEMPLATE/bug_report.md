@@ -9,7 +9,7 @@ assignees: ''
 
 <!--
 This form is strictly for reporting bugs.
-For technical help or general questions, please use the Discussions tab on https://github.com/osrf/rmf_core
+For technical help or general questions, please use the Discussions tab at https://github.com/osrf/rmf_core/discussions
 -->
 
 **Describe the bug**
