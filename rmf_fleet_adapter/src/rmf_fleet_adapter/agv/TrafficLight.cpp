@@ -153,7 +153,8 @@ public:
       std::size_t plan_version,
       const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
       Eigen::Vector3d location,
-      std::size_t checkpoint_index);
+      std::size_t checkpoint_index,
+      const std::size_t line);
 
   void update_stopped_location(
       std::size_t version,
@@ -429,11 +430,11 @@ rmf_utils::optional<rmf_traffic::Time> linear_interpolate_time(
 {
   const Eigen::Vector2d p0 = wp0.position().block<2,1>(0,0);
   const Eigen::Vector2d p1 = wp1.position().block<2,1>(0,0);
-  if ((p1 - p0).dot(p - p0) < 0)
-    return rmf_utils::nullopt;
+//  if ((p1 - p0).dot(p - p0) < 0)
+//    return rmf_utils::nullopt;
 
-  if ((p1 - p0).dot(p1 - p) < 0)
-    return rmf_utils::nullopt;
+//  if ((p1 - p0).dot(p1 - p) < 0)
+//    return rmf_utils::nullopt;
 
   const double v = wp0.velocity().block<2,1>(0,0).norm();
   assert(std::abs(v - wp1.velocity().block<2,1>(0,0).norm()) < 1e-2);
@@ -555,7 +556,7 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
     const auto gi_0 = wp0.graph_index();
     const auto gi_1 = wp1.graph_index();
 
-    if (gi_1 && (!gi_0 || (*gi_0 != *gi_1)))
+    if (gi_1.has_value() && (!gi_0.has_value() || (*gi_0 != *gi_1)))
     {
       // Check if the robot is traversing a lane
       const Eigen::Vector2d p0 = wp0.position().block<2,1>(0,0);
@@ -578,8 +579,15 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
 
       // If the vehicle is behind the lane then we should recompute the timing
       // information.
+//      if (traversal < 0.0)
+//        return rmf_utils::nullopt;
+
+      // If the vehicle is behind the lane then we should project the lane
+      // backwards to meet it
       if (traversal < 0.0)
-        return rmf_utils::nullopt;
+      {
+        return linear_interpolate_time(wp0, wp1, location.block<2,1>(0,0));
+      }
 
       try
       {
@@ -1000,7 +1008,8 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
         data->approve(path_version, plan_version);
         data->update_location(
               path_version, plan_version,
-              waypoints, location, checkpoint_index);
+              waypoints, location, checkpoint_index,
+              __LINE__);
       }
     };
 
@@ -1104,7 +1113,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     const std::size_t plan_version,
     const std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
     const Eigen::Vector3d location,
-    const std::size_t checkpoint_index)
+    const std::size_t checkpoint_index,
+    const std::size_t line)
 {
   const auto now = rmf_traffic_ros2::convert(node->now());
 
@@ -1115,7 +1125,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
          waypoints,
          location,
          now,
-         checkpoint_index](const auto&)
+         checkpoint_index,
+         line](const auto&)
   {
     const auto data = w.lock();
     if (!data)
@@ -1170,10 +1181,10 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
     RCLCPP_WARN(
       data->node->get_logger(),
       "Failed to compute timing estimate for [%s] owned by [%s] "
-      "moving away from checkpoint index [%d]",
+      "moving away from checkpoint index [%d]. LINE: %d",
       data->itinerary.description().name().c_str(),
       data->itinerary.description().owner().c_str(),
-      checkpoint_index);
+      checkpoint_index, line);
   });
 }
 
@@ -1391,7 +1402,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
         {
           data->update_location(
                 path_version, plan_version,
-                waypoints, location, checkpoint_index);
+                waypoints, location, checkpoint_index,
+                __LINE__);
         }
       };
 
