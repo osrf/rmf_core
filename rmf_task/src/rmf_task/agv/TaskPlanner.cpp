@@ -742,7 +742,7 @@ public:
 
   std::shared_ptr<Configuration> config;
   std::shared_ptr<EstimateCache> estimate_cache;
-  const double priority_penalty = 1000;
+  const double priority_penalty = 10000;
 
   ConstRequestPtr make_charging_request(rmf_traffic::Time start_time)
   {
@@ -816,6 +816,17 @@ public:
         return {};
 
       assert(complete_assignments.size() == node->assigned_tasks.size());
+      // std::size_t agent_count = 0;
+      // std::cout << "Assignments from winning node: " << std::endl;
+      // for (const auto& agent : node ->assigned_tasks)
+      // {
+      //   std::cout << "Agent: " << agent_count << std::endl;
+      //   for (const auto& a : agent)
+      //   {
+      //     std::cout << "--" << a.assignment.request()->id() << std::endl;
+      //   }
+      //   agent_count++;
+      // }
       for (std::size_t i = 0; i < complete_assignments.size(); ++i)
       {
         auto& all_assignments = complete_assignments[i];
@@ -936,6 +947,15 @@ public:
         continue;
       
       auto it = agent.begin();
+      // We update the iterator such that the first assignment is a non-charging task
+      while (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+        it->assignment.request()))
+      {
+        ++it;
+        if (it == agent.end())
+          return true;
+      } 
+
       bool prev_priority = it->assignment.request()->priority();
       ++it;
       for (; it != agent.end(); ++it)
@@ -1354,7 +1374,7 @@ public:
     {
       if (auto new_node = expand_charger(
         parent, i, initial_states, constraints_set, time_now))
-        new_nodes.push_back(new_node);
+        new_nodes.push_back(std::move(new_node));
     }
 
     return new_nodes;

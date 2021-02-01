@@ -1189,7 +1189,7 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        now + rmf_traffic::time::from_seconds(1000000),
+        now + rmf_traffic::time::from_seconds(100000),
         drain_battery),
 
       rmf_task::requests::Delivery::make(
@@ -1202,7 +1202,7 @@ SCENARIO("Grid World")
         motion_sink,
         device_sink,
         planner,
-        now + rmf_traffic::time::from_seconds(1000000),
+        now + rmf_traffic::time::from_seconds(100000),
         drain_battery,
         true)  
     };
