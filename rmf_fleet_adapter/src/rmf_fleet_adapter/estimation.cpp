@@ -143,8 +143,11 @@ void estimate_midlane_state(
       const double p_l_projection = p_l.dot(pn);
       const double lane_dist = (p_l - p_l_projection*pn).norm();
 
+      //if (0.0 <= p_l_projection && p_l_projection <= lane_length
+          //&& lane_dist < 2.0)
+          // reducing lane skip probability
       if (0.0 <= p_l_projection && p_l_projection <= lane_length
-          && lane_dist < 2.0)
+          && lane_dist < 0.5)
       {
         lane_start = *info.last_known_wp;
       }
@@ -250,7 +253,9 @@ void estimate_state(
     return;
   }
 
-  info.updater->update_position(last_known_map, {l.x, l.y, l.yaw});
+  //info.updater->update_position(last_known_map, {l.x, l.y, l.yaw});
+  // reducing merging skip probability
+  info.updater->update_position(last_known_map, {l.x, l.y, l.yaw}, 0.1, 0.5);
 }
 
 //==============================================================================
