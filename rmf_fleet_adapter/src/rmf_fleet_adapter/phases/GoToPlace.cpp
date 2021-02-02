@@ -91,6 +91,11 @@ void GoToPlace::Active::respond(
   const TableViewerPtr& table_viewer,
   const ResponderPtr& responder)
 {
+  std::cout << " ^^ Responding to";
+  for (const auto& s : table_viewer->sequence())
+    std::cout << " " << s.participant << ":" << s.version;
+  std::cout << " ^^ " << std::endl;
+
   if (_subtasks)
   {
     if (dynamic_cast<DockRobot::ActivePhase*>(_subtasks->current_phase().get()))

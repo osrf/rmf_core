@@ -197,6 +197,14 @@ void EasyTrafficLight::Implementation::resume(std::size_t version)
   if (version != current_version)
     return;
 
+  if (last_received_stop_info.has_value())
+  {
+    resume_info = ResumeInfo {
+      last_reached,
+      last_received_stop_info.value().departed
+    };
+  }
+
   last_received_stop_info.reset();
   wait_timer->reset();
   wait_until->reset();
@@ -255,9 +263,15 @@ void EasyTrafficLight::Implementation::clear()
 //==============================================================================
 void EasyTrafficLight::Implementation::accept_new_checkpoints()
 {
+  std::cout << "Accepting new checkpoints:";
   assert(last_received_checkpoints.has_value());
   for (const auto& c : last_received_checkpoints.value().checkpoints)
+  {
+    std::cout << " " << c.waypoint_index << "(" << c.departure_time.seconds()
+              << ")";
     current_checkpoints.at(c.waypoint_index) = c;
+  }
+  std::cout << std::endl;
 
   standby_at = last_received_checkpoints.value().standby_at;
   on_standby = last_received_checkpoints.value().on_standby;
@@ -381,11 +395,14 @@ auto EasyTrafficLight::Implementation::handle_new_checkpoints_waiting(
   const auto new_standby_at = last_received_checkpoints.value().standby_at;
   if (last_departed_checkpoint.has_value())
   {
+    std::cout << " *** " << __LINE__ << std::endl;
     if (new_standby_at <= last_departed_checkpoint.value())
     {
+      std::cout << " *** " << __LINE__ << std::endl;
       auto& reject = last_received_checkpoints.value().reject;
       if (reject)
       {
+        std::cout << " *** " << __LINE__ << std::endl;
         reject(last_departed_checkpoint.value(), location);
         reject = nullptr;
       }
@@ -394,6 +411,7 @@ auto EasyTrafficLight::Implementation::handle_new_checkpoints_waiting(
     }
   }
 
+  std::cout << " *** " << __LINE__ << std::endl;
   accept_new_checkpoints();
   return std::nullopt;
 }
@@ -406,8 +424,10 @@ auto EasyTrafficLight::Implementation::handle_immediate_stop(
 {
   if (last_received_stop_info.has_value())
   {
+    std::cout << " *** " << __LINE__ << " | " << departed_checkpoint << std::endl;
     if (last_received_stop_info.value().stopped_at)
     {
+      std::cout << " *** " << __LINE__ << std::endl;
       last_received_stop_info.value().stopped_at(location);
 
       resume_info = ResumeInfo {
@@ -418,12 +438,25 @@ auto EasyTrafficLight::Implementation::handle_immediate_stop(
       last_received_stop_info.value().stopped_at = nullptr;
     }
 
-    if (now <= last_received_stop_info.value().time)
+//    if (now <= last_received_stop_info.value().time)
+    if (last_received_stop_info.value().time <= now)
     {
+      std::cout << " *** " << __LINE__ << std::endl;
+
+      resume_info = ResumeInfo {
+          departed_checkpoint,
+          last_received_stop_info.value().departed
+      };
+
       last_received_stop_info.reset();
-      return WaitingInstruction::Resume;
+
+      // Let the parent function decide whether it is ready to go
+      return std::nullopt;
     }
 
+    std::cout << " *** " << __LINE__ << " | "
+              << last_received_stop_info.value().time.seconds()
+              << " vs " << now.seconds() << std::endl;
     return WaitingInstruction::Wait;
   }
 
@@ -444,6 +477,8 @@ auto EasyTrafficLight::Implementation::waiting_at(
     return WaitingInstruction::WaitingError;
   }
 
+  std::cout << " ** Waiting at " << checkpoint << std::endl;
+
   last_reached = std::max(last_reached, checkpoint);
 
   const auto location = current_path.at(checkpoint).position();
@@ -453,17 +488,25 @@ auto EasyTrafficLight::Implementation::waiting_at(
   const auto new_checkpoints_instruction =
       handle_new_checkpoints_waiting(departed_checkpoint, location);
   if (new_checkpoints_instruction.has_value())
+  {
+    std::cout << " ** " << __LINE__ << std::endl;
     return new_checkpoints_instruction.value();
+  }
 
   const auto now = node->now();
   const auto immediate_stop_instruction = handle_immediate_stop(
         last_departed_checkpoint.value_or(0), location, now);
 
+  std::cout << " ** " << __LINE__ << std::endl;
   if (immediate_stop_instruction.has_value())
+  {
+    std::cout << " ** " << __LINE__ << std::endl;
     return immediate_stop_instruction.value();
+  }
 
   if (checkpoint > standby_at)
   {
+    std::cout << " ** " << __LINE__ << std::endl;
     RCLCPP_WARN(
       node->get_logger(),
       "[EasyTrafficLight::waiting_at] [%s] owned by [%s] is waiting at "
@@ -473,10 +516,15 @@ auto EasyTrafficLight::Implementation::waiting_at(
     return WaitingInstruction::WaitingError;
   }
 
+
+  std::cout << " ** " << __LINE__ << std::endl;
   if (checkpoint == standby_at)
   {
+    std::cout << " ** " << __LINE__ << std::endl;
     if (on_standby)
     {
+
+      std::cout << " ** " << __LINE__ << std::endl;
       on_standby();
       on_standby = nullptr;
     }
@@ -484,6 +532,8 @@ auto EasyTrafficLight::Implementation::waiting_at(
     return WaitingInstruction::Wait;
   }
 
+
+  std::cout << " ** " << __LINE__ << std::endl;
   return WaitingInstruction::Resume;
 }
 
@@ -502,31 +552,43 @@ auto EasyTrafficLight::Implementation::waiting_after(
     return WaitingInstruction::WaitingError;
   }
 
+  std::cout << " **** Waiting after " << checkpoint << std::endl;
   last_reached = std::max(last_reached, checkpoint);
 
+  std::cout << " **** " << __LINE__ << std::endl;
   const auto new_checkpoints_instruction =
       handle_new_checkpoints_waiting(checkpoint, location);
   if (new_checkpoints_instruction.has_value())
+  {
+    std::cout << " **** " << __LINE__ << std::endl;
     return new_checkpoints_instruction.value();
+  }
 
+  std::cout << " **** " << __LINE__ << std::endl;
   const auto now = node->now();
   const auto immediate_stop_instruction =
       handle_immediate_stop(checkpoint, location, now);
 
   if (immediate_stop_instruction.has_value())
+  {
+    std::cout << " **** " << __LINE__ << std::endl;
     return immediate_stop_instruction.value();
+  }
 
+  std::cout << " **** " << __LINE__ << std::endl;
   if (checkpoint >= standby_at)
   {
+    std::cout << " **** " << __LINE__ << std::endl;
     RCLCPP_WARN(
       node->get_logger(),
       "[EasyTrafficLight::waiting_after] [%s] owned by [%s] waiting after "
       "passing checkpoint [%u] but the robot was supposed to standby at "
       "checkpoint [%u]",
-      checkpoint, standby_at);
+      name.c_str(), owner.c_str(), checkpoint, standby_at);
     return WaitingInstruction::WaitingError;
   }
 
+  std::cout << " **** " << __LINE__ << std::endl;
   return WaitingInstruction::Resume;
 }
 

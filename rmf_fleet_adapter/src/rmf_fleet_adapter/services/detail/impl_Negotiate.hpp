@@ -92,10 +92,30 @@ void Negotiate::operator()(const Subscriber& s)
               final_itinerary.reserve(
                   initial_itinerary.size() + r->get_itinerary().size());
 
+              if (!initial_itinerary.empty())
+              {
+                const auto& wp0 = initial_itinerary.front().trajectory().front();
+                const auto& wp1 = initial_itinerary.back().trajectory().back();
+                std::cout << "Initial itinerary for negotiated plan: ("
+                    << rmf_traffic::time::to_seconds(wp0.time().time_since_epoch())
+                    << "; " << wp0.position().transpose() << ") -> ("
+                    << rmf_traffic::time::to_seconds(wp1.time().time_since_epoch())
+                    << "; " << wp1.position().transpose() << ")" << std::endl;
+              }
+              else
+              {
+                std::cout << "NO INITIAL ITINERARY" << std::endl;
+              }
+
               for (const auto& it : {initial_itinerary, r->get_itinerary()})
               {
                 for (const auto& route : it)
-                  final_itinerary.push_back(route);
+                {
+                  if (route.trajectory().size() > 1)
+                    final_itinerary.push_back(route);
+                  else
+                    std::cout << " !!!! SUBMITTING INVALID ROUTE [" << route.trajectory().size() << "]" << std::endl;
+                }
               }
 
               responder->submit(
