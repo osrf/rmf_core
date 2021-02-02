@@ -18,6 +18,7 @@
 #include <string>
 #include <sstream>
 #include <random>
+#include <iostream>
 
 #include <rmf_task/requests/ChargeBattery.hpp>
 
@@ -120,7 +121,10 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
   // returning.
   if ((abs(initial_state.battery_soc() - _pimpl->charge_soc) < 1e-3)
     && initial_state.waypoint() == initial_state.charging_waypoint())
+  {
+    std::cout << "Here battery 1" << std::endl;
     return rmf_utils::nullopt;
+  }
 
   // Compute time taken to reach charging waypoint from current location
   rmf_traffic::agv::Plan::Start final_plan_start{
@@ -183,7 +187,10 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
 
     // If a robot cannot reach its charging dock given its initial battery soc
     if (battery_soc <= task_planning_constraints.threshold_soc())
+    {
+      std::cout << "Here battery 2" << std::endl;
       return rmf_utils::nullopt;
+    }
   }
 
   // Default _charge_soc = 1.0

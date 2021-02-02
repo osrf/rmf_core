@@ -19,6 +19,8 @@
 
 #include <rmf_task/requests/Delivery.hpp>
 
+#include <iostream>
+
 namespace rmf_task {
 namespace requests {
 
@@ -216,6 +218,7 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
   if (_pimpl->drain_battery && wait_until > initial_state.finish_time() &&
     initial_state.waypoint() != initial_state.charging_waypoint())
   {
+    std::cout << "Here 1" << std::endl;
     rmf_traffic::Duration wait_duration(wait_until - initial_state.finish_time());
     dSOC_device = _pimpl->device_sink->compute_change_in_charge(
       rmf_traffic::time::to_seconds(wait_duration));
@@ -223,8 +226,11 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
 
     if (battery_soc <= task_planning_constraints.threshold_soc())
     {
+      std::cout << "Here 2" << std::endl;
       return rmf_utils::nullopt;
     }
+
+    std::cout << "Here 3" << std::endl;
   }
 
   // Factor in invariants

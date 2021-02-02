@@ -170,967 +170,967 @@ SCENARIO("Grid World")
   std::shared_ptr<SimpleDevicePowerSink> device_sink =
     std::make_shared<SimpleDevicePowerSink>(battery_system, power_system_processor);
 
-  WHEN("Planning for 3 requests and 2 agents")
-  {
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
-
-    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
-
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 13, 1.0},
-      rmf_task::agv::State{second_location, 2, 1.0}
-    };
-
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-      rmf_task::agv::Constraints{0.2}
-    };
-
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Delivery::make(
-        "1",
-        0,
-        "dispenser",
-        3,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "2",
-        15,
-        "dispenser",
-        2,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "3",
-        7,
-        "dispenser",
-        9,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery)
-    };
-
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
-
-    auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, task_planning_constraints, requests);
-    const auto greedy_assignments = std::get_if<
-      TaskPlanner::Assignments>(&greedy_result);
-    REQUIRE(greedy_assignments);
-    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
-    auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
-
-    // Create new TaskPlanner to reset cache so that measured run times
-    // remain independent of one another
-    task_planner = TaskPlanner(task_config);
-    start_time = std::chrono::steady_clock::now();
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
-    finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
-
-    REQUIRE(optimal_cost <= greedy_cost);
-  }
-
-  WHEN("Planning for 11 requests and 2 agents")
-  {
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
-
-    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
-
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 13, 1.0},
-      rmf_task::agv::State{second_location, 2, 1.0}
-    };
-
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-      rmf_task::agv::Constraints{0.2}
-    };
-
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Delivery::make(
-        "1",
-        0,
-        "dispenser",
-        3,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "2",
-        15,
-        "dispenser",
-        2,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "3",
-        7,
-        "dispenser",
-        9,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "4",
-        8,
-        "dispenser",
-        11,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(50000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "5",
-        10,
-        "dispenser",
-        0,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(50000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "6",
-        4,
-        "dispenser",
-        8,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(60000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "7",
-        8,
-        "dispenser",
-        14,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(60000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "8",
-        5,
-        "dispenser",
-        11,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(60000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "9",
-        9,
-        "dispenser",
-        0,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(60000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "10",
-        1,
-        "dispenser",
-        3,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(60000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "11",
-        0,
-        "dispenser",
-        12,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(60000),
-        drain_battery)
-    };
-
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
-
-    auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, task_planning_constraints, requests);
-    const auto greedy_assignments = std::get_if<
-      TaskPlanner::Assignments>(&greedy_result);
-    REQUIRE(greedy_assignments);
-    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
-    auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
-
-    // Create new TaskPlanner to reset cache so that measured run times
-    // remain independent of one another
-    task_planner = TaskPlanner(task_config);
-    start_time = std::chrono::steady_clock::now();
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
-    finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
-
-    REQUIRE(optimal_cost <= greedy_cost);
-  }
-
-  WHEN("Initial charge is low")
-  {
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
-    const double initial_soc = 0.3;
-
-    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
-
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 13, initial_soc},
-      rmf_task::agv::State{second_location, 2, initial_soc}
-    };
-
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-      rmf_task::agv::Constraints{0.2}
-    };
-
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Delivery::make(
-        "1",
-        0,
-        "dispenser",
-        3,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "2",
-        15,
-        "dispenser",
-        2,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "3",
-        9,
-        "dispenser",
-        4,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "4",
-        8,
-        "dispenser",
-        11,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(50000),
-        drain_battery)
-    };
-
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
-
-    auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, task_planning_constraints, requests);
-    const auto greedy_assignments = std::get_if<
-      TaskPlanner::Assignments>(&greedy_result);
-    REQUIRE(greedy_assignments);
-    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
-    auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
-
-    // Create new TaskPlanner to reset cache so that measured run times
-    // remain independent of one another
-    task_planner = TaskPlanner(task_config);
-    start_time = std::chrono::steady_clock::now();
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
-    finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
-
-
-    REQUIRE(optimal_cost <= greedy_cost);
-
-    // Checks if Assignments take into account a charging task in the beginning
-    // without explicitly including the task in Assignments.
-    bool implicit_charging_task_added = check_implicit_charging_task_start(
-      *greedy_assignments, initial_soc);
-    REQUIRE(!implicit_charging_task_added);
-
-    implicit_charging_task_added = check_implicit_charging_task_start(
-      *optimal_assignments, initial_soc);
-    REQUIRE(!implicit_charging_task_added);
-  }
-
-  WHEN("Planning for 11 requests and 2 agents no.2")
-  {
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
-
-    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
-
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 9, 1.0},
-      rmf_task::agv::State{second_location, 2, 1.0}
-    };
-
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-      rmf_task::agv::Constraints{0.2}
-    };
-
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Delivery::make(
-        "1",
-        6,
-        "dispenser",
-        3,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "2",
-        10,
-        "dispenser",
-        7,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "3",
-        2,
-        "dispenser",
-        12,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "4",
-        8,
-        "dispenser",
-        11,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(50000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "5",
-        10,
-        "dispenser",
-        6,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(50000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "6",
-        2,
-        "dispenser",
-        9,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(70000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "7",
-        3,
-        "dispenser",
-        4,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(70000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "8",
-        5,
-        "dispenser",
-        11,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(70000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "9",
-        9,
-        "dispenser",
-        1,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(70000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "10",
-        1,
-        "dispenser",
-        5,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(70000),
-        drain_battery),
-
-      rmf_task::requests::Delivery::make(
-        "11",
-        13,
-        "dispenser",
-        10,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(70000),
-        drain_battery)
-    };
-
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
-
-    auto start_time = std::chrono::steady_clock::now();
-    const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, task_planning_constraints, requests);
-    const auto greedy_assignments = std::get_if<
-      TaskPlanner::Assignments>(&greedy_result);
-    REQUIRE(greedy_assignments);
-    const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
-    auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
-
-    // Create new TaskPlanner to reset cache so that measured run times
-    // remain independent of one another
-    task_planner = TaskPlanner(task_config);
-    start_time = std::chrono::steady_clock::now();
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
-    finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
-
-
-    REQUIRE(optimal_cost <= greedy_cost);
-  }
-
-  WHEN("A loop request is impossible to fulfil due to battery capacity")
-  {
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
-
-    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 13, 1.0},
-    };
-
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-    };
-
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Loop::make(
-        "Loop1",
-        0,
-        15,
-        1000,
-        motion_sink,
-        device_sink,
-        planner,
-        now,
-        true)
-    };
-
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
-
-    const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, task_planning_constraints, requests);
-    const auto greedy_assignments = std::get_if<
-      TaskPlanner::Assignments>(&greedy_result);
-    REQUIRE_FALSE(greedy_assignments);
-    auto error = std::get_if<
-      TaskPlanner::TaskPlannerError>(&greedy_result);
-    CHECK(*error == TaskPlanner::TaskPlannerError::limited_capacity);
+  // WHEN("Planning for 3 requests and 2 agents")
+  // {
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
+
+  //   rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+  //   rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 13, 1.0},
+  //     rmf_task::agv::State{second_location, 2, 1.0}
+  //   };
+
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //     rmf_task::agv::Constraints{0.2}
+  //   };
+
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Delivery::make(
+  //       "1",
+  //       0,
+  //       "dispenser",
+  //       3,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "2",
+  //       15,
+  //       "dispenser",
+  //       2,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "3",
+  //       7,
+  //       "dispenser",
+  //       9,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery)
+  //   };
+
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
+
+  //   auto start_time = std::chrono::steady_clock::now();
+  //   const auto greedy_result = task_planner.greedy_plan(
+  //     now, initial_states, task_planning_constraints, requests);
+  //   const auto greedy_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&greedy_result);
+  //   REQUIRE(greedy_assignments);
+  //   const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
+  //   auto finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Greedy solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Greedy", *greedy_assignments, greedy_cost);
+
+  //   // Create new TaskPlanner to reset cache so that measured run times
+  //   // remain independent of one another
+  //   task_planner = TaskPlanner(task_config);
+  //   start_time = std::chrono::steady_clock::now();
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
+  //   finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Optimal solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Optimal", *optimal_assignments, optimal_cost);
+
+  //   REQUIRE(optimal_cost <= greedy_cost);
+  // }
+
+  // WHEN("Planning for 11 requests and 2 agents")
+  // {
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
+
+  //   rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+  //   rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 13, 1.0},
+  //     rmf_task::agv::State{second_location, 2, 1.0}
+  //   };
+
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //     rmf_task::agv::Constraints{0.2}
+  //   };
+
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Delivery::make(
+  //       "1",
+  //       0,
+  //       "dispenser",
+  //       3,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "2",
+  //       15,
+  //       "dispenser",
+  //       2,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "3",
+  //       7,
+  //       "dispenser",
+  //       9,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "4",
+  //       8,
+  //       "dispenser",
+  //       11,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(50000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "5",
+  //       10,
+  //       "dispenser",
+  //       0,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(50000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "6",
+  //       4,
+  //       "dispenser",
+  //       8,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(60000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "7",
+  //       8,
+  //       "dispenser",
+  //       14,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(60000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "8",
+  //       5,
+  //       "dispenser",
+  //       11,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(60000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "9",
+  //       9,
+  //       "dispenser",
+  //       0,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(60000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "10",
+  //       1,
+  //       "dispenser",
+  //       3,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(60000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "11",
+  //       0,
+  //       "dispenser",
+  //       12,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(60000),
+  //       drain_battery)
+  //   };
+
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
+
+  //   auto start_time = std::chrono::steady_clock::now();
+  //   const auto greedy_result = task_planner.greedy_plan(
+  //     now, initial_states, task_planning_constraints, requests);
+  //   const auto greedy_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&greedy_result);
+  //   REQUIRE(greedy_assignments);
+  //   const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
+  //   auto finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Greedy solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Greedy", *greedy_assignments, greedy_cost);
+
+  //   // Create new TaskPlanner to reset cache so that measured run times
+  //   // remain independent of one another
+  //   task_planner = TaskPlanner(task_config);
+  //   start_time = std::chrono::steady_clock::now();
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
+  //   finish_time = std::chrono::steady_clock::now();
+  //   std::cout << "Optimal solution found in: "
+  //            << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   display_solution("Optimal", *optimal_assignments, optimal_cost);
+
+  //   REQUIRE(optimal_cost <= greedy_cost);
+  // }
+
+  // WHEN("Initial charge is low")
+  // {
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
+  //   const double initial_soc = 0.3;
+
+  //   rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+  //   rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 13, initial_soc},
+  //     rmf_task::agv::State{second_location, 2, initial_soc}
+  //   };
+
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //     rmf_task::agv::Constraints{0.2}
+  //   };
+
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Delivery::make(
+  //       "1",
+  //       0,
+  //       "dispenser",
+  //       3,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "2",
+  //       15,
+  //       "dispenser",
+  //       2,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "3",
+  //       9,
+  //       "dispenser",
+  //       4,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "4",
+  //       8,
+  //       "dispenser",
+  //       11,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(50000),
+  //       drain_battery)
+  //   };
+
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
+
+  //   auto start_time = std::chrono::steady_clock::now();
+  //   const auto greedy_result = task_planner.greedy_plan(
+  //     now, initial_states, task_planning_constraints, requests);
+  //   const auto greedy_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&greedy_result);
+  //   REQUIRE(greedy_assignments);
+  //   const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
+  //   auto finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Greedy solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Greedy", *greedy_assignments, greedy_cost);
+
+  //   // Create new TaskPlanner to reset cache so that measured run times
+  //   // remain independent of one another
+  //   task_planner = TaskPlanner(task_config);
+  //   start_time = std::chrono::steady_clock::now();
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
+  //   finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Optimal solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Optimal", *optimal_assignments, optimal_cost);
+
+
+  //   REQUIRE(optimal_cost <= greedy_cost);
+
+  //   // Checks if Assignments take into account a charging task in the beginning
+  //   // without explicitly including the task in Assignments.
+  //   bool implicit_charging_task_added = check_implicit_charging_task_start(
+  //     *greedy_assignments, initial_soc);
+  //   REQUIRE(!implicit_charging_task_added);
+
+  //   implicit_charging_task_added = check_implicit_charging_task_start(
+  //     *optimal_assignments, initial_soc);
+  //   REQUIRE(!implicit_charging_task_added);
+  // }
+
+  // WHEN("Planning for 11 requests and 2 agents no.2")
+  // {
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
+
+  //   rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+  //   rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 9, 1.0},
+  //     rmf_task::agv::State{second_location, 2, 1.0}
+  //   };
+
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //     rmf_task::agv::Constraints{0.2}
+  //   };
+
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Delivery::make(
+  //       "1",
+  //       6,
+  //       "dispenser",
+  //       3,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "2",
+  //       10,
+  //       "dispenser",
+  //       7,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "3",
+  //       2,
+  //       "dispenser",
+  //       12,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "4",
+  //       8,
+  //       "dispenser",
+  //       11,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(50000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "5",
+  //       10,
+  //       "dispenser",
+  //       6,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(50000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "6",
+  //       2,
+  //       "dispenser",
+  //       9,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(70000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "7",
+  //       3,
+  //       "dispenser",
+  //       4,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(70000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "8",
+  //       5,
+  //       "dispenser",
+  //       11,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(70000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "9",
+  //       9,
+  //       "dispenser",
+  //       1,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(70000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "10",
+  //       1,
+  //       "dispenser",
+  //       5,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(70000),
+  //       drain_battery),
+
+  //     rmf_task::requests::Delivery::make(
+  //       "11",
+  //       13,
+  //       "dispenser",
+  //       10,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(70000),
+  //       drain_battery)
+  //   };
+
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
+
+  //   auto start_time = std::chrono::steady_clock::now();
+  //   const auto greedy_result = task_planner.greedy_plan(
+  //     now, initial_states, task_planning_constraints, requests);
+  //   const auto greedy_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&greedy_result);
+  //   REQUIRE(greedy_assignments);
+  //   const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
+  //   auto finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Greedy solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Greedy", *greedy_assignments, greedy_cost);
+
+  //   // Create new TaskPlanner to reset cache so that measured run times
+  //   // remain independent of one another
+  //   task_planner = TaskPlanner(task_config);
+  //   start_time = std::chrono::steady_clock::now();
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
+  //   finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Optimal solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Optimal", *optimal_assignments, optimal_cost);
+
+
+  //   REQUIRE(optimal_cost <= greedy_cost);
+  // }
+
+  // WHEN("A loop request is impossible to fulfil due to battery capacity")
+  // {
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
+
+  //   rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 13, 1.0},
+  //   };
+
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //   };
+
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Loop::make(
+  //       "Loop1",
+  //       0,
+  //       15,
+  //       1000,
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now,
+  //       true)
+  //   };
+
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
+
+  //   const auto greedy_result = task_planner.greedy_plan(
+  //     now, initial_states, task_planning_constraints, requests);
+  //   const auto greedy_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&greedy_result);
+  //   REQUIRE_FALSE(greedy_assignments);
+  //   auto error = std::get_if<
+  //     TaskPlanner::TaskPlannerError>(&greedy_result);
+  //   CHECK(*error == TaskPlanner::TaskPlannerError::limited_capacity);
     
-    // Create new TaskPlanner to reset cache so that measured run times
-    // remain independent of one another
-    task_planner = TaskPlanner(task_config);
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    REQUIRE_FALSE(optimal_assignments);
-    error = std::get_if<TaskPlanner::TaskPlannerError>(
-      &optimal_result);
-    CHECK(*error == TaskPlanner::TaskPlannerError::limited_capacity);
-  }
+  //   // Create new TaskPlanner to reset cache so that measured run times
+  //   // remain independent of one another
+  //   task_planner = TaskPlanner(task_config);
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   REQUIRE_FALSE(optimal_assignments);
+  //   error = std::get_if<TaskPlanner::TaskPlannerError>(
+  //     &optimal_result);
+  //   CHECK(*error == TaskPlanner::TaskPlannerError::limited_capacity);
+  // }
 
-  WHEN("A loop request is impossible to fulfil due to low initial battery")
-  {
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
+  // WHEN("A loop request is impossible to fulfil due to low initial battery")
+  // {
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
 
-    rmf_traffic::agv::Plan::Start first_location{now, 9, default_orientation};
+  //   rmf_traffic::agv::Plan::Start first_location{now, 9, default_orientation};
 
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 13, 0.0},
-    };
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 13, 0.0},
+  //   };
 
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-    };
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //   };
 
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Loop::make(
-        "Loop1",
-        0,
-        15,
-        1000,
-        motion_sink,
-        device_sink,
-        planner,
-        now,
-        true)
-    };
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Loop::make(
+  //       "Loop1",
+  //       0,
+  //       15,
+  //       1000,
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now,
+  //       true)
+  //   };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
 
-    const auto greedy_result = task_planner.greedy_plan(
-      now, initial_states, task_planning_constraints, requests);
-    const auto greedy_assignments = std::get_if<
-      TaskPlanner::Assignments>(&greedy_result);
-    REQUIRE_FALSE(greedy_assignments);
-    auto error = std::get_if<
-      TaskPlanner::TaskPlannerError>(&greedy_result);
-    CHECK(*error == TaskPlanner::TaskPlannerError::low_battery);
+  //   const auto greedy_result = task_planner.greedy_plan(
+  //     now, initial_states, task_planning_constraints, requests);
+  //   const auto greedy_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&greedy_result);
+  //   REQUIRE_FALSE(greedy_assignments);
+  //   auto error = std::get_if<
+  //     TaskPlanner::TaskPlannerError>(&greedy_result);
+  //   CHECK(*error == TaskPlanner::TaskPlannerError::low_battery);
     
-    // Create new TaskPlanner to reset cache so that measured run times
-    // remain independent of one another
-    task_planner = TaskPlanner(task_config);
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    REQUIRE_FALSE(optimal_assignments);
-    error = std::get_if<TaskPlanner::TaskPlannerError>(
-      &optimal_result);
-    CHECK(*error == TaskPlanner::TaskPlannerError::low_battery);
-  }
+  //   // Create new TaskPlanner to reset cache so that measured run times
+  //   // remain independent of one another
+  //   task_planner = TaskPlanner(task_config);
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   REQUIRE_FALSE(optimal_assignments);
+  //   error = std::get_if<TaskPlanner::TaskPlannerError>(
+  //     &optimal_result);
+  //   CHECK(*error == TaskPlanner::TaskPlannerError::low_battery);
+  // }
 
-  WHEN("Planning for one robot, one high priority and two low priority tasks")
-  {
+  // WHEN("Planning for one robot, one high priority and two low priority tasks")
+  // {
 
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
 
-    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+  //   rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+  //   rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
 
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 13, 1.0},
-    };
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 13, 1.0},
+  //   };
 
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-    };
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //   };
 
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Delivery::make(
-        "1",
-        0,
-        "dispenser",
-        3,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Delivery::make(
+  //       "1",
+  //       0,
+  //       "dispenser",
+  //       3,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
 
-      rmf_task::requests::Delivery::make(
-        "2",
-        15,
-        "dispenser",
-        2,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery),
+  //     rmf_task::requests::Delivery::make(
+  //       "2",
+  //       15,
+  //       "dispenser",
+  //       2,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery),
 
-      rmf_task::requests::Delivery::make(
-        "3",
-        7,
-        "dispenser",
-        9,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery)
-    };
+  //     rmf_task::requests::Delivery::make(
+  //       "3",
+  //       7,
+  //       "dispenser",
+  //       9,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery)
+  //   };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
 
-    auto start_time = std::chrono::steady_clock::now();
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments_ptr = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    REQUIRE(optimal_assignments_ptr);
-    const auto& optimal_assignments = *optimal_assignments_ptr;
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-    auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", optimal_assignments, optimal_cost);
+  //   auto start_time = std::chrono::steady_clock::now();
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments_ptr = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   REQUIRE(optimal_assignments_ptr);
+  //   const auto& optimal_assignments = *optimal_assignments_ptr;
+  //   const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+  //   auto finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Optimal solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Optimal", optimal_assignments, optimal_cost);
 
-    // We expect request with task_id:3 to be at the back of the assignment queue
-    CHECK(optimal_assignments.front().back().request()->id() == "3");
+  //   // We expect request with task_id:3 to be at the back of the assignment queue
+  //   CHECK(optimal_assignments.front().back().request()->id() == "3");
 
-    THEN("When replanning with high priority for request with task_id:3")
-    {
-      requests[2] = rmf_task::requests::Delivery::make(
-        "3",
-        7,
-        "dispenser",
-        9,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery,
-        true);
-    }
+  //   THEN("When replanning with high priority for request with task_id:3")
+  //   {
+  //     requests[2] = rmf_task::requests::Delivery::make(
+  //       "3",
+  //       7,
+  //       "dispenser",
+  //       9,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery,
+  //       true);
+  //   }
 
-    // Reset the planner cache
-    task_planner = TaskPlanner(task_config);
-    start_time = std::chrono::steady_clock::now();
-    const auto new_optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto new_optimal_assignments_ptr = std::get_if<
-      TaskPlanner::Assignments>(&new_optimal_result);
-    REQUIRE(new_optimal_assignments_ptr);
-    const auto& new_optimal_assignments = *new_optimal_assignments_ptr;
-    const double new_optimal_cost = task_planner.compute_cost(
-      new_optimal_assignments);
-    finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", new_optimal_assignments, new_optimal_cost);
+  //   // Reset the planner cache
+  //   task_planner = TaskPlanner(task_config);
+  //   start_time = std::chrono::steady_clock::now();
+  //   const auto new_optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto new_optimal_assignments_ptr = std::get_if<
+  //     TaskPlanner::Assignments>(&new_optimal_result);
+  //   REQUIRE(new_optimal_assignments_ptr);
+  //   const auto& new_optimal_assignments = *new_optimal_assignments_ptr;
+  //   const double new_optimal_cost = task_planner.compute_cost(
+  //     new_optimal_assignments);
+  //   finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Optimal solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Optimal", new_optimal_assignments, new_optimal_cost);
 
-    // We expect request with task_id:3 to be at the front of the assignment queue
-    CHECK(new_optimal_assignments.front().front().request()->id() == "3");
-  }
+  //   // We expect request with task_id:3 to be at the front of the assignment queue
+  //   CHECK(new_optimal_assignments.front().front().request()->id() == "3");
+  // }
 
-  WHEN("Planning for one robot, three high priority tasks")
-  {
-    const auto now = std::chrono::steady_clock::now();
-    const double default_orientation = 0.0;
+  // WHEN("Planning for one robot, three high priority tasks")
+  // {
+  //   const auto now = std::chrono::steady_clock::now();
+  //   const double default_orientation = 0.0;
 
-    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
+  //   rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+  //   rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
 
-    std::vector<rmf_task::agv::State> initial_states =
-    {
-      rmf_task::agv::State{first_location, 13, 1.0},
-    };
+  //   std::vector<rmf_task::agv::State> initial_states =
+  //   {
+  //     rmf_task::agv::State{first_location, 13, 1.0},
+  //   };
 
-    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
-    {
-      rmf_task::agv::Constraints{0.2},
-    };
+  //   std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+  //   {
+  //     rmf_task::agv::Constraints{0.2},
+  //   };
 
-    std::vector<rmf_task::ConstRequestPtr> requests =
-    {
-      rmf_task::requests::Delivery::make(
-        "1",
-        0,
-        "dispenser",
-        3,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery,
-        true),
+  //   std::vector<rmf_task::ConstRequestPtr> requests =
+  //   {
+  //     rmf_task::requests::Delivery::make(
+  //       "1",
+  //       0,
+  //       "dispenser",
+  //       3,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery,
+  //       true),
 
-      rmf_task::requests::Delivery::make(
-        "2",
-        15,
-        "dispenser",
-        2,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery,
-        true),
+  //     rmf_task::requests::Delivery::make(
+  //       "2",
+  //       15,
+  //       "dispenser",
+  //       2,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery,
+  //       true),
 
-      rmf_task::requests::Delivery::make(
-        "3",
-        7,
-        "dispenser",
-        9,
-        "ingestor",
-        {},
-        motion_sink,
-        device_sink,
-        planner,
-        now + rmf_traffic::time::from_seconds(0),
-        drain_battery,
-        true)
-    };
+  //     rmf_task::requests::Delivery::make(
+  //       "3",
+  //       7,
+  //       "dispenser",
+  //       9,
+  //       "ingestor",
+  //       {},
+  //       motion_sink,
+  //       device_sink,
+  //       planner,
+  //       now + rmf_traffic::time::from_seconds(0),
+  //       drain_battery,
+  //       true)
+  //   };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
-    TaskPlanner task_planner(task_config);
+  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
+  //     std::make_shared<TaskPlanner::Configuration>(
+  //       battery_system,
+  //       motion_sink,
+  //       device_sink,
+  //       planner);
+  //   TaskPlanner task_planner(task_config);
 
-    auto start_time = std::chrono::steady_clock::now();
-    const auto optimal_result = task_planner.optimal_plan(
-      now, initial_states, task_planning_constraints, requests, nullptr);
-    const auto optimal_assignments_ptr = std::get_if<
-      TaskPlanner::Assignments>(&optimal_result);
-    REQUIRE(optimal_assignments_ptr);
-    const auto& optimal_assignments = *optimal_assignments_ptr;
-    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
-    auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", optimal_assignments, optimal_cost);
+  //   auto start_time = std::chrono::steady_clock::now();
+  //   const auto optimal_result = task_planner.optimal_plan(
+  //     now, initial_states, task_planning_constraints, requests, nullptr);
+  //   const auto optimal_assignments_ptr = std::get_if<
+  //     TaskPlanner::Assignments>(&optimal_result);
+  //   REQUIRE(optimal_assignments_ptr);
+  //   const auto& optimal_assignments = *optimal_assignments_ptr;
+  //   const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+  //   auto finish_time = std::chrono::steady_clock::now();
+  //   // std::cout << "Optimal solution found in: "
+  //   //          << (finish_time - start_time).count() / 1e9 << std::endl;
+  //   // display_solution("Optimal", optimal_assignments, optimal_cost);
 
-    // We expect request with task_id:3 to be at the back of the assignment queue
-    CHECK(optimal_assignments.front().back().request()->id() == "3");
-  }
+  //   // We expect request with task_id:3 to be at the back of the assignment queue
+  //   CHECK(optimal_assignments.front().back().request()->id() == "3");
+  // }
 
   WHEN("Planning for 1 robot, two high priority and two low priority tasks")
   {
