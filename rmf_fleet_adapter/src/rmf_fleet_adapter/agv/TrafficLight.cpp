@@ -999,7 +999,9 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
   if (immediately_stop_until.has_value())
   {
     // An immediate stop will invalidate these earlier trajectories
-    std::cout << " :: Commanding immediate stop" << std::endl;
+    std::cout << " :: Commanding immediate stop until "
+              << rmf_traffic::time::to_seconds(immediately_stop_until->time_since_epoch())
+              << std::endl;
     stashed_itinerary.clear();
     active_itinerary.clear();
 
@@ -1211,6 +1213,10 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
           .get_waypoint(checkpoint_index).get_map_name(),
         location
     };
+
+    if (data->blockade.last_reached() < checkpoint_index)
+      std::cout << " -- Reached " << checkpoint_index << std::endl;
+
     data->blockade.reached(checkpoint_index);
 
     if (plan_version != data->current_plan_version)
@@ -1622,6 +1628,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
     return;
 
   std::cout << " @@ Watch for ready at " << checkpoint_id << std::endl;
+
+  if (blockade.last_reached() < checkpoint_id)
+    std::cout << " -- Reached " << checkpoint_id << std::endl;
 
   blockade.reached(checkpoint_id);
 

@@ -76,6 +76,11 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
   if (version != current_version)
     return;
 
+  std::cout << "Receiving new checkpoints:";
+  for (const auto& c : checkpoints)
+    std::cout << " " << c.waypoint_index << "(" << c.departure_time.seconds() << ")";
+  std::cout << std::endl;
+
   if (last_received_checkpoints.has_value())
   {
     // If we already have checkpoints that we've received but haven't processed
@@ -441,7 +446,8 @@ auto EasyTrafficLight::Implementation::handle_immediate_stop(
 //    if (now <= last_received_stop_info.value().time)
     if (last_received_stop_info.value().time <= now)
     {
-      std::cout << " *** " << __LINE__ << std::endl;
+      std::cout << " *** " << __LINE__ << last_received_stop_info.value().time.seconds()
+                << " vs " << now.seconds() << std::endl;
 
       resume_info = ResumeInfo {
           departed_checkpoint,
