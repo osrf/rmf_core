@@ -332,7 +332,8 @@ std::shared_ptr<Candidates> Candidates::make(
           battery_estimate.value().finish_state(), constraints, estimate_cache);
         if (new_finish.has_value())
         {
-          std::cout << "Implicit charging: True" << std::endl;
+          std::cout << "Implicit charging True for candidate " << i << " for request " << request.id() << std::endl;
+          std::cout << "Wait until: " << new_finish.value().wait_until().time_since_epoch().count() << std::endl;
           initial_map.insert(
             {new_finish.value().finish_state().finish_time(),
             Entry{
@@ -1101,26 +1102,28 @@ public:
   ConstNodePtr expand_candidate(
     const Candidates::Map::const_iterator& it,
     const Node::UnassignedTasks::value_type& u,
-    const ConstNodePtr& parent,
+    const ConstNodePtr parent,
     Filter* filter,
     rmf_traffic::Time time_now,
     const std::vector<Constraints>& constraints_set)
 
   {
+    std::cout << "Original node in expand_candidate: " << std::endl;
+    print_node(*parent);
 
     const auto& entry = it->second;
     const auto& constraints = constraints_set[entry.candidate];
 
+    std::cout << "Parent latest time: " << parent->latest_time.time_since_epoch().count() << std::endl;
+    std::cout << "Entry wait until: " << entry.wait_until.time_since_epoch().count() << std::endl;
     if (parent->latest_time + segmentation_threshold < entry.wait_until)
     {
-
+      std::cout << "Wrong time segment for task" << std::endl;
       // No need to assign task as timeline is not relevant
       return nullptr;
     }
 
     auto new_node = std::make_shared<Node>(*parent);
-    std::cout << "Original node in expand_candidate: " << std::endl;
-    print_node(*new_node);
 
     // Assign the unassigned task after checking for implicit charging requests
     if (entry.require_charge_battery)
@@ -1335,6 +1338,8 @@ public:
 
       new_node->cost_estimate = compute_f(*new_node, time_now);
       new_node->latest_time = get_latest_time(*new_node);
+      std::cout << "New node generated from expand_charger: " << std::endl;
+      print_node(*new_node);
       return new_node;
     }
     return nullptr;
@@ -1410,12 +1415,21 @@ public:
       parent->unassigned_tasks.size() + parent->assigned_tasks.size());
     for (const auto& u : parent->unassigned_tasks)
     {
+      std::cout << "Expanding node for task: " << u.second.request->id() << std::endl;
       const auto& range = u.second.candidates.best_candidates();
       for (auto it = range.begin; it!= range.end; it++)
       {
+        std::cout << " Here expanding cadidates in range" << std::endl;
         if (auto new_node = expand_candidate(
           it, u, parent, &filter, time_now, constraints_set))
+        {
           new_nodes.push_back(std::move(new_node));
+        }
+        else
+        {
+          std::cout << "No valid node generated" << std::endl;
+        }
+        
       }
     }
     std::cout << "New nodes after expanding candidates: " << new_nodes.size() << std::endl;
