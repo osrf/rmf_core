@@ -29,7 +29,6 @@
 #include <unordered_map>
 #include <limits>
 #include <queue>
-#include <iostream>
 
 namespace rmf_task {
 namespace agv {
