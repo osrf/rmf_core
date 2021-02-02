@@ -930,7 +930,10 @@ bool Negotiation::ready() const
 //==============================================================================
 bool Negotiation::complete() const
 {
-  return _pimpl->data->num_terminated_tables == _pimpl->max_terminated_tables;
+  std::cout << "(complete: " << _pimpl->data->num_terminated_tables << " vs " << _pimpl->max_terminated_tables << ")" << std::endl;
+//  return _pimpl->data->num_terminated_tables == _pimpl->max_terminated_tables;
+  // TODO(MXG): Figure out what bug is allowing the num_terminated_tables to exceed max_terminated_tables
+  return _pimpl->data->num_terminated_tables >= _pimpl->max_terminated_tables;
 }
 
 namespace {

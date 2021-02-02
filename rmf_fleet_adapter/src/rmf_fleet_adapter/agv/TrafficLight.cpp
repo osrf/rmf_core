@@ -1971,10 +1971,10 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     const TableViewerPtr& table_viewer,
     const ResponderPtr& responder)
 {
-  std::cout << " ^^ Responding to";
+  std::cout << " vv Asked to respond to";
   for (const auto& s : table_viewer->sequence())
     std::cout << " " << s.participant << ":" << s.version;
-  std::cout << " ^^ " << std::endl;
+  std::cout << " vv " << std::endl;
 
   const auto data = _data.lock();
   if (!data || !data->planner || data->pending_waypoints.empty())
