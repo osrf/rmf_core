@@ -170,6 +170,8 @@ SCENARIO("Grid World")
   std::shared_ptr<SimpleDevicePowerSink> device_sink =
     std::make_shared<SimpleDevicePowerSink>(battery_system, power_system_processor);
 
+  const bool display_solutions = true;
+
   WHEN("Planning for 3 requests and 2 agents")
   {
     const auto now = std::chrono::steady_clock::now();
@@ -248,9 +250,13 @@ SCENARIO("Grid World")
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
+    
+    if (display_solution)
+    {
+      std::cout << "Greedy solution found in: "
+                << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Greedy", *greedy_assignments, greedy_cost);
+    }  
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
@@ -262,9 +268,13 @@ SCENARIO("Grid World")
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+                << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", *optimal_assignments, optimal_cost);
+    }
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -451,9 +461,13 @@ SCENARIO("Grid World")
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
+
+    if(display_solution)
+    {
+      std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Greedy", *greedy_assignments, greedy_cost);
+    }
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
@@ -465,9 +479,13 @@ SCENARIO("Grid World")
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", *optimal_assignments, optimal_cost);
+    }
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -564,9 +582,13 @@ SCENARIO("Grid World")
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Greedy", *greedy_assignments, greedy_cost);
+    }
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
@@ -578,10 +600,13 @@ SCENARIO("Grid World")
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
 
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", *optimal_assignments, optimal_cost);
+    }
 
     REQUIRE(optimal_cost <= greedy_cost);
 
@@ -778,9 +803,13 @@ SCENARIO("Grid World")
     REQUIRE(greedy_assignments);
     const double greedy_cost = task_planner.compute_cost(*greedy_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Greedy solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Greedy", *greedy_assignments, greedy_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Greedy solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Greedy", *greedy_assignments, greedy_cost);
+    }
 
     // Create new TaskPlanner to reset cache so that measured run times
     // remain independent of one another
@@ -792,10 +821,13 @@ SCENARIO("Grid World")
       TaskPlanner::Assignments>(&optimal_result);
     const double optimal_cost = task_planner.compute_cost(*optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", *optimal_assignments, optimal_cost);
 
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", *optimal_assignments, optimal_cost);
+    }
 
     REQUIRE(optimal_cost <= greedy_cost);
   }
@@ -1000,9 +1032,13 @@ SCENARIO("Grid World")
     const auto& optimal_assignments = *optimal_assignments_ptr;
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", optimal_assignments, optimal_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", optimal_assignments, optimal_cost);
+    }
 
     // We expect request with task_id:3 to be at the back of the assignment queue
     CHECK(optimal_assignments.front().back().request()->id() == "3");
@@ -1036,9 +1072,13 @@ SCENARIO("Grid World")
     const double new_optimal_cost = task_planner.compute_cost(
       new_optimal_assignments);
     finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", new_optimal_assignments, new_optimal_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", new_optimal_assignments, new_optimal_cost);
+    }
 
     // We expect request with task_id:3 to be at the front of the assignment queue
     CHECK(new_optimal_assignments.front().front().request()->id() == "3");
@@ -1124,9 +1164,13 @@ SCENARIO("Grid World")
     const auto& optimal_assignments = *optimal_assignments_ptr;
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    // std::cout << "Optimal solution found in: "
-    //          << (finish_time - start_time).count() / 1e9 << std::endl;
-    // display_solution("Optimal", optimal_assignments, optimal_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", optimal_assignments, optimal_cost);
+    }
 
     // We expect request with task_id:3 to be at the back of the assignment queue
     CHECK(optimal_assignments.front().back().request()->id() == "3");
@@ -1224,9 +1268,13 @@ SCENARIO("Grid World")
     const auto& optimal_assignments = *optimal_assignments_ptr;
     const double optimal_cost = task_planner.compute_cost(optimal_assignments);
     auto finish_time = std::chrono::steady_clock::now();
-    std::cout << "Optimal solution found in: "
-             << (finish_time - start_time).count() / 1e9 << std::endl;
-    display_solution("Optimal", optimal_assignments, optimal_cost);
+
+    if (display_solution)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", optimal_assignments, optimal_cost);
+    }
 
     // Based on the assigned priority and start time of the tasks, we expect
     // tasks to be allocated in the following order: 1->2->4->3

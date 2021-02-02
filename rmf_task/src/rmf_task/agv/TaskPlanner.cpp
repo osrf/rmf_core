@@ -787,6 +787,23 @@ public:
     return assignments;
   }
 
+  ConstNodePtr prune_assignments(ConstNodePtr parent)
+  {
+    auto node = std::make_shared<Node>(*parent);
+
+    for (auto& agent : node->assigned_tasks)
+    {
+      if (agent.empty())
+        continue;
+
+      if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
+        agent.back().assignment.request()))
+      agent.pop_back();
+    }
+
+    return node;
+  }
+
   Result complete_solve(
     rmf_traffic::Time time_now,
     std::vector<State>& initial_states,
@@ -815,18 +832,10 @@ public:
       if (!node)
         return {};
 
+      // Here we prune assignments to remove any charging tasks at the back of
+      // the assignment list
+      node = prune_assignments(node);
       assert(complete_assignments.size() == node->assigned_tasks.size());
-      // std::size_t agent_count = 0;
-      // std::cout << "Assignments from winning node: " << std::endl;
-      // for (const auto& agent : node ->assigned_tasks)
-      // {
-      //   std::cout << "Agent: " << agent_count << std::endl;
-      //   for (const auto& a : agent)
-      //   {
-      //     std::cout << "--" << a.assignment.request()->id() << std::endl;
-      //   }
-      //   agent_count++;
-      // }
       for (std::size_t i = 0; i < complete_assignments.size(); ++i)
       {
         auto& all_assignments = complete_assignments[i];
@@ -1237,6 +1246,13 @@ public:
      // Assign charging task to an agent
     State state = initial_states[agent];
     auto& assignments = new_node->assigned_tasks[agent];
+
+    // If the assignment set for a candidate is empty we do not want to add a
+    // charging task as this is taken care of in expand_candidate(). Without this
+    // step there is chance for the planner to get stuck in an infinite loop when
+    // a charging task is required before any other task can be assigned.
+    if (assignments.empty())
+      return nullptr;
 
     if (!assignments.empty())
     {
