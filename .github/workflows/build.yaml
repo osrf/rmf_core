@@ -23,9 +23,27 @@ jobs:
         cd ws_rmf
         rosdep update
         rosdep install --from-paths src --ignore-src --rosdistro foxy -yr
-    - name: build
+    #- name: build
+      #shell: bash
+      #run: |
+        #cd ws_rmf
+        #source /opt/ros/foxy/setup.bash
+        #colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE
+    - name: build_with_codecov
       shell: bash
       run: |
+        sudo apt update
+        sudo apt install -y lcov python3-pip curl
+        pip3 install colcon-lcov-result
         cd ws_rmf
         source /opt/ros/foxy/setup.bash
-        colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE
+        colcon build --symlink-install --cmake-args -DCMAKE_CXX_FLAGS='-fprofile-arcs -ftest-coverage' -DCMAKE_C_FLAGS='-fprofile-arcs -ftest-coverage'
+        colcon lcov-result --initial
+        colcon test
+        colcon lcov-result
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        files: ws_rmf/lcov/total_coverage.info
+        flags: tests
+        name: lean_and_mean_codecov_bot
