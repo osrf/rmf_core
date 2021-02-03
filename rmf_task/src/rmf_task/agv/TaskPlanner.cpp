@@ -741,6 +741,7 @@ public:
 
   std::shared_ptr<Configuration> config;
   std::shared_ptr<EstimateCache> estimate_cache;
+  bool check_priority = false;
   const double priority_penalty = 10000;
 
   ConstRequestPtr make_charging_request(rmf_traffic::Time start_time)
@@ -812,6 +813,17 @@ public:
     bool greedy)
   {
     assert(initial_states.size() == constraints_set.size());
+    // Check if a high priority task exists among the requests.
+    // If so the cost function for a node will be modified accordingly.
+    for (const auto& request : requests)
+    {
+      if (request->priority())
+      {
+        check_priority = true;
+        break;
+      }      
+    }
+  
     TaskPlannerError error;
     auto node = make_initial_node(
       initial_states, constraints_set, requests, time_now, error);
@@ -1015,9 +1027,12 @@ public:
     const double g = compute_g(n);
     const double h = compute_h(n, time_now);
 
-    if (!valid_assignment_priority(n))
-      return priority_penalty * (g + h);
-    
+    if (check_priority)
+    {
+      if (!valid_assignment_priority(n))
+        return priority_penalty * (g + h);
+    }
+
     return g + h;
   }
 
