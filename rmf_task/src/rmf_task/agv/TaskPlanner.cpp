@@ -948,6 +948,34 @@ public:
 
   bool valid_assignment_priority(const Node& n)
   {
+    // STEP 1: Checking for validity across agents
+    const std::size_t num_agents = n.assigned_tasks.size();
+    // Number of priority tasks assigned for each agent
+    std::vector<std::size_t> priority_count;
+    priority_count.resize(num_agents, 0);
+    for (std::size_t i = 0; i < num_agents; ++i)
+    {
+      const auto& assignments = n.assigned_tasks[i];
+      for (const auto& a : assignments)
+      {
+        if (a.assignment.request()->priority())
+          priority_count[i] += 1;
+      }
+    }
+    // Here we check if any of the agents is not assigned a priority task
+    // while others are assigned more than one
+    const std::size_t max_priority_count = *std::max_element(
+      priority_count.begin(), priority_count.end());
+    if (max_priority_count > 1)
+    {
+      for (const auto& c : priority_count)
+      {
+        if (c == 0)
+          return false;
+      }
+    }
+
+    // STEP 2: Checking for validity within assignments of an agent
     const auto& assignments = n.assigned_tasks;
     for (const auto& agent : assignments)
     {

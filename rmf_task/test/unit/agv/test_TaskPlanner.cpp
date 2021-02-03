@@ -961,7 +961,6 @@ SCENARIO("Grid World")
     const double default_orientation = 0.0;
 
     rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
 
     std::vector<rmf_task::agv::State> initial_states =
     {
@@ -1090,7 +1089,6 @@ SCENARIO("Grid World")
     const double default_orientation = 0.0;
 
     rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
 
     std::vector<rmf_task::agv::State> initial_states =
     {
@@ -1182,7 +1180,6 @@ SCENARIO("Grid World")
     const double default_orientation = 0.0;
 
     rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
-    rmf_traffic::agv::Plan::Start second_location{now, 2, default_orientation};
 
     std::vector<rmf_task::agv::State> initial_states =
     {
@@ -1286,6 +1283,230 @@ SCENARIO("Grid World")
     CHECK(index_map["1"] < index_map["3"]);
     CHECK(index_map["4"] < index_map["2"]);
     CHECK(index_map["4"] < index_map["3"]);
+  }
+
+  WHEN("Planning for 1 robot and 2 tasks per time segment with one priority task per segment")
+  {
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 13, 1.0},
+    };
+
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+    {
+      rmf_task::agv::Constraints{0.2},
+    };
+
+    std::vector<rmf_task::ConstRequestPtr> requests =
+    {
+      rmf_task::requests::Delivery::make(
+        "1",
+        0,
+        "dispenser",
+        3,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery,
+        true),
+
+      rmf_task::requests::Delivery::make(
+        "2",
+        15,
+        "dispenser",
+        2,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        "3",
+        7,
+        "dispenser",
+        9,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(100000),
+        drain_battery),
+
+      rmf_task::requests::Delivery::make(
+        "4",
+        7,
+        "dispenser",
+        6,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(100000),
+        drain_battery,
+        true)  
+    };
+
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    TaskPlanner task_planner(task_config);
+
+    auto start_time = std::chrono::steady_clock::now();
+    const auto optimal_result = task_planner.optimal_plan(
+      now, initial_states, task_planning_constraints, requests, nullptr);
+    const auto optimal_assignments_ptr = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    REQUIRE(optimal_assignments_ptr);
+    const auto& optimal_assignments = *optimal_assignments_ptr;
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+
+    if (display_solutions)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", optimal_assignments, optimal_cost);
+    }
+
+    // Based on the assigned priority and start time of the tasks, we expect
+    // tasks to be allocated in the following order: 1->2->4->3
+    const auto& assignments = optimal_assignments.front();
+    std::unordered_map<std::string, std::size_t> index_map = {};
+    for (std::size_t i = 0; i < assignments.size(); ++i)
+      index_map.insert({assignments[i].request()->id(), i});
+    CHECK(index_map["1"] < index_map["2"]);
+    CHECK(index_map["1"] < index_map["3"]);
+    CHECK(index_map["1"] < index_map["4"]);
+    CHECK(index_map["4"] > index_map["2"]);
+    CHECK(index_map["4"] < index_map["3"]);
+  }
+
+  WHEN("Planning for 2 robots and 4 tasks including 2 high priority tasks")
+  {
+    const auto now = std::chrono::steady_clock::now();
+    const double default_orientation = 0.0;
+
+    rmf_traffic::agv::Plan::Start first_location{now, 13, default_orientation};
+    rmf_traffic::agv::Plan::Start second_location{now, 1, default_orientation};
+
+    std::vector<rmf_task::agv::State> initial_states =
+    {
+      rmf_task::agv::State{first_location, 13, 1.0},
+      rmf_task::agv::State{second_location, 1, 1.0}
+    };
+
+    std::vector<rmf_task::agv::Constraints> task_planning_constraints =
+    {
+      rmf_task::agv::Constraints{0.2},
+      rmf_task::agv::Constraints{0.2}
+    };
+
+    std::vector<rmf_task::ConstRequestPtr> requests =
+    {
+      rmf_task::requests::Delivery::make(
+        "1",
+        0,
+        "dispenser",
+        3,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery,
+        true),
+
+      rmf_task::requests::Delivery::make(
+        "2",
+        15,
+        "dispenser",
+        2,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery,
+        false),
+
+      rmf_task::requests::Delivery::make(
+        "3",
+        7,
+        "dispenser",
+        9,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery,
+        true),
+
+      rmf_task::requests::Delivery::make(
+        "4",
+        7,
+        "dispenser",
+        6,
+        "ingestor",
+        {},
+        motion_sink,
+        device_sink,
+        planner,
+        now + rmf_traffic::time::from_seconds(0),
+        drain_battery,
+        false)  
+    };
+
+    std::shared_ptr<TaskPlanner::Configuration>  task_config =
+      std::make_shared<TaskPlanner::Configuration>(
+        battery_system,
+        motion_sink,
+        device_sink,
+        planner);
+    TaskPlanner task_planner(task_config);
+
+    auto start_time = std::chrono::steady_clock::now();
+    const auto optimal_result = task_planner.optimal_plan(
+      now, initial_states, task_planning_constraints, requests, nullptr);
+    const auto optimal_assignments_ptr = std::get_if<
+      TaskPlanner::Assignments>(&optimal_result);
+    REQUIRE(optimal_assignments_ptr);
+    const auto& optimal_assignments = *optimal_assignments_ptr;
+    const double optimal_cost = task_planner.compute_cost(optimal_assignments);
+    auto finish_time = std::chrono::steady_clock::now();
+
+    if (display_solutions)
+    {
+      std::cout << "Optimal solution found in: "
+              << (finish_time - start_time).count() / 1e9 << std::endl;
+      display_solution("Optimal", optimal_assignments, optimal_cost);
+    }
+
+    // We expect high priority tasks 3 & 1 to be the first assignments of each agent respectively
+    REQUIRE(optimal_assignments.size() == 2);
+    const auto& agent_0_assignments = optimal_assignments[0];
+    const auto& agent_1_assignments = optimal_assignments[1];
+    CHECK(agent_0_assignments.front().request()->id() == "3");
+    CHECK(agent_1_assignments.front().request()->id() == "1");
   }
 
 }
