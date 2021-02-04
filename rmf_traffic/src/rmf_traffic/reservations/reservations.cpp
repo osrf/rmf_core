@@ -23,14 +23,7 @@
 namespace rmf_traffic {
 namespace reservations {
 //==============================================================================
-class Reservation
-{
-  uint64_t _unique_id;
-  std::optional<rmf_traffic::Duration> _duration;
-  rmf_traffic::agv::Graph::Waypoint _waypoint;
-  rmf_traffic::schedule::ParticipantId _participantId;
-  
-  Reservation(
+Reservation::Reservation(
     uint64_t unique_id,
     std::optional<rmf_traffic::Duration> duration,
     rmf_traffic::agv::Graph::Waypoint waypoint,
@@ -39,11 +32,10 @@ class Reservation
       _duration(duration),
       _waypoint(waypoint),
       _participantId(participantId)
-  {
+{
 
-  }
-  friend ReservationSystem::Implementation;
-};
+}
+
 
 //==============================================================================
 class ReservationSystem::Implementation
@@ -57,7 +49,7 @@ public:
     const std::vector<rmf_traffic::agv::Graph::Waypoint>& vertices,
     std::optional<rmf_traffic::Duration> duration)
   {
-    const std::lock_guard<std::mutex> lock(_mutex);
+    //const std::lock_guard<std::mutex> lock(_mutex);
     for(auto waypoint: vertices)
     {
       if(is_free(waypoint, time, duration))
@@ -124,21 +116,21 @@ public:
 
       if (end_slot == start_slot)
       {
-        // Since interval is in the same slot all we need to do
-        // is check if there is a previous reservation. If so,
-        // does the previous reservation exceed the duration
+        /// Since interval is in the same slot all we need to do
+        /// is check if there is a previous reservation. If so,
+        /// does the previous reservation exceed the duration
         if (start_slot == waypoint_schedule->second.begin())
         {
-          //No previous reservation safe to reserve
+          /// No previous reservation safe to reserve
           return true;
         }
         else
         {
-          // Has previous reservation
+          /// Has previous reservation
           auto last_reservation = std::prev(start_slot);
           if (!last_reservation->second._duration.has_value())
           {
-            // Last reservation had infinite time
+            /// Last reservation had infinite time
             return false;
           }
           else 
@@ -160,12 +152,12 @@ public:
       auto start_slot = waypoint_schedule->second.upper_bound(start_time);
       if(start_slot != waypoint_schedule->second.end())
       {
-        // A slot that is after the requested time exists hence we may not reserve it
+        /// A slot that is after the requested time exists hence we may not reserve it
         return false;
       }
       if(start_slot == waypoint_schedule->second.begin())
       {
-        // No booked slots, may reserve the entire time period
+        /// No booked slots, may reserve the entire time period
         return true;
       }
 
@@ -185,6 +177,11 @@ public:
         return last_reservation_end_time <= start_time;
       }
     }
+  }
+
+  Implementation()
+  {
+
   }
 
 private:
@@ -216,5 +213,12 @@ void ReservationSystem::cancel_reservation(Reservation res)
 {
   _pimpl->cancel_reservation(res);
 }
+
+ReservationSystem::ReservationSystem() :
+ _pimpl(rmf_utils::make_unique_impl<Implementation>())
+{
+
+}
+
 }
 }

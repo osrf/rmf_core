@@ -28,7 +28,20 @@ namespace rmf_traffic {
 namespace reservations {
 
 //==============================================================================  
-class Reservation;
+class Reservation
+{
+  uint64_t _unique_id;
+  std::optional<rmf_traffic::Duration> _duration;
+  rmf_traffic::agv::Graph::Waypoint _waypoint;
+  rmf_traffic::schedule::ParticipantId _participantId;
+  
+  Reservation(
+    uint64_t unique_id,
+    std::optional<rmf_traffic::Duration> duration,
+    rmf_traffic::agv::Graph::Waypoint waypoint,
+    rmf_traffic::schedule::ParticipantId participantId);
+  friend class ReservationSystem;
+};
 
 //==============================================================================
 class ReservationSystem
@@ -54,15 +67,11 @@ public:
   /// Cancels a reservation
   void cancel_reservation(Reservation res);
 
-  /// Returns a list of reservations for a given Participant.
-  /// This function is useful for when a fleet adapter restarts
-  std::vector<Reservation> get_reservations_for(
-    rmf_traffic::schedule::ParticipantId participantId);
+  ReservationSystem();
 
   class Implementation;
 private:
-  ReservationSystem(rmf_traffic::agv::Graph graph);
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 } // end namespace reservations
