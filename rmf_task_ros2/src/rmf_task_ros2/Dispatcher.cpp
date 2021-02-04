@@ -182,7 +182,7 @@ public:
       task_type_name[task_type] + std::to_string(task_counter++);
 
     RCLCPP_INFO(node->get_logger(),
-      "Received Task Submission [%s]", submitted_task.task_id);
+      "Received Task Submission [%s]", submitted_task.task_id.c_str());
 
     // add task to internal cache
     TaskStatus status;

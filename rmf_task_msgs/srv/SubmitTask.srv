@@ -3,9 +3,6 @@
 # Identifier for who is requesting the service
 string requester
 
-# Desired start time of a task
-builtin_interfaces/Time start_time
-
 # desciption of task
 TaskDescription description
 
