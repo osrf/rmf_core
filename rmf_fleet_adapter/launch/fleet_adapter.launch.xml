@@ -36,7 +36,9 @@
   <arg name="tool_power_drain" description="The power rating(W) of special tools (vaccuum, cleaning systems, etc.) of the vehicles in this fleet"/>
   <arg name="drain_battery" default="false" description="Whether battery drain should be considered while assigning tasks to vechiles in this fleet"/>
   <arg name="recharge_threshold" default="0.2" description="The fraction of total battery capacity below which the robot must return to its charger"/>
+  <arg name="launch_in_gdb_xterm" default="false" description="Should launch inside gdb in an xterm?"/>
 
+  <let name="launch-prefix" value="xterm -e gdb -ex run --args" if="$(var launch_in_gdb_xterm)"/>
 
   <node pkg="rmf_fleet_adapter"
         exec="$(var control_type)"
