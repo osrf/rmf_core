@@ -12,3 +12,5 @@ fixes:
 comment:
   layout: "diff, flags, files"
   behavior: default
+ignore:
+  - "ws_rmf/build"

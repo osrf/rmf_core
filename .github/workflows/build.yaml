@@ -37,7 +37,7 @@ jobs:
         pip3 install colcon-lcov-result
         cd ws_rmf
         source /opt/ros/foxy/setup.bash
-        colcon build --symlink-install --cmake-args -DCMAKE_CXX_FLAGS='-fprofile-arcs -ftest-coverage' -DCMAKE_C_FLAGS='-fprofile-arcs -ftest-coverage'
+        colcon build --symlink-install --cmake-args -DCMAKE_CXX_FLAGS='-fprofile-arcs -ftest-coverage' -DCMAKE_C_FLAGS='-fprofile-arcs -ftest-coverage' --packages-up-to rmf_traffic
         colcon lcov-result --initial
         colcon test
         colcon lcov-result
