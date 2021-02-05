@@ -10,7 +10,8 @@ coverage:
 fixes:
   - "ws_rmf/src/rmf_core/::"
 comment:
-  layout: "diff, flags, files"
-  behavior: default
+  layout: "reach, diff, flags, files"
+  behavior: new
+  require_changes: false
 ignore:
   - "ws_rmf/build"
