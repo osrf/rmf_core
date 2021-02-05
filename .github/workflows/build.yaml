@@ -38,9 +38,9 @@ jobs:
         cd ws_rmf
         source /opt/ros/foxy/setup.bash
         colcon build --symlink-install --cmake-args -DCMAKE_CXX_FLAGS='-fprofile-arcs -ftest-coverage' -DCMAKE_C_FLAGS='-fprofile-arcs -ftest-coverage' --packages-up-to rmf_traffic
-        colcon lcov-result --initial
-        colcon test
-        colcon lcov-result
+        colcon lcov-result --initial --packages-up-to rmf_traffic
+        colcon test --packages-select rmf_traffic
+        colcon lcov-result --packages-up-to rmf_traffic
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
