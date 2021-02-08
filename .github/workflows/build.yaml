@@ -20,8 +20,6 @@ jobs:
         mkdir ros_ws/src
         ls ros_ws/
         cd ros_ws/
-        colcon mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-        colcon mixin update default
     - name: build
       uses: ros-tooling/action-ros-ci@v0.1
       with:
@@ -31,8 +29,8 @@ jobs:
           rmf_traffic
         vcs-repo-file-url: |
           https://raw.githubusercontent.com/osrf/rmf_core/feature/add_codecov/rmf.repos
-        colcon-mixin-name: coverage-pytest
-        colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
+        colcon-mixin-name: coverage-gcc
+        colcon-mixin-repository: https://raw.githubusercontent.com/ddengster/colcon-mixin-repository/master/index.yaml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
