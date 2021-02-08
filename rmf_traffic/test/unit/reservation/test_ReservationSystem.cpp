@@ -56,7 +56,7 @@ SCENARIO("Verify that reservations work")
     }
   }
 
-  WHEN("Given a system with an infinite reservation")
+  WHEN("Given a system with an infinite reservation and one free waypoint")
   {
     ReservationSystem reservation_system;
     auto curr_time = std::chrono::steady_clock::now();
@@ -89,10 +89,85 @@ SCENARIO("Verify that reservations work")
       auto res = reservation_system.reserve(0, reservation_time-5h, waypoints, {7h});
       CHECK(!res.has_value());
     }
+
+    THEN("Cannot make a reservation after it.")
+    {
+      auto res = reservation_system.reserve(0, reservation_time-5h, waypoints, {7h});
+      CHECK(!res.has_value());
+    }
   }
 
-  WHEN("")
+  WHEN("Given a system with one finite reservation and one free waypoint")
   {
-    
+    ReservationSystem reservation_system;
+    auto curr_time = std::chrono::steady_clock::now();
+    auto reservation_time = curr_time + 10h;
+
+    std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+        {wp0};
+    reservation_system.reserve(0, reservation_time, waypoints, {2h});
+
+    THEN("Can make infinite reservation exactly afterwards")
+    {
+      auto res = reservation_system.reserve(0, reservation_time+2h, waypoints);
+      CHECK(res.has_value());
+    }
+
+    THEN("Cannot make infinite reservation before")
+    {
+      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints);
+      CHECK(!res.has_value());
+    }
+
+    THEN("Cannot make overlapping reservation before")
+    {
+      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints, {3h});
+      CHECK(!res.has_value());
+    }
+
+    THEN("Cannot make fully overlapping reservation before")
+    {
+      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints, {7h});
+      CHECK(!res.has_value());
+    }
+
+    THEN("Cannot make same reservation")
+    {
+      auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      CHECK(!res.has_value());
+    }
+
+    THEN("Can make fixed time reservation before")
+    {
+      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints, {2h});
+      CHECK(res.has_value());
+    }
+  }
+
+  WHEN("Given a system with two waypoints")
+  {
+    ReservationSystem reservation_system;
+    auto curr_time = std::chrono::steady_clock::now();
+    auto reservation_time = curr_time + 10h;
+
+    std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+        {wp0, wp1};
+    reservation_system.reserve(0, reservation_time, waypoints, {2h});
+
+    THEN("Can request at most twice the same time period")
+    {
+      auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      CHECK(res.has_value());
+
+      auto res2 = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      CHECK(!res2.has_value());
+    }
+
+    THEN("Allocates waypoints in order")
+    {
+      auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      CHECK(res.has_value());
+      CHECK(res->waypoint().index());
+    }
   }
 }

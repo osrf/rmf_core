@@ -30,11 +30,15 @@ namespace reservations {
 //==============================================================================  
 class Reservation
 {
+public:
+  /// Get the reservation way point
+  const rmf_traffic::agv::Graph::Waypoint waypoint() const;
+
+private:
   uint64_t _unique_id;
   std::optional<rmf_traffic::Duration> _duration;
   rmf_traffic::agv::Graph::Waypoint _waypoint;
   rmf_traffic::schedule::ParticipantId _participantId;
-  
   Reservation(
     uint64_t unique_id,
     std::optional<rmf_traffic::Duration> duration,

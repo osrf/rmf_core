@@ -36,6 +36,11 @@ Reservation::Reservation(
 
 }
 
+//==============================================================================
+const rmf_traffic::agv::Graph::Waypoint Reservation::waypoint() const
+{
+  return _waypoint;  
+}
 
 //==============================================================================
 class ReservationSystem::Implementation
@@ -220,5 +225,5 @@ ReservationSystem::ReservationSystem() :
 
 }
 
-}
-}
+} //end namespace reservation
+} //end namespace rmf_traffic
