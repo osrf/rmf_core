@@ -13,6 +13,7 @@ jobs:
         path: ros_ws/src/rmf_core
     - name: setup
       run: |
+        ls
         cd ros_ws
     - name: build
       uses: ros-tooling/action-ros-ci@v0.1
@@ -21,6 +22,10 @@ jobs:
         # build all packages listed in the meta package
         package-name: |
           rmf_traffic
+        vcs-repo-file-url: |
+          https://raw.githubusercontent.com/osrf/rmf_core/master/rmf.repos
+        colcon-mixin-name: coverage-gcc
+        colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
