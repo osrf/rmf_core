@@ -7,14 +7,21 @@ jobs:
       image: docker://ros:foxy-ros-base-focal
       
     steps:
-    - name: checkout
-      uses: actions/checkout@v2
-      with:
-        path: ros_ws/src/rmf_core
-    - name: setup
+    - name: pwd
+      run: pwd
+    - name: deps
       run: |
-        ls
-        cd ros_ws
+        sudo apt update
+        sudo apt install -y g++-8 lcov python3-pip curl python3-vcstool gcovr
+        pip3 install colcon-lcov-result colcon-coveragepy-result colcon-mixin 
+    - name: setup directories
+      run: |
+        mkdir ros_ws
+        mkdir ros_ws/src
+        ls ros_ws/
+        cd ros_ws/
+        colcon mixin add default https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
+        colcon mixin update default
     - name: build
       uses: ros-tooling/action-ros-ci@v0.1
       with:
@@ -23,8 +30,8 @@ jobs:
         package-name: |
           rmf_traffic
         vcs-repo-file-url: |
-          https://raw.githubusercontent.com/osrf/rmf_core/master/rmf.repos
-        colcon-mixin-name: coverage-gcc
+          https://raw.githubusercontent.com/osrf/rmf_core/feature/add_codecov/rmf.repos
+        colcon-mixin-name: coverage-pytest
         colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
