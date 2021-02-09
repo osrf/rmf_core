@@ -1,14 +1,18 @@
 name: build
 on: [push, pull_request]
 jobs:
-  build:
+  build_and_test:
     runs-on: ubuntu-20.04
     container:
       image: docker://ros:foxy-ros-base-focal
       
     steps:
     - name: pwd
-      run: pwd
+      run: |
+        pwd
+        echo $GITHUB_SHA
+        echo $GITHUB_REPOSITORY
+        echo $GITHUB_WORKSPACE
     - name: deps
       run: |
         sudo apt update
@@ -26,12 +30,12 @@ jobs:
         target-ros2-distro: foxy
         # build all packages listed in the meta package
         package-name: |
-          rmf_battery
-          rmf_fleet_adapter
-          rmf_task
+          # rmf_battery
+          # rmf_fleet_adapter
+          # rmf_task
           rmf_traffic
-          rmf_traffic_ros2
-          rmf_utils
+          # rmf_traffic_ros2
+          # rmf_utils
         vcs-repo-file-url: |
           https://raw.githubusercontent.com/osrf/rmf_core/feature/add_codecov/rmf.repos
         colcon-mixin-name: coverage-gcc
