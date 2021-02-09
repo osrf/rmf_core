@@ -24,7 +24,9 @@
 #include <rmf_traffic_ros2/Time.hpp>
 
 using namespace rmf_task_ros2;
+
 using TaskType = bidding::MinimalBidder::TaskType;
+using BidNotice = rmf_task_msgs::msg::BidNotice;
 
 int main(int argc, char* argv[])
 {
@@ -43,14 +45,14 @@ int main(int argc, char* argv[])
     node,
     fleet_name,
     { TaskType::Clean, TaskType::Delivery },
-    [](const bidding::BidNotice& notice)
+    [](const BidNotice& notice)
     {
       // Here user will provice the best robot as a bid submission
       std::cout << "[MockBidder] Providing best estimates" << std::endl;
       auto req_start_time =
       rmf_traffic_ros2::convert(notice.task_profile.description.start_time);
 
-      bidding::Submission best_robot_estimate;
+      bidding::MinimalBidder::Submission best_robot_estimate;
       best_robot_estimate.robot_name = "dumbot";
       best_robot_estimate.prev_cost = 10.2;
       best_robot_estimate.new_cost = 13.5;

@@ -47,7 +47,7 @@ public:
 
   StatusCallback on_change_fn;
 
-  std::queue<bidding::BidNotice> queue_bidding_tasks;
+  std::queue<rmf_task_msgs::msg::BidNotice> queue_bidding_tasks;
   DispatchTasks active_dispatch_tasks;
   DispatchTasks terminal_dispatch_tasks;
   std::size_t task_counter = 0; // index for generating task_id
@@ -67,52 +67,18 @@ public:
   Implementation(std::shared_ptr<rclcpp::Node> node_)
   : node{std::move(node_)}
   {
-    // ros2 param
-    bidding_time_window =
-      node->declare_parameter<double>("bidding_time_window", 2.0);
-    RCLCPP_INFO(node->get_logger(),
-      " Declared Time Window Param as: %f secs", bidding_time_window);
-    terminated_tasks_max_size =
-      node->declare_parameter<int>("terminated_tasks_max_size", 100);
-    RCLCPP_INFO(node->get_logger(),
-      " Declared Terminated Tasks Max Size Param as: %d",
-      terminated_tasks_max_size);
-
-    // Setup up stream srv interfaces
     submit_task_srv = node->create_service<SubmitTaskSrv>(
       rmf_task_ros2::SubmitTaskSrvName,
       [this](
         const std::shared_ptr<SubmitTaskSrv::Request> request,
         std::shared_ptr<SubmitTaskSrv::Response> response)
       {
-        switch (request->evaluator)
-        {
-          using namespace rmf_task_ros2::bidding;
-          case SubmitTaskSrv::Request::LOWEST_DIFF_COST_EVAL:
-            this->auctioneer->select_evaluator(
-              std::make_shared<LeastFleetDiffCostEvaluator>());
-            break;
-          case SubmitTaskSrv::Request::LOWEST_COST_EVAL:
-            this->auctioneer->select_evaluator(
-              std::make_shared<LeastFleetCostEvaluator>());
-            break;
-          case SubmitTaskSrv::Request::QUICKEST_FINISH_EVAL:
-            this->auctioneer->select_evaluator(
-              std::make_shared<QuickestFinishEvaluator>());
-            break;
-          default:
-            RCLCPP_WARN(this->node->get_logger(),
-            "Selected Evaluator is invalid, switch back to previous");
-            break;
-        }
-
         const auto id = this->submit_task(request->description);
         if (id == std::nullopt)
         {
           response->success = false;
           return;
         }
-
         response->task_id = *id;
         response->success = true;
       }
@@ -193,7 +159,7 @@ public:
     if (on_change_fn)
       on_change_fn(new_task_status);
 
-    bidding::BidNotice bid_notice;
+    rmf_task_msgs::msg::BidNotice bid_notice;
     bid_notice.task_profile = submitted_task;
     bid_notice.time_window = rmf_traffic_ros2::convert(
       rmf_traffic::time::from_seconds(bidding_time_window));
@@ -291,7 +257,7 @@ public:
 
   void receive_bidding_winner_cb(
     const TaskID& task_id,
-    const rmf_utils::optional<bidding::Submission> winner)
+    const std::optional<rmf_task::Evaluator::Submission> winner)
   {
     const auto it = active_dispatch_tasks.find(task_id);
     if (it == active_dispatch_tasks.end())
@@ -405,23 +371,24 @@ public:
 };
 
 //==============================================================================
-std::shared_ptr<Dispatcher> Dispatcher::init_and_make_node(
-  const std::string dispatcher_node_name)
+std::shared_ptr<Dispatcher> Dispatcher::init_and_make_node()
 {
   rclcpp::init(0, nullptr);
-  return make_node(dispatcher_node_name);
+  return make_node();
 }
 
 //==============================================================================
-std::shared_ptr<Dispatcher> Dispatcher::make_node(
-  const std::string dispatcher_node_name)
+std::shared_ptr<Dispatcher> Dispatcher::make_node()
 {
-  return make(rclcpp::Node::make_shared(dispatcher_node_name));
+  return make(rclcpp::Node::make_shared("rmf_dispatcher_node"));
 }
 
 //==============================================================================
 std::shared_ptr<Dispatcher> Dispatcher::make(
-  const std::shared_ptr<rclcpp::Node>& node)
+  const std::shared_ptr<rclcpp::Node>& node,
+  const std::shared_ptr<rmf_task::Evaluator> evaluator,
+  const double bidding_time_window,
+  const int terminated_tasks_depth)
 {
   auto pimpl = rmf_utils::make_impl<Implementation>(node);
   pimpl->action_client = action::Client::make(node);
@@ -429,6 +396,9 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
   auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
   dispatcher->_pimpl = std::move(pimpl);
   dispatcher->_pimpl->start();
+  dispatcher->_pimpl->bidding_time_window = bidding_time_window;
+  dispatcher->_pimpl->terminated_tasks_max_size = terminated_tasks_depth;
+  dispatcher->_pimpl->auctioneer->select_evaluator(evaluator);
   return dispatcher;
 }
 
@@ -472,7 +442,7 @@ void Dispatcher::on_change(StatusCallback on_change_fn)
 
 //==============================================================================
 void Dispatcher::evaluator(
-  std::shared_ptr<bidding::Auctioneer::Evaluator> evaluator)
+  std::shared_ptr<rmf_task::Evaluator> evaluator)
 {
   _pimpl->auctioneer->select_evaluator(evaluator);
 }

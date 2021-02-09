@@ -28,6 +28,7 @@ namespace rmf_task_ros2 {
 namespace bidding {
 
 using TaskProfile = rmf_task_msgs::msg::TaskProfile;
+using BidNotice = rmf_task_msgs::msg::BidNotice;
 using TaskType = bidding::MinimalBidder::TaskType;
 
 //==============================================================================
@@ -66,7 +67,8 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     node,
     /// Bidding Result Callback Function
     [&r_result_id, &r_result_winner](
-      const std::string& task_id, const std::optional<Submission> winner)
+      const std::string& task_id,
+      const std::optional<rmf_task::Evaluator::Submission> winner)
     {
       if (!winner)
         return;
@@ -83,7 +85,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     node, "bidder1", { TaskType::Station, TaskType::Delivery },
     [&test_notice_bidder1](const BidNotice& notice)
     {
-      Submission best_robot_estimate;
+      MinimalBidder::Submission best_robot_estimate;
       test_notice_bidder1 = notice.task_profile;
       return best_robot_estimate;
     }
@@ -94,7 +96,7 @@ SCENARIO("Auction with 2 Bids", "[TwoBids]")
     [&test_notice_bidder2](const BidNotice& notice)
     {
       // TaskType should not be supported
-      Submission best_robot_estimate;
+      MinimalBidder::Submission best_robot_estimate;
       best_robot_estimate.new_cost = 2.3; // lower cost than bidder1
       test_notice_bidder2 = notice.task_profile;
       return best_robot_estimate;

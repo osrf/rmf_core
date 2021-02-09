@@ -22,8 +22,8 @@
 
 #include <rclcpp/node.hpp>
 #include <rmf_utils/impl_ptr.hpp>
-
-#include <rmf_task_ros2/bidding/Submission.hpp>
+#include <rmf_traffic/Time.hpp>
+#include <rmf_task_msgs/msg/bid_notice.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
@@ -44,6 +44,15 @@ public:
     Patrol        = TaskTypeMsg::TYPE_PATROL
   };
 
+
+  struct Submission
+  {
+    std::string robot_name;
+    double prev_cost = 0.0;
+    double new_cost = std::numeric_limits<double>::max();
+    rmf_traffic::Time finish_time;
+  };
+
   /// Callback function when a bid notice is received from the autioneer
   ///
   /// \param[in] notice
@@ -51,6 +60,8 @@ public:
   ///
   /// \return submission
   ///   Estimates of a task. This submission is used by dispatcher for eval
+  using BidNotice = rmf_task_msgs::msg::BidNotice;
+
   using ParseSubmissionCallback =
     std::function<Submission(const BidNotice& notice)>;
 

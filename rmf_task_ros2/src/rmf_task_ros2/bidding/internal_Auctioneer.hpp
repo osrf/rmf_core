@@ -19,7 +19,7 @@
 #ifndef SRC__RMF_TASK_ROS2__BIDDING__INTERNAL_AUCTIONEER_HPP
 #define SRC__RMF_TASK_ROS2__BIDDING__INTERNAL_AUCTIONEER_HPP
 
-#include <rmf_task_ros2/bidding/Submission.hpp>
+#include <rmf_task/Evaluator.hpp>
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 #include <rmf_task_msgs/msg/bid_proposal.hpp>
 
@@ -30,6 +30,8 @@ namespace rmf_task_ros2 {
 namespace bidding {
 
 using BidProposal = rmf_task_msgs::msg::BidProposal;
+using Submission = rmf_task::Evaluator::Submission;
+using Submissions = rmf_task::Evaluator::Submissions;
 
 //==============================================================================
 class Auctioneer::Implementation
@@ -38,13 +40,13 @@ public:
   std::shared_ptr<rclcpp::Node> node;
   rclcpp::TimerBase::SharedPtr timer;
   BiddingResultCallback bidding_result_callback;
-  std::shared_ptr<Evaluator> evaluator;
+  std::shared_ptr<rmf_task::Evaluator> evaluator;
 
   struct BiddingTask
   {
     BidNotice bid_notice;
     builtin_interfaces::msg::Time start_time;
-    std::vector<bidding::Submission> submissions;
+    Submissions submissions;
   };
 
   bool bidding_in_proccess = false;

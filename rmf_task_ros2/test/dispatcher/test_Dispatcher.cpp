@@ -41,7 +41,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   task_desc2.task_type.type = rmf_task_msgs::msg::TaskType::TYPE_CLEAN;
 
   //============================================================================
-  auto dispatcher = Dispatcher::init_and_make_node("test_dispatcher_node");
+  auto dispatcher = Dispatcher::init_and_make_node();
 
   auto spin_thread = std::thread(
     [&dispatcher]()
@@ -131,10 +131,10 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     node,
     "dummy_fleet",
     { TaskType::Station, TaskType::Clean },
-    [](const bidding::BidNotice&)
+    [](const rmf_task_msgs::msg::BidNotice&)
     {
       // Provide a best estimate
-      bidding::Submission best_robot_estimate;
+      bidding::MinimalBidder::Submission best_robot_estimate;
       best_robot_estimate.new_cost = 13.5;
       return best_robot_estimate;
     }

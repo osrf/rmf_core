@@ -33,7 +33,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   _request_msg_pub = _node->create_publisher<RequestMsg>(
-    TaskRequestTopicName, dispatch_qos);
+    DispatchRequestTopicName, dispatch_qos);
 
   _status_msg_sub = _node->create_subscription<StatusMsg>(
     TaskStatusTopicName, dispatch_qos,
@@ -77,7 +77,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
     });
 
   _ack_msg_sub = _node->create_subscription<AckMsg>(
-    TaskAckTopicName, dispatch_qos,
+    DispatchAckTopicName, dispatch_qos,
     [&](const std::unique_ptr<AckMsg> msg)
     {
       const auto task_id = msg->dispatch_request.task_profile.task_id;
@@ -137,9 +137,6 @@ void Client::update_task_status(const TaskStatusPtr status)
       _on_terminate_callback(status);
   }
 }
-
-//==============================================================================
-// check if task is updated TODO
 
 //==============================================================================
 void Client::add_task(

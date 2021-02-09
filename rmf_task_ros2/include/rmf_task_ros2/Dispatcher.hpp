@@ -21,11 +21,9 @@
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rmf_utils/impl_ptr.hpp>
-#include <rmf_utils/optional.hpp>
 
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 #include <rmf_task_ros2/TaskStatus.hpp>
-
 
 namespace rmf_task_ros2 {
 
@@ -42,31 +40,39 @@ public:
   /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will
   /// allow you to dispatch submitted task to the best fleet/robot within RMF.
   ///
-  /// \param[in] dispatcher_node_name
-  ///   The ROS 2 node to manage the Dispatching of Task
+  /// \note Using default params:
+  ///   LeastFleetCostEvaluator, bidding window: 2s and keep last 50 tasks
   ///
   /// \sa init_and_make_node()
-  static std::shared_ptr<Dispatcher> init_and_make_node(
-    const std::string dispatcher_node_name);
+  static std::shared_ptr<Dispatcher> init_and_make_node();
 
   /// Similarly this will init the dispatcher, but you will also need to init
   /// rclcpp via rclcpp::init(~).
   ///
-  /// \param[in] dispatcher_node_name
-  ///   The ROS 2 node to manage the Dispatching of Task
-  ///
   /// \sa make_node()
-  static std::shared_ptr<Dispatcher> make_node(
-    const std::string dispatcher_node_name);
+  static std::shared_ptr<Dispatcher> make_node();
 
-  /// Create a dispatcher by providing the ros2 node
+  /// Create a dispatcher by providing the ros2 node and other params
   ///
   /// \param[in] node
   ///   ROS 2 node instance
   ///
+  /// \param[in] evaluator
+  ///   Bidding Evaluator, default: LeastFleetDiffCostEvaluator
+  ///
+  /// \param[in] bidding_time_window
+  ///   Bidding time window, default: 2.0
+  ///
+  /// \param[in] terminated_tasks_depth
+  ///   Keep history depth size of terminated tasks, default: 50
+  ///
   /// \sa make()
   static std::shared_ptr<Dispatcher> make(
-    const std::shared_ptr<rclcpp::Node>& node);
+    const std::shared_ptr<rclcpp::Node>& node,
+    const std::shared_ptr<rmf_task::Evaluator> evaluator =
+    std::make_shared<rmf_task::LeastFleetDiffCostEvaluator>(),
+    const double bidding_time_window = 2.0,
+    const int terminated_tasks_depth = 50);
 
   /// Submit task to dispatcher node. Calling this function will immediately
   /// trigger the bidding process, then the task "action". Once submmitted,
@@ -99,7 +105,7 @@ public:
   ///   task_id obtained from `submit_task()`
   ///
   /// \return State of the task, nullopt if task is not available
-  const rmf_utils::optional<TaskStatus::State> get_task_state(
+  const std::optional<TaskStatus::State> get_task_state(
     const TaskID& task_id) const;
 
   /// Get a mutable ref of active tasks map list handled by dispatcher
@@ -121,7 +127,7 @@ public:
   ///
   /// \param [in] evaluator
   ///   evaluator used to select the best bid from fleets
-  void evaluator(std::shared_ptr<bidding::Auctioneer::Evaluator> evaluator);
+  void evaluator(std::shared_ptr<rmf_task::Evaluator> evaluator);
 
   /// Get the rclcpp::Node that this dispatcher will be using for communication.
   std::shared_ptr<rclcpp::Node> node();

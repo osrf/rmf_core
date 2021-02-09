@@ -33,6 +33,7 @@
 
 #include <rmf_fleet_adapter/agv/FleetUpdateHandle.hpp>
 #include <rmf_fleet_adapter/StandardNames.hpp>
+#include <rmf_task_ros2/StandardNames.hpp>
 
 #include "Node.hpp"
 #include "RobotContext.hpp"
@@ -224,17 +225,17 @@ public:
     // Publish BidProposal
     handle._pimpl->bid_proposal_pub =
       handle._pimpl->node->create_publisher<BidProposal>(
-        BidProposalTopicName, default_qos);
+        rmf_task_ros2::BidProposalTopicName, default_qos);
 
     // Publish DispatchAck
     handle._pimpl->dispatch_ack_pub =
       handle._pimpl->node->create_publisher<DispatchAck>(
-        DispatchAckTopicName, default_qos);
+        rmf_task_ros2::DispatchAckTopicName, default_qos);
 
     // Subscribe BidNotice
     handle._pimpl->bid_notice_sub =
       handle._pimpl->node->create_subscription<BidNotice>(
-        BidNoticeTopicName,
+        rmf_task_ros2::BidNoticeTopicName,
         default_qos,
         [p = handle._pimpl.get()](const BidNotice::SharedPtr msg)
         {
@@ -244,7 +245,7 @@ public:
     // Subscribe DispatchRequest
     handle._pimpl->dispatch_request_sub =
       handle._pimpl->node->create_subscription<DispatchRequest>(
-        DispatchRequestTopicName,
+        rmf_task_ros2::DispatchRequestTopicName,
         default_qos,
         [p = handle._pimpl.get()](const DispatchRequest::SharedPtr msg)
         {

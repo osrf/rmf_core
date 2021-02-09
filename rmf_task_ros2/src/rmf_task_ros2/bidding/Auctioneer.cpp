@@ -40,7 +40,7 @@ Auctioneer::Implementation::Implementation(
   bidding_result_callback{std::move(result_callback)}
 {
   // default evaluator
-  evaluator = std::make_shared<LeastFleetDiffCostEvaluator>();
+  evaluator = std::make_shared<rmf_task::LeastFleetDiffCostEvaluator>();
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   bid_notice_pub = node->create_publisher<BidNotice>(
@@ -154,21 +154,17 @@ bool Auctioneer::Implementation::determine_winner(
 std::optional<Submission> Auctioneer::Implementation::evaluate(
   const Submissions& submissions)
 {
-  if (submissions.size() == 0)
-    return std::nullopt;
-
   if (!evaluator)
   {
     RCLCPP_WARN(node->get_logger(), "Bidding Evaluator is not set");
     return std::nullopt;
   }
 
-  const std::size_t choice = evaluator->choose(submissions);
-
-  if (choice >= submissions.size())
+  auto choice = evaluator->choose(submissions);
+  if (choice == std::nullopt)
     return std::nullopt;
 
-  return submissions[choice];
+  return submissions[*choice];
 }
 
 //==============================================================================
@@ -191,7 +187,7 @@ void Auctioneer::start_bidding(const BidNotice& bid_notice)
 
 //==============================================================================
 void Auctioneer::select_evaluator(
-  std::shared_ptr<Auctioneer::Evaluator> evaluator)
+  std::shared_ptr<rmf_task::Evaluator> evaluator)
 {
   _pimpl->evaluator = std::move(evaluator);
 }
@@ -200,53 +196,6 @@ void Auctioneer::select_evaluator(
 Auctioneer::Auctioneer()
 {
   // do nothing
-}
-
-//==============================================================================
-std::size_t LeastFleetDiffCostEvaluator::choose(
-  const Submissions& submissions) const
-{
-  auto winner_it = submissions.begin();
-  float winner_cost_diff = winner_it->new_cost - winner_it->prev_cost;
-  for (auto nominee_it = ++submissions.begin();
-    nominee_it != submissions.end(); ++nominee_it)
-  {
-    float nominee_cost_diff = nominee_it->new_cost - nominee_it->prev_cost;
-    if (nominee_cost_diff < winner_cost_diff)
-    {
-      winner_it = nominee_it;
-      winner_cost_diff = nominee_cost_diff;
-    }
-  }
-  return std::distance(submissions.begin(), winner_it);
-}
-
-//==============================================================================
-std::size_t LeastFleetCostEvaluator::choose(
-  const Submissions& submissions) const
-{
-  auto winner_it = submissions.begin();
-  for (auto nominee_it = ++submissions.begin();
-    nominee_it != submissions.end(); ++nominee_it)
-  {
-    if (nominee_it->new_cost < winner_it->new_cost)
-      winner_it = nominee_it;
-  }
-  return std::distance(submissions.begin(), winner_it);
-}
-
-//==============================================================================
-std::size_t QuickestFinishEvaluator::choose(
-  const Submissions& submissions) const
-{
-  auto winner_it = submissions.begin();
-  for (auto nominee_it = ++submissions.begin();
-    nominee_it != submissions.end(); ++nominee_it)
-  {
-    if (nominee_it->finish_time < winner_it->finish_time)
-      winner_it = nominee_it;
-  }
-  return std::distance(submissions.begin(), winner_it);
 }
 
 } // namespace bidding
