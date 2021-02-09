@@ -19,10 +19,53 @@
 #include "EndLiftSession.hpp"
 #include "RxOperators.hpp"
 
+#include "std_msgs/msg/string.hpp"
+#include <string>
+#include "rclcpp/rclcpp.hpp"
+
 namespace rmf_fleet_adapter {
 namespace phases {
 
 //==============================================================================
+
+std::string msg_rec; // global variable, not ideal
+
+using std::placeholders::_1;
+
+bool su_status;
+
+class MinimalSubscriber : public rclcpp::Node
+{
+public:
+  MinimalSubscriber()
+  : Node("su_subscriber")
+  {
+    //auto sub1_opt = rclcpp::SubscriptionOptions();
+    subscription_ = this->create_subscription<std_msgs::msg::String>(
+      "su_topic", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "inside subscriber");
+  }
+
+private:
+  void topic_callback(const std_msgs::msg::String::SharedPtr msg) 
+  {
+    msg_rec = msg->data.c_str(); //save the data in the callback
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "holding lift");
+    if (msg_rec == "go"){
+        su_status = true;
+        //subscription_.reset();
+        rclcpp::shutdown();
+        }
+    else
+    {
+        su_status = false;
+    }
+    
+  }
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
+};
+
+
 std::shared_ptr<RequestLift::ActivePhase> RequestLift::ActivePhase::make(
   agv::RobotContextPtr context,
   std::string lift_name,
@@ -95,6 +138,7 @@ RequestLift::ActivePhase::ActivePhase(
 //==============================================================================
 void RequestLift::ActivePhase::_init_obs()
 {
+  std::make_shared<MinimalSubscriber>();
   using rmf_lift_msgs::msg::LiftState;
 
   _obs = _context->node()->lift_state()
@@ -136,7 +180,7 @@ void RequestLift::ActivePhase::_init_obs()
       auto me = weak.lock();
       if (!me)
         return Task::StatusMsg();
-
+        
       return me->_get_status(v);
     })
     .lift<Task::StatusMsg>(grab_while([weak = weak_from_this()](const Task::StatusMsg& status)
@@ -188,26 +232,21 @@ Task::StatusMsg RequestLift::ActivePhase::_get_status(
   using rmf_lift_msgs::msg::LiftRequest;
   Task::StatusMsg status{};
   status.state = Task::StatusMsg::STATE_ACTIVE;
-  if (lift_state->lift_name == _lift_name &&
-      lift_state->current_floor == _destination &&
+  if (lift_state->current_floor == _destination &&
       lift_state->door_state == LiftState::DOOR_OPEN &&
       lift_state->session_id == _context->requester_id())
   {
-    status.state = Task::StatusMsg::STATE_COMPLETED;
-    status.status = "success";
-    _timer.reset();
+        // listen for SU msg before publishing the request end
+      rclcpp::spin(std::make_shared<MinimalSubscriber>());
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "moving past sub");
+        if (su_status == true){
+        RCLCPP_INFO(rclcpp::get_logger("rclcpp"),"heard SU msg");
+         status.state = Task::StatusMsg::STATE_COMPLETED;
+         status.status = "success";
+         _timer.reset();
+         //rclcpp::shutdown();
+         }
   }
-  else if (lift_state->lift_name == _lift_name)
-  {
-    // TODO(MXG): Make this a more human-friendly message
-    status.status = "[" + _context->name() + "] still waiting for lift ["
-        + _lift_name + "]  current state: "
-        + lift_state->current_floor + " vs " + _destination + " | "
-        + std::to_string(static_cast<int>(lift_state->door_state))
-        + " vs " + std::to_string(static_cast<int>(LiftState::DOOR_OPEN))
-        + " | " + lift_state->session_id + " vs " + _context->requester_id();
-  }
-
   return status;
 }
 
