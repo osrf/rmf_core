@@ -27,7 +27,7 @@ jobs:
         # build all packages listed in the meta package
         package-name: |
           rmf_traffic
-        # rmf_battery
+          rmf_battery
         # rmf_fleet_adapter
         # rmf_task
         # rmf_traffic_ros2
