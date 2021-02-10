@@ -37,14 +37,6 @@
 namespace rmf_traffic_ros2 {
 namespace schedule {
 
-void print_table(const std::string& msg, const rmf_traffic::schedule::Negotiation::TablePtr table)
-{
-  std::cout << msg;
-  for (const auto& s : table->sequence())
-    std::cout << " " << s.participant << ":" << s.version;
-  std::cout << std::endl;
-}
-
 //==============================================================================
 std::string table_to_string(
   const std::vector<rmf_traffic::schedule::ParticipantId>& table)
@@ -84,7 +76,7 @@ public:
       parent(table->parent()),
       parent_version(parent? OptVersion(parent->version()) : OptVersion())
     {
-      _print_table(" $$ making responder for:");
+      // Do nothing
     }
 
     template<typename... Args>
@@ -113,10 +105,7 @@ public:
     {
       responded = true;
       if (table->defunct())
-      {
-        _print_table(" ^^ defunct submission:");
         return;
-      }
 
       if (table->submit(itinerary, table_version+1))
       {
@@ -125,7 +114,6 @@ public:
           std::move(approval_callback)
         };
 
-        _print_table(" ^^ publishing submission:");
         impl->publish_proposal(conflict_version, *table);
 
         if (impl->worker)
@@ -146,10 +134,6 @@ public:
           }
         }
       }
-      else
-      {
-        _print_table(" ^^ not publishing submission:");
-      }
     }
 
     void reject(const Alternatives& alternatives) const final
@@ -161,7 +145,6 @@ public:
         // feasible for us.
         if (parent->reject(*parent_version, table->participant(), alternatives))
         {
-          _print_table(" ^^ publishing rejection:");
           impl->publish_rejection(
                 conflict_version, *parent, table->participant(), alternatives);
 
@@ -183,18 +166,6 @@ public:
 //            });
 //          }
         }
-        else
-        {
-          _print_table(" ^^ not publishing rejection:");
-        }
-      }
-      else if (parent)
-      {
-        _print_table(" ^^ rejected a defunct parent:");
-      }
-      else
-      {
-        _print_table(" ^^ rejected without a parent:");
       }
     }
 
@@ -203,30 +174,17 @@ public:
       responded = true;
       if (!table->defunct())
       {
-        _print_table(" ^^ negotiator forfeiting:");
         // TODO(MXG): Consider using blockers to invite more participants into the
         // negotiation
         table->forfeit(table_version);
         impl->publish_forfeit(conflict_version, *table);
-      }
-      else
-      {
-        _print_table(" ^^ forfeiting when defunct:");
       }
     }
 
     void timeout()
     {
       if (!responded)
-      {
-        _print_table(" ^^ forfeiting due to time out:");
-
         forfeit({});
-      }
-      else
-      {
-        _print_table(" $$ timeout but responded:");
-      }
     }
 
     ~Responder()
@@ -235,11 +193,6 @@ public:
     }
 
   private:
-
-    void _print_table(const std::string& msg) const
-    {
-      print_table(msg, table);
-    }
 
     Implementation* const impl;
     const rmf_traffic::schedule::Version conflict_version;
@@ -584,15 +537,10 @@ public:
 
   void receive_proposal(const Proposal& msg)
   {
-    std::cout << " ## received:";
-    for (const auto& p : msg.to_accommodate)
-      std::cout << " " << p.participant << ":" << p.version;
-    std::cout << " " << msg.for_participant << ":" << msg.proposal_version << std::endl;
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
       // This negotiation has probably been completed already
-      std::cout << " ##-- " << __LINE__ << std::endl;
       return;
     }
 
@@ -603,15 +551,11 @@ public:
       negotiation.find(msg.for_participant, convert(msg.to_accommodate));
 
     if (search.deprecated())
-    {
-      std::cout << " ##-- " << __LINE__ << std::endl;
       return;
-    }
 
     const auto received_table = search.table;
     if (!received_table)
     {
-      std::cout << " ##-- " << __LINE__ << std::endl;
       std::string error =
         "[rmf_traffic_ros2::schedule::Negotiation::receive_proposal] "
         "Receieved a proposal for negotiation ["
@@ -633,10 +577,7 @@ public:
       received_table->submit(convert(msg.itinerary), msg.proposal_version);
 
     if (!updated)
-    {
-      std::cout << " ##-- " << __LINE__ << std::endl;
       return;
-    }
 
     if (status_callback)
     {
@@ -647,10 +588,7 @@ public:
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
     if (!participating)
-    {
-      std::cout << " ##-- " << __LINE__ << std::endl;
       return;
-    }
 
     for (const auto& n : *negotiators)
     {
@@ -658,7 +596,6 @@ public:
         queue.push_back(respond_to);
     }
 
-    std::cout << " ##-- " << __LINE__ << std::endl;
     respond_to_queue(queue, msg.conflict_version);
   }
 
@@ -808,7 +745,6 @@ public:
     }
 
     print_negotiation_status(msg.conflict_version, negotiation);
-    std::cout << err << "\n ------ Finished dump ------ " << std::endl;
   }
 
   void receive_conclusion(const Conclusion& msg)

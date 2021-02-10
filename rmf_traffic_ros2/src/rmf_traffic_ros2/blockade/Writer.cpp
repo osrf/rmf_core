@@ -362,6 +362,8 @@ public:
         const ParticipantId participant_id,
         const ReservationId reservation_id) final
     {
+      std::cout << "Sending blockade cancel message for " << participant_id << ":" << reservation_id
+                << std::endl;
       auto msg =
           rmf_traffic_msgs::build<rmf_traffic_msgs::msg::BlockadeCancel>()
           .participant(participant_id)
@@ -373,6 +375,7 @@ public:
 
     void cancel(ParticipantId participant_id) final
     {
+      std::cout << "Canceling all blockade for " << participant_id << std::endl;
       auto msg =
           rmf_traffic_msgs::build<rmf_traffic_msgs::msg::BlockadeCancel>()
           .participant(participant_id)

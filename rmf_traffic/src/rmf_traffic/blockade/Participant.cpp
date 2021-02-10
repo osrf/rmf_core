@@ -237,7 +237,10 @@ void Participant::reached(CheckpointId checkpoint)
 void Participant::cancel()
 {
   if (_pimpl->_reservation_id)
+  {
     _pimpl->_writer->cancel(_pimpl->_id, *_pimpl->_reservation_id);
+    _pimpl->_reservation_id = std::nullopt;
+  }
 }
 
 //==============================================================================
