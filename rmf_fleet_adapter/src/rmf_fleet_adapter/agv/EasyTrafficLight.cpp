@@ -83,6 +83,12 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
 
   if (last_received_checkpoints.has_value())
   {
+    std::cout << " %% old checkpoints:";
+    for (const auto& old_c : last_received_checkpoints->checkpoints)
+      std::cout << " " << old_c.waypoint_index;
+    std::cout << std::endl;
+
+    std::cout << " %% merging checkpoints" << std::endl;
     // If we already have checkpoints that we've received but haven't processed
     // yet, then we should merge the new checkpoints into the unprocessed ones.
     last_received_checkpoints->reject = reject;
@@ -97,6 +103,7 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
       {
         if (old_c.waypoint_index == new_c.waypoint_index)
         {
+          std::cout << " %% -- replacing old checkpoint " << new_c.waypoint_index << std::endl;
           old_c = new_c;
           duplicate = true;
           break;
@@ -104,13 +111,18 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
       }
 
       if (!duplicate)
+      {
+        std::cout << " %% -- adding new checkpoint " << new_c.waypoint_index << std::endl;
         old_checkpoints.push_back(new_c);
+      }
     }
 
     const auto r_it = std::remove_if(
           old_checkpoints.begin(), old_checkpoints.end(),
           [standby_at](const Checkpoint& c)
     {
+      std::cout << " %% -- removing checkpoint " << c.waypoint_index << " [vs "
+                << standby_at << "]" << std::endl;
       return c.waypoint_index >= standby_at;
     });
 
@@ -268,7 +280,7 @@ void EasyTrafficLight::Implementation::clear()
 //==============================================================================
 void EasyTrafficLight::Implementation::accept_new_checkpoints()
 {
-  std::cout << "Accepting new checkpoints:";
+  std::cout << " %% Accepting new checkpoints:";
   assert(last_received_checkpoints.has_value());
   for (const auto& c : last_received_checkpoints.value().checkpoints)
   {

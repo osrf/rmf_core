@@ -1190,7 +1190,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
       std::cout << " -- !! NO DATA??" << std::endl;
       return;
     }
-    std::cout << data->name() << " [" << path_version << "] ==== Updating location from "
+    std::cout << data->name() << " [" << path_version << " | " << plan_version
+              << " | " << line << "] ==== Updating location from "
               << checkpoint_index << std::endl;
 
     if (path_version != data->current_path_version)
@@ -1531,7 +1532,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
     auto on_standby =
         [w = weak_from_this(),
          approval_callback = approval_callback,
-         version = current_path_version,
+         path_version = current_path_version,
          standby_checkpoint = current_range.end]()
     {
       approval_callback();
@@ -1540,13 +1541,13 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
       {
         data->worker.schedule(
               [w = data->weak_from_this(),
-               version,
+               path_version,
                standby_checkpoint](const auto&)
         {
           if (const auto data = w.lock())
           {
             std::cout << data->name() << " @@ " << __LINE__ << std::endl;
-            data->watch_for_ready(version, standby_checkpoint);
+            data->watch_for_ready(path_version, standby_checkpoint);
           }
         });
       }
@@ -1581,7 +1582,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
   auto on_standby =
       [w = weak_from_this(),
        approval_callback = approval_callback,
-       version = current_path_version,
+       path_version = current_path_version,
        standby_checkpoint = current_range.end]()
   {
     approval_callback();
@@ -1590,13 +1591,13 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
     {
      data->worker.schedule(
            [w = data->weak_from_this(),
-            version,
+            path_version,
             standby_checkpoint](const auto&)
      {
        if (const auto data = w.lock())
        {
          std::cout << data->name() << " @@ " << __LINE__ << std::endl;
-         data->watch_for_ready(version, standby_checkpoint);
+         data->watch_for_ready(path_version, standby_checkpoint);
        }
      });
     }
@@ -1609,7 +1610,8 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
     checkpoints.clear();
   }
 
-  std::cout << name() << "###### Issuing plan " << current_plan_version << ":";
+  std::cout << name() << " ###### Issuing plan for path " << current_path_version
+            << " | " << current_plan_version << ":";
   for (const auto& c : checkpoints)
     std::cout << " " << c.waypoint_index;
   std::cout << std::endl;

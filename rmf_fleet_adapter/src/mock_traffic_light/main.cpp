@@ -111,9 +111,11 @@ public:
   }
 
   void set_update_handle(
-      rmf_fleet_adapter::agv::EasyTrafficLightPtr update_handle)
+      rmf_fleet_adapter::agv::EasyTrafficLightPtr update_handle,
+      rmf_fleet_msgs::msg::RobotState state)
   {
     _update = std::move(update_handle);
+    _last_state = state;
     _update->fleet_state_publish_period(std::nullopt);
   }
 
@@ -679,7 +681,7 @@ struct Connections : public std::enable_shared_from_this<Connections>
     };
 
     adapter->add_easy_traffic_light(
-          [c = weak_from_this(), command, robot_name = robot_name](
+          [c = weak_from_this(), command, robot_name = robot_name, state](
           rmf_fleet_adapter::agv::EasyTrafficLightPtr updater)
     {
       const auto connections = c.lock();
@@ -687,7 +689,7 @@ struct Connections : public std::enable_shared_from_this<Connections>
         return;
 
       auto  lock = connections->lock();
-      command->set_update_handle(std::move(updater));
+      command->set_update_handle(std::move(updater), state);
       connections->robots[robot_name] = command;
     },
     fleet_name, robot_name, *traits,
