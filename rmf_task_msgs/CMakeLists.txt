@@ -33,6 +33,7 @@ set(msg_files
   "msg/BidNotice.msg"
   "msg/BidProposal.msg"
   "msg/DispatchRequest.msg"
+  "msg/DispatchAck.msg"
 )
 
 set(srv_files
