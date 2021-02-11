@@ -47,11 +47,7 @@ public:
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     rmf_traffic::Time start_time,
     bool drain_battery = true,
-    bool priority = false);
-
-  std::string id() const final;
-
-  bool priority() const final;
+    ConstPriorityPtr priority = nullptr);
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
@@ -59,8 +55,6 @@ public:
     const std::shared_ptr<EstimateCache> estimate_cache) const final;
 
   rmf_traffic::Duration invariant_duration() const final;
-
-  rmf_traffic::Time earliest_start_time() const final;
 
   /// Get the battery system in this request
   const rmf_battery::agv::BatterySystem& battery_system() const;
@@ -70,7 +64,10 @@ public:
 
   class Implementation;
 private:
-  ChargeBattery();
+  ChargeBattery(
+    std::string& id,
+    rmf_traffic::Time earlier_start_time,
+    ConstPriorityPtr priority);
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

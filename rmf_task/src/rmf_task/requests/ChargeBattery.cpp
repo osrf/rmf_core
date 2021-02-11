@@ -50,14 +50,11 @@ class ChargeBattery::Implementation
 {
 public:
 
-  std::string id = "Charge";
   rmf_battery::agv::BatterySystemPtr battery_system;
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  rmf_traffic::Time start_time;
   bool drain_battery;
-  bool priority;
 
   // soc to always charge the battery up to
   double charge_soc = 1.0;
@@ -72,39 +69,30 @@ rmf_task::ConstRequestPtr ChargeBattery::make(
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
   bool drain_battery,
-  bool priority)
+  ConstPriorityPtr priority)
 {
-  std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery());
-  charge_battery->_pimpl->id += generate_uuid();
+  const std::string id = "Charge" + generate_uuid();
+  std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery(
+    id, start_time, priority));
   charge_battery->_pimpl->battery_system = std::make_shared<
     rmf_battery::agv::BatterySystem>(battery_system);
   charge_battery->_pimpl->motion_sink = std::move(motion_sink);
   charge_battery->_pimpl->device_sink = std::move(device_sink);
   charge_battery->_pimpl->planner = std::move(planner);
-  charge_battery->_pimpl->start_time = start_time;
   charge_battery->_pimpl->drain_battery = drain_battery;
-  charge_battery->_pimpl->priority = priority;
   charge_battery->_pimpl->invariant_duration =
     rmf_traffic::time::from_seconds(0.0);
   return charge_battery;
 }
 
 //==============================================================================
-ChargeBattery::ChargeBattery()
-: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
+ChargeBattery::ChargeBattery(
+  std::string& id,
+  rmf_traffic::Time earliest_start_time,
+  ConstPriorityPtr priority)
+: Request(id, earliest_start_time, priority),
+  _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {}
-
-//==============================================================================
-std::string ChargeBattery::id() const
-{
-  return _pimpl->id;
-}
-
-//==============================================================================
-bool ChargeBattery::priority() const
-{
-  return _pimpl->priority;
-}
 
 //==============================================================================
 rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
@@ -207,12 +195,6 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
 rmf_traffic::Duration ChargeBattery::invariant_duration() const
 {
   return _pimpl->invariant_duration;
-}
-
-//==============================================================================
-rmf_traffic::Time ChargeBattery::earliest_start_time() const
-{
-  return _pimpl->start_time;
 }
 
 //==============================================================================
