@@ -410,6 +410,13 @@ std::optional<TaskID> Dispatcher::submit_task(
 }
 
 //==============================================================================
+std::optional<TaskID> Dispatcher::submit_task(
+  const Description::ConstDescriptionPtr task_description)
+{
+  return _pimpl->submit_task(task_description->to_msg());
+}
+
+//==============================================================================
 bool Dispatcher::cancel_task(const TaskID& task_id)
 {
   return _pimpl->cancel_task(task_id);

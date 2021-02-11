@@ -24,6 +24,7 @@
 
 #include <rmf_task_ros2/bidding/Auctioneer.hpp>
 #include <rmf_task_ros2/TaskStatus.hpp>
+#include <rmf_task_ros2/Description.hpp>
 
 namespace rmf_task_ros2 {
 
@@ -80,12 +81,17 @@ public:
   /// then the state will turn to 'Queued'
   ///
   /// \param [in] task_description
-  ///   Submit a task to dispatch
+  ///   Submit a Description of task to dispatch
   ///
   /// \return task_id
   ///   self-generated task_id, nullopt is submit task failed
+  [[deprecated("Soon will only support ConstDescriptionPtr as arg")]]
   std::optional<TaskID> submit_task(
     const TaskDescription& task_description);
+
+  // New task submission
+  std::optional<TaskID> submit_task(
+    const Description::ConstDescriptionPtr task_description);
 
   /// Cancel an active task which was previously submitted to Dispatcher. This
   /// will terminate the task with a State of: `Canceled`. If a task is
