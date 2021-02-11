@@ -524,7 +524,7 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
       RCLCPP_WARN(
         node->get_logger(),
         "Received DispatchRequest for task_id:[%s] before receiving BidNotice. "
-        " This request will be ignored.");
+        "This request will be ignored.");
       dispatch_ack_pub->publish(dispatch_ack);
       return;
     }

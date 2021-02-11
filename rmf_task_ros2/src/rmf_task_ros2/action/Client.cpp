@@ -60,7 +60,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
 
         if (weak_status->is_terminated())
           RCLCPP_INFO(_node->get_logger(),
-          "Receive status from fleet [%s], task [%s] is now terminated",
+          "Received status from fleet [%s], task [%s] is now terminated",
           msg->fleet_name.c_str(), task_id.c_str());
 
         update_task_status(weak_status);
@@ -90,7 +90,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
           {
             // update this as pending
             RCLCPP_INFO(_node->get_logger(),
-            "Receive dispatch ack from fleet [%s] that task [%s] is queued",
+            "Received dispatch ack from fleet [%s] that task [%s] is queued",
             msg->dispatch_request.fleet_name.c_str(), task_id.c_str());
             weak_status->state = TaskStatus::State::Queued;
           }
@@ -98,7 +98,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
           {
             // update this as failed
             RCLCPP_ERROR(_node->get_logger(),
-            "Receive dispatch ack from fleet [%s] that task [%s] Add Failed",
+            "Received dispatch ack from fleet [%s] that task [%s] Add Failed",
             msg->dispatch_request.fleet_name.c_str(), task_id.c_str());
             weak_status->state = TaskStatus::State::Failed;
           }
@@ -108,7 +108,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
           if (msg->success)
           {
             RCLCPP_INFO(_node->get_logger(),
-            "Receive dispatch ack from fleet [%s] that task [%s] is canceled",
+            "Received dispatch ack from fleet [%s] that task [%s] is canceled",
             msg->dispatch_request.fleet_name.c_str(), task_id.c_str());
             weak_status->state = TaskStatus::State::Canceled;
           }
