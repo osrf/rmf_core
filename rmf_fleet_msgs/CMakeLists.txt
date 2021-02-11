@@ -31,6 +31,10 @@ set(msg_files
   "msg/DockSummary.msg"
 )
 
+set(srv_files
+  "srv/LiftClearance.srv"
+)
+
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
   ${srv_files}
