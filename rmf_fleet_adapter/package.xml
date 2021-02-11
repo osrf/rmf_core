@@ -23,6 +23,7 @@
   <depend>rmf_traffic_msgs</depend>
   <depend>rmf_battery</depend>
   <depend>rmf_task</depend>
+  <depend>rmf_charger_msgs</depend>
 
   <build_depend>eigen</build_depend>
   <build_depend>yaml-cpp</build_depend>
