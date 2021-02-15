@@ -81,12 +81,14 @@ public:
     rclcpp::Time time;
     StoppedAt stopped_at;
     Departed departed;
+    std::size_t path_version;
   };
 
   struct ResumeInfo
   {
     std::size_t checkpoint;
     Departed departed;
+    std::size_t path_version;
   };
 
   void receive_checkpoints(
@@ -165,6 +167,11 @@ public:
 
   std::string name;
   std::string owner;
+
+
+  void print_checkpoints(const std::vector<Checkpoint>& checkpoints) const;
+
+  std::size_t last_received_path_version = 0;
 
   mutable std::mutex _mutex;
   std::unique_lock<std::mutex> lock() const

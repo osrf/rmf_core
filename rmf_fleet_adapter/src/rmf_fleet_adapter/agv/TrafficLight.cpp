@@ -1514,7 +1514,9 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
             CommandHandle::Checkpoint{
               c,
               departure_timing.at(current_checkpoint_index),
-              std::move(departed)
+              std::move(departed),
+              current_path_version,
+              current_plan_version
             });
     }
 

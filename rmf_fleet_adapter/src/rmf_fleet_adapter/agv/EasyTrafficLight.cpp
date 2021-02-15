@@ -66,6 +66,46 @@ void EasyTrafficLight::Implementation::CommandHandle::deadlock(
 }
 
 //==============================================================================
+void EasyTrafficLight::Implementation::print_checkpoints(
+  const std::vector<Checkpoint>& checkpoints) const
+{
+  auto print = [](const Checkpoint& c)
+  {
+    std::cout << " [" << c.waypoint_index << "|" << c.path_version << ":"
+              << c.plan_version << "]";
+  };
+
+  std::cout << "\nIncoming:";
+  for (const auto& c : checkpoints)
+    print(c);
+  std::cout << "\n" << std::endl;
+
+  std::cout << "\nLast received:";
+  if (last_received_checkpoints.has_value())
+  {
+    for (const auto& c : last_received_checkpoints.value().checkpoints)
+      print(c);
+  }
+  else
+  {
+    std::cout << " None";
+  }
+  std::cout << "\n" << std::endl;
+
+  std::cout << "\nCurrent:";
+  for (std::size_t i=0; i < current_checkpoints.size(); ++i)
+  {
+    const auto& c = current_checkpoints.at(i);
+    std::cout << "\n -- (" << i << "): ";
+    if (c.has_value())
+      print(c.value());
+    else
+      std::cout << "nullopt";
+  }
+  std::cout << "\n" << std::endl;
+}
+
+//==============================================================================
 void EasyTrafficLight::Implementation::receive_checkpoints(
     const std::size_t version,
     std::vector<Checkpoint> checkpoints,
@@ -80,6 +120,29 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
   for (const auto& c : checkpoints)
     std::cout << " " << c.waypoint_index << "(" << c.departure_time.seconds() << ")";
   std::cout << std::endl;
+
+  print_checkpoints(checkpoints);
+
+  if (!checkpoints.empty())
+  {
+    if (checkpoints.front().path_version < last_received_path_version)
+    {
+      throw std::runtime_error(
+        "path version regression: "
+        + std::to_string(checkpoints.front().path_version) + " vs "
+        + std::to_string(last_received_path_version));
+    }
+
+    last_received_path_version = checkpoints.front().path_version;
+  }
+
+  for (const auto& c : checkpoints)
+  {
+    if (c.path_version != last_received_path_version)
+    {
+      throw std::runtime_error("path version mismatch");
+    }
+  }
 
   if (last_received_checkpoints.has_value())
   {
@@ -138,6 +201,16 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
     };
   }
 
+  for (const auto& c : last_received_checkpoints.value().checkpoints)
+  {
+    if (c.path_version != last_received_path_version)
+    {
+      print_checkpoints({});
+      throw std::runtime_error("last_received_checkpoints inconsistency "
+                               + std::to_string(__LINE__));
+    }
+  }
+
   if (last_departed_checkpoint.has_value())
   {
     if (standby_at < last_departed_checkpoint.value())
@@ -147,6 +220,8 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
       pause_cb();
     }
   }
+
+  print_checkpoints({});
 }
 
 //==============================================================================
@@ -178,7 +253,9 @@ void EasyTrafficLight::Implementation::immediately_stop_until(
           [w_timer = std::weak_ptr<rclcpp::TimerBase::SharedPtr>(wait_timer),
            w_node = std::weak_ptr<rclcpp::Node>(node),
            wait_until = wait_until,
-           resume_cb = resume_cb]()
+           resume_cb = resume_cb,
+           version = version,
+           this]()
     {
       if (!wait_until->has_value())
       {
@@ -189,6 +266,13 @@ void EasyTrafficLight::Implementation::immediately_stop_until(
       const auto node = w_node.lock();
       if (!node)
         return;
+
+      if (version != this->current_version)
+      {
+        throw std::runtime_error(
+          "old stop info [" + std::to_string(version)
+          + "] on line " + std::to_string(__LINE__));
+      }
 
       const auto now = node->now();
 
@@ -204,7 +288,8 @@ void EasyTrafficLight::Implementation::immediately_stop_until(
   last_received_stop_info = ImmediateStopInfo{
     time,
     std::move(stopped_at),
-    std::move(departed)
+    std::move(departed),
+    version
   };
 }
 
@@ -216,9 +301,17 @@ void EasyTrafficLight::Implementation::resume(std::size_t version)
 
   if (last_received_stop_info.has_value())
   {
+    if (last_received_stop_info.value().path_version != current_version)
+    {
+      throw std::runtime_error(
+        "old stop info [" + std::to_string(last_received_stop_info.value().path_version)
+        + "] on line " + std::to_string(__LINE__));
+    }
+
     resume_info = ResumeInfo {
       last_reached,
-      last_received_stop_info.value().departed
+      last_received_stop_info.value().departed,
+      last_received_stop_info.value().path_version
     };
   }
 
@@ -268,6 +361,7 @@ void EasyTrafficLight::Implementation::clear()
   current_path.clear();
   last_received_checkpoints.reset();
   last_received_stop_info.reset();
+  resume_info.reset();
   wait_until->reset();
   wait_timer->reset();
   standby_at = 0;
@@ -282,6 +376,7 @@ void EasyTrafficLight::Implementation::accept_new_checkpoints()
 {
   std::cout << " %% Accepting new checkpoints:";
   assert(last_received_checkpoints.has_value());
+
   for (const auto& c : last_received_checkpoints.value().checkpoints)
   {
     std::cout << " " << c.waypoint_index << "(" << c.departure_time.seconds()
@@ -290,6 +385,16 @@ void EasyTrafficLight::Implementation::accept_new_checkpoints()
   }
   std::cout << std::endl;
 
+  for (const auto& c : last_received_checkpoints.value().checkpoints)
+  {
+    if (c.path_version != last_received_path_version)
+    {
+      print_checkpoints({});
+      throw std::runtime_error("last_received_checkpoints inconsistency "
+                               + std::to_string(__LINE__));
+    }
+  }
+
   standby_at = last_received_checkpoints.value().standby_at;
   on_standby = last_received_checkpoints.value().on_standby;
 
@@ -297,6 +402,19 @@ void EasyTrafficLight::Implementation::accept_new_checkpoints()
     current_checkpoints[i].reset();
 
   last_received_checkpoints.reset();
+
+  for (const auto& c : current_checkpoints)
+  {
+    if (c.has_value())
+    {
+      if (c.value().path_version != last_received_path_version)
+      {
+        print_checkpoints({});
+        throw std::runtime_error("Inconsistent current_checkpoints "
+                                 + std::to_string(__LINE__));
+      }
+    }
+  }
 }
 
 //==============================================================================
@@ -373,6 +491,19 @@ auto EasyTrafficLight::Implementation::moving_from(
 
   if (!resume_info.has_value() || resume_info.value().checkpoint != checkpoint)
   {
+    for (const auto& c : current_checkpoints)
+    {
+      if (c.has_value())
+      {
+        if (c.value().path_version != last_received_path_version)
+        {
+          print_checkpoints({});
+          throw std::runtime_error("Inconsistent current_checkpoints "
+                                   + std::to_string(__LINE__));
+        }
+      }
+    }
+
     const auto& c = current_checkpoints.at(checkpoint);
     if (!c.has_value())
     {
@@ -390,6 +521,12 @@ auto EasyTrafficLight::Implementation::moving_from(
   }
   else
   {
+    if (resume_info.value().path_version != current_version)
+    {
+      throw std::runtime_error("Inconsistent resume_info "
+                               + std::to_string(__LINE__));
+    }
+
     resume_info.value().departed(location);
   }
 
@@ -441,6 +578,13 @@ auto EasyTrafficLight::Implementation::handle_immediate_stop(
 {
   if (last_received_stop_info.has_value())
   {
+    if (last_received_stop_info.value().path_version != current_version)
+    {
+      throw std::runtime_error(
+        "old stop info [" + std::to_string(last_received_stop_info.value().path_version)
+        + "] on line " + std::to_string(__LINE__));
+    }
+
     std::cout << " *** " << __LINE__ << " | " << departed_checkpoint << std::endl;
     if (last_received_stop_info.value().stopped_at)
     {
@@ -449,7 +593,8 @@ auto EasyTrafficLight::Implementation::handle_immediate_stop(
 
       resume_info = ResumeInfo {
         departed_checkpoint,
-        last_received_stop_info.value().departed
+        last_received_stop_info.value().departed,
+        last_received_stop_info.value().path_version
       };
 
       last_received_stop_info.value().stopped_at = nullptr;
@@ -463,7 +608,8 @@ auto EasyTrafficLight::Implementation::handle_immediate_stop(
 
       resume_info = ResumeInfo {
           departed_checkpoint,
-          last_received_stop_info.value().departed
+          last_received_stop_info.value().departed,
+          last_received_stop_info.value().path_version
       };
 
       last_received_stop_info.reset();
