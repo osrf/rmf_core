@@ -27,12 +27,23 @@ class StubbornNegotiator::Implementation
 public:
 
   const Participant* participant;
+  std::shared_ptr<const Participant> shared_ref;
 
 };
 
 //==============================================================================
 StubbornNegotiator::StubbornNegotiator(const Participant& participant)
-  : _pimpl(rmf_utils::make_impl<Implementation>(Implementation{&participant}))
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{&participant, nullptr}))
+{
+  // Do nothing
+}
+
+//==============================================================================
+StubbornNegotiator::StubbornNegotiator(
+    std::shared_ptr<const Participant> participant)
+  : _pimpl(rmf_utils::make_impl<Implementation>(
+             Implementation{participant.get(), participant}))
 {
   // Do nothing
 }
