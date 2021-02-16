@@ -702,8 +702,7 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
     negotiation);
 
-  //if (negotiation.ready())
-  if (negotiation.ready() && negotiation.complete())
+  if (negotiation.ready())
   {
     // TODO(MXG): If the negotiation is not complete yet, give some time for
     // more proposals to arrive before choosing one.

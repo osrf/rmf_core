@@ -187,9 +187,6 @@ public:
   rclcpp::Subscription<CancelMsg>::SharedPtr blockade_cancel_sub;
   void blockade_cancel(const CancelMsg& cancel)
   {
-    std::cout << " @@ Received blockade cancel for " << cancel.participant
-              << ":" << cancel.reservation << "|" << cancel.all_reservations
-              << std::endl;
     try
     {
       if (cancel.all_reservations)

@@ -168,11 +168,6 @@ public:
   std::string name;
   std::string owner;
 
-
-  void print_checkpoints(const std::vector<Checkpoint>& checkpoints) const;
-
-  std::size_t last_received_path_version = 0;
-
   mutable std::mutex _mutex;
   std::unique_lock<std::mutex> lock() const
   {

@@ -24,8 +24,6 @@
 #include <list>
 #include <sstream>
 
-#include <iostream>
-
 namespace rmf_traffic {
 namespace blockade {
 
@@ -501,17 +499,14 @@ public:
       const ParticipantId participant_id,
       const ReservationId reservation_id)
   {
-    std::cout << " ## Moderator canceling " << participant_id << ":" << reservation_id << std::endl;
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
     {
-      std::cout << " -- ## " << __LINE__ << std::endl;
       return;
     }
 
     if (reservation_id < r_it->second.id)
     {
-      std::cout << " -- ## " << __LINE__ << std::endl;
       return;
     }
 
@@ -520,13 +515,11 @@ public:
       info_logger("Canceling: " + toul(participant_id));
     }
 
-    std::cout << " -- ## " << __LINE__ << std::endl;
     cancel(participant_id);
   }
 
   void cancel(const ParticipantId participant_id)
   {
-    std::cout << " ## Moderator canceling " << participant_id << std::endl;
     if (info_logger)
     {
       info_logger("Canceling: " + toul(participant_id));

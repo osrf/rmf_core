@@ -126,18 +126,12 @@ public:
 
   void update_state(const rmf_fleet_msgs::msg::RobotState& state)
   {
-    std::cout << "Received state update" << std::endl;
     auto lock = _lock();
-    std::cout << "...updating the state" << std::endl;
     if (_last_state.has_value())
     {
       // Skip over old messages
       if (rmf_utils::modular(state.seq).less_than(_last_state->seq))
-      {
-        std::cout << "Skipping old message [" << state.seq << "] vs ["
-                  << _last_state->seq << "]" << std::endl;
         return;
-      }
     }
 
     _last_state = state;
@@ -161,21 +155,18 @@ public:
       else
         _pause_request_pub->publish(_pause_request);
 
-      std::cout << "Pending path publish" << std::endl;
       return;
     }
 
     if (_pause_request.mode_request_id != state.mode.mode_request_id)
     {
       // If the robot has the wrong mode request, then republish the command
-      std::cout << "Resending pause request" << std::endl;
       _pause_request_pub->publish(_pause_request);
       return;
     }
 
     if (_current_path_request.task_id != state.task_id)
     {
-      std::cout << "Resending path request" << std::endl;
       // If the robot has the wrong path request ID, then resend this
       _path_request_pub->publish(_current_path_request);
       return;
@@ -213,7 +204,6 @@ public:
         (void)(_update->waiting_at(_end_waypoint_index.value()));
       }
 
-      std::cout << "Finished" << std::endl;
       _moving = false;
       _go_to_next_waypoint();
       return;
@@ -222,8 +212,6 @@ public:
     // Skip over old messages
     if (state.path.front().index < _update->last_reached())
     {
-      std::cout << "Skipping old message [" << state.path.front().index
-                << "] vs [" << _update->last_reached() << "]" << std::endl;
       return;
     }
 
@@ -237,14 +225,12 @@ public:
       {
         // If the current target is 0, then let's just assume that's where the
         // robot is waiting.
-        std::cout << "SM: " << __LINE__ << std::endl;
         _handle_waiting_instruction(_update->waiting_at(0));
         return;
       }
 
       if (_pause_request.type == _pause_request.TYPE_PAUSE_IMMEDIATELY)
       {
-        std::cout << "SM: " << __LINE__ << std::endl;
         _handle_waiting_instruction(_update->waiting_after(target-1, p));
         return;
       }
@@ -253,20 +239,17 @@ public:
       {
         if (_pause_request.at_checkpoint == target)
         {
-          std::cout << "SM: " << __LINE__ << std::endl;
           _handle_waiting_instruction(_update->waiting_at(target));
           return;
         }
       }
 
-      std::cout << "SM: " << __LINE__ << std::endl;
       _handle_waiting_instruction(_update->waiting_after(target-1, p));
       return;
     }
 
     if (target == 0)
     {
-      std::cout << "SM: " << __LINE__ << std::endl;
       // If the robot is moving towards checkpoint 0 (which implies checkpoint 0
       // is not the location that it actually started, which is suspicious, but
       // whatever), then let's just tell the traffic light that the robot is
@@ -275,7 +258,6 @@ public:
       return;
     }
 
-    std::cout << "SM: " << __LINE__ << std::endl;
     _handle_moving_instruction(_update->moving_from(target-1, p), target);
   }
 

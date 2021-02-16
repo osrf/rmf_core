@@ -140,10 +140,6 @@ public:
       /// periodically trigger this callback with the current location of the
       /// robot.
       Departed departed;
-
-      std::size_t path_version;
-
-      std::size_t plan_version;
     };
 
     /// Receive checkpoints for waypoints that have been submitted. Each
