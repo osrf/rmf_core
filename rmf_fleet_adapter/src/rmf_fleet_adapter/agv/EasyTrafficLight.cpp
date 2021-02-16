@@ -272,6 +272,9 @@ void EasyTrafficLight::Implementation::accept_new_checkpoints()
 {
   assert(last_received_checkpoints.has_value());
 
+  for (const auto& c : last_received_checkpoints.value().checkpoints)
+    current_checkpoints.at(c.waypoint_index) = c;
+
   standby_at = last_received_checkpoints.value().standby_at;
   on_standby = last_received_checkpoints.value().on_standby;
 
