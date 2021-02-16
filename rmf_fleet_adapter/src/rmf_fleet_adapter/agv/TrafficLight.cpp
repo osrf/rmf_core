@@ -430,14 +430,10 @@ std::optional<rmf_traffic::Time> linear_interpolate_time(
   const Eigen::Vector2d p0 = wp0.position().block<2,1>(0,0);
   const Eigen::Vector2d p1 = wp1.position().block<2,1>(0,0);
   if ((p1 - p0).dot(p - p0) < 0)
-  {
     return rmf_utils::nullopt;
-  }
 
   if ((p1 - p0).dot(p1 - p) < 0)
-  {
     return rmf_utils::nullopt;
-  }
 
   const double v = wp0.velocity().block<2,1>(0,0).norm();
   assert(std::abs(v - wp1.velocity().block<2,1>(0,0).norm()) < 1e-2);
@@ -473,15 +469,11 @@ rmf_utils::optional<rmf_traffic::Time> parabolic_interpolate_time(
 
   const double t_minus = (-v0 - std::sqrt(D))/a;
   if (0 <= t_minus && t_minus <= dt)
-  {
     return wp0.time() + rmf_traffic::time::from_seconds(t_minus);
-  }
 
   const double t_plus = (-v0 + std::sqrt(D))/a;
   if (0 <= t_plus && t_plus <= dt)
-  {
     return wp0.time() + rmf_traffic::time::from_seconds(t_plus);
-  }
 
   return rmf_utils::nullopt;
 }
@@ -506,9 +498,7 @@ rmf_traffic::Time interpolate_time(
   assert(interp.size() == 3 || interp.size() == 4);
   const double r = (p - wp0.position().block<2,1>(0,0)).norm();
   if (r < 1e-3)
-  {
     return wp0.time();
-  }
 
   const auto end = interp.end();
   if (interp.size() == 3)
@@ -584,9 +574,7 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
       // If the vehicle has deviated significantly from the path, then we should
       // recompute the timing information.
       if (deviation > deviation_threshold)
-      {
         return rmf_utils::nullopt;
-      }
 
       if (traversal < 0.0)
       {
@@ -643,9 +631,7 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
           // on-time. This may leave a false shadow of an itinerary on the
           // schedule, but that should usually be okay.
           if (now <= t_max)
-          {
             return now;
-          }
 
           return t_max;
         }
@@ -661,9 +647,7 @@ rmf_utils::optional<rmf_traffic::Time> interpolate_time(
         const double dt = rmf_traffic::time::to_seconds(t_max - t_min);
         const auto t = t_min + rmf_traffic::time::from_seconds(s*dt);
         if (now <= t)
-        {
           return now;
-        }
 
         return t;
       }
@@ -1045,14 +1029,10 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
   {
     const auto data = w.lock();
     if (!data)
-    {
       return;
-    }
 
     if (path_version != data->current_path_version)
-    {
       return;
-    }
 
     if (data->last_departed_waypoint.has_value())
     {
@@ -1373,9 +1353,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
                standby_checkpoint](const auto&)
         {
           if (const auto data = w.lock())
-          {
-            data->watch_for_ready(path_version, standby_checkpoint);
-          }
+            data->watch_for_ready(version, standby_checkpoint);
         });
       }
     };
@@ -1422,9 +1400,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
             standby_checkpoint](const auto&)
      {
        if (const auto data = w.lock())
-       {
-         data->watch_for_ready(path_version, standby_checkpoint);
-       }
+         data->watch_for_ready(version, standby_checkpoint);
      });
     }
   };
@@ -1518,9 +1494,7 @@ bool TrafficLight::UpdateHandle::Implementation::Data::check_if_ready(
   const auto now = node->now() - itinerary.delay();
 
   if (now + ready_timing_threshold <= ready_time)
-  {
     return false;
-  }
 
   for (auto it = depart_it; it != departure_timing.end(); ++it)
   {
@@ -1761,7 +1735,6 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
     const TableViewerPtr& table_viewer,
     const ResponderPtr& responder)
 {
-
   const auto data = _data.lock();
   if (!data || !data->planner || data->pending_waypoints.empty())
   {
@@ -1773,6 +1746,8 @@ void TrafficLight::UpdateHandle::Implementation::Negotiator::respond(
   const std::size_t last_reached = data->blockade.last_reached();
   if (last_reached >= data->path.size())
   {
+    // If we have reached the end of the path, we can just submit an empty
+    // proposal.
     return responder->submit({});
   }
 
