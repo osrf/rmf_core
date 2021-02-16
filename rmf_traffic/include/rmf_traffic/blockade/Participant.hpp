@@ -61,6 +61,11 @@ public:
   /// checkpoint.
   void reached(CheckpointId checkpoint);
 
+  /// Cancel the current path entirely. Note that if a path is canceled while
+  /// the robot is in space that it needs to share with other robots, a
+  /// permanent deadlock could result.
+  void cancel();
+
   /// Get the last checkpoint that this participant said it has reached.
   CheckpointId last_reached() const;
 
