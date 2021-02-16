@@ -71,7 +71,7 @@ rmf_task::ConstRequestPtr ChargeBattery::make(
   bool drain_battery,
   ConstPriorityPtr priority)
 {
-  const std::string id = "Charge" + generate_uuid();
+  std::string id = "Charge" + generate_uuid();
   std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery(
     id, start_time, priority));
   charge_battery->_pimpl->battery_system = std::make_shared<

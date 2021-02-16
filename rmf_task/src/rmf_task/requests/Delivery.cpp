@@ -30,7 +30,6 @@ public:
   Implementation()
   {}
 
-  std::string id;
   std::size_t pickup_waypoint;
   std::string pickup_dispenser;
   std::size_t dropoff_waypoint;
@@ -39,9 +38,7 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  rmf_traffic::Time start_time;
   bool drain_battery;
-  bool priority;
 
   rmf_traffic::Duration invariant_duration;
   double invariant_battery_drain;
@@ -60,10 +57,10 @@ rmf_task::ConstRequestPtr Delivery::make(
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
   bool drain_battery,
-  bool priority)
+  ConstPriorityPtr priority)
 {
-  std::shared_ptr<Delivery> delivery(new Delivery());
-  delivery->_pimpl->id = id;
+  std::shared_ptr<Delivery> delivery(new Delivery(
+    id, start_time, priority));
   delivery->_pimpl->pickup_waypoint = pickup_waypoint;
   delivery->_pimpl->pickup_dispenser = std::move(pickup_dispenser);
   delivery->_pimpl->dropoff_waypoint = dropoff_waypoint;
@@ -72,9 +69,7 @@ rmf_task::ConstRequestPtr Delivery::make(
   delivery->_pimpl->motion_sink = std::move(motion_sink);
   delivery->_pimpl->device_sink = std::move(device_sink);
   delivery->_pimpl->planner = std::move(planner);
-  delivery->_pimpl->start_time = start_time;
   delivery->_pimpl->drain_battery = drain_battery;
-  delivery->_pimpl->priority = priority;
 
   // Calculate duration of invariant component of task
   delivery->_pimpl->invariant_duration = rmf_traffic::Duration{0};
@@ -117,21 +112,13 @@ rmf_task::ConstRequestPtr Delivery::make(
 }
 
 //==============================================================================
-Delivery::Delivery()
-: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
+Delivery::Delivery(
+  std::string& id,
+  rmf_traffic::Time earliest_start_time,
+  ConstPriorityPtr priority)
+: Request(id, earliest_start_time, priority),
+  _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {}
-
-//==============================================================================
-std::string Delivery::id() const
-{
-  return _pimpl->id;
-}
-
-//==============================================================================
-bool Delivery::priority() const
-{
-  return _pimpl->priority;
-}
 
 //==============================================================================
 rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
@@ -206,7 +193,7 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
       return rmf_utils::nullopt;
   }
 
-  const rmf_traffic::Time ideal_start = _pimpl->start_time - variant_duration;
+  const rmf_traffic::Time ideal_start = earliest_start_time() - variant_duration;
   const rmf_traffic::Time wait_until =
     initial_state.finish_time() > ideal_start ?
     initial_state.finish_time() : ideal_start;
@@ -294,12 +281,6 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
 rmf_traffic::Duration Delivery::invariant_duration() const
 {
   return _pimpl->invariant_duration;
-}
-
-//==============================================================================
-rmf_traffic::Time Delivery::earliest_start_time() const
-{
-  return _pimpl->start_time;
 }
 
 //==============================================================================

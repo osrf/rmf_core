@@ -28,16 +28,13 @@ public:
   Implementation()
   {}
 
-  std::string id;
   std::size_t start_waypoint;
   std::size_t finish_waypoint;
   std::size_t num_loops;
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  rmf_traffic::Time start_time;
   bool drain_battery;
-  bool priority;
 
   rmf_traffic::Duration invariant_duration;
   double invariant_battery_drain;
@@ -54,19 +51,17 @@ ConstRequestPtr Loop::make(
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
   bool drain_battery,
-  bool priority)
+  ConstPriorityPtr priority)
 {
-  std::shared_ptr<Loop> loop(new Loop());
-  loop->_pimpl->id = id;
+  std::shared_ptr<Loop> loop(new Loop(
+    id, start_time, priority));
   loop->_pimpl->start_waypoint = start_waypoint;
   loop->_pimpl->finish_waypoint = finish_waypoint;
   loop->_pimpl->num_loops = num_loops;
   loop->_pimpl->motion_sink = std::move(motion_sink);
   loop->_pimpl->ambient_sink = std::move(ambient_sink);
   loop->_pimpl->planner = std::move(planner);
-  loop->_pimpl->start_time = start_time;
   loop->_pimpl->drain_battery = drain_battery;
-  loop->_pimpl->priority = priority;
 
   // Calculate the invariant duration and battery drain for this task
   loop->_pimpl->invariant_duration = rmf_traffic::Duration{0};
@@ -117,22 +112,14 @@ ConstRequestPtr Loop::make(
 }
 
 //==============================================================================
-Loop::Loop()
-: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
+Loop::Loop(
+  std::string& id,
+  rmf_traffic::Time earliest_start_time,
+  ConstPriorityPtr priority)
+: Request(id, earliest_start_time, priority),
+  _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
   // Do nothing
-}
-
-//==============================================================================
-std::string Loop::id() const
-{
-  return _pimpl->id;
-}
-
-//==============================================================================
-bool Loop::priority() const
-{
-  return _pimpl->priority;
 }
 
 //==============================================================================
@@ -200,7 +187,7 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
   }
 
   // Compute wait_until
-  const rmf_traffic::Time ideal_start = _pimpl->start_time - variant_duration;
+  const rmf_traffic::Time ideal_start = earliest_start_time() - variant_duration;
   const rmf_traffic::Time wait_until =
     initial_state.finish_time() > ideal_start ?
     initial_state.finish_time() : ideal_start;
@@ -299,12 +286,6 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
 rmf_traffic::Duration Loop::invariant_duration() const
 {
   return _pimpl->invariant_duration;
-}
-
-//==============================================================================
-rmf_traffic::Time Loop::earliest_start_time() const
-{
-  return _pimpl->start_time;
 }
 
 //==============================================================================

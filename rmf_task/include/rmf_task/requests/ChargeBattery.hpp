@@ -66,8 +66,9 @@ public:
 private:
   ChargeBattery(
     std::string& id,
-    rmf_traffic::Time earlier_start_time,
+    rmf_traffic::Time earliest_start_time,
     ConstPriorityPtr priority);
+
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 

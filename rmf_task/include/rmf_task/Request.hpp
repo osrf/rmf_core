@@ -59,7 +59,7 @@ public:
   rmf_traffic::Time earliest_start_time() const;
 
   /// Get the priority scheme of this task
-  std::shared_ptr<rmf_task::ConstPriorityPtr> priority() const;
+  ConstPriorityPtr priority() const;
 
   /// Estimate the state of the robot when the task is finished along with the
   /// time the robot has to wait before commencing the task
