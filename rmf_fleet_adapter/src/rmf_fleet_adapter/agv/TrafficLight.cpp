@@ -1353,7 +1353,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
                standby_checkpoint](const auto&)
         {
           if (const auto data = w.lock())
-            data->watch_for_ready(version, standby_checkpoint);
+            data->watch_for_ready(path_version, standby_checkpoint);
         });
       }
     };
@@ -1400,7 +1400,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
             standby_checkpoint](const auto&)
      {
        if (const auto data = w.lock())
-         data->watch_for_ready(version, standby_checkpoint);
+         data->watch_for_ready(path_version, standby_checkpoint);
      });
     }
   };
