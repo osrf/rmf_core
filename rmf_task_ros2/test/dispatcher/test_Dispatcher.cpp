@@ -68,18 +68,26 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(get_tasks_client->wait_for_service(std::chrono::milliseconds(0)));
   }
 
-  WHEN("Add 1 and cancel task")
+  WHEN("Add 2 tasks and cancel 1 task")
   {
-    // add task
+    // add 2 tasks
     const auto id = dispatcher->submit_task(task_desc1);
-    REQUIRE(dispatcher->active_tasks().size() == 1);
+    const auto id2 = dispatcher->submit_task(task_desc2);
+    REQUIRE(dispatcher->active_tasks().size() == 2);
     REQUIRE(dispatcher->terminated_tasks().size() == 0);
     REQUIRE(dispatcher->get_task_state(*id) == TaskStatus::State::Pending);
+    REQUIRE(dispatcher->get_task_state(*id2) == TaskStatus::State::Pending);
 
-    // cancel task
+    // cancel task during bidding
     REQUIRE(dispatcher->cancel_task(*id));
-    REQUIRE(dispatcher->active_tasks().size() == 0);
+    REQUIRE(dispatcher->active_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
+    REQUIRE(dispatcher->get_task_state(*id) == TaskStatus::State::Canceled);
+
+    // wait task2 to fail due to no submissions from F.Adapters
+    std::this_thread::sleep_for(std::chrono::milliseconds(5500));
+    REQUIRE(dispatcher->get_task_state(*id2) == TaskStatus::State::Failed);
+    REQUIRE(dispatcher->terminated_tasks().size() == 2);
 
     // check random id
     REQUIRE(!(dispatcher->get_task_state("non_existence_id")));

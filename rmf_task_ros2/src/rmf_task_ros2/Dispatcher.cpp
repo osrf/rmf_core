@@ -189,10 +189,15 @@ public:
     if (cancel_task_status->state == TaskStatus::State::Pending)
     {
       cancel_task_status->state = TaskStatus::State::Canceled;
+
       terminate_task(cancel_task_status);
 
       if (on_change_fn)
         on_change_fn(cancel_task_status);
+
+      queue_bidding_tasks.pop();
+      if (!queue_bidding_tasks.empty())
+        auctioneer->start_bidding(queue_bidding_tasks.front());
 
       return true;
     }
@@ -356,7 +361,8 @@ public:
     }
 
     // check if there's a change in state for the previous completed bidding task
-    // TODO, better way to impl this
+    // This ensures that the next task will be executed after receiving ack msg
+    // TODO(YL), better way to impl this
     if (!queue_bidding_tasks.empty()
       && id == queue_bidding_tasks.front().task_profile.task_id)
     {

@@ -39,8 +39,6 @@ public:
 
   rmf_traffic::Time start_time() const;
   
-  ConstRequestPtr request() = nullptr;
-
   uint32_t type() const;
 
   virtual TaskDescription to_msg() const = 0;

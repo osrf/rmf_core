@@ -24,6 +24,8 @@ namespace rmf_task_ros2 {
 //==============================================================================
 SCENARIO("Task Description Test", "[Description]")
 {
+  std::cout << "Testing Description Task Type"<< std::cout;
+
   using TaskDescription = rmf_task_msgs::msg::TaskDescription;
   using TaskType = rmf_task_msgs::msg::TaskType;
 
@@ -33,7 +35,7 @@ SCENARIO("Task Description Test", "[Description]")
   auto delivery = description::Delivery::make(
     now, "pick", "dis", "drop", "ing", {});
 
-  std::cout << "This is the delivery out msg: "
+  std::cout << "[test description] Delivery out msg: "
             << delivery->pickup_place_name()
             << "  to "
             << delivery->dropoff_place_name()
@@ -52,7 +54,7 @@ SCENARIO("Task Description Test", "[Description]")
   REQUIRE(loop->type() == TaskType::TYPE_LOOP);
 
   auto d_loop = std::dynamic_pointer_cast<const description::Loop>(loop);
-  std::cout << "This is the loop out msg: "
+  std::cout << "[test description] Loop out msg: "
             << loop->start_name()
             << "  to "
             << loop->finish_name()
