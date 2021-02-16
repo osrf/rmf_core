@@ -45,6 +45,17 @@ public:
   ///   The Participant who wants to be stubborn.
   StubbornNegotiator(const Participant& participant);
 
+  /// Owning Constructor
+  ///
+  /// The StubbornNegotiator instance will now hold a shared reference to the
+  /// participant to ensure it maintains its lifetime. This constructor should
+  /// be used in cases where the StubbornNegotiator instance has a prolonged
+  /// lifecycle.
+  ///
+  /// \param[in] participant
+  ///   The Participant who wants to be stubborn.
+  StubbornNegotiator(std::shared_ptr<const Participant> participant);
+
   void respond(
       const schedule::Negotiation::Table::ViewerPtr& table_viewer,
       const ResponderPtr& responder) final;
