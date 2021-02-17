@@ -76,8 +76,6 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
   if (version != current_version)
     return;
 
-  std::cout << name << " -- next standby is: " << standby_at << std::endl;
-
   if (last_received_checkpoints.has_value())
   {
     // If we already have checkpoints that we've received but haven't processed
@@ -314,18 +312,6 @@ auto EasyTrafficLight::Implementation::moving_from(
 {
   const auto now = node->now();
   last_departed_checkpoint = checkpoint;
-
-  if (checkpoint > last_reached)
-  {
-    std::cout << name << " -- moving_from last reached: " << checkpoint << std::endl;
-  }
-  else if (checkpoint < last_reached)
-  {
-    std::cout << name << " -- moving_from wtf " << checkpoint << " vs " << last_reached
-              << std::endl;
-  }
-
-
   last_reached = std::max(last_reached, checkpoint);
 
   if (checkpoint >= current_checkpoints.size())
@@ -486,16 +472,6 @@ auto EasyTrafficLight::Implementation::waiting_at(
     return WaitingInstruction::WaitingError;
   }
 
-  if (checkpoint > last_reached)
-  {
-    std::cout << name << " -- waiting_at last reached: " << checkpoint << std::endl;
-  }
-  else if (checkpoint < last_reached)
-  {
-    std::cout << name << " -- waiting_at wtf " << checkpoint << " vs " << last_reached
-              << std::endl;
-  }
-
   last_reached = std::max(last_reached, checkpoint);
 
   const auto location = current_path.at(checkpoint).position();
@@ -533,7 +509,6 @@ auto EasyTrafficLight::Implementation::waiting_at(
   {
     if (on_standby)
     {
-      std::cout << name << " -- on_standby at " << checkpoint << std::endl;
       on_standby();
       on_standby = nullptr;
     }
@@ -557,16 +532,6 @@ auto EasyTrafficLight::Implementation::waiting_after(
       "passing checkpoint [%u] but the highest possible checkpoint is [%u]",
       name.c_str(), owner.c_str(), checkpoint, current_path.size()-1);
     return WaitingInstruction::WaitingError;
-  }
-
-  if (checkpoint > last_reached)
-  {
-    std::cout << name << " -- waiting_after last reached: " << checkpoint << std::endl;
-  }
-  else if (checkpoint < last_reached)
-  {
-    std::cout << name << " -- waiting_after wtf " << checkpoint << " vs " << last_reached
-              << std::endl;
   }
 
   last_reached = std::max(last_reached, checkpoint);

@@ -973,8 +973,6 @@ TrafficLight::UpdateHandle::Implementation::Data::update_timing(
     if (!immediately_stop_until.has_value())
       awaiting_confirmation = false;
 
-    std::cout << name() << " -- update_timing triggering watch_for_ready at "
-              << next_departure_checkpoint << std::endl;
     watch_for_ready(version, next_departure_checkpoint, false);
   }
 
@@ -1052,12 +1050,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::update_location(
           .get_waypoint(checkpoint_index).get_map_name(),
         location
     };
-
-    if (data->blockade.last_reached() < checkpoint_index)
-    {
-      std::cout << data->name() << " -- update_location last reached: "
-                << checkpoint_index << std::endl;
-    }
 
     data->blockade.reached(checkpoint_index);
 
@@ -1362,11 +1354,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
                standby_checkpoint](const auto&)
         {
           if (const auto data = w.lock())
-          {
-            std::cout << data->name() << " -- on_standby triggering watch_for_ready at "
-                      << standby_checkpoint << " | line " << __LINE__ << std::endl;
             data->watch_for_ready(path_version, standby_checkpoint, true);
-          }
         });
       }
     };
@@ -1413,11 +1401,7 @@ void TrafficLight::UpdateHandle::Implementation::Data::send_checkpoints(
             standby_checkpoint](const auto&)
      {
        if (const auto data = w.lock())
-       {
-         std::cout << data->name() << " -- on_standby triggering watch_for_ready at "
-                   << standby_checkpoint << " | line " << __LINE__ << std::endl;
          data->watch_for_ready(path_version, standby_checkpoint, true);
-       }
      });
     }
   };
@@ -1445,12 +1429,6 @@ void TrafficLight::UpdateHandle::Implementation::Data::watch_for_ready(
 {
   if (path_version != current_path_version)
     return;
-
-  if (blockade.last_reached() < checkpoint_id)
-  {
-    std::cout << name() << " -- watch_for_ready last reached: "
-              << checkpoint_id << std::endl;
-  }
 
   if (assume_reached_checkpoint)
   {

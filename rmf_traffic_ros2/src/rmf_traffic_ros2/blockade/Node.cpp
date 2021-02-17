@@ -268,8 +268,7 @@ std::shared_ptr<rclcpp::Node> make_node(const rclcpp::NodeOptions& options)
   {
     if (const auto n = w.lock())
     {
-//      RCLCPP_DEBUG(n->get_logger(), msg.c_str());
-      std::cout << msg << std::endl;
+      RCLCPP_DEBUG(n->get_logger(), msg.c_str());
     }
   });
 
