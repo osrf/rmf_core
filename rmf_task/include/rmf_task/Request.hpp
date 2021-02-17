@@ -23,7 +23,7 @@
 #include <rmf_task/Estimate.hpp>
 #include <rmf_task/agv/State.hpp>
 #include <rmf_task/agv/Constraints.hpp>
-#include <rmf_task/Priority.hpp>
+#include <rmf_task/BinaryPriorityScheme.hpp>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_utils/impl_ptr.hpp>

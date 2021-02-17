@@ -68,7 +68,8 @@ public:
       rmf_battery::agv::BatterySystem battery_system,
       std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
       std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
-      std::shared_ptr<rmf_traffic::agv::Planner> planner);
+      std::shared_ptr<rmf_traffic::agv::Planner> planner,
+      std::shared_ptr<rmf_task::CostCalculator> cost_calculator);
 
     /// Get the battery system
     rmf_battery::agv::BatterySystem& battery_system();
@@ -95,7 +96,14 @@ public:
     std::shared_ptr<rmf_traffic::agv::Planner> planner() const;
 
     /// Set the planner
-    Configuration& planner(std::shared_ptr<rmf_traffic::agv::Planner>);
+    Configuration& planner(std::shared_ptr<rmf_traffic::agv::Planner> planner);
+
+    /// Get the CostCalculator
+    std::shared_ptr<rmf_task::CostCalculator> cost_calculator() const;
+
+    /// Set the CostCalculator
+    Configuration& cost_calculator(
+      std::shared_ptr<rmf_task::CostCalculator> cost_calculator);
 
     class Implementation;
 
