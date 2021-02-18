@@ -1,13 +1,14 @@
-# Publish by Task Dispatcher Node
-# This msg is will be received by a Fleet Adapter to initiate/cancel a task
+# This message is published by Task Dispatcher Node to either award or cancel a
+# task for a Fleet Adapter
 
-# Selected Fleet Adapter to execute/cancel the task
+# The selected Fleet Adapter to award/cancel the task
 string fleet_name
 
-# Task to dispatch (should be the same as in BidNotice)
+# The details of the task to be awarded or cancelled. This should match the
+# TaskProfile in the corresponding BidNotice message
 TaskProfile task_profile
 
-# add or cancel a task
+# Add or Cancel a task
 uint8 method
 uint8 ADD=1     # to add a task
 uint8 CANCEL=2  # to cancel and remove a task
