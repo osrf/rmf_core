@@ -34,6 +34,7 @@ set(msg_files
   "msg/BidProposal.msg"
   "msg/DispatchRequest.msg"
   "msg/DispatchAck.msg"
+  "msg/Priority.msg"
 )
 
 set(srv_files
