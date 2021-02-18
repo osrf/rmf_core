@@ -501,10 +501,14 @@ public:
   {
     const auto r_it = last_known_reservation.find(participant_id);
     if (r_it == last_known_reservation.end())
+    {
       return;
+    }
 
     if (reservation_id < r_it->second.id)
+    {
       return;
+    }
 
     if (info_logger)
     {
