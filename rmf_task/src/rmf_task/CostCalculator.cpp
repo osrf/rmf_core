@@ -227,7 +227,7 @@ bool BinaryPriorityCostCalculator::Implementation::valid_assignment_priority(
     const auto& assignments = node.assigned_tasks[i];
     for (const auto& a : assignments)
     {
-      if (a.assignment.request()->priority())
+      if (a.assignment.request()->priority() != nullptr)
         priority_count[i] += 1;
     }
   }
@@ -269,7 +269,7 @@ bool BinaryPriorityCostCalculator::Implementation::valid_assignment_priority(
         it->assignment.request()))
         continue;
       auto curr_priority = it->assignment.request()->priority();
-      if ((curr_priority != prev_priority) && (curr_priority))
+      if ((prev_priority == nullptr) && (curr_priority != nullptr))
         return false;
 
       prev_priority = curr_priority;
