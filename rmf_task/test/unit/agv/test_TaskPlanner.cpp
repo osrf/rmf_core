@@ -22,6 +22,8 @@
 #include <rmf_task/requests/ChargeBattery.hpp>
 #include <rmf_task/requests/Loop.hpp>
 
+#include <rmf_task/BinaryPriorityScheme.hpp>
+
 #include <rmf_traffic/agv/Graph.hpp>
 #include <rmf_traffic/Trajectory.hpp>
 #include <rmf_traffic/Time.hpp>
@@ -169,6 +171,17 @@ SCENARIO("Grid World")
   std::shared_ptr<SimpleDevicePowerSink> device_sink =
     std::make_shared<SimpleDevicePowerSink>(battery_system, power_system_processor);
 
+  const auto cost_calculator =
+    rmf_task::BinaryPriorityScheme::make_cost_calculator();
+
+  std::shared_ptr<TaskPlanner::Configuration> task_config =
+    std::make_shared<TaskPlanner::Configuration>(
+      battery_system,
+      motion_sink,
+      device_sink,
+      planner,
+      cost_calculator);
+
   const bool display_solutions = true;
 
   WHEN("Planning for 3 requests and 2 agents")
@@ -233,12 +246,7 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
+
     TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
@@ -444,12 +452,6 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
     TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
@@ -565,12 +567,6 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
     TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
@@ -786,12 +782,6 @@ SCENARIO("Grid World")
         drain_battery)
     };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
     TaskPlanner task_planner(task_config);
 
     auto start_time = std::chrono::steady_clock::now();
@@ -862,12 +852,6 @@ SCENARIO("Grid World")
         true)
     };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
     TaskPlanner task_planner(task_config);
 
     const auto greedy_result = task_planner.greedy_plan(
@@ -923,12 +907,6 @@ SCENARIO("Grid World")
         true)
     };
 
-    std::shared_ptr<TaskPlanner::Configuration>  task_config =
-      std::make_shared<TaskPlanner::Configuration>(
-        battery_system,
-        motion_sink,
-        device_sink,
-        planner);
     TaskPlanner task_planner(task_config);
 
     const auto greedy_result = task_planner.greedy_plan(
@@ -1013,12 +991,6 @@ SCENARIO("Grid World")
   //       drain_battery)
   //   };
 
-  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
-  //     std::make_shared<TaskPlanner::Configuration>(
-  //       battery_system,
-  //       motion_sink,
-  //       device_sink,
-  //       planner);
   //   TaskPlanner task_planner(task_config);
 
   //   auto start_time = std::chrono::steady_clock::now();
@@ -1144,12 +1116,6 @@ SCENARIO("Grid World")
   //       true)
   //   };
 
-  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
-  //     std::make_shared<TaskPlanner::Configuration>(
-  //       battery_system,
-  //       motion_sink,
-  //       device_sink,
-  //       planner);
   //   TaskPlanner task_planner(task_config);
 
   //   auto start_time = std::chrono::steady_clock::now();
@@ -1247,12 +1213,6 @@ SCENARIO("Grid World")
   //       true)  
   //   };
 
-  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
-  //     std::make_shared<TaskPlanner::Configuration>(
-  //       battery_system,
-  //       motion_sink,
-  //       device_sink,
-  //       planner);
   //   TaskPlanner task_planner(task_config);
 
   //   auto start_time = std::chrono::steady_clock::now();
@@ -1358,12 +1318,6 @@ SCENARIO("Grid World")
   //       true)  
   //   };
 
-  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
-  //     std::make_shared<TaskPlanner::Configuration>(
-  //       battery_system,
-  //       motion_sink,
-  //       device_sink,
-  //       planner);
   //   TaskPlanner task_planner(task_config);
 
   //   auto start_time = std::chrono::steady_clock::now();
@@ -1475,12 +1429,6 @@ SCENARIO("Grid World")
   //       false)  
   //   };
 
-  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
-  //     std::make_shared<TaskPlanner::Configuration>(
-  //       battery_system,
-  //       motion_sink,
-  //       device_sink,
-  //       planner);
   //   TaskPlanner task_planner(task_config);
 
   //   auto start_time = std::chrono::steady_clock::now();
@@ -1678,12 +1626,6 @@ SCENARIO("Grid World")
   //       false)  
   //   };
 
-  //   std::shared_ptr<TaskPlanner::Configuration>  task_config =
-  //     std::make_shared<TaskPlanner::Configuration>(
-  //       battery_system,
-  //       motion_sink,
-  //       device_sink,
-  //       planner);
   //   TaskPlanner task_planner(task_config);
 
   //   auto start_time = std::chrono::steady_clock::now();

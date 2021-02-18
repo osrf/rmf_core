@@ -19,8 +19,6 @@
 #define RMF_TASK__AGV__TASKPLANNER_HPP
 
 #include <rmf_task/Request.hpp>
-#include <rmf_task/agv/State.hpp>
-#include <rmf_task/agv/Constraints.hpp>
 
 #include <rmf_battery/agv/BatterySystem.hpp>
 #include <rmf_battery/MotionPowerSink.hpp>
@@ -206,7 +204,6 @@ private:
   rmf_utils::impl_ptr<Implementation> _pimpl; 
 
 };
-
 
 } // namespace agv
 } // namespace rmf_task

@@ -18,14 +18,10 @@
 #include <rmf_task/Estimate.hpp>
 #include <rmf_task/agv/State.hpp>
 
-#include "internal_task_planning.hpp"
+#include "../CostCalculator.hpp"
 
 #include <rmf_traffic/Time.hpp>
 
-#include <map>
-#include <set>
-#include <algorithm>
-#include <unordered_map>
 #include <limits>
 #include <queue>
 

@@ -30,6 +30,7 @@ class CostCalculator
 {
 public:
   using Node = agv::Node;
+
   /// Compute the total cost of a node while factoring in the prioritization scheme
   virtual double compute_cost(
     const Node& n,

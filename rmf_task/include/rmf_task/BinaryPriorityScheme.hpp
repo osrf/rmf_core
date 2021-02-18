@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK__BINARYPRIORITY_HPP
-#define RMF_TASK__BINARYPRIORITY_HPP
+#ifndef RMF_TASK__BINARYPRIORITYSCHEME_HPP
+#define RMF_TASK__BINARYPRIORITYSCHEME_HPP
 
 #include <memory>
 
@@ -43,4 +43,4 @@ public:
 
 } // namespace rmf_task
 
-#endif // RMF_TASK__BINARYPRIORITY_HPP
+#endif // RMF_TASK__BINARYPRIORITYSCHEME_HPP
