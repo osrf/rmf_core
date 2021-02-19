@@ -32,7 +32,7 @@ std::shared_ptr<Task> make_loop(
 {
   std::shared_ptr<const rmf_task::requests::LoopDescription> description =
     std::dynamic_pointer_cast<
-      const rmf_task::requests::LoopDescription>(description);
+      const rmf_task::requests::LoopDescription>(request->description());
 
   if (description == nullptr)
     return nullptr;

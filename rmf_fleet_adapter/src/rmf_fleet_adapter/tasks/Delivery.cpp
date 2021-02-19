@@ -37,7 +37,7 @@ std::shared_ptr<Task> make_delivery(
 
   std::shared_ptr<const rmf_task::requests::DeliveryDescription> description =
     std::dynamic_pointer_cast<
-      const rmf_task::requests::DeliveryDescription>(description);
+      const rmf_task::requests::DeliveryDescription>(request->description());
   
   if (description == nullptr)
     return nullptr;

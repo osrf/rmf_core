@@ -32,7 +32,7 @@ std::shared_ptr<Task> make_clean(
 {
   std::shared_ptr<const rmf_task::requests::CleanDescription> description = 
     std::dynamic_pointer_cast<
-      const rmf_task::requests::CleanDescription>(description);
+      const rmf_task::requests::CleanDescription>(request->description());
 
   if (description == nullptr)
     return nullptr;
