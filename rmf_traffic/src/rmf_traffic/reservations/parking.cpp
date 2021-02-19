@@ -23,7 +23,8 @@
 namespace rmf_traffic {
 namespace reservations {
 
-class ParkingReservation::Implementation {
+class ParkingReservation::Implementation 
+{
 public:
   Implementation(
     std::shared_ptr<ReservationSystem> reservation_system):
@@ -36,7 +37,7 @@ public:
     const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
     const std::vector<rmf_traffic::agv::Graph::Waypoint>& vertices,
-    std::optional<rmf_traffic::Duration> duration = std::nullopt)
+    std::optional<rmf_traffic::Duration> duration)
   {
     for(auto& vert: vertices)
     {
@@ -57,12 +58,14 @@ public:
 
 private:
   std::shared_ptr<ReservationSystem> _reservation_system;
-}
+};
 
 //=========================================================================
 ParkingReservation::ParkingReservation(
   std::shared_ptr<ReservationSystem> reservation_system):
-  _pimpl(reservation_system)
+  _pimpl(rmf_utils::make_impl<ParkingReservation::Implementation>(
+      reservation_system
+    ))
 {
   // Do nothing
 }
@@ -72,9 +75,9 @@ std::optional<Reservation> ParkingReservation::reserve(
     const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
     const std::vector<rmf_traffic::agv::Graph::Waypoint>& vertices,
-    std::optional<rmf_traffic::Duration> duration = std::nullopt)
+    std::optional<rmf_traffic::Duration> duration)
 {
-  return _pimpl->reserve(particpantId, time, vertices, duration);
+  return _pimpl->reserve(participantId, time, vertices, duration);
 }
 
 
