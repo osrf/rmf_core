@@ -34,42 +34,52 @@ namespace rmf_task {
 class Request
 {
 public:
+  class Description
+  {
+  public:
+
+    /// The unique id for this request
+    virtual const std::string& id() const = 0;
+
+    /// Estimate the state of the robot when the request is finished along with the
+    /// time the robot has to wait before commencing the request
+    virtual std::optional<Estimate> estimate_finish(
+      const agv::State& initial_state,
+      const agv::Constraints& task_planning_constraints,
+      const std::shared_ptr<EstimateCache> estimate_cache) const = 0;
+    
+    /// Estimate the invariant component of the request's duration
+    virtual rmf_traffic::Duration invariant_duration() const = 0;
+
+    virtual ~Description() = default;
+  };
+  using DescriptionPtr = std::shared_ptr<Description>;
 
   /// Constructor
   ///
-  /// \param[in] id
-  ///   The unique id for this task
-  ///
   /// \param[in] earliest_start_time
-  ///   The earliest time this task should begin execution. This is usually the
-  ///   requested start time for the task.
+  ///   The earliest time this request should begin execution. This is usually the
+  ///   requested start time for the request.
   ///
   /// \param[in] priority
-  ///   The priority for this task. This is provided by the CostCalculator. For
-  ///   requests that do not have any priority this is a nullptr
+  ///   The priority for this request. This is provided by the Priority Scheme. For
+  ///   requests that do not have any priority this is a nullptr.
+  ///
+  /// \param[in] description
+  ///   The description for this request
   Request(
-    std::string& id,
     rmf_traffic::Time earliest_start_time,
-    ConstPriorityPtr priority);
+    ConstPriorityPtr priority
+    DescriptionPtr description);
 
-  /// Get the id of the task
-  std::string id() const;
-
-  /// Get the earliest start time that this task may begin
+  /// Get the earliest time that this request may begin
   rmf_traffic::Time earliest_start_time() const;
 
-  /// Get the priority scheme of this task
+  /// Get the priority of this request
   ConstPriorityPtr priority() const;
 
-  /// Estimate the state of the robot when the task is finished along with the
-  /// time the robot has to wait before commencing the task
-  virtual std::optional<Estimate> estimate_finish(
-    const agv::State& initial_state,
-    const agv::Constraints& task_planning_constraints,
-    const std::shared_ptr<EstimateCache> estimate_cache) const = 0;
-
-  /// Estimate the invariant component of the task's duration
-  virtual rmf_traffic::Duration invariant_duration() const = 0;
+  /// Get the description of this request
+  const DescriptionPtr& description() const;
 
   class Implementation;
 private:
