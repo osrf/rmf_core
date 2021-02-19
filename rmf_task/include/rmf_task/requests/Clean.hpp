@@ -37,12 +37,11 @@
 namespace rmf_task {
 namespace requests {
 
-class Clean : public rmf_task::Request
+class CleanDescription : public rmf_task::Request::Description
 {
 public:
 
-  static ConstRequestPtr make(
-    std::string id,
+  static DescriptionPtr make(
     std::size_t start_waypoint,
     std::size_t end_waypoint,
     rmf_traffic::Trajectory& cleaning_path,
@@ -51,8 +50,7 @@ public:
     std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     rmf_traffic::Time start_time,
-    bool drain_battery = true,
-    ConstPriorityPtr priority = nullptr);
+    bool drain_battery = true);
 
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
@@ -73,16 +71,29 @@ public:
 
   class Implementation;
 private:
-  Clean(
-    std::string& id,
-    rmf_traffic::Time earliest_start_time,
-    ConstPriorityPtr priority);
+  CleanDescription();
 
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using CleanRequestPtr = std::shared_ptr<Clean>;
-using ConstCleanRequestPtr = std::shared_ptr<const Clean>;
+//==============================================================================
+class Clean
+{
+public:
+
+  static ConstRequestPtr make(
+    const std::string& id,
+    std::size_t start_waypoint,
+    std::size_t end_waypoint,
+    rmf_traffic::Trajectory& cleaning_path,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink,
+    std::shared_ptr<rmf_traffic::agv::Planner> planner,
+    rmf_traffic::Time start_time,
+    bool drain_battery = true,
+    ConstPriorityPtr priority = nullptr);
+};
 
 } // namespace requests
 } // namespace rmf_task

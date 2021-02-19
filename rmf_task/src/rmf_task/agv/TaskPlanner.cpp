@@ -345,7 +345,6 @@ public:
   std::shared_ptr<Configuration> config;
   std::shared_ptr<EstimateCache> estimate_cache;
   bool check_priority = false;
-  const double priority_penalty = 10000;
 
   ConstRequestPtr make_charging_request(rmf_traffic::Time start_time)
   {
@@ -368,8 +367,9 @@ public:
 
       // Remove charging task at end of assignments if any
       // TODO(YV): Remove this after fixing the planner
-      if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-          assignments[a].back().request()))
+      if (std::dynamic_pointer_cast<
+        const rmf_task::requests::ChargeBatteryDescription>(
+          assignments[a].back().request()->description()))
         assignments[a].pop_back();
     }
 
@@ -385,8 +385,9 @@ public:
       if (agent.empty())
         continue;
 
-      if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-        agent.back().assignment.request()))
+      if (std::dynamic_pointer_cast<
+        const rmf_task::requests::ChargeBatteryDescription>(
+          agent.back().assignment.request()->description()))
       agent.pop_back();
     }
 
@@ -503,7 +504,7 @@ public:
           initial_states,
           constraints_set,
           request,
-          charge_battery,
+          charge_battery->description(),
           estimate_cache,
           error);
       
@@ -595,11 +596,12 @@ public:
     {
       // Check if a battery task already precedes the latest assignment
       auto& assignments = new_node->assigned_tasks[entry.candidate];
-      if (assignments.empty() || !std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-          assignments.back().assignment.request()))
+      if (assignments.empty() || !std::dynamic_pointer_cast<
+        const rmf_task::requests::ChargeBatteryDescription>(
+          assignments.back().assignment.request()->description()))
       {
         auto charge_battery = make_charging_request(entry.previous_state.finish_time());
-        auto battery_estimate = charge_battery->estimate_finish(
+        auto battery_estimate = charge_battery->description()->estimate_finish(
           entry.previous_state, constraints, estimate_cache);
         if (battery_estimate.has_value())
         {
@@ -629,7 +631,7 @@ public:
     for (auto& new_u : new_node->unassigned_tasks)
     {
       const auto finish =
-        new_u.second.request->estimate_finish(
+        new_u.second.request->description()->estimate_finish(
           entry.state, constraints, estimate_cache);
 
       if (finish.has_value())
@@ -672,7 +674,7 @@ public:
     if (add_charger)
     {
       auto charge_battery = make_charging_request(entry.state.finish_time());
-      auto battery_estimate = charge_battery->estimate_finish(
+      auto battery_estimate = charge_battery->description()->estimate_finish(
         entry.state, constraints, estimate_cache);
       if (battery_estimate.has_value())
       {
@@ -687,7 +689,7 @@ public:
         for (auto& new_u : new_node->unassigned_tasks)
         {
           const auto finish =
-            new_u.second.request->estimate_finish(battery_estimate.value().finish_state(),
+            new_u.second.request->description()->estimate_finish(battery_estimate.value().finish_state(),
               constraints, estimate_cache);
           if (finish.has_value())
           {
@@ -745,14 +747,15 @@ public:
 
     if (!assignments.empty())
     {
-      if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-          assignments.back().assignment.request()))
+      if (std::dynamic_pointer_cast<
+        const rmf_task::requests::ChargeBatteryDescription>(
+          assignments.back().assignment.request()->description()))
         return nullptr;
       state = assignments.back().assignment.state();
     }
 
     auto charge_battery = make_charging_request(state.finish_time());
-    auto estimate = charge_battery->estimate_finish(
+    auto estimate = charge_battery->description()->estimate_finish(
       state, constraints_set[agent], estimate_cache);
     if (estimate.has_value())
     {
@@ -770,7 +773,7 @@ public:
       for (auto& new_u : new_node->unassigned_tasks)
       {
         const auto finish =
-          new_u.second.request->estimate_finish(estimate.value().finish_state(),
+          new_u.second.request->description()->estimate_finish(estimate.value().finish_state(),
             constraints_set[agent], estimate_cache);
         if (finish.has_value())
         {

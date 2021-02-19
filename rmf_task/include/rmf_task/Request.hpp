@@ -38,9 +38,6 @@ public:
   {
   public:
 
-    /// The unique id for this request
-    virtual const std::string& id() const = 0;
-
     /// Estimate the state of the robot when the request is finished along with the
     /// time the robot has to wait before commencing the request
     virtual std::optional<Estimate> estimate_finish(
@@ -68,9 +65,13 @@ public:
   /// \param[in] description
   ///   The description for this request
   Request(
+    const std::string& id,
     rmf_traffic::Time earliest_start_time,
-    ConstPriorityPtr priority
+    ConstPriorityPtr priority,
     DescriptionPtr description);
+
+  /// The unique id for this request
+  const std::string& id() const;
 
   /// Get the earliest time that this request may begin
   rmf_traffic::Time earliest_start_time() const;
@@ -88,6 +89,8 @@ private:
 
 using RequestPtr = std::shared_ptr<Request>;
 using ConstRequestPtr = std::shared_ptr<const Request>;
+using DescriptionPtr = Request::DescriptionPtr;
+using ConstDescriptionPtr = std::shared_ptr<const Request::Description>;
 
 } // namespace rmf_task
 

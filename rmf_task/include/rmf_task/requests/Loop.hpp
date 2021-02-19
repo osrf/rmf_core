@@ -37,14 +37,13 @@
 namespace rmf_task {
 namespace requests {
 
-class Loop : public rmf_task::Request
+class LoopDescription : public rmf_task::Request::Description
 {
 public:
 
   using Start = rmf_traffic::agv::Planner::Start;
 
-  static ConstRequestPtr make(
-    std::string id,
+  static DescriptionPtr make(
     std::size_t start_waypoint,
     std::size_t finish_waypoint,
     std::size_t num_loops,
@@ -52,9 +51,8 @@ public:
     std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
     std::shared_ptr<rmf_traffic::agv::Planner> planner,
     rmf_traffic::Time start_time,
-    bool drain_battery = true,
-    ConstPriorityPtr priority = nullptr);
-
+    bool drain_battery = true);
+  
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
     const agv::Constraints& task_planning_constraints,
@@ -81,16 +79,27 @@ public:
 
   class Implementation;
 private:
-  Loop(
-    std::string& id,
-    rmf_traffic::Time earliest_start_time,
-    ConstPriorityPtr priority);
+  LoopDescription();
 
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using LoopRequestPtr = std::shared_ptr<Loop>;
-using ConstLoopRequestPtr = std::shared_ptr<const Loop>;
+//==============================================================================
+class Loop
+{
+public:
+  static ConstRequestPtr make(
+    const std::string& id,
+    std::size_t start_waypoint,
+    std::size_t finish_waypoint,
+    std::size_t num_loops,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+    std::shared_ptr<rmf_traffic::agv::Planner> planner,
+    rmf_traffic::Time start_time,
+    bool drain_battery = true,
+    ConstPriorityPtr priority = nullptr);
+};
 
 } // namespace tasks
 } // namespace rmf_task

@@ -21,7 +21,7 @@ namespace rmf_task {
 namespace requests {
 
 //==============================================================================
-class Loop::Implementation
+class LoopDescription::Implementation
 {
 public:
 
@@ -34,6 +34,7 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
+  rmf_traffic::Time start_time;
   bool drain_battery;
 
   rmf_traffic::Duration invariant_duration;
@@ -41,8 +42,7 @@ public:
 };
 
 //==============================================================================
-ConstRequestPtr Loop::make(
-  std::string id,
+DescriptionPtr LoopDescription::make(
   std::size_t start_waypoint,
   std::size_t finish_waypoint,
   std::size_t num_loops,
@@ -50,17 +50,16 @@ ConstRequestPtr Loop::make(
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
-  bool drain_battery,
-  ConstPriorityPtr priority)
+  bool drain_battery)
 {
-  std::shared_ptr<Loop> loop(new Loop(
-    id, start_time, priority));
+  std::shared_ptr<LoopDescription> loop(new LoopDescription());
   loop->_pimpl->start_waypoint = start_waypoint;
   loop->_pimpl->finish_waypoint = finish_waypoint;
   loop->_pimpl->num_loops = num_loops;
   loop->_pimpl->motion_sink = std::move(motion_sink);
   loop->_pimpl->ambient_sink = std::move(ambient_sink);
   loop->_pimpl->planner = std::move(planner);
+  loop->_pimpl->start_time = start_time;
   loop->_pimpl->drain_battery = drain_battery;
 
   // Calculate the invariant duration and battery drain for this task
@@ -68,6 +67,7 @@ ConstRequestPtr Loop::make(
   loop->_pimpl->invariant_battery_drain = 0.0;
   if (loop->_pimpl->start_waypoint != loop->_pimpl->finish_waypoint)
   {
+    const auto start_time = std::chrono::steady_clock::now();
     rmf_traffic::agv::Planner::Start loop_start{
       start_time,
       loop->_pimpl->start_waypoint,
@@ -112,18 +112,14 @@ ConstRequestPtr Loop::make(
 }
 
 //==============================================================================
-Loop::Loop(
-  std::string& id,
-  rmf_traffic::Time earliest_start_time,
-  ConstPriorityPtr priority)
-: Request(id, earliest_start_time, priority),
-  _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
+LoopDescription::LoopDescription()
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
   // Do nothing
 }
 
 //==============================================================================
-rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
+rmf_utils::optional<rmf_task::Estimate> LoopDescription::estimate_finish(
   const agv::State& initial_state,
   const agv::Constraints& task_planning_constraints,
   const std::shared_ptr<EstimateCache> estimate_cache) const
@@ -187,7 +183,7 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
   }
 
   // Compute wait_until
-  const rmf_traffic::Time ideal_start = earliest_start_time() - variant_duration;
+  const rmf_traffic::Time ideal_start = _pimpl->start_time - variant_duration;
   const rmf_traffic::Time wait_until =
     initial_state.finish_time() > ideal_start ?
     initial_state.finish_time() : ideal_start;
@@ -283,31 +279,32 @@ rmf_utils::optional<rmf_task::Estimate> Loop::estimate_finish(
 }
 
 //==============================================================================
-rmf_traffic::Duration Loop::invariant_duration() const
+rmf_traffic::Duration LoopDescription::invariant_duration() const
 {
   return _pimpl->invariant_duration;
 }
 
 //==============================================================================
-std::size_t Loop::start_waypoint() const
+std::size_t LoopDescription::start_waypoint() const
 {
   return _pimpl->start_waypoint;
 }
 
 //==============================================================================
-std::size_t Loop::finish_waypoint() const
+std::size_t LoopDescription::finish_waypoint() const
 {
   return _pimpl->finish_waypoint;
 }
 
 //==============================================================================
-std::size_t Loop::num_loops() const
+std::size_t LoopDescription::num_loops() const
 {
   return _pimpl->num_loops;
 }
 
 //==============================================================================
-Loop::Start Loop::loop_start(const Loop::Start& start) const
+LoopDescription::Start LoopDescription::loop_start(
+  const LoopDescription::Start& start) const
 {
   if (start.waypoint() == _pimpl->start_waypoint)
     return start;
@@ -330,7 +327,8 @@ Loop::Start Loop::loop_start(const Loop::Start& start) const
 }
 
 //==============================================================================
-Loop::Start Loop::loop_end(const Loop::Start& start) const
+LoopDescription::Start LoopDescription::loop_end(
+  const LoopDescription::Start& start) const
 {
   if (start.waypoint() == _pimpl->finish_waypoint)
     return start;
@@ -350,6 +348,33 @@ Loop::Start Loop::loop_end(const Loop::Start& start) const
     orientation};
 
   return loop_end;
+}
+
+//==============================================================================
+ConstRequestPtr Loop::make(
+  const std::string& id,
+  std::size_t start_waypoint,
+  std::size_t finish_waypoint,
+  std::size_t num_loops,
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+  std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+  std::shared_ptr<rmf_traffic::agv::Planner> planner,
+  rmf_traffic::Time start_time,
+  bool drain_battery,
+  ConstPriorityPtr priority)
+{
+  const auto description = LoopDescription::make(
+    start_waypoint,
+    finish_waypoint,
+    num_loops,
+    motion_sink,
+    ambient_sink,
+    planner,
+    start_time,
+    drain_battery);
+
+  return std::make_shared<Request>(id, start_time, priority, description);
+
 }
 
 } // namespace requests

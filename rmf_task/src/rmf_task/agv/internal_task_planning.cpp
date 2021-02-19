@@ -25,7 +25,7 @@ std::shared_ptr<Candidates> Candidates::make(
   const std::vector<State>& initial_states,
   const std::vector<Constraints>& constraints_set,
   const rmf_task::Request& request,
-  const rmf_task::requests::ChargeBattery& charge_battery_request,
+  const rmf_task::requests::ChargeBatteryDescription& charge_battery_desc,
   const std::shared_ptr<EstimateCache> estimate_cache,
   TaskPlanner::TaskPlannerError& error)
 {
@@ -34,7 +34,7 @@ std::shared_ptr<Candidates> Candidates::make(
   {
     const auto& state = initial_states[i];
     const auto& constraints = constraints_set[i];
-    const auto finish = request.estimate_finish(
+    const auto finish = request.description()->estimate_finish(
       state, constraints, estimate_cache);
     if (finish.has_value())
     {
@@ -50,11 +50,11 @@ std::shared_ptr<Candidates> Candidates::make(
     else
     {
       auto battery_estimate =
-        charge_battery_request.estimate_finish(
+        charge_battery_desc.estimate_finish(
           state, constraints, estimate_cache);
       if (battery_estimate.has_value())
       {
-        auto new_finish = request.estimate_finish(
+        auto new_finish = request.description()->estimate_finish(
           battery_estimate.value().finish_state(), constraints, estimate_cache);
         if (new_finish.has_value())
         {
@@ -79,7 +79,7 @@ std::shared_ptr<Candidates> Candidates::make(
         // called on initial state with full battery or low battery such that
         // agent is unable to make it back to the charger
         if (abs(
-          state.battery_soc() - charge_battery_request.max_charge_soc()) < 1e-3) 
+          state.battery_soc() - charge_battery_desc.max_charge_soc()) < 1e-3) 
             error = TaskPlanner::TaskPlannerError::limited_capacity;
         else
           error = TaskPlanner::TaskPlannerError::low_battery;
@@ -102,16 +102,16 @@ std::shared_ptr<PendingTask> PendingTask::make(
     std::vector<rmf_task::agv::State>& initial_states,
     std::vector<rmf_task::agv::Constraints>& constraints_set,
     rmf_task::ConstRequestPtr request_,
-    rmf_task::ConstRequestPtr charge_battery_request,
+    rmf_task::Request::DescriptionPtr charge_battery_desc,
     std::shared_ptr<EstimateCache> estimate_cache,
     TaskPlanner::TaskPlannerError& error)
 {
 
-  auto battery_request = std::dynamic_pointer_cast<
-    const rmf_task::requests::ChargeBattery>(charge_battery_request);
+  auto battery_desc = std::dynamic_pointer_cast<
+    const rmf_task::requests::ChargeBatteryDescription>(charge_battery_desc);
 
   const auto candidates = Candidates::make(initial_states, constraints_set,
-        *request_, *battery_request, estimate_cache, error);
+        *request_, *battery_desc, estimate_cache, error);
 
   if (!candidates)
     return nullptr;

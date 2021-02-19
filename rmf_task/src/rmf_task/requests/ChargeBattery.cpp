@@ -46,14 +46,14 @@ std::string generate_uuid(const std::size_t length = 3)
 } // anonymous namespace
 
 //==============================================================================
-class ChargeBattery::Implementation
+class ChargeBatteryDescription::Implementation
 {
 public:
-
   rmf_battery::agv::BatterySystemPtr battery_system;
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
+  rmf_traffic::Time start_time;
   bool drain_battery;
 
   // soc to always charge the battery up to
@@ -62,40 +62,38 @@ public:
 };
 
 //==============================================================================
-rmf_task::ConstRequestPtr ChargeBattery::make(
+rmf_task::DescriptionPtr ChargeBatteryDescription::make(
   rmf_battery::agv::BatterySystem battery_system,
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
   std::shared_ptr<rmf_traffic::agv::Planner> planner,
   rmf_traffic::Time start_time,
-  bool drain_battery,
-  ConstPriorityPtr priority)
+  bool drain_battery)
 {
-  std::string id = "Charge" + generate_uuid();
-  std::shared_ptr<ChargeBattery> charge_battery(new ChargeBattery(
-    id, start_time, priority));
-  charge_battery->_pimpl->battery_system = std::make_shared<
+  std::shared_ptr<ChargeBatteryDescription> description(
+    new ChargeBatteryDescription());
+  description->_pimpl->battery_system = std::make_shared<
     rmf_battery::agv::BatterySystem>(battery_system);
-  charge_battery->_pimpl->motion_sink = std::move(motion_sink);
-  charge_battery->_pimpl->device_sink = std::move(device_sink);
-  charge_battery->_pimpl->planner = std::move(planner);
-  charge_battery->_pimpl->drain_battery = drain_battery;
-  charge_battery->_pimpl->invariant_duration =
+  description->_pimpl->motion_sink = std::move(motion_sink);
+  description->_pimpl->device_sink = std::move(device_sink);
+  description->_pimpl->planner = std::move(planner);
+  description->_pimpl->start_time = start_time;
+  description->_pimpl->drain_battery = drain_battery;
+  description->_pimpl->invariant_duration =
     rmf_traffic::time::from_seconds(0.0);
-  return charge_battery;
+  return description;
 }
 
 //==============================================================================
-ChargeBattery::ChargeBattery(
-  std::string& id,
-  rmf_traffic::Time earliest_start_time,
-  ConstPriorityPtr priority)
-: Request(id, earliest_start_time, priority),
-  _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
-{}
+ChargeBatteryDescription::ChargeBatteryDescription()
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
+{
+  // Do nothing
+}
 
 //==============================================================================
-rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
+rmf_utils::optional<rmf_task::Estimate>
+ChargeBatteryDescription::estimate_finish(
   const agv::State& initial_state,
   const agv::Constraints& task_planning_constraints,
   const std::shared_ptr<EstimateCache> estimate_cache) const
@@ -192,21 +190,47 @@ rmf_utils::optional<rmf_task::Estimate> ChargeBattery::estimate_finish(
 }
 
 //==============================================================================
-rmf_traffic::Duration ChargeBattery::invariant_duration() const
+rmf_traffic::Duration ChargeBatteryDescription::invariant_duration() const
 {
   return _pimpl->invariant_duration;
 }
 
 //==============================================================================
-const rmf_battery::agv::BatterySystem& ChargeBattery::battery_system() const
+const rmf_battery::agv::BatterySystem& ChargeBatteryDescription::battery_system() const
 {
   return *_pimpl->battery_system;
 }
 
-double ChargeBattery::max_charge_soc() const
+//==============================================================================
+double ChargeBatteryDescription::max_charge_soc() const
 {
   return _pimpl->charge_soc;
 }
+
+//==============================================================================
+ConstRequestPtr ChargeBattery::make(
+  rmf_battery::agv::BatterySystem battery_system,
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+  std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
+  std::shared_ptr<rmf_traffic::agv::Planner> planner,
+  rmf_traffic::Time start_time,
+  bool drain_battery,
+  ConstPriorityPtr priority)
+{
+
+  std::string id = "Charge" + generate_uuid();
+  const auto description = ChargeBatteryDescription::make(
+    battery_system,
+    motion_sink,
+    device_sink,
+    planner,
+    start_time,
+    drain_battery);
+
+  return std::make_shared<Request>(id, start_time, priority, description);
+
+}
+
 
 } // namespace requests
 } // namespace rmf_task

@@ -59,8 +59,9 @@ inline bool check_implicit_charging_task_start(
 
     const auto& s = agent[0].state();
     auto is_charge_request =
-      std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-        agent[0].request());
+      std::dynamic_pointer_cast<
+        const rmf_task::requests::ChargeBatteryDescription>(
+          agent[0].request()->description());
 
     // No task should consume more charge than (1.0 - initial_soc)
     // in the current test, so we are guaranted to find any occurrence

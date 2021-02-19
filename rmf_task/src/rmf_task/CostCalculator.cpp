@@ -117,8 +117,9 @@ public:
 auto BinaryPriorityCostCalculator::Implementation::compute_g_assignment(
   const TaskPlanner::Assignment& assignment) const -> double
 {
-  if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-    assignment.request()))
+  if (std::dynamic_pointer_cast<
+    const rmf_task::requests::ChargeBatteryDescription>(
+      assignment.request()->description()))
   {
     return 0.0; // Ignore charging tasks in cost
   }
@@ -171,7 +172,7 @@ auto BinaryPriorityCostCalculator::Implementation::compute_h(
   {
     const rmf_traffic::Time earliest_deployment_time =
         u.second.candidates.best_finish_time()
-        - u.second.request->invariant_duration();
+        - u.second.request->description()->invariant_duration();
     const double earliest_deployment_time_s =
       rmf_traffic::time::to_seconds(
         earliest_deployment_time.time_since_epoch());
@@ -253,8 +254,9 @@ bool BinaryPriorityCostCalculator::Implementation::valid_assignment_priority(
     
     auto it = agent.begin();
     // We update the iterator such that the first assignment is a non-charging task
-    while (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-      it->assignment.request()))
+    while (std::dynamic_pointer_cast<
+      const rmf_task::requests::ChargeBatteryDescription>(
+        it->assignment.request()->description()))
     {
       ++it;
       if (it == agent.end())
@@ -265,8 +267,9 @@ bool BinaryPriorityCostCalculator::Implementation::valid_assignment_priority(
     ++it;
     for (; it != agent.end(); ++it)
     {
-      if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-        it->assignment.request()))
+      if (std::dynamic_pointer_cast<
+        const rmf_task::requests::ChargeBatteryDescription>(
+          it->assignment.request()->description()))
         continue;
       auto curr_priority = it->assignment.request()->priority();
       if ((prev_priority == nullptr) && (curr_priority != nullptr))

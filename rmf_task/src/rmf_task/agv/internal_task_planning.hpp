@@ -68,7 +68,7 @@ public:
     const std::vector<State>& initial_states,
     const std::vector<Constraints>& constraints_set,
     const rmf_task::Request& request,
-    const rmf_task::requests::ChargeBattery& charge_battery_request,
+    const rmf_task::requests::ChargeBatteryDescription& charge_battery_desc,
     const std::shared_ptr<EstimateCache> estimate_cache,
     TaskPlanner::TaskPlannerError& error);
 
@@ -164,7 +164,7 @@ public:
       std::vector<rmf_task::agv::State>& initial_states,
       std::vector<rmf_task::agv::Constraints>& constraints_set,
       rmf_task::ConstRequestPtr request_,
-      rmf_task::ConstRequestPtr charge_battery_request,
+      rmf_task::Request::DescriptionPtr charge_battery_desc,
       std::shared_ptr<EstimateCache> estimate_cache,
       TaskPlanner::TaskPlannerError& error);
 
@@ -217,7 +217,7 @@ struct Node
       double earliest_start_time = rmf_traffic::time::to_seconds(
         u.second.request->earliest_start_time().time_since_epoch());
       double earliest_finish_time = earliest_start_time
-        + rmf_traffic::time::to_seconds(u.second.request->invariant_duration());
+        + rmf_traffic::time::to_seconds(u.second.request->description()->invariant_duration());
 
       unassigned_invariants.insert(
         Invariant{

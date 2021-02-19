@@ -23,6 +23,7 @@ namespace rmf_task {
 class Request::Implementation
 {
 public:
+  std::string id;
   rmf_traffic::Time earliest_start_time;
   rmf_task::ConstPriorityPtr priority;
   DescriptionPtr description;
@@ -30,17 +31,25 @@ public:
 
 //==============================================================================
 Request::Request(
+  const std::string& id,
   rmf_traffic::Time earliest_start_time,
   ConstPriorityPtr priority,
   DescriptionPtr description)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation {
+          id,
           earliest_start_time,
           priority,
           description
       }))
 {
     // Do nothing
+}
+
+//==============================================================================
+const std::string& Request::id() const
+{
+  return _pimpl->id;
 }
 
 //==============================================================================
