@@ -19,6 +19,7 @@
 #define RMF_TASK__AGV__TASKPLANNER_HPP
 
 #include <rmf_task/Request.hpp>
+#include <rmf_task/CostCalculator.hpp>
 
 #include <rmf_battery/agv/BatterySystem.hpp>
 #include <rmf_battery/MotionPowerSink.hpp>

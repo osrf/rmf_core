@@ -15,29 +15,17 @@
  *
 */
 
-#ifndef RMF_TASK__BINARYPRIORITYSCHEME_HPP
-#define RMF_TASK__BINARYPRIORITYSCHEME_HPP
-
-#include <rmf_task/Priority.hpp>
-#include <rmf_task/CostCalculator.hpp>
+#ifndef RMF_TASK__PRIORITY_HPP
+#define RMF_TASK__PRIORITY_HPP
 
 #include <memory>
 
 namespace rmf_task {
 
-/// This is for a binary prioritization scheme. Tasks are assigned either high priority or low priority.
-class BinaryPriorityScheme
-{
-public:
-
-  /// Use these to assign the task priority
-  static std::shared_ptr<Priority> make_low_priority();
-  static std::shared_ptr<Priority> make_high_priority();
-
-  /// Use this to give the appropriate cost calculator to the task planner
-  static std::shared_ptr<CostCalculator> make_cost_calculator();
-};
+// Forward declare abstract interface. The definition will remain as internal detail.
+class Priority;
+using PriorityPtr = std::shared_ptr<Priority>;
+using ConstPriorityPtr = std::shared_ptr<const Priority>;
 
 } // namespace rmf_task
-
-#endif // RMF_TASK__BINARYPRIORITYSCHEME_HPP
+# endif // RMF_TASK__PRIORITY_HPP
