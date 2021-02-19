@@ -31,19 +31,30 @@ namespace reservations {
 class Reservation
 {
 public:
+
+  /// A unique ID for reservations
+  const uint64_t reservation_id() const;
+
   /// Get the reservation way point
   const rmf_traffic::agv::Graph::Waypoint waypoint() const;
 
+  /// Traffic duration
+  const std::optional<rmf_traffic::Duration> duration() const;
+
+  /// Returns the participant for who the reservation is made
+  const rmf_traffic::schedule::ParticipantId participantId() const;
+
+  class Implementation;
+
 private:
-  uint64_t _unique_id;
-  std::optional<rmf_traffic::Duration> _duration;
-  rmf_traffic::agv::Graph::Waypoint _waypoint;
-  rmf_traffic::schedule::ParticipantId _participantId;
   Reservation(
     uint64_t unique_id,
     std::optional<rmf_traffic::Duration> duration,
     rmf_traffic::agv::Graph::Waypoint waypoint,
     rmf_traffic::schedule::ParticipantId participantId);
+
+  rmf_utils::impl_ptr<Implementation> _pimpl;
+
   friend class ReservationSystem;
 };
 
@@ -69,7 +80,7 @@ public:
     std::optional<rmf_traffic::Duration> duration = std::nullopt);
   
   /// Cancels a reservation
-  void cancel_reservation(Reservation res);
+  void cancel_reservation(Reservation& res);
 
   ReservationSystem();
 

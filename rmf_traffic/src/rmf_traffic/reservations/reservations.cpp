@@ -23,7 +23,15 @@
 namespace rmf_traffic {
 namespace reservations {
 //==============================================================================
-Reservation::Reservation(
+class Reservation::Implementation
+{
+public:
+  uint64_t _unique_id;
+  std::optional<rmf_traffic::Duration> _duration;
+  rmf_traffic::agv::Graph::Waypoint _waypoint;
+  rmf_traffic::schedule::ParticipantId _participantId;
+
+  Implementation(
     uint64_t unique_id,
     std::optional<rmf_traffic::Duration> duration,
     rmf_traffic::agv::Graph::Waypoint waypoint,
@@ -32,14 +40,49 @@ Reservation::Reservation(
       _duration(duration),
       _waypoint(waypoint),
       _participantId(participantId)
+  {
+
+  }
+};
+
+//==============================================================================
+Reservation::Reservation(
+    uint64_t unique_id,
+    std::optional<rmf_traffic::Duration> duration,
+    rmf_traffic::agv::Graph::Waypoint waypoint,
+    rmf_traffic::schedule::ParticipantId participantId):
+    _pimpl(rmf_utils::make_impl<Reservation::Implementation>(
+      unique_id,
+      duration,
+      waypoint,
+      participantId
+    ))
 {
 
 }
 
 //==============================================================================
+const uint64_t Reservation::reservation_id() const
+{
+  return _pimpl->_unique_id;
+}
+
+//==============================================================================
 const rmf_traffic::agv::Graph::Waypoint Reservation::waypoint() const
 {
-  return _waypoint;  
+  return _pimpl->_waypoint;  
+}
+
+//==============================================================================
+const std::optional<rmf_traffic::Duration> Reservation::duration() const
+{
+  return _pimpl->_duration;  
+}
+   
+//==============================================================================
+const rmf_traffic::schedule::ParticipantId Reservation::participantId() const
+{
+  return _pimpl->_participantId;
 }
 
 //==============================================================================
@@ -79,7 +122,7 @@ public:
       waypoint,
       participantId);
 
-    _schedule[waypoint.index()].insert({time, reservation});
+    _schedule[waypoint.index()].insert({time, std::move(reservation)});
     _reservations[_reservation_counter] = time;
     _reservation_by_participant[participantId].insert(_reservation_counter); 
     _reservation_counter++;
@@ -88,14 +131,14 @@ public:
   }
 
   //==============================================================================
-  void cancel_reservation(Reservation res)
+  void cancel_reservation(Reservation& res)
   {
     const std::lock_guard<std::mutex> lock(_mutex);
-    auto uid = res._unique_id;
+    auto uid = res.reservation_id();
     auto time = _reservations[uid];
-    _schedule[res._waypoint.index()].erase(time);
+    _schedule[res.waypoint().index()].erase(time);
     _reservations.erase(uid);
-    _reservation_by_participant[res._participantId].erase(uid);
+    _reservation_by_participant[res.participantId()].erase(uid);
   }
 
   //==============================================================================
@@ -133,7 +176,7 @@ public:
         {
           /// Has previous reservation
           auto last_reservation = std::prev(start_slot);
-          if (!last_reservation->second._duration.has_value())
+          if (!last_reservation->second.duration().has_value())
           {
             /// Last reservation had infinite time
             return false;
@@ -142,7 +185,7 @@ public:
           {
             auto last_reservation_end_time = 
               last_reservation->first + 
-              last_reservation->second._duration.value();
+              last_reservation->second.duration().value();
 
             return last_reservation_end_time <= start_time;
           }
@@ -168,7 +211,7 @@ public:
 
       // Check previous slot.
       auto last_reservation = std::prev(start_slot);
-      if (!last_reservation->second._duration.has_value())
+      if (!last_reservation->second.duration().has_value())
       {
         // Last reservation had infinite time
         return false;
@@ -177,7 +220,7 @@ public:
       {
         auto last_reservation_end_time = 
           last_reservation->first + 
-          last_reservation->second._duration.value();
+          last_reservation->second.duration().value();
 
         return last_reservation_end_time <= start_time;
       }
@@ -214,7 +257,7 @@ std::optional<Reservation> ReservationSystem::reserve(
   return _pimpl->reserve(participantId, time, vertices, duration);
 }
 
-void ReservationSystem::cancel_reservation(Reservation res)
+void ReservationSystem::cancel_reservation(Reservation& res)
 {
   _pimpl->cancel_reservation(res);
 }
