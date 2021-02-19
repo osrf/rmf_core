@@ -133,6 +133,7 @@ public:
   //==============================================================================
   void cancel_reservation(Reservation& res)
   {
+    // TODO: Make this function safe
     const std::lock_guard<std::mutex> lock(_mutex);
     auto uid = res.reservation_id();
     auto time = _reservations[uid];

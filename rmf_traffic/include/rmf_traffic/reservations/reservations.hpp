@@ -41,21 +41,19 @@ public:
   /// Traffic duration
   const std::optional<rmf_traffic::Duration> duration() const;
 
-  /// Returns the participant for who the reservation is made
+  /// Returns the participant for who the reservation is max
   const rmf_traffic::schedule::ParticipantId participantId() const;
 
   class Implementation;
 
-private:
   Reservation(
     uint64_t unique_id,
     std::optional<rmf_traffic::Duration> duration,
     rmf_traffic::agv::Graph::Waypoint waypoint,
     rmf_traffic::schedule::ParticipantId participantId);
 
+private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
-
-  friend class ReservationSystem;
 };
 
 //==============================================================================
