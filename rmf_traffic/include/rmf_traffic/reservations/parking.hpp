@@ -25,8 +25,7 @@ namespace rmf_traffic {
 namespace reservations {
 
 //=============================================================================
-/// A simple wrapper around the class for parking items
-/// 
+/// A simple wrapper class which only allows parking reservations.
 class ParkingReservation
 {
 public:
