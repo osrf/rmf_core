@@ -15,29 +15,28 @@
  *
 */
 
-#ifndef SRC__RMF_TASK__PRIORITY_HPP
-#define SRC__RMF_TASK__PRIORITY_HPP
+#ifndef SRC__RMF_TASK__BINARYPRIORITY_HPP
+#define SRC__RMF_TASK__BINARYPRIORITY_HPP
 
-#include <memory>
-
-#include <rmf_utils/impl_ptr.hpp>
+#include "Priority.hpp"
 
 namespace rmf_task {
 
-/// Implement this for a new prioritization scheme.
-class Priority
+// Sample implementation for binary prioritization scheme
+class BinaryPriority : public Priority
 {
 public:
 
-  /// Get the value of this priority
-  virtual std::size_t value() const = 0;
+  /// Constructor
+  BinaryPriority(std::size_t value);
 
-  virtual ~Priority() = default;
+  /// Documentation inherited
+  std::size_t value() const final;
+  class Implementation;
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
-
-using PriorityPtr = std::shared_ptr<Priority>;
-using ConstPriorityPtr = std::shared_ptr<const Priority>;
 
 } // namespace rmf_task
 
-#endif // SRC__RMF_TASK__PRIORITY_HPP
+#endif // SRC__RMF_TASK__BINARYPRIORITY_HPP

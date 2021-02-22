@@ -18,7 +18,7 @@
 #include <rmf_task/Estimate.hpp>
 #include <rmf_task/agv/State.hpp>
 
-#include "../CostCalculator.hpp"
+#include "../BinaryPriorityCostCalculator.hpp"
 
 #include <rmf_traffic/Time.hpp>
 

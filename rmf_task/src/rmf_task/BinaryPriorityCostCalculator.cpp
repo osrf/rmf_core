@@ -15,76 +15,8 @@
  *
 */
 
-#include "CostCalculator.hpp"
-
-namespace {
-
-//==============================================================================
-// Sorts and distributes tasks among agents based on the earliest finish time
-// possible for each task (i.e. not accounting for any variant costs). Guaranteed
-// to underestimate actual cost when the earliest start times for each task are
-// similar (enforced by the segmentation_threshold).
-class InvariantHeuristicQueue
-{
-public:
-
-  InvariantHeuristicQueue(std::vector<double> initial_values)
-  {
-    assert(!initial_values.empty());
-    std::sort(initial_values.begin(), initial_values.end());
-
-    for (const auto value : initial_values)
-      _stacks.push_back({{0, value}});
-  }
-
-  void add(const double earliest_start_time, const double earliest_finish_time)
-  {
-    double prev_end_value = _stacks[0].back().end;
-    double new_end_value = prev_end_value + (earliest_finish_time - earliest_start_time);
-    _stacks[0].push_back({earliest_start_time, new_end_value});
-
-    // Find the largest stack that is still smaller than the current front
-    const auto next_it = _stacks.begin() + 1;
-    auto end_it = next_it;
-    for (; end_it != _stacks.end(); ++end_it)
-    {
-      if (new_end_value <= end_it->back().end)
-        break;
-    }
-
-    if (next_it != end_it)
-    {
-      // Rotate the vector elements to move the front stack to its new place
-      // in the order
-      std::rotate(_stacks.begin(), next_it, end_it);
-    }
-  }
-
-  double compute_cost() const
-  {
-    double total_cost = 0.0;
-    for (const auto& stack : _stacks)
-    {
-      // NOTE: We start iterating from i=1 because i=0 represents a component of
-      // the cost that is already accounted for by g(n) and the variant
-      // component of h(n)
-      for (std::size_t i = 1; i < stack.size(); ++i)
-      {
-        // Set lower bound of 0 to account for case where optimistically calculated
-        // end time is smaller than earliest start time
-        total_cost += std::max(0.0, (stack[i].end - stack[i].start));
-      }
-    }
-
-    return total_cost;
-  }
-
-private:
-  struct element { double start; double end; };
-  std::vector<std::vector<element>> _stacks;
-};
-
-} // anonymous namespace
+#include "BinaryPriorityCostCalculator.hpp"
+#include "InvariantHeuristicQueue.hpp"
 
 namespace rmf_task {
 

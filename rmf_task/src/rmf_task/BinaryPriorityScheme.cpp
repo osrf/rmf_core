@@ -17,8 +17,8 @@
 
 #include <rmf_task/BinaryPriorityScheme.hpp>
 
-#include "Priority.hpp"
-#include "CostCalculator.hpp"
+#include "BinaryPriority.hpp"
+#include "BinaryPriorityCostCalculator.hpp"
 
 namespace rmf_task {
 

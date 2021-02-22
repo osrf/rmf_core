@@ -15,7 +15,7 @@
  *
 */
 
-#include "Priority.hpp"
+#include "BinaryPriority.hpp"
 
 namespace rmf_task {
 

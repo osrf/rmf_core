@@ -15,33 +15,38 @@
  *
 */
 
-#ifndef SRC__RMF_TASK__COSTCALCULATOR_HPP
-#define SRC__RMF_TASK__COSTCALCULATOR_HPP
+#ifndef SRC__RMF_TASK__BINARYPRIORITYCOSTCALCULATOR_HPP
+#define SRC__RMF_TASK__BINARYPRIORITYCOSTCALCULATOR_HPP
 
-#include "agv/internal_task_planning.hpp"
-
-#include <rmf_traffic/Time.hpp>
+#include "CostCalculator.hpp"
 
 namespace rmf_task {
 
-class CostCalculator
+// Sample implementation for binary prioritization scheme
+class BinaryPriorityCostCalculator : public CostCalculator
 {
 public:
-  using Node = agv::Node;
 
-  /// Compute the total cost of a node while factoring in the prioritization scheme
-  virtual double compute_cost(
+  /// Constructor
+  BinaryPriorityCostCalculator(
+    double priority_penalty = 10000);
+
+  /// Documentation inherited
+  double compute_cost(
     const Node& n,
     rmf_traffic::Time time_now,
-    bool check_priority) const = 0;
+    bool check_priority) const final;
 
   /// Compute the cost of assignments
-  virtual double compute_cost(
-    rmf_task::agv::TaskPlanner::Assignments assignments) const = 0;
+  double compute_cost(
+    rmf_task::agv::TaskPlanner::Assignments assignments) const final;
 
-  virtual ~CostCalculator() = default;
+  class Implementation;
+
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 } // namespace rmf_task
 
-#endif // SRC__RMF_TASK__COSTCALCULATOR_HPP
+#endif // SRC__RMF_TASK__BINARYPRIORITYCOSTCALCULATOR_HPP
