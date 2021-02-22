@@ -26,13 +26,13 @@ namespace reservations {
 class Reservation::Implementation
 {
 public:
-  uint64_t _unique_id;
+  ReservationId _unique_id;
   std::optional<rmf_traffic::Duration> _duration;
   rmf_traffic::agv::Graph::Waypoint _waypoint;
   rmf_traffic::schedule::ParticipantId _participantId;
 
   Implementation(
-    uint64_t unique_id,
+    ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
     rmf_traffic::agv::Graph::Waypoint waypoint,
     rmf_traffic::schedule::ParticipantId participantId):
@@ -47,7 +47,7 @@ public:
 
 //==============================================================================
 Reservation::Reservation(
-    uint64_t unique_id,
+    ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
     rmf_traffic::agv::Graph::Waypoint waypoint,
     rmf_traffic::schedule::ParticipantId participantId):
@@ -62,7 +62,7 @@ Reservation::Reservation(
 }
 
 //==============================================================================
-const uint64_t Reservation::reservation_id() const
+const ReservationId Reservation::reservation_id() const
 {
   return _pimpl->_unique_id;
 }
@@ -122,24 +122,33 @@ public:
       waypoint,
       participantId);
 
-    _schedule[waypoint.index()].insert({time, std::move(reservation)});
+    _schedule[waypoint.index()].insert({time, reservation});
     _reservations[_reservation_counter] = time;
-    _reservation_by_participant[participantId].insert(_reservation_counter); 
+    _location_by_reservation_id.insert({_reservation_counter, waypoint});
     _reservation_counter++;
 
     return reservation;
   }
 
   //==============================================================================
-  void cancel_reservation(Reservation& res)
+  void cancel_reservation(ReservationId reservation_id)
   {
-    // TODO: Make this function safe
     const std::lock_guard<std::mutex> lock(_mutex);
-    auto uid = res.reservation_id();
-    auto time = _reservations[uid];
-    _schedule[res.waypoint().index()].erase(time);
-    _reservations.erase(uid);
-    _reservation_by_participant[res.participantId()].erase(uid);
+    
+    // Lookup the reservation
+    auto reservation = _reservations.find(reservation_id);
+    if(reservation == _reservations.end())
+    {
+      throw std::runtime_error("Could not find reservation with id "
+        + std::to_string(reservation_id));
+    }
+    auto time = reservation->second;
+
+    auto location = _location_by_reservation_id.find(reservation_id)->second;
+    _schedule[location.index()].erase(time);
+    _reservations.erase(reservation_id);
+    _location_by_reservation_id.erase(reservation_id);
+
   }
 
   //==============================================================================
@@ -153,7 +162,6 @@ public:
 
     if(waypoint_schedule == _schedule.end())
     {
-      _schedule.insert({waypoint.index(), {}});
       return true;
     }
 
@@ -234,7 +242,7 @@ public:
   }
 
 private:
-  uint64_t _reservation_counter;
+  ReservationId _reservation_counter;
 
   // this is a hash map with the waypoint as a key and
   // a map. The map contains starting times of each reservation
@@ -242,9 +250,9 @@ private:
     uint64_t,
     std::map<rmf_traffic::Time, Reservation>> _schedule;
 
-  std::unordered_map<uint64_t, rmf_traffic::Time> _reservations;
-  std::unordered_map<rmf_traffic::schedule::ParticipantId, 
-    std::unordered_set<uint64_t>> _reservation_by_participant;
+  std::unordered_map<ReservationId, rmf_traffic::Time> _reservations;
+  std::unordered_map<ReservationId,
+    rmf_traffic::agv::Graph::Waypoint> _location_by_reservation_id;
 
   std::mutex _mutex;
 };
@@ -258,7 +266,7 @@ std::optional<Reservation> ReservationSystem::reserve(
   return _pimpl->reserve(participantId, time, vertices, duration);
 }
 
-void ReservationSystem::cancel_reservation(Reservation& res)
+void ReservationSystem::cancel_reservation(uint64_t res)
 {
   _pimpl->cancel_reservation(res);
 }

@@ -27,13 +27,16 @@
 namespace rmf_traffic {
 namespace reservations {
 
+//==============================================================================
+using ReservationId = size_t;
+
 //==============================================================================  
 class Reservation
 {
 public:
 
   /// A unique ID for reservations
-  const uint64_t reservation_id() const;
+  const ReservationId reservation_id() const;
 
   /// Get the reservation way point
   const rmf_traffic::agv::Graph::Waypoint waypoint() const;
@@ -46,8 +49,12 @@ public:
 
   class Implementation;
 
+  /// Constructor
+  /// Do not use this to construct reservations unless you are deseriallizing/
+  /// Serializing resolutions. If you wish to make a reservation see
+  /// the \ref{ReservationSystem} class.
   Reservation(
-    uint64_t unique_id,
+    ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
     rmf_traffic::agv::Graph::Waypoint waypoint,
     rmf_traffic::schedule::ParticipantId participantId);
@@ -57,6 +64,7 @@ private:
 };
 
 //==============================================================================
+/// Manages reservations of waypoints within the class 
 class ReservationSystem
 {
 public:
@@ -78,7 +86,8 @@ public:
     std::optional<rmf_traffic::Duration> duration = std::nullopt);
   
   /// Cancels a reservation
-  void cancel_reservation(Reservation& res);
+  /// \throws runtime error if a reservation with given ID is  not found
+  void cancel_reservation(ReservationId reservation_id);
 
   ReservationSystem();
 
