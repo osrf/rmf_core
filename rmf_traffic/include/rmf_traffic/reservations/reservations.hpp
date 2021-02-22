@@ -36,7 +36,7 @@ class Reservation
 public:
 
   /// A unique ID for reservations
-  const ReservationId reservation_id() const;
+  ReservationId reservation_id() const;
 
   /// Get the reservation way point
   const rmf_traffic::agv::Graph::Waypoint waypoint() const;
@@ -45,7 +45,7 @@ public:
   const std::optional<rmf_traffic::Duration> duration() const;
 
   /// Returns the participant for who the reservation is max
-  const rmf_traffic::schedule::ParticipantId participantId() const;
+  rmf_traffic::schedule::ParticipantId participantId() const;
 
   class Implementation;
 

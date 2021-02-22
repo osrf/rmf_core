@@ -62,7 +62,7 @@ Reservation::Reservation(
 }
 
 //==============================================================================
-const ReservationId Reservation::reservation_id() const
+ReservationId Reservation::reservation_id() const
 {
   return _pimpl->_unique_id;
 }
@@ -80,7 +80,7 @@ const std::optional<rmf_traffic::Duration> Reservation::duration() const
 }
    
 //==============================================================================
-const rmf_traffic::schedule::ParticipantId Reservation::participantId() const
+rmf_traffic::schedule::ParticipantId Reservation::participantId() const
 {
   return _pimpl->_participantId;
 }
