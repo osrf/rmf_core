@@ -213,7 +213,7 @@ SCENARIO("Verify that cancelation works")
       THEN("The system throws an exception")
       {
         CHECK_THROWS(
-          reservation_system.cancel_reservation(res->reservation_id())
+          reservation_system.cancel_reservation(res->reservation_id()+100)
         );
       }
     }
