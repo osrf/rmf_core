@@ -59,7 +59,7 @@ TaskPlanner::Configuration::Configuration(
 }
 
 //==============================================================================
-rmf_battery::agv::BatterySystem& TaskPlanner::Configuration::battery_system()
+const rmf_battery::agv::BatterySystem& TaskPlanner::Configuration::battery_system()
 {
   return _pimpl->battery_system;
 }
@@ -73,7 +73,7 @@ auto TaskPlanner::Configuration::battery_system(
 }
 
 //==============================================================================
-std::shared_ptr<rmf_battery::MotionPowerSink>
+const std::shared_ptr<rmf_battery::MotionPowerSink>&
 TaskPlanner::Configuration::motion_sink() const
 {
   return _pimpl->motion_sink;
@@ -89,7 +89,7 @@ auto TaskPlanner::Configuration::motion_sink(
 }
 
 //==============================================================================
-std::shared_ptr<rmf_battery::DevicePowerSink>
+const std::shared_ptr<rmf_battery::DevicePowerSink>&
 TaskPlanner::Configuration::ambient_sink() const
 {
   return _pimpl->ambient_sink;
@@ -105,7 +105,7 @@ auto TaskPlanner::Configuration::ambient_sink(
 }
 
 //==============================================================================
-std::shared_ptr<rmf_traffic::agv::Planner>
+const std::shared_ptr<rmf_traffic::agv::Planner>&
 TaskPlanner::Configuration::planner() const
 {
   return _pimpl->planner;
@@ -121,7 +121,7 @@ auto TaskPlanner::Configuration::planner(
 }
 
 //==============================================================================
-std::shared_ptr<rmf_task::CostCalculator>
+const std::shared_ptr<rmf_task::CostCalculator>&
 TaskPlanner::Configuration::cost_calculator() const
 {
   return _pimpl->cost_calculator;
@@ -162,7 +162,7 @@ TaskPlanner::Assignment::Assignment(
 }
 
 //==============================================================================
-rmf_task::ConstRequestPtr TaskPlanner::Assignment::request() const 
+const rmf_task::ConstRequestPtr& TaskPlanner::Assignment::request() const 
 {
   return _pimpl->request;
 }
@@ -1003,13 +1003,13 @@ auto TaskPlanner::compute_cost(const Assignments& assignments) -> double
 }
 
 // ============================================================================
-const std::shared_ptr<EstimateCache> TaskPlanner::estimate_cache() const
+const std::shared_ptr<EstimateCache>& TaskPlanner::estimate_cache() const
 {
   return _pimpl->estimate_cache;
 }
 
 // ============================================================================
-const std::shared_ptr<TaskPlanner::Configuration> TaskPlanner::config() const
+const std::shared_ptr<TaskPlanner::Configuration>& TaskPlanner::config() const
 {
   return _pimpl->config;
 }

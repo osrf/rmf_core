@@ -71,34 +71,34 @@ public:
       std::shared_ptr<rmf_task::CostCalculator> cost_calculator);
 
     /// Get the battery system
-    rmf_battery::agv::BatterySystem& battery_system();
+    const rmf_battery::agv::BatterySystem& battery_system();
 
     /// Set the battery_system
     Configuration& battery_system(
       rmf_battery::agv::BatterySystem battery_system);
 
     /// Get the motion sink
-    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink() const;
+    const std::shared_ptr<rmf_battery::MotionPowerSink>& motion_sink() const;
 
     /// Set the motion_sink
     Configuration& motion_sink(
       std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink);
 
     /// Get the ambient device sink
-    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink() const;
+    const std::shared_ptr<rmf_battery::DevicePowerSink>& ambient_sink() const;
 
     /// Set the ambient device sink
     Configuration& ambient_sink(
       std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink);
 
     /// Get the planner
-    std::shared_ptr<rmf_traffic::agv::Planner> planner() const;
+    const std::shared_ptr<rmf_traffic::agv::Planner>& planner() const;
 
     /// Set the planner
     Configuration& planner(std::shared_ptr<rmf_traffic::agv::Planner> planner);
 
     /// Get the CostCalculator
-    std::shared_ptr<rmf_task::CostCalculator> cost_calculator() const;
+    const std::shared_ptr<rmf_task::CostCalculator>& cost_calculator() const;
 
     /// Set the CostCalculator
     Configuration& cost_calculator(
@@ -130,7 +130,7 @@ public:
       rmf_traffic::Time deployment_time);
 
     // Get the request of this task
-    rmf_task::ConstRequestPtr request() const;
+    const rmf_task::ConstRequestPtr& request() const;
 
     // Get a const reference to the predicted state at the end of the assignment
     const State& state() const;
@@ -170,7 +170,7 @@ public:
   TaskPlanner(std::shared_ptr<Configuration> config);
 
   /// Get a shared pointer to the configuration of this task planner
-  const std::shared_ptr<Configuration> config() const;
+  const std::shared_ptr<Configuration>& config() const;
 
   /// Get the greedy planner based assignments for a set of initial states and 
   /// requests
@@ -197,7 +197,7 @@ public:
   double compute_cost(const Assignments& assignments);
 
   /// Retrieve the task planner cache
-  const std::shared_ptr<EstimateCache> estimate_cache() const;
+  const std::shared_ptr<EstimateCache>& estimate_cache() const;
 
   class Implementation;
 
