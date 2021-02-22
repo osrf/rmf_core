@@ -167,7 +167,56 @@ SCENARIO("Verify that reservations work")
     {
       auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
       CHECK(res.has_value());
-      CHECK(res->waypoint().index());
+      CHECK(res->waypoint().index() == wp1.index());
     }
   }
+}
+
+SCENARIO("Verify that cancelation works")
+{
+  const std::string test_map_name = "test_map";
+  using namespace std::literals;
+  using namespace rmf_traffic::reservations;
+
+  rmf_traffic::agv::Graph graph;
+  
+  graph.add_waypoint(test_map_name, Eigen::Vector2d{2, 2});
+  graph.add_waypoint(test_map_name, Eigen::Vector2d{0, 0});
+  auto wp0 = graph.get_waypoint(0);
+  auto wp1 = graph.get_waypoint(1);
+
+  GIVEN("A system with two points and a reservation")
+  {
+    ReservationSystem reservation_system;
+    auto curr_time = std::chrono::steady_clock::now();
+    auto reservation_time = curr_time + 10h;
+
+    std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+        {wp0};
+    auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+    WHEN("We cancel a reservation")
+    {
+      auto res1 = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      CHECK(!res1.has_value());
+      
+      reservation_system.cancel_reservation(res->reservation_id());
+
+      THEN("We can make another reservation")
+      {
+        auto res2 = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+        CHECK(res2.has_value());
+      }
+
+    }
+    WHEN("We cancel a non-existant reservation")
+    { 
+      THEN("The system throws an exception")
+      {
+        CHECK_THROWS(
+          reservation_system.cancel_reservation(res->reservation_id())
+        );
+      }
+    }
+  }
+   
 }
