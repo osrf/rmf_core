@@ -17,6 +17,7 @@
 
 #include <rmf_task/Estimate.hpp>
 #include <rmf_task/agv/State.hpp>
+#include <rmf_task/BinaryPriorityScheme.hpp>
 
 #include "../BinaryPriorityCostCalculator.hpp"
 
@@ -131,8 +132,7 @@ TaskPlanner::Configuration::cost_calculator() const
 auto TaskPlanner::Configuration::cost_calculator(
   std::shared_ptr<rmf_task::CostCalculator> cost_calculator) -> Configuration&
 {
-  if (cost_calculator)
-    _pimpl->cost_calculator = cost_calculator;
+  _pimpl->cost_calculator = cost_calculator;
   return *this;
 }
 
@@ -345,6 +345,7 @@ public:
   std::shared_ptr<Configuration> config;
   std::shared_ptr<EstimateCache> estimate_cache;
   bool check_priority = false;
+  std::shared_ptr<rmf_task::CostCalculator> cost_calculator = nullptr;
 
   ConstRequestPtr make_charging_request(rmf_traffic::Time start_time)
   {
@@ -403,6 +404,10 @@ public:
     bool greedy)
   {
     assert(initial_states.size() == constraints_set.size());
+
+    cost_calculator = config->cost_calculator() ? config->cost_calculator() :
+      rmf_task::BinaryPriorityScheme::make_cost_calculator();
+
     // Check if a high priority task exists among the requests.
     // If so the cost function for a node will be modified accordingly.
     for (const auto& request : requests)
@@ -518,7 +523,7 @@ public:
         });
     }
 
-    initial_node->cost_estimate = config->cost_calculator()->compute_cost(
+    initial_node->cost_estimate = cost_calculator->compute_cost(
       *initial_node, time_now, check_priority);
 
     initial_node->sort_invariants();
@@ -712,7 +717,7 @@ public:
     }
 
     // Update the cost estimate for new_node
-    new_node->cost_estimate = config->cost_calculator()->compute_cost(
+    new_node->cost_estimate = cost_calculator->compute_cost(
       *new_node, time_now, check_priority);
     new_node->latest_time = get_latest_time(*new_node);
 
@@ -790,7 +795,7 @@ public:
         }
       }
 
-      new_node->cost_estimate = config->cost_calculator()->compute_cost(
+      new_node->cost_estimate = cost_calculator->compute_cost(
         *new_node, time_now, check_priority);
       new_node->latest_time = get_latest_time(*new_node);
       return new_node;
@@ -997,9 +1002,15 @@ auto TaskPlanner::optimal_plan(
 }
 
 // ============================================================================
-auto TaskPlanner::compute_cost(const Assignments& assignments) -> double
+auto TaskPlanner::compute_cost(const Assignments& assignments) const -> double
 {
-  return _pimpl->config->cost_calculator()->compute_cost(assignments);
+  if (_pimpl->config->cost_calculator())
+    return _pimpl->config->cost_calculator()->compute_cost(assignments);
+
+  const auto cost_calculator =
+    rmf_task::BinaryPriorityScheme::make_cost_calculator();
+  return cost_calculator->compute_cost(assignments);
+  
 }
 
 // ============================================================================

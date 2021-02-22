@@ -100,7 +100,8 @@ public:
     /// Get the CostCalculator
     const std::shared_ptr<rmf_task::CostCalculator>& cost_calculator() const;
 
-    /// Set the CostCalculator
+    /// Set the CostCalculator. If a nullptr is passed, the
+    /// BinaryPriorityCostCalculator is used by the planner.
     Configuration& cost_calculator(
       std::shared_ptr<rmf_task::CostCalculator> cost_calculator);
 
@@ -194,7 +195,7 @@ public:
     std::function<bool()> interrupter);
 
   /// Compute the cost of a set of assignments
-  double compute_cost(const Assignments& assignments);
+  double compute_cost(const Assignments& assignments) const;
 
   /// Retrieve the task planner cache
   const std::shared_ptr<EstimateCache>& estimate_cache() const;
