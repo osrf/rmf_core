@@ -97,7 +97,7 @@ public:
     const std::vector<rmf_traffic::agv::Graph::Waypoint>& vertices,
     std::optional<rmf_traffic::Duration> duration)
   {
-    //const std::lock_guard<std::mutex> lock(_mutex);
+    const std::lock_guard<std::mutex> lock(_mutex);
     for(auto waypoint: vertices)
     {
       if(is_free(waypoint, time, duration))
