@@ -29,9 +29,6 @@ set(msg_files
   "msg/DockParameter.msg"
   "msg/Dock.msg"
   "msg/DockSummary.msg"
-  "msg/ReservationCancel.msg"
-  "msg/ReservationRequest.msg"
-  "msg/ReservationResponse.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

@@ -68,6 +68,9 @@ set(msg_files
   "msg/Timespan.msg"
   "msg/Trajectory.msg"
   "msg/TrajectoryWaypoint.msg"
+  "msg/ReservationCancel.msg"
+  "msg/ReservationRequest.msg"
+  "msg/ReservationResponse.msg"
 )
 
 set(srv_files
