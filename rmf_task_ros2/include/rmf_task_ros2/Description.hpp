@@ -34,19 +34,24 @@ namespace rmf_task_ros2 {
 class Description
 {
 public:
-  using ConstDescriptionPtr = std::shared_ptr<const Description>;
   using TaskDescription = rmf_task_msgs::msg::TaskDescription;
+
+  static std::shared_ptr<const Description> make_description(
+    rmf_traffic::Time start_time,
+    uint32_t type);
 
   rmf_traffic::Time start_time() const;
   
   uint32_t type() const;
 
-  virtual TaskDescription to_msg() const = 0;
+  virtual TaskDescription to_msg() const;
 
 protected:
   rmf_traffic::Time _start_time;
   rmf_task_msgs::msg::TaskType task_type;
 };
+
+using ConstDescriptionPtr = std::shared_ptr<const Description>;
 
 //==============================================================================
 namespace description {
@@ -130,18 +135,6 @@ public:
 };
 
 } // namespace description
-
-//==============================================================================
-class Execution
-{
-public:
-  static size_t execute_task(Description::ConstDescriptionPtr task)
-  {
-    std::cout << "executing: " << task->type() << std::endl;
-    return task->type();
-  }
-};
-
 } // namespace rmf_task_ros2
 
 #endif // RMF_TASK_ROS2__DESCRIPTION_HPP

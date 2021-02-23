@@ -47,11 +47,7 @@ public:
   using State = rmf_task::agv::State;
 
   /// Add a task to the queue of this manager.
-  void queue_task(std::shared_ptr<Task> task, Start expected_finish);
-
-  /// The location where we expect this robot to be at the end of its current
-  /// task queue.
-  StartSet expected_finish_location() const;
+  void queue_task(std::shared_ptr<Task> task);
 
   const agv::RobotContextPtr& context();
 
@@ -59,20 +55,27 @@ public:
 
   const Task* current_task() const;
 
-  /// Set the queue for this task manager with assignments generated from the
-  /// task planner
-  void set_queue(const std::vector<Assignment>& assignments);
+  // /// Set the queue for this task manager with assignments generated from the
+  // /// task planner
+  // void set_queue(const std::vector<Assignment>& assignments);
+
+  /// set a vector of tasks
+  void set_queue(const std::vector<std::shared_ptr<Task>>& tasks);
+
+  // get tasks in the queue
+  const std::vector<std::shared_ptr<Task>> task_queue() const;
 
   /// Get the non-charging requests among pending tasks
   const std::vector<rmf_task::ConstRequestPtr> requests() const;
 
-  /// The state of the robot.
+  /// The finish state of the current task.
   State expected_finish_state() const;
 
   /// Callback for the retreat timer. Appends a charging task to the task queue
   /// when robot is idle and battery level drops below a retreat threshold.
   void retreat_to_charger();
 
+  /// TODO(YL) not needed, should be removed?
   /// Get the list of task ids for tasks that have started execution. 
   /// The list will contain upto 100 latest task ids only.
   const std::vector<std::string>& get_executed_tasks() const;  
@@ -84,7 +87,6 @@ private:
   agv::RobotContextPtr _context;
   std::shared_ptr<Task> _active_task;
   std::vector<std::shared_ptr<Task>> _queue;
-  rmf_utils::optional<Start> _expected_finish_location;
   rxcpp::subscription _task_sub;
   rxcpp::subscription _emergency_sub;
 

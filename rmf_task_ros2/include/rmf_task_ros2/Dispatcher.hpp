@@ -91,7 +91,7 @@ public:
 
   // New task submission
   std::optional<TaskID> submit_task(
-    const Description::ConstDescriptionPtr task_description);
+    const ConstDescriptionPtr task_description);
 
   /// Cancel an active task which was previously submitted to Dispatcher. This
   /// will terminate the task with a State of: `Canceled`. If a task is

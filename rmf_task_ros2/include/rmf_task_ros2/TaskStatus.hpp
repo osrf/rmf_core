@@ -45,13 +45,20 @@ struct TaskStatus
   };
 
   std::string fleet_name;
-  TaskProfile task_profile;
   rmf_traffic::Time start_time;
   rmf_traffic::Time end_time;
   std::string robot_name;
   std::string status; // verbose msg
   State state = State::Pending; // default
 
+  /// TODO(YL) Shouldnt expose this msg, replace with the one commented below.
+  /// Also with static make function
+  TaskProfile task_profile;
+
+  // std::string task_id;
+  // rmf_traffic::Time submission_time;
+  // ConstDescriptionPtr description = nullptr;
+  
   bool is_terminated() const;
 };
 

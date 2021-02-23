@@ -26,6 +26,7 @@ namespace tasks {
 
 //==============================================================================
 std::shared_ptr<Task> make_charge_battery(
+    const rmf_task_ros2::ConstDescriptionPtr task_description,
     const rmf_task::requests::ConstChargeBatteryRequestPtr request,
     const agv::RobotContextPtr& context,
     const rmf_traffic::agv::Plan::Start start,
@@ -42,6 +43,7 @@ std::shared_ptr<Task> make_charge_battery(
 
   return Task::make(
     request->id(),
+    std::move(task_description),
     std::move(phases),
     context->worker(),
     deployment_time,

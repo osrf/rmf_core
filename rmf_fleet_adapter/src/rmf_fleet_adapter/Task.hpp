@@ -28,6 +28,7 @@
 
 #include <rmf_task/Request.hpp>
 #include <rmf_task/agv/State.hpp>
+#include <rmf_task_ros2/Description.hpp>
 
 #include <rmf_rxcpp/RxJobs.hpp>
 #include <rmf_rxcpp/Publisher.hpp>
@@ -99,6 +100,7 @@ public:
   // Make a new task
   static std::shared_ptr<Task> make(
       std::string id,
+      rmf_task_ros2::ConstDescriptionPtr description,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
       rmf_traffic::Time deployment_time,
@@ -124,6 +126,11 @@ public:
 
   const std::string& id() const;
 
+  // const rmf_task_ros2::msg::TaskProfile profile() const;
+
+  /// Task description
+  const rmf_task_ros2::ConstDescriptionPtr description() const;
+
   /// Get the request used to generate this task
   const rmf_task::ConstRequestPtr request() const;
 
@@ -137,6 +144,7 @@ private:
 
   Task(
       std::string id,
+      rmf_task_ros2::ConstDescriptionPtr description,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
       rmf_traffic::Time deployment_time,
@@ -162,6 +170,7 @@ private:
   rmf_traffic::Time _deployment_time;
   rmf_task::agv::State _finish_state;
   rmf_task::ConstRequestPtr _request;
+  rmf_task_ros2::ConstDescriptionPtr _description = nullptr;
 
   void _start_next_phase();
 

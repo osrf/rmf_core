@@ -24,7 +24,7 @@ namespace rmf_task_ros2 {
 //==============================================================================
 SCENARIO("Task Description Test", "[Description]")
 {
-  std::cout << "Testing Description Task Type"<< std::cout;
+  std::cout << "Testing Description Task Type" << std::endl;
 
   using TaskDescription = rmf_task_msgs::msg::TaskDescription;
   using TaskType = rmf_task_msgs::msg::TaskType;
@@ -40,8 +40,6 @@ SCENARIO("Task Description Test", "[Description]")
             << "  to "
             << delivery->dropoff_place_name()
             << std::endl;
-
-  Execution::execute_task(delivery);
 
   REQUIRE(delivery->type() == TaskType::TYPE_DELIVERY);
   TaskDescription msg;
@@ -61,7 +59,6 @@ SCENARIO("Task Description Test", "[Description]")
             << std::endl;
   auto loop2 = description::Loop::make_from_msg(msg);
   REQUIRE(!loop2);
-  Execution::execute_task(loop);
 
 //==============================================================================
   // test clean descripttion msg

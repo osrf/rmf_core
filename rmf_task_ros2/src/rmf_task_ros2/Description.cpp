@@ -31,6 +31,26 @@ uint32_t Description::type() const
   return task_type.type;
 }
 
+//==============================================================================
+std::shared_ptr<const Description> Description::make_description(
+  rmf_traffic::Time start_time,
+  uint32_t type)
+{
+  auto desc = std::make_shared<Description>();
+  desc->task_type.type = type;
+  desc->_start_time = std::move(start_time);
+  return desc;
+}
+
+//==============================================================================
+rmf_task_msgs::msg::TaskDescription Description::to_msg() const
+{
+  rmf_task_msgs::msg::TaskDescription msg;
+  msg.task_type = task_type;
+  msg.start_time = rmf_traffic_ros2::convert(_start_time);
+  return msg;
+}
+
 namespace description {
 
 //==============================================================================
@@ -199,8 +219,5 @@ const std::string& Clean::start_waypoint() const
   return this->_start_waypoint;
 }
 
-
-
 } // namespace description
 } // namespace rmf_task_ros2
-

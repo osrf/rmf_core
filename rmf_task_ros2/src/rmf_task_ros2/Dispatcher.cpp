@@ -417,7 +417,7 @@ std::optional<TaskID> Dispatcher::submit_task(
 
 //==============================================================================
 std::optional<TaskID> Dispatcher::submit_task(
-  const Description::ConstDescriptionPtr task_description)
+  const ConstDescriptionPtr task_description)
 {
   return _pimpl->submit_task(task_description->to_msg());
 }
