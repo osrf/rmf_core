@@ -57,10 +57,7 @@ private:
 
   bool valid_assignment_priority(const Node& node) const;
 
-  double compute_f(
-    const Node& node,
-    const rmf_traffic::Time time_now,
-    bool check_priority) const;};
+};
 
 } // namespace rmf_task
 
