@@ -36,7 +36,7 @@ SCENARIO("Verify that reservations work")
       auto time = std::chrono::steady_clock::now();
       std::vector<std::string> waypoints 
         {wp0, wp1};
-      auto res = reservation_system.reserve(0, time, waypoints);
+      auto res = reservation_system.reserve(time, waypoints);
       CHECK(res.has_value());
     }
 
@@ -47,7 +47,7 @@ SCENARIO("Verify that reservations work")
       std::vector<std::string> waypoints 
         {wp0, wp1};
       
-      auto res = reservation_system.reserve(0, time, waypoints, {1h});
+      auto res = reservation_system.reserve(time, waypoints, {1h});
       CHECK(res.has_value());
     }
   }
@@ -60,35 +60,35 @@ SCENARIO("Verify that reservations work")
 
     std::vector<std::string> waypoints 
         {wp0};
-    reservation_system.reserve(0, reservation_time, waypoints);
+    reservation_system.reserve(reservation_time, waypoints);
 
     THEN("Cannot make an infinite reservation before it.")
     {
-      auto res = reservation_system.reserve(0, reservation_time-5h, waypoints);
+      auto res = reservation_system.reserve(reservation_time-5h, waypoints);
       CHECK(!res.has_value());
     }
 
     THEN("Cannot make a fixed time reservation after it.")
     {
-      auto res = reservation_system.reserve(0, reservation_time+5h, waypoints, {2h});
+      auto res = reservation_system.reserve(reservation_time+5h, waypoints, {2h});
       CHECK(!res.has_value());
     }
 
     THEN("Can make a reservation before it if it doesn't overlap.")
     {
-      auto res = reservation_system.reserve(0, reservation_time-5h, waypoints, {2h});
+      auto res = reservation_system.reserve(reservation_time-5h, waypoints, {2h});
       CHECK(res.has_value());
     }
 
     THEN("Cannot make a reservation before it if it overlaps.")
     {
-      auto res = reservation_system.reserve(0, reservation_time-5h, waypoints, {7h});
+      auto res = reservation_system.reserve(reservation_time-5h, waypoints, {7h});
       CHECK(!res.has_value());
     }
 
     THEN("Cannot make a reservation after it.")
     {
-      auto res = reservation_system.reserve(0, reservation_time-5h, waypoints, {7h});
+      auto res = reservation_system.reserve(reservation_time-5h, waypoints, {7h});
       CHECK(!res.has_value());
     }
   }
@@ -101,41 +101,41 @@ SCENARIO("Verify that reservations work")
 
     std::vector<std::string> waypoints 
         {wp0};
-    reservation_system.reserve(0, reservation_time, waypoints, {2h});
+    reservation_system.reserve(reservation_time, waypoints, {2h});
 
     THEN("Can make infinite reservation exactly afterwards")
     {
-      auto res = reservation_system.reserve(0, reservation_time+2h, waypoints);
+      auto res = reservation_system.reserve(reservation_time+2h, waypoints);
       CHECK(res.has_value());
     }
 
     THEN("Cannot make infinite reservation before")
     {
-      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints);
+      auto res = reservation_system.reserve(reservation_time-2h, waypoints);
       CHECK(!res.has_value());
     }
 
     THEN("Cannot make overlapping reservation before")
     {
-      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints, {3h});
+      auto res = reservation_system.reserve(reservation_time-2h, waypoints, {3h});
       CHECK(!res.has_value());
     }
 
     THEN("Cannot make fully overlapping reservation before")
     {
-      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints, {7h});
+      auto res = reservation_system.reserve(reservation_time-2h, waypoints, {7h});
       CHECK(!res.has_value());
     }
 
     THEN("Cannot make same reservation")
     {
-      auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      auto res = reservation_system.reserve(reservation_time, waypoints, {2h});
       CHECK(!res.has_value());
     }
 
     THEN("Can make fixed time reservation before")
     {
-      auto res = reservation_system.reserve(0, reservation_time-2h, waypoints, {2h});
+      auto res = reservation_system.reserve(reservation_time-2h, waypoints, {2h});
       CHECK(res.has_value());
     }
   }
@@ -148,20 +148,20 @@ SCENARIO("Verify that reservations work")
 
     std::vector<std::string> waypoints 
         {wp0, wp1};
-    reservation_system.reserve(0, reservation_time, waypoints, {2h});
+    reservation_system.reserve(reservation_time, waypoints, {2h});
 
     THEN("Can request at most twice the same time period")
     {
-      auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      auto res = reservation_system.reserve(reservation_time, waypoints, {2h});
       CHECK(res.has_value());
 
-      auto res2 = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      auto res2 = reservation_system.reserve(reservation_time, waypoints, {2h});
       CHECK(!res2.has_value());
     }
 
     THEN("Allocates waypoints in order")
     {
-      auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      auto res = reservation_system.reserve(reservation_time, waypoints, {2h});
       CHECK(res.has_value());
       CHECK(res->waypoint() == wp1);
     }
@@ -184,17 +184,17 @@ SCENARIO("Verify that cancelation works")
 
     std::vector<std::string> waypoints 
         {wp0};
-    auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+    auto res = reservation_system.reserve(reservation_time, waypoints, {2h});
     WHEN("We cancel a reservation")
     {
-      auto res1 = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+      auto res1 = reservation_system.reserve(reservation_time, waypoints, {2h});
       CHECK(!res1.has_value());
       
       reservation_system.cancel_reservation(res->reservation_id());
 
       THEN("We can make another reservation")
       {
-        auto res2 = reservation_system.reserve(0, reservation_time, waypoints, {2h});
+        auto res2 = reservation_system.reserve(reservation_time, waypoints, {2h});
         CHECK(res2.has_value());
       }
 

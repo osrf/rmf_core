@@ -29,17 +29,14 @@ public:
   ReservationId _unique_id;
   std::optional<rmf_traffic::Duration> _duration;
   std::string _waypoint;
-  rmf_traffic::schedule::ParticipantId _participantId;
 
   Implementation(
     ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
-    std::string waypoint,
-    rmf_traffic::schedule::ParticipantId participantId):
+    std::string waypoint):
       _unique_id(unique_id),
       _duration(duration),
-      _waypoint(waypoint),
-      _participantId(participantId)
+      _waypoint(waypoint)
   {
 
   }
@@ -49,13 +46,11 @@ public:
 Reservation::Reservation(
     ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
-    std::string waypoint,
-    rmf_traffic::schedule::ParticipantId participantId):
+    std::string waypoint):
     _pimpl(rmf_utils::make_impl<Reservation::Implementation>(
       unique_id,
       duration,
-      waypoint,
-      participantId
+      waypoint
     ))
 {
 
@@ -78,12 +73,6 @@ const std::optional<rmf_traffic::Duration> Reservation::duration() const
 {
   return _pimpl->_duration;  
 }
-   
-//==============================================================================
-rmf_traffic::schedule::ParticipantId Reservation::participantId() const
-{
-  return _pimpl->_participantId;
-}
 
 //==============================================================================
 class ReservationSystem::Implementation
@@ -92,7 +81,6 @@ public:
   
   //============================================================================
   std::optional<Reservation> reserve(
-    const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
     const std::vector<std::string>& vertices,
     std::optional<rmf_traffic::Duration> duration)
@@ -102,7 +90,7 @@ public:
     {
       if(is_free(waypoint, time, duration))
       {
-        return {make_reservation(participantId, time, waypoint, duration)};
+        return {make_reservation(time, waypoint, duration)};
       }
     }
 
@@ -111,7 +99,6 @@ public:
 
   //==============================================================================
   Reservation make_reservation(
-    const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
     const std::string& waypoint,
     std::optional<rmf_traffic::Duration> duration)
@@ -119,8 +106,7 @@ public:
     Reservation reservation(
       _reservation_counter,
       duration,
-      waypoint,
-      participantId);
+      waypoint);
 
     _schedule[waypoint].insert({time, reservation});
     _reservations[_reservation_counter] = time;
@@ -258,12 +244,11 @@ private:
 };
 
 std::optional<Reservation> ReservationSystem::reserve(
-  const rmf_traffic::schedule::ParticipantId participantId,
   const rmf_traffic::Time time,
   const std::vector<std::string>& vertices,
   std::optional<rmf_traffic::Duration> duration)
 {
-  return _pimpl->reserve(participantId, time, vertices, duration);
+  return _pimpl->reserve(time, vertices, duration);
 }
 
 void ReservationSystem::cancel_reservation(uint64_t res)

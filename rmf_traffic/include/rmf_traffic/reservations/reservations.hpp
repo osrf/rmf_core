@@ -19,9 +19,8 @@
 #define RMF_TRAFFIC__RESERVATIONS_HPP
 
 #include <optional>
+#include <vector>
 #include <rmf_traffic/Time.hpp>
-#include <rmf_traffic/agv/Graph.hpp>
-#include <rmf_traffic/schedule/Participant.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
 namespace rmf_traffic {
@@ -44,9 +43,6 @@ public:
   /// Traffic duration
   const std::optional<rmf_traffic::Duration> duration() const;
 
-  /// Returns the participant for who the reservation is max
-  rmf_traffic::schedule::ParticipantId participantId() const;
-
   class Implementation;
 
   /// Constructor
@@ -56,8 +52,7 @@ public:
   Reservation(
     ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
-    std::string waypoint,
-    rmf_traffic::schedule::ParticipantId participantId);
+    std::string waypoint);
 
 private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
@@ -69,8 +64,6 @@ class ReservationSystem
 {
 public:
   /// Reserves an item for a given robot for a fixed duration
-  /// \param participantId
-  ///   The participant ID whishing to make this reservation
   /// \param time
   ///   The time at which the reservation will take place
   /// \param vertices
@@ -80,7 +73,6 @@ public:
   /// \return a nullopt if the reservation is not possible,
   /// otherwise returns a Reservation object.
   std::optional<Reservation> reserve(
-    const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
     const std::vector<std::string>& vertices,
     std::optional<rmf_traffic::Duration> duration = std::nullopt);

@@ -1,12 +1,4 @@
-string fleet_name
-string robot_name
-
-# determines the type of reservation you are making
-string RESERVATION_PARKING="parking"
-string RESERVATION_CHARGING="charging"
-string reservation_type
-
-uint64[] locations
+string[] locations
 
 builtin_interfaces/Time time
 builtin_interfaces/Duration duration
