@@ -41,11 +41,26 @@ public:
   double compute_cost(
     rmf_task::agv::TaskPlanner::Assignments assignments) const final;
 
-  class Implementation;
-
 private:
-  rmf_utils::impl_ptr<Implementation> _pimpl;
-};
+  using TaskPlanner = rmf_task::agv::TaskPlanner;
+  using Assignments = TaskPlanner::Assignments;
+
+  double _priority_penalty;
+
+  double compute_g_assignment(const TaskPlanner::Assignment& assignment) const;
+
+  double compute_g(const Assignments& assigned_tasks) const;
+
+  double compute_g(const Node& node) const;
+
+  double compute_h(const Node& node, const rmf_traffic::Time time_now) const;
+
+  bool valid_assignment_priority(const Node& node) const;
+
+  double compute_f(
+    const Node& node,
+    const rmf_traffic::Time time_now,
+    bool check_priority) const;};
 
 } // namespace rmf_task
 

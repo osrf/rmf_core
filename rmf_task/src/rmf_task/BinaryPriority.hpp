@@ -30,11 +30,11 @@ public:
   /// Constructor
   BinaryPriority(std::size_t value);
 
-  /// Documentation inherited
-  std::size_t value() const final;
-  class Implementation;
+  /// Get the value of this priority object
+  std::size_t value() const;
+
 private:
-  rmf_utils::impl_ptr<Implementation> _pimpl;
+  std::size_t _value;
 };
 
 } // namespace rmf_task

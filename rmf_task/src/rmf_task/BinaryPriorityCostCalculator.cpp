@@ -21,32 +21,7 @@
 namespace rmf_task {
 
 //==============================================================================
-class BinaryPriorityCostCalculator::Implementation
-{
-public:
-  using TaskPlanner = rmf_task::agv::TaskPlanner;
-  using Assignments = TaskPlanner::Assignments;
-
-  double priority_penalty;
-
-  double compute_g_assignment(const TaskPlanner::Assignment& assignment) const;
-
-  double compute_g(const Assignments& assigned_tasks) const;
-
-  double compute_g(const Node& node) const;
-
-  double compute_h(const Node& node, const rmf_traffic::Time time_now) const;
-
-  bool valid_assignment_priority(const Node& node) const;
-
-  double compute_f(
-    const Node& node,
-    const rmf_traffic::Time time_now,
-    bool check_priority) const;
-};
-
-//==============================================================================
-auto BinaryPriorityCostCalculator::Implementation::compute_g_assignment(
+auto BinaryPriorityCostCalculator::compute_g_assignment(
   const TaskPlanner::Assignment& assignment) const -> double
 {
   if (std::dynamic_pointer_cast<
@@ -61,7 +36,7 @@ auto BinaryPriorityCostCalculator::Implementation::compute_g_assignment(
 }
 
 //==============================================================================
-auto BinaryPriorityCostCalculator::Implementation::compute_g(
+auto BinaryPriorityCostCalculator::compute_g(
   const Assignments& assigned_tasks) const -> double
 {
   double cost = 0.0;
@@ -77,7 +52,7 @@ auto BinaryPriorityCostCalculator::Implementation::compute_g(
 }
 
 //==============================================================================
-auto BinaryPriorityCostCalculator::Implementation::compute_g(
+auto BinaryPriorityCostCalculator::compute_g(
   const Node& node) const -> double
 {
   double cost = 0.0;
@@ -92,7 +67,7 @@ auto BinaryPriorityCostCalculator::Implementation::compute_g(
 }
 
 //==============================================================================
-auto BinaryPriorityCostCalculator::Implementation::compute_h(
+auto BinaryPriorityCostCalculator::compute_h(
   const Node& node, const rmf_traffic::Time time_now) const -> double
 {
   std::vector<double> initial_queue_values(
@@ -147,7 +122,7 @@ auto BinaryPriorityCostCalculator::Implementation::compute_h(
 }
 
 //==============================================================================
-bool BinaryPriorityCostCalculator::Implementation::valid_assignment_priority(
+bool BinaryPriorityCostCalculator::valid_assignment_priority(
   const Node& node) const
 {
   // STEP 1: Checking for validity across agents
@@ -215,28 +190,9 @@ bool BinaryPriorityCostCalculator::Implementation::valid_assignment_priority(
 }
 
 //==============================================================================
-auto BinaryPriorityCostCalculator::Implementation::compute_f(
-  const Node& node,
-  const rmf_traffic::Time time_now,
-  bool check_priority) const -> double
-{
-  const double g = compute_g(node);
-  const double h = compute_h(node, time_now);
-
-  if (check_priority)
-  {
-    if (!valid_assignment_priority(node))
-      return priority_penalty * (g + h);
-  }
-
-  return g + h; 
-}
-
-//==============================================================================
 BinaryPriorityCostCalculator::BinaryPriorityCostCalculator(
   double priority_penalty)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-    Implementation{priority_penalty}))
+: _priority_penalty(priority_penalty)
 {
   // Do nothing
 }
@@ -247,14 +203,23 @@ double BinaryPriorityCostCalculator::compute_cost(
   rmf_traffic::Time time_now,
   bool check_priority) const
 {
-  return _pimpl->compute_f(n, time_now, check_priority);
+  const double g = compute_g(n);
+  const double h = compute_h(n, time_now);
+
+  if (check_priority)
+  {
+    if (!valid_assignment_priority(n))
+      return _priority_penalty * (g + h);
+  }
+
+  return g + h; 
 }
 
 //==============================================================================
 double BinaryPriorityCostCalculator::compute_cost(
   rmf_task::agv::TaskPlanner::Assignments assignments) const
 {
-  return _pimpl->compute_g(assignments);
+  return compute_g(assignments);
 }
 
 } // namespace rmf_task

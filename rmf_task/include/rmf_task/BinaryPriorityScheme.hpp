@@ -31,7 +31,9 @@ class BinaryPriorityScheme
 public:
 
   /// Use these to assign the task priority
+  // In the current implementation this returns a nullptr.
   static std::shared_ptr<Priority> make_low_priority();
+  // Get a shared pointer to a high priority object of the binary prioritization scheme
   static std::shared_ptr<Priority> make_high_priority();
 
   /// Use this to give the appropriate cost calculator to the task planner

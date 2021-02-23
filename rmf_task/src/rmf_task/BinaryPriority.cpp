@@ -20,17 +20,8 @@
 namespace rmf_task {
 
 //==============================================================================
-class BinaryPriority::Implementation
-{
-public:
-
-  std::size_t value;
-};
-
-//==============================================================================
 BinaryPriority::BinaryPriority(std::size_t value)
-: _pimpl(rmf_utils::make_impl<Implementation>(
-  Implementation{value}))
+: _value(value)
 {
   // Do nothing
 }
@@ -38,7 +29,7 @@ BinaryPriority::BinaryPriority(std::size_t value)
 //==============================================================================
 std::size_t BinaryPriority::value() const
 {
-  return _pimpl->value;
+  return _value;
 }
 
 }

@@ -39,8 +39,8 @@ Request::Request(
       Implementation {
           id,
           earliest_start_time,
-          priority,
-          description
+          std::move(priority),
+          std::move(description)
       }))
 {
     // Do nothing
