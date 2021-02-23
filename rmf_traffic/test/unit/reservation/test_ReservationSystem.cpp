@@ -25,12 +25,8 @@ SCENARIO("Verify that reservations work")
   using namespace std::literals;
   using namespace rmf_traffic::reservations;
 
-  rmf_traffic::agv::Graph graph;
-  
-  graph.add_waypoint(test_map_name, Eigen::Vector2d{2, 2});
-  graph.add_waypoint(test_map_name, Eigen::Vector2d{0, 0});
-  auto wp0 = graph.get_waypoint(0);
-  auto wp1 = graph.get_waypoint(1);
+  std::string wp0 = "waypoint_0";
+  std::string wp1 = "waypoint_1";
 
   WHEN("Given an empty sequence")
   {
@@ -38,7 +34,7 @@ SCENARIO("Verify that reservations work")
     THEN("Able to reserve a slot with infinite waiting")
     {
       auto time = std::chrono::steady_clock::now();
-      std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+      std::vector<std::string> waypoints 
         {wp0, wp1};
       auto res = reservation_system.reserve(0, time, waypoints);
       CHECK(res.has_value());
@@ -48,7 +44,7 @@ SCENARIO("Verify that reservations work")
     {
       auto time = std::chrono::steady_clock::now();
        
-      std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+      std::vector<std::string> waypoints 
         {wp0, wp1};
       
       auto res = reservation_system.reserve(0, time, waypoints, {1h});
@@ -62,7 +58,7 @@ SCENARIO("Verify that reservations work")
     auto curr_time = std::chrono::steady_clock::now();
     auto reservation_time = curr_time + 10h;
 
-    std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+    std::vector<std::string> waypoints 
         {wp0};
     reservation_system.reserve(0, reservation_time, waypoints);
 
@@ -103,7 +99,7 @@ SCENARIO("Verify that reservations work")
     auto curr_time = std::chrono::steady_clock::now();
     auto reservation_time = curr_time + 10h;
 
-    std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+    std::vector<std::string> waypoints 
         {wp0};
     reservation_system.reserve(0, reservation_time, waypoints, {2h});
 
@@ -150,7 +146,7 @@ SCENARIO("Verify that reservations work")
     auto curr_time = std::chrono::steady_clock::now();
     auto reservation_time = curr_time + 10h;
 
-    std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+    std::vector<std::string> waypoints 
         {wp0, wp1};
     reservation_system.reserve(0, reservation_time, waypoints, {2h});
 
@@ -167,7 +163,7 @@ SCENARIO("Verify that reservations work")
     {
       auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
       CHECK(res.has_value());
-      CHECK(res->waypoint().index() == wp1.index());
+      CHECK(res->waypoint() == wp1);
     }
   }
 }
@@ -178,12 +174,7 @@ SCENARIO("Verify that cancelation works")
   using namespace std::literals;
   using namespace rmf_traffic::reservations;
 
-  rmf_traffic::agv::Graph graph;
-  
-  graph.add_waypoint(test_map_name, Eigen::Vector2d{2, 2});
-  graph.add_waypoint(test_map_name, Eigen::Vector2d{0, 0});
-  auto wp0 = graph.get_waypoint(0);
-  auto wp1 = graph.get_waypoint(1);
+  std::string wp0 = "waypoint_0";
 
   GIVEN("A system with two points and a reservation")
   {
@@ -191,7 +182,7 @@ SCENARIO("Verify that cancelation works")
     auto curr_time = std::chrono::steady_clock::now();
     auto reservation_time = curr_time + 10h;
 
-    std::vector<rmf_traffic::agv::Graph::Waypoint> waypoints 
+    std::vector<std::string> waypoints 
         {wp0};
     auto res = reservation_system.reserve(0, reservation_time, waypoints, {2h});
     WHEN("We cancel a reservation")

@@ -28,7 +28,7 @@ namespace rmf_traffic {
 namespace reservations {
 
 //==============================================================================
-using ReservationId = size_t;
+using ReservationId = std::size_t;
 
 //==============================================================================  
 class Reservation
@@ -39,7 +39,7 @@ public:
   ReservationId reservation_id() const;
 
   /// Get the reservation way point
-  const rmf_traffic::agv::Graph::Waypoint waypoint() const;
+  const std::string waypoint() const;
 
   /// Traffic duration
   const std::optional<rmf_traffic::Duration> duration() const;
@@ -56,7 +56,7 @@ public:
   Reservation(
     ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
-    rmf_traffic::agv::Graph::Waypoint waypoint,
+    std::string waypoint,
     rmf_traffic::schedule::ParticipantId participantId);
 
 private:
@@ -82,7 +82,7 @@ public:
   std::optional<Reservation> reserve(
     const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
-    const std::vector<rmf_traffic::agv::Graph::Waypoint>& vertices,
+    const std::vector<std::string>& vertices,
     std::optional<rmf_traffic::Duration> duration = std::nullopt);
   
   /// Cancels a reservation

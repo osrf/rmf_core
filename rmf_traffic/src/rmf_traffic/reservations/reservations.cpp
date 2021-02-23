@@ -28,13 +28,13 @@ class Reservation::Implementation
 public:
   ReservationId _unique_id;
   std::optional<rmf_traffic::Duration> _duration;
-  rmf_traffic::agv::Graph::Waypoint _waypoint;
+  std::string _waypoint;
   rmf_traffic::schedule::ParticipantId _participantId;
 
   Implementation(
     ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
-    rmf_traffic::agv::Graph::Waypoint waypoint,
+    std::string waypoint,
     rmf_traffic::schedule::ParticipantId participantId):
       _unique_id(unique_id),
       _duration(duration),
@@ -49,7 +49,7 @@ public:
 Reservation::Reservation(
     ReservationId unique_id,
     std::optional<rmf_traffic::Duration> duration,
-    rmf_traffic::agv::Graph::Waypoint waypoint,
+    std::string waypoint,
     rmf_traffic::schedule::ParticipantId participantId):
     _pimpl(rmf_utils::make_impl<Reservation::Implementation>(
       unique_id,
@@ -68,7 +68,7 @@ ReservationId Reservation::reservation_id() const
 }
 
 //==============================================================================
-const rmf_traffic::agv::Graph::Waypoint Reservation::waypoint() const
+const std::string Reservation::waypoint() const
 {
   return _pimpl->_waypoint;  
 }
@@ -94,7 +94,7 @@ public:
   std::optional<Reservation> reserve(
     const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
-    const std::vector<rmf_traffic::agv::Graph::Waypoint>& vertices,
+    const std::vector<std::string>& vertices,
     std::optional<rmf_traffic::Duration> duration)
   {
     const std::lock_guard<std::mutex> lock(_mutex);
@@ -113,7 +113,7 @@ public:
   Reservation make_reservation(
     const rmf_traffic::schedule::ParticipantId participantId,
     const rmf_traffic::Time time,
-    const rmf_traffic::agv::Graph::Waypoint& waypoint,
+    const std::string& waypoint,
     std::optional<rmf_traffic::Duration> duration)
   {
     Reservation reservation(
@@ -122,7 +122,7 @@ public:
       waypoint,
       participantId);
 
-    _schedule[waypoint.index()].insert({time, reservation});
+    _schedule[waypoint].insert({time, reservation});
     _reservations[_reservation_counter] = time;
     _location_by_reservation_id.insert({_reservation_counter, waypoint});
     _reservation_counter++;
@@ -145,7 +145,7 @@ public:
     auto time = reservation->second;
 
     auto location = _location_by_reservation_id.find(reservation_id)->second;
-    _schedule[location.index()].erase(time);
+    _schedule[location].erase(time);
     _reservations.erase(reservation_id);
     _location_by_reservation_id.erase(reservation_id);
 
@@ -153,12 +153,12 @@ public:
 
   //==============================================================================
   bool is_free(
-    rmf_traffic::agv::Graph::Waypoint waypoint,
+    std::string waypoint,
     rmf_traffic::Time start_time,
     std::optional<rmf_traffic::Duration> duration)
   {
 
-    auto waypoint_schedule = _schedule.find(waypoint.index());
+    auto waypoint_schedule = _schedule.find(waypoint);
 
     if(waypoint_schedule == _schedule.end())
     {
@@ -247,12 +247,12 @@ private:
   // this is a hash map with the waypoint as a key and
   // a map. The map contains starting times of each reservation
   std::unordered_map<
-    uint64_t,
+    std::string,
     std::map<rmf_traffic::Time, Reservation>> _schedule;
 
   std::unordered_map<ReservationId, rmf_traffic::Time> _reservations;
   std::unordered_map<ReservationId,
-    rmf_traffic::agv::Graph::Waypoint> _location_by_reservation_id;
+    std::string> _location_by_reservation_id;
 
   std::mutex _mutex;
 };
@@ -260,7 +260,7 @@ private:
 std::optional<Reservation> ReservationSystem::reserve(
   const rmf_traffic::schedule::ParticipantId participantId,
   const rmf_traffic::Time time,
-  const std::vector<rmf_traffic::agv::Graph::Waypoint>& vertices,
+  const std::vector<std::string>& vertices,
   std::optional<rmf_traffic::Duration> duration)
 {
   return _pimpl->reserve(participantId, time, vertices, duration);
