@@ -45,6 +45,7 @@ public:
 
   class Implementation;
 
+private:
   /// Constructor
   /// Do not use this to construct reservations unless you are deseriallizing/
   /// Serializing resolutions. If you wish to make a reservation see
@@ -54,8 +55,9 @@ public:
     std::optional<rmf_traffic::Duration> duration,
     std::string waypoint);
 
-private:
   rmf_utils::impl_ptr<Implementation> _pimpl;
+
+  friend class ReservationSystem;
 };
 
 //==============================================================================
