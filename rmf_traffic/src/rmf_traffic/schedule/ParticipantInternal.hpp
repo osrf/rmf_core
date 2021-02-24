@@ -60,6 +60,7 @@ private:
 
   const ParticipantId _id;
   ItineraryVersion _version;
+  RouteId _last_route_id;
   const ParticipantDescription _description;
   std::shared_ptr<Writer> _writer;
   std::unique_ptr<RectificationRequester> _rectification;
@@ -70,7 +71,6 @@ private:
   Writer::Input _current_itinerary;
 
   ChangeHistory _change_history;
-  RouteId _last_route_id = std::numeric_limits<RouteId>::max();
   rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
 };
 

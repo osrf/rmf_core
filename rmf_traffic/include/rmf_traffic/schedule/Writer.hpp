@@ -133,21 +133,34 @@ public:
     ///   The ID for the registered participant
     ///
     /// \param[in] version
-    ///   The initial version for the registered participant
+    ///   The last itinerary version for the registered participant
+    ///
+    /// \param[in] route_id
+    ///   The last route_id for the registered participant
     Registration(
       ParticipantId id,
-      ItineraryVersion version);
+      ItineraryVersion version,
+      RouteId route_id);
 
     /// The ID of the registered participant
     ParticipantId id() const;
 
-    /// The initial itinerary version of the registered participant.
+    /// The last itinerary version of the registered participant. New
+    /// Participants will begin by adding up from this version when issuing
+    /// schedule updates.
     ///
     /// This value might vary for systems that enforce participant uniqueness.
     /// If this participant was registered in the past and is now being
     /// re-registered, then the version number will pick up where it previously
     /// left off.
-    ItineraryVersion itinerary_version() const;
+    ItineraryVersion last_itinerary_version() const;
+
+    /// The last Route ID of the registered participant. New Participants will
+    /// begin by adding up from this Route ID when issuing new schedule updates.
+    ///
+    /// Similar to last_itinerary_version, this value might vary for systems
+    /// that enforce participant uniqueness.
+    RouteId last_route_id() const;
 
     class Implementation;
   private:

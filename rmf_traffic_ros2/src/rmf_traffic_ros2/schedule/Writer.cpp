@@ -37,7 +37,7 @@ rmf_traffic::schedule::Writer::Registration convert(
   const rmf_traffic_msgs::srv::RegisterParticipant::Response& msg)
 {
   return rmf_traffic::schedule::Writer::Registration(
-    msg.participant_id, msg.itinerary_version);
+    msg.participant_id, msg.last_itinerary_version, msg.last_route_id);
 }
 
 namespace schedule {

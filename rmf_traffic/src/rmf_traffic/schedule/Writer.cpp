@@ -27,14 +27,17 @@ public:
 
   ParticipantId id;
   ItineraryVersion version;
+  RouteId route_id;
 
 };
 
 //==============================================================================
 Writer::Registration::Registration(
   ParticipantId id,
-  ItineraryVersion version)
-: _pimpl(rmf_utils::make_impl<Implementation>(Implementation{id, version}))
+  ItineraryVersion version,
+  RouteId route_id)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+      Implementation{id, version, route_id}))
 {
   // Do nothing
 }
@@ -46,9 +49,15 @@ ParticipantId Writer::Registration::id() const
 }
 
 //==============================================================================
-ItineraryVersion Writer::Registration::itinerary_version() const
+ItineraryVersion Writer::Registration::last_itinerary_version() const
 {
   return _pimpl->version;
+}
+
+//==============================================================================
+RouteId Writer::Registration::last_route_id() const
+{
+  return _pimpl->route_id;
 }
 
 } // namespace schedule

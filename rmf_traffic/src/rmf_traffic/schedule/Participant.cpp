@@ -116,7 +116,8 @@ Participant::Implementation::Implementation(
   ParticipantDescription description,
   std::shared_ptr<Writer> writer)
 : _id(registration.id()),
-  _version(registration.itinerary_version()),
+  _version(registration.last_itinerary_version()),
+  _last_route_id(registration.last_route_id()),
   _description(std::move(description)),
   _writer(writer)
 {

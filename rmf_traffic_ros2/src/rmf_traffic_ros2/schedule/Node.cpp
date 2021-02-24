@@ -410,8 +410,14 @@ void ScheduleNode::register_participant(
         ->add_or_retrieve_participant(
           rmf_traffic_ros2::convert(request->description));
 
-    response->participant_id = registration.id();
-    response->itinerary_version = registration.itinerary_version();
+    using Response = rmf_traffic_msgs::srv::RegisterParticipant::Response;
+
+    *response =
+      rmf_traffic_msgs::build<Response>()
+        .participant_id(registration.id())
+        .last_itinerary_version(registration.last_itinerary_version())
+        .last_route_id(registration.last_route_id())
+        .error("");
 
     RCLCPP_INFO(
       get_logger(),

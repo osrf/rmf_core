@@ -204,6 +204,11 @@ public:
   // TODO(MXG): This function needs unit testing
   ItineraryVersion itinerary_version(ParticipantId participant) const;
 
+  /// Get the last Route ID used by this participant.
+  //
+  // TODO(MXG): This function needs unit testing
+  RouteId last_route_id(ParticipantId participant) const;
+
   class Implementation;
   class Debug;
 private:

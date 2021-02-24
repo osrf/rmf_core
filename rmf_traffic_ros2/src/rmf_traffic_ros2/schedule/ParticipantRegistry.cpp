@@ -66,7 +66,8 @@ public:
     if (it != _id_from_name.end())
     {
       const auto id = it->second;
-      return Registration(id, _database->itinerary_version(id));
+      return Registration(
+        id, _database->itinerary_version(id), _database->last_route_id(id));
     }
 
     const auto registration = _database->register_participant(description);
