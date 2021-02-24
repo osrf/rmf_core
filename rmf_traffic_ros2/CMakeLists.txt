@@ -80,8 +80,8 @@ target_link_libraries(rmf_traffic_blockade
 )
 
 #===============================================================================
-file(GLOB_RECURSE reservation_srcs "src/rmf_traffic_reservation/*.cpp")
-add_executable(rmf_traffic_reservation ${blockade_srcs})
+file(GLOB_RECURSE reservation_srcs "src/rmf_traffic_reservations/*.cpp")
+add_executable(rmf_traffic_reservation ${reservation_srcs})
 
 target_link_libraries(rmf_traffic_reservation
   PRIVATE
