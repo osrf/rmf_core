@@ -23,14 +23,13 @@ namespace rmf_task {
 namespace requests {
 
 //==============================================================================
-class Delivery::Implementation
+class DeliveryDescription::Implementation
 {
 public:
 
   Implementation()
   {}
 
-  std::string id;
   std::size_t pickup_waypoint;
   std::string pickup_dispenser;
   std::size_t dropoff_waypoint;
@@ -39,16 +38,15 @@ public:
   std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> device_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  bool drain_battery;
   rmf_traffic::Time start_time;
+  bool drain_battery;
 
   rmf_traffic::Duration invariant_duration;
   double invariant_battery_drain;
 };
 
 //==============================================================================
-rmf_task::ConstRequestPtr Delivery::make(
-  std::string id,
+rmf_task::DescriptionPtr DeliveryDescription::make(
   std::size_t pickup_waypoint,
   std::string pickup_dispenser,
   std::size_t dropoff_waypoint,
@@ -60,8 +58,7 @@ rmf_task::ConstRequestPtr Delivery::make(
   rmf_traffic::Time start_time,
   bool drain_battery)
 {
-  std::shared_ptr<Delivery> delivery(new Delivery());
-  delivery->_pimpl->id = id;
+  std::shared_ptr<DeliveryDescription> delivery(new DeliveryDescription());
   delivery->_pimpl->pickup_waypoint = pickup_waypoint;
   delivery->_pimpl->pickup_dispenser = std::move(pickup_dispenser);
   delivery->_pimpl->dropoff_waypoint = dropoff_waypoint;
@@ -70,8 +67,8 @@ rmf_task::ConstRequestPtr Delivery::make(
   delivery->_pimpl->motion_sink = std::move(motion_sink);
   delivery->_pimpl->device_sink = std::move(device_sink);
   delivery->_pimpl->planner = std::move(planner);
-  delivery->_pimpl->drain_battery = drain_battery;
   delivery->_pimpl->start_time = start_time;
+  delivery->_pimpl->drain_battery = drain_battery;
 
   // Calculate duration of invariant component of task
   delivery->_pimpl->invariant_duration = rmf_traffic::Duration{0};
@@ -114,18 +111,14 @@ rmf_task::ConstRequestPtr Delivery::make(
 }
 
 //==============================================================================
-Delivery::Delivery()
+DeliveryDescription::DeliveryDescription()
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
-{}
-
-//==============================================================================
-std::string Delivery::id() const
 {
-  return _pimpl->id;
+  // Do nothing
 }
 
 //==============================================================================
-rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
+rmf_utils::optional<rmf_task::Estimate> DeliveryDescription::estimate_finish(
   const agv::State& initial_state,
   const agv::Constraints& task_planning_constraints,
   const std::shared_ptr<EstimateCache> estimate_cache) const
@@ -282,49 +275,45 @@ rmf_utils::optional<rmf_task::Estimate> Delivery::estimate_finish(
 }
 
 //==============================================================================
-rmf_traffic::Duration Delivery::invariant_duration() const
+rmf_traffic::Duration DeliveryDescription::invariant_duration() const
 {
   return _pimpl->invariant_duration;
 }
 
 //==============================================================================
-rmf_traffic::Time Delivery::earliest_start_time() const
-{
-  return _pimpl->start_time;
-}
-
-//==============================================================================
-std::size_t Delivery::pickup_waypoint() const
+std::size_t DeliveryDescription::pickup_waypoint() const
 {
   return _pimpl->pickup_waypoint;
 }
 
 //==============================================================================
-const std::string& Delivery::pickup_dispenser() const
+const std::string& DeliveryDescription::pickup_dispenser() const
 {
   return _pimpl->pickup_dispenser;
 }
 
 //==============================================================================
-const std::string& Delivery::dropoff_ingestor() const
+const std::string& DeliveryDescription::dropoff_ingestor() const
 {
   return _pimpl->dropoff_ingestor;
 }
 
 //==============================================================================
-std::size_t Delivery::dropoff_waypoint() const
+std::size_t DeliveryDescription::dropoff_waypoint() const
 {
   return _pimpl->dropoff_waypoint;
 }
 
 //==============================================================================
-const std::vector<Delivery::DispenserRequestItem>& Delivery::items() const
+const std::vector<DeliveryDescription::DispenserRequestItem>&
+DeliveryDescription::items() const
 {
   return _pimpl->items;
 }
 
 //==============================================================================
-Delivery::Start Delivery::dropoff_start(const Delivery::Start& start) const
+DeliveryDescription::Start DeliveryDescription::dropoff_start(
+  const DeliveryDescription::Start& start) const
 {
   if (start.waypoint() == _pimpl->pickup_waypoint)
     return start;
@@ -348,5 +337,36 @@ Delivery::Start Delivery::dropoff_start(const Delivery::Start& start) const
 }
 
 //==============================================================================
+ConstRequestPtr Delivery::make(
+  const std::string& id,
+  std::size_t pickup_waypoint,
+  std::string pickup_dispenser,
+  std::size_t dropoff_waypoint,
+  std::string dropoff_ingestor,
+  std::vector<DispenserRequestItem> items,
+  std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+  std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
+  std::shared_ptr<rmf_traffic::agv::Planner> planner,
+  rmf_traffic::Time start_time,
+  bool drain_battery,
+  ConstPriorityPtr priority)
+{
+  const auto description = DeliveryDescription::make(
+    pickup_waypoint,
+    pickup_dispenser,
+    dropoff_waypoint,
+    dropoff_ingestor,
+    items,
+    motion_sink,
+    device_sink,
+    planner,
+    start_time,
+    drain_battery);
+
+  return std::make_shared<Request>(id, start_time, priority, description);
+
+}
+
+
 } // namespace requests
 } // namespace rmf_task

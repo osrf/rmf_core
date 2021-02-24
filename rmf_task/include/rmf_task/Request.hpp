@@ -23,6 +23,7 @@
 #include <rmf_task/Estimate.hpp>
 #include <rmf_task/agv/State.hpp>
 #include <rmf_task/agv/Constraints.hpp>
+#include <rmf_task/Priority.hpp>
 
 #include <rmf_traffic/Time.hpp>
 #include <rmf_utils/impl_ptr.hpp>
@@ -33,30 +34,63 @@ namespace rmf_task {
 class Request
 {
 public:
+  class Description
+  {
+  public:
 
-  using SharedPtr = std::shared_ptr<Request>;
+    /// Estimate the state of the robot when the request is finished along with the
+    /// time the robot has to wait before commencing the request
+    virtual std::optional<Estimate> estimate_finish(
+      const agv::State& initial_state,
+      const agv::Constraints& task_planning_constraints,
+      const std::shared_ptr<EstimateCache> estimate_cache) const = 0;
+    
+    /// Estimate the invariant component of the request's duration
+    virtual rmf_traffic::Duration invariant_duration() const = 0;
 
-  /// Get the id of the task
-  virtual std::string id() const = 0;
+    virtual ~Description() = default;
+  };
+  using DescriptionPtr = std::shared_ptr<Description>;
 
-  /// Estimate the state of the robot when the task is finished along with the
-  /// time the robot has to wait before commencing the task
-  virtual rmf_utils::optional<Estimate> estimate_finish(
-    const agv::State& initial_state,
-    const agv::Constraints& task_planning_constraints,
-    const std::shared_ptr<EstimateCache> estimate_cache) const = 0;
+  /// Constructor
+  ///
+  /// \param[in] earliest_start_time
+  ///   The earliest time this request should begin execution. This is usually the
+  ///   requested start time for the request.
+  ///
+  /// \param[in] priority
+  ///   The priority for this request. This is provided by the Priority Scheme. For
+  ///   requests that do not have any priority this is a nullptr.
+  ///
+  /// \param[in] description
+  ///   The description for this request
+  Request(
+    const std::string& id,
+    rmf_traffic::Time earliest_start_time,
+    ConstPriorityPtr priority,
+    DescriptionPtr description);
 
-  /// Estimate the invariant component of the task's duration
-  virtual rmf_traffic::Duration invariant_duration() const = 0;
+  /// The unique id for this request
+  const std::string& id() const;
 
-  /// Get the earliest start time that this task may begin
-  virtual rmf_traffic::Time earliest_start_time() const = 0;
+  /// Get the earliest time that this request may begin
+  rmf_traffic::Time earliest_start_time() const;
 
-  virtual ~Request() = default;
+  /// Get the priority of this request
+  ConstPriorityPtr priority() const;
+
+  /// Get the description of this request
+  const DescriptionPtr& description() const;
+
+  class Implementation;
+private:
+  rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
 using RequestPtr = std::shared_ptr<Request>;
 using ConstRequestPtr = std::shared_ptr<const Request>;
+using DescriptionPtr = Request::DescriptionPtr;
+using ConstDescriptionPtr = std::shared_ptr<const Request::Description>;
 
 } // namespace rmf_task
 

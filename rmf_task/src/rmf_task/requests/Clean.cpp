@@ -23,14 +23,13 @@ namespace rmf_task {
 namespace requests {
 
 //==============================================================================
-class Clean::Implementation
+class CleanDescription::Implementation
 {
 public:
 
   Implementation()
   {}
 
-  std::string id;
   std::size_t start_waypoint;
   std::size_t end_waypoint;
   rmf_traffic::Trajectory cleaning_path;
@@ -38,16 +37,15 @@ public:
   std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink;
   std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink;
   std::shared_ptr<rmf_traffic::agv::Planner> planner;
-  bool drain_battery;
   rmf_traffic::Time start_time;
+  bool drain_battery;
 
   rmf_traffic::Duration invariant_duration;
   double invariant_battery_drain;
 };
 
 //==============================================================================
-rmf_task::ConstRequestPtr Clean::make(
-  std::string id,
+rmf_task::DescriptionPtr CleanDescription::make(
   std::size_t start_waypoint,
   std::size_t end_waypoint,
   rmf_traffic::Trajectory& cleaning_path,
@@ -58,8 +56,7 @@ rmf_task::ConstRequestPtr Clean::make(
   rmf_traffic::Time start_time,
   bool drain_battery)
 {
-  std::shared_ptr<Clean> clean(new Clean());
-  clean->_pimpl->id = id;
+  std::shared_ptr<CleanDescription> clean(new CleanDescription());
   clean->_pimpl->start_waypoint = start_waypoint;
   clean->_pimpl->end_waypoint = end_waypoint;
   clean->_pimpl->cleaning_path = cleaning_path;
@@ -67,8 +64,8 @@ rmf_task::ConstRequestPtr Clean::make(
   clean->_pimpl->ambient_sink = std::move(ambient_sink);
   clean->_pimpl->cleaning_sink = std::move(cleaning_sink);
   clean->_pimpl->planner = std::move(planner);
-  clean->_pimpl->drain_battery = drain_battery;
   clean->_pimpl->start_time = start_time;
+  clean->_pimpl->drain_battery = drain_battery;
 
   // Calculate duration of invariant component of task
   const auto& cleaning_start_time = cleaning_path.begin()->time();
@@ -97,18 +94,14 @@ rmf_task::ConstRequestPtr Clean::make(
 }
 
 //==============================================================================
-Clean::Clean()
+CleanDescription::CleanDescription()
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
-{}
-
-//==============================================================================
-std::string Clean::id() const
 {
-  return _pimpl->id;
+  // Do nothing
 }
 
 //==============================================================================
-rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
+rmf_utils::optional<rmf_task::Estimate> CleanDescription::estimate_finish(
   const agv::State& initial_state,
   const agv::Constraints& task_planning_constraints,
   const std::shared_ptr<EstimateCache> estimate_cache) const
@@ -272,31 +265,25 @@ rmf_utils::optional<rmf_task::Estimate> Clean::estimate_finish(
 }
 
 //==============================================================================
-rmf_traffic::Duration Clean::invariant_duration() const
+rmf_traffic::Duration CleanDescription::invariant_duration() const
 {
   return _pimpl->invariant_duration;
 }
 
 //==============================================================================
-rmf_traffic::Time Clean::earliest_start_time() const
-{
-  return _pimpl->start_time;
-}
-
-//==============================================================================
-std::size_t Clean::start_waypoint() const
+std::size_t CleanDescription::start_waypoint() const
 {
   return _pimpl->start_waypoint;
 }
 
 //==============================================================================
-std::size_t Clean::end_waypoint() const
+std::size_t CleanDescription::end_waypoint() const
 {
   return _pimpl->end_waypoint;
 }
 
 //==============================================================================
-rmf_traffic::agv::Planner::Start Clean::location_after_clean(
+rmf_traffic::agv::Planner::Start CleanDescription::location_after_clean(
     rmf_traffic::agv::Planner::Start start) const
 {
   if (start.waypoint() == _pimpl->start_waypoint)
@@ -321,5 +308,32 @@ rmf_traffic::agv::Planner::Start Clean::location_after_clean(
 }
 
 //==============================================================================
+ConstRequestPtr Clean::make(
+    const std::string& id,
+    std::size_t start_waypoint,
+    std::size_t end_waypoint,
+    rmf_traffic::Trajectory& cleaning_path,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> ambient_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> cleaning_sink,
+    std::shared_ptr<rmf_traffic::agv::Planner> planner,
+    rmf_traffic::Time start_time,
+    bool drain_battery,
+    ConstPriorityPtr priority)
+{
+  const auto description = CleanDescription::make(
+    start_waypoint,
+    end_waypoint,
+    cleaning_path,
+    motion_sink,
+    ambient_sink,
+    cleaning_sink,
+    planner,
+    start_time,
+    drain_battery);
+
+  return std::make_shared<Request>(id, start_time, priority, description);
+}
+
 } // namespace requests
 } // namespace rmf_task
