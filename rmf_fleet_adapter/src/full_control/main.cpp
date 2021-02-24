@@ -30,6 +30,11 @@
 #include <rmf_fleet_msgs/msg/fleet_state.hpp>
 #include <rmf_fleet_msgs/msg/path_request.hpp>
 #include <rmf_fleet_msgs/msg/mode_request.hpp>
+#include <rmf_fleet_msgs/srv/lift_clearance.hpp>
+
+// RMF Task messages
+#include <rmf_task_msgs/msg/task_type.hpp>
+#include <rmf_task_msgs/msg/task_profile.hpp>
 
 // ROS2 utilities for rmf_traffic
 #include <rmf_traffic_ros2/Time.hpp>
@@ -37,6 +42,35 @@
 // Utility functions for estimating where a robot is on the graph based on
 // the information provided by fleet drivers.
 #include "../rmf_fleet_adapter/estimation.hpp"
+
+// Public rmf_traffic API headers
+#include <rmf_traffic/agv/Interpolate.hpp>
+#include <rmf_traffic/Route.hpp>
+
+#include <rmf_battery/agv/BatterySystem.hpp>
+#include <rmf_battery/agv/SimpleMotionPowerSink.hpp>
+#include <rmf_battery/agv/SimpleDevicePowerSink.hpp>
+
+#include <Eigen/Geometry>
+#include <unordered_set>
+
+//==============================================================================
+rmf_fleet_adapter::agv::RobotUpdateHandle::Unstable::Decision
+convert_decision(uint32_t decision)
+{
+  using namespace rmf_fleet_adapter::agv;
+  switch (decision)
+  {
+    case rmf_fleet_msgs::srv::LiftClearance::Response::DECISION_CLEAR:
+      return RobotUpdateHandle::Unstable::Decision::Clear;
+    case rmf_fleet_msgs::srv::LiftClearance::Response::DECISION_CROWDED:
+      return RobotUpdateHandle::Unstable::Decision::Crowded;
+  }
+
+  std::cerr << "Received undefined value for lift clearance service: "
+            << decision << std::endl;
+  return RobotUpdateHandle::Unstable::Decision::Undefined;
+}
 
 //==============================================================================
 class FleetDriverRobotCommandHandle
@@ -84,7 +118,7 @@ public:
       ArrivalEstimator next_arrival_estimator,
       RequestCompleted path_finished_callback) final
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     _clear_last_command();
 
     _travel_info.waypoints = waypoints;
@@ -158,7 +192,7 @@ public:
       const std::string& dock_name,
       RequestCompleted docking_finished_callback) final
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     _clear_last_command();
 
     _dock_finished_callback = std::move(docking_finished_callback);
@@ -203,7 +237,7 @@ public:
 
   void update_state(const rmf_fleet_msgs::msg::RobotState& state)
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     if (_travel_info.path_finished_callback)
     {
       // If we have a path_finished_callback, then the robot should be
@@ -260,10 +294,10 @@ public:
     }
     else if (_dock_finished_callback)
     {
+      const auto now = std::chrono::steady_clock::now();
       // If we have a _dock_finished_callback, then the robot should be docking
       if (state.task_id != _current_dock_request.task_id)
       {
-        const auto now = std::chrono::steady_clock::now();
         if (std::chrono::milliseconds(200) < now - _dock_requested_time)
         {
           // We published the request a while ago, so we'll send it again in
@@ -281,6 +315,36 @@ public:
         _travel_info.last_known_wp = *_dock_target_wp;
         _dock_finished_callback();
         _dock_finished_callback = nullptr;
+
+        return;
+      }
+
+      // Update the schedule with the docking path of the robot
+      if (!state.path.empty() &&
+        std::chrono::seconds(1) < now - _dock_schedule_time)
+      {
+        std::vector<Eigen::Vector3d> positions;
+        positions.push_back(
+          {state.location.x, state.location.y, state.location.yaw});
+        for (const auto& p : state.path)
+          positions.push_back({p.x, p.y, p.yaw});
+
+        const rmf_traffic::Trajectory trajectory =
+          rmf_traffic::agv::Interpolate::positions(
+            *_travel_info.traits,
+            rmf_traffic_ros2::convert(state.location.t),
+            positions);
+
+        if (trajectory.size() < 2)
+          return;
+
+        if (auto participant =
+          _travel_info.updater->unstable().get_participant())
+        {
+          participant->set(
+            {rmf_traffic::Route{state.location.level_name, trajectory}});
+          _dock_schedule_time = now;
+        }
       }
     }
     else
@@ -289,6 +353,18 @@ public:
       // command
       estimate_state(_node, state.location, _travel_info);
     }
+
+    // Update battery soc
+    const double battery_soc = state.battery_percent / 100.0;
+    if (battery_soc >= 0.0 && battery_soc <= 1.0)
+      _travel_info.updater->update_battery_soc(battery_soc);
+    else
+      RCLCPP_ERROR(
+        _node->get_logger(),
+        "Battery percentage reported by the robot is outside of the valid "
+        "range [0,100] and hence the battery soc will not be updated. It is "
+        "critical to update the battery soc with a valid battery percentage "
+        "for task allocation planning.");
   }
 
   void set_updater(rmf_fleet_adapter::agv::RobotUpdateHandlePtr updater)
@@ -309,12 +385,25 @@ private:
   rmf_fleet_msgs::msg::ModeRequest _current_dock_request;
   rmf_utils::optional<std::size_t> _dock_target_wp;
   std::chrono::steady_clock::time_point _dock_requested_time;
+  std::chrono::steady_clock::time_point _dock_schedule_time =
+    std::chrono::steady_clock::now();
   RequestCompleted _dock_finished_callback;
   ModeRequestPub _mode_request_pub;
 
   uint32_t _current_task_id = 0;
 
   std::mutex _mutex;
+
+  std::unique_lock<std::mutex> _lock()
+  {
+    std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
+    while (!lock.try_lock())
+    {
+      // Intentionally busy wait
+    }
+
+    return lock;
+  }
 
   void _clear_last_command()
   {
@@ -355,11 +444,13 @@ struct Connections : public std::enable_shared_from_this<Connections>
   rclcpp::Publisher<rmf_fleet_msgs::msg::ModeRequest>::SharedPtr
   mode_request_pub;
 
+  /// The client for listening to whether there is clearance in a lift
+  rclcpp::Client<rmf_fleet_msgs::srv::LiftClearance>::SharedPtr
+  lift_watchdog_client;
+
   /// The container for robot update handles
   std::unordered_map<std::string, FleetDriverRobotCommandHandlePtr>
   robots;
-
-  std::mutex mutex;
 
   void add_robot(
       const std::string& fleet_name,
@@ -383,11 +474,47 @@ struct Connections : public std::enable_shared_from_this<Connections>
       if (!connections)
         return;
 
-      std::lock_guard<std::mutex> lock(connections->mutex);
+      auto lock = connections->lock();
+
+      if (connections->lift_watchdog_client)
+      {
+        updater->unstable().set_lift_entry_watchdog(
+          [robot_name, client = connections->lift_watchdog_client](
+            const std::string& lift_name,
+            auto decide)
+        {
+          auto request =
+            std::make_shared<rmf_fleet_msgs::srv::LiftClearance::Request>(
+            rmf_fleet_msgs::build<rmf_fleet_msgs::srv::LiftClearance::Request>()
+            .robot_name(robot_name)
+            .lift_name(lift_name));
+
+          client->async_send_request(
+            request,
+            [decide](
+              rclcpp::Client<rmf_fleet_msgs::srv::LiftClearance>::SharedFuture response)
+          {
+            const auto r = response.get();
+            decide(convert_decision(r->decision));
+          });
+        });
+      }
 
       command->set_updater(updater);
       connections->robots[robot_name] = command;
     });
+  }
+
+  std::mutex _mutex;
+  std::unique_lock<std::mutex> lock()
+  {
+    std::unique_lock<std::mutex> l(_mutex, std::defer_lock);
+    while (!l.try_lock())
+    {
+      // Intentionally busy wait
+    }
+
+    return l;
   }
 };
 
@@ -439,13 +566,127 @@ std::shared_ptr<Connections> make_fleet(
   connections->fleet = adapter->add_fleet(
         fleet_name, *connections->traits, *connections->graph);
 
+  // We disable fleet state publishing for this fleet adapter because we expect
+  // the fleet drivers to publish these messages.
+  connections->fleet->fleet_state_publish_period(std::nullopt);
+
+  // Parameters required for task planner
+  // Battery system
+  auto battery_system_optional = rmf_fleet_adapter::get_battery_system(
+    *node, 24.0, 40.0, 8.8);
+  if (!battery_system_optional)
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Invalid values supplied for battery system");
+    
+    return nullptr;
+  }
+  auto battery_system = std::make_shared<rmf_battery::agv::BatterySystem>(
+    *battery_system_optional);
+
+  // Mechanical system and motion_sink
+  auto mechanical_system_optional = rmf_fleet_adapter::get_mechanical_system(
+    *node, 70.0, 40.0, 0.22);
+  if (!mechanical_system_optional)
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Invalid values supplied for mechanical system");
+    
+    return nullptr;
+  }
+  rmf_battery::agv::MechanicalSystem& mechanical_system =
+    *mechanical_system_optional;
+
+  std::shared_ptr<rmf_battery::agv::SimpleMotionPowerSink> motion_sink =
+    std::make_shared<rmf_battery::agv::SimpleMotionPowerSink>(
+      *battery_system, mechanical_system);
+
+  // Ambient power system
+  const double ambient_power_drain =
+    rmf_fleet_adapter::get_parameter_or_default(
+      *node, "ambient_power_drain", 20.0);
+  auto ambient_power_system = rmf_battery::agv::PowerSystem::make(
+    ambient_power_drain);
+  if (!ambient_power_system)
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Invalid values supplied for ambient power system");
+    
+    return nullptr;
+  }
+  std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> ambient_sink =
+    std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
+      *battery_system, *ambient_power_system);
+
+  // Tool power system
+  const double tool_power_drain = rmf_fleet_adapter::get_parameter_or_default(
+    *node, "tool_power_drain", 10.0);
+  auto tool_power_system = rmf_battery::agv::PowerSystem::make(
+    tool_power_drain);
+  if (!tool_power_system)
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Invalid values supplied for tool power system");
+
+    return nullptr;
+  }
+  std::shared_ptr<rmf_battery::agv::SimpleDevicePowerSink> tool_sink =
+    std::make_shared<rmf_battery::agv::SimpleDevicePowerSink>(
+      *battery_system, *tool_power_system);
+
+  // Drain battery
+  const bool drain_battery = rmf_fleet_adapter::get_parameter_or_default(
+    *node, "drain_battery", false);
+  connections->fleet->account_for_battery_drain(drain_battery);
+
+  // Recharge threshold
+  const double recharge_threshold = rmf_fleet_adapter::get_parameter_or_default(
+    *node, "recharge_threshold", 0.2);
+
+  connections->fleet->set_recharge_threshold(recharge_threshold);
+
+  if (!connections->fleet->set_task_planner_params(
+        battery_system, motion_sink, ambient_sink, tool_sink))
+  {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Failed to initialize task planner parameters");
+
+    return nullptr;
+  }
+
+  std::unordered_set<uint8_t> task_types;
+  if (node->declare_parameter<bool>("perform_loop", false))
+  {
+    task_types.insert(rmf_task_msgs::msg::TaskType::TYPE_LOOP);
+  }
+
   // If the perform_deliveries parameter is true, then we just blindly accept
   // all delivery requests.
   if (node->declare_parameter<bool>("perform_deliveries", false))
   {
+    task_types.insert(rmf_task_msgs::msg::TaskType::TYPE_DELIVERY);
     connections->fleet->accept_delivery_requests(
           [](const rmf_task_msgs::msg::Delivery&){ return true; });
   }
+
+  if (node->declare_parameter<bool>("perform_cleaning", false))
+  {
+    task_types.insert(rmf_task_msgs::msg::TaskType::TYPE_CLEAN);
+  }
+
+  connections->fleet->accept_task_requests(
+    [task_types](const rmf_task_msgs::msg::TaskProfile& msg)
+    {
+      if (task_types.find(msg.description.task_type.type) != task_types.end())
+        return true;
+      
+      return false;
+    });
 
   if (node->declare_parameter<bool>("disable_delay_threshold", false))
   {
@@ -498,6 +739,16 @@ std::shared_ptr<Connections> make_fleet(
       }
     }
   });
+
+  const std::string lift_clearance_srv =
+      node->declare_parameter<std::string>(
+        "experimental_lift_watchdog_service", "");
+  if (!lift_clearance_srv.empty())
+  {
+    connections->lift_watchdog_client =
+        node->create_client<rmf_fleet_msgs::srv::LiftClearance>(
+          lift_clearance_srv);
+  }
 
   return connections;
 }

@@ -163,6 +163,40 @@ void RobotUpdateHandle::update_position(
 }
 
 //==============================================================================
+RobotUpdateHandle& RobotUpdateHandle::set_charger_waypoint(
+  const std::size_t charger_wp)
+{
+  if (const auto context = _pimpl->get_context())
+  {
+    auto end_state = context->current_task_end_state();
+    end_state.charging_waypoint(charger_wp);
+    context->current_task_end_state(end_state);
+    RCLCPP_INFO(
+      context->node()->get_logger(),
+      "Charger waypoint for robot [%s] set to index [%d]",
+      context->name().c_str(), charger_wp);
+  }
+
+  return *this;
+}
+
+//==============================================================================
+void RobotUpdateHandle::update_battery_soc(const double battery_soc)
+{
+  if (battery_soc < 0.0 || battery_soc > 1.0)
+    return;
+
+  if (const auto context = _pimpl->get_context())
+  {
+    context->worker().schedule(
+          [context, battery_soc](const auto&)
+    {
+      context->current_battery_soc(battery_soc);
+    });
+  }
+}
+
+//==============================================================================
 RobotUpdateHandle& RobotUpdateHandle::maximum_delay(
     rmf_utils::optional<rmf_traffic::Duration> value)
 {
@@ -192,6 +226,45 @@ RobotUpdateHandle::maximum_delay() const
 RobotUpdateHandle::RobotUpdateHandle()
 {
   // Do nothing
+}
+
+//==============================================================================
+RobotUpdateHandle::Unstable& RobotUpdateHandle::unstable()
+{
+  return _pimpl->unstable;
+}
+
+//==============================================================================
+const RobotUpdateHandle::Unstable& RobotUpdateHandle::unstable() const
+{
+  return _pimpl->unstable;
+}
+
+//==============================================================================
+rmf_traffic::schedule::Participant*
+RobotUpdateHandle::Unstable::get_participant()
+{
+  if (const auto context = _pimpl->get_context())
+  {
+    auto& itinerary = context->itinerary();
+    return &itinerary;
+  }
+  return nullptr;
+}
+
+//==============================================================================
+void RobotUpdateHandle::Unstable::set_lift_entry_watchdog(
+  Watchdog watchdog,
+  rmf_traffic::Duration wait_duration)
+{
+  if (const auto context = _pimpl->get_context())
+  {
+    context->worker().schedule(
+      [context, watchdog = std::move(watchdog), wait_duration](const auto&)
+    {
+      context->set_lift_entry_watchdog(watchdog, wait_duration);
+    });
+  }
 }
 
 } // namespace agv

@@ -111,9 +111,12 @@ public:
   }
 
   void set_update_handle(
-      rmf_fleet_adapter::agv::EasyTrafficLightPtr update_handle)
+      rmf_fleet_adapter::agv::EasyTrafficLightPtr update_handle,
+      rmf_fleet_msgs::msg::RobotState state)
   {
     _update = std::move(update_handle);
+    _last_state = state;
+    _update->fleet_state_publish_period(std::nullopt);
   }
 
   const std::string& name() const
@@ -123,7 +126,7 @@ public:
 
   void update_state(const rmf_fleet_msgs::msg::RobotState& state)
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     if (_last_state.has_value())
     {
       // Skip over old messages
@@ -222,13 +225,13 @@ public:
       {
         // If the current target is 0, then let's just assume that's where the
         // robot is waiting.
-        _handle_waiting_instruction(_update->waiting_at(0));
+        _handle_waiting_at_instruction(_update->waiting_at(0));
         return;
       }
 
       if (_pause_request.type == _pause_request.TYPE_PAUSE_IMMEDIATELY)
       {
-        _handle_waiting_instruction(_update->waiting_after(target-1, p));
+        _handle_waiting_after_instruction(_update->waiting_after(target-1, p));
         return;
       }
 
@@ -236,12 +239,12 @@ public:
       {
         if (_pause_request.at_checkpoint == target)
         {
-          _handle_waiting_instruction(_update->waiting_at(target));
+          _handle_waiting_at_instruction(_update->waiting_at(target));
           return;
         }
       }
 
-      _handle_waiting_instruction(_update->waiting_after(target-1, p));
+      _handle_waiting_after_instruction(_update->waiting_after(target-1, p));
       return;
     }
 
@@ -251,7 +254,7 @@ public:
       // is not the location that it actually started, which is suspicious, but
       // whatever), then let's just tell the traffic light that the robot is
       // waiting at checkpoint 0.
-      _handle_waiting_instruction(_update->waiting_at(0));
+      _handle_waiting_at_instruction(_update->waiting_at(0));
       return;
     }
 
@@ -265,7 +268,7 @@ public:
 
   void add_to_queue(const std::vector<std::string>& new_waypoints)
   {
-    std::unique_lock<std::mutex> lock(_mutex);
+    auto lock = _lock();
 
     const bool empty_queue = _queue.empty();
 
@@ -278,13 +281,13 @@ public:
 
   void pause_immediately()
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     _internal_pause_immediately();
   }
 
   void resume()
   {
-    std::lock_guard<std::mutex> lock(_mutex);
+    auto lock = _lock();
     _internal_resume();
   }
 
@@ -411,11 +414,12 @@ private:
   }
 
   void _handle_waiting_instruction(
-      const EasyTrafficLight::WaitingInstruction instruction)
+      const EasyTrafficLight::WaitingInstruction instruction,
+      bool ready_for_next_target)
   {
     if (instruction == EasyTrafficLight::WaitingInstruction::Resume)
     {
-      _internal_resume();
+      _internal_resume(ready_for_next_target);
       return;
     }
 
@@ -426,6 +430,18 @@ private:
         "Uh oh! Received a WaitingError for robot [%s] of fleet [%s]",
         _travel_info.robot_name.c_str(), _travel_info.fleet_name.c_str());
     }
+  }
+
+  void _handle_waiting_at_instruction(
+      const EasyTrafficLight::WaitingInstruction instruction)
+  {
+    _handle_waiting_instruction(instruction, true);
+  }
+
+  void _handle_waiting_after_instruction(
+      const EasyTrafficLight::WaitingInstruction instruction)
+  {
+    _handle_waiting_instruction(instruction, false);
   }
 
   void _follow_new_path(
@@ -546,12 +562,15 @@ private:
     _pause_request_pub->publish(_pause_request);
   }
 
-  void _internal_resume()
+  void _internal_resume(bool to_next_target = false)
   {
     if (_pause_request.type == _pause_request.TYPE_RESUME)
       return;
 
-    _internal_pause_at_checkpoint(_last_target.value()+1);
+    std::size_t target = to_next_target?
+      _last_target.value()+1 : _last_target.value();
+
+    _internal_pause_at_checkpoint(target);
   }
 
   void _send_new_path_command()
@@ -582,9 +601,19 @@ private:
 
   std::optional<std::size_t> _end_waypoint_index;
 
-  std::mutex _mutex;
-
   rmf_fleet_adapter::agv::EasyTrafficLightPtr _update;
+
+  std::mutex _mutex;
+  std::unique_lock<std::mutex> _lock()
+  {
+    std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
+    while (!lock.try_lock())
+    {
+      // Intentionally busy wait
+    }
+
+    return lock;
+  }
 };
 
 using MockTrafficLightCommandHandlePtr =
@@ -626,8 +655,6 @@ struct Connections : public std::enable_shared_from_this<Connections>
 
   std::unordered_map<std::string, MockTrafficLightCommandHandlePtr> robots;
 
-  std::mutex mutex;
-
   std::unordered_set<std::string> received_task_ids;
 
   void add_traffic_light(
@@ -652,15 +679,31 @@ struct Connections : public std::enable_shared_from_this<Connections>
     };
 
     adapter->add_easy_traffic_light(
-          [c = weak_from_this(), command, robot_name = robot_name](
+          [c = weak_from_this(), command, robot_name = robot_name, state](
           rmf_fleet_adapter::agv::EasyTrafficLightPtr updater)
     {
       const auto connections = c.lock();
-      command->set_update_handle(std::move(updater));
+      if (!connections)
+        return;
+
+      auto  lock = connections->lock();
+      command->set_update_handle(std::move(updater), state);
       connections->robots[robot_name] = command;
     },
     fleet_name, robot_name, *traits,
     std::move(pause), std::move(resume));
+  }
+
+  std::mutex _mutex;
+  std::unique_lock<std::mutex> lock()
+  {
+    std::unique_lock<std::mutex> l(_mutex, std::defer_lock);
+    while (!l.try_lock())
+    {
+      // Intentional busy wait
+    }
+
+    return l;
   }
 };
 

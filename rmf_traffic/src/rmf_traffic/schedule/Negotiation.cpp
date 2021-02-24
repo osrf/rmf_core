@@ -598,7 +598,7 @@ public:
       auto top = queue.back();
       queue.pop_back();
 
-      for (const auto entry : top->descendants)
+      for (const auto& entry : top->descendants)
       {
         const auto& table = entry.second;
         if (table->_pimpl->forfeited && negotiation_data)
@@ -867,7 +867,7 @@ public:
       auto top = queue.back();
       queue.pop_back();
 
-      for (const auto entry : top->descendants)
+      for (const auto& entry : top->descendants)
       {
         auto& table = Table::Implementation::get(*entry.second);
         table.defunct.terminate();
@@ -930,7 +930,10 @@ bool Negotiation::ready() const
 //==============================================================================
 bool Negotiation::complete() const
 {
-  return _pimpl->data->num_terminated_tables == _pimpl->max_terminated_tables;
+//  return _pimpl->data->num_terminated_tables == _pimpl->max_terminated_tables;
+  // TODO(MXG): Figure out what bug or misconception is allowing the
+  // num_terminated_tables to exceed max_terminated_tables
+  return _pimpl->data->num_terminated_tables >= _pimpl->max_terminated_tables;
 }
 
 namespace {

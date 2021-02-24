@@ -15,49 +15,42 @@
  *
 */
 
-#include <rmf_traffic/agv/VehicleTraits.hpp>
+#include "internal_VehicleTraits.hpp"
 
 namespace rmf_traffic {
 namespace agv {
 
 //==============================================================================
-class VehicleTraits::Limits::Implementation
+auto VehicleTraits::Limits::Implementation::get(
+    const Limits& limits) -> const Implementation&
 {
-public:
-
-  double velocity;
-
-  double acceleration;
-
-};
+  return *limits._pimpl;
+}
 
 //==============================================================================
-class VehicleTraits::Implementation
+VehicleTraits::Implementation::Implementation(
+  Limits linear,
+  Limits rotation,
+  Profile profile,
+  Differential differential)
+: _linear(std::move(linear)),
+  _rotation(std::move(rotation)),
+  _profile(std::move(profile)),
+  _steering_mode(Steering::Differential),
+  _differential(differential)
 {
-public:
+  // Do nothing
+}
 
-  Limits _linear;
-  Limits _rotation;
-  Profile _profile;
-
-  Steering _steering_mode;
-  Differential _differential;
-  Holonomic _holonomic;
-
-  Implementation(
-    Limits linear,
-    Limits rotation,
-    Profile profile,
-    Differential differential)
-  : _linear(std::move(linear)),
-    _rotation(std::move(rotation)),
-    _profile(std::move(profile)),
-    _steering_mode(Steering::Differential),
-    _differential(differential)
-  {
-    // Do nothing
-  }
-};
+//==============================================================================
+KinematicLimits VehicleTraits::Implementation::get_limits(
+    const VehicleTraits& traits)
+{
+  return {
+    Limits::Implementation::get(traits._pimpl->_linear),
+    Limits::Implementation::get(traits._pimpl->_rotation)
+  };
+}
 
 //==============================================================================
 VehicleTraits::Limits::Limits(const double velocity, const double acceleration)

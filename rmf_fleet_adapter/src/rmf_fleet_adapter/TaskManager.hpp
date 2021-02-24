@@ -23,6 +23,10 @@
 
 #include <rmf_traffic/agv/Planner.hpp>
 
+#include <rmf_task/agv/TaskPlanner.hpp>
+
+#include <mutex>
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -39,6 +43,8 @@ public:
 
   using Start = rmf_traffic::agv::Plan::Start;
   using StartSet = rmf_traffic::agv::Plan::StartSet;
+  using Assignment = rmf_task::agv::TaskPlanner::Assignment;
+  using State = rmf_task::agv::State;
 
   /// Add a task to the queue of this manager.
   void queue_task(std::shared_ptr<Task> task, Start expected_finish);
@@ -51,6 +57,26 @@ public:
 
   agv::ConstRobotContextPtr context() const;
 
+  const Task* current_task() const;
+
+  /// Set the queue for this task manager with assignments generated from the
+  /// task planner
+  void set_queue(const std::vector<Assignment>& assignments);
+
+  /// Get the non-charging requests among pending tasks
+  const std::vector<rmf_task::ConstRequestPtr> requests() const;
+
+  /// The state of the robot.
+  State expected_finish_state() const;
+
+  /// Callback for the retreat timer. Appends a charging task to the task queue
+  /// when robot is idle and battery level drops below a retreat threshold.
+  void retreat_to_charger();
+
+  /// Get the list of task ids for tasks that have started execution. 
+  /// The list will contain upto 100 latest task ids only.
+  const std::vector<std::string>& get_executed_tasks() const;  
+
 private:
 
   TaskManager(agv::RobotContextPtr context);
@@ -62,7 +88,24 @@ private:
   rxcpp::subscription _task_sub;
   rxcpp::subscription _emergency_sub;
 
+  // TODO: Eliminate the need for a mutex by redesigning the use of the task
+  // manager so that modifications of shared data only happen on designated
+  // rxcpp worker
+  std::mutex _mutex;
+  rclcpp::TimerBase::SharedPtr _task_timer;
+  rclcpp::TimerBase::SharedPtr _retreat_timer;
+
+  // Container to keep track of tasks that have been started by this TaskManager
+  // Use the _register_executed_task() to populate this container.
+  std::vector<std::string> _executed_task_registry;
+
+  /// Callback for task timer which begins next task if its deployment time has passed
   void _begin_next_task();
+
+  /// Function to register the task id of a task that has begun execution
+  /// The input task id will be inserted into the registry such that the max
+  /// size of the registry is 100.
+  void _register_executed_task(const std::string& id);
 };
 
 using TaskManagerPtr = std::shared_ptr<TaskManager>;

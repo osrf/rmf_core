@@ -33,6 +33,7 @@ std::shared_ptr<Node> Node::make(
         new Node(std::move(worker), node_name, options));
 
   auto default_qos = rclcpp::SystemDefaultsQoS();
+  default_qos.keep_last(100);
   node->_door_state_obs = node->create_observable<DoorState>(
         DoorStateTopicName, default_qos);
   node->_door_supervisor_obs = node->create_observable<DoorSupervisorState>(
@@ -59,6 +60,8 @@ std::shared_ptr<Node> Node::make(
         IngestorResultTopicName, default_qos);
   node->_ingestor_state_obs = node->create_observable<IngestorState>(
         IngestorStateTopicName, default_qos);
+  node->_fleet_state_pub = node->create_publisher<FleetState>(
+        FleetStateTopicName, default_qos);
 
   return node;
 }
@@ -150,6 +153,11 @@ auto Node::ingestor_state() const -> const IngestorStateObs&
   return _ingestor_state_obs;
 }
 
+//==============================================================================
+auto Node::fleet_state() const -> const FleetStatePub&
+{
+  return _fleet_state_pub;
+}
 
 } // namespace agv
 } // namespace rmf_fleet_adapter

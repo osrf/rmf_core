@@ -28,7 +28,7 @@ void EasyTrafficLight::Implementation::CommandHandle::receive_checkpoints(
     OnStandby on_standby,
     Reject reject)
 {
-  std::lock_guard<std::mutex> lock(pimpl->_pimpl->mutex);
+  auto lock = pimpl->_pimpl->lock();
   pimpl->_pimpl->receive_checkpoints(
         version,
         std::move(checkpoints),
@@ -44,7 +44,7 @@ void EasyTrafficLight::Implementation::CommandHandle::immediately_stop_until(
     StoppedAt stopped_at,
     Departed departed)
 {
-  std::lock_guard<std::mutex> lock(pimpl->_pimpl->mutex);
+  auto lock = pimpl->_pimpl->lock();
   pimpl->_pimpl->immediately_stop_until(
         version, time, std::move(stopped_at), std::move(departed));
 }
@@ -53,7 +53,7 @@ void EasyTrafficLight::Implementation::CommandHandle::immediately_stop_until(
 void EasyTrafficLight::Implementation::CommandHandle::resume(
     const std::size_t version)
 {
-  std::lock_guard<std::mutex> lock(pimpl->_pimpl->mutex);
+  auto lock = pimpl->_pimpl->lock();
   pimpl->_pimpl->resume(version);
 }
 
@@ -61,7 +61,7 @@ void EasyTrafficLight::Implementation::CommandHandle::resume(
 void EasyTrafficLight::Implementation::CommandHandle::deadlock(
     std::vector<Blocker> blockers)
 {
-  std::lock_guard<std::mutex> lock(pimpl->_pimpl->mutex);
+  auto lock = pimpl->_pimpl->lock();
   pimpl->_pimpl->deadlock(std::move(blockers));
 }
 
@@ -99,7 +99,9 @@ void EasyTrafficLight::Implementation::receive_checkpoints(
       }
 
       if (!duplicate)
+      {
         old_checkpoints.push_back(new_c);
+      }
     }
 
     const auto r_it = std::remove_if(
@@ -187,7 +189,8 @@ void EasyTrafficLight::Implementation::immediately_stop_until(
   last_received_stop_info = ImmediateStopInfo{
     time,
     std::move(stopped_at),
-    std::move(departed)
+    std::move(departed),
+    version
   };
 }
 
@@ -196,6 +199,17 @@ void EasyTrafficLight::Implementation::resume(std::size_t version)
 {
   if (version != current_version)
     return;
+
+  if (last_received_stop_info.has_value())
+  {
+    assert(last_received_stop_info.value().path_version == current_version);
+
+    resume_info = ResumeInfo {
+      last_reached,
+      last_received_stop_info.value().departed,
+      last_received_stop_info.value().path_version
+    };
+  }
 
   last_received_stop_info.reset();
   wait_timer->reset();
@@ -230,26 +244,34 @@ void EasyTrafficLight::Implementation::deadlock(std::vector<Blocker> blockers)
 void EasyTrafficLight::Implementation::follow_new_path(
     const std::vector<Waypoint>& new_path)
 {
+  clear();
   current_path = new_path;
-  last_received_checkpoints.reset();
-  last_received_stop_info.reset();
-  wait_until->reset();
-  wait_timer->reset();
-  standby_at = 0;
-  on_standby = nullptr;
-  last_departed_checkpoint.reset();
-  last_reached = 0;
-
-  current_checkpoints.clear();
   current_checkpoints.resize(new_path.size()-1);
 
   current_version = update_handle->follow_new_path(new_path);
 }
 
 //==============================================================================
+void EasyTrafficLight::Implementation::clear()
+{
+  current_path.clear();
+  last_received_checkpoints.reset();
+  last_received_stop_info.reset();
+  resume_info.reset();
+  wait_until->reset();
+  wait_timer->reset();
+  standby_at = 0;
+  on_standby = nullptr;
+  last_departed_checkpoint.reset();
+  last_reached = 0;
+  current_checkpoints.clear();
+}
+
+//==============================================================================
 void EasyTrafficLight::Implementation::accept_new_checkpoints()
 {
   assert(last_received_checkpoints.has_value());
+
   for (const auto& c : last_received_checkpoints.value().checkpoints)
     current_checkpoints.at(c.waypoint_index) = c;
 
@@ -294,13 +316,25 @@ auto EasyTrafficLight::Implementation::moving_from(
 
   if (checkpoint >= current_checkpoints.size())
   {
-    RCLCPP_WARN(
-          node->get_logger(),
-          "[EasyTrafficLight::moving_from] [%s] owned by [%s] is moving from "
-          "an invalid checkpoint [%u]. The highest checkpoint value that you "
-          "can move from is [%u].",
-          name.c_str(), owner.c_str(),
-          checkpoint, current_checkpoints.size()-1);
+    if (current_checkpoints.empty())
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "[EasyTrafficLight::moving_from] [%s] owned by [%s] is moving from an "
+        "invalid checkpoint [%u]. This robot currently does not have a path.",
+        name.c_str(), owner.c_str(), checkpoint);
+    }
+    else
+    {
+      RCLCPP_WARN(
+        node->get_logger(),
+        "[EasyTrafficLight::moving_from] [%s] owned by [%s] is moving from "
+        "an invalid checkpoint [%u]. The highest checkpoint value that you "
+        "can move from is [%u].",
+        name.c_str(), owner.c_str(),
+        checkpoint, current_checkpoints.size()-1);
+    }
+
     return MovingInstruction::MovingError;
   }
 
@@ -341,6 +375,7 @@ auto EasyTrafficLight::Implementation::moving_from(
   }
   else
   {
+    assert(resume_info.value().path_version == current_version);
     resume_info.value().departed(location);
   }
 
@@ -388,22 +423,33 @@ auto EasyTrafficLight::Implementation::handle_immediate_stop(
 {
   if (last_received_stop_info.has_value())
   {
+    assert(last_received_stop_info.value().path_version == current_version);
+
     if (last_received_stop_info.value().stopped_at)
     {
       last_received_stop_info.value().stopped_at(location);
 
       resume_info = ResumeInfo {
         departed_checkpoint,
-        last_received_stop_info.value().departed
+        last_received_stop_info.value().departed,
+        last_received_stop_info.value().path_version
       };
 
       last_received_stop_info.value().stopped_at = nullptr;
     }
 
-    if (now <= last_received_stop_info.value().time)
+    if (last_received_stop_info.value().time <= now)
     {
+      resume_info = ResumeInfo {
+          departed_checkpoint,
+          last_received_stop_info.value().departed,
+          last_received_stop_info.value().path_version
+      };
+
       last_received_stop_info.reset();
-      return WaitingInstruction::Resume;
+
+      // Let the parent function decide whether it is ready to go
+      return std::nullopt;
     }
 
     return WaitingInstruction::Wait;
@@ -435,14 +481,18 @@ auto EasyTrafficLight::Implementation::waiting_at(
   const auto new_checkpoints_instruction =
       handle_new_checkpoints_waiting(departed_checkpoint, location);
   if (new_checkpoints_instruction.has_value())
+  {
     return new_checkpoints_instruction.value();
+  }
 
   const auto now = node->now();
   const auto immediate_stop_instruction = handle_immediate_stop(
         last_departed_checkpoint.value_or(0), location, now);
 
   if (immediate_stop_instruction.has_value())
+  {
     return immediate_stop_instruction.value();
+  }
 
   if (checkpoint > standby_at)
   {
@@ -489,14 +539,18 @@ auto EasyTrafficLight::Implementation::waiting_after(
   const auto new_checkpoints_instruction =
       handle_new_checkpoints_waiting(checkpoint, location);
   if (new_checkpoints_instruction.has_value())
+  {
     return new_checkpoints_instruction.value();
+  }
 
   const auto now = node->now();
   const auto immediate_stop_instruction =
       handle_immediate_stop(checkpoint, location, now);
 
   if (immediate_stop_instruction.has_value())
+  {
     return immediate_stop_instruction.value();
+  }
 
   if (checkpoint >= standby_at)
   {
@@ -505,7 +559,7 @@ auto EasyTrafficLight::Implementation::waiting_after(
       "[EasyTrafficLight::waiting_after] [%s] owned by [%s] waiting after "
       "passing checkpoint [%u] but the robot was supposed to standby at "
       "checkpoint [%u]",
-      checkpoint, standby_at);
+      name.c_str(), owner.c_str(), checkpoint, standby_at);
     return WaitingInstruction::WaitingError;
   }
 
@@ -515,7 +569,14 @@ auto EasyTrafficLight::Implementation::waiting_after(
 //==============================================================================
 void EasyTrafficLight::follow_new_path(const std::vector<Waypoint>& new_path)
 {
-  std::lock_guard<std::mutex> lock(_pimpl->mutex);
+  if (new_path.size() < 2)
+  {
+    throw std::runtime_error(
+      "[EasyTrafficLight::follow_new_path] Invalid number of waypoints given ["
+      + std::to_string(new_path.size()) + "]. Must be at least 2.");
+  }
+
+  auto lock = _pimpl->lock();
   _pimpl->follow_new_path(new_path);
 }
 
@@ -524,7 +585,7 @@ auto EasyTrafficLight::moving_from(
     const std::size_t checkpoint,
     const Eigen::Vector3d location) -> MovingInstruction
 {
-  std::lock_guard<std::mutex> lock(_pimpl->mutex);
+  auto lock = _pimpl->lock();
   return _pimpl->moving_from(checkpoint, location);
 }
 
@@ -532,7 +593,7 @@ auto EasyTrafficLight::moving_from(
 auto EasyTrafficLight::waiting_at(
     const std::size_t checkpoint) -> WaitingInstruction
 {
-  std::lock_guard<std::mutex> lock(_pimpl->mutex);
+  auto lock = _pimpl->lock();
   return _pimpl->waiting_at(checkpoint);
 }
 
@@ -541,15 +602,43 @@ auto EasyTrafficLight::waiting_after(
     const std::size_t checkpoint,
     const Eigen::Vector3d location) -> WaitingInstruction
 {
-  std::lock_guard<std::mutex> lock(_pimpl->mutex);
+  auto lock = _pimpl->lock();
   return _pimpl->waiting_after(checkpoint, location);
 }
 
 //==============================================================================
 std::size_t EasyTrafficLight::last_reached() const
 {
-  std::lock_guard<std::mutex> lock(_pimpl->mutex);
+  auto lock = _pimpl->lock();
   return _pimpl->last_reached;
+}
+
+//==============================================================================
+EasyTrafficLight& EasyTrafficLight::update_idle_location(
+  std::string map_name,
+  Eigen::Vector3d position)
+{
+  auto lock = _pimpl->lock();
+  if (!_pimpl->current_path.empty())
+    _pimpl->clear();
+
+  _pimpl->update_handle->update_idle_location(std::move(map_name), position);
+  return *this;
+}
+
+//==============================================================================
+EasyTrafficLight& EasyTrafficLight::update_battery_soc(double battery_soc)
+{
+  _pimpl->update_handle->update_battery_soc(battery_soc);
+  return *this;
+}
+
+//==============================================================================
+EasyTrafficLight& EasyTrafficLight::fleet_state_publish_period(
+    std::optional<rmf_traffic::Duration> value)
+{
+  _pimpl->update_handle->fleet_state_publish_period(value);
+  return *this;
 }
 
 //==============================================================================

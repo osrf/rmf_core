@@ -15,7 +15,7 @@
  *
 */
 
-#include "GraphInternal.hpp"
+#include "internal_Graph.hpp"
 
 #include <rmf_traffic/agv/Graph.hpp>
 
@@ -43,6 +43,8 @@ public:
   bool passthrough_point = false;
 
   bool parking_spot = false;
+
+  bool charger = false;
 
   template<typename... Args>
   static Waypoint make(Args&& ... args)
@@ -122,6 +124,19 @@ bool Graph::Waypoint::is_parking_spot() const
 auto Graph::Waypoint::set_parking_spot(bool _is_parking_spot) -> Waypoint&
 {
   _pimpl->parking_spot = _is_parking_spot;
+  return *this;
+}
+
+//==============================================================================
+bool Graph::Waypoint::is_charger() const
+{
+  return _pimpl->charger;
+}
+
+//==============================================================================
+auto Graph::Waypoint::set_charger(bool _is_charger) -> Waypoint&
+{
+  _pimpl->charger = _is_charger;
   return *this;
 }
 
@@ -709,6 +724,7 @@ auto Graph::add_waypoint(
       std::move(map_name), std::move(location)));
 
   _pimpl->lanes_from.push_back({});
+  _pimpl->lanes_into.push_back({});
   _pimpl->lane_between.push_back({});
 
   return _pimpl->waypoints.back();
@@ -811,6 +827,7 @@ auto Graph::add_lane(
 
   const std::size_t lane_id = _pimpl->lanes.size();
   _pimpl->lanes_from.at(entry.waypoint_index()).push_back(lane_id);
+  _pimpl->lanes_into.at(exit.waypoint_index()).push_back(lane_id);
   _pimpl->lane_between
       .at(entry.waypoint_index())[exit.waypoint_index()] = lane_id;
 

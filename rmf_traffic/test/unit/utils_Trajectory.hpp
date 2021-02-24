@@ -28,6 +28,14 @@
 #include <rmf_utils/catch.hpp>
 
 //==============================================================================
+// Literal conversion to degrees
+constexpr long double operator "" _deg(long double value)
+{
+  // TODO(MXG): Consider moving this into rmf_utils::math
+  return value*M_PI/180.0;
+}
+
+//==============================================================================
 enum TestProfileType
 {
   UnitBox,

@@ -2,8 +2,18 @@
 Changelog for package rmf_fleet_adapter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1.2.0 (2021-01-XX)
+1.3.0 (2021-XX-XX)
 ------------------
+* Allow Traffic Light APIs to update the location of a robot while it is idle: [#270](https://github.com/osrf/rmf_core/pull/270)
+* Allow TrafficLight and EasyTrafficLight API to update battery level: [#263](https://github.com/osrf/rmf_core/pull/263)
+* Migrating to a task dispatcher framework: [#217](https://github.com/osrf/rmf_core/pull/217)
+    * The `rmf_fleet_adapter::agv` component interacts with a dispatcher node over topics with `rmf_task` prefix as specified in `rmf_fleet_adapter/StandardNames.hpp`
+    * Support for executing tasks at specified timepoints
+    * Support for `Loop`, `Delivery`, `Clean` and `ChargeBattery` tasks
+
+1.2.0 (2021-01-05)
+------------------
+* Automatically publish fleet states from the fleet adapter API: [#232](https://github.com/osrf/rmf_core/pull/232)
 * Easy Traffic Light API: [#226](https://github.com/osrf/rmf_core/pull/226)
 * Gridlock-proof Traffic Light Implementation: [#226](https://github.com/osrf/rmf_core/pull/226)
 
