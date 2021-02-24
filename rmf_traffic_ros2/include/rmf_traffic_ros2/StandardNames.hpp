@@ -69,6 +69,16 @@ const std::string BlockadeSetTopicName = Prefix +
 
 const std::string EmergencyTopicName = "fire_alarm_trigger";
 
+const std::string ReservationStatusTopicName = 
+  Prefix + "reservation_status";
+
+const std::string ReservationReqTopicName = 
+  Prefix + "reservation_request";
+
+const std::string ReservationCancelTopicName = 
+  Prefix + "reservation_cancel";
+
+
 } // namespace rmf_traffic_ros2
 
 #endif // RMF_TRAFFIC_ROS2__STANDARDNAMES_HPP

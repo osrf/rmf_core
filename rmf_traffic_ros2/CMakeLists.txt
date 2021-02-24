@@ -80,6 +80,16 @@ target_link_libraries(rmf_traffic_blockade
 )
 
 #===============================================================================
+file(GLOB_RECURSE reservation_srcs "src/rmf_traffic_reservation/*.cpp")
+add_executable(rmf_traffic_reservation ${blockade_srcs})
+
+target_link_libraries(rmf_traffic_reservation
+  PRIVATE
+    rmf_traffic_ros2
+)
+
+
+#===============================================================================
 # Add examples
 # TODO(MXG): Consider creating a separate downstream package for these
 add_executable(participant_node examples/participant_node.cpp)
@@ -92,7 +102,7 @@ install(
 )
 
 install(
-  TARGETS rmf_traffic_ros2 rmf_traffic_schedule rmf_traffic_blockade
+  TARGETS rmf_traffic_ros2 rmf_traffic_schedule rmf_traffic_blockade rmf_traffic_reservation
   EXPORT rmf_traffic_ros2
   RUNTIME DESTINATION lib/rmf_traffic_ros2
   LIBRARY DESTINATION lib
