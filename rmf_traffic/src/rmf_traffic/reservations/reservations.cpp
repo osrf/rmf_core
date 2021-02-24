@@ -192,32 +192,27 @@ public:
     }
     else
     {
-      auto start_slot = waypoint_schedule->second.upper_bound(start_time);
-      if(start_slot != waypoint_schedule->second.end())
+      /// This branch is taken for indefinite reservations. 
+      /// The key insight is that the indefinite reservation must 
+      /// be after the last reservation. Hence we just neeed to check 
+      /// if the last reservation ends after the requested start time.
+      /// This results in O(1) lookup time
+      if(waypoint_schedule->second.size() == 0)
       {
-        /// A slot that is after the requested time exists hence we may not reserve it
-        return false;
-      }
-      if(start_slot == waypoint_schedule->second.begin())
-      {
-        /// No booked slots, may reserve the entire time period
         return true;
       }
-
-      // Check previous slot.
-      auto last_reservation = std::prev(start_slot);
-      if (!last_reservation->second.duration().has_value())
+      else
       {
-        // Last reservation had infinite time
-        return false;
-      }
-      else 
-      {
-        auto last_reservation_end_time = 
-          last_reservation->first + 
-          last_reservation->second.duration().value();
-
-        return last_reservation_end_time <= start_time;
+        auto last_reservation = waypoint_schedule->second.rbegin();
+        if(!last_reservation->second.duration().has_value())
+        {
+          // Last reservation was indefinite reservation. Can't 
+          // insert second indefinite reservation
+          return false;
+        }
+        auto end_time = last_reservation->first 
+          + *last_reservation->second.duration();
+        return end_time <= start_time;
       }
     }
   }
