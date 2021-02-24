@@ -81,7 +81,7 @@ public:
     ItineraryVersion version) final;
 
   // Documentation inherited from Writer
-  ParticipantId register_participant(
+  Registration register_participant(
     ParticipantDescription participant_info) final;
 
   /// Before calling this function on a Database, you should set the current
@@ -199,7 +199,7 @@ public:
   /// call this function for any other purpose.
   void set_current_time(Time time);
 
-  /// Get the curret itinerary version for the specified participant.
+  /// Get the current itinerary version for the specified participant.
   //
   // TODO(MXG): This function needs unit testing
   ItineraryVersion itinerary_version(ParticipantId participant) const;

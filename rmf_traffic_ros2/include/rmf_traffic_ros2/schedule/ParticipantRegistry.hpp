@@ -27,7 +27,7 @@
 #include <unordered_map>
 
 namespace rmf_traffic_ros2 { 
-
+namespace schedule {
 
 using Database = rmf_traffic::schedule::Database; 
 using ParticipantId = rmf_traffic::schedule::ParticipantId;
@@ -50,15 +50,15 @@ struct AtomicOperation
 class AbstractParticipantLogger
 {
 public:
-  virtual ~AbstractParticipantLogger() {};
-  
   /// Called when we wish to commit an operation to disk
   /// \param[in] operation
   virtual void write_operation(AtomicOperation operation) = 0;
-  
+
   /// Called when we wish to read the next record up during initiallization.
   /// \returns a std::nullopt when we have exhausted all records.
   virtual std::optional<AtomicOperation> read_next_record() = 0;
+
+  virtual ~AbstractParticipantLogger() = default;
 };
 
 //=============================================================================
@@ -68,9 +68,12 @@ class YamlLogger : public AbstractParticipantLogger
 public:
   /// Constructor
   /// Loads and logs to the specified file.
+  ///
   /// \throws YAML::ParserException if there is an error in the syntax of log
-  ///   file.
+  /// file.
+  ///
   /// \throws YAML::BadFile if there are problems with reading the file.
+  ///
   /// \throws std::filesystem_error if there is no permission to create the
   /// directory. 
   YamlLogger(std::string filename);
@@ -97,35 +100,32 @@ class ParticipantRegistry
 {
 public:
   /// Constructor
+  ///
+  /// \param[in] logger
+  ///   The logging implementation to use for recording registration.
+  ///
+  /// \param[in] database
+  ///   The database that will register the participants.
   ParticipantRegistry(
     std::unique_ptr<AbstractParticipantLogger> logger,
     std::shared_ptr<Database> database);
 
-  /// Adds a participant
+  using Registration = rmf_traffic::schedule::Writer::Registration;
+
+  /// Adds a participant or retrieves its ID if it was already added in the past
+  ///
   /// \param[in] description 
   ///   The description of the participant that one wishes to register.
-  /// 
-  /// \throws std::runtime_error if a participant with the same name and owner
-  ///   are already in the registry.
-  /// \returns ParticipantId of the participant, if a new participant is
-  ///      successfully created.
-  ParticipantId add_participant(ParticipantDescription description);
-
-  /// Checks if a participant with the name and owner already exist.
-  /// \param[in] name 
-  ///   name of the robot
-  /// \param[in] owner
-  ///   the robot owner
-  /// \returns std::nullopt if participant exists. Otherwise returns the ID.
-  std::optional<ParticipantId> participant_exists(
-    std::string name,
-    std::string owner);
+  ///
+  /// \returns ParticipantId of the participant
+  Registration add_or_retrieve_participant(ParticipantDescription description);
   
   class Implementation;
 private:
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
-} // end namespace rmf_traffic_ros2
+} // namespace schedule
+} // namespace rmf_traffic_ros2
 
 #endif

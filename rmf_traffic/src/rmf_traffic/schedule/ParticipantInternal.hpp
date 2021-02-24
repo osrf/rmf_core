@@ -46,7 +46,7 @@ public:
   // Note: It would be better if this constructor were private, but we need to
   // make it public so it can be used by rmf_utils::make_unique_impl
   Implementation(
-    ParticipantId id,
+    const Writer::Registration& registration,
     ParticipantDescription description,
     std::shared_ptr<Writer> writer);
 
@@ -59,6 +59,7 @@ private:
   ItineraryVersion get_next_version();
 
   const ParticipantId _id;
+  ItineraryVersion _version;
   const ParticipantDescription _description;
   std::shared_ptr<Writer> _writer;
   std::unique_ptr<RectificationRequester> _rectification;
@@ -70,7 +71,6 @@ private:
 
   ChangeHistory _change_history;
   RouteId _last_route_id = std::numeric_limits<RouteId>::max();
-  ItineraryVersion _version = std::numeric_limits<ItineraryVersion>::max();
   rmf_traffic::Duration _cumulative_delay = std::chrono::seconds(0);
 };
 

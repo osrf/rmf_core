@@ -122,8 +122,37 @@ public:
     const std::vector<RouteId>& routes,
     ItineraryVersion version) = 0;
 
-  // TODO(MXG): Consider saying "add" instead of "register" and "remove" instead
-  // of "unregister".
+  /// Information resulting from registering a participant
+  class Registration
+  {
+  public:
+
+    /// Constructor
+    ///
+    /// \param[in] id
+    ///   The ID for the registered participant
+    ///
+    /// \param[in] version
+    ///   The initial version for the registered participant
+    Registration(
+      ParticipantId id,
+      ItineraryVersion version);
+
+    /// The ID of the registered participant
+    ParticipantId id() const;
+
+    /// The initial itinerary version of the registered participant.
+    ///
+    /// This value might vary for systems that enforce participant uniqueness.
+    /// If this participant was registered in the past and is now being
+    /// re-registered, then the version number will pick up where it previously
+    /// left off.
+    ItineraryVersion itinerary_version() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
 
   /// Register a new participant.
   ///
@@ -134,7 +163,7 @@ public:
   ///   The time at which the registration is being requested.
   ///
   /// \return result of registering the new participant.
-  virtual ParticipantId register_participant(
+  virtual Registration register_participant(
     ParticipantDescription participant_info) = 0;
 
   /// Unregister an existing participant.

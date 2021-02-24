@@ -95,7 +95,7 @@ public:
     _database.erase(participant, routes, version);
   }
 
-  rmf_traffic::schedule::ParticipantId register_participant(
+  Registration register_participant(
     rmf_traffic::schedule::ParticipantDescription participant_info) final
   {
     // We assume participant registration is done over a reliable connection

@@ -406,18 +406,13 @@ void ScheduleNode::register_participant(
   // TODO(MXG): Use try on every database operation
   try
   {
-    auto desc = rmf_traffic_ros2::convert(request->description);
-    auto participant_id = participant_registry->participant_exists(desc.name(), 
-      desc.owner());
-    if(participant_id.has_value())
-    {
-      //TODO(arjo): Compare participant descriptors and update?
-      response->participant_id = *participant_id;
-    }
-    else
-    {
-      response->participant_id = participant_registry->add_participant(desc);
-    }
+    const auto registration = participant_registry
+        ->add_or_retrieve_participant(
+          rmf_traffic_ros2::convert(request->description));
+
+    response->participant_id = registration.id();
+    response->itinerary_version = registration.itinerary_version();
+
     RCLCPP_INFO(
       get_logger(),
       "Registered participant [" + std::to_string(response->participant_id)
@@ -429,7 +424,7 @@ void ScheduleNode::register_participant(
     RCLCPP_ERROR(
       get_logger(),
       "Failed to register participant [" + request->description.name
-      + "] owned by [" + request->description.owner + "]:" + e.what());
+      + "] owned by [" + request->description.owner + "]: " + e.what());
     response->error = e.what();
   }
 }

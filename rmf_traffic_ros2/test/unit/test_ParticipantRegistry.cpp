@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2020 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
 #include <rmf_traffic/geometry/Circle.hpp>
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
 #include <filesystem>
@@ -7,36 +24,36 @@
 
 #include "../../src/rmf_traffic_ros2/schedule/internal_YamlSerialization.hpp"
 
-using namespace rmf_traffic_ros2;
+using namespace rmf_traffic_ros2::schedule;
 SCENARIO("Test idempotency of shape type")
 {
-  
   YAML::Node node;
 
   // Check "None"
-  auto serialized = serialize_shape_type(rmf_traffic_msgs::msg::ConvexShape::NONE);
+  auto serialized = serialize_shape_type(
+    rmf_traffic_msgs::msg::ConvexShape::NONE);
   node["type"] = serialized;  
-  CHECK(shapetype(node["type"]) == rmf_traffic_msgs::msg::ConvexShape::NONE);
+  CHECK(shape_type(node["type"]) == rmf_traffic_msgs::msg::ConvexShape::NONE);
 
   // Check "Box"
   serialized = serialize_shape_type(rmf_traffic_msgs::msg::ConvexShape::BOX);
   node["type"] = serialized;
-  CHECK(shapetype(node["type"]) == rmf_traffic_msgs::msg::ConvexShape::BOX);
+  CHECK(shape_type(node["type"]) == rmf_traffic_msgs::msg::ConvexShape::BOX);
 
   // Check "Circle"
   serialized = serialize_shape_type(rmf_traffic_msgs::msg::ConvexShape::CIRCLE);
   node["type"] = serialized;
-  CHECK(shapetype(node["type"]) == rmf_traffic_msgs::msg::ConvexShape::CIRCLE);
+  CHECK(shape_type(node["type"]) == rmf_traffic_msgs::msg::ConvexShape::CIRCLE);
 
   REQUIRE_THROWS(serialize_shape_type(42));
   node["type"] = "not a shape";
-  REQUIRE_THROWS(shapetype(node["type"]));
+  REQUIRE_THROWS(shape_type(node["type"]));
 }
 
 
 bool operator==(const rmf_traffic::Profile p1, const rmf_traffic::Profile p2) 
 {
-  return convert(p1) == convert(p2);
+  return rmf_traffic_ros2::convert(p1) == rmf_traffic_ros2::convert(p2);
 }
 
 bool operator==(
@@ -76,8 +93,6 @@ SCENARIO("Test idempotency of ParticipantDescription.")
 
 class TestOperationLogger: public AbstractParticipantLogger
 {
-  std::vector<AtomicOperation>* _journal;
-  std::size_t _counter;
 public:
   
   TestOperationLogger(std::vector<AtomicOperation>* journal)
@@ -99,12 +114,15 @@ public:
     }
     return {(*_journal)[_counter++]};    
   }
+
+private:
+  std::vector<AtomicOperation>* _journal;
+  std::size_t _counter;
 };
 
 SCENARIO("Participant registry restores participants from logger")
 {
   using Database = rmf_traffic::schedule::Database;
-  using ParticipantId = rmf_traffic::schedule::ParticipantId;
  
   //Lets create a bunch of participants
   const auto shape = rmf_traffic::geometry::make_final_convex<
@@ -128,8 +146,6 @@ SCENARIO("Participant registry restores participants from logger")
     rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
     rmf_traffic::Profile{shape});
   
-  ParticipantId participant_id1, participant_id2, participant_id3;
-  
   GIVEN("A stubbed out logger")
   {
     std::vector<AtomicOperation>* journal;
@@ -138,9 +154,9 @@ SCENARIO("Participant registry restores participants from logger")
     {
       auto db1 = std::make_shared<Database>();
       ParticipantRegistry registry1(std::move(logger), db1);
-      participant_id1 = registry1.add_participant(p1);
-      participant_id2 = registry1.add_participant(p2);
-      participant_id3 = registry1.add_participant(p3);
+      const auto participant_id1 = registry1.add_or_retrieve_participant(p1);
+      const auto participant_id2 = registry1.add_or_retrieve_participant(p2);
+      const auto participant_id3 = registry1.add_or_retrieve_participant(p3);
   
       THEN("Restoring DB")
       {
@@ -148,14 +164,14 @@ SCENARIO("Participant registry restores participants from logger")
          auto logger2 = std::make_unique<TestOperationLogger>(journal);
         ParticipantRegistry registry2(std::move(logger2), db2);
         auto restored_participants = db2->participant_ids();
-        REQUIRE(restored_participants.count(participant_id1) > 0);
-        REQUIRE(restored_participants.count(participant_id2) > 0);
-        REQUIRE(restored_participants.count(participant_id3) > 0);
+        REQUIRE(restored_participants.count(participant_id1.id()) > 0);
+        REQUIRE(restored_participants.count(participant_id2.id()) > 0);
+        REQUIRE(restored_participants.count(participant_id3.id()) > 0);
         REQUIRE(restored_participants.size() == 3);
   
-        auto _p1 = db2->get_participant(participant_id1);
-        auto _p2 = db2->get_participant(participant_id2);
-        auto _p3 = db2->get_participant(participant_id3);
+        auto _p1 = db2->get_participant(participant_id1.id());
+        auto _p2 = db2->get_participant(participant_id2.id());
+        auto _p3 = db2->get_participant(participant_id3.id());
   
         REQUIRE(*_p1 == p1);
         REQUIRE(*_p2 == p2);

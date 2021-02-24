@@ -22,6 +22,7 @@
 #include "internal_YamlSerialization.hpp"
 
 namespace rmf_traffic_ros2 {
+namespace schedule {
 
 class YamlLogger::Implementation 
 {
@@ -106,5 +107,5 @@ std::optional<AtomicOperation> YamlLogger::read_next_record()
   return _pimpl->read_next_record();
 }
 
-
-} // end namespace rmf_traffic_ros2
+} // namespace schedule
+} // namespace rmf_traffic_ros2

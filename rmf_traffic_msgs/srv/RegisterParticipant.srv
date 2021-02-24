@@ -7,6 +7,8 @@ ParticipantDescription description
 # The ID given to the registered participant
 uint64 participant_id
 
+uint64 itinerary_version
+
 # A string to notify about exceptional issues that came up while trying to
 # fulfill the request
 string error

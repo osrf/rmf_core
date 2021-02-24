@@ -628,7 +628,7 @@ void Database::erase(
 }
 
 //==============================================================================
-ParticipantId Database::register_participant(
+Writer::Registration Database::register_participant(
   ParticipantDescription description)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
@@ -640,7 +640,7 @@ ParticipantId Database::register_participant(
   const auto description_ptr =
     std::make_shared<ParticipantDescription>(std::move(description));
 
-  _pimpl->states.insert(
+  const auto p_it = _pimpl->states.insert(
     std::make_pair(
       id,
       Implementation::ParticipantState{
@@ -649,12 +649,12 @@ ParticipantId Database::register_participant(
         {},
         description_ptr,
         version
-      }));
+      })).first;
 
   _pimpl->descriptions.insert({id, description_ptr});
 
   _pimpl->add_participant_version[version] = id;
-  return id;
+  return Registration(id, p_it->second.tracker->last_known_version());
 }
 
 //==============================================================================

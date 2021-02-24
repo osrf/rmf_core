@@ -117,7 +117,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   const rmf_traffic::Profile profile = create_test_profile(UnitCircle);
 
   rmf_traffic::Trajectory t_obs;
-  const rmf_traffic::schedule::ParticipantId p_obs =
+  const auto p_obs =
     database.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
       "obstacle",
@@ -131,7 +131,7 @@ rmf_traffic::Trajectory test_with_obstacle(
   for (const auto& obstacle : obstacles)
   {
     const auto r = std::make_shared<rmf_traffic::Route>("test_map", obstacle);
-    database.extend(p_obs, {{rid++, r}}, iv++);
+    database.extend(p_obs.id(), {{rid++, r}}, iv++);
   }
 
   rmf_utils::optional<rmf_traffic::agv::Planner::Result> result;
@@ -2214,7 +2214,7 @@ SCENARIO("Test planner with various start conditions")
     profile};
 
   rmf_traffic::schedule::Database database;
-  const rmf_traffic::schedule::ParticipantId p_obs =
+  const auto p_obs =
     database.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
       "obstacles",
@@ -2457,7 +2457,7 @@ SCENARIO("Test planner with various start conditions")
       {
         const auto r = std::make_shared<rmf_traffic::Route>(
           "test_map", obstacle);
-        database.extend(p_obs, {{ri_o++, r}}, iv_o++);
+        database.extend(p_obs.id(), {{ri_o++, r}}, iv_o++);
       }
 
       const auto result1 = plan.replan(start1);
