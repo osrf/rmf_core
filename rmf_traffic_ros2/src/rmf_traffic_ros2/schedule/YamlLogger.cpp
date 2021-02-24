@@ -16,8 +16,10 @@
 */
 
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
+#include "internal_YamlSerialization.hpp"
 
 namespace rmf_traffic_ros2 {
 
@@ -29,36 +31,28 @@ public:
   _file_path(file_path)
   {
     _counter = 0;
-    try 
+    if (!std::filesystem::exists(file_path))
     {
-      std::lock_guard<std::mutex> file_lock(_mutex);
-      _buffer = YAML::LoadFile(file_path);
-      if(!_buffer.IsSequence())
-      {
-        //Malformatted YAML. Failing so that we don't corrupt data
-        throw std::runtime_error(
-          "Malformatted file - Couldn't parse as YAML!");
-      }
+      std::filesystem::create_directories(
+            std::filesystem::absolute(file_path).parent_path());
+      return;
     }
-    catch(const YAML::BadFile& e)
-    {
-      //File could not be opened. For now it's OK we can ignore.
-      //Probably we should check:
-      // * if there is a permission issue fail
-      // * the file path does not exist
-      //    * check if we can create a file in the desired location
-    }
-    catch(const YAML::ParserException& e)
+
+    std::lock_guard<std::mutex> file_lock(_mutex);
+    _buffer = YAML::LoadFile(file_path);
+    if(!_buffer.IsSequence())
     {
       //Malformatted YAML. Failing so that we don't corrupt data
-      throw std::runtime_error(
-          "Malformatted file- Expected a sequence");
+      throw YAML::ParserException(_buffer.Mark(),
+        "Malformatted file - Expected the root format of the"\
+        " document to be a yaml sequence");
     }
-    
   }
 
   void write_operation(AtomicOperation operation)
   {
+    std::lock_guard<std::mutex> file_lock(_mutex);
+
     //We will use YAML's block sequence format as this friendly for appending
     //We only need to write the latest changes to the file.
     YAML::Emitter emmiter;
@@ -67,7 +61,6 @@ public:
     emmiter << YAML::EndSeq;
     assert(emmiter.good());
 
-    std::lock_guard<std::mutex> file_lock(_mutex);
     std::ofstream outfile;
     outfile.open(_file_path, std::ofstream::out | std::ofstream::app);
     if(!outfile.is_open())
@@ -100,7 +93,7 @@ private:
 YamlLogger::YamlLogger(std::string file_path): 
   _pimpl(rmf_utils::make_unique_impl<Implementation>(file_path))
 {
-
+  // Do nothing
 }
 
 void YamlLogger::write_operation(AtomicOperation operation)

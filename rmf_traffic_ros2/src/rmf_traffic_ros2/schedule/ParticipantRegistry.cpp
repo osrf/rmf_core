@@ -17,10 +17,9 @@
 
 #include <mutex>
 #include <rmf_traffic_ros2/schedule/ParticipantRegistry.hpp>
+#include "internal_YamlSerialization.hpp"
 
 namespace rmf_traffic_ros2 {
-
-
 
 //=============================================================================
 struct UniqueId
@@ -44,42 +43,44 @@ struct UniqueIdHasher
 };
 
 //=============================================================================
-ParticipantDescription::Rx responsiveness(std::string response)
+ParticipantDescription::Rx responsiveness(YAML::Node node)
 {
-  if(response == "Invalid")
-    return ParticipantDescription::Rx::Invalid;
+  auto response = node.as<std::string>();
   if(response == "Unresponsive")
     return ParticipantDescription::Rx::Unresponsive;
   if(response == "Responsive")
     return ParticipantDescription::Rx::Responsive;
-  throw std::runtime_error("Responsiveness field contains invalid identifier");
+  throw YAML::ParserException(node.Mark(), 
+    "Responsiveness field contains unknown identifier");
 }
 
 //=============================================================================
 uint8_t shapetype(YAML::Node node)
 {
   auto type = node.as<std::string>();
-  if(type == "None")
-    return rmf_traffic_msgs::msg::ConvexShape::NONE;
   if(type == "Box")
     return rmf_traffic_msgs::msg::ConvexShape::BOX;
   if(type == "Circle")
     return rmf_traffic_msgs::msg::ConvexShape::CIRCLE;
 
-  throw std::runtime_error("Shape type must be one of None, Box, Circle");
+  throw YAML::ParserException(node.Mark(), 
+    "Shape type must be one of Box, Circle");
 }
 
 //=============================================================================
 rmf_traffic_msgs::msg::ConvexShape convexshape(YAML::Node node)
 {
   if(!node.IsMap())
-    throw std::runtime_error("Profile information malformatted");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information should be a map");
 
   if(!node["type"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information missing footprint");
 
   if(!node["index"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information missing footprint");
 
   rmf_traffic_msgs::msg::ConvexShape shape;
   shape.type = shapetype(node["type"]);
@@ -94,7 +95,8 @@ rmf_traffic_msgs::msg::ConvexShapeContext shapecontext(YAML::Node node)
   //Radii. In future this should change.
   rmf_traffic_msgs::msg::ConvexShapeContext shape_context;
   if(!node.IsSequence())
-    throw std::runtime_error("Expected a list");
+    throw YAML::ParserException(node.Mark(), 
+      "Shape context should be a list");
 
   for(auto item: node)
   {
@@ -111,16 +113,20 @@ rmf_traffic_msgs::msg::ConvexShapeContext shapecontext(YAML::Node node)
 rmf_traffic::Profile profile(YAML::Node node)
 {
   if(!node.IsMap())
-    throw std::runtime_error("Profile information malformatted");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information should be a map");
 
   if(!node["footprint"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(), 
+      "Profile information missing footprint");
 
   if(!node["vicinity"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(),
+      "Profile information missing vicinity");
 
   if(!node["shapecontext"])
-    throw std::runtime_error("Profile information missing footprint");
+    throw YAML::ParserException(node.Mark(), 
+      "Profile information missing shape context");
   
   rmf_traffic_msgs::msg::Profile profile_msg;
   auto footprint = convexshape(node["footprint"]);
@@ -141,25 +147,29 @@ ParticipantDescription participant_description(YAML::Node node)
 
   if(!node.IsMap())
   {
-    throw std::runtime_error("Malformatted YAML file. Expected a map");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description should be a map field.");
   }
   
   if(!node["name"]) {
-    throw std::runtime_error("Malformatted YAML file. Expected a name.");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing name field.");
   }
   
   if(!node["owner"]) {
-    throw std::runtime_error("Malformatted YAML file. Expected a owner.");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing owner field.");
   }
   
   if(!node["responsiveness"]) {
-    throw std::runtime_error(
-      "Malformatted YAML file. Expected a responsiveness field"
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing responsiveness field"
     );
   }
   
   if(!node["profile"]) {
-    throw std::runtime_error("Malformatted YAML file. Expected a profile");
+    throw YAML::ParserException(node.Mark(), 
+      "Participant description missing a profile field");
   }
   
   std::string name = node["name"].as<std::string>();
@@ -167,7 +177,7 @@ ParticipantDescription participant_description(YAML::Node node)
   ParticipantDescription final_desc(
     name,
     owner,
-    responsiveness(node["responsiveness"].as<std::string>()),
+    responsiveness(node["responsiveness"]),
     profile(node["profile"])
   );
 
@@ -178,28 +188,26 @@ ParticipantDescription participant_description(YAML::Node node)
 AtomicOperation atomic_operation(YAML::Node node)
 {
   if(!node.IsMap())
-    throw std::runtime_error("Malformatted atomic operation Expected a map");
+    throw YAML::ParserException(node.Mark(), 
+      "Malformatted atomic operation Expected a map");
 
   AtomicOperation::OpType op_type;
 
   if(!node["operation"])
-    throw std::runtime_error("Expected an operation field.");
+    throw YAML::ParserException(node.Mark(), "Expected an operation field.");
 
   if(node["operation"].as<std::string>() == "Add")
   {
     op_type = AtomicOperation::OpType::Add;
   }
-  else if(node["operation"].as<std::string>() == "Remove")
-  {
-    op_type = AtomicOperation::OpType::Remove;
-  }
   else
   {
-    throw std::runtime_error("Invalid operation.");
+    throw YAML::ParserException(node.Mark(), "Invalid operation.");
   }
 
   if(!node["participant_description"])
-    throw std::runtime_error("Expected a participant_description field");\
+    throw YAML::ParserException(node.Mark(),
+      "Expected a participant_description field");
 
   auto description = participant_description(node["participant_description"]);
   
@@ -222,14 +230,12 @@ YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
 //=============================================================================
 std::string serialize_shape_type(uint8_t shape_type)
 {
-  if(shape_type == rmf_traffic_msgs::msg::ConvexShape::NONE)
-    return "None";
   if(shape_type == rmf_traffic_msgs::msg::ConvexShape::BOX)
     return "Box";
   if(shape_type == rmf_traffic_msgs::msg::ConvexShape::CIRCLE)
     return "Circle";
 
-  throw std::runtime_error("Shape type must be one of None, Box, Circle");
+  throw std::runtime_error("Shape type must be one of Box, Circle");
 }
 
 //=============================================================================
@@ -255,8 +261,6 @@ YAML::Node serialize(rmf_traffic::Profile profile)
 //=============================================================================
 std::string serialize_responsiveness(ParticipantDescription::Rx resp)
 {
-  if(resp == ParticipantDescription::Rx::Invalid)
-    return "Invalid";
   if(resp == ParticipantDescription::Rx::Unresponsive)
     return "Unresponsive";
   if(resp == ParticipantDescription::Rx::Responsive)
@@ -286,10 +290,6 @@ YAML::Node serialize(AtomicOperation atomOp)
   {
     node["operation"] = "Add";
   }
-  else if(atomOp.operation == AtomicOperation::OpType::Remove)
-  {
-    node["operation"] = "Remove";
-  }
   else
   {
     throw std::runtime_error("Found an invalid operation");
@@ -305,10 +305,10 @@ class ParticipantRegistry::Implementation
 public:
   //===========================================================================
   Implementation(
-    std::shared_ptr<AbstractParticipantLogger>  logger, 
+    std::unique_ptr<AbstractParticipantLogger>  logger, 
     std::shared_ptr<Database> db):
     _database(db),
-    _logger(logger)
+    _logger(std::move(logger))
   { 
     init();
   }
@@ -321,8 +321,8 @@ public:
 
     if(_id_from_name.count(key))
     {
-      throw std::runtime_error("Participant with name: "+description.name()
-        + "and owner: "+description.owner() + "already exists" );
+      throw std::runtime_error("Participant with name: " + description.name()
+        + "and owner: " + description.owner() + "already exists" );
     }
 
     ParticipantId id = _database->register_participant(description);
@@ -347,27 +347,6 @@ public:
     }
     return {id->second};
   }
-
-  //===========================================================================
-  void remove_participant(ParticipantId id)
-  {
-    std::lock_guard<std::mutex> lock(_mutex);
-    auto description = _descriptions.find(id);
-    if(description == _descriptions.end())
-    {
-      throw std::runtime_error("Participant with id " + std::to_string(id)
-        + " does not exist");
-    }
-    
-    _database->unregister_participant(id);
-
-    UniqueId key = {description->second.name(), 
-      description->second.owner()};
-
-    write_to_file({AtomicOperation::OpType::Remove, description->second});
-    _descriptions.erase(id);
-    _id_from_name.erase(key);
-  }
   
 private:
   //===========================================================================
@@ -379,26 +358,6 @@ private:
     _logger->write_operation(op);
 
   }
-
-  //===========================================================================
-  void remove_participant(ParticipantDescription description)
-  {
-    // This method is private because it is only used by execute()
-    // Additionally, we don't need to write the executing to the log file.
-    // as it is only called during initialization.
-    UniqueId key = {description.name(), description.owner()};
-
-    auto id = _id_from_name.find(key);
-    if(id == _id_from_name.end())
-    {
-      throw std::runtime_error("Participant with id " 
-      + std::to_string(id->second) + " does not exist");
-    }
-    _database->unregister_participant(id->second);
-    _descriptions.erase(id->second);
-    _id_from_name.erase(key);
-  }
-
  
   //===========================================================================
   void init()
@@ -419,10 +378,6 @@ private:
       add_participant(operation.description);
     }
 
-    if(operation.operation == AtomicOperation::OpType::Remove)
-    {
-      remove_participant(operation.description);
-    }
   }
 
   //==========================================================================
@@ -431,19 +386,18 @@ private:
   std::unordered_map<UniqueId, 
     ParticipantId, UniqueIdHasher> _id_from_name;
   std::shared_ptr<Database> _database; 
-  std::shared_ptr<AbstractParticipantLogger> _logger;
+  std::unique_ptr<AbstractParticipantLogger> _logger;
   std::mutex _mutex;
 };
 
 //=============================================================================
 ParticipantRegistry::ParticipantRegistry(
-  std::shared_ptr<AbstractParticipantLogger> logger,
+  std::unique_ptr<AbstractParticipantLogger> logger,
   std::shared_ptr<Database> database)
 :_pimpl(rmf_utils::make_unique_impl<Implementation>(
-  logger,
-  database))
+  std::move(logger), database))
 {
-  
+  //Do nothing
 }
 
 //=============================================================================
@@ -459,12 +413,6 @@ std::optional<ParticipantId>  ParticipantRegistry::participant_exists(
     std::string owner)
 {
   return _pimpl->participant_exists(name, owner);
-}
-
-//=============================================================================
-void ParticipantRegistry::remove_participant(ParticipantId id)
-{
-  _pimpl->remove_participant(id);
 }
 
 }//end namespace rmf_traffic_ros2
