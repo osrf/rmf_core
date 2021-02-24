@@ -20,17 +20,37 @@
 namespace rmf_traffic_ros2 {
 namespace schedule {
 
+namespace {
+const std::string BoxKey = "Box";
+const std::string CircleKey = "Circle";
+const std::string TypeKey = "type";
+const std::string IndexKey = "index";
+const std::string FootprintKey = "footprint";
+const std::string VicinityKey = "vicinity";
+const std::string NameKey = "name";
+const std::string ShapeContextKey = "shape_context";
+const std::string GroupKey = "group";
+const std::string ResponsivenessKey = "responsiveness";
+const std::string ResponsiveKey = "Responsive";
+const std::string UnresponsiveKey = "Unresponsive";
+const std::string ProfileKey = "profile";
+const std::string OperationKey = "operation";
+const std::string ParticipantDescriptionKey = "participant_description";
+const std::string AddOperationKey = "Add";
+} // anonymous namespace
+
 //==============================================================================
 ParticipantDescription::Rx responsiveness(YAML::Node node)
 {
   auto response = node.as<std::string>();
-  if(response == "Unresponsive")
+  if(response == UnresponsiveKey)
     return ParticipantDescription::Rx::Unresponsive;
-  if(response == "Responsive")
+  if(response == ResponsiveKey)
     return ParticipantDescription::Rx::Responsive;
 
   throw YAML::ParserException(node.Mark(),
-    "Responsiveness field contains unknown identifier");
+    "[" + ResponsivenessKey + "] field contains unknown identifier: "
+    + response);
 }
 
 //==============================================================================
@@ -38,14 +58,14 @@ uint8_t shape_type(YAML::Node node)
 {
   auto type = node.as<std::string>();
 
-  if(type == "Box")
+  if(type == BoxKey)
     return rmf_traffic_msgs::msg::ConvexShape::BOX;
 
-  if(type == "Circle")
+  if(type == CircleKey)
     return rmf_traffic_msgs::msg::ConvexShape::CIRCLE;
 
   throw YAML::ParserException(node.Mark(),
-    "Shape type must be one of Box, Circle");
+    "Shape type must be one of [" + BoxKey + "], [" + CircleKey + "]");
 }
 
 //==============================================================================
@@ -53,19 +73,19 @@ rmf_traffic_msgs::msg::ConvexShape convex_shape(YAML::Node node)
 {
   if(!node.IsMap())
     throw YAML::ParserException(node.Mark(),
-      "Profile information should be a map");
+      "Shape information should be a map");
 
-  if(!node["type"])
+  if(!node[TypeKey])
     throw YAML::ParserException(node.Mark(),
-      "Profile information missing footprint");
+      "Shape information missing [" + TypeKey + "]");
 
-  if(!node["index"])
+  if(!node[IndexKey])
     throw YAML::ParserException(node.Mark(),
-      "Profile information missing footprint");
+      "Shape information missing [" + IndexKey + "]");
 
   rmf_traffic_msgs::msg::ConvexShape shape;
-  shape.type = shape_type(node["type"]);
-  shape.index = node["index"].as<uint8_t>();
+  shape.type = shape_type(node[TypeKey]);
+  shape.index = node[IndexKey].as<uint8_t>();
   return shape;
 }
 
@@ -77,9 +97,9 @@ rmf_traffic_msgs::msg::ConvexShapeContext shape_context(YAML::Node node)
   rmf_traffic_msgs::msg::ConvexShapeContext shape_context;
   if(!node.IsSequence())
     throw YAML::ParserException(node.Mark(),
-      "Shape context should be a list");
+      "[" + ShapeContextKey + "] should be a list");
 
-  for(auto item: node)
+  for(auto item : node)
   {
     double radius = item.as<double>();
     rmf_traffic_msgs::msg::Circle circle;
@@ -97,22 +117,22 @@ rmf_traffic::Profile profile(YAML::Node node)
     throw YAML::ParserException(node.Mark(),
       "Profile information should be a map");
 
-  if(!node["footprint"])
+  if(!node[FootprintKey])
     throw YAML::ParserException(node.Mark(),
-      "Profile information missing footprint");
+      "Profile information missing [" + FootprintKey + "]");
 
-  if(!node["vicinity"])
+  if(!node[VicinityKey])
     throw YAML::ParserException(node.Mark(),
-      "Profile information missing vicinity");
+      "Profile information missing [" + VicinityKey + "]");
 
-  if(!node["shapecontext"])
+  if(!node[ShapeContextKey])
     throw YAML::ParserException(node.Mark(),
-      "Profile information missing shape context");
+      "Profile information missing [" + ShapeContextKey + "]");
 
   rmf_traffic_msgs::msg::Profile profile_msg;
-  auto footprint = convex_shape(node["footprint"]);
-  auto vicinity = convex_shape(node["vicinity"]);
-  auto context = shape_context(node["shapecontext"]);
+  auto footprint = convex_shape(node[FootprintKey]);
+  auto vicinity = convex_shape(node[VicinityKey]);
+  auto context = shape_context(node[ShapeContextKey]);
 
   profile_msg.footprint = footprint;
   profile_msg.vicinity = vicinity;
@@ -132,34 +152,34 @@ ParticipantDescription participant_description(YAML::Node node)
       "Participant description should be a map field.");
   }
 
-  if(!node["name"]) {
+  if(!node[NameKey]) {
     throw YAML::ParserException(node.Mark(),
-      "Participant description missing name field.");
+      "Participant description missing [" + NameKey + "] field.");
   }
 
-  if(!node["owner"]) {
+  if(!node[GroupKey]) {
     throw YAML::ParserException(node.Mark(),
-      "Participant description missing owner field.");
+      "Participant description missing [" + GroupKey + "] field.");
   }
 
-  if(!node["responsiveness"]) {
+  if(!node[ResponsivenessKey]) {
     throw YAML::ParserException(node.Mark(),
-      "Participant description missing responsiveness field"
+      "Participant description missing [" + ResponsivenessKey + "] field"
     );
   }
 
-  if(!node["profile"]) {
+  if(!node[ProfileKey]) {
     throw YAML::ParserException(node.Mark(),
-      "Participant description missing a profile field");
+      "Participant description missing [" + ProfileKey + "] field");
   }
 
-  std::string name = node["name"].as<std::string>();
-  std::string owner = node["owner"].as<std::string>();
+  std::string name = node[NameKey].as<std::string>();
+  std::string group = node[GroupKey].as<std::string>();
   ParticipantDescription final_desc(
     name,
-    owner,
-    responsiveness(node["responsiveness"]),
-    profile(node["profile"])
+    group,
+    responsiveness(node[ResponsivenessKey]),
+    profile(node[ProfileKey])
   );
 
   return final_desc;
@@ -170,27 +190,28 @@ AtomicOperation atomic_operation(YAML::Node node)
 {
   if(!node.IsMap())
     throw YAML::ParserException(node.Mark(),
-      "Malformatted atomic operation Expected a map");
+      "Malformatted operation: Expected a map");
 
   AtomicOperation::OpType op_type;
 
-  if(!node["operation"])
+  if(!node[OperationKey])
     throw YAML::ParserException(node.Mark(), "Expected an operation field.");
 
-  if(node["operation"].as<std::string>() == "Add")
+  const std::string& operation = node[OperationKey].as<std::string>();
+  if (operation == AddOperationKey)
   {
     op_type = AtomicOperation::OpType::Add;
   }
   else
   {
-    throw YAML::ParserException(node.Mark(), "Invalid operation.");
+    throw YAML::ParserException(node.Mark(), "Invalid operation: " + operation);
   }
 
-  if(!node["participant_description"])
+  if(!node[ParticipantDescriptionKey])
     throw YAML::ParserException(node.Mark(),
-      "Expected a participant_description field");
+      "Expected a [" + ParticipantDescriptionKey + "] field");
 
-  auto description = participant_description(node["participant_description"]);
+  auto description = participant_description(node[ParticipantDescriptionKey]);
 
   return {op_type, description};
 }
@@ -201,7 +222,7 @@ YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
   //For now since only circles are supported, so I'm just going to store their
   //Radii. In future this should change.
   YAML::Node node;
-  for(auto circle: context.circles)
+  for(auto circle : context.circles)
   {
     node.push_back(circle.radius);
   }
@@ -212,9 +233,9 @@ YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShapeContext context)
 std::string serialize_shape_type(uint8_t shape_type)
 {
   if(shape_type == rmf_traffic_msgs::msg::ConvexShape::BOX)
-    return "Box";
+    return BoxKey;
   if(shape_type == rmf_traffic_msgs::msg::ConvexShape::CIRCLE)
-    return "Circle";
+    return CircleKey;
 
   throw std::runtime_error("Shape type must be one of Box, Circle");
 }
@@ -223,8 +244,8 @@ std::string serialize_shape_type(uint8_t shape_type)
 YAML::Node serialize(rmf_traffic_msgs::msg::ConvexShape shape)
 {
   YAML::Node node;
-  node["type"] = serialize_shape_type(shape.type);
-  node["index"] = shape.index;
+  node[TypeKey] = serialize_shape_type(shape.type);
+  node[IndexKey] = shape.index;
   return node;
 }
 
@@ -233,9 +254,9 @@ YAML::Node serialize(rmf_traffic::Profile profile)
 {
   YAML::Node node;
   rmf_traffic_msgs::msg::Profile profile_msg= convert(profile);
-  node["footprint"] = serialize(profile_msg.footprint);
-  node["vicinity"] = serialize(profile_msg.vicinity);
-  node["shapecontext"] = serialize(profile_msg.shape_context);
+  node[FootprintKey] = serialize(profile_msg.footprint);
+  node[VicinityKey] = serialize(profile_msg.vicinity);
+  node[ShapeContextKey] = serialize(profile_msg.shape_context);
   return node;
 }
 
@@ -243,9 +264,9 @@ YAML::Node serialize(rmf_traffic::Profile profile)
 std::string serialize_responsiveness(ParticipantDescription::Rx resp)
 {
   if(resp == ParticipantDescription::Rx::Unresponsive)
-    return "Unresponsive";
+    return UnresponsiveKey;
   if(resp == ParticipantDescription::Rx::Responsive)
-    return "Responsive";
+    return ResponsiveKey;
   throw std::runtime_error("Failed to seriallize responsiveness");
 }
 
@@ -254,10 +275,10 @@ YAML::Node serialize(ParticipantDescription participant)
 {
   YAML::Node node;
 
-  node["name"] = participant.name();
-  node["owner"] = participant.owner();
-  node["responsiveness"] = serialize_responsiveness(participant.responsiveness());
-  node["profile"] = serialize(participant.profile());
+  node[NameKey] = participant.name();
+  node[GroupKey] = participant.owner();
+  node[ResponsivenessKey] = serialize_responsiveness(participant.responsiveness());
+  node[ProfileKey] = serialize(participant.profile());
 
   return node;
 }
@@ -269,13 +290,13 @@ YAML::Node serialize(AtomicOperation atomOp)
 
   if(atomOp.operation == AtomicOperation::OpType::Add)
   {
-    node["operation"] = "Add";
+    node[OperationKey] = AddOperationKey;
   }
   else
   {
     throw std::runtime_error("Found an invalid operation");
   }
-  node["participant_description"] = serialize(atomOp.description);
+  node[ParticipantDescriptionKey] = serialize(atomOp.description);
 
   return node;
 }
