@@ -71,7 +71,8 @@ public:
   /// \param vertices
   ///   The waypoints in which we are interested
   /// \param duration
-  ///   The amount of time for which we would like to make the
+  ///   The amount of time for which we would like to make the Reservation
+  ///   nullopt if the reservation is indefinite.
   /// \return a nullopt if the reservation is not possible,
   /// otherwise returns a Reservation object.
   std::optional<Reservation> reserve(
