@@ -55,9 +55,10 @@ struct TaskStatus
   /// Also with static make function
   TaskProfile task_profile;
 
-  // std::string task_id;
-  // rmf_traffic::Time submission_time;
-  // ConstDescriptionPtr description = nullptr;
+  // static std::shared_ptr<NewTaskStatus> make(
+  //   std::string task_id,
+  //   rmf_traffic::Time submission_time,
+  //   ConstDescriptionPtr task_description);
   
   bool is_terminated() const;
 };

@@ -410,13 +410,6 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
 
 //==============================================================================
 std::optional<TaskID> Dispatcher::submit_task(
-  const TaskDescription& task_description)
-{
-  return _pimpl->submit_task(task_description);
-}
-
-//==============================================================================
-std::optional<TaskID> Dispatcher::submit_task(
   const ConstDescriptionPtr task_description)
 {
   return _pimpl->submit_task(task_description->to_msg());

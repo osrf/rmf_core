@@ -36,11 +36,11 @@
 namespace rmf_task {
 namespace requests {
 
-class ChargeBattery : public rmf_task::Request
+class ChargeBatteryDescription : public rmf_task::Request::Description
 {
 public:
 
-  static ConstRequestPtr make(
+  static DescriptionPtr make(
     rmf_battery::agv::BatterySystem battery_system,
     std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
     std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
@@ -48,16 +48,12 @@ public:
     rmf_traffic::Time start_time,
     bool drain_battery = true);
 
-  std::string id() const final;
-
   rmf_utils::optional<rmf_task::Estimate> estimate_finish(
     const agv::State& initial_state,
     const agv::Constraints& task_planning_constraints,
     const std::shared_ptr<EstimateCache> estimate_cache) const final;
 
   rmf_traffic::Duration invariant_duration() const final;
-
-  rmf_traffic::Time earliest_start_time() const final;
 
   /// Get the battery system in this request
   const rmf_battery::agv::BatterySystem& battery_system() const;
@@ -67,12 +63,27 @@ public:
 
   class Implementation;
 private:
-  ChargeBattery();
+  ChargeBatteryDescription();
+
   rmf_utils::impl_ptr<Implementation> _pimpl;
 };
 
-using ChargeBatteryRequestPtr = std::shared_ptr<ChargeBattery>;
-using ConstChargeBatteryRequestPtr = std::shared_ptr<const ChargeBattery>;
+//==============================================================================
+class ChargeBattery
+{
+public:
+
+  static ConstRequestPtr make(
+    rmf_battery::agv::BatterySystem battery_system,
+    std::shared_ptr<rmf_battery::MotionPowerSink> motion_sink,
+    std::shared_ptr<rmf_battery::DevicePowerSink> device_sink,
+    std::shared_ptr<rmf_traffic::agv::Planner> planner,
+    rmf_traffic::Time start_time,
+    bool drain_battery = true,
+    ConstPriorityPtr priority = nullptr);
+};
+
+using ChargeBatteryDescriptionPtr = std::shared_ptr<ChargeBatteryDescription>;
 
 } // namespace requests
 } // namespace rmf_task

@@ -170,6 +170,13 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   const auto& graph = planner->get_configuration().graph();
   rmf_task_ros2::ConstDescriptionPtr task_description;
 
+  // Generate the priority of the request. The current implementation supports
+  // binary priority
+  auto priority =
+    task_profile.description.priority.value > 0 ?
+    rmf_task::BinaryPriorityScheme::make_high_priority() :
+    rmf_task::BinaryPriorityScheme::make_low_priority();  
+
   // Process Cleaning task
   if (task_type.type == TaskType::TYPE_CLEAN)
   {
@@ -254,7 +261,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       tool_sink,
       planner,
       start_time,
-      drain_battery);
+      drain_battery,
+      priority);
 
     RCLCPP_INFO(
       node->get_logger(),
@@ -309,7 +317,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       ambient_sink,
       planner,
       start_time,
-      drain_battery);
+      drain_battery,
+      priority);
 
     RCLCPP_INFO(
       node->get_logger(),
@@ -363,7 +372,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       ambient_sink,
       planner,
       start_time,
-      drain_battery);
+      drain_battery,
+      priority);
 
     RCLCPP_INFO(
       node->get_logger(),
@@ -556,21 +566,22 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
     }
 
     std::unordered_set<std::string> executed_tasks;
-    std::unordered_set<std::string> assigned_tasks;
+    std::unordered_set<std::string> queued_tasks;
     for (const auto& mgr : task_managers)
     {
       if (mgr->current_task())
         executed_tasks.insert(mgr->current_task()->id());
       for (const auto& tsk : mgr->task_queue())
-        assigned_tasks.insert(tsk->id());
+        queued_tasks.insert(tsk->id());
+        // TODO DEBUG!
     }
 
-    if (assigned_tasks.find(id) != assigned_tasks.end())
+    if (queued_tasks.find(id) == queued_tasks.end())
     {
       RCLCPP_WARN(
         node->get_logger(),
-        "Unable to cancel task with task_id:[%s] as it is not assigned to "
-        "fleet:[%s].",
+        "Unable to cancel task with task_id:[%s] as it is not queued to "
+        "fleet: [%s].",
         id.c_str(), name.c_str());
 
       dispatch_ack_pub->publish(dispatch_ack);
@@ -902,7 +913,9 @@ void FleetUpdateHandle::Implementation::set_assignments_to_task_managers(
         start = assignments[tm_index][i-1].state().location();
       start.time(a.deployment_time());
 
-      const auto id = a.request()->id();
+      const auto req = a.request();
+      const auto id = req->id();
+      const auto req_desc = req->description();
 
       rmf_task_ros2::ConstDescriptionPtr desc;
       if (task_descriptions.find(id) != task_descriptions.end())
@@ -915,31 +928,29 @@ void FleetUpdateHandle::Implementation::set_assignments_to_task_managers(
           a.deployment_time(), TaskType::TYPE_CHARGE_BATTERY);
       }
 
-      using namespace rmf_task::requests;
-      /// CLEAN TASK
-      if ( const auto req =
-        std::dynamic_pointer_cast<const Clean>(a.request()))
-      {
-        task = tasks::make_clean(
-          desc, req, t->context(), start, a.deployment_time(), a.state());
-      }
+      // We use dynamic cast to determine the type of request and then call the
+      // appropriate make(~) function to convert the request into a task
       /// CHARGE BATTERY TASK
-      else if ( const auto req =
-        std::dynamic_pointer_cast<const ChargeBattery>(a.request()))
+      using namespace rmf_task::requests;
+      if (std::dynamic_pointer_cast<const ChargeBatteryDescription>(req_desc))
       {
         task = tasks::make_charge_battery(
           desc, req, t->context(), start, a.deployment_time(), a.state());
       }
+      /// CLEAN TASK
+      else if (std::dynamic_pointer_cast<const CleanDescription>(req_desc))
+      {
+        task = tasks::make_clean(
+          desc, req, t->context(), start, a.deployment_time(), a.state());
+      }
       /// DELIVERY TASK
-      else if ( const auto req =
-        std::dynamic_pointer_cast<const Delivery>(a.request()))
+      else if (std::dynamic_pointer_cast<const DeliveryDescription>(req_desc))
       {
         task = tasks::make_delivery(
           desc, req, t->context(), start, a.deployment_time(), a.state());
       }
       /// LOOP TASK
-      else if ( const auto req =
-        std::dynamic_pointer_cast<const Loop>(a.request()))
+      else if (std::dynamic_pointer_cast<const LoopDescription>(req_desc))
       {
         task = tasks::make_loop(
           desc, req, t->context(), start, a.deployment_time(), a.state());
@@ -1106,7 +1117,8 @@ bool FleetUpdateHandle::set_task_planner_params(
         *battery_system,
         motion_sink,
         ambient_sink,
-        _pimpl->planner);
+        _pimpl->planner,
+        _pimpl->cost_calculator);
     
     _pimpl->task_planner = std::make_shared<rmf_task::agv::TaskPlanner>(
       task_config);

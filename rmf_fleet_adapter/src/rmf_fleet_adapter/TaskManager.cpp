@@ -169,8 +169,9 @@ const std::vector<rmf_task::ConstRequestPtr> TaskManager::requests() const
   requests.reserve(_queue.size());
   for (const auto& task : _queue)
   {
-    if (std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(
-      task->request()))
+    if (std::dynamic_pointer_cast<
+      const rmf_task::requests::ChargeBatteryDescription>(
+        task->request()->description()))
       continue;
     requests.push_back(task->request());
   }
@@ -360,7 +361,7 @@ void TaskManager::retreat_to_charger()
       task_planner_config->planner(),
       current_state.finish_time());
 
-    const auto finish = charging_request->estimate_finish(
+    const auto finish = charging_request->description()->estimate_finish(
       current_state,
       _context->task_planning_constraints(),
       estimate_cache);
@@ -380,7 +381,7 @@ void TaskManager::retreat_to_charger()
     // TODO(YL)  Check time input
     const auto task = rmf_fleet_adapter::tasks::make_charge_battery(
       task_desc,
-      std::dynamic_pointer_cast<const rmf_task::requests::ChargeBattery>(charging_request),
+      charging_request,
       _context,
       current_state.location(),
       charging_assignment.deployment_time(),

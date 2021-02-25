@@ -75,21 +75,15 @@ public:
     const double bidding_time_window = 2.0,
     const int terminated_tasks_depth = 50);
 
-  /// Submit task to dispatcher node. Calling this function will immediately
-  /// trigger the bidding process, then the task "action". Once submmitted,
-  /// Task State will be in 'Pending' State, till the task is awarded to a fleet
-  /// then the state will turn to 'Queued'
+  /// Submit task description to RMF dispatcher node. Calling this function will
+  /// immediately trigger the bidding process, and dispatch the task to the 
+  /// selected downstream fleet adapter.
   ///
   /// \param [in] task_description
   ///   Submit a Description of task to dispatch
   ///
   /// \return task_id
   ///   self-generated task_id, nullopt is submit task failed
-  [[deprecated("Soon will only support ConstDescriptionPtr as arg")]]
-  std::optional<TaskID> submit_task(
-    const TaskDescription& task_description);
-
-  // New task submission
   std::optional<TaskID> submit_task(
     const ConstDescriptionPtr task_description);
 
