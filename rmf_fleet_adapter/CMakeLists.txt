@@ -40,7 +40,6 @@ set(dep_pkgs
   rmf_battery
   rmf_task
   rmf_task_ros2
-  rmf_fleet_adapter
   std_msgs
 )
 foreach(pkg ${dep_pkgs})

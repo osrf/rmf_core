@@ -152,6 +152,11 @@ const std::vector<std::shared_ptr<Task>> TaskManager::task_queue() const
 void TaskManager::set_queue(
   const std::vector<std::shared_ptr<Task>>& tasks)
 {
+  {
+    std::lock_guard<std::mutex> guard(_mutex);
+    _queue.clear();
+  }
+
   for (const auto t : tasks)
     queue_task(t);
 }
