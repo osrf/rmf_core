@@ -71,7 +71,7 @@ SCENARIO("Test Database Conflicts")
 
     rmf_traffic::schedule::ItineraryVersion iv1 = 0;
     rmf_traffic::RouteId rv1 = 0;
-    db.set(p1, create_test_input(rv1++, t1), iv1++);
+    db.set(p1.id(), create_test_input(rv1++, t1), iv1++);
     CHECK(db.latest_version() == ++dbv);
 
     // query for the changes after version 0
@@ -80,7 +80,7 @@ SCENARIO("Test Database Conflicts")
     CHECK(changes.unregistered().size() == 0);
 
     REQUIRE(changes.size() == 1);
-    CHECK(changes.begin()->participant_id() == p1);
+    CHECK(changes.begin()->participant_id() == p1.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
     CHECK(changes.begin()->additions().items().begin()->id == 0);
     CHECK_FALSE(changes.cull());
@@ -94,7 +94,7 @@ SCENARIO("Test Database Conflicts")
       t2.insert(time+10min, Eigen::Vector3d{0, 5, 0}, Eigen::Vector3d{0, 0, 0});
       REQUIRE(t2.size() == 2);
 
-      db.extend(p1, create_test_input(rv1++, t2), iv1++);
+      db.extend(p1.id(), create_test_input(rv1++, t2), iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 2);
 
@@ -103,7 +103,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.registered().size() == 1);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1);
+      CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 2);
       CHECK(changes.begin()->delays().size() == 0);
       CHECK(changes.begin()->erasures().ids().size() == 0);
@@ -115,7 +115,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1);
+      CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 1);
       CHECK(changes.begin()->additions().items().begin()->id == 1);
       CHECK(changes.begin()->delays().size() == 0);
@@ -128,7 +128,7 @@ SCENARIO("Test Database Conflicts")
     {
       //introduce a delay after the first waypoint in t1
       const auto duration = 5s;
-      db.delay(p1, duration, iv1++);
+      db.delay(p1.id(), duration, iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 2);
 
@@ -137,7 +137,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.registered().size() == 1);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1);
+      CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 2);
       CHECK(changes.begin()->delays().size() == 0);
       CHECK(changes.begin()->erasures().ids().size() == 0);
@@ -149,7 +149,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1);
+      CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 0);
       REQUIRE(changes.begin()->delays().size() == 1);
       CHECK(changes.begin()->delays().begin()->duration() == duration);
@@ -160,7 +160,7 @@ SCENARIO("Test Database Conflicts")
 
     // WHEN("Trajectory is erased")
     {
-      db.erase(p1, {1}, iv1++);
+      db.erase(p1.id(), {1}, iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 1);
 
@@ -169,7 +169,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.registered().size() == 1);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1);
+      CHECK(changes.begin()->participant_id() == p1.id());
       REQUIRE(changes.begin()->additions().items().size() == 1);
       CHECK(changes.begin()->additions().items().begin()->id == 0);
       CHECK(changes.begin()->delays().size() == 0);
@@ -182,7 +182,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1);
+      CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 0);
       CHECK(changes.begin()->delays().size() == 0);
       REQUIRE(changes.begin()->erasures().ids().size() == 1);
@@ -193,7 +193,7 @@ SCENARIO("Test Database Conflicts")
 
     // WHEN("Itinerary is erased")
     {
-      db.erase(p1, iv1++);
+      db.erase(p1.id(), iv1++);
       CHECK(db.latest_version() == ++dbv);
       CHECK_TRAJECTORY_COUNT(db, 1, 0);
 
@@ -210,7 +210,7 @@ SCENARIO("Test Database Conflicts")
       CHECK(changes.registered().size() == 0);
       CHECK(changes.unregistered().size() == 0);
       REQUIRE(changes.size() == 1);
-      CHECK(changes.begin()->participant_id() == p1);
+      CHECK(changes.begin()->participant_id() == p1.id());
       CHECK(changes.begin()->additions().items().size() == 0);
       CHECK(changes.begin()->delays().size() == 0);
       REQUIRE(changes.begin()->erasures().ids().size() == 1);
@@ -253,7 +253,7 @@ SCENARIO("Test Database Conflicts")
     {
       auto current_time = time + 10min;
       db.set_current_time(current_time);
-      db.unregister_participant(p1);
+      db.unregister_participant(p1.id());
       CHECK(db.latest_version() == ++dbv);
       CHECK(rmf_traffic::schedule::Database::Debug::current_removed_participant_count(
           db) == 1);

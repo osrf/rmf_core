@@ -122,8 +122,50 @@ public:
     const std::vector<RouteId>& routes,
     ItineraryVersion version) = 0;
 
-  // TODO(MXG): Consider saying "add" instead of "register" and "remove" instead
-  // of "unregister".
+  /// Information resulting from registering a participant
+  class Registration
+  {
+  public:
+
+    /// Constructor
+    ///
+    /// \param[in] id
+    ///   The ID for the registered participant
+    ///
+    /// \param[in] version
+    ///   The last itinerary version for the registered participant
+    ///
+    /// \param[in] route_id
+    ///   The last route_id for the registered participant
+    Registration(
+      ParticipantId id,
+      ItineraryVersion version,
+      RouteId route_id);
+
+    /// The ID of the registered participant
+    ParticipantId id() const;
+
+    /// The last itinerary version of the registered participant. New
+    /// Participants will begin by adding up from this version when issuing
+    /// schedule updates.
+    ///
+    /// This value might vary for systems that enforce participant uniqueness.
+    /// If this participant was registered in the past and is now being
+    /// re-registered, then the version number will pick up where it previously
+    /// left off.
+    ItineraryVersion last_itinerary_version() const;
+
+    /// The last Route ID of the registered participant. New Participants will
+    /// begin by adding up from this Route ID when issuing new schedule updates.
+    ///
+    /// Similar to last_itinerary_version, this value might vary for systems
+    /// that enforce participant uniqueness.
+    RouteId last_route_id() const;
+
+    class Implementation;
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
 
   /// Register a new participant.
   ///
@@ -134,7 +176,7 @@ public:
   ///   The time at which the registration is being requested.
   ///
   /// \return result of registering the new participant.
-  virtual ParticipantId register_participant(
+  virtual Registration register_participant(
     ParticipantDescription participant_info) = 0;
 
   /// Unregister an existing participant.

@@ -112,6 +112,7 @@ public:
     ParticipantStorage storage;
     const std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
+    RouteId last_route_id = std::numeric_limits<RouteId>::max();
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
   ParticipantStates states;
@@ -231,6 +232,9 @@ public:
     {
       const auto& item = input[i];
       const RouteId route_id = item.id;
+      if (rmf_utils::modular(state.last_route_id).less_than(route_id))
+        state.last_route_id = route_id;
+
       state.active_routes.insert(route_id);
 
       RouteStorage& entry_storage = *entries[i];
@@ -628,7 +632,7 @@ void Database::erase(
 }
 
 //==============================================================================
-ParticipantId Database::register_participant(
+Writer::Registration Database::register_participant(
   ParticipantDescription description)
 {
   const ParticipantId id = _pimpl->get_next_participant_id();
@@ -640,7 +644,7 @@ ParticipantId Database::register_participant(
   const auto description_ptr =
     std::make_shared<ParticipantDescription>(std::move(description));
 
-  _pimpl->states.insert(
+  const auto p_it = _pimpl->states.insert(
     std::make_pair(
       id,
       Implementation::ParticipantState{
@@ -649,12 +653,15 @@ ParticipantId Database::register_participant(
         {},
         description_ptr,
         version
-      }));
+      })).first;
 
   _pimpl->descriptions.insert({id, description_ptr});
 
   _pimpl->add_participant_version[version] = id;
-  return id;
+
+  const auto& state = p_it->second;
+  return Registration(
+    id, state.tracker->last_known_version(), state.last_route_id);
 }
 
 //==============================================================================
@@ -1243,6 +1250,20 @@ ItineraryVersion Database::itinerary_version(ParticipantId participant) const
   }
 
   return p_it->second.tracker->last_known_version();
+}
+
+//==============================================================================
+RouteId Database::last_route_id(ParticipantId participant) const
+{
+  const auto p_it = _pimpl->states.find(participant);
+  if (p_it == _pimpl->states.end())
+  {
+    throw std::runtime_error(
+      "[Database::last_route_id] No participant with ID ["
+      + std::to_string(participant) + "]");
+  }
+
+  return p_it->second.last_route_id;
 }
 
 } // namespace schedule
