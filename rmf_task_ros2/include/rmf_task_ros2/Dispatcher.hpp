@@ -76,7 +76,7 @@ public:
     const int terminated_tasks_depth = 50);
 
   /// Submit task description to RMF dispatcher node. Calling this function will
-  /// immediately trigger the bidding process, and dispatch the task to the 
+  /// immediately trigger the bidding process, and dispatch the task to the
   /// selected downstream fleet adapter.
   ///
   /// \param [in] task_description

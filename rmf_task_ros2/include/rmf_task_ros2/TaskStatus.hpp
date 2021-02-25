@@ -59,7 +59,7 @@ struct TaskStatus
   //   std::string task_id,
   //   rmf_traffic::Time submission_time,
   //   ConstDescriptionPtr task_description);
-  
+
   bool is_terminated() const;
 };
 

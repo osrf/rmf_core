@@ -41,7 +41,7 @@ public:
     uint32_t type);
 
   rmf_traffic::Time start_time() const;
-  
+
   uint32_t type() const;
 
   virtual TaskDescription to_msg() const;
