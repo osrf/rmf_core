@@ -2,6 +2,10 @@
 Changelog for package rmf_traffic_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.3.0 (2021-XX-XX)
+------------------
+* Add persistence to Traffic Schedule Participant IDs: [#242](https://github.com/osrf/rmf_core/pull/242)
+
 1.2.0 (2021-01-05)
 ------------------
 * Adding blockade management messages: [#226](https://github.com/osrf/rmf_core/pull/226)

@@ -53,7 +53,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     rmf_traffic::geometry::Box>(profile_scale, profile_scale);
   const rmf_traffic::Profile profile{shape};
 
-  const rmf_traffic::schedule::ParticipantId p1 = db.register_participant(
+  const auto p1 = db.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
       "test_participant_1",
       "test_Mirror",
@@ -64,7 +64,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   rmf_traffic::schedule::ItineraryVersion iv1 = 0;
   rmf_traffic::RouteId rv1 = 0;
 
-  const rmf_traffic::schedule::ParticipantId p2 = db.register_participant(
+  const auto p2 = db.register_participant(
     rmf_traffic::schedule::ParticipantDescription{
       "test_participant_2",
       "test_Mirror",
@@ -88,10 +88,10 @@ SCENARIO("Test Mirror of a Database with two trajectories")
   t2.insert(time+10s, Eigen::Vector3d{5, 10, 0}, Eigen::Vector3d{0, 0, 0});
   REQUIRE(t2.size() == 2);
 
-  db.set(p1, create_test_input(rv1++, t1), iv1++);
+  db.set(p1.id(), create_test_input(rv1++, t1), iv1++);
   CHECK(db.latest_version() == ++dbv);
 
-  db.set(p2, create_test_input(rv2++, t2), iv2++);
+  db.set(p2.id(), create_test_input(rv2++, t2), iv2++);
   CHECK(db.latest_version() == ++dbv);
   REQUIRE_FALSE(rmf_traffic::DetectConflict::between(profile, t1, profile, t2));
 
@@ -107,7 +107,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     t3.insert(time, Eigen::Vector3d{-5, -10, 0}, Eigen::Vector3d{0, 0, 0});
     t3.insert(time+10s, Eigen::Vector3d{5, 10, 0}, Eigen::Vector3d{0, 0, 0});
 
-    db.extend(p1, create_test_input(rv1++, t3), iv1++);
+    db.extend(p1.id(), create_test_input(rv1++, t3), iv1++);
     CHECK(db.latest_version() == ++dbv);
     CHECK_TRAJECTORY_COUNT(db, 2, 3);
     CHECK(mirror.latest_version() != db.latest_version());
@@ -139,7 +139,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
       t4.insert(time, Eigen::Vector3d{-5, 0, 0}, Eigen::Vector3d{0, 0, 0});
       t4.insert(time+10s, Eigen::Vector3d{-2, 0, 0}, Eigen::Vector3d{0, 0, 0});
 
-      db.set(p1, create_test_input(rv1++, t4), iv1++);
+      db.set(p1.id(), create_test_input(rv1++, t4), iv1++);
       CHECK(db.latest_version() == ++dbv);
 
       view = db.query(query_all);
@@ -160,7 +160,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     WHEN(
       "Erasing conflicting trajectory in db and updating mirror should eliminate conflict")
     {
-      db.erase(p1, {0}, iv1++);
+      db.erase(p1.id(), {0}, iv1++);
       CHECK(db.latest_version() == ++dbv);
       changes = db.changes(query_all, mirror.latest_version());
       mirror.update(changes);
@@ -175,7 +175,7 @@ SCENARIO("Test Mirror of a Database with two trajectories")
     WHEN(
       "Delaying conflicting trajectory in db and updating mirror should eliminate conflict")
     {
-      db.delay(p1, 20s, iv1++);
+      db.delay(p1.id(), 20s, iv1++);
       CHECK(db.latest_version() == ++dbv);
       changes = db.changes(query_all, mirror.latest_version());
       CHECK(mirror.update(changes) == changes.latest_version());
@@ -275,9 +275,9 @@ SCENARIO("Testing specialized mirrors")
   REQUIRE(t5.size() == 2);
   const auto r5 = std::make_shared<rmf_traffic::Route>("test_map_2", t5);
 
-  db.set(p1, {{rv1++, r1}, {rv1++, r2}, {rv1++, r4}}, iv1++);
+  db.set(p1.id(), {{rv1++, r1}, {rv1++, r2}, {rv1++, r4}}, iv1++);
   CHECK(db.latest_version() == ++dbv);
-  db.set(p2, {{rv2++, r3}, {rv2++, r5}}, iv2++);
+  db.set(p2.id(), {{rv2++, r3}, {rv2++, r5}}, iv2++);
   CHECK(db.latest_version() == ++dbv);
 
   // Check that there are no conflicts between the routes on test_map
@@ -310,7 +310,7 @@ SCENARIO("Testing specialized mirrors")
 
     REQUIRE(changes.size() > 0);
     CHECK(changes.size() == 1);
-    CHECK(changes.begin()->participant_id() == p1);
+    CHECK(changes.begin()->participant_id() == p1.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
     CHECK(changes.begin()->additions().items().begin()->id == 0);
   }
@@ -339,7 +339,7 @@ SCENARIO("Testing specialized mirrors")
 
     REQUIRE(changes.size() > 0);
     CHECK(changes.size() == 1);
-    CHECK(changes.begin()->participant_id() == p1);
+    CHECK(changes.begin()->participant_id() == p1.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
     CHECK(changes.begin()->additions().items().begin()->id == 1);
   }
@@ -396,7 +396,7 @@ SCENARIO("Testing specialized mirrors")
       db.changes(query, rmf_utils::nullopt);
     REQUIRE(changes.size() > 0);
     CHECK(changes.size() == 1);
-    CHECK(changes.begin()->participant_id() == p2);
+    CHECK(changes.begin()->participant_id() == p2.id());
     REQUIRE(changes.begin()->additions().items().size() == 1);
     CHECK(changes.begin()->additions().items().begin()->id == 0);
   }
@@ -438,8 +438,8 @@ SCENARIO("Testing specialized mirrors")
     }
 
     IdMap expected_ids;
-    expected_ids[p1] = {0};
-    expected_ids[p2] = {0};
+    expected_ids[p1.id()] = {0};
+    expected_ids[p2.id()] = {0};
 
     CHECK(ids == expected_ids);
   }
@@ -478,7 +478,7 @@ SCENARIO("Testing specialized mirrors")
     }
 
     IdMap expected_ids;
-    expected_ids[p1] = {0, 1};
-    expected_ids[p2] = {0};
+    expected_ids[p1.id()] = {0, 1};
+    expected_ids[p2.id()] = {0};
   }
 }

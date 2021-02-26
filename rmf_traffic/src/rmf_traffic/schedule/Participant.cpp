@@ -19,6 +19,8 @@
 #include "debug_Participant.hpp"
 #include "RectifierInternal.hpp"
 
+#include <sstream>
+
 namespace rmf_traffic {
 namespace schedule {
 
@@ -34,17 +36,17 @@ Participant Participant::Implementation::make(
   std::shared_ptr<Writer> writer,
   std::shared_ptr<RectificationRequesterFactory> rectifier_factory)
 {
-  const ParticipantId id = writer->register_participant(description);
+  const auto registration = writer->register_participant(description);
 
   Participant participant;
   participant._pimpl = rmf_utils::make_unique_impl<Implementation>(
-    id, std::move(description), std::move(writer));
+    registration, std::move(description), std::move(writer));
 
   if (rectifier_factory)
   {
     participant._pimpl->_rectification =
       rectifier_factory->make(
-      Rectifier::Implementation::make(*participant._pimpl), id);
+      Rectifier::Implementation::make(*participant._pimpl), registration.id());
   }
 
   return participant;
@@ -55,6 +57,19 @@ void Participant::Implementation::retransmit(
   const std::vector<Rectifier::Range>& ranges,
   const ItineraryVersion last_known_version)
 {
+  if (rmf_utils::modular(current_version()).less_than(last_known_version))
+  {
+    std::stringstream str;
+    str << "[Participant::Implementation::retransmit] Remote database has a "
+        << "higher version number [" << last_known_version << "] than ["
+        << current_version() << "] the version number of the local "
+        << "participant [" << _id << ":" << _description.owner() << "/"
+        << _description.name() << "]. This indicates that the remote database "
+        << "is receiving participant updates from a conflicting source.";
+
+    throw std::runtime_error(str.str());
+  }
+
   for (const auto& range : ranges)
   {
     assert(rmf_utils::modular(range.lower).less_than_or_equal(range.upper));
@@ -97,10 +112,12 @@ ItineraryVersion Participant::Implementation::current_version() const
 
 //==============================================================================
 Participant::Implementation::Implementation(
-  ParticipantId id,
+  const Writer::Registration& registration,
   ParticipantDescription description,
   std::shared_ptr<Writer> writer)
-: _id(id),
+: _id(registration.id()),
+  _version(registration.last_itinerary_version()),
+  _last_route_id(registration.last_route_id()),
   _description(std::move(description)),
   _writer(writer)
 {
