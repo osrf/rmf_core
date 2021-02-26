@@ -16,7 +16,7 @@
 */
 
 #include <rmf_task_ros2/Description.hpp>
-#include <rmf_task_ros2/Dispatcher.hpp>
+#include <rmf_task_ros2/TaskStatus.hpp>
 #include <rmf_utils/catch.hpp>
 
 namespace rmf_task_ros2 {
@@ -45,6 +45,12 @@ SCENARIO("Task Description Test", "[Description]")
   TaskDescription msg;
   auto delivery2 = description::Delivery::make_from_msg(msg);
   REQUIRE(!delivery2);
+
+  // Create TaskStatus Object
+  auto delivery_status = TaskStatus::make("Delivery001", now, delivery);
+  REQUIRE(delivery_status->task_id() == "Delivery001");
+  REQUIRE(delivery_status->state == TaskStatus::State::Pending);
+  REQUIRE(!delivery_status->is_terminated());
 
 //==============================================================================
   // test loop descripttion msg

@@ -20,20 +20,50 @@
 
 #include <unordered_map>
 #include <rmf_traffic/Time.hpp>
-#include <rmf_task_msgs/msg/task_profile.hpp>
+#include <rmf_utils/impl_ptr.hpp>
+#include <rmf_task_ros2/Description.hpp>
+
 #include <rmf_task_msgs/msg/task_summary.hpp>
 
 namespace rmf_task_ros2 {
 
-//==============================================================================
-using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 using StatusMsg = rmf_task_msgs::msg::TaskSummary;
-using TaskID = std::string;
 
 //==============================================================================
+/// This represents the Task Status of each unique task
 /// \note TaskStatus struct is based on TaskSummary.msg
-struct TaskStatus
+class TaskStatus
 {
+public:
+  static std::shared_ptr<TaskStatus> make(
+    std::string task_id,
+    rmf_traffic::Time submission_time,
+    ConstDescriptionPtr task_description);
+
+  /// Get Task ID
+  std::string task_id() const;
+
+  /// Get submission time
+  rmf_traffic::Time submission_time() const;
+
+  /// Get Task Description
+  ConstDescriptionPtr description() const;
+
+  /// The fleet which will execute the task
+  std::string fleet_name;
+
+  /// The robot which will execute the task
+  std::string robot_name;
+
+  /// The estimated time which the task will start executing
+  rmf_traffic::Time start_time;
+
+  /// The estimated time which the task will finish
+  rmf_traffic::Time end_time;
+
+  /// Verbose status of this task
+  std::string status;
+
   enum class State : uint8_t
   {
     Queued    = StatusMsg::STATE_QUEUED,
@@ -44,29 +74,24 @@ struct TaskStatus
     Pending   = StatusMsg::STATE_PENDING
   };
 
-  std::string fleet_name;
-  rmf_traffic::Time start_time;
-  rmf_traffic::Time end_time;
-  std::string robot_name;
-  std::string status; // verbose msg
-  State state = State::Pending; // default
+  /// Current State of the task
+  State state;
 
-  /// TODO(YL) Shouldnt expose this msg, replace with the one commented below.
-  /// Also with static make function
-  TaskProfile task_profile;
-
-  // static std::shared_ptr<NewTaskStatus> make(
-  //   std::string task_id,
-  //   rmf_traffic::Time submission_time,
-  //   ConstDescriptionPtr task_description);
-
+  /// Check if the current task is terminated
   bool is_terminated() const;
+
+  /// This helper function is to only update status elements in TaskStatus, in
+  /// which static task descriptions (e.g. id, tasktype...) will not be changed
+  /// \note experimental (TODO)
+  void update_from_msg(const StatusMsg& msg);
+
+  class Implementation;
+private:
+  TaskStatus();
+  rmf_utils::unique_impl_ptr<Implementation> _pimpl;
 };
 
 using TaskStatusPtr = std::shared_ptr<TaskStatus>;
-
-// ==============================================================================
-TaskStatus convert_status(const StatusMsg& from);
 
 // ==============================================================================
 StatusMsg convert_status(const TaskStatus& from);

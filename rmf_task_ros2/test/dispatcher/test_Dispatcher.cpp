@@ -100,11 +100,11 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
   //============================================================================
   // test on change fn callback
   int change_times = 0;
-  TaskProfile test_taskprofile;
+  std::string test_dispatcher_received_id = "";
   dispatcher->on_change(
-    [&change_times, &test_taskprofile](const TaskStatusPtr status)
+    [&change_times, &test_dispatcher_received_id](const TaskStatusPtr status)
     {
-      test_taskprofile = status->task_profile;
+      test_dispatcher_received_id = status->task_id();
       change_times++;
     }
   );
@@ -120,14 +120,14 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     std::this_thread::sleep_for(std::chrono::milliseconds(3500));
     CHECK(dispatcher->get_task_state(*id) == TaskStatus::State::Failed);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
-    REQUIRE(test_taskprofile.task_id == id);
+    REQUIRE(test_dispatcher_received_id == id);
     CHECK(change_times == 2); // add and failed
 
     // Submit another task
     id = dispatcher->submit_task(clean_task);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     REQUIRE(dispatcher->terminated_tasks().size() == 2);
-    REQUIRE(test_taskprofile.task_id == *id);
+    REQUIRE(test_dispatcher_received_id == *id);
     CHECK(change_times == 4); // add and failed x2
   }
 
@@ -162,9 +162,9 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
       auto t = std::thread(
         [&action_server, &task_canceled_flag](auto profile)
         {
-          TaskStatus status;
-          status.task_profile = profile;
-          status.robot_name = "dumbot";
+          const auto status = TaskStatus::make(
+            profile.task_id, std::chrono::steady_clock::now(), nullptr);
+          status->robot_name = "dumbot";
           std::this_thread::sleep_for(std::chrono::seconds(2));
 
           if (task_canceled_flag)
@@ -174,13 +174,13 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
           }
 
           // Executing
-          status.state = TaskStatus::State::Executing;
-          action_server->update_status(status);
+          status->state = TaskStatus::State::Executing;
+          action_server->update_status(*status);
           std::this_thread::sleep_for(std::chrono::seconds(1));
 
           // Completed
-          status.state = TaskStatus::State::Completed;
-          action_server->update_status(status);
+          status->state = TaskStatus::State::Completed;
+          action_server->update_status(*status);
         }, task_profile
       );
       t.detach();
@@ -213,12 +213,17 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     CHECK(change_times == 4); // Pending > Queued > Executing > Completed
 
     // Add auto generated ChargeBattery Task from fleet adapter
-    TaskStatus status;
-    status.task_profile.task_id = "ChargeBattery10";
-    status.state = TaskStatus::State::Queued;
-    status.task_profile.description.task_type.type =
-      rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY;
-    action_server->update_status(status);
+    /// TODO; Currently needa think of a way of makeChargeDescription class
+    const auto status = TaskStatus::make(
+      "ChargeBattery10", std::chrono::steady_clock::now(), nullptr);
+    status->state = TaskStatus::State::Queued;
+
+    // TaskStatus status;
+    // status.task_profile.task_id = "ChargeBattery10";
+    // status.task_profile.description.task_type.type =
+    //   rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY;
+
+    action_server->update_status(*status);
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     CHECK(change_times == 5); // new stray charge task
@@ -239,7 +244,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     REQUIRE(dispatcher->active_tasks().size() == 0);
     REQUIRE(dispatcher->terminated_tasks().size() == 1);
     REQUIRE(dispatcher->terminated_tasks().begin()->first == *id);
-    auto status = dispatcher->terminated_tasks().begin()->second;
+    const auto status = dispatcher->terminated_tasks().begin()->second;
     CHECK(status->state == TaskStatus::State::Canceled);
     CHECK(change_times == 3); // Pending -> Queued -> Canceled
   }

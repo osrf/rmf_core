@@ -334,7 +334,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     if (!loop)
     {
       RCLCPP_ERROR(node->get_logger(),
-                  "Delivery Msg is invalid/invalid."
+                  "Loop Msg is invalid/invalid."
                   "Rejecting BidNotice with task_id:[%s]", id.c_str());
       return;
     }
@@ -599,7 +599,7 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 
       dispatch_ack_pub->publish(dispatch_ack);
       return;
-    }  
+    }
 
     // Re-plan assignments while ignoring request for task to be cancelled
     const auto replan_results = allocate_tasks(nullptr, id);

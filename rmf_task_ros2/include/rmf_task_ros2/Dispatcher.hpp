@@ -34,8 +34,8 @@ namespace rmf_task_ros2 {
 class Dispatcher : public std::enable_shared_from_this<Dispatcher>
 {
 public:
+  using TaskID = std::string;
   using DispatchTasks = std::unordered_map<TaskID, TaskStatusPtr>;
-  using TaskDescription = rmf_task_msgs::msg::TaskDescription;
 
   /// Initialize an rclcpp context and make an dispatcher instance. This will
   /// instantiate an rclcpp::Node, a task dispatcher node. Dispatcher node will

@@ -44,28 +44,26 @@ public:
   static std::shared_ptr<Client> make(
     std::shared_ptr<rclcpp::Node> node);
 
-  /// Add a task to a targeted fleet
+  /// Dispatch a task to a targeted fleet
   ///
   /// \param[in] fleet_name
   ///   Target fleet which will execute this task
   ///
-  /// \param[in] task_profile
-  ///   Task Description which will be executed
-  ///
   /// \param[out] status_ptr
-  ///   Will update the status of the task here
-  void add_task(
+  ///   task_status will have a task description member, which is used to
+  ///   describe the task to dispatch. With this status ptr, recent status
+  ///   of task will also get updated here.
+  void dispatch_task(
     const std::string& fleet_name,
-    const TaskProfile& task_profile,
     TaskStatusPtr status_ptr);
 
   /// Cancel an added task
   ///
-  /// \param[in] task_profile
+  /// \param[in] task_id
   ///   Task which to cancel
   ///
   /// \return bool which indicate if cancel task is success
-  bool cancel_task(const TaskProfile& task_profile);
+  bool cancel_task(const std::string& task_id);
 
   /// Get the number of active task being track by client
   ///
@@ -101,7 +99,7 @@ private:
   std::shared_ptr<rclcpp::Node> _node;
   StatusCallback _on_change_callback;
   StatusCallback _on_terminate_callback;
-  std::unordered_map<TaskID, std::weak_ptr<TaskStatus>> _active_task_status;
+  std::unordered_map<std::string, std::weak_ptr<TaskStatus>> _active_task_status;
   rclcpp::Publisher<RequestMsg>::SharedPtr _request_msg_pub;
   rclcpp::Subscription<StatusMsg>::SharedPtr _status_msg_sub;
   rclcpp::Subscription<AckMsg>::SharedPtr _ack_msg_sub;

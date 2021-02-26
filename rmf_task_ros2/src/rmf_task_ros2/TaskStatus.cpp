@@ -21,6 +21,61 @@
 namespace rmf_task_ros2 {
 
 // ==============================================================================
+class TaskStatus::Implementation
+{
+public:
+  Implementation()
+  {}
+
+  std::string task_id;
+  rmf_traffic::Time submission_time;
+  ConstDescriptionPtr description;
+};
+
+// ==============================================================================
+TaskStatusPtr TaskStatus::make(
+  std::string task_id,
+  rmf_traffic::Time submission_time,
+  ConstDescriptionPtr description)
+{
+  std::shared_ptr<TaskStatus> desc(new TaskStatus());
+  desc->_pimpl->task_id = task_id;
+  desc->_pimpl->submission_time = std::move(submission_time);
+  desc->_pimpl->description = std::move(description);
+  desc->state = State::Pending;
+  return desc;
+}
+
+// ==============================================================================
+ConstDescriptionPtr TaskStatus::description() const
+{
+  return _pimpl->description;
+}
+
+// ==============================================================================
+std::string TaskStatus::task_id() const
+{
+  return _pimpl->task_id;
+}
+
+// ==============================================================================
+rmf_traffic::Time TaskStatus::submission_time() const
+{
+  return _pimpl->submission_time;
+}
+
+// ==============================================================================
+void TaskStatus::update_from_msg(const StatusMsg& msg)
+{
+  fleet_name = msg.fleet_name;
+  start_time = rmf_traffic_ros2::convert(msg.start_time);
+  end_time = rmf_traffic_ros2::convert(msg.end_time);
+  robot_name = msg.robot_name;
+  status = msg.status;
+  state = static_cast<TaskStatus::State>(msg.state);
+}
+
+// ==============================================================================
 bool TaskStatus::is_terminated() const
 {
   return (state == State::Failed) ||
@@ -28,18 +83,11 @@ bool TaskStatus::is_terminated() const
     (state == State::Canceled);
 }
 
-// ==============================================================================
-TaskStatus convert_status(const StatusMsg& from)
+//==============================================================================
+TaskStatus::TaskStatus()
+: _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
-  TaskStatus status;
-  status.fleet_name = from.fleet_name;
-  status.task_profile = from.task_profile;
-  status.start_time = rmf_traffic_ros2::convert(from.start_time);
-  status.end_time = rmf_traffic_ros2::convert(from.end_time);
-  status.robot_name = from.robot_name;
-  status.status = from.status;
-  status.state = static_cast<TaskStatus::State>(from.state);
-  return status;
+  // Do nothing
 }
 
 // ==============================================================================
@@ -47,13 +95,19 @@ StatusMsg convert_status(const TaskStatus& from)
 {
   StatusMsg status;
   status.fleet_name = from.fleet_name;
-  status.task_id = from.task_profile.task_id;  // duplication
-  status.task_profile = from.task_profile;
+  status.task_id = from.task_id();  // duplication
+  status.task_profile.task_id = from.task_id();
+  status.task_profile.submission_time =
+    rmf_traffic_ros2::convert(from.submission_time());
   status.start_time = rmf_traffic_ros2::convert(from.start_time);
   status.end_time = rmf_traffic_ros2::convert(from.end_time);
   status.robot_name = from.robot_name;
   status.status = from.status;
   status.state = static_cast<uint32_t>(from.state);
+
+  if (from.description())
+    status.task_profile.description = from.description()->to_msg();
+
   return status;
 }
 

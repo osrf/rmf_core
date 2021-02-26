@@ -77,26 +77,26 @@ int main(int argc, char* argv[])
       auto t = std::thread(
         [&action_server, &node](auto profile)
         {
-          TaskStatus status;
-          status.task_profile = profile;
-          status.robot_name = "dumbot";
-          status.start_time = rmf_traffic_ros2::convert(node->now());
-          status.end_time =
-          rmf_traffic::time::apply_offset(status.start_time, 7);
-
+          // HUGE TODO(YL)
           const auto id = profile.task_id;
+          const auto now = rmf_traffic_ros2::convert(node->now());
+          const auto status = TaskStatus::make(id, now, nullptr); //todo
+          status->robot_name = "dumbot";
+          status->start_time = now;
+          status->end_time = rmf_traffic::time::apply_offset(now, 7);
+
           std::cout << " [MockBidder] Queued, TaskID: "  << id << std::endl;
-          action_server->update_status(status);
+          action_server->update_status(*status);
 
           std::this_thread::sleep_for(std::chrono::seconds(2));
           std::cout << " [MockBidder] Executing, TaskID: " << id << std::endl;
-          status.state = TaskStatus::State::Executing;
-          action_server->update_status(status);
+          status->state = TaskStatus::State::Executing;
+          action_server->update_status(*status);
 
           std::this_thread::sleep_for(std::chrono::seconds(5));
           std::cout << " [MockBidder] Completed, TaskID: " << id << std::endl;
-          status.state = TaskStatus::State::Completed;
-          action_server->update_status(status);
+          status->state = TaskStatus::State::Completed;
+          action_server->update_status(*status);
         }, task_profile
       );
       t.detach();
