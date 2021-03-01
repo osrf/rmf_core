@@ -552,7 +552,6 @@ void GoToPlace::Active::execute_plan(rmf_traffic::agv::Plan new_plan)
   rmf_task::agv::State dummy_state{{dummy_time, 0, 0.0}, 0, 1.0};
   _subtasks = Task::make(
         _description,
-        nullptr,
         std::move(sub_phases),
         _context->worker(),
         dummy_time,

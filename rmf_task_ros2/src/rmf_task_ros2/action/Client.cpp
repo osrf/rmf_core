@@ -74,6 +74,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
         const auto desc = Description::make_from_msg(
           msg->task_profile.description);
         const auto status = TaskStatus::make(task_id, now, desc);
+        status->update_from_msg(*msg);
         _active_task_status[task_id] = status;
         update_task_status(status);
       }

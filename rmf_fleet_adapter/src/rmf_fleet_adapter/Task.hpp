@@ -28,7 +28,6 @@
 
 #include <rmf_task/Request.hpp>
 #include <rmf_task/agv/State.hpp>
-#include <rmf_task_ros2/Description.hpp>
 
 #include <rmf_rxcpp/RxJobs.hpp>
 #include <rmf_rxcpp/Publisher.hpp>
@@ -41,6 +40,7 @@ class Task : public std::enable_shared_from_this<Task>
 public:
 
   using StatusMsg = rmf_task_msgs::msg::TaskSummary;
+  using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 
   /// This class represents the active phase of a Task. It provides an
   /// observable that the Task can track to stay up-to-date on the status and to
@@ -100,7 +100,6 @@ public:
   // Make a new task
   static std::shared_ptr<Task> make(
       std::string id,
-      rmf_task_ros2::ConstDescriptionPtr description,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
       rmf_traffic::Time deployment_time,
@@ -125,11 +124,12 @@ public:
   void cancel();
 
   const std::string& id() const;
+  
+  /// Get the profile msg, for publish status msg
+  const TaskProfile profile_msg() const;
 
-  // const rmf_task_ros2::msg::TaskProfile profile() const;
-
-  /// Task description
-  const rmf_task_ros2::ConstDescriptionPtr description() const;
+  /// Set the profile msg, for publish status msg
+  void profile_msg(const TaskProfile& profile);
 
   /// Get the request used to generate this task
   const rmf_task::ConstRequestPtr request() const;
@@ -144,7 +144,6 @@ private:
 
   Task(
       std::string id,
-      rmf_task_ros2::ConstDescriptionPtr description,
       PendingPhases phases,
       rxcpp::schedulers::worker worker,
       rmf_traffic::Time deployment_time,
@@ -170,7 +169,7 @@ private:
   rmf_traffic::Time _deployment_time;
   rmf_task::agv::State _finish_state;
   rmf_task::ConstRequestPtr _request;
-  rmf_task_ros2::ConstDescriptionPtr _description = nullptr;
+  TaskProfile _profile_msg;
 
   void _start_next_phase();
 

@@ -29,7 +29,6 @@ namespace rmf_fleet_adapter {
 //==============================================================================
 std::shared_ptr<Task> Task::make(
     std::string id,
-    rmf_task_ros2::ConstDescriptionPtr description,
     PendingPhases phases,
     rxcpp::schedulers::worker worker,
     rmf_traffic::Time deployment_time,
@@ -38,7 +37,6 @@ std::shared_ptr<Task> Task::make(
 {
   return std::make_shared<Task>(
         Task(std::move(id),
-          std::move(description),
           std::move(phases),
           std::move(worker),
           deployment_time,
@@ -91,9 +89,15 @@ const std::string& Task::id() const
 }
 
 //==============================================================================
-const rmf_task_ros2::ConstDescriptionPtr Task::description() const
+const rmf_task_msgs::msg::TaskProfile Task::profile_msg() const
 {
-  return _description;
+  return _profile_msg;
+}
+
+//==============================================================================
+void Task::profile_msg(const rmf_task_msgs::msg::TaskProfile& profile)
+{
+  _profile_msg = profile;
 }
 
 //==============================================================================
@@ -117,14 +121,12 @@ const rmf_task::agv::State Task::finish_state() const
 //==============================================================================
 Task::Task(
     std::string id,
-    rmf_task_ros2::ConstDescriptionPtr description,
     std::vector<std::unique_ptr<PendingPhase>> phases,
     rxcpp::schedulers::worker worker,
     rmf_traffic::Time deployment_time,
     rmf_task::agv::State finish_state,
     rmf_task::ConstRequestPtr request)
   : _id(std::move(id)),
-    _description(std::move(description)),
     _pending_phases(std::move(phases)),
     _worker(std::move(worker)),
     _deployment_time(deployment_time),

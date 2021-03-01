@@ -213,15 +213,9 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
     CHECK(change_times == 4); // Pending > Queued > Executing > Completed
 
     // Add auto generated ChargeBattery Task from fleet adapter
-    /// TODO; Currently needa think of a way of makeChargeDescription class
     const auto status = TaskStatus::make(
       "ChargeBattery10", std::chrono::steady_clock::now(), nullptr);
     status->state = TaskStatus::State::Queued;
-
-    // TaskStatus status;
-    // status.task_profile.task_id = "ChargeBattery10";
-    // status.task_profile.description.task_type.type =
-    //   rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY;
 
     action_server->update_status(*status);
     std::this_thread::sleep_for(std::chrono::seconds(1));

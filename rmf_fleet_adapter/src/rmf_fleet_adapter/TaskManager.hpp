@@ -45,6 +45,7 @@ public:
   using StartSet = rmf_traffic::agv::Plan::StartSet;
   using Assignment = rmf_task::agv::TaskPlanner::Assignment;
   using State = rmf_task::agv::State;
+  using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 
   /// Add a task to the queue of this manager.
   void queue_task(std::shared_ptr<Task> task);
@@ -55,9 +56,11 @@ public:
 
   const Task* current_task() const;
 
-  // /// Set the queue for this task manager with assignments generated from the
-  // /// task planner
-  // void set_queue(const std::vector<Assignment>& assignments);
+  /// Set the queue for this task manager with assignments generated from the
+  /// task planner, arg 'task_profiles' is merely used for status publishing.
+  void set_queue(
+    const std::vector<Assignment>& assignments,
+    const std::unordered_map<std::string, TaskProfile>& task_profiles = {});
 
   /// set a vector of tasks
   void set_queue(const std::vector<std::shared_ptr<Task>>& tasks);
@@ -75,7 +78,6 @@ public:
   /// when robot is idle and battery level drops below a retreat threshold.
   void retreat_to_charger();
 
-  /// TODO(YL) not needed, should be removed?
   /// Get the list of task ids for tasks that have started execution. 
   /// The list will contain upto 100 latest task ids only.
   const std::vector<std::string>& get_executed_tasks() const;  

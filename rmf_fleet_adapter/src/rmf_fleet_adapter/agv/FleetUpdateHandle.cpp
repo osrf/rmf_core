@@ -36,13 +36,6 @@
 #include <rmf_task_msgs/msg/delivery.hpp> 
 #include <rmf_task_msgs/msg/loop.hpp>
 
-#include <rmf_task_ros2/Description.hpp>
-
-#include "../tasks/Clean.hpp"
-#include "../tasks/ChargeBattery.hpp"
-#include "../tasks/Delivery.hpp"
-#include "../tasks/Loop.hpp"
-
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -113,8 +106,8 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   if (msg->task_profile.task_id.empty())
     return;
 
-  if (task_descriptions.find(msg->task_profile.task_id)
-      != task_descriptions.end())
+  if (received_task_profiles.find(msg->task_profile.task_id)
+      != received_task_profiles.end())
   {
     RCLCPP_WARN(
       node->get_logger(),
@@ -162,13 +155,11 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   rmf_task::ConstRequestPtr new_request = nullptr;
   const auto& task_profile = msg->task_profile;
   const auto& task_type = task_profile.description.task_type;
-  const auto& description_msg = task_profile.description;
   const rmf_traffic::Time start_time = 
     rmf_traffic_ros2::convert(task_profile.description.start_time);
   // TODO (YV) get rid of ID field in RequestPtr
   const std::string id = msg->task_profile.task_id;
   const auto& graph = planner->get_configuration().graph();
-  rmf_task_ros2::ConstDescriptionPtr task_description;
 
   // Generate the priority of the request. The current implementation supports
   // binary priority
@@ -180,10 +171,9 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
   // Process Cleaning task
   if (task_type.type == TaskType::TYPE_CLEAN)
   {
-    const auto& clean =
-      rmf_task_ros2::description::Clean::make_from_msg(description_msg);
+    const auto& clean = task_profile.description.clean;
 
-    if (!clean)
+    if (clean.start_waypoint.empty())
     {
       RCLCPP_ERROR(node->get_logger(),
                   "Clean Msg is invalid/invalid."
@@ -192,26 +182,26 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     }
 
     // Check for valid start waypoint
-    const auto start_wp = graph.find_waypoint(clean->start_waypoint());
+    const auto start_wp = graph.find_waypoint(clean.start_waypoint);
     if (!start_wp)
     {
       RCLCPP_INFO(
         node->get_logger(),
         "Fleet [%s] does not have a named waypoint [%s] configured in its "
         "nav graph. Rejecting BidNotice with task_id:[%s]",
-        name.c_str(), clean->start_waypoint().c_str(), id.c_str());
+        name.c_str(), clean.start_waypoint.c_str(), id.c_str());
 
         return;
     }
 
     // Get dock parameters
-    const auto clean_param_it = dock_param_map.find(clean->start_waypoint());
+    const auto clean_param_it = dock_param_map.find(clean.start_waypoint);
     if (clean_param_it == dock_param_map.end())
     {
       RCLCPP_INFO(
         node->get_logger(),
         "Dock param for dock_name:[%s] unavailable. Rejecting BidNotice with "
-        "task_id:[%s]", clean->start_waypoint().c_str(), id.c_str());
+        "task_id:[%s]", clean.start_waypoint.c_str(), id.c_str());
 
       return;
     }
@@ -246,7 +236,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       RCLCPP_INFO(
         node->get_logger(),
         "Unable to generate cleaning trajectory from positions specified "
-        " in DockSummary msg for [%s]", clean->start_waypoint().c_str());
+        " in DockSummary msg for [%s]", clean.start_waypoint.c_str());
       
       return;
     }
@@ -267,16 +257,14 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     RCLCPP_INFO(
       node->get_logger(),
       "Generated Clean request for task_id:[%s]", id.c_str());
-  
-    task_description = clean;
   }
 
   else if (task_type.type == TaskType::TYPE_DELIVERY)
   {
-    const auto& delivery = 
-      rmf_task_ros2::description::Delivery::make_from_msg(description_msg);
+    const auto& del = task_profile.description.delivery;
 
-    if (!delivery)
+    if (del.pickup_place_name.empty()  || del.pickup_dispenser.empty() ||
+        del.dropoff_place_name.empty() || del.dropoff_ingestor.empty())
     {
       RCLCPP_ERROR(node->get_logger(),
                   "Delivery Msg is invalid/invalid."
@@ -284,35 +272,35 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       return;
     }
 
-    const auto pickup_wp = graph.find_waypoint(delivery->pickup_place_name());
+    const auto pickup_wp = graph.find_waypoint(del.pickup_place_name);
     if (!pickup_wp)
     {
       RCLCPP_INFO(
         node->get_logger(),
         "Fleet [%s] does not have a named waypoint [%s] configured in its "
         "nav graph. Rejecting BidNotice with task_id:[%s]",
-        name.c_str(), delivery->pickup_place_name().c_str(), id.c_str());
+        name.c_str(), del.pickup_place_name.c_str(), id.c_str());
         return;
     }
 
-    const auto dropoff_wp = graph.find_waypoint(delivery->dropoff_place_name());
+    const auto dropoff_wp = graph.find_waypoint(del.dropoff_place_name);
     if (!dropoff_wp)
     {
       RCLCPP_INFO(
         node->get_logger(),
         "Fleet [%s] does not have a named waypoint [%s] configured in its "
         "nav graph. Rejecting BidNotice with task_id:[%s]",
-        name.c_str(), delivery->dropoff_place_name().c_str(), id.c_str());
+        name.c_str(), del.dropoff_place_name.c_str(), id.c_str());
         return;
     }
 
     new_request = rmf_task::requests::Delivery::make(
       id,
       pickup_wp->index(),
-      description_msg.delivery.pickup_dispenser,
+      del.pickup_dispenser,
       dropoff_wp->index(),
-      description_msg.delivery.dropoff_ingestor,
-      description_msg.delivery.items,
+      del.dropoff_ingestor,
+      del.items,
       motion_sink,
       ambient_sink,
       planner,
@@ -323,15 +311,13 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     RCLCPP_INFO(
       node->get_logger(),
       "Generated Delivery request for task_id:[%s]", id.c_str());
-
-    task_description = delivery;
   }
   else if (task_type.type == TaskType::TYPE_LOOP)
   {
-    const auto& loop = 
-      rmf_task_ros2::description::Loop::make_from_msg(description_msg);
+    const auto& loop = task_profile.description.loop;
     
-    if (!loop)
+    if (loop.start_name.empty() || loop.finish_name.empty() ||
+        loop.num_loops == 0)
     {
       RCLCPP_ERROR(node->get_logger(),
                   "Loop Msg is invalid/invalid."
@@ -339,26 +325,26 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       return;
     }
 
-    const auto start_wp = graph.find_waypoint(loop->start_name());
+    const auto start_wp = graph.find_waypoint(loop.start_name);
     if (!start_wp)
     {
       RCLCPP_INFO(
         node->get_logger(),
         "Fleet [%s] does not have a named waypoint [%s] configured in its "
         "nav graph. Rejecting BidNotice with task_id:[%s]",
-        name.c_str(), loop->start_name().c_str(), id.c_str());
+        name.c_str(), loop.start_name.c_str(), id.c_str());
 
         return;
     }
 
-    const auto finish_wp = graph.find_waypoint(loop->finish_name());
+    const auto finish_wp = graph.find_waypoint(loop.finish_name);
     if (!finish_wp)
     {
       RCLCPP_INFO(
         node->get_logger(),
         "Fleet [%s] does not have a named waypoint [%s] configured in its "
         "nav graph. Rejecting BidNotice with task_id:[%s]",
-        name.c_str(), loop->start_name().c_str(), id.c_str());
+        name.c_str(), loop.start_name.c_str(), id.c_str());
 
         return;
     }
@@ -367,7 +353,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
       id,
       start_wp->index(),
       finish_wp->index(),
-      description_msg.loop.num_loops,
+      loop.num_loops,
       motion_sink,
       ambient_sink,
       planner,
@@ -378,8 +364,6 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
     RCLCPP_INFO(
       node->get_logger(),
       "Generated Loop request for task_id:[%s]", id.c_str());
-
-    task_description = loop;
   }
   else
   {
@@ -468,7 +452,7 @@ void FleetUpdateHandle::Implementation::bid_notice_cb(
 
   // Store assignments in internal map
   latest_bid_notice_assignments  = {id, new_request, assignments};
-  task_descriptions.insert({id, task_description});
+  received_task_profiles.insert({id, task_profile});
 }
 
 //==============================================================================
@@ -534,7 +518,11 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
       // rxcpp worker. Hence, no new tasks would have started during this replanning.
     }
 
-    set_assignments_to_task_managers(assignments);
+    // set assignments to taskmangaer of each robot
+    assert(assignments.size() == task_managers.size());
+    for (std::size_t i = 0; i < task_managers.size(); ++i)
+      task_managers[i]->set_queue(assignments[i], received_task_profiles);
+
     current_assignment_cost = task_planner->compute_cost(assignments);
     dispatch_ack.success = true;
     dispatch_ack_pub->publish(dispatch_ack);
@@ -573,7 +561,6 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
         executed_tasks.insert(mgr->current_task()->id());
       for (const auto& tsk : mgr->task_queue())
         queued_tasks.insert(tsk->id());
-        // TODO DEBUG!
     }
 
     if (queued_tasks.find(id) == queued_tasks.end())
@@ -615,10 +602,13 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
       return;
     }
 
+    // set assignments to taskmangaer of each robot
     const auto& assignments = replan_results.value();
-    set_assignments_to_task_managers(assignments);
-    current_assignment_cost = task_planner->compute_cost(assignments);
+    assert(assignments.size() == task_managers.size());
+    for (std::size_t i = 0; i < task_managers.size(); ++i)
+      task_managers[i]->set_queue(assignments[i], received_task_profiles);
 
+    current_assignment_cost = task_planner->compute_cost(assignments);
     dispatch_ack.success = true;
     dispatch_ack_pub->publish(dispatch_ack);
     cancelled_task_ids.insert(id);
@@ -811,7 +801,8 @@ auto FleetUpdateHandle::Implementation::allocate_tasks(
     
     for (const auto task : t->task_queue())
     {
-      if (task->description()->type() == TaskType::TYPE_CHARGE_BATTERY)
+      const auto type = task->profile_msg().description.task_type.type;
+      if ( type == TaskType::TYPE_CHARGE_BATTERY)
       {
         // ignore auto allocated charging task
         continue;
@@ -892,84 +883,6 @@ auto FleetUpdateHandle::Implementation::allocate_tasks(
   }
 
   return assignments;
-}
-
-//==============================================================================
-void FleetUpdateHandle::Implementation::set_assignments_to_task_managers(
-  const Assignments& assignments)
-{
-  assert(assignments.size() == task_managers.size());
-  std::size_t tm_index = 0;
-
-  for (auto& t : task_managers)
-  {
-    std::vector<std::shared_ptr<Task>> task_queue;
-    std::shared_ptr<Task> task = nullptr;
-    for (std::size_t i = 0; i < assignments[tm_index].size(); ++i)
-    {
-      const auto& a = assignments[tm_index][i];
-      auto start = t->context()->current_task_end_state().location();
-      if (i != 0)
-        start = assignments[tm_index][i-1].state().location();
-      start.time(a.deployment_time());
-
-      const auto req = a.request();
-      const auto id = req->id();
-      const auto req_desc = req->description();
-
-      rmf_task_ros2::ConstDescriptionPtr desc;
-      if (task_descriptions.find(id) != task_descriptions.end())
-      {
-        desc = task_descriptions[id];
-      }
-      else
-      {
-        desc = rmf_task_ros2::Description::make_description(
-          a.deployment_time(), TaskType::TYPE_CHARGE_BATTERY);
-      }
-
-      // We use dynamic cast to determine the type of request and then call the
-      // appropriate make(~) function to convert the request into a task
-      /// CHARGE BATTERY TASK
-      using namespace rmf_task::requests;
-      if (std::dynamic_pointer_cast<const ChargeBatteryDescription>(req_desc))
-      {
-        task = tasks::make_charge_battery(
-          desc, req, t->context(), start, a.deployment_time(), a.state());
-      }
-      /// CLEAN TASK
-      else if (std::dynamic_pointer_cast<const CleanDescription>(req_desc))
-      {
-        task = tasks::make_clean(
-          desc, req, t->context(), start, a.deployment_time(), a.state());
-      }
-      /// DELIVERY TASK
-      else if (std::dynamic_pointer_cast<const DeliveryDescription>(req_desc))
-      {
-        task = tasks::make_delivery(
-          desc, req, t->context(), start, a.deployment_time(), a.state());
-      }
-      /// LOOP TASK
-      else if (std::dynamic_pointer_cast<const LoopDescription>(req_desc))
-      {
-        task = tasks::make_loop(
-          desc, req, t->context(), start, a.deployment_time(), a.state());
-      }
-      else
-      {
-        RCLCPP_WARN(
-          t->context()->node()->get_logger(),
-          "[TaskManager] Un-supported request type in assignment list. "
-          "Please update the implementation of TaskManager::set_queue() to "
-          "support request with task_id:[%s]", id);
-        continue;
-      }
-
-      task_queue.push_back(task);
-    }
-    t->set_queue(task_queue);
-    ++tm_index;
-  }
 }
 
 //==============================================================================
@@ -1071,7 +984,7 @@ FleetUpdateHandle& FleetUpdateHandle::accept_task_requests(
 FleetUpdateHandle& FleetUpdateHandle::accept_delivery_requests(
     AcceptDeliveryRequest check)
 {
-  _pimpl->accept_delivery = std::move(check);
+  RCLCPP_WARN(_pimpl->node->get_logger(), "Use accept_task_requests() instead");
   return *this;
 }
 
