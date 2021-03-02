@@ -3059,7 +3059,7 @@ SCENARIO("Close start", "[close_start]")
   auto p1 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
       "participant 1",
-      "test_Negotiator",
+      "test_Planner",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile
     },
@@ -3068,7 +3068,7 @@ SCENARIO("Close start", "[close_start]")
   auto p2 = rmf_traffic::schedule::make_participant(
     rmf_traffic::schedule::ParticipantDescription{
       "participant 2",
-      "test_Negotiator",
+      "test_Planner",
       rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
       profile
     },
@@ -3152,4 +3152,151 @@ SCENARIO("Close start", "[close_start]")
   CHECK(visited_wps.count(3));
   CHECK(visited_wps.count(5));
   CHECK(visited_wps.count(4));
+}
+
+SCENARIO("Minimum time", "[minimum_time]")
+{
+
+  using namespace std::chrono_literals;
+
+  auto database = std::make_shared<rmf_traffic::schedule::Database>();
+
+  rmf_traffic::Profile profile{
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(0.1),
+    rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(1.0)
+  };
+
+  auto p1 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 1",
+      "test_Planner",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  auto p2 = rmf_traffic::schedule::make_participant(
+    rmf_traffic::schedule::ParticipantDescription{
+      "participant 2",
+      "test_Planner",
+      rmf_traffic::schedule::ParticipantDescription::Rx::Responsive,
+      profile
+    },
+    database);
+
+  const std::string test_map_name = "test_map";
+  rmf_traffic::agv::Graph graph;
+  graph.add_waypoint(test_map_name, { 0.0, -5.0}); // 0
+  graph.add_waypoint(test_map_name, {-5.0, 0.0}); // 1
+  graph.add_waypoint(test_map_name, { 0.0, 0.0}); // 2
+  graph.add_waypoint(test_map_name, { 5.0,  0.0}); // 3
+  graph.add_waypoint(test_map_name, { 0.0, 5.0}); // 4
+  graph.add_waypoint(test_map_name, { 5.0, 5.0}); // 5
+
+  /*
+   *         4-----5
+   *         |     |
+   *         |     |
+   *   1-----2-----3
+   *         |
+   *         |
+   *         0
+   */
+
+  auto add_bidir_lane = [&](const std::size_t w0, const std::size_t w1)
+    {
+      graph.add_lane(w0, w1);
+      graph.add_lane(w1, w0);
+    };
+
+  add_bidir_lane(0, 2);
+  add_bidir_lane(1, 2);
+  add_bidir_lane(3, 2);
+  add_bidir_lane(3, 5);
+  add_bidir_lane(4, 2);
+  add_bidir_lane(4, 5);
+
+  const rmf_traffic::agv::VehicleTraits traits{
+    {0.7, 0.3},
+    {1.0, 0.45},
+    profile
+  };
+
+  const auto time = std::chrono::steady_clock::now();
+  const auto duration = 1min;
+
+  rmf_traffic::Trajectory t_obs;
+  t_obs.insert(time, {0.0, 5.0, 0.0}, {0, 0, 0});
+  t_obs.insert(time + duration, {0.0, -5.0, 0.0}, {0, 0, 0});
+  p2.set({{test_map_name, t_obs}});
+
+  rmf_traffic::agv::Planner::Configuration configuration{graph, traits};
+  rmf_traffic::agv::Plan::Options options(nullptr);
+  rmf_traffic::agv::Plan::Start start(time, 2, 0.0);
+
+  const auto validator = rmf_traffic::agv::ScheduleRouteValidator::make(
+    database, p1.id(), p1.description().profile());
+
+  GIVEN("Start at the goal")
+  {
+    WHEN("No obstacle")
+    {
+      // Do nothing
+    }
+
+    WHEN("An obstacle")
+    {
+      options.validator(validator);
+    }
+  }
+
+  GIVEN("Start off the goal")
+  {
+    start.waypoint(1);
+
+    WHEN("No obstacle")
+    {
+      // Do nothing
+    }
+
+    WHEN("An obstacle")
+    {
+      options.validator(validator);
+    }
+  }
+
+  rmf_traffic::agv::Planner planner{configuration, options};
+
+  const auto result =
+      planner.plan(start, rmf_traffic::agv::Plan::Goal(2, time+duration));
+
+  REQUIRE(result);
+
+  std::unordered_set<std::size_t> visited;
+  for (const auto& wp : result->get_waypoints())
+  {
+    REQUIRE(wp.graph_index().has_value());
+    visited.insert(*wp.graph_index());
+  }
+
+  CHECK(visited.count(2) > 0);
+
+  if (options.validator())
+  {
+    if (start.waypoint() == 2)
+      CHECK(visited.size() == 2);
+    else
+      CHECK(visited.size() == 3);
+  }
+  else
+  {
+    if (start.waypoint() == 2)
+      CHECK(visited.size() == 1);
+    else
+      CHECK(visited.size() == 2);
+  }
+
+  CHECK(time + duration <= result->get_waypoints().back().time());
 }

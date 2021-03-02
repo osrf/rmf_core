@@ -365,8 +365,8 @@ class Planner::Goal::Implementation
 public:
 
   std::size_t waypoint;
-
-  rmf_utils::optional<double> orientation;
+  std::optional<double> orientation;
+  std::optional<rmf_traffic::Time> minimum_time;
 
 };
 
@@ -375,7 +375,8 @@ Planner::Goal::Goal(const std::size_t waypoint)
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         waypoint,
-        rmf_utils::nullopt
+        std::nullopt,
+        std::nullopt
       }))
 {
   // Do nothing
@@ -386,10 +387,26 @@ Planner::Goal::Goal(
   const std::size_t waypoint,
   const double goal_orientation)
 : _pimpl(rmf_utils::make_impl<Implementation>(
-      Implementation{
-        waypoint,
-        goal_orientation
-      }))
+    Implementation{
+      waypoint,
+      goal_orientation,
+      std::nullopt
+    }))
+{
+  // Do nothing
+}
+
+//==============================================================================
+Planner::Goal::Goal(
+  const std::size_t goal_waypoint,
+  const std::optional<rmf_traffic::Time> minimum_time,
+  const std::optional<double> goal_orientation)
+: _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation{
+      goal_waypoint,
+      goal_orientation,
+      minimum_time
+    }))
 {
   // Do nothing
 }
@@ -428,6 +445,20 @@ const double* Planner::Goal::orientation() const
     return &(*_pimpl->orientation);
 
   return nullptr;
+}
+
+//==============================================================================
+auto Planner::Goal::minimum_time(std::optional<rmf_traffic::Time> value)
+-> Goal&
+{
+  _pimpl->minimum_time = value;
+  return *this;
+}
+
+//==============================================================================
+std::optional<rmf_traffic::Time> Planner::Goal::minimum_time() const
+{
+  return _pimpl->minimum_time;
 }
 
 //==============================================================================

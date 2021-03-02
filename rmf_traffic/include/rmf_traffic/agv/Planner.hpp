@@ -323,6 +323,23 @@ public:
     ///   The orientation that the AGV needs to end with.
     Goal(std::size_t goal_waypoint, double goal_orientation);
 
+    /// Constructor
+    ///
+    /// \param[in] goal_waypoint
+    ///   The waypoint that the AGV needs to reach.
+    ///
+    /// \param[in] minimum_time
+    ///   The AGV must be on the goal waypoint at or after this time for the
+    ///   plan to be successful. This is useful if a robot needs to wait at a
+    ///   location, but you want it to give way for other robots.
+    ///
+    /// \param[in] goal_orientation
+    ///   An optional goal orientation that the AGV needs to end with.
+    Goal(
+      std::size_t goal_waypoint,
+      std::optional<rmf_traffic::Time> minimum_time,
+      std::optional<double> goal_orientation = std::nullopt);
+
     /// Set the goal waypoint.
     Goal& waypoint(std::size_t goal_waypoint);
 
@@ -338,6 +355,14 @@ public:
     /// Get a reference to the goal orientation (or a nullptr if any orientation
     /// is acceptable).
     const double* orientation() const;
+
+    /// Set the minimum time for the goal. Pass in a nullopt to remove the
+    /// minimum time.
+    Goal& minimum_time(std::optional<rmf_traffic::Time> value);
+
+    /// Get the minimum time for the goal (or a nullopt is there is no minimum
+    /// time).
+    std::optional<rmf_traffic::Time> minimum_time() const;
 
     class Implementation;
   private:
