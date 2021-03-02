@@ -547,7 +547,7 @@ public:
     return false;
   }
 
-  bool is_finished(const SearchNodePtr& top) const
+  bool is_at_goal(const SearchNodePtr& top) const
   {
     if (top->waypoint == _goal_waypoint)
     {
@@ -560,6 +560,17 @@ public:
     }
 
     return false;
+  }
+
+  bool is_finished(const SearchNodePtr& top) const
+  {
+    if (_goal_time.has_value())
+    {
+      if (top->time < *_goal_time)
+        return false;
+    }
+
+    return is_at_goal(top);
   }
 
   void expand_start(const SearchNodePtr& top, SearchQueue& queue) const
@@ -739,11 +750,14 @@ public:
             }));
   }
 
-  void expand_hold(const SearchNodePtr& top, SearchQueue& queue) const
+  SearchNodePtr expand_hold(
+    const SearchNodePtr& top,
+    const Duration hold_time,
+    const double cost_factor) const
   {
     const std::size_t wp_index = top->waypoint.value();
     if (_supergraph->original().waypoints[wp_index].is_passthrough_point())
-      return;
+      return nullptr;
 
     const std::string& map_name =
         _supergraph->original().waypoints[wp_index].get_map_name();
@@ -753,8 +767,8 @@ public:
     const Eigen::Vector3d position{p.x(), p.y(), yaw};
     const Eigen::Vector3d zero = Eigen::Vector3d::Zero();
     const auto start_time = top->time;
-    const auto finish_time = start_time + _holding_time;
-    const auto cost = time::to_seconds(_holding_time);
+    const auto finish_time = start_time + hold_time;
+    const auto cost = cost_factor * time::to_seconds(hold_time);
 
     Trajectory trajectory;
     trajectory.insert(start_time, position, zero);
@@ -763,9 +777,9 @@ public:
     Route route{map_name, std::move(trajectory)};
 
     if (!is_valid(top, route))
-      return;
+      return nullptr;
 
-    queue.push(std::make_shared<SearchNode>(
+    return std::make_shared<SearchNode>(
        SearchNode{
          wp_index,
          p,
@@ -778,7 +792,15 @@ public:
          top->current_cost + cost,
          std::nullopt,
          top
-       }));
+       });
+  }
+
+  void expand_hold(
+    const SearchNodePtr& top,
+    SearchQueue& queue) const
+  {
+    if (const auto node = expand_hold(top, _holding_time, 1.0))
+      queue.push(node);
   }
 
   SearchNodePtr rotate_to_goal(const SearchNodePtr& top) const
@@ -827,7 +849,9 @@ public:
 
   bool is_valid(const SearchNodePtr& parent, const Route& route) const
   {
-    assert(_validator);
+    if (!_validator)
+      return true;
+
     if (route.trajectory().size() >= 2)
     {
       auto conflict = _validator->find_conflict(route);
@@ -899,7 +923,9 @@ public:
 
       // TODO(MXG): We could push the logic for creating this trajectory
       // upstream into the traversal alternative.
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       double approach_cost = 0.0;
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       if (traversal_yaw.has_value())
       {
         const Eigen::Vector3d finish{p0.x(), p0.y(), *traversal_yaw};
@@ -907,7 +933,9 @@ public:
               approach_trajectory, _w_nom, _alpha_nom, start_time,
               start, finish, _rotation_threshold);
 
+#ifdef RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
         approach_cost = time::to_seconds(approach_trajectory.duration());
+#endif // RMF_TRAFFIC__AGV__PLANNING__DEBUG__PLANNER
       }
 
       auto approach_route =
@@ -1237,22 +1265,45 @@ public:
       return;
     }
 
-    if (_validator)
-    {
-      // There will never be a reason to hold if there is no validator.
-      expand_hold(top, queue);
-    }
-
     const auto current_wp_index = top->waypoint.value();
-    if (current_wp_index == _goal_waypoint)
+    if (is_at_goal(top))
     {
-      // If there is no goal yaw, then is_finished should have caught this node
+      // If there is no goal time, then is_finished should have caught this node
+      assert(_goal_time.has_value());
+
+      const Duration remaining_time = _goal_time.value() - top->time;
+
+      const auto finishing_node = expand_hold(top, remaining_time, 0.0);
+      if (finishing_node)
+      {
+        // If we can reach the finish time by just sitting here, then that will
+        // surely be the optimal solution. We will simply push this new node
+        // into the queue and return.
+        queue.push(finishing_node);
+        return;
+      }
+
+      // If we cannot hold all the way until the finishing time, then we will
+      // do a zero-cost brief hold so that we spend as much time waiting on the
+      // goal as allowed.
+      if (const auto brief_hold = expand_hold(top, _holding_time, 0.0))
+        queue.push(brief_hold);
+    }
+    else if (current_wp_index == _goal_waypoint)
+    {
+      // If there is no goal yaw, then is_at_goal should have caught this node
       assert(_goal_yaw.has_value());
 
       if (auto node = rotate_to_goal(top))
         queue.push(std::move(node));
 
-      return;
+      if (_validator)
+        expand_hold(top, queue);
+    }
+    else if (_validator)
+    {
+      // There will never be a reason to hold if there is no validator.
+      expand_hold(top, queue);
     }
 
     if (!_validator)
@@ -1647,6 +1698,7 @@ public:
     _heuristic(std::move(heuristic)),
     _goal_waypoint(goal.waypoint()),
     _goal_yaw(rmf_utils::pointer_to_opt(goal.orientation())),
+    _goal_time(goal.minimum_time()),
     _validator(options.validator().get()),
     _holding_time(options.minimum_holding_time()),
     _saturation_limit(options.saturation_limit()),
@@ -1855,6 +1907,7 @@ private:
   DifferentialDriveHeuristicAdapter _heuristic;
   std::size_t _goal_waypoint;
   std::optional<double> _goal_yaw;
+  std::optional<rmf_traffic::Time> _goal_time;
   const RouteValidator* _validator;
   Duration _holding_time;
   std::optional<std::size_t> _saturation_limit;
@@ -1983,7 +2036,7 @@ std::vector<schedule::Itinerary> DifferentialDrivePlanner::rollout(
       _cache->get(),
       _supergraph,
       goal.waypoint(),
-      rmf_utils::pointer_to_opt(goal.orientation())
+      rmf_utils::pointer_to_opt(goal.orientation()),
     },
     goal,
     options

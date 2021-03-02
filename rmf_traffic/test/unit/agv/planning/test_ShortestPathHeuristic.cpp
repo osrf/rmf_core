@@ -58,11 +58,6 @@ SCENARIO("Shortest Path Heuristic -- Single Floor")
           rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
             supergraph));
 
-  const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
-  const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
-  const Eigen::Vector2d p2 = graph.get_waypoint(2).get_location();
-  const Eigen::Vector2d p3 = graph.get_waypoint(3).get_location();
-
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
     rmf_traffic::agv::planning::ShortestPathHeuristic>>;
   CacheOpt cache = cache_map.get(2)->get();
@@ -160,14 +155,6 @@ SCENARIO("Shortest Path Heuristic -- Easy Multifloor")
         std::make_shared<
           rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
             supergraph));
-
-  const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
-  const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
-  const Eigen::Vector2d p2 = graph.get_waypoint(2).get_location();
-  const Eigen::Vector2d p3 = graph.get_waypoint(3).get_location();
-  const Eigen::Vector2d p7 = graph.get_waypoint(7).get_location();
-  const Eigen::Vector2d p8 = graph.get_waypoint(8).get_location();
-  const Eigen::Vector2d p11 = graph.get_waypoint(11).get_location();
 
   const std::size_t goal = 8;
 
@@ -305,13 +292,6 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
           rmf_traffic::agv::planning::ShortestPathHeuristicFactory>(
             supergraph));
 
-  const Eigen::Vector2d p0 = graph.get_waypoint(0).get_location();
-  const Eigen::Vector2d p1 = graph.get_waypoint(1).get_location();
-  const Eigen::Vector2d p2 = graph.get_waypoint(2).get_location();
-  const Eigen::Vector2d p3 = graph.get_waypoint(3).get_location();
-  const Eigen::Vector2d p12 = graph.get_waypoint(12).get_location();
-  const Eigen::Vector2d p14 = graph.get_waypoint(14).get_location();
-
   const std::size_t goal = 8;
 
   using CacheOpt = std::optional<rmf_traffic::agv::planning::Cache<
@@ -328,7 +308,7 @@ SCENARIO("Shortest Path Heuristic -- Complex Multifloor")
   REQUIRE(value.has_value());
   CHECK(value.value() == Approx(expected_cost(1)).margin(1e-12));
 
-  /*auto */value = cache->get(0);
+  value = cache->get(0);
   REQUIRE(value.has_value());
   CHECK(value.value() == Approx(expected_cost(1)).margin(1e-12));
 
