@@ -31,6 +31,8 @@
 #include "tasks/Delivery.hpp"
 #include "tasks/Loop.hpp"
 
+#include "phases/ResponsiveWait.hpp"
+
 namespace rmf_fleet_adapter {
 
 //==============================================================================
@@ -76,9 +78,9 @@ TaskManagerPtr TaskManager::make(agv::RobotContextPtr context)
 
 //==============================================================================
 TaskManager::TaskManager(agv::RobotContextPtr context)
-  : _context(std::move(context))
+: _context(std::move(context))
 {
-  // Do nothing
+  _begin_waiting();
 }
 
 //==============================================================================
@@ -160,6 +162,7 @@ agv::ConstRobotContextPtr TaskManager::context() const
 void TaskManager::set_queue(
   const std::vector<TaskManager::Assignment>& assignments)
 {
+  std::cout << " == Setting queue for " << _context->requester_id() << std::endl;
   // We indent this block as _mutex is also locked in the _begin_next_task()
   // function that is called at the end of this function.
   {
@@ -172,6 +175,7 @@ void TaskManager::set_queue(
     {
       const auto& a = assignments[i];
       auto start = _context->current_task_end_state().location();
+      std::cout << " == " << i << ") start time: " << rmf_traffic::time::to_seconds(start.time().time_since_epoch()) << std::endl;
       if (i != 0)
         start = assignments[i-1].state().location();
       start.time(a.deployment_time());
@@ -285,23 +289,34 @@ const std::vector<rmf_task::ConstRequestPtr> TaskManager::requests() const
 //==============================================================================
 void TaskManager::_begin_next_task()
 {
+  std::cout << " >> " << _context->requester_id() << " Beginning next task for "  << std::endl;
   if (_active_task)
+  {
+    std::cout << " >> " << _context->requester_id() << " Already have task: " << _active_task->current_phase()->description()
+              << std::endl;
     return;
+  }
 
   std::lock_guard<std::mutex> guard(_mutex);
 
   if (_queue.empty())
   {
-    // _task_sub.unsubscribe();
-    // _expected_finish_location = rmf_utils::nullopt;
+    if (!_waiting)
+      _begin_waiting();
 
-    // RCLCPP_INFO(
-    //       _context->node()->get_logger(),
-    //       "Finished all remaining tasks for [%s]",
-    //       _context->requester_id().c_str());
-
+    std::cout << " >> " << _context->requester_id() << " queue empty" << std::endl;
     return;
   }
+
+  if (_waiting)
+  {
+    std::cout << " >> !! Canceling wait for " << _context->requester_id() << std::endl;
+    _waiting->cancel();
+    return;
+  }
+
+  std::cout << " >> Beginning new task from queue of " << _queue.size()
+            << ": " << _queue.front()->id() << std::endl;
 
   const rmf_traffic::Time now = rmf_traffic_ros2::convert(
     _context->node()->now());
@@ -372,12 +387,74 @@ void TaskManager::_begin_next_task()
         _active_task->finish_state().finish_time());
       this->_context->node()->task_summary()->publish(msg);
 
+      std::cout << " >> " << _context->requester_id() << " finished task " << id << std::endl;
       _active_task = nullptr;
     });
 
     _active_task->begin();
     _register_executed_task(_active_task->id());
   }
+  else
+  {
+    std::cout << " >> Not deployment time yet ("
+              << rmf_traffic::time::to_seconds(deployment_time - now) << ")"
+              << std::endl;
+
+    if (!_waiting)
+      _begin_waiting();
+  }
+}
+
+//==============================================================================
+void TaskManager::_begin_waiting()
+{
+  const std::size_t waiting_point = _context->location().front().waypoint();
+
+  _waiting = phases::ResponsiveWait::make_indefinite(
+        _context, waiting_point)->begin();
+
+  _task_sub = _waiting->observe()
+    .observe_on(rxcpp::identity_same_worker(_context->worker()))
+    .subscribe(
+      [this](Task::StatusMsg msg)
+      {
+        msg.task_id = _context->requester_id() + ":waiting";
+        msg.robot_name = _context->name();
+        msg.fleet_name = _context->description().owner();
+        // TODO: Fill in end_time with the beginning time of the next task if
+        // the next task is known.
+        msg.start_time = _context->node()->now();
+        msg.end_time = msg.start_time;
+
+        _context->node()->task_summary()->publish(msg);
+      },
+      [this](std::exception_ptr e)
+      {
+        rmf_task_msgs::msg::TaskSummary msg;
+        msg.state = msg.STATE_FAILED;
+
+        try {
+          std::rethrow_exception(e);
+        }
+        catch (const std::exception& e) {
+          msg.status = e.what();
+        }
+
+        msg.task_id = _context->requester_id() + ":waiting";
+        msg.robot_name = _context->name();
+        msg.fleet_name = _context->description().owner();
+        msg.start_time = rmf_traffic_ros2::convert(
+          _active_task->deployment_time());
+        msg.end_time = rmf_traffic_ros2::convert(
+          _active_task->finish_state().finish_time());
+        _context->node()->task_summary()->publish(msg);
+      },
+      [this]()
+      {
+        std::cout << " >> Discarding waiting phase for " << _context->requester_id() << std::endl;
+        _waiting = nullptr;
+        _begin_next_task();
+      });
 }
 
 //==============================================================================
