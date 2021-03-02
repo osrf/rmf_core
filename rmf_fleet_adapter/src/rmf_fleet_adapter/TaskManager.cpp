@@ -287,13 +287,8 @@ const std::vector<rmf_task::ConstRequestPtr> TaskManager::requests() const
 //==============================================================================
 void TaskManager::_begin_next_task()
 {
-  std::cout << " >> " << _context->requester_id() << " Beginning next task for "  << std::endl;
   if (_active_task)
-  {
-    std::cout << " >> " << _context->requester_id() << " Already have task: " << _active_task->current_phase()->description()
-              << std::endl;
     return;
-  }
 
   std::lock_guard<std::mutex> guard(_mutex);
 
@@ -302,19 +297,14 @@ void TaskManager::_begin_next_task()
     if (!_waiting)
       _begin_waiting();
 
-    std::cout << " >> " << _context->requester_id() << " queue empty" << std::endl;
     return;
   }
 
   if (_waiting)
   {
-    std::cout << " >> !! Canceling wait for " << _context->requester_id() << std::endl;
     _waiting->cancel();
     return;
   }
-
-  std::cout << " >> Beginning new task from queue of " << _queue.size()
-            << ": " << _queue.front()->id() << std::endl;
 
   const rmf_traffic::Time now = rmf_traffic_ros2::convert(
     _context->node()->now());
@@ -385,7 +375,6 @@ void TaskManager::_begin_next_task()
         _active_task->finish_state().finish_time());
       this->_context->node()->task_summary()->publish(msg);
 
-      std::cout << " >> " << _context->requester_id() << " finished task " << id << std::endl;
       _active_task = nullptr;
     });
 
@@ -394,10 +383,6 @@ void TaskManager::_begin_next_task()
   }
   else
   {
-    std::cout << " >> Not deployment time yet ("
-              << rmf_traffic::time::to_seconds(deployment_time - now) << ")"
-              << std::endl;
-
     if (!_waiting)
       _begin_waiting();
   }
@@ -449,7 +434,6 @@ void TaskManager::_begin_waiting()
       },
       [this]()
       {
-        std::cout << " >> Discarding waiting phase for " << _context->requester_id() << std::endl;
         _waiting = nullptr;
         _begin_next_task();
       });

@@ -85,7 +85,6 @@ ResponsiveWait::Active::Active(PhaseInfo info)
 //==============================================================================
 void ResponsiveWait::Active::_begin_movement()
 {
-  std::cout << "Reseting wait for " << _info.context->requester_id() << std::endl;
   const rmf_traffic::Time now = _info.context->now();
   rmf_traffic::agv::Plan::Start start_estimate(now, _info.waiting_point, 0.0);
   rmf_traffic::agv::Plan::Goal goal(_info.waiting_point);
@@ -113,42 +112,34 @@ void ResponsiveWait::Active::_begin_movement()
     .subscribe(
       [w = weak_from_this()](const StatusMsg& msg)
       {
-        std::cout << " !! STATUS UPDATE FROM GoToPlace !! " << std::endl;
         const auto me = w.lock();
         if (!me)
           return;
 
-        std::cout << "Update from GoToPlace of " << me->_info.context->requester_id() << std::endl;
         me->_status_publisher.get_subscriber().on_next(msg);
       },
       [w = weak_from_this()](std::exception_ptr e)
       {
-        std::cout << " !! ERROR FROM GoToPlace !! " << std::endl;
         const auto me = w.lock();
         if (!me)
           return;
 
-        std::cout << "Error from GoToPlace of " << me->_info.context->requester_id() << std::endl;
         me->_status_publisher.get_subscriber().on_error(std::move(e));
       },
       [w = weak_from_this()]()
       {
-        std::cout << " !! FINISHED GoToPlace !!" << std::endl;
         const auto me = w.lock();
         if (!me)
           return;
 
-        std::cout << "Finished GoToPlace of " << me->_info.context->requester_id() << std::endl;
         if (me->_info.period.has_value())
         {
-          std::cout << " -- We have a period" << std::endl;
           // If this is an uncanceled indefinite wait, then we will begin the
           // movement again.
           me->_begin_movement();
           return;
         }
 
-        std::cout << " -- No period??" << std::endl;
         me->_status_publisher.get_subscriber().on_completed();
       });
 }
