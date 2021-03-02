@@ -133,10 +133,10 @@ auto TaskManager::expected_finish_state() const -> State
   auto location = finish_state.location();
   location.time(rmf_traffic_ros2::convert(_context->node()->now()));
   finish_state.location(location);
-  
+
   const double current_battery_soc = _context->current_battery_soc();
   finish_state.battery_soc(current_battery_soc);
-  
+
   return finish_state;
 }
 
@@ -162,7 +162,6 @@ agv::ConstRobotContextPtr TaskManager::context() const
 void TaskManager::set_queue(
   const std::vector<TaskManager::Assignment>& assignments)
 {
-  std::cout << " == Setting queue for " << _context->requester_id() << std::endl;
   // We indent this block as _mutex is also locked in the _begin_next_task()
   // function that is called at the end of this function.
   {
@@ -175,7 +174,6 @@ void TaskManager::set_queue(
     {
       const auto& a = assignments[i];
       auto start = _context->current_task_end_state().location();
-      std::cout << " == " << i << ") start time: " << rmf_traffic::time::to_seconds(start.time().time_since_epoch()) << std::endl;
       if (i != 0)
         start = assignments[i-1].state().location();
       start.time(a.deployment_time());
@@ -191,7 +189,7 @@ void TaskManager::set_queue(
           start,
           a.deployment_time(),
           a.state());
-        
+
         _queue.push_back(task);
       }
 
