@@ -20,6 +20,7 @@
 #include <rclcpp/node.hpp>
 
 #include "action/Client.hpp"
+#include "internal_Description.hpp"
 
 #include <rmf_task_msgs/srv/submit_task.hpp>
 #include <rmf_task_msgs/srv/cancel_task.hpp>
@@ -79,11 +80,11 @@ public:
 
         ConstDescriptionPtr task_description;
         const auto desc_msg = request->description;
-        if (auto d = description::Delivery::make_from_msg(desc_msg))
+        if (auto d = description::make_delivery_from_msg(desc_msg))
           task_description = std::move(d);
-        else if (auto d = description::Clean::make_from_msg(desc_msg))
+        else if (auto d = description::make_clean_from_msg(desc_msg))
           task_description = std::move(d);
-        else if (auto d = description::Loop::make_from_msg(desc_msg))
+        else if (auto d = description::make_loop_from_msg(desc_msg))
           task_description = std::move(d);
         else
         {
@@ -170,7 +171,7 @@ public:
     rmf_task_msgs::msg::BidNotice bid_notice;
     bid_notice.task_profile.task_id = id;
     bid_notice.task_profile.submission_time = node->now();
-    bid_notice.task_profile.description = description->to_msg();
+    bid_notice.task_profile.description = description::convert(description);
     bid_notice.time_window = rmf_traffic_ros2::convert(
       rmf_traffic::time::from_seconds(bidding_time_window));
     queue_bidding_tasks.push(bid_notice);
@@ -213,7 +214,7 @@ public:
     }
 
     // Charging task doesnt support cancel task
-    if (cancel_task_status->description()->type() == 
+    if (cancel_task_status->description()->type() ==
       TaskType::TYPE_CHARGE_BATTERY)
     {
       RCLCPP_ERROR(node->get_logger(), "Charging task is not cancelled-able");
@@ -328,7 +329,7 @@ public:
   {
     assert(terminate_status->is_terminated());
 
-    // prevent terminal_dispatch_tasks from piling up meaning
+    // prevent terminal_dispatch_tasks from piling up
     if (terminal_dispatch_tasks.size() >= terminated_tasks_max_size)
     {
       RCLCPP_WARN(node->get_logger(),
@@ -348,9 +349,8 @@ public:
 
     const auto id = terminate_status->task_id();
 
-    // destroy prev status ptr and recreate one  (TODO) check if correct
-    // auto status = std::make_shared<TaskStatus>(*terminate_status);
-    (terminal_dispatch_tasks)[id] = terminate_status;
+    // Move Status to terminated task list.
+    (terminal_dispatch_tasks)[id] = std::move(terminate_status);
     active_dispatch_tasks.erase(id);
   }
 

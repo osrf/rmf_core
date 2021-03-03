@@ -16,6 +16,7 @@
 */
 
 #include <rmf_task_ros2/Description.hpp>
+#include "internal_Description.hpp"
 #include <rmf_traffic_ros2/Time.hpp>
 
 namespace rmf_task_ros2 {
@@ -62,24 +63,6 @@ std::shared_ptr<const Description> Description::make_description(
   desc->_pimpl_base->priority.value = priority;
   desc->_pimpl_base->start_time = std::move(start_time);
   return desc;
-}
-
-//==============================================================================
-std::shared_ptr<const Description> Description::make_from_msg(
-  const TaskDescription& msg)
-{
-  return make_description(rmf_traffic_ros2::convert(msg.start_time),
-      msg.task_type.type, msg.priority.value);
-}
-
-//==============================================================================
-rmf_task_msgs::msg::TaskDescription Description::to_msg() const
-{
-  rmf_task_msgs::msg::TaskDescription msg;
-  msg.task_type = _pimpl_base->task_type;
-  msg.priority = _pimpl_base->priority;
-  msg.start_time = rmf_traffic_ros2::convert(_pimpl_base->start_time);
-  return msg;
 }
 
 //==============================================================================
@@ -136,41 +119,10 @@ std::shared_ptr<const Delivery> Delivery::make(
 }
 
 //==============================================================================
-std::shared_ptr<const Delivery> Delivery::make_from_msg(
-  const TaskDescription& msg)
-{
-  if (msg.task_type.type != rmf_task_msgs::msg::TaskType::TYPE_DELIVERY)
-    return nullptr;
-
-  return make(
-    rmf_traffic_ros2::convert(msg.start_time),
-    msg.delivery.pickup_place_name,
-    msg.delivery.pickup_dispenser,
-    msg.delivery.dropoff_place_name,
-    msg.delivery.dropoff_ingestor,
-    msg.delivery.items,
-    msg.priority.value);
-}
-
-//==============================================================================
 Delivery::Delivery()
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
   // Do nothing
-}
-
-//==============================================================================
-rmf_task_msgs::msg::TaskDescription Delivery::to_msg() const
-{
-  rmf_task_msgs::msg::TaskDescription msg;
-  msg.task_type = _pimpl_base->task_type;
-  msg.priority = _pimpl_base->priority;
-  msg.start_time = rmf_traffic_ros2::convert(_pimpl_base->start_time);
-  msg.delivery.pickup_place_name = _pimpl->pickup_place_name;
-  msg.delivery.dropoff_place_name = _pimpl->dropoff_place_name;
-  msg.delivery.pickup_dispenser = _pimpl->pickup_dispenser;
-  msg.delivery.dropoff_ingestor = _pimpl->dropoff_ingestor;
-  return msg;
 }
 
 //==============================================================================
@@ -183,6 +135,18 @@ const std::string& Delivery::pickup_place_name() const
 const std::string& Delivery::dropoff_place_name() const
 {
   return _pimpl->dropoff_place_name;
+}
+
+//==============================================================================
+const std::string& Delivery::pickup_dispenser() const
+{
+  return _pimpl->pickup_dispenser;
+}
+
+//==============================================================================
+const std::string& Delivery::dropoff_ingestor() const
+{
+  return _pimpl->dropoff_ingestor;
 }
 
 //==============================================================================
@@ -221,34 +185,6 @@ std::shared_ptr<const Loop> Loop::make(
 }
 
 //==============================================================================
-std::shared_ptr<const Loop> Loop::make_from_msg(
-  const TaskDescription& msg)
-{
-  if (msg.task_type.type != rmf_task_msgs::msg::TaskType::TYPE_LOOP)
-    return nullptr;
-
-  return make(
-    rmf_traffic_ros2::convert(msg.start_time),
-    msg.loop.start_name,
-    msg.loop.finish_name,
-    msg.loop.num_loops,
-    msg.priority.value);
-}
-
-//==============================================================================
-rmf_task_msgs::msg::TaskDescription Loop::to_msg() const
-{
-  TaskDescription msg;
-  msg.task_type = _pimpl_base->task_type;
-  msg.priority = _pimpl_base->priority;
-  msg.start_time = rmf_traffic_ros2::convert(_pimpl_base->start_time);
-  msg.loop.start_name = _pimpl->start_name;
-  msg.loop.finish_name = _pimpl->finish_name;
-  msg.loop.num_loops = _pimpl->num_loops;
-  return msg;
-}
-
-//==============================================================================
 Loop::Loop()
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
@@ -265,6 +201,12 @@ const std::string& Loop::start_name() const
 const std::string& Loop::finish_name() const
 {
   return this->_pimpl->finish_name;
+}
+
+//==============================================================================
+std::size_t Loop::num_loops() const
+{
+  return this->_pimpl->num_loops;
 }
 
 //==============================================================================
@@ -297,30 +239,6 @@ std::shared_ptr<const Clean> Clean::make(
 }
 
 //==============================================================================
-std::shared_ptr<const Clean> Clean::make_from_msg(
-  const TaskDescription& msg)
-{
-  if (msg.task_type.type != rmf_task_msgs::msg::TaskType::TYPE_CLEAN)
-    return nullptr;
-
-  return make(
-    rmf_traffic_ros2::convert(msg.start_time),
-    msg.clean.start_waypoint,
-    msg.priority.value);
-}
-
-//==============================================================================
-rmf_task_msgs::msg::TaskDescription Clean::to_msg() const
-{
-  TaskDescription msg;
-  msg.task_type = _pimpl_base->task_type;
-  msg.priority = _pimpl_base->priority;
-  msg.start_time = rmf_traffic_ros2::convert(_pimpl_base->start_time);
-  msg.clean.start_waypoint = _pimpl->start_waypoint;
-  return msg;
-}
-
-//==============================================================================
 Clean::Clean()
 : _pimpl(rmf_utils::make_impl<Implementation>(Implementation()))
 {
@@ -331,6 +249,86 @@ Clean::Clean()
 const std::string& Clean::start_waypoint() const
 {
   return this->_pimpl->start_waypoint;
+}
+
+//==============================================================================
+//==============================================================================
+std::shared_ptr<const Delivery> make_delivery_from_msg(
+  const rmf_task_msgs::msg::TaskDescription& msg)
+{
+  if (msg.task_type.type != rmf_task_msgs::msg::TaskType::TYPE_DELIVERY)
+    return nullptr;
+
+  return Delivery::make(
+    rmf_traffic_ros2::convert(msg.start_time),
+    msg.delivery.pickup_place_name,
+    msg.delivery.pickup_dispenser,
+    msg.delivery.dropoff_place_name,
+    msg.delivery.dropoff_ingestor,
+    msg.delivery.items,
+    msg.priority.value);
+}
+
+//==============================================================================
+std::shared_ptr<const Loop> make_loop_from_msg(
+  const rmf_task_msgs::msg::TaskDescription& msg)
+{
+  if (msg.task_type.type != rmf_task_msgs::msg::TaskType::TYPE_LOOP)
+    return nullptr;
+
+  return Loop::make(
+    rmf_traffic_ros2::convert(msg.start_time),
+    msg.loop.start_name,
+    msg.loop.finish_name,
+    msg.loop.num_loops,
+    msg.priority.value);
+}
+
+//==============================================================================
+std::shared_ptr<const Clean> make_clean_from_msg(
+  const rmf_task_msgs::msg::TaskDescription& msg)
+{
+  if (msg.task_type.type != rmf_task_msgs::msg::TaskType::TYPE_CLEAN)
+    return nullptr;
+
+  return Clean::make(
+    rmf_traffic_ros2::convert(msg.start_time),
+    msg.clean.start_waypoint,
+    msg.priority.value);
+}
+
+
+//==============================================================================
+rmf_task_msgs::msg::TaskDescription convert(
+  const ConstDescriptionPtr& description)
+{
+  rmf_task_msgs::msg::TaskDescription msg;
+  msg.task_type.type = description->type();
+  msg.priority.value = description->priority();
+  msg.start_time = rmf_traffic_ros2::convert(description->start_time());
+
+  if (const auto desc =
+    std::dynamic_pointer_cast<const description::Delivery>(description))
+  {
+    msg.delivery.pickup_place_name = desc->pickup_place_name();
+    msg.delivery.dropoff_place_name = desc->dropoff_place_name();
+    msg.delivery.pickup_dispenser = desc->pickup_dispenser();
+    msg.delivery.dropoff_ingestor = desc->dropoff_ingestor();
+    // msg.delivery.items = desc->items();
+  }
+  else if (const auto desc =
+    std::dynamic_pointer_cast<const description::Loop>(description))
+  {
+    msg.loop.start_name = desc->start_name();
+    msg.loop.finish_name = desc->finish_name();
+    msg.loop.num_loops = desc->num_loops();
+  }
+  else if (const auto desc =
+    std::dynamic_pointer_cast<const description::Clean>(description))
+  {
+    msg.clean.start_waypoint = desc->start_waypoint();
+  }
+  return msg;
 }
 
 } // namespace description

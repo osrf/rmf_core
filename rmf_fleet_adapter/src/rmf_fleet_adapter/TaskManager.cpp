@@ -459,7 +459,6 @@ void TaskManager::retreat_to_charger()
     task_profile.description.task_type.type = 
       rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY;
 
-    // TODO(YL)  Check time input
     const auto task = rmf_fleet_adapter::tasks::make_charge_battery(
       charging_request,
       _context,

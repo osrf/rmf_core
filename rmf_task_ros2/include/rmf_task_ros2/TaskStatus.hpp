@@ -23,11 +23,7 @@
 #include <rmf_utils/impl_ptr.hpp>
 #include <rmf_task_ros2/Description.hpp>
 
-#include <rmf_task_msgs/msg/task_summary.hpp>
-
 namespace rmf_task_ros2 {
-
-using StatusMsg = rmf_task_msgs::msg::TaskSummary;
 
 //==============================================================================
 /// This represents the Task Status of each unique task
@@ -66,12 +62,12 @@ public:
 
   enum class State : uint8_t
   {
-    Queued    = StatusMsg::STATE_QUEUED,
-    Executing = StatusMsg::STATE_ACTIVE,
-    Completed = StatusMsg::STATE_COMPLETED,
-    Failed    = StatusMsg::STATE_FAILED,
-    Canceled  = StatusMsg::STATE_CANCELED,
-    Pending   = StatusMsg::STATE_PENDING
+    Queued    = 0,
+    Executing = 1,
+    Completed = 2,
+    Failed    = 3,
+    Canceled  = 4,
+    Pending   = 5
   };
 
   /// Current State of the task
@@ -80,11 +76,6 @@ public:
   /// Check if the current task is terminated
   bool is_terminated() const;
 
-  /// This helper function is to only update status elements in TaskStatus, in
-  /// which static task descriptions (e.g. id, tasktype...) will not be changed
-  /// \note experimental (TODO)
-  void update_from_msg(const StatusMsg& msg);
-
   class Implementation;
 private:
   TaskStatus();
@@ -92,9 +83,6 @@ private:
 };
 
 using TaskStatusPtr = std::shared_ptr<TaskStatus>;
-
-// ==============================================================================
-StatusMsg convert_status(const TaskStatus& from);
 
 } // namespace rmf_task_ros2
 

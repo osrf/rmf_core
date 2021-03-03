@@ -156,7 +156,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
 
   action_server->register_callbacks(
     // Add Task callback
-    [&action_server, &task_canceled_flag](const TaskProfile& task_profile)
+    [&action_server, &task_canceled_flag](const auto& task_profile)
     {
       // Start action task
       auto t = std::thread(
@@ -187,7 +187,7 @@ SCENARIO("Dispatcehr API Test", "[Dispatcher]")
       return true; //successs (send State::Queued)
     },
     // Cancel Task callback
-    [&action_server, &task_canceled_flag](const TaskProfile&)
+    [&action_server, &task_canceled_flag](const auto&)
     {
       task_canceled_flag = true;
       return true; //success ,send State::Canceled when dispatcher->cancel_task

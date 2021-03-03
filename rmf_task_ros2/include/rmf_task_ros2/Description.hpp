@@ -24,7 +24,7 @@
 #include <rmf_traffic/Time.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
-#include <rmf_task_msgs/msg/task_description.hpp>
+#include <rmf_dispenser_msgs/msg/dispenser_request_item.hpp>
 
 namespace rmf_task_ros2 {
 
@@ -33,26 +33,12 @@ namespace rmf_task_ros2 {
 class Description
 {
 public:
-  using TaskDescription = rmf_task_msgs::msg::TaskDescription;
-
-  /// Create a Description. This is only used when the task type is not 
+  /// Create a Description. This is only used when the task type is not
   /// available as the derived class.
-  ///
-  /// \param [in] start_time
-  ///
-  /// \param [in] type
   static std::shared_ptr<const Description> make_description(
     rmf_traffic::Time start_time,
     uint32_t type,
     uint64_t priority = 0);
-
-  /// Create a Description by providing a msg. This is only used when the task
-  /// type is not available as the derived class.
-  ///
-  /// \param [in] msg
-  ///   task description msg as argument
-  static std::shared_ptr<const Description> make_from_msg(
-    const TaskDescription& msg);
 
   /// Get the start_time of the task
   rmf_traffic::Time start_time() const;
@@ -60,11 +46,10 @@ public:
   /// Get the type of the task
   uint32_t type() const;
 
-  /// This is not created now
+  /// Get the priority of the task
   uint64_t priority() const;
 
-  /// Get the TaskDescription as msg
-  virtual TaskDescription to_msg() const;
+  virtual ~Description() = default;
 
   class Implementation;
 protected:
@@ -76,7 +61,6 @@ using ConstDescriptionPtr = std::shared_ptr<const Description>;
 
 //==============================================================================
 namespace description {
-
 class Delivery : public Description
 {
 public:
@@ -89,21 +73,20 @@ public:
     std::string pickup_dispenser,
     std::string dropoff_place_name,
     std::string dropoff_ingestor,
-    std::vector<DispenserRequestItem> items,
+    std::vector<DispenserRequestItem> items = {},
     uint64_t priority = 0);
-
-  /// Create task description from description msg
-  static std::shared_ptr<const Delivery> make_from_msg(
-    const TaskDescription& msg);
-
-  /// Get the TaskDescription as msg
-  TaskDescription to_msg() const final;
 
   /// Get the pickup_place_name
   const std::string& pickup_place_name() const;
 
   /// Get the dropoff_place_name
   const std::string& dropoff_place_name() const;
+
+  /// Get the pickup_dispenser
+  const std::string& pickup_dispenser() const;
+
+  /// Get the dropoff_ingestor
+  const std::string& dropoff_ingestor() const;
 
   class Implementation;
 private:
@@ -123,18 +106,14 @@ public:
     std::size_t num_loops,
     uint64_t priority = 0);
 
-  /// Create task description from description msg
-  static std::shared_ptr<const Loop> make_from_msg(
-    const TaskDescription& msg);
-
-  /// Get the TaskDescription as msg
-  TaskDescription to_msg() const final;
-
   /// Get the start_name
   const std::string& start_name() const;
 
   /// Get the finish_name
   const std::string& finish_name() const;
+
+  /// Get the num_loops
+  std::size_t num_loops() const;
 
   class Implementation;
 private:
@@ -151,13 +130,6 @@ public:
     rmf_traffic::Time start_time,
     std::string start_waypoint,
     uint64_t priority = 0);
-
-  /// Create task description from description msg
-  static std::shared_ptr<const Clean> make_from_msg(
-    const TaskDescription& msg);
-
-  /// Get the TaskDescription as msg
-  TaskDescription to_msg() const final;
 
   /// Get the start_waypoint of a clean
   const std::string& start_waypoint() const;

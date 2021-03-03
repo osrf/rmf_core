@@ -636,24 +636,31 @@ void FleetUpdateHandle::Implementation::dispatch_request_cb(
 auto FleetUpdateHandle::Implementation::is_valid_assignments(
   Assignments& assignments) const -> bool
 {
-  std::unordered_set<std::string> executed_tasks;
+  // This checks if the current assignments are all queued in task managers
+  std::unordered_set<std::string> queued_tasks;
   for (const auto& mgr : task_managers)
   {
-    // TODO (YL) check if logic is correct
-    // const auto& tasks = mgr->get_executed_tasks();
-    // executed_tasks.insert(tasks.begin(), tasks.end());
-    if(mgr->current_task())
-      executed_tasks.insert(mgr->current_task()->id());
+    for (const auto task : mgr->task_queue())
+      queued_tasks.insert(task->id());
   }
 
+  size_t assignment_size = 0;
   for (const auto& agent : assignments)
   {
     for (const auto& a : agent)
     {
-      if (executed_tasks.find(a.request()->id()) != executed_tasks.end())
+      // If ID exists doesnt exist in queue_tasks
+      if (queued_tasks.find(a.request()->id()) == queued_tasks.end())
         return false;
+
+      assignment_size++;
     }
   }
+
+  // Check if total queued tasks is the same as the assignments
+  if (queued_tasks.size() != assignment_size)
+    return false;
+
   return true;
 }
 

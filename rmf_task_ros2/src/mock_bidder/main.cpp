@@ -27,6 +27,7 @@ using namespace rmf_task_ros2;
 
 using TaskType = bidding::MinimalBidder::TaskType;
 using BidNotice = rmf_task_msgs::msg::BidNotice;
+using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 
 int main(int argc, char* argv[])
 {
@@ -73,11 +74,9 @@ int main(int argc, char* argv[])
                 << task_profile.task_id<<std::endl;
 
       // async on executing task
-      // auto _ = std::async(std::launch::async,
       auto t = std::thread(
         [&action_server, &node](auto profile)
         {
-          // HUGE TODO(YL)
           const auto id = profile.task_id;
           const auto now = rmf_traffic_ros2::convert(node->now());
           const auto status = TaskStatus::make(id, now, nullptr); //todo

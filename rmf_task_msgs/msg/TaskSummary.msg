@@ -4,6 +4,7 @@
 string fleet_name
 
 # *optional and duplicated in TaskProfile
+# TODO: This is not needed, to removed
 string task_id 
 
 TaskProfile task_profile

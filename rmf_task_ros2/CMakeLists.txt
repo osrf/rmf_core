@@ -44,7 +44,7 @@ target_include_directories(rmf_task_ros2
 )
 
 ament_export_targets(rmf_task_ros2 HAS_LIBRARY_TARGET)
-ament_export_dependencies(rmf_traffic rmf_task_msgs rmf_task rclcpp)
+ament_export_dependencies(rmf_traffic_ros2 rmf_task_msgs rmf_task rclcpp)
 
 #===============================================================================
 
