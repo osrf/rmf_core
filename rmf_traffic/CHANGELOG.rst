@@ -6,6 +6,7 @@ Changelog for package rmf_traffic
 ------------------
 * Add persistence to Traffic Schedule Participant IDs: [#242](https://github.com/osrf/rmf_core/pull/242)
 * Allow a minimum plan finish time to be specified: [#307](https://github.com/osrf/rmf_core/pull/307)
+* Check itinerary endpoints when negotiating: [#308](https://github.com/osrf/rmf_core/pull/308)
 
 1.2.0 (2021-01-05)
 ------------------
