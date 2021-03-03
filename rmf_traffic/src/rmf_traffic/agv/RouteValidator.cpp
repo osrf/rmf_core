@@ -93,6 +93,30 @@ schedule::ParticipantId ScheduleRouteValidator::participant() const
   return _pimpl->participant;
 }
 
+namespace {
+//==============================================================================
+/// The end_cap trajectory represents the last known position of the other
+/// participant's trajectory. This prevents the negotiator from using a
+/// pathological strategy like waiting until the other participant vanishes.
+Trajectory make_endcap(
+  const Route& my_route,
+  const Trajectory::Waypoint& other_end_wp)
+{
+  Trajectory end_cap;
+  end_cap.insert(
+    other_end_wp.time(),
+    other_end_wp.position(),
+    Eigen::Vector3d::Zero());
+
+  end_cap.insert(
+    *my_route.trajectory().finish_time() + std::chrono::seconds(10),
+    other_end_wp.position(),
+    Eigen::Vector3d::Zero());
+
+  return end_cap;
+}
+} // anonymous namespace
+
 //==============================================================================
 rmf_utils::optional<RouteValidator::Conflict>
 ScheduleRouteValidator::find_conflict(const Route& route) const
@@ -385,10 +409,18 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
   spacetime.query_timespan()
       .all_maps(false)
       .add_map(route.map())
-      .set_lower_time_bound(*route.trajectory().start_time())
-      .set_upper_time_bound(*route.trajectory().finish_time());
+//      .set_lower_time_bound(*route.trajectory().start_time())
+//      .set_upper_time_bound(*route.trajectory().finish_time());
+      .remove_lower_time_bound()
+      .remove_upper_time_bound();
 
   const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
+
+  std::unordered_map<ParticipantId, const rmf_traffic::Trajectory::Waypoint*>
+      all_last_wp;
+
+  std::unordered_map<ParticipantId, const rmf_traffic::Trajectory::Waypoint*>
+      all_first_wp;
 
   for (const auto& v : view)
   {
@@ -405,51 +437,47 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     {
       return Conflict{v.participant, *time};
     }
+
+    const auto last_wp_it = all_last_wp.insert({v.participant, nullptr}).first;
+    const auto& check_last = v.route.trajectory().back();
+    if (!last_wp_it->second)
+    {
+      last_wp_it->second = &check_last;
+    }
+    else if (last_wp_it->second->time() < check_last.time())
+    {
+      last_wp_it->second = &check_last;
+    }
+
+//    const auto first_wp_it = all_first_wp.insert({v.participant, nullptr}).first;
+//    const auto& check_first = v.route.trajectory().front();
+//    if (!first_wp_it->second)
+//    {
+//      first_wp_it->second = &check_first;
+//    }
+//    else if (check_first.time() < first_wp_it->second->time())
+//    {
+//      first_wp_it->second = &check_first;
+//    }
   }
 
-  for (const auto& r : _pimpl->rollouts)
+  for (const auto& last_wp : all_last_wp)
   {
-    if (_pimpl->masked && (*_pimpl->masked == r.participant))
+    if (*route.trajectory().finish_time() < last_wp.second->time())
       continue;
 
-    const auto& last_route =
-        _pimpl->data->viewer->alternatives()
-        .at(r.participant)
-        ->at(r.version).back();
-
-    if (route.map() != last_route->map())
-      continue;
-
-    const auto& last_wp = last_route->trajectory().back();
-
-    if (*route.trajectory().finish_time() < last_wp.time())
-      continue;
-
+    const auto participant = last_wp.first;
     const auto& description =
-        _pimpl->data->viewer->get_description(r.participant);
-    assert(description);
+        _pimpl->data->viewer->get_description(participant);
 
-    // The end_cap trajectory represents the last known position of the
-    // rollout's alternative. This prevents the negotiator from using a
-    // pathological strategy like waiting until the other participant vanishes.
-    Trajectory end_cap;
-    end_cap.insert(
-          last_wp.time(),
-          last_wp.position(),
-          Eigen::Vector3d::Zero());
-
-    end_cap.insert(
-          *route.trajectory().finish_time() + std::chrono::seconds(10),
-          last_wp.position(),
-          Eigen::Vector3d::Zero());
-
+    // Project the other participant
     if (const auto time = rmf_traffic::DetectConflict::between(
           _pimpl->data->profile,
           route.trajectory(),
           description->profile(),
-          end_cap))
+          make_endcap(route, *last_wp.second)))
     {
-      return Conflict{r.participant, *time};
+      return Conflict{participant, *time};
     }
   }
 
