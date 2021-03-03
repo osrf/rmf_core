@@ -431,6 +431,14 @@ void TaskManager::_begin_waiting()
         msg.end_time = rmf_traffic_ros2::convert(
           _active_task->finish_state().finish_time());
         _context->node()->task_summary()->publish(msg);
+
+        RCLCPP_WARN(
+          _context->node()->get_logger(),
+          "Robot [%s] encountered an error while doing a ResponsiveWait: %s",
+          _context->requester_id().c_str(), msg.status.c_str());
+
+        // Go back to waiting if an error has occurred
+        _begin_waiting();
       },
       [this]()
       {

@@ -408,71 +408,75 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     }
   }
 
-  const auto initial_endpoints = _pimpl->data->viewer->initial_endpoints(
-    _pimpl->rollouts);
-
-  const auto& initial_wp = route.trajectory().front();
-  for (const auto& other : initial_endpoints)
   {
-    if (route.map() != other.second.map())
-      continue;
+    const auto initial_endpoints = _pimpl->data->viewer->initial_endpoints(
+      _pimpl->rollouts);
 
-    const auto& other_wp = other.second.waypoint();
-    if (other_wp.time() <= initial_wp.time())
-      continue;
-
-    Trajectory other_start;
-    other_start.insert(
-      initial_wp.time() - 1s,
-      other_wp.position(),
-      Eigen::Vector3d::Zero());
-
-    other_start.insert(
-      other_wp.time(),
-      other_wp.position(),
-      Eigen::Vector3d::Zero());
-
-    if (const auto time = rmf_traffic::DetectConflict::between(
-          _pimpl->data->profile,
-          route.trajectory(),
-          other.second.description().profile(),
-          other_start))
+    const auto& initial_wp = route.trajectory().front();
+    for (const auto& other : initial_endpoints)
     {
-      return Conflict{other.first, *time};
+      if (route.map() != other.second.map())
+        continue;
+
+      const auto& other_wp = other.second.waypoint();
+      if (other_wp.time() <= initial_wp.time())
+        continue;
+
+      Trajectory other_start;
+      other_start.insert(
+        initial_wp.time() - 1s,
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      other_start.insert(
+        other_wp.time(),
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      if (const auto time = rmf_traffic::DetectConflict::between(
+            _pimpl->data->profile,
+            route.trajectory(),
+            other.second.description().profile(),
+            other_start))
+      {
+        return Conflict{other.first, *time};
+      }
     }
   }
 
-  const auto final_endpoints = _pimpl->data->viewer->final_endpoints(
-    _pimpl->rollouts);
-
-  const auto& final_wp = route.trajectory().back();
-  for (const auto& other : initial_endpoints)
   {
-    if (route.map() != other.second.map())
-      continue;
+    const auto final_endpoints = _pimpl->data->viewer->final_endpoints(
+      _pimpl->rollouts);
 
-    const auto& other_wp = other.second.waypoint();
-    if (final_wp.time() <= other_wp.time())
-      continue;
-
-    Trajectory other_finish;
-    other_finish.insert(
-      other_wp.time(),
-      other_wp.position(),
-      Eigen::Vector3d::Zero());
-
-    other_finish.insert(
-      final_wp.time() + 1s,
-      other_wp.position(),
-      Eigen::Vector3d::Zero());
-
-    if (const auto time = rmf_traffic::DetectConflict::between(
-          _pimpl->data->profile,
-          route.trajectory(),
-          other.second.description().profile(),
-          other_finish))
+    const auto& final_wp = route.trajectory().back();
+    for (const auto& other : final_endpoints)
     {
-      return Conflict{other.first, *time};
+      if (route.map() != other.second.map())
+        continue;
+
+      const auto& other_wp = other.second.waypoint();
+      if (final_wp.time() <= other_wp.time())
+        continue;
+
+      Trajectory other_finish;
+      other_finish.insert(
+        other_wp.time(),
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      other_finish.insert(
+        final_wp.time() + 1s,
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      if (const auto time = rmf_traffic::DetectConflict::between(
+            _pimpl->data->profile,
+            route.trajectory(),
+            other.second.description().profile(),
+            other_finish))
+      {
+        return Conflict{other.first, *time};
+      }
     }
   }
 
