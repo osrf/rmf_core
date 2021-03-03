@@ -136,7 +136,7 @@ public:
   static std::unique_ptr<Pending> make_indefinite(
     agv::RobotContextPtr context,
     std::size_t waiting_point,
-    rmf_traffic::Duration update_period = std::chrono::seconds(10));
+    rmf_traffic::Duration update_period = std::chrono::seconds(30));
 };
 
 } // namespace phases
