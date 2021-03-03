@@ -158,6 +158,38 @@ public:
           const Query::Spacetime& parameters,
           const VersionedKeySequence& alternatives) const;
 
+      /// View the first or last (depending on context) waypoint in a
+      /// negotiation participant's itinerary or alternative.
+      class Endpoint
+      {
+      public:
+
+        /// The ID of the participant
+        ParticipantId participant() const;
+
+        /// The first or last (depending on context) waypoint
+        const rmf_traffic::Trajectory::Waypoint& waypoint() const;
+
+        /// The map that the endpoint is on
+        const std::string& map() const;
+
+        /// The description of the participant
+        const ParticipantDescription& description() const;
+
+        class Implementation;
+      private:
+        Endpoint();
+        rmf_utils::impl_ptr<Implementation> _pimpl;
+      };
+
+      /// Get the set of initial waypoints for the negotiation participants.
+      std::unordered_map<ParticipantId, Endpoint> initial_endpoints(
+        const VersionedKeySequence& alternatives) const;
+
+      /// Get the set of final waypoints for the negotiation participants.
+      std::unordered_map<ParticipantId, Endpoint> final_endpoints(
+        const VersionedKeySequence& alterantives) const;
+
       using AlternativeMap =
         std::unordered_map<ParticipantId, std::shared_ptr<Alternatives>>;
 
