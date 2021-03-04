@@ -15,20 +15,22 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
-#define RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
+#ifndef SRC__RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
+#define SRC__RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
 
 #include <unordered_set>
 
 #include <rclcpp/node.hpp>
 #include <rmf_utils/impl_ptr.hpp>
-
-#include <rmf_task_ros2/bidding/Submission.hpp>
+#include <rmf_traffic/Time.hpp>
+#include <rmf_task_msgs/msg/bid_notice.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
 
 //==============================================================================
+/// This is a sample bidder utility class which will listen to bid notice and
+/// submit a bid to the auctioneer. This is currently used in test.
 class MinimalBidder
 {
 public:
@@ -44,6 +46,14 @@ public:
     Patrol        = TaskTypeMsg::TYPE_PATROL
   };
 
+  struct Submission
+  {
+    std::string robot_name;
+    double prev_cost = 0.0;
+    double new_cost = std::numeric_limits<double>::max();
+    rmf_traffic::Time finish_time;
+  };
+
   /// Callback function when a bid notice is received from the autioneer
   ///
   /// \param[in] notice
@@ -51,6 +61,8 @@ public:
   ///
   /// \return submission
   ///   Estimates of a task. This submission is used by dispatcher for eval
+  using BidNotice = rmf_task_msgs::msg::BidNotice;
+
   using ParseSubmissionCallback =
     std::function<Submission(const BidNotice& notice)>;
 
@@ -84,4 +96,4 @@ private:
 } // namespace bidding
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
+#endif // SRC__RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP

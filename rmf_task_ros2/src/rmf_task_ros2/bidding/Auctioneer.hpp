@@ -22,7 +22,8 @@
 #include <rclcpp/node.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
-#include <rmf_task_ros2/bidding/Submission.hpp>
+#include <rmf_task/Evaluator.hpp>
+#include <rmf_task_msgs/msg/bid_notice.hpp>
 
 namespace rmf_task_ros2 {
 namespace bidding {
@@ -34,6 +35,9 @@ namespace bidding {
 class Auctioneer : public std::enable_shared_from_this<Auctioneer>
 {
 public:
+  using BidNotice = rmf_task_msgs::msg::BidNotice;
+  using Submission = rmf_task::Evaluator::Submission;
+
   /// Callback which will provide the winner when a bid is concluded
   ///
   /// \param[in] task_id
@@ -66,51 +70,17 @@ public:
   ///   bidding task, task which will call for bid
   void start_bidding(const BidNotice& bid_notice);
 
-  /// A pure abstract interface class for the auctioneer to choose the best
-  /// choosing the best submissions.
-  class Evaluator
-  {
-  public:
-
-    /// Given a list of submissions, choose the one that is the "best". It is
-    /// up to the implementation of the Evaluator to decide how to rank.
-    virtual std::size_t choose(const Submissions& submissions) const = 0;
-
-    virtual ~Evaluator() = default;
-  };
-
   /// Provide a custom evaluator which will be used to choose the best bid
   /// If no selection is given, Default is: LeastFleetDiffCostEvaluator
   ///
   /// \param[in] evaluator
-  void select_evaluator(std::shared_ptr<Evaluator> evaluator);
+  void select_evaluator(std::shared_ptr<rmf_task::Evaluator> evaluator);
 
   class Implementation;
 
 private:
   Auctioneer();
   rmf_utils::unique_impl_ptr<Implementation> _pimpl;
-};
-
-//==============================================================================
-class LeastFleetDiffCostEvaluator : public Auctioneer::Evaluator
-{
-public:
-  std::size_t choose(const Submissions& submissions) const final;
-};
-
-//==============================================================================
-class LeastFleetCostEvaluator : public Auctioneer::Evaluator
-{
-public:
-  std::size_t choose(const Submissions& submissions) const final;
-};
-
-//==============================================================================
-class QuickestFinishEvaluator : public Auctioneer::Evaluator
-{
-public:
-  std::size_t choose(const Submissions& submissions) const final;
 };
 
 } // namespace bidding

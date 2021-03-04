@@ -670,8 +670,6 @@ std::shared_ptr<Connections> make_fleet(
   if (node->declare_parameter<bool>("perform_deliveries", false))
   {
     task_types.insert(rmf_task_msgs::msg::TaskType::TYPE_DELIVERY);
-    connections->fleet->accept_delivery_requests(
-          [](const rmf_task_msgs::msg::Delivery&){ return true; });
   }
 
   if (node->declare_parameter<bool>("perform_cleaning", false))

@@ -22,14 +22,17 @@
 
 #include <rmf_task_ros2/StandardNames.hpp>
 #include <rmf_task_ros2/TaskStatus.hpp>
+
 #include <rmf_task_msgs/msg/dispatch_request.hpp>
 #include <rmf_task_msgs/msg/dispatch_ack.hpp>
-#include <rmf_traffic/Time.hpp>
+#include <rmf_task_msgs/msg/task_summary.hpp>
 
-using TaskProfile = rmf_task_msgs::msg::TaskProfile;
+#include <rmf_traffic/Time.hpp>
 
 namespace rmf_task_ros2 {
 namespace action {
+
+using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 
 //==============================================================================
 /// Task Action Server - This is used within the fleet adapter with the role of
@@ -78,6 +81,7 @@ private:
 
   using RequestMsg = rmf_task_msgs::msg::DispatchRequest;
   using AckMsg = rmf_task_msgs::msg::DispatchAck;
+  using StatusMsg = rmf_task_msgs::msg::TaskSummary;
 
   std::shared_ptr<rclcpp::Node> _node;
   std::string _fleet_name;

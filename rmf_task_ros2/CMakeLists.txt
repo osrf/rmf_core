@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.5)
 project(rmf_task_ros2)
 
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # we dont use add_compile_options with pedantic in message packages
@@ -17,6 +17,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rmf_traffic REQUIRED)
 find_package(rmf_traffic_ros2 REQUIRED)
 find_package(rmf_task_msgs REQUIRED)
+find_package(rmf_task REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 
@@ -27,6 +28,7 @@ target_link_libraries(rmf_task_ros2
   PUBLIC
     rmf_traffic::rmf_traffic
     rmf_traffic_ros2::rmf_traffic_ros2
+    rmf_task::rmf_task
     ${rmf_task_msgs_LIBRARIES}
     ${rclcpp_LIBRARIES}
 )
@@ -37,11 +39,12 @@ target_include_directories(rmf_task_ros2
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     ${rmf_traffic_ros2_INCLUDE_DIRS}
     ${rmf_task_msgs_INCLUDE_DIRS}
+    ${rmf_task_INCLUDE_DIRS}
     ${rclcpp_INCLUDE_DIRS}
 )
 
 ament_export_targets(rmf_task_ros2 HAS_LIBRARY_TARGET)
-ament_export_dependencies(rmf_traffic rmf_task_msgs rclcpp)
+ament_export_dependencies(rmf_traffic_ros2 rmf_task_msgs rmf_task rclcpp)
 
 #===============================================================================
 
@@ -56,6 +59,7 @@ if(BUILD_TESTING AND ament_cmake_catch2_FOUND)
       rmf_task_ros2
       rmf_traffic::rmf_traffic
       rmf_traffic_ros2::rmf_traffic_ros2
+      rmf_task::rmf_task
   )
 
   target_include_directories(test_rmf_task_ros2

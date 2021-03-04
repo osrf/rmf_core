@@ -15,8 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/bidding/Submission.hpp>
-#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
+#include "MinimalBidder.hpp"
 
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_task_msgs/msg/bid_proposal.hpp>
@@ -26,18 +25,6 @@ namespace rmf_task_ros2 {
 namespace bidding {
 
 using BidProposal = rmf_task_msgs::msg::BidProposal;
-
-//==============================================================================
-BidProposal convert(const Submission& from)
-{
-  BidProposal proposal_msg;
-  proposal_msg.fleet_name = from.fleet_name;
-  proposal_msg.robot_name = from.robot_name;
-  proposal_msg.prev_cost = from.prev_cost;
-  proposal_msg.new_cost = from.new_cost;
-  proposal_msg.finish_time = rmf_traffic_ros2::convert(from.finish_time);
-  return proposal_msg;
-}
 
 //==============================================================================
 class MinimalBidder::Implementation
@@ -99,12 +86,19 @@ public:
     if (!get_submission_fn)
       return;
 
-    // Submit proposal
     const auto bid_submission = get_submission_fn(msg);
-    auto best_proposal = convert(bid_submission);
-    best_proposal.fleet_name = fleet_name;
-    best_proposal.task_profile = msg.task_profile;
-    dispatch_proposal_pub->publish(best_proposal);
+
+    // Submit proposal
+    BidProposal proposal_msg;
+    proposal_msg.fleet_name = fleet_name;
+    proposal_msg.task_profile = msg.task_profile;
+    proposal_msg.robot_name = bid_submission.robot_name;
+    proposal_msg.prev_cost = bid_submission.prev_cost;
+    proposal_msg.new_cost = bid_submission.new_cost;
+    proposal_msg.finish_time =
+      rmf_traffic_ros2::convert(bid_submission.finish_time);
+
+    dispatch_proposal_pub->publish(proposal_msg);
   }
 };
 

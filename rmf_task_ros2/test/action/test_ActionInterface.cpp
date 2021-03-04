@@ -30,15 +30,11 @@ namespace action {
 //==============================================================================
 SCENARIO("Action communication with client and server", "[ActionInterface]")
 {
-  TaskProfile task_profile1;
-  task_profile1.task_id = "task1";
-  task_profile1.description.task_type.type =
-    rmf_task_msgs::msg::TaskType::TYPE_STATION;
+  const auto now = std::chrono::steady_clock::now();
 
-  TaskProfile task_profile2;
-  task_profile2.task_id = "task2";
-  task_profile2.description.task_type.type =
-    rmf_task_msgs::msg::TaskType::TYPE_STATION;
+  auto clean = description::Clean::make(now, "clean_here");
+  const auto task_status1 = TaskStatus::make("task1", now, clean);
+  const auto task_status2 = TaskStatus::make("task2", now, clean);
 
   //============================================================================
 
@@ -51,7 +47,6 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
   auto node = rclcpp::Node::make_shared("test_ActionInferface");
   auto action_server = Server::make(node, "test_server");
   auto action_client = Client::make(node);
-
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node);
 
@@ -77,40 +72,37 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
 
   WHEN("Add Task")
   {
-    // Add invalid Task!
-    TaskStatusPtr status_ptr(new TaskStatus);
-
-    action_client->add_task("wrong_server", task_profile1, status_ptr);
+    action_client->dispatch_task("wrong_server", task_status1);
 
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     // should not receive cuz incorrect serverid
-    REQUIRE(status_ptr->state == TaskStatus::State::Pending);
+    REQUIRE(task_status1->state == TaskStatus::State::Pending);
 
-    action_client->add_task("test_server", task_profile1, status_ptr);
+    action_client->dispatch_task("test_server", task_status1);
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     // check status
-    REQUIRE(status_ptr->state == TaskStatus::State::Queued);
+    REQUIRE(task_status1->state == TaskStatus::State::Queued);
 
+    // TODO(YL) to fix this
     // status ptr is destroyed, should not have anymore tracking
-    status_ptr.reset();
-    REQUIRE(action_client->size() == 0);
+    // task_status1.reset();
+    // REQUIRE(action_client->size() == 0);
   }
 
   WHEN("Cancel Task")
   {
     // send valid task
-    TaskStatusPtr status_ptr(new TaskStatus);
-    action_client->add_task("test_server", task_profile2, status_ptr);
+    action_client->dispatch_task("test_server", task_status2);
 
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     // Invalid Cancel Task!
-    bool cancel_success = action_client->cancel_task(task_profile1);
+    bool cancel_success = action_client->cancel_task(task_status1->task_id());
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
     REQUIRE(!test_cancel_task);
@@ -118,39 +110,37 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(action_client->size() == 1);
 
     // Valid Cancel task
-    action_client->cancel_task(task_profile2);
+    action_client->cancel_task(task_status2->task_id());
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 
     REQUIRE(test_cancel_task);
-    REQUIRE(*test_cancel_task == task_profile2);
-    REQUIRE(status_ptr->is_terminated());
+    REQUIRE(task_status2->is_terminated());
     REQUIRE(action_client->size() == 0);
   }
 
   //============================================================================
 
-  std::optional<TaskStatus> test_task_onchange;
-  std::optional<TaskStatus> test_task_onterminate;
+  TaskStatusPtr test_task_onchange = nullptr;
+  TaskStatusPtr test_task_onterminate = nullptr;
 
   // received status update from server
   action_client->on_change(
     [&test_task_onchange](const TaskStatusPtr status)
     {
-      test_task_onchange = *status;
+      test_task_onchange = status;
     }
   );
   action_client->on_terminate(
     [&test_task_onterminate](const TaskStatusPtr status)
     {
-      test_task_onterminate = *status;
+      test_task_onterminate = status;
     }
   );
 
   WHEN("On Change and On Terminate Task")
   {
-    TaskStatusPtr status_ptr(new TaskStatus);
-    action_client->add_task("test_server", task_profile1, status_ptr);
+    action_client->dispatch_task("test_server", task_status1);
 
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
@@ -158,12 +148,13 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(test_task_onchange);
     REQUIRE(test_task_onchange->state == TaskStatus::State::Queued);
 
-    TaskStatus server_task;
-    server_task.task_profile = task_profile1;
-    server_task.state = TaskStatus::State::Executing;
+    // this task is received by server
+    const auto server_task =
+      TaskStatus::make(test_add_task->task_id, now, clean);
+    server_task->state = TaskStatus::State::Executing;
 
     // Update it as executing
-    action_server->update_status(server_task);
+    action_server->update_status(*server_task);
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(1.5));
 
@@ -171,9 +162,9 @@ SCENARIO("Action communication with client and server", "[ActionInterface]")
     REQUIRE(!test_task_onterminate); // havnt terminated yet
 
     // completion
-    server_task.state = TaskStatus::State::Completed;
+    server_task->state = TaskStatus::State::Completed;
     // Update it as executing
-    action_server->update_status(server_task);
+    action_server->update_status(*server_task);
     executor.spin_until_future_complete(ready_future,
       rmf_traffic::time::from_seconds(0.5));
 

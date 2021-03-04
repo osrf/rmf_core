@@ -39,6 +39,7 @@ set(dep_pkgs
   rmf_traffic_ros2
   rmf_battery
   rmf_task
+  rmf_task_ros2
   std_msgs
 )
 foreach(pkg ${dep_pkgs})
@@ -62,6 +63,7 @@ target_link_libraries(rmf_fleet_adapter
     rmf_traffic_ros2::rmf_traffic_ros2
     rmf_battery::rmf_battery
     rmf_task::rmf_task
+    rmf_task_ros2::rmf_task_ros2
     yaml-cpp
     ${rmf_fleet_msgs_LIBRARIES}
     ${rclcpp_LIBRARIES}
@@ -322,6 +324,7 @@ target_include_directories(task_aggregator
 ament_export_targets(rmf_fleet_adapter HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   rmf_task
+  rmf_task_ros2
   rmf_traffic_ros2
   rmf_fleet_msgs
   rmf_door_msgs

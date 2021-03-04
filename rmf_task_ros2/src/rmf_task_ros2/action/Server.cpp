@@ -16,6 +16,8 @@
 */
 
 #include "Server.hpp"
+#include <rmf_traffic_ros2/Time.hpp>
+#include "../internal_Description.hpp"
 
 namespace rmf_task_ros2 {
 namespace action {
@@ -38,10 +40,24 @@ void Server::register_callbacks(
 
 //==============================================================================
 void Server::update_status(
-  const TaskStatus& task_status)
+  const TaskStatus& status)
 {
-  auto msg = convert_status(task_status);
+  // Here solely converts TaskStatus to StatusMsg
+  StatusMsg msg;
   msg.fleet_name = _fleet_name;
+  msg.task_id = status.task_id();  // duplication
+  msg.task_profile.task_id = status.task_id();
+  msg.task_profile.submission_time =
+    rmf_traffic_ros2::convert(status.submission_time());
+  msg.start_time = rmf_traffic_ros2::convert(status.start_time);
+  msg.end_time = rmf_traffic_ros2::convert(status.end_time);
+  msg.robot_name = status.robot_name;
+  msg.status = status.status;
+  msg.state = static_cast<uint32_t>(status.state);
+
+  if (status.description())
+    msg.task_profile.description = description::convert(status.description());
+
   _status_msg_pub->publish(msg);
 }
 
@@ -54,7 +70,7 @@ Server::Server(
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   _request_msg_sub = _node->create_subscription<RequestMsg>(
-    TaskRequestTopicName, dispatch_qos,
+    DispatchRequestTopicName, dispatch_qos,
     [&](const std::unique_ptr<RequestMsg> msg)
     {
       if (msg->fleet_name != _fleet_name)
@@ -89,7 +105,7 @@ Server::Server(
     });
 
   _ack_msg_pub = _node->create_publisher<AckMsg>(
-    TaskAckTopicName, dispatch_qos);
+    DispatchAckTopicName, dispatch_qos);
 
   _status_msg_pub = _node->create_publisher<StatusMsg>(
     TaskStatusTopicName, dispatch_qos);

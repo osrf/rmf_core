@@ -16,6 +16,8 @@
 */
 
 #include "Client.hpp"
+#include <rmf_traffic_ros2/Time.hpp>
+#include "../internal_Description.hpp"
 
 namespace rmf_task_ros2 {
 namespace action {
@@ -33,7 +35,7 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
   const auto dispatch_qos = rclcpp::ServicesQoS().reliable();
 
   _request_msg_pub = _node->create_publisher<RequestMsg>(
-    TaskRequestTopicName, dispatch_qos);
+    DispatchRequestTopicName, dispatch_qos);
 
   _status_msg_sub = _node->create_subscription<StatusMsg>(
     TaskStatusTopicName, dispatch_qos,
@@ -52,11 +54,8 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
           return;
         }
 
-        // TODO: hack to retain task profile and fleet name (to remove)
-        auto cache_profile = weak_status->task_profile;
         // update status to ptr
-        *weak_status = convert_status(*msg);
-        weak_status->task_profile = cache_profile;
+        update_status_from_msg(weak_status, *msg);
 
         if (weak_status->is_terminated())
           RCLCPP_INFO(_node->get_logger(),
@@ -67,17 +66,29 @@ Client::Client(std::shared_ptr<rclcpp::Node> node)
       }
       else
       {
-        // will still provide onchange even if the task_id is unknown.
+        /// This is when the task_id is unknown to the dispatcher node. Here
+        /// we will make and add the self-generated task from the fleet
+        /// adapter to the dispatcher queue (e.g. ChargeBattery Task)
         RCLCPP_DEBUG(_node->get_logger(),
         "[action] Unknown task: [%s]", task_id.c_str());
-        auto task_status = std::make_shared<TaskStatus>(convert_status(*msg));
-        _active_task_status[task_id] = task_status;
-        update_task_status(task_status);
+
+        const auto& desc_msg = msg->task_profile.description;
+        const auto desc = Description::make_description(
+          rmf_traffic_ros2::convert(desc_msg.start_time),
+          desc_msg.task_type.type,
+          desc_msg.priority.value);
+
+        const auto status_ptr = TaskStatus::make(
+          task_id, std::chrono::steady_clock::now(), desc);
+        update_status_from_msg(status_ptr, *msg);
+
+        _active_task_status[task_id] = status_ptr;
+        update_task_status(status_ptr);
       }
     });
 
   _ack_msg_sub = _node->create_subscription<AckMsg>(
-    TaskAckTopicName, dispatch_qos,
+    DispatchAckTopicName, dispatch_qos,
     [&](const std::unique_ptr<AckMsg> msg)
     {
       const auto task_id = msg->dispatch_request.task_profile.task_id;
@@ -132,42 +143,41 @@ void Client::update_task_status(const TaskStatusPtr status)
   // erase terminated task and call on_terminate callback
   if (status->is_terminated())
   {
-    _active_task_status.erase(status->task_profile.task_id);
+    _active_task_status.erase(status->task_id());
     if (_on_terminate_callback)
       _on_terminate_callback(status);
   }
 }
 
 //==============================================================================
-// check if task is updated TODO
-
-//==============================================================================
-void Client::add_task(
+void Client::dispatch_task(
   const std::string& fleet_name,
-  const TaskProfile& task_profile,
   TaskStatusPtr status_ptr)
 {
+  rmf_task_msgs::msg::TaskProfile task_profile;
+  task_profile.task_id = status_ptr->task_id();
+  task_profile.description = description::convert(status_ptr->description());
+  task_profile.submission_time =
+    rmf_traffic_ros2::convert(status_ptr->submission_time());
+
   // send request and wait for acknowledgement
   RequestMsg request_msg;
+  request_msg.method = RequestMsg::ADD;
   request_msg.fleet_name = fleet_name;
   request_msg.task_profile = task_profile;
-  request_msg.method = RequestMsg::ADD;
   _request_msg_pub->publish(request_msg);
 
   // save status ptr
   status_ptr->fleet_name = fleet_name;
-  status_ptr->task_profile = task_profile;
-  _active_task_status[task_profile.task_id] = status_ptr;
+  _active_task_status[status_ptr->task_id()] = status_ptr;
   RCLCPP_DEBUG(_node->get_logger(), "Assign task: [%s] to fleet [%s]",
-    task_profile.task_id.c_str(), fleet_name.c_str());
+    status_ptr->task_id().c_str(), fleet_name.c_str());
   return;
 }
 
 //==============================================================================
-bool Client::cancel_task(
-  const TaskProfile& task_profile)
+bool Client::cancel_task(const std::string& task_id)
 {
-  const auto task_id = task_profile.task_id;
   RCLCPP_DEBUG(_node->get_logger(),
     "[action] Cancel Task: [%s]", task_id.c_str());
 
@@ -188,11 +198,17 @@ bool Client::cancel_task(
     return false;
   }
 
+  rmf_task_msgs::msg::TaskProfile task_profile;
+  task_profile.task_id = weak_status->task_id();
+  task_profile.description = description::convert(weak_status->description());
+  task_profile.submission_time =
+    rmf_traffic_ros2::convert(weak_status->submission_time());
+
   // send cancel
   RequestMsg request_msg;
+  request_msg.method = RequestMsg::CANCEL;
   request_msg.fleet_name = weak_status->fleet_name;
   request_msg.task_profile = task_profile;
-  request_msg.method = RequestMsg::CANCEL;
   _request_msg_pub->publish(request_msg);
   return true;
 }
@@ -230,4 +246,39 @@ void Client::on_terminate(
 }
 
 } // namespace action
+
+//==============================================================================
+void update_status_from_msg(
+  const TaskStatusPtr task_status_ptr,
+  const StatusMsg msg)
+{
+  task_status_ptr->fleet_name = msg.fleet_name;
+  task_status_ptr->start_time = rmf_traffic_ros2::convert(msg.start_time);
+  task_status_ptr->end_time = rmf_traffic_ros2::convert(msg.end_time);
+  task_status_ptr->robot_name = msg.robot_name;
+  task_status_ptr->status = msg.status;
+  task_status_ptr->state = static_cast<TaskStatus::State>(msg.state);
+}
+
+// ==============================================================================
+StatusMsg convert_status(const TaskStatus& from)
+{
+  StatusMsg status;
+  status.fleet_name = from.fleet_name;
+  status.task_id = from.task_id();  // duplication
+  status.task_profile.task_id = from.task_id();
+  status.task_profile.submission_time =
+    rmf_traffic_ros2::convert(from.submission_time());
+  status.start_time = rmf_traffic_ros2::convert(from.start_time);
+  status.end_time = rmf_traffic_ros2::convert(from.end_time);
+  status.robot_name = from.robot_name;
+  status.status = from.status;
+  status.state = static_cast<uint32_t>(from.state);
+
+  if (from.description())
+    status.task_profile.description = description::convert(from.description());
+
+  return status;
+}
+
 } // namespace rmf_task_ros2

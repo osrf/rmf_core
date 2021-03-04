@@ -17,14 +17,17 @@
 
 /// Note: This is a testing bidder node script
 
-#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
+#include "../rmf_task_ros2/bidding/MinimalBidder.hpp"
 #include "../rmf_task_ros2/action/Server.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
 
 using namespace rmf_task_ros2;
+
 using TaskType = bidding::MinimalBidder::TaskType;
+using BidNotice = rmf_task_msgs::msg::BidNotice;
+using TaskProfile = rmf_task_msgs::msg::TaskProfile;
 
 int main(int argc, char* argv[])
 {
@@ -43,14 +46,14 @@ int main(int argc, char* argv[])
     node,
     fleet_name,
     { TaskType::Clean, TaskType::Delivery },
-    [](const bidding::BidNotice& notice)
+    [](const BidNotice& notice)
     {
       // Here user will provice the best robot as a bid submission
       std::cout << "[MockBidder] Providing best estimates" << std::endl;
       auto req_start_time =
       rmf_traffic_ros2::convert(notice.task_profile.description.start_time);
 
-      bidding::Submission best_robot_estimate;
+      bidding::MinimalBidder::Submission best_robot_estimate;
       best_robot_estimate.robot_name = "dumbot";
       best_robot_estimate.prev_cost = 10.2;
       best_robot_estimate.new_cost = 13.5;
@@ -71,30 +74,28 @@ int main(int argc, char* argv[])
                 << task_profile.task_id<<std::endl;
 
       // async on executing task
-      // auto _ = std::async(std::launch::async,
       auto t = std::thread(
         [&action_server, &node](auto profile)
         {
-          TaskStatus status;
-          status.task_profile = profile;
-          status.robot_name = "dumbot";
-          status.start_time = rmf_traffic_ros2::convert(node->now());
-          status.end_time =
-          rmf_traffic::time::apply_offset(status.start_time, 7);
-
           const auto id = profile.task_id;
+          const auto now = rmf_traffic_ros2::convert(node->now());
+          const auto status = TaskStatus::make(id, now, nullptr); //todo
+          status->robot_name = "dumbot";
+          status->start_time = now;
+          status->end_time = rmf_traffic::time::apply_offset(now, 7);
+
           std::cout << " [MockBidder] Queued, TaskID: "  << id << std::endl;
-          action_server->update_status(status);
+          action_server->update_status(*status);
 
           std::this_thread::sleep_for(std::chrono::seconds(2));
           std::cout << " [MockBidder] Executing, TaskID: " << id << std::endl;
-          status.state = TaskStatus::State::Executing;
-          action_server->update_status(status);
+          status->state = TaskStatus::State::Executing;
+          action_server->update_status(*status);
 
           std::this_thread::sleep_for(std::chrono::seconds(5));
           std::cout << " [MockBidder] Completed, TaskID: " << id << std::endl;
-          status.state = TaskStatus::State::Completed;
-          action_server->update_status(status);
+          status->state = TaskStatus::State::Completed;
+          action_server->update_status(*status);
         }, task_profile
       );
       t.detach();

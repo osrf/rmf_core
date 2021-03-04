@@ -7,6 +7,7 @@ string requester
 TaskDescription description
 
 # fleet selection evaluator
+# TODO: This is not needed, to removed
 uint8 evaluator
 uint8 LOWEST_DIFF_COST_EVAL=0
 uint8 LOWEST_COST_EVAL=1

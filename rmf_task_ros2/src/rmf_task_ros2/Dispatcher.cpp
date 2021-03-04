@@ -20,6 +20,8 @@
 #include <rclcpp/node.hpp>
 
 #include "action/Client.hpp"
+#include "bidding/Auctioneer.hpp"
+#include "internal_Description.hpp"
 
 #include <rmf_task_msgs/srv/submit_task.hpp>
 #include <rmf_task_msgs/srv/cancel_task.hpp>
@@ -40,6 +42,7 @@ public:
   using SubmitTaskSrv = rmf_task_msgs::srv::SubmitTask;
   using CancelTaskSrv = rmf_task_msgs::srv::CancelTask;
   using GetTaskListSrv = rmf_task_msgs::srv::GetTaskList;
+  using TaskType = rmf_task_msgs::msg::TaskType;
 
   rclcpp::Service<SubmitTaskSrv>::SharedPtr submit_task_srv;
   rclcpp::Service<CancelTaskSrv>::SharedPtr cancel_task_srv;
@@ -47,9 +50,10 @@ public:
 
   StatusCallback on_change_fn;
 
-  std::queue<bidding::BidNotice> queue_bidding_tasks;
+  std::queue<rmf_task_msgs::msg::BidNotice> queue_bidding_tasks;
   DispatchTasks active_dispatch_tasks;
   DispatchTasks terminal_dispatch_tasks;
+
   std::size_t task_counter = 0; // index for generating task_id
   double bidding_time_window;
   int terminated_tasks_max_size;
@@ -67,51 +71,32 @@ public:
   Implementation(std::shared_ptr<rclcpp::Node> node_)
   : node{std::move(node_)}
   {
-    // ros2 param
-    bidding_time_window =
-      node->declare_parameter<double>("bidding_time_window", 2.0);
-    RCLCPP_INFO(node->get_logger(),
-      " Declared Time Window Param as: %f secs", bidding_time_window);
-    terminated_tasks_max_size =
-      node->declare_parameter<int>("terminated_tasks_max_size", 100);
-    RCLCPP_INFO(node->get_logger(),
-      " Declared Terminated Tasks Max Size Param as: %d",
-      terminated_tasks_max_size);
-
-    // Setup up stream srv interfaces
     submit_task_srv = node->create_service<SubmitTaskSrv>(
       rmf_task_ros2::SubmitTaskSrvName,
       [this](
         const std::shared_ptr<SubmitTaskSrv::Request> request,
         std::shared_ptr<SubmitTaskSrv::Response> response)
       {
-        switch (request->evaluator)
-        {
-          using namespace rmf_task_ros2::bidding;
-          case SubmitTaskSrv::Request::LOWEST_DIFF_COST_EVAL:
-            this->auctioneer->select_evaluator(
-              std::make_shared<LeastFleetDiffCostEvaluator>());
-            break;
-          case SubmitTaskSrv::Request::LOWEST_COST_EVAL:
-            this->auctioneer->select_evaluator(
-              std::make_shared<LeastFleetCostEvaluator>());
-            break;
-          case SubmitTaskSrv::Request::QUICKEST_FINISH_EVAL:
-            this->auctioneer->select_evaluator(
-              std::make_shared<QuickestFinishEvaluator>());
-            break;
-          default:
-            RCLCPP_WARN(this->node->get_logger(),
-            "Selected Evaluator is invalid, switch back to previous");
-            break;
-        }
+        response->success = false;
 
-        const auto id = this->submit_task(request->description);
-        if (id == std::nullopt)
+        ConstDescriptionPtr task_description;
+        const auto desc_msg = request->description;
+        if (auto d = description::make_delivery_from_msg(desc_msg))
+          task_description = std::move(d);
+        else if (auto d = description::make_clean_from_msg(desc_msg))
+          task_description = std::move(d);
+        else if (auto d = description::make_loop_from_msg(desc_msg))
+          task_description = std::move(d);
+        else
         {
-          response->success = false;
+          RCLCPP_ERROR(node->get_logger(),
+          "Received an invalid task from task submision request");
           return;
         }
+
+        const auto id = this->submit_task(task_description);
+        if (id == std::nullopt)
+          return;
 
         response->task_id = *id;
         response->success = true;
@@ -163,13 +148,9 @@ public:
       std::bind(&Implementation::task_status_cb, this, _1));
   }
 
-  std::optional<TaskID> submit_task(const TaskDescription& description)
+  std::optional<TaskID> submit_task(const ConstDescriptionPtr description)
   {
-    TaskProfile submitted_task;
-    submitted_task.submission_time = node->now();
-    submitted_task.description = description;
-
-    const auto task_type = static_cast<std::size_t>(description.task_type.type);
+    const auto task_type = static_cast<std::size_t>(description->type());
 
     if (!task_type_name.count(task_type))
     {
@@ -178,23 +159,20 @@ public:
     }
 
     // auto generate a task_id for a given submitted task
-    submitted_task.task_id =
-      task_type_name[task_type] + std::to_string(task_counter++);
+    const auto id = task_type_name[task_type] + std::to_string(task_counter++);
+    RCLCPP_INFO(node->get_logger(), "Received Task Request [%s]", id.c_str());
 
-    RCLCPP_INFO(node->get_logger(),
-      "Received Task Submission [%s]", submitted_task.task_id.c_str());
-
-    // add task to internal cache
-    TaskStatus status;
-    status.task_profile = submitted_task;
-    auto new_task_status = std::make_shared<TaskStatus>(status);
-    active_dispatch_tasks[submitted_task.task_id] = new_task_status;
+    const auto status = TaskStatus::make(
+      id, rmf_traffic_ros2::convert(node->now()), description);
+    active_dispatch_tasks[id] = status;
 
     if (on_change_fn)
-      on_change_fn(new_task_status);
+      on_change_fn(status);
 
-    bidding::BidNotice bid_notice;
-    bid_notice.task_profile = submitted_task;
+    rmf_task_msgs::msg::BidNotice bid_notice;
+    bid_notice.task_profile.task_id = id;
+    bid_notice.task_profile.submission_time = node->now();
+    bid_notice.task_profile.description = description::convert(description);
     bid_notice.time_window = rmf_traffic_ros2::convert(
       rmf_traffic::time::from_seconds(bidding_time_window));
     queue_bidding_tasks.push(bid_notice);
@@ -202,7 +180,7 @@ public:
     if (queue_bidding_tasks.size() == 1)
       auctioneer->start_bidding(queue_bidding_tasks.front());
 
-    return submitted_task.task_id;
+    return id;
   }
 
   bool cancel_task(const TaskID& task_id)
@@ -223,17 +201,22 @@ public:
     if (cancel_task_status->state == TaskStatus::State::Pending)
     {
       cancel_task_status->state = TaskStatus::State::Canceled;
+
       terminate_task(cancel_task_status);
 
       if (on_change_fn)
         on_change_fn(cancel_task_status);
 
+      queue_bidding_tasks.pop();
+      if (!queue_bidding_tasks.empty())
+        auctioneer->start_bidding(queue_bidding_tasks.front());
+
       return true;
     }
 
     // Charging task doesnt support cancel task
-    if (cancel_task_status->task_profile.description.task_type.type ==
-      rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY)
+    if (cancel_task_status->description()->type() ==
+      TaskType::TYPE_CHARGE_BATTERY)
     {
       RCLCPP_ERROR(node->get_logger(), "Charging task is not cancelled-able");
       return false;
@@ -255,11 +238,10 @@ public:
     for (auto it = active_dispatch_tasks.begin();
       it != active_dispatch_tasks.end(); )
     {
-      const auto type = it->second->task_profile.description.task_type.type;
       const bool is_fleet_name =
         (cancel_task_status->fleet_name == it->second->fleet_name);
       const bool is_charging_task =
-        (type == rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY);
+        (it->second->description()->type() == TaskType::TYPE_CHARGE_BATTERY);
 
       if (is_charging_task && is_fleet_name)
         it = active_dispatch_tasks.erase(it);
@@ -270,7 +252,7 @@ public:
     // Cancel action task, this will only send a cancel to FA. up to
     // the FA whether to cancel the task. On change is implemented
     // internally in action client
-    return action_client->cancel_task(cancel_task_status->task_profile);
+    return action_client->cancel_task(cancel_task_status->task_id());
   }
 
   const std::optional<TaskStatus::State> get_task_state(
@@ -290,8 +272,8 @@ public:
   }
 
   void receive_bidding_winner_cb(
-    const TaskID& task_id,
-    const rmf_utils::optional<bidding::Submission> winner)
+    const std::string& task_id,
+    const std::optional<rmf_task::Evaluator::Submission> winner)
   {
     const auto it = active_dispatch_tasks.find(task_id);
     if (it == active_dispatch_tasks.end())
@@ -328,10 +310,9 @@ public:
     for (auto it = active_dispatch_tasks.begin();
       it != active_dispatch_tasks.end(); )
     {
-      const auto type = it->second->task_profile.description.task_type.type;
       const bool is_fleet_name = (winner->fleet_name == it->second->fleet_name);
       const bool is_charging_task =
-        (type == rmf_task_msgs::msg::TaskType::TYPE_CHARGE_BATTERY);
+        (it->second->description()->type() == TaskType::TYPE_CHARGE_BATTERY);
 
       if (is_charging_task && is_fleet_name)
         it = active_dispatch_tasks.erase(it);
@@ -340,9 +321,8 @@ public:
     }
 
     // add task to action server
-    action_client->add_task(
+    action_client->dispatch_task(
       winner->fleet_name,
-      pending_task_status->task_profile,
       pending_task_status);
   }
 
@@ -350,7 +330,7 @@ public:
   {
     assert(terminate_status->is_terminated());
 
-    // prevent terminal_dispatch_tasks from piling up meaning
+    // prevent terminal_dispatch_tasks from piling up
     if (terminal_dispatch_tasks.size() >= terminated_tasks_max_size)
     {
       RCLCPP_WARN(node->get_logger(),
@@ -359,19 +339,19 @@ public:
       auto rm_task = terminal_dispatch_tasks.begin();
       for (auto it = rm_task++; it != terminal_dispatch_tasks.end(); it++)
       {
-        const auto t1 = it->second->task_profile.submission_time;
-        const auto t2 = rm_task->second->task_profile.submission_time;
-        if (rmf_traffic_ros2::convert(t1) < rmf_traffic_ros2::convert(t2))
+        const auto t1 = it->second->submission_time();
+        const auto t2 = rm_task->second->submission_time();
+
+        if (t1 < t2)
           rm_task = it;
       }
       terminal_dispatch_tasks.erase(terminal_dispatch_tasks.begin() );
     }
 
-    const auto id = terminate_status->task_profile.task_id;
+    const auto id = terminate_status->task_id();
 
-    // destroy prev status ptr and recreate one
-    auto status = std::make_shared<TaskStatus>(*terminate_status);
-    (terminal_dispatch_tasks)[id] = status;
+    // Move Status to terminated task list.
+    (terminal_dispatch_tasks)[id] = std::move(terminate_status);
     active_dispatch_tasks.erase(id);
   }
 
@@ -380,7 +360,7 @@ public:
     // This is to solve the issue that the dispatcher is not aware of those
     // "stray" tasks that are not dispatched by the dispatcher. This will add
     // the stray tasks when an unknown TaskSummary is heard.
-    const std::string id = status->task_profile.task_id;
+    const std::string id = status->task_id();
     const auto it = active_dispatch_tasks.find(id);
     if (it == active_dispatch_tasks.end())
     {
@@ -390,7 +370,8 @@ public:
     }
 
     // check if there's a change in state for the previous completed bidding task
-    // TODO, better way to impl this
+    // This ensures that the next task will be executed after receiving ack msg
+    // TODO(YL), better way to impl this
     if (!queue_bidding_tasks.empty()
       && id == queue_bidding_tasks.front().task_profile.task_id)
     {
@@ -405,23 +386,24 @@ public:
 };
 
 //==============================================================================
-std::shared_ptr<Dispatcher> Dispatcher::init_and_make_node(
-  const std::string dispatcher_node_name)
+std::shared_ptr<Dispatcher> Dispatcher::init_and_make_node()
 {
   rclcpp::init(0, nullptr);
-  return make_node(dispatcher_node_name);
+  return make_node();
 }
 
 //==============================================================================
-std::shared_ptr<Dispatcher> Dispatcher::make_node(
-  const std::string dispatcher_node_name)
+std::shared_ptr<Dispatcher> Dispatcher::make_node()
 {
-  return make(rclcpp::Node::make_shared(dispatcher_node_name));
+  return make(rclcpp::Node::make_shared("rmf_dispatcher_node"));
 }
 
 //==============================================================================
 std::shared_ptr<Dispatcher> Dispatcher::make(
-  const std::shared_ptr<rclcpp::Node>& node)
+  const std::shared_ptr<rclcpp::Node>& node,
+  const std::shared_ptr<rmf_task::Evaluator> evaluator,
+  const double bidding_time_window,
+  const int terminated_tasks_depth)
 {
   auto pimpl = rmf_utils::make_impl<Implementation>(node);
   pimpl->action_client = action::Client::make(node);
@@ -429,25 +411,28 @@ std::shared_ptr<Dispatcher> Dispatcher::make(
   auto dispatcher = std::shared_ptr<Dispatcher>(new Dispatcher());
   dispatcher->_pimpl = std::move(pimpl);
   dispatcher->_pimpl->start();
+  dispatcher->_pimpl->bidding_time_window = bidding_time_window;
+  dispatcher->_pimpl->terminated_tasks_max_size = terminated_tasks_depth;
+  dispatcher->_pimpl->auctioneer->select_evaluator(evaluator);
   return dispatcher;
 }
 
 //==============================================================================
-std::optional<TaskID> Dispatcher::submit_task(
-  const TaskDescription& task_description)
+std::optional<std::string> Dispatcher::submit_task(
+  const ConstDescriptionPtr task_description)
 {
   return _pimpl->submit_task(task_description);
 }
 
 //==============================================================================
-bool Dispatcher::cancel_task(const TaskID& task_id)
+bool Dispatcher::cancel_task(const std::string& task_id)
 {
   return _pimpl->cancel_task(task_id);
 }
 
 //==============================================================================
 const std::optional<TaskStatus::State> Dispatcher::get_task_state(
-  const TaskID& task_id) const
+  const std::string& task_id) const
 {
   return _pimpl->get_task_state(task_id);
 }
@@ -472,7 +457,7 @@ void Dispatcher::on_change(StatusCallback on_change_fn)
 
 //==============================================================================
 void Dispatcher::evaluator(
-  std::shared_ptr<bidding::Auctioneer::Evaluator> evaluator)
+  std::shared_ptr<rmf_task::Evaluator> evaluator)
 {
   _pimpl->auctioneer->select_evaluator(evaluator);
 }
