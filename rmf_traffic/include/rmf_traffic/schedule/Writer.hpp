@@ -188,6 +188,16 @@ public:
   virtual void unregister_participant(
     ParticipantId participant) = 0;
 
+  /// Updates a participants footprint
+  /// 
+  /// \param[in] participant
+  ///   The ID of the participant to update
+  /// \param[in] desc
+  ///   The participant description
+  virtual void update_description(
+    ParticipantId participant,
+    ParticipantDescription desc) = 0;
+
   // virtual destructor
   virtual ~Writer() = default;
 

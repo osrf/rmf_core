@@ -148,6 +148,29 @@ public:
   };
 
   //============================================================================
+  /// A class that describes update in the participant info
+  class UpdateParticipantInfo
+  {
+  public:
+    /// Constructor
+    ///
+    /// \param[in] id
+    ///   The ID of the participant that is being unregistered.
+    UpdateParticipantInfo(ParticipantId id, ParticipantDescription desc);
+
+    /// The ID for the participant
+    ParticipantId id() const;
+
+    /// Description for participants
+    ParticipantDescription description() const;
+
+    class Implementation;
+
+  private:
+    rmf_utils::impl_ptr<Implementation> _pimpl;
+  };
+
+  //============================================================================
   /// A class that describes a culling.
   class Cull
   {
@@ -165,6 +188,8 @@ public:
   private:
     rmf_utils::impl_ptr<Implementation> _pimpl;
   };
+
+  
 };
 
 } // namespace schedule

@@ -148,6 +148,31 @@ ParticipantId Change::UnregisterParticipant::id() const
   return _pimpl->id;
 }
 
+class Change::UpdateParticipantInfo::Implementation
+{
+public:
+  ParticipantId id;
+  ParticipantDescription description;
+};
+
+Change::UpdateParticipantInfo::UpdateParticipantInfo(
+  ParticipantId id, 
+  ParticipantDescription desc):
+  _pimpl(rmf_utils::make_impl<Implementation>(
+    Implementation{id, desc}))
+{
+
+}
+
+ParticipantId Change::UpdateParticipantInfo::id() const
+{
+  return _pimpl->id;
+}
+
+ParticipantDescription Change::UpdateParticipantInfo::description() const
+{
+  return _pimpl->description;
+}
 //==============================================================================
 class Change::Cull::Implementation
 {

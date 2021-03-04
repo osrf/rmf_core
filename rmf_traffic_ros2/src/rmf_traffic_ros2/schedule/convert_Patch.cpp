@@ -121,6 +121,7 @@ rmf_traffic::schedule::Patch convert(
     std::move(unregister),
     convert_vector<rmf_traffic::schedule::Change::RegisterParticipant>(
       from.register_participants),
+    {},
     convert_vector<rmf_traffic::schedule::Patch::Participant>(from.participants),
     std::move(cull),
     from.latest_version

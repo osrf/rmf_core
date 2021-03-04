@@ -109,6 +109,13 @@ public:
     _database.unregister_participant(participant);
   }
 
+  void update_description(
+    rmf_traffic::schedule::ParticipantId id,
+    rmf_traffic::schedule::ParticipantDescription desc) final
+  {
+    _database.update_description(id, desc);
+  }
+
 private:
   rmf_traffic::schedule::Database& _database;
 };

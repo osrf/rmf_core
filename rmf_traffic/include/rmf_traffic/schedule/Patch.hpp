@@ -97,6 +97,9 @@ public:
   ///   Information about which participants have been registered since the last
   ///   update.
   ///
+  /// \param[in] updated_participants
+  ///   Information about changes in the footprint of the participant
+  ///
   /// \param[in] changes
   ///   Information about how the participants have changed since the last
   ///   update.
@@ -110,6 +113,7 @@ public:
   Patch(
     std::vector<Change::UnregisterParticipant> removed_participants,
     std::vector<Change::RegisterParticipant> new_participants,
+    std::vector<Change::UpdateParticipantInfo> updated_participants,
     std::vector<Participant> changes,
     rmf_utils::optional<Change::Cull> cull,
     Version latest_version);
@@ -133,6 +137,9 @@ public:
   /// Get a list of new participants that have been registered. This should be
   /// evaluated after the unregistered participants.
   const std::vector<Change::RegisterParticipant>& registered() const;
+
+  /// Get a list of updates to the participants.
+  const std::vector<Change::UpdateParticipantInfo>& update() const;
 
   /// Returns an iterator to the first element of the Patch.
   const_iterator begin() const;

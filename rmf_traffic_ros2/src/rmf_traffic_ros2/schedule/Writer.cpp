@@ -271,6 +271,13 @@ public:
       clear_pub->publish(std::move(msg));
     }
 
+    void update_description(
+      rmf_traffic::schedule::ParticipantId id,
+      rmf_traffic::schedule::ParticipantDescription desc) final
+    {
+
+    }
+
     Registration register_participant(
       rmf_traffic::schedule::ParticipantDescription participant_info) final
     {

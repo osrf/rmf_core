@@ -84,6 +84,11 @@ public:
   Registration register_participant(
     ParticipantDescription participant_info) final;
 
+    // Documentation inherited
+  void update_description(
+    ParticipantId participant,
+    ParticipantDescription desc) final;
+
   /// Before calling this function on a Database, you should set the current
   /// time for the database by calling set_current_time(). This will allow the
   /// database to cull this participant after a reasonable amount of time has

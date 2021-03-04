@@ -81,7 +81,9 @@ public:
 
   std::vector<Change::UnregisterParticipant> unregistered;
   std::vector<Change::RegisterParticipant> registered;
+  std::vector<Change::UpdateParticipantInfo> updated;
   std::vector<Participant> changes;
+  
   rmf_utils::optional<Change::Cull> cull;
   Version latest_version;
 
@@ -100,6 +102,7 @@ public:
 Patch::Patch(
   std::vector<Change::UnregisterParticipant> removed_participants,
   std::vector<Change::RegisterParticipant> new_participants,
+  std::vector<Change::UpdateParticipantInfo> updated_participants,
   std::vector<Participant> changes,
   rmf_utils::optional<Change::Cull> cull,
   Version latest_version)
@@ -107,12 +110,19 @@ Patch::Patch(
       Implementation{
         std::move(removed_participants),
         std::move(new_participants),
+        std::move(updated_participants),
         std::move(changes),
         cull,
         latest_version
       }))
 {
   // Do nothing
+}
+
+//==============================================================================
+const std::vector<Change::UpdateParticipantInfo>& Patch::update() const
+{
+  return _pimpl->updated;
 }
 
 //==============================================================================
