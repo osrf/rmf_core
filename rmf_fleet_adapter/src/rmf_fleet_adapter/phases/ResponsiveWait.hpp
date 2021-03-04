@@ -94,7 +94,7 @@ public:
     PhaseInfo _info;
   };
 
-  /// Make an ActiveWait phase that has an explicit deadline. When the ROS time
+  /// Make a ResponsiveWait phase that has an explicit deadline. When the ROS time
   /// reaches or passes finish_time (and the robot is on its goal waypoint),
   /// the phase will successfully finish.
   ///
