@@ -15,8 +15,8 @@
  *
 */
 
-#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
-#include <rmf_task_ros2/bidding/Auctioneer.hpp>
+#include "../../src/rmf_task_ros2/bidding/MinimalBidder.hpp"
+#include "../../src/rmf_task_ros2/bidding/Auctioneer.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <rmf_traffic_ros2/Time.hpp>
 

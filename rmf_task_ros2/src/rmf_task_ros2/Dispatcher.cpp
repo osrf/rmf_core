@@ -20,6 +20,7 @@
 #include <rclcpp/node.hpp>
 
 #include "action/Client.hpp"
+#include "bidding/Auctioneer.hpp"
 #include "internal_Description.hpp"
 
 #include <rmf_task_msgs/srv/submit_task.hpp>

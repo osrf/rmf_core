@@ -17,7 +17,7 @@
 
 /// Note: This is a testing bidder node script
 
-#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
+#include "../rmf_task_ros2/bidding/MinimalBidder.hpp"
 #include "../rmf_task_ros2/action/Server.hpp"
 
 #include <rclcpp/rclcpp.hpp>

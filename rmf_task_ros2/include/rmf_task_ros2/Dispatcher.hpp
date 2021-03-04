@@ -22,7 +22,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rmf_utils/impl_ptr.hpp>
 
-#include <rmf_task_ros2/bidding/Auctioneer.hpp>
+#include <rmf_task/Evaluator.hpp>
 #include <rmf_task_ros2/TaskStatus.hpp>
 #include <rmf_task_ros2/Description.hpp>
 

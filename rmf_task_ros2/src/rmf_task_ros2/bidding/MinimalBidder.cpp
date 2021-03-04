@@ -15,7 +15,7 @@
  *
 */
 
-#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
+#include "MinimalBidder.hpp"
 
 #include <rmf_traffic_ros2/Time.hpp>
 #include <rmf_task_msgs/msg/bid_proposal.hpp>

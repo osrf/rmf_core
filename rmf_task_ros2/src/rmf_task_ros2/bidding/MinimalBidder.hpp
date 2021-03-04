@@ -15,8 +15,8 @@
  *
 */
 
-#ifndef RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
-#define RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
+#ifndef SRC__RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
+#define SRC__RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
 
 #include <unordered_set>
 
@@ -29,6 +29,8 @@ namespace rmf_task_ros2 {
 namespace bidding {
 
 //==============================================================================
+/// This is a sample bidder utility class which will listen to bid notice and
+/// submit a bid to the auctioneer. This is currently used in test.
 class MinimalBidder
 {
 public:
@@ -43,7 +45,6 @@ public:
     Clean         = TaskTypeMsg::TYPE_CLEAN,
     Patrol        = TaskTypeMsg::TYPE_PATROL
   };
-
 
   struct Submission
   {
@@ -95,4 +96,4 @@ private:
 } // namespace bidding
 } // namespace rmf_task_ros2
 
-#endif // RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP
+#endif // SRC__RMF_TASK_ROS2__BIDDING__MINIMALBIDDER_HPP

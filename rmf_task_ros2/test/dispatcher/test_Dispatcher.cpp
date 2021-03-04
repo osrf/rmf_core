@@ -19,8 +19,8 @@
 #include <rmf_task_ros2/Dispatcher.hpp>
 
 // mock Fleet Adapter to test dispatcher
-#include <rmf_task_ros2/bidding/MinimalBidder.hpp>
 #include "../../src/rmf_task_ros2/action/Server.hpp"
+#include "../../src/rmf_task_ros2/bidding/MinimalBidder.hpp"
 
 #include <rmf_task_msgs/srv/submit_task.hpp>
 #include <rmf_task_msgs/srv/cancel_task.hpp>
