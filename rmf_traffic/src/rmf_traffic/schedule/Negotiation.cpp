@@ -132,6 +132,57 @@ using ParticipantToAlternativesMap =
 } // anonymous namespace
 
 //==============================================================================
+class Negotiation::Table::Viewer::Endpoint::Implementation
+{
+public:
+
+  enum Type {
+    Initial,
+    Final
+  };
+
+  Type type;
+  ParticipantId participant;
+  std::shared_ptr<const Route> route;
+  std::shared_ptr<const ParticipantDescription> description;
+
+  static Endpoint make_initial(
+    ParticipantId participant,
+    std::shared_ptr<const Route> route,
+    std::shared_ptr<const ParticipantDescription> description)
+  {
+    Endpoint output;
+    output._pimpl = rmf_utils::make_impl<Implementation>(
+      Implementation{
+        Initial,
+        participant,
+        std::move(route),
+        std::move(description)
+      });
+
+    return output;
+  }
+
+  static Endpoint make_final(
+    ParticipantId participant,
+    std::shared_ptr<const Route> route,
+    std::shared_ptr<const ParticipantDescription> description)
+  {
+    Endpoint output;
+    output._pimpl = rmf_utils::make_impl<Implementation>(
+      Implementation{
+        Final,
+        participant,
+        std::move(route),
+        std::move(description)
+      });
+
+    return output;
+  }
+
+};
+
+//==============================================================================
 class Negotiation::Table::Viewer::Implementation
 {
 public:
@@ -147,7 +198,10 @@ public:
   std::shared_ptr<const bool> defunct;
   bool rejected;
   bool forfeited;
-  rmf_utils::optional<Itinerary> itinerary;
+  std::optional<Itinerary> itinerary;
+
+  std::unordered_map<ParticipantId, Endpoint> initial_endpoints = {};
+  std::unordered_map<ParticipantId, Endpoint> final_endpoints = {};
 
   Viewer::View query(
     const Query::Spacetime& spacetime,
@@ -160,8 +214,122 @@ public:
     output._pimpl = rmf_utils::make_impl<Implementation>(
       Implementation{std::forward<Args>(args)...});
 
+    output._pimpl->_make_endpoints();
+
     return output;
   }
+
+  static void insert_initial_endpoint(
+    std::unordered_map<ParticipantId, Endpoint>& initial_endpoints,
+    const ParticipantId participant,
+    const std::shared_ptr<const ParticipantDescription>& description,
+    const Itinerary& itinerary)
+  {
+    ConstRoutePtr initial = nullptr;
+    for (const auto& r : itinerary)
+    {
+      const auto& check = r->trajectory().front().time();
+      if (!initial || check < initial->trajectory().front().time())
+      {
+        initial = r;
+      }
+    }
+
+    initial_endpoints.insert(
+    {
+      participant,
+      Endpoint::Implementation::make_initial(participant, initial, description)
+    });
+  }
+
+  static void insert_final_endpoint(
+    std::unordered_map<ParticipantId, Endpoint>& final_endpoints,
+    const ParticipantId participant,
+    const std::shared_ptr<const ParticipantDescription>& description,
+    const Itinerary& itinerary)
+  {
+    ConstRoutePtr final = nullptr;
+    for (const auto& r : itinerary)
+    {
+      const auto& check = r->trajectory().back().time();
+      if (!final || final->trajectory().front().time() < check)
+      {
+        final = r;
+      }
+    }
+
+    final_endpoints.insert(
+    {
+      participant,
+      Endpoint::Implementation::make_final(participant, final, description)
+    });
+  }
+
+
+  std::unordered_map<ParticipantId, Endpoint> get_initial_endpoints(
+    const VersionedKeySequence& alt_keys) const
+  {
+    auto output = initial_endpoints;
+
+    for (const auto& key : alt_keys)
+    {
+      const auto& description =
+        schedule_viewer->get_participant(key.participant);
+
+      insert_initial_endpoint(
+        output,
+        key.participant,
+        description,
+        alternatives.at(key.participant)->at(key.version));
+    }
+
+    return output;
+  }
+
+  std::unordered_map<ParticipantId, Endpoint> get_final_endpoints(
+    const VersionedKeySequence& alt_keys) const
+  {
+    auto output = final_endpoints;
+
+    for (const auto& key : alt_keys)
+    {
+      const auto& description =
+        schedule_viewer->get_participant(key.participant);
+
+      insert_final_endpoint(
+        output,
+        key.participant,
+        description,
+        alternatives.at(key.participant)->at(key.version));
+    }
+
+    return output;
+  }
+
+private:
+
+
+  void _make_endpoints()
+  {
+    std::unordered_map<ParticipantId, ConstRoutePtr> initial;
+    for (const auto& p : *base_proposals)
+    {
+      const auto& description = schedule_viewer->get_participant(p.participant);
+
+      insert_initial_endpoint(
+        initial_endpoints,
+        p.participant,
+        description,
+        p.itinerary);
+
+      insert_final_endpoint(
+        final_endpoints,
+        p.participant,
+        description,
+        p.itinerary);
+    }
+  }
+
 };
 
 namespace {
@@ -1003,6 +1171,57 @@ Viewer::View Negotiation::Table::Viewer::query(
   const VersionedKeySequence& alternatives) const
 {
   return _pimpl->query(parameters, alternatives);
+}
+
+//==============================================================================
+ParticipantId Negotiation::Table::Viewer::Endpoint::participant() const
+{
+  return _pimpl->participant;
+}
+
+//==============================================================================
+const rmf_traffic::Trajectory::Waypoint&
+Negotiation::Table::Viewer::Endpoint::waypoint() const
+{
+  if (Implementation::Initial == _pimpl->type)
+    return _pimpl->route->trajectory().front();
+
+  return _pimpl->route->trajectory().back();
+}
+
+//==============================================================================
+const std::string& Negotiation::Table::Viewer::Endpoint::map() const
+{
+  return _pimpl->route->map();
+}
+
+//==============================================================================
+const ParticipantDescription&
+Negotiation::Table::Viewer::Endpoint::description() const
+{
+  return *_pimpl->description;
+}
+
+//==============================================================================
+Negotiation::Table::Viewer::Endpoint::Endpoint()
+{
+  // Do nothing
+}
+
+//==============================================================================
+auto Negotiation::Table::Viewer::initial_endpoints(
+  const VersionedKeySequence& alternatives) const
+-> std::unordered_map<ParticipantId, Endpoint>
+{
+  return _pimpl->get_initial_endpoints(alternatives);
+}
+
+//==============================================================================
+auto Negotiation::Table::Viewer::final_endpoints(
+  const VersionedKeySequence& alternatives) const
+-> std::unordered_map<ParticipantId, Endpoint>
+{
+  return _pimpl->get_final_endpoints(alternatives);
 }
 
 //==============================================================================

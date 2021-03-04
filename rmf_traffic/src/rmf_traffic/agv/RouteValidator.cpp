@@ -379,6 +379,8 @@ bool NegotiatingRouteValidator::end() const
 rmf_utils::optional<RouteValidator::Conflict>
 NegotiatingRouteValidator::find_conflict(const Route& route) const
 {
+  using namespace std::chrono_literals;
+
   // TODO(MXG): Consider if we can reduce the amount of heap allocation that's
   // needed here.
   schedule::Query::Spacetime spacetime;
@@ -389,7 +391,6 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
       .set_upper_time_bound(*route.trajectory().finish_time());
 
   const auto view = _pimpl->data->viewer->query(spacetime, _pimpl->rollouts);
-
   for (const auto& v : view)
   {
     if (_pimpl->masked && (*_pimpl->masked == v.participant))
@@ -407,49 +408,75 @@ NegotiatingRouteValidator::find_conflict(const Route& route) const
     }
   }
 
-  for (const auto& r : _pimpl->rollouts)
   {
-    if (_pimpl->masked && (*_pimpl->masked == r.participant))
-      continue;
+    const auto initial_endpoints = _pimpl->data->viewer->initial_endpoints(
+      _pimpl->rollouts);
 
-    const auto& last_route =
-        _pimpl->data->viewer->alternatives()
-        .at(r.participant)
-        ->at(r.version).back();
-
-    if (route.map() != last_route->map())
-      continue;
-
-    const auto& last_wp = last_route->trajectory().back();
-
-    if (*route.trajectory().finish_time() < last_wp.time())
-      continue;
-
-    const auto& description =
-        _pimpl->data->viewer->get_description(r.participant);
-    assert(description);
-
-    // The end_cap trajectory represents the last known position of the
-    // rollout's alternative. This prevents the negotiator from using a
-    // pathological strategy like waiting until the other participant vanishes.
-    Trajectory end_cap;
-    end_cap.insert(
-          last_wp.time(),
-          last_wp.position(),
-          Eigen::Vector3d::Zero());
-
-    end_cap.insert(
-          *route.trajectory().finish_time() + std::chrono::seconds(10),
-          last_wp.position(),
-          Eigen::Vector3d::Zero());
-
-    if (const auto time = rmf_traffic::DetectConflict::between(
-          _pimpl->data->profile,
-          route.trajectory(),
-          description->profile(),
-          end_cap))
+    const auto& initial_wp = route.trajectory().front();
+    for (const auto& other : initial_endpoints)
     {
-      return Conflict{r.participant, *time};
+      if (route.map() != other.second.map())
+        continue;
+
+      const auto& other_wp = other.second.waypoint();
+      if (other_wp.time() <= initial_wp.time())
+        continue;
+
+      Trajectory other_start;
+      other_start.insert(
+        initial_wp.time() - 1s,
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      other_start.insert(
+        other_wp.time(),
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      if (const auto time = rmf_traffic::DetectConflict::between(
+            _pimpl->data->profile,
+            route.trajectory(),
+            other.second.description().profile(),
+            other_start))
+      {
+        return Conflict{other.first, *time};
+      }
+    }
+  }
+
+  {
+    const auto final_endpoints = _pimpl->data->viewer->final_endpoints(
+      _pimpl->rollouts);
+
+    const auto& final_wp = route.trajectory().back();
+    for (const auto& other : final_endpoints)
+    {
+      if (route.map() != other.second.map())
+        continue;
+
+      const auto& other_wp = other.second.waypoint();
+      if (final_wp.time() <= other_wp.time())
+        continue;
+
+      Trajectory other_finish;
+      other_finish.insert(
+        other_wp.time(),
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      other_finish.insert(
+        final_wp.time() + 1s,
+        other_wp.position(),
+        Eigen::Vector3d::Zero());
+
+      if (const auto time = rmf_traffic::DetectConflict::between(
+            _pimpl->data->profile,
+            route.trajectory(),
+            other.second.description().profile(),
+            other_finish))
+      {
+        return Conflict{other.first, *time};
+      }
     }
   }
 
