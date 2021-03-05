@@ -110,9 +110,9 @@ public:
     std::unordered_set<RouteId> active_routes;
     std::unique_ptr<InconsistencyTracker> tracker;
     ParticipantStorage storage;
-    const std::shared_ptr<const ParticipantDescription> description;
+    std::shared_ptr<const ParticipantDescription> description;
     const Version initial_schedule_version;
-    const Version last_updated;
+    Version last_updated;
     RouteId last_route_id = std::numeric_limits<RouteId>::max();
   };
   using ParticipantStates = std::unordered_map<ParticipantId, ParticipantState>;
@@ -691,31 +691,20 @@ void Database::update_description(
       + std::to_string(id) + "]");
     // *INDENT-ON*
   }
-  auto tracker = std::move(p_it->second.tracker);
-  auto original_version = p_it->second.initial_schedule_version;
   auto version = ++_pimpl->schedule_version;
 
   const auto description_ptr =
     std::make_shared<ParticipantDescription>(std::move(desc));
-  
-  _pimpl->states.insert(
-    std::make_pair(
-      id,
-      Implementation::ParticipantState {
-        {},
-        std::move(tracker),
-        {},
-        description_ptr,
-        original_version,
-        version
-      })).first;
 
-  _pimpl->descriptions.insert({id, description_ptr});
+  p_it->second.description = description_ptr;
+  p_it->second.last_updated = version;
+
+  _pimpl->descriptions[id] = description_ptr;
   _pimpl->update_participant_version.insert({version, 
     Implementation::UpdateParticipantDescriptionInfo {
       id,
       desc,
-      original_version
+      p_it->second.initial_schedule_version
     }});
 }
 //==============================================================================

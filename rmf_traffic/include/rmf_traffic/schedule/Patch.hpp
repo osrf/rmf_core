@@ -139,7 +139,7 @@ public:
   const std::vector<Change::RegisterParticipant>& registered() const;
 
   /// Get a list of updates to the participants.
-  const std::vector<Change::UpdateParticipantInfo>& update() const;
+  const std::vector<Change::UpdateParticipantInfo>& updated() const;
 
   /// Returns an iterator to the first element of the Patch.
   const_iterator begin() const;

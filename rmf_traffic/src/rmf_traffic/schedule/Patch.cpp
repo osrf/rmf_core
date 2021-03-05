@@ -120,7 +120,7 @@ Patch::Patch(
 }
 
 //==============================================================================
-const std::vector<Change::UpdateParticipantInfo>& Patch::update() const
+const std::vector<Change::UpdateParticipantInfo>& Patch::updated() const
 {
   return _pimpl->updated;
 }
