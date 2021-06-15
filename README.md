@@ -1,6 +1,5 @@
 # rmf\_core
 
-Greetings,
 
 We have migrated the development of the Robotics Middleware Framework (RMF) to a dedicated organization, [open-rmf](https://github.com/open-rmf).
 
