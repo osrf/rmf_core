@@ -26,10 +26,27 @@ Profile::Profile(
 : _pimpl(rmf_utils::make_impl<Implementation>(
       Implementation{
         std::move(footprint),
-        std::move(vicinity)
+        std::move(vicinity),
+        0,
+        Implementation::ExtraFootprintArray()
       }))
 {
   // Do nothing
+}
+
+void Profile::add_extra_footprint(geometry::ConstFinalConvexShapePtr shape, Eigen::Vector3d offset)
+{
+  _pimpl->add_extra_footprint(shape, offset);
+}
+
+uint Profile::extra_footprint_count() const
+{
+  return _pimpl->extra_footprint_count;
+}
+
+void Profile::clear_extra_footprints()
+{
+  _pimpl->clear_extra_footprints();
 }
 
 //==============================================================================
