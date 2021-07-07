@@ -1,31 +1,44 @@
 name: build
 on: [push, pull_request]
 jobs:
-  build:
+  build_and_test:
     runs-on: ubuntu-20.04
     container:
       image: docker://ros:foxy-ros-base-focal
       
     steps:
+    - name: pwd
+      run: pwd
     - name: deps
       run: |
         sudo apt update
-        sudo apt install -y g++-8
-    - name: setup
+        sudo apt install -y g++-8 lcov python3-pip curl python3-vcstool gcovr
+        pip3 install colcon-lcov-result colcon-coveragepy-result colcon-mixin 
+    - name: setup directories
       run: |
-        mkdir -p ws_rmf/src        
-    - name: checkout
-      uses: actions/checkout@v2
-      with:
-        path: ws_rmf/src/rmf_core
-    - name: ros-deps
-      run: |
-        cd ws_rmf
-        rosdep update
-        rosdep install --from-paths src --ignore-src --rosdistro foxy -yr
+        mkdir ros_ws
+        mkdir ros_ws/src
+        ls ros_ws/
+        cd ros_ws/
     - name: build
-      shell: bash
-      run: |
-        cd ws_rmf
-        source /opt/ros/foxy/setup.bash
-        colcon build --cmake-args -DCMAKE_BUILD_TYPE=RELEASE
+      uses: ros-tooling/action-ros-ci@v0.1
+      with:
+        target-ros2-distro: foxy
+        # build all packages listed in the meta package
+        package-name: |
+          rmf_traffic
+          rmf_battery
+        # rmf_fleet_adapter
+        # rmf_task
+        # rmf_traffic_ros2
+        # rmf_utils
+        vcs-repo-file-url: |
+          https://raw.githubusercontent.com/osrf/rmf_core/feature/add_codecov/rmf.repos
+        colcon-mixin-name: coverage-gcc
+        colcon-mixin-repository: https://raw.githubusercontent.com/ddengster/colcon-mixin-repository/master/index.yaml
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        files: ros_ws/lcov/total_coverage.info
+        flags: tests
+        name: lean_and_mean_codecov_bot
