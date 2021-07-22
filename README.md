@@ -1,7 +1,7 @@
-# rmf\_core
+# :no_entry_sign: rmf\_core :no_entry_sign:
 
 
-We have migrated the development of the Robotics Middleware Framework (RMF) to a dedicated organization, [open-rmf](https://github.com/open-rmf).
+:warning: We have migrated the development of the Robotics Middleware Framework (RMF) to a dedicated organization, [open-rmf](https://github.com/open-rmf).
 
 The core packages here have been split up into several repositories
 * [rmf_battery](https://github.com/open-rmf/rmf_battery)
