@@ -30,9 +30,38 @@ public:
   geometry::ConstFinalConvexShapePtr footprint;
   geometry::ConstFinalConvexShapePtr vicinity;
 
+  uint extra_footprint_count = 0;
+  static const size_t MAX_EXTRA_FOOTPRINTS = 1;
+  struct FootprintWithOffset
+  {
+    geometry::ConstFinalConvexShapePtr shape;
+    Eigen::Vector3d offset;
+  };
+  using ExtraFootprintArray = 
+    std::array<FootprintWithOffset, MAX_EXTRA_FOOTPRINTS>;
+  ExtraFootprintArray extra_footprints;
+
   static const Implementation& get(const Profile& profile)
   {
     return *profile._pimpl;
+  }
+
+  void add_extra_footprint(geometry::ConstFinalConvexShapePtr shape, Eigen::Vector3d offset)
+  {
+    if (extra_footprint_count >= MAX_EXTRA_FOOTPRINTS)
+      throw std::runtime_error("Maximum additional footprint shape count reached");
+
+    auto& footprint_shape = extra_footprints[extra_footprint_count];
+    footprint_shape.shape = std::move(shape);
+    footprint_shape.offset = offset;
+    ++extra_footprint_count;
+  }
+
+  void clear_extra_footprints()
+  {
+    for (uint i=0; i<extra_footprint_count; ++i)
+      extra_footprints[i].shape.reset();
+    extra_footprint_count = 0;
   }
 };
 

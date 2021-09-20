@@ -123,6 +123,21 @@ SCENARIO("Testing Construction")
       CHECK(profile.vicinity()->get_characteristic_length() == Approx(1.0));
     }
   }
+
+  WHEN("Additional footprint shapes are added")
+  {
+    const auto circle_1 = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(1.0);
+    const auto circle_2 = rmf_traffic::geometry::make_final_convex<
+      rmf_traffic::geometry::Circle>(2.0);
+
+    auto profile = Profile{circle_1, circle_2};
+    profile.add_extra_footprint(circle_1, Eigen::Vector3d(0, 2, 0));
+    CHECK(profile.extra_footprint_count() == 1);
+
+    profile.clear_extra_footprints();
+    CHECK(profile.extra_footprint_count() == 0);
+  }
 }
 
 SCENARIO("Testing conflicts", "[close_start]")

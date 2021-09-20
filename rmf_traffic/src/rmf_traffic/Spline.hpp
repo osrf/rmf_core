@@ -34,8 +34,12 @@ namespace rmf_traffic {
 
 #ifdef RMF_TRAFFIC__USING_FCL_0_6
   using FclSplineMotion = fcl::SplineMotion<double>;
+  using FclTransform3 = fcl::Transform3d;
+  using FclVec3 = fcl::Vector3d;
 #else
   using FclSplineMotion = fcl::SplineMotion;
+  using FclTransform3 = fcl::Transform3f;
+  using FclVec3 = fcl::Vec3f;
 #endif
 
 //==============================================================================
@@ -60,7 +64,10 @@ public:
   std::array<Eigen::Vector3d, 4> compute_knots(
     const Time start_time, const Time finish_time) const;
 
-  FclSplineMotion to_fcl(const Time start_time, const Time finish_time) const;
+  FclSplineMotion to_fcl(
+    const Time start_time, const Time finish_time) const;
+
+  FclSplineMotion to_fcl(const std::array<Eigen::Vector3d, 4>& knots) const;
 
   Time start_time() const;
   Time finish_time() const;
@@ -83,12 +90,18 @@ public:
 
   /// Get a const reference to the parameters of this spline
   const Parameters& get_params() const;
-
+  
 private:
 
   Parameters params;
 
 };
+
+FclSplineMotion to_fcl(
+    const Eigen::Vector3d& x0,
+    const Eigen::Vector3d& x1,
+    const Eigen::Vector3d& v0,
+    const Eigen::Vector3d& v1);
 
 //==============================================================================
 /// This class helps compute the differentials of the distance between two
@@ -115,6 +128,24 @@ private:
   Spline::Parameters _params;
 
 };
+
+//==============================================================================
+struct ModelSpaceShape
+{
+  ModelSpaceShape(const FclTransform3& tx, double r)
+    :_transform(tx), _radius(r)
+  { }
+  FclTransform3 _transform;
+  double _radius;
+};
+
+extern bool collide_seperable_circles(
+  FclSplineMotion& motion_a,
+  FclSplineMotion& motion_b,
+  const std::vector<ModelSpaceShape>& a_shapes,
+  const std::vector<ModelSpaceShape>& b_shapes,
+  double& impact_time, uint& dist_checks,
+  uint safety_maximum_checks, double tolerance);
 
 } // namespace rmf_traffic
 
